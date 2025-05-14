@@ -1708,7 +1708,7 @@ version = "0.3.5"
 dependencies = [
  "anyhow",
  "edr_eth",
- "semver 1.0.23",
+ "semver 1.0.26",
  "serde",
  "serde_json",
  "sha3",
@@ -1927,7 +1927,7 @@ dependencies = [
  "itertools 0.10.5",
  "log",
  "parking_lot 0.12.3",
- "semver 1.0.23",
+ "semver 1.0.26",
  "serde",
  "serde_json",
  "strum",
@@ -2842,13 +2842,12 @@ checksum = "6c8640c5d730cb13ebd907d8d04b52f55ac9a2eec55b440c8892f40d56c76c1d"
 
 [[package]]
 name = "metaslang_cst"
-version = "0.18.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77f39368da9228d99987bd8885b74c98eb93bfa94e9d348b351e646447781f94"
+version = "1.1.0"
+source = "git+https://github.com/NomicFoundation/slang?rev=699de7e#699de7e9c93c71dc82393c37e7898172de447524"
 dependencies = [
  "nom",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -2968,7 +2967,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "semver 1.0.23",
+ "semver 1.0.26",
  "syn 2.0.99",
 ]
 
@@ -4131,7 +4130,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
- "semver 1.0.23",
+ "semver 1.0.26",
 ]
 
 [[package]]
@@ -4273,9 +4272,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.23"
+version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61697e0a1c7e512e84a621326239844a24d8207b4669b41bc18b32ea5cbf988b"
+checksum = "56e6fa9c48d24d85fb3de5ad847117517440f6beceb7798af16b4a87d616b8d0"
 dependencies = [
  "serde",
 ]
@@ -4470,16 +4469,15 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity"
-version = "0.18.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8aedd5543605d5a69ac186cf0afe69e3472b1e3898bdd864b40aa87356298cb"
+version = "1.1.0"
+source = "git+https://github.com/NomicFoundation/slang?rev=699de7e#699de7e9c93c71dc82393c37e7898172de447524"
 dependencies = [
  "metaslang_cst",
- "semver 1.0.23",
+ "semver 1.0.26",
  "serde",
  "strum",
  "strum_macros",
- "thiserror 1.0.69",
+ "thiserror 2.0.12",
 ]
 
 [[package]]

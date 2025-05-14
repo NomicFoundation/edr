@@ -383,6 +383,8 @@ function preprocessConfig(config: any) {
     });
   config = removeNull(config);
 
+  config.chainType = removeNull(config.chainType);
+
   config.providerConfig.initialDate = new Date(
     config.providerConfig.initialDate.secsSinceEpoch * 1000
   );
@@ -391,10 +393,6 @@ function preprocessConfig(config: any) {
     config.providerConfig.hardfork
   );
 
-  // "accounts" in EDR are "genesisAccounts" in Hardhat
-  if (Object.keys(config.providerConfig.genesisAccounts).length !== 0) {
-    throw new Error("Genesis accounts are not supported");
-  }
   config.providerConfig.genesisAccounts = config.providerConfig.accounts.map(
     ({ balance, secretKey }: any) => {
       return { balance, privateKey: secretKey };
@@ -419,10 +417,17 @@ function preprocessConfig(config: any) {
   const chains: any = new Map();
   for (const key of Object.keys(config.providerConfig.chains)) {
     const hardforkHistory = new Map();
-    const hardforks = config.providerConfig.chains[key];
-    for (const { hardfork, blockNumber } of hardforks) {
-      hardforkHistory.set(normalizeHardfork(hardfork), blockNumber);
+    const chainConfig = config.providerConfig.chains[key];
+    for (const { condition, hardfork } of chainConfig.hardforkActivations) {
+      if (!_.isUndefined(condition.timestamp)) {
+        throw new Error("Hardfork activations by timestamp are not supported");
+      } else if (!_.isUndefined(condition.block)) {
+        hardforkHistory.set(normalizeHardfork(hardfork), condition.block);
+      } else {
+        throw new Error("Unsupported hardfork condition");
+      }
     }
+
     chains.set(Number(key), { hardforkHistory });
   }
   config.providerConfig.chains = chains;

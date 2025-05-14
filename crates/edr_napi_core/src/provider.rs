@@ -11,7 +11,7 @@ use edr_solidity::contract_decoder::ContractDecoder;
 
 pub use self::{
     builder::{Builder, ProviderBuilder},
-    config::{Config, HardforkActivation},
+    config::Config,
     factory::SyncProviderFactory,
 };
 use crate::spec::{Response, SyncNapiSpec};

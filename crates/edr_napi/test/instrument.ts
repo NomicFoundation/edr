@@ -27,13 +27,16 @@ describe("Code coverage", () => {
 
   describe("instrumentation", function () {
     it("Statement coverage", async function () {
+      const coverageLibraryPath = "__hardhat_coverage.sol";
       const result = addStatementCoverageInstrumentation(
         incrementSourceCode,
         "instrumentation.sol",
-        "0.8.0"
+        "0.8.0",
+        coverageLibraryPath
       );
 
       expect(result.source).to.contain("__HardhatCoverage.sendHit(");
+      expect(result.source).to.contain(coverageLibraryPath);
 
       assert.lengthOf(result.metadata, 3);
       assertMetadata(result.metadata[0], {

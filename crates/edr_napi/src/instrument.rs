@@ -83,6 +83,7 @@ pub fn add_statement_coverage_instrumentation(
     source_code: String,
     source_id: String,
     solidity_version: String,
+    coverage_library_path: String,
 ) -> napi::Result<InstrumentationResult> {
     let solidity_version = Version::parse(&solidity_version).map_err(|error| {
         napi::Error::new(
@@ -91,8 +92,13 @@ pub fn add_statement_coverage_instrumentation(
         )
     })?;
 
-    let instrumented = coverage::instrument_code(&source_code, &source_id, solidity_version)
-        .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))?;
+    let instrumented = coverage::instrument_code(
+        &source_code,
+        &source_id,
+        solidity_version,
+        &coverage_library_path,
+    )
+    .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error))?;
 
     instrumented.try_into().map_err(|location| {
         napi::Error::new(

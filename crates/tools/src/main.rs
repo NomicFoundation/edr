@@ -42,6 +42,8 @@ enum Command {
         /// The path to the candidate test run
         candidate: PathBuf,
     },
+    /// Convert a scenario file from the old format to the new format
+    ConvertScenario { path: PathBuf },
     /// Generate Ethereum execution API
     GenExecutionApi,
     /// Replays a block from a remote node and compares it to the mined block.
@@ -78,6 +80,7 @@ async fn main() -> anyhow::Result<()> {
             test_command,
             iterations,
         } => benchmark::run(working_directory, &test_command, iterations),
+        Command::ConvertScenario { path } => scenario::convert(path).await,
         Command::GenExecutionApi => execution_api::generate(Mode::Overwrite),
         Command::ReplayBlock {
             chain_type,

@@ -1,3 +1,5 @@
+pub mod old;
+
 /// Types for benchmark scenario collection.
 /// We are replicating the provider config here, as we need to be able to
 /// serialize secret keys for scenario collecting, but we don't want to include
@@ -6,7 +8,8 @@
 use std::{num::NonZeroU64, time::SystemTime};
 
 use edr_eth::{Address, B256, ChainId, HashMap, U256, block::BlobGas};
-use edr_napi_core::provider::{Config as ProviderConfig, HardforkActivation};
+use edr_evm::hardfork::ChainConfig;
+use edr_napi_core::provider::Config as ProviderConfig;
 use edr_provider::{
     AccountConfig, MiningConfig, config::OwnedAccount, hardhat_rpc_types::ForkConfig,
 };
@@ -33,7 +36,7 @@ pub struct ScenarioProviderConfig {
     pub block_gas_limit: NonZeroU64,
     pub cache_dir: Option<String>,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, Vec<HardforkActivation>>,
+    pub chains: HashMap<ChainId, ChainConfig<String>>,
     pub coinbase: Address,
     #[serde(default)]
     pub enable_rip_7212: bool,

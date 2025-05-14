@@ -6,19 +6,8 @@ use edr_eth::{
     block::BlobGas,
     l1::{self, hardfork::UnknownHardfork},
 };
-use edr_provider::{
-    config,
-    hardfork::{Activations, ForkCondition},
-    hardhat_rpc_types::ForkConfig,
-};
-use serde::{Deserialize, Serialize};
-
-/// Chain-agnostic configuration for a hardfork activation.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct HardforkActivation {
-    pub block_number: u64,
-    pub hardfork: String,
-}
+use edr_evm::hardfork::{self, ChainConfig};
+use edr_provider::{self, config, hardhat_rpc_types::ForkConfig};
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]
@@ -33,7 +22,7 @@ pub struct Config {
     pub block_gas_limit: NonZeroU64,
     pub cache_dir: Option<String>,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, Vec<HardforkActivation>>,
+    pub chains: HashMap<ChainId, ChainConfig<String>>,
     pub coinbase: Address,
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
@@ -65,15 +54,16 @@ where
         let chains = value
             .chains
             .into_iter()
-            .map(|(chain_id, activations)| {
-                let activations = activations
+            .map(|(chain_id, chain_config)| {
+                let hardfork_activations = chain_config
+                    .hardfork_activations
+                    .into_inner()
                     .into_iter()
                     .map(
-                        |HardforkActivation {
-                             block_number,
+                        |hardfork::Activation {
+                             condition,
                              hardfork,
                          }| {
-                            let condition = ForkCondition::Block(block_number);
                             let hardfork = hardfork.parse().map_err(|UnknownHardfork| {
                                 napi::Error::new(
                                     napi::Status::InvalidArg,
@@ -81,12 +71,21 @@ where
                                 )
                             })?;
 
-                            Ok((condition, hardfork))
+                            Ok(hardfork::Activation {
+                                condition,
+                                hardfork,
+                            })
                         },
                     )
-                    .collect::<napi::Result<_>>()?;
+                    .collect::<napi::Result<_>>()
+                    .map(hardfork::Activations::new)?;
 
-                Ok((chain_id, Activations::new(activations)))
+                let chain_config = ChainConfig {
+                    name: chain_config.name,
+                    hardfork_activations,
+                };
+
+                Ok((chain_id, chain_config))
             })
             .collect::<napi::Result<_>>()?;
 
