@@ -146,8 +146,6 @@ export interface CodeCoverageConfig {
 }
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
-  /** The URL of the JSON-RPC endpoint to fork from */
-  jsonRpcUrl: string
   /**
    * The block number to fork from. If not provided, the latest safe block is
    * used.
@@ -155,6 +153,8 @@ export interface ForkConfig {
   blockNumber?: bigint
   /** The HTTP headers to use when making requests to the JSON-RPC endpoint */
   httpHeaders?: Array<HttpHeader>
+  /** The URL of the JSON-RPC endpoint to fork from */
+  url: string
 }
 export interface HttpHeader {
   name: string

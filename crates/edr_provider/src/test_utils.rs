@@ -185,7 +185,7 @@ where
 
     fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
         let fork = fork.map(|json_rpc_url| ForkConfig {
-            json_rpc_url,
+            url: json_rpc_url,
             block_number: None,
             http_headers: None,
         });

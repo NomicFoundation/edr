@@ -54,13 +54,13 @@ pub struct CodeCoverageConfig {
 /// Configuration for forking a blockchain
 #[napi(object)]
 pub struct ForkConfig {
-    /// The URL of the JSON-RPC endpoint to fork from
-    pub json_rpc_url: String,
     /// The block number to fork from. If not provided, the latest safe block is
     /// used.
     pub block_number: Option<BigInt>,
     /// The HTTP headers to use when making requests to the JSON-RPC endpoint
     pub http_headers: Option<Vec<HttpHeader>>,
+    /// The URL of the JSON-RPC endpoint to fork from
+    pub url: String,
 }
 
 #[napi(object)]
@@ -193,9 +193,9 @@ impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
         });
 
         Ok(Self {
-            json_rpc_url: value.json_rpc_url,
             block_number,
             http_headers,
+            url: value.url,
         })
     }
 }

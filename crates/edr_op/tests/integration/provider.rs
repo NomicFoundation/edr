@@ -25,7 +25,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: op::sepolia_url(),
+        url: op::sepolia_url(),
         block_number: None,
         http_headers: None,
     }));

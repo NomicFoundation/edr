@@ -89,7 +89,7 @@ fn serde_hardhat_reset() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::Reset(Some(
         ResetProviderConfig {
             forking: Some(ForkConfig {
-                json_rpc_url: String::from("http://whatever.com/whatever"),
+                url: String::from("http://whatever.com/whatever"),
                 block_number: Some(123456),
                 http_headers: None,
             }),

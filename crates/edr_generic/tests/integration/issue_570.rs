@@ -22,7 +22,7 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url().replace("eth-mainnet", "base-sepolia"),
+        url: get_alchemy_url().replace("eth-mainnet", "base-sepolia"),
         block_number: Some(BLOCK_NUMBER),
         http_headers: None,
     }));

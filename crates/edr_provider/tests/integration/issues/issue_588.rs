@@ -19,7 +19,7 @@ async fn issue_588() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let early_mainnet_fork = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url(),
+        url: get_alchemy_url(),
         block_number: Some(2_675_000),
         http_headers: None,
     }));
