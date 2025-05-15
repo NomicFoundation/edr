@@ -1,7 +1,7 @@
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
-/// A description of an account's state.
+/// Specification of account state that should be overrided.
 #[napi(object)]
 pub struct AccountOverride {
     /// The account's address
