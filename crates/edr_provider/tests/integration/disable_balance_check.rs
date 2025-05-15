@@ -30,7 +30,7 @@ async fn estimate_gas() -> anyhow::Result<()> {
 
         // Lower the balance to zero. This should not trigger an `OutOfFunds` error in
         // REVM when estimating gas.
-        account.info.balance = U256::from(0u64);
+        account.balance = Some(U256::from(0u64));
 
         address
     };
@@ -81,7 +81,7 @@ async fn estimate_gas_with_value() -> anyhow::Result<()> {
 
         // Lower the balance to zero. This should not trigger an `OutOfFunds` error in
         // REVM when estimating gas.
-        account.info.balance = U256::from(0u64);
+        account.balance = Some(U256::from(0u64));
 
         address
     };

@@ -3,17 +3,17 @@ use napi_derive::napi;
 
 /// A description of an account's state.
 #[napi(object)]
-pub struct Account {
+pub struct AccountOverride {
     /// The account's address
     pub address: Uint8Array,
-    /// The account's balance
-    pub balance: BigInt,
-    /// The account's nonce
-    pub nonce: BigInt,
-    /// The account's code
+    /// If present, the overwriting balance.
+    pub balance: Option<BigInt>,
+    /// If present, the overwriting nonce.
+    pub nonce: Option<BigInt>,
+    /// If present, the overwriting code.
     pub code: Option<Uint8Array>,
-    /// The account's storage
-    pub storage: Vec<StorageSlot>,
+    /// If present, the overwriting storage.
+    pub storage: Option<Vec<StorageSlot>>,
 }
 
 /// A description of a storage slot's state.

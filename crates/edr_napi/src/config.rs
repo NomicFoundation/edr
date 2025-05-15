@@ -6,7 +6,7 @@ use std::{
 };
 
 use edr_eth::{
-    Bytes, HashSet, KECCAK_EMPTY,
+    Bytes, HashSet,
     signature::{SecretKey, secret_key_from_str},
 };
 use edr_provider::coverage::SyncOnCollectedCoverageCallback;
@@ -20,7 +20,7 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-    account::{Account, StorageSlot},
+    account::{AccountOverride, StorageSlot},
     block::BlobGas,
     cast::TryCast,
     precompile::Precompile,
@@ -152,7 +152,7 @@ pub struct ProviderConfig {
     /// blockchain will be created
     pub fork: Option<ForkConfig>,
     /// The genesis state of the blockchain
-    pub genesis_state: Vec<Account>,
+    pub genesis_state: Vec<AccountOverride>,
     /// The hardfork of the blockchain
     pub hardfork: String,
     /// The initial base fee per gas of the blockchain. Required for EIP-1559
@@ -428,42 +428,38 @@ impl ProviderConfig {
             .genesis_state
             .into_iter()
             .map(
-                |Account {
+                |AccountOverride {
                      address,
                      balance,
                      nonce,
                      code,
                      storage,
                  }| {
-                    let code: Option<edr_eth::Bytecode> =
-                        code.map(TryCast::try_cast).transpose()?;
+                    let storage = storage
+                        .map(|storage| {
+                            storage
+                                .into_iter()
+                                .map(|StorageSlot { index, value }| {
+                                    let value = value.try_cast()?;
+                                    let slot = edr_evm::state::EvmStorageSlot::new(value);
 
-                    let code_hash = code
-                        .as_ref()
-                        .map_or(KECCAK_EMPTY, edr_eth::Bytecode::hash_slow);
+                                    let index: edr_eth::U256 = index.try_cast()?;
+                                    Ok((index, slot))
+                                })
+                                .collect::<napi::Result<_>>()
+                        })
+                        .transpose()?;
 
-                    let info = edr_eth::account::AccountInfo {
-                        balance: balance.try_cast()?,
-                        nonce: nonce.try_cast()?,
-                        code_hash,
-                        code,
+                    let account_override = edr_provider::AccountOverride {
+                        balance: balance.map(TryCast::try_cast).transpose()?,
+                        nonce: nonce.map(TryCast::try_cast).transpose()?,
+                        code: code.map(TryCast::try_cast).transpose()?,
+                        storage,
                     };
 
-                    let storage = storage
-                        .into_iter()
-                        .map(|StorageSlot { index, value }| {
-                            let value = value.try_cast()?;
-                            let slot = edr_evm::state::EvmStorageSlot::new(value);
-
-                            let index: edr_eth::U256 = index.try_cast()?;
-                            Ok((index, slot))
-                        })
-                        .collect::<napi::Result<_>>()?;
-
                     let address: edr_eth::Address = address.try_cast()?;
-                    let account = edr_provider::config::Account { info, storage };
 
-                    Ok((address, account))
+                    Ok((address, account_override))
                 },
             )
             .collect::<napi::Result<_>>()?;
@@ -481,7 +477,7 @@ impl ProviderConfig {
             bail_on_transaction_failure: self.bail_on_transaction_failure,
             block_gas_limit,
             chain_id: self.chain_id.try_cast()?,
-            chains,
+            chain_overrides: chains,
             coinbase: self.coinbase.try_cast()?,
             fork: self.fork.map(TryInto::try_into).transpose()?,
             genesis_state,

@@ -67,7 +67,7 @@ use tokio::runtime;
 
 use crate::{
     MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
-    SyncSubscriberCallback, config,
+    SyncSubscriberCallback,
     data::gas::{BinarySearchEstimationArgs, CheckGasLimitArgs, compute_rewards},
     debug_mine::{
         DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
@@ -2668,20 +2668,6 @@ fn create_blockchain_and_state<
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
-    let mut genesis_state: HashMap<Address, Account> = config
-        .genesis_state
-        .iter()
-        .map(|(address, config::Account { info, storage })| {
-            let account = Account {
-                info: info.clone(),
-                storage: storage.clone(),
-                status: AccountStatus::Created | AccountStatus::Touched,
-            };
-
-            (*address, account)
-        })
-        .collect();
-
     if let Some(fork_config) = &config.fork {
         let state_root_generator = Arc::new(parking_lot::Mutex::new(
             RandomHashGenerator::with_seed(edr_defaults::STATE_ROOT_HASH_SEED),
@@ -2719,8 +2705,8 @@ fn create_blockchain_and_state<
 
         let fork_block_number = blockchain.last_block_number();
 
-        if !genesis_state.is_empty() {
-            let genesis_addresses = genesis_state.keys().cloned().collect::<Vec<_>>();
+        if !config.genesis_state.is_empty() {
+            let genesis_addresses = config.genesis_state.keys().cloned().collect::<Vec<_>>();
             let genesis_account_infos = tokio::task::block_in_place(|| {
                 runtime.block_on(rpc_client.get_account_infos(
                     &genesis_addresses,
@@ -2728,23 +2714,36 @@ fn create_blockchain_and_state<
                 ))
             })?;
 
-            // Make sure that the nonce and the code of genesis accounts matches the fork
-            // state as we only want to overwrite the balance.
-            for (address, account_info) in genesis_addresses.into_iter().zip(genesis_account_infos)
-            {
-                genesis_state.entry(address).and_modify(|account| {
-                    let AccountInfo {
-                        balance: _,
-                        nonce,
-                        code,
-                        code_hash,
-                    } = &mut account.info;
+            let genesis_state: HashMap<Address, Account> = config
+                .genesis_state
+                .iter()
+                .zip(genesis_account_infos)
+                .map(|((address, account_override), remote_account)| {
+                    let (code, code_hash) = account_override.code.as_ref().map_or(
+                        (remote_account.code, remote_account.code_hash),
+                        |code| {
+                            let code_hash = code.hash_slow();
+                            (Some(code.clone()), code_hash)
+                        },
+                    );
 
-                    *nonce = account_info.nonce;
-                    *code = account_info.code;
-                    *code_hash = account_info.code_hash;
-                });
-            }
+                    let info = AccountInfo {
+                        balance: account_override.balance.unwrap_or(remote_account.balance),
+                        nonce: account_override.nonce.unwrap_or(remote_account.nonce),
+                        code_hash,
+                        code,
+                    };
+
+                    let account = Account {
+                        info,
+                        // TODO: Prevent overriding of the storage
+                        storage: account_override.storage.clone().unwrap_or(HashMap::new()),
+                        status: AccountStatus::Created | AccountStatus::Touched,
+                    };
+
+                    (*address, account)
+                })
+                .collect();
 
             irregular_state
                 .state_override_at_block_number(fork_block_number)
@@ -2831,6 +2830,32 @@ fn create_blockchain_and_state<
         } else {
             None
         };
+
+        let genesis_state: HashMap<Address, Account> = config
+            .genesis_state
+            .iter()
+            .map(|(address, account_override)| {
+                let code_hash = account_override
+                    .code
+                    .as_ref()
+                    .map_or(KECCAK_EMPTY, Bytecode::hash_slow);
+
+                let info = AccountInfo {
+                    balance: account_override.balance.unwrap_or(U256::ZERO),
+                    nonce: account_override.nonce.unwrap_or(0),
+                    code_hash,
+                    code: account_override.code.clone(),
+                };
+
+                let account = Account {
+                    info,
+                    storage: account_override.storage.clone().unwrap_or(HashMap::new()),
+                    status: AccountStatus::Created | AccountStatus::Touched,
+                };
+
+                (*address, account)
+            })
+            .collect();
 
         let blockchain = LocalBlockchain::new(
             StateDiff::from(genesis_state),

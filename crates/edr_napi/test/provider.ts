@@ -3,7 +3,7 @@ import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
 
 import {
-  Account,
+  AccountOverride,
   GENERIC_CHAIN_TYPE,
   genericChainProviderFactory,
   l1GenesisState,
@@ -32,12 +32,10 @@ describe("Provider", () => {
     );
   });
 
-  const genesisState: Account[] = [
+  const genesisState: AccountOverride[] = [
     {
       address: toBytes("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
       balance: 1000n * 10n ** 18n,
-      nonce: 0n,
-      storage: [],
     },
   ];
 

@@ -3,8 +3,7 @@ use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 
 use anyhow::anyhow;
 use edr_eth::{
-    Address, B256, Bytes, HashMap, KECCAK_EMPTY, U160, U256,
-    account::AccountInfo,
+    Address, B256, Bytes, HashMap, U160, U256,
     block::BlobGas,
     eips::eip7702,
     l1::{self, L1ChainSpec},
@@ -19,8 +18,8 @@ use k256::SecretKey;
 use tokio::runtime;
 
 use crate::{
-    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderRequest,
-    ProviderSpec, SyncProviderSpec, config,
+    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData,
+    ProviderRequest, ProviderSpec, SyncProviderSpec, config,
     error::ProviderErrorForChainSpec,
     observability,
     requests::hardhat::rpc_types::ForkConfig,
@@ -211,13 +210,10 @@ where
         let impersonated_account = Address::random();
         config.genesis_state.insert(
             impersonated_account,
-            AccountInfo {
-                balance: one_ether(),
-                nonce: 0,
-                code: None,
-                code_hash: KECCAK_EMPTY,
-            }
-            .into(),
+            AccountOverride {
+                balance: Some(one_ether()),
+                ..AccountOverride::default()
+            },
         );
 
         let mut provider_data = ProviderData::<ChainSpecT>::new(
@@ -306,24 +302,17 @@ pub fn sign_authorization(
 fn genesis_state_with_funded_owned_accounts(
     owned_accounts: &[SecretKey],
     balance: U256,
-) -> HashMap<Address, config::Account> {
+) -> HashMap<Address, AccountOverride> {
     owned_accounts
         .iter()
         .map(|secret_key| {
             let address = public_key_to_address(secret_key.public_key());
-            let info = AccountInfo {
-                balance,
-                nonce: 0,
-                code: None,
-                code_hash: KECCAK_EMPTY,
+            let account_override = AccountOverride {
+                balance: Some(balance),
+                ..AccountOverride::default()
             };
 
-            let genesis_account = config::Account {
-                info,
-                storage: HashMap::new(),
-            };
-
-            (address, genesis_account)
+            (address, account_override)
         })
         .collect()
 }

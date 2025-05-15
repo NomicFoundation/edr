@@ -3,6 +3,7 @@ import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
 
 import {
+  AccountOverride,
   EdrContext,
   L1_CHAIN_TYPE,
   l1GenesisState,
@@ -25,7 +26,6 @@ import {
   opLatestHardfork,
   // @ts-ignore
   opProviderFactory,
-  Account,
 } from "..";
 import { ALCHEMY_URL, toBuffer } from "./helpers";
 
@@ -39,12 +39,10 @@ describe("Multi-chain", () => {
     await context.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
   });
 
-  const genesisState: Account[] = [
+  const genesisState: AccountOverride[] = [
     {
       address: toBytes("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
       balance: 1000n * 10n ** 18n,
-      nonce: 0n,
-      storage: [],
     },
   ];
 

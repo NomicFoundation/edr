@@ -1,14 +1,56 @@
 use std::{num::NonZeroU64, time::SystemTime};
 
 use edr_eth::{
-    Address, B256, ChainId, HashMap, KECCAK_EMPTY, U256, account::AccountInfo, block::BlobGas,
-    signature::public_key_to_address,
+    Address, B256, ChainId, HashMap, U256, block::BlobGas, signature::public_key_to_address,
 };
-use edr_evm::hardfork::ChainConfig;
-use edr_provider::{AccountConfig, MiningConfig};
+use edr_evm::hardfork::ForkCondition;
+use edr_provider::{AccountOverride, MiningConfig};
 use serde::{Deserialize, Serialize};
 
-/// Configuration for forking a blockchain
+/// A type representing the activation of a hardfork.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct Activation {
+    /// The condition for the hardfork activation.
+    pub condition: ForkCondition,
+    /// The hardfork to be activated.
+    pub hardfork: String,
+}
+
+/// A struct that stores the hardforks for a chain.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(transparent)]
+pub struct Activations {
+    /// (Start block number -> hardfork) mapping
+    hardforks: Vec<Activation>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct ChainConfig {
+    /// Chain name
+    pub name: String,
+    /// Hardfork activations for the chain
+    pub hardfork_activations: Activations,
+}
+
+impl From<ChainConfig> for edr_evm::hardfork::ChainConfig<String> {
+    fn from(value: ChainConfig) -> Self {
+        Self {
+            name: value.name,
+            hardfork_activations: edr_evm::hardfork::Activations::new(
+                value
+                    .hardfork_activations
+                    .hardforks
+                    .into_iter()
+                    .map(|activation| edr_evm::hardfork::Activation {
+                        condition: activation.condition,
+                        hardfork: activation.hardfork,
+                    })
+                    .collect(),
+            ),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ForkConfig {
@@ -42,6 +84,7 @@ impl From<ScenarioConfig> for super::ScenarioConfig {
 /// Custom configuration for the provider that supports serde as we don't want a
 /// serde implementation for secret keys.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ScenarioProviderConfig {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
@@ -53,12 +96,11 @@ pub struct ScenarioProviderConfig {
     pub block_gas_limit: NonZeroU64,
     pub cache_dir: Option<String>,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, ChainConfig<String>>,
+    pub chains: HashMap<ChainId, ChainConfig>,
     pub coinbase: Address,
     #[serde(default)]
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
-    pub genesis_state: HashMap<Address, AccountConfig>,
     pub hardfork: String,
     #[serde(with = "alloy_serde::quantity::opt")]
     pub initial_base_fee_per_gas: Option<u128>,
@@ -73,34 +115,29 @@ pub struct ScenarioProviderConfig {
 
 impl From<ScenarioProviderConfig> for super::ScenarioProviderConfig {
     fn from(value: ScenarioProviderConfig) -> Self {
-        let mut genesis_state = value.genesis_state;
-
-        let owned_accounts = value
+        let genesis_state: HashMap<Address, AccountOverride> = value
             .accounts
-            .into_iter()
+            .iter()
             .map(
                 |ScenarioOwnedAccount {
                      secret_key,
                      balance,
                  }| {
                     let address = public_key_to_address(secret_key.public_key());
+                    let account_override = AccountOverride {
+                        balance: Some(*balance),
+                        ..AccountOverride::default()
+                    };
 
-                    genesis_state
-                        .entry(address)
-                        .and_modify(|account| account.info.balance = balance)
-                        .or_insert(AccountConfig {
-                            info: AccountInfo {
-                                balance,
-                                nonce: 0,
-                                code: None,
-                                code_hash: KECCAK_EMPTY,
-                            },
-                            storage: HashMap::new(),
-                        });
-
-                    secret_key.into()
+                    (address, account_override)
                 },
             )
+            .collect();
+
+        let owned_accounts = value
+            .accounts
+            .into_iter()
+            .map(|ScenarioOwnedAccount { secret_key, .. }| secret_key.into())
             .collect();
 
         Self {
@@ -110,7 +147,11 @@ impl From<ScenarioProviderConfig> for super::ScenarioProviderConfig {
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
-            chains: value.chains,
+            chain_overrides: value
+                .chains
+                .into_iter()
+                .map(|(key, value)| (key, value.into()))
+                .collect(),
             coinbase: value.coinbase,
             fork: value.fork.map(|fork_config| super::ForkConfig {
                 block_number: fork_config.block_number,

@@ -10,11 +10,12 @@ use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 use edr_eth::{Address, B256, ChainId, HashMap, block::BlobGas};
 use edr_evm::hardfork::ChainConfig;
 use edr_napi_core::provider::Config as ProviderConfig;
-use edr_provider::{AccountConfig, MiningConfig, hardhat_rpc_types::ForkConfig};
+use edr_provider::{AccountOverride, MiningConfig, hardhat_rpc_types::ForkConfig};
 use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_str};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScenarioConfig {
     pub chain_type: Option<String>,
     pub logger_enabled: bool,
@@ -24,6 +25,7 @@ pub struct ScenarioConfig {
 /// Custom configuration for the provider that supports serde as we don't want a
 /// serde implementation for secret keys.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScenarioProviderConfig {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
@@ -33,10 +35,10 @@ pub struct ScenarioProviderConfig {
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, ChainConfig<String>>,
+    pub chain_overrides: HashMap<ChainId, ChainConfig<String>>,
     pub coinbase: Address,
     pub fork: Option<ForkConfig>,
-    pub genesis_state: HashMap<Address, AccountConfig>,
+    pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
     #[serde(with = "alloy_serde::quantity::opt")]
     pub initial_base_fee_per_gas: Option<u128>,
@@ -67,7 +69,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
-            chains: value.chains,
+            chain_overrides: value.chain_overrides,
             coinbase: value.coinbase,
             fork,
             genesis_state: value.genesis_state,
@@ -108,7 +110,7 @@ impl TryFrom<ProviderConfig> for ScenarioProviderConfig {
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
-            chains: value.chains,
+            chain_overrides: value.chain_overrides,
             coinbase: value.coinbase,
             fork: value.fork,
             genesis_state: value.genesis_state,

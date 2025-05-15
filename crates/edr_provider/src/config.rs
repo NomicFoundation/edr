@@ -1,6 +1,6 @@
 use std::{num::NonZeroU64, time::SystemTime};
 
-use edr_eth::{Address, B256, ChainId, HashMap, account::AccountInfo, block::BlobGas};
+use edr_eth::{Address, B256, Bytecode, ChainId, HashMap, U256, block::BlobGas};
 use edr_evm::{MineOrdering, hardfork::ChainConfig, precompile::PrecompileFn, state::EvmStorage};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -14,20 +14,16 @@ use crate::{
 ///
 /// Similar to `edr_eth::Account` but without the `status` field.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-pub struct Account {
-    /// Balance, nonce, and code.
-    pub info: AccountInfo,
-    /// Storage cache
-    pub storage: EvmStorage,
-}
-
-impl From<AccountInfo> for Account {
-    fn from(info: AccountInfo) -> Self {
-        Self {
-            info,
-            storage: HashMap::new(),
-        }
-    }
+#[serde(rename_all = "camelCase")]
+pub struct AccountOverride {
+    /// If present, the overwriting balance.
+    pub balance: Option<U256>,
+    /// If present, the overwriting nonce.
+    pub nonce: Option<u64>,
+    /// If present, the overwriting code.
+    pub code: Option<Bytecode>,
+    /// If present, the overwriting storage
+    pub storage: Option<EvmStorage>,
 }
 
 /// Configuration for interval mining.
@@ -105,7 +101,7 @@ pub struct Provider<HardforkT> {
     pub chains: HashMap<ChainId, ChainConfig<HardforkT>>,
     pub coinbase: Address,
     pub fork: Option<ForkConfig>,
-    pub genesis_state: HashMap<Address, Account>,
+    pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: HardforkT,
     pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,

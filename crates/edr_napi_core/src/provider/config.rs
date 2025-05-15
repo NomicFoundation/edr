@@ -11,7 +11,7 @@ use edr_evm::{
     hardfork::{self, ChainConfig},
     precompile::PrecompileFn,
 };
-use edr_provider::{self, config, hardhat_rpc_types::ForkConfig};
+use edr_provider::{AccountOverride, config, hardhat_rpc_types::ForkConfig};
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]
@@ -24,10 +24,10 @@ pub struct Config {
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, ChainConfig<String>>,
+    pub chain_overrides: HashMap<ChainId, ChainConfig<String>>,
     pub coinbase: Address,
     pub fork: Option<ForkConfig>,
-    pub genesis_state: HashMap<Address, config::Account>,
+    pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
     pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
@@ -50,7 +50,7 @@ where
 
     fn try_from(value: Config) -> Result<Self, Self::Error> {
         let chains = value
-            .chains
+            .chain_overrides
             .into_iter()
             .map(|(chain_id, chain_config)| {
                 let hardfork_activations = chain_config
