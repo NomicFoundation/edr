@@ -7,6 +7,7 @@ pub mod old;
 
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
+use chrono::{DateTime, Utc};
 use edr_eth::{Address, B256, ChainId, HashMap, block::BlobGas};
 use edr_evm::hardfork::ChainConfig;
 use edr_napi_core::provider::Config as ProviderConfig;
@@ -43,7 +44,8 @@ pub struct ScenarioProviderConfig {
     #[serde(with = "alloy_serde::quantity::opt")]
     pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
-    pub initial_date: Option<SystemTime>,
+    /// The initial date of the blockchain, in ISO 8601 format.
+    pub initial_date: Option<DateTime<Utc>>,
     pub initial_parent_beacon_block_root: Option<B256>,
     #[serde(with = "alloy_serde::quantity")]
     pub min_gas_price: u128,
@@ -76,7 +78,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
             initial_blob_gas: value.initial_blob_gas,
-            initial_date: value.initial_date,
+            initial_date: value.initial_date.map(SystemTime::from),
             initial_parent_beacon_block_root: value.initial_parent_beacon_block_root,
             min_gas_price: value.min_gas_price,
             mining: value.mining,
@@ -117,7 +119,7 @@ impl TryFrom<ProviderConfig> for ScenarioProviderConfig {
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
             initial_blob_gas: value.initial_blob_gas,
-            initial_date: value.initial_date,
+            initial_date: value.initial_date.map(DateTime::from),
             initial_parent_beacon_block_root: value.initial_parent_beacon_block_root,
             min_gas_price: value.min_gas_price,
             mining: value.mining,

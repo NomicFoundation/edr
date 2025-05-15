@@ -1,10 +1,11 @@
 use std::{num::NonZeroU64, time::SystemTime};
 
+use chrono::DateTime;
 use edr_eth::{
     Address, B256, ChainId, HashMap, U256, block::BlobGas, signature::public_key_to_address,
 };
-use edr_evm::hardfork::ForkCondition;
-use edr_provider::{AccountOverride, MiningConfig};
+use edr_evm::{MineOrdering, hardfork::ForkCondition};
+use edr_provider::AccountOverride;
 use serde::{Deserialize, Serialize};
 
 /// A type representing the activation of a hardfork.
@@ -59,6 +60,46 @@ pub struct ForkConfig {
     pub http_headers: Option<std::collections::HashMap<String, String>>,
 }
 
+/// Configuration for interval mining.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum Interval {
+    Fixed(NonZeroU64),
+    Range { min: u64, max: u64 },
+}
+
+impl From<Interval> for edr_provider::IntervalConfig {
+    fn from(value: Interval) -> Self {
+        match value {
+            Interval::Fixed(interval) => edr_provider::IntervalConfig::Fixed(interval),
+            Interval::Range { min, max } => edr_provider::IntervalConfig::Range { min, max },
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct MemPool {
+    pub order: MineOrdering,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct MiningConfig {
+    pub auto_mine: bool,
+    pub interval: Option<Interval>,
+    pub mem_pool: MemPool,
+}
+
+impl From<MiningConfig> for super::MiningConfig {
+    fn from(value: MiningConfig) -> Self {
+        Self {
+            auto_mine: value.auto_mine,
+            interval: value.interval.map(Into::into),
+            mem_pool: edr_provider::MemPoolConfig {
+                order: value.mem_pool.order,
+            },
+        }
+    }
+}
+
 /// Helper struct to convert an old scenario format to the new one.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ScenarioConfig {
@@ -101,6 +142,7 @@ pub struct ScenarioProviderConfig {
     #[serde(default)]
     pub enable_rip_7212: bool,
     pub fork: Option<ForkConfig>,
+    pub genesis_state: HashMap<Address, ()>,
     pub hardfork: String,
     #[serde(with = "alloy_serde::quantity::opt")]
     pub initial_base_fee_per_gas: Option<u128>,
@@ -115,6 +157,11 @@ pub struct ScenarioProviderConfig {
 
 impl From<ScenarioProviderConfig> for super::ScenarioProviderConfig {
     fn from(value: ScenarioProviderConfig) -> Self {
+        assert!(
+            value.genesis_state.is_empty(),
+            "genesis_state is not supported"
+        );
+
         let genesis_state: HashMap<Address, AccountOverride> = value
             .accounts
             .iter()
@@ -165,10 +212,10 @@ impl From<ScenarioProviderConfig> for super::ScenarioProviderConfig {
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
             initial_blob_gas: value.initial_blob_gas,
-            initial_date: value.initial_date,
+            initial_date: value.initial_date.map(DateTime::from),
             initial_parent_beacon_block_root: value.initial_parent_beacon_block_root,
             min_gas_price: value.min_gas_price,
-            mining: value.mining,
+            mining: value.mining.into(),
             network_id: value.network_id,
             owned_accounts,
         }

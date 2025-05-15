@@ -28,6 +28,7 @@ pub struct AccountOverride {
 
 /// Configuration for interval mining.
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all_fields = "camelCase")]
 pub enum Interval {
     Fixed(NonZeroU64),
     Range { min: u64, max: u64 },
@@ -75,12 +76,14 @@ impl TryInto<Option<Interval>> for IntervalConfigRequest {
 
 /// Configuration for the provider's mempool.
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MemPool {
     pub order: MineOrdering,
 }
 
 /// Configuration for the provider's miner.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Mining {
     pub auto_mine: bool,
     pub interval: Option<Interval>,

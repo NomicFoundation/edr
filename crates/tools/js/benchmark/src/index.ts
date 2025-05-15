@@ -364,15 +364,6 @@ async function loadScenario(scenarioFileName: string): Promise<Scenario> {
 }
 
 function preprocessConfig(config: any) {
-  // From https://stackoverflow.com/a/59771233
-  const camelize = (obj: any) =>
-    _.transform(obj, (acc: any, value: any, key: any, target: any) => {
-      const camelKey = _.isArray(target) ? key : _.camelCase(key);
-
-      acc[camelKey] = _.isObject(value) ? camelize(value) : value;
-    });
-  config = camelize(config);
-
   // EDR serializes None as null to json, but Hardhat expects it to be undefined
   const removeNull = (obj: any) =>
     _.transform(obj, (acc: any, value: any, key: any) => {
@@ -384,10 +375,8 @@ function preprocessConfig(config: any) {
     });
   config = removeNull(config);
 
-  config.chainType = removeNull(config.chainType);
-
   config.providerConfig.initialDate = new Date(
-    config.providerConfig.initialDate.secsSinceEpoch * 1000
+    config.providerConfig.initialDate
   );
 
   config.providerConfig.hardfork = normalizeHardfork(
@@ -395,13 +384,7 @@ function preprocessConfig(config: any) {
   );
 
   const genesisState = new Map<string, any>(
-    Object.entries(config.providerConfig.genesisState).map(
-      (value: [string, any], _index, _array) => [
-        // Undo the camelCase transformation
-        value[0].toLowerCase(),
-        value[1],
-      ]
-    )
+    Object.entries(config.providerConfig.genesisState)
   );
 
   // In EDR, all state modifications are in the genesis state, so we need to
@@ -409,7 +392,7 @@ function preprocessConfig(config: any) {
   config.providerConfig.genesisAccounts =
     config.providerConfig.ownedAccounts.map((secretKey: string) => {
       const address = bytesToHex(privateToAddress(toBytes(secretKey)));
-      const balance = genesisState.get(address)?.info.balance ?? 0n;
+      const balance = genesisState.get(address)?.balance ?? 0n;
 
       return { balance, privateKey: secretKey };
     });
