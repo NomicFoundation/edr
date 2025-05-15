@@ -1,3 +1,3 @@
-# `@nomicfoundation/edr-linux-x64-gnu`
+# `@ignored/edr-optimism-linux-x64-gnu`
 
-This is the **x86_64-unknown-linux-gnu** binary for `@nomicfoundation/edr`
+This is the **x86_64-unknown-linux-gnu** binary for `@ignored/edr-optimism`
