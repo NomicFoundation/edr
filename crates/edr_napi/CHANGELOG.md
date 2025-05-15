@@ -1,5 +1,20 @@
 # @nomicfoundation/edr
 
+## 0.12.0
+
+### Minor Changes
+
+- 8396d70: Changed the ChainConfig to include a chain name and allow timestamp-based hardfork activations
+- edc20dc: Added code coverage to the provider. It can be configured through the ProviderConfig
+- 6f0f557: Added instrumenting of source code for statement code coverage measurement
+- 289de8a: Changed the instrumentation API to require a coverage library path
+
+### Patch Changes
+
+- 1b6d123: Fixed a bug causing async functions to throw errors at the callsite
+- ab4e20d: Added hardfork activations for Prague
+- 2ec6415: Added hardfork activations for Base Mainnet and Base Sepolia.
+
 ## 0.12.0-alpha.0
 
 ### Minor Changes
