@@ -10,24 +10,6 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::cast::TryCast;
-
-#[napi(object)]
-pub struct ContractAndFunctionName {
-    /// The contract name.
-    pub contract_name: String,
-    /// The function name. Only present for calls.
-    pub function_name: Option<String>,
-}
-
-impl TryCast<(String, Option<String>)> for ContractAndFunctionName {
-    type Error = napi::Error;
-
-    fn try_cast(self) -> std::result::Result<(String, Option<String>), Self::Error> {
-        Ok((self.contract_name, self.function_name))
-    }
-}
-
 #[napi(object)]
 pub struct LoggerConfig {
     /// Whether to enable the logger.

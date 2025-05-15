@@ -121,6 +121,43 @@ export const MERGE: string
 export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
+/** Enumeration of supported OP hardforks. */
+export enum OpHardfork {
+  Bedrock = 100,
+  Regolith = 101,
+  Canyon = 102,
+  Ecotone = 103,
+  Fjord = 104,
+  Granite = 105,
+  Holocene = 106,
+  Isthmus = 107
+}
+/**
+ * Tries to parse the provided string to create an [`OpHardfork`]
+ * instance.
+ *
+ * Returns an error if the string does not match any known hardfork.
+ */
+export declare function opHardforkFromString(hardfork: string): OpHardfork
+/** Returns the string representation of the provided OP hardfork. */
+export declare function opHardforkToString(hardfork: OpHardfork): string
+/**
+ * Returns the latest supported OP hardfork.
+ *
+ * The returned value will be updated after each network upgrade.
+ */
+export declare function opLatestHardfork(): OpHardfork
+export const OP_CHAIN_TYPE: string
+export declare function opGenesisState(hardfork: OpHardfork): Array<Account>
+export declare function opProviderFactory(): ProviderFactory
+export const BEDROCK: string
+export const REGOLITH: string
+export const CANYON: string
+export const ECOTONE: string
+export const FJORD: string
+export const GRANITE: string
+export const HOLOCENE: string
+export const ISTHMUS: string
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
@@ -346,12 +383,6 @@ export interface ExecutionLog {
   address: Uint8Array
   topics: Array<Uint8Array>
   data: Uint8Array
-}
-export interface ContractAndFunctionName {
-  /** The contract name. */
-  contractName: string
-  /** The function name. Only present for calls. */
-  functionName?: string
 }
 export interface LoggerConfig {
   /** Whether to enable the logger. */
