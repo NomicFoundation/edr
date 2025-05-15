@@ -139,7 +139,7 @@ describe("Multi-chain", () => {
       {
         ...providerConfig,
         fork: {
-          jsonRpcUrl: ALCHEMY_URL.replace("eth-", "opt-"),
+          url: ALCHEMY_URL.replace("eth-", "opt-"),
         },
         // TODO: Add support for overriding remote fork state when the local fork is different
         genesisState: [],

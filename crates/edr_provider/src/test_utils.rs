@@ -82,7 +82,6 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         bail_on_transaction_failure: false,
         // SAFETY: literal is non-zero
         block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
-        cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_id: 123,
         chains: HashMap::new(),
         coinbase: Address::from(U160::from(1)),
@@ -185,9 +184,10 @@ where
 
     fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
         let fork = fork.map(|json_rpc_url| ForkConfig {
-            url: json_rpc_url,
             block_number: None,
+            cache_dir: edr_defaults::CACHE_DIR.into(),
             http_headers: None,
+            url: json_rpc_url,
         });
 
         let config = create_test_config_with_fork(fork);

@@ -1725,6 +1725,7 @@ dependencies = [
  "alloy-json-abi",
  "alloy-sol-types 0.8.22",
  "derive-where",
+ "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_generic",
@@ -1756,7 +1757,6 @@ version = "0.3.5"
 dependencies = [
  "ansi_term",
  "derive-where",
- "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_generic",
@@ -1902,6 +1902,7 @@ version = "0.3.5"
 dependencies = [
  "alloy-serde",
  "anyhow",
+ "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_napi_core",

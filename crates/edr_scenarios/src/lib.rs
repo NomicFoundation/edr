@@ -5,7 +5,7 @@
 /// into logs.
 pub mod old;
 
-use std::{num::NonZeroU64, time::SystemTime};
+use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{Address, B256, ChainId, HashMap, block::BlobGas};
 use edr_evm::hardfork::ChainConfig;
@@ -32,7 +32,6 @@ pub struct ScenarioProviderConfig {
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
-    pub cache_dir: Option<String>,
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, ChainConfig<String>>,
     pub coinbase: Address,
@@ -53,17 +52,24 @@ pub struct ScenarioProviderConfig {
 
 impl From<ScenarioProviderConfig> for ProviderConfig {
     fn from(value: ScenarioProviderConfig) -> Self {
+        // We don't support custom cache directories for replaying scenarios, so set it
+        // to the default directory.
+        let fork = value.fork.map(|mut fork_config| {
+            fork_config.cache_dir = PathBuf::from(edr_defaults::CACHE_DIR);
+
+            fork_config
+        });
+
         Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
-            cache_dir: value.cache_dir,
             chain_id: value.chain_id,
             chains: value.chains,
             coinbase: value.coinbase,
-            fork: value.fork,
+            fork,
             genesis_state: value.genesis_state,
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
@@ -101,7 +107,6 @@ impl TryFrom<ProviderConfig> for ScenarioProviderConfig {
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
-            cache_dir: value.cache_dir,
             chain_id: value.chain_id,
             chains: value.chains,
             coinbase: value.coinbase,

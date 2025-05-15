@@ -22,9 +22,10 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        url: get_alchemy_url().replace("eth-mainnet", "base-sepolia"),
         block_number: Some(BLOCK_NUMBER),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
         http_headers: None,
+        url: get_alchemy_url().replace("eth-mainnet", "base-sepolia"),
     }));
 
     config.chains.insert(

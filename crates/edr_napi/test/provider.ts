@@ -113,7 +113,7 @@ describe("Provider", () => {
         ...providerConfig,
         // TODO: Add support for overriding remote fork state when the local fork is different
         fork: {
-          jsonRpcUrl: ALCHEMY_URL,
+          url: ALCHEMY_URL,
         },
       },
       loggerConfig,

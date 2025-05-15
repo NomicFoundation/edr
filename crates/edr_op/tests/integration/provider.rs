@@ -25,9 +25,10 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        url: op::sepolia_url(),
         block_number: None,
+        cache_dir: edr_defaults::CACHE_DIR.into(),
         http_headers: None,
+        url: op::sepolia_url(),
     }));
 
     // Set a different chain ID than the forked chain ID

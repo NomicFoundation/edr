@@ -5,8 +5,17 @@ use edr_eth::{
     signature::public_key_to_address,
 };
 use edr_evm::hardfork::ChainConfig;
-use edr_provider::{AccountConfig, MiningConfig, hardhat_rpc_types::ForkConfig};
+use edr_provider::{AccountConfig, MiningConfig};
 use serde::{Deserialize, Serialize};
+
+/// Configuration for forking a blockchain
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ForkConfig {
+    pub json_rpc_url: String,
+    pub block_number: Option<u64>,
+    pub http_headers: Option<std::collections::HashMap<String, String>>,
+}
 
 /// Helper struct to convert an old scenario format to the new one.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -100,11 +109,17 @@ impl From<ScenarioProviderConfig> for super::ScenarioProviderConfig {
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
-            cache_dir: value.cache_dir,
             chain_id: value.chain_id,
             chains: value.chains,
             coinbase: value.coinbase,
-            fork: value.fork,
+            fork: value.fork.map(|fork_config| super::ForkConfig {
+                block_number: fork_config.block_number,
+                // We don't support custom cache directories for replaying scenarios, so set it
+                // to the default directory.
+                cache_dir: edr_defaults::CACHE_DIR.into(),
+                http_headers: fork_config.http_headers,
+                url: fork_config.json_rpc_url,
+            }),
             genesis_state,
             hardfork: value.hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,

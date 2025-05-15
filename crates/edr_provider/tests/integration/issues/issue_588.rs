@@ -19,9 +19,10 @@ async fn issue_588() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let early_mainnet_fork = create_test_config_with_fork(Some(ForkConfig {
-        url: get_alchemy_url(),
         block_number: Some(2_675_000),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
         http_headers: None,
+        url: get_alchemy_url(),
     }));
 
     let current_time_is_1970 = Arc::new(MockTime::with_seconds(0));

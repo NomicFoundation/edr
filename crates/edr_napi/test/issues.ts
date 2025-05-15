@@ -88,7 +88,7 @@ describe("Provider", () => {
       {
         ...providerConfig,
         fork: {
-          jsonRpcUrl: ALCHEMY_URL,
+          url: ALCHEMY_URL,
         },
         initialBaseFeePerGas: 0n,
       },

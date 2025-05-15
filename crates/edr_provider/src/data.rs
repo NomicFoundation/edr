@@ -2695,7 +2695,7 @@ fn create_blockchain_and_state<
 
         let rpc_client = Arc::new(EthRpcClient::<ChainSpecT>::new(
             &fork_config.url,
-            config.cache_dir.clone(),
+            fork_config.cache_dir.clone(),
             http_headers.clone(),
         )?);
 
@@ -3888,10 +3888,11 @@ mod tests {
             let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
             let fork_config = Some(ForkConfig {
-                url: get_alchemy_url(),
                 // Random recent block for better cache consistency
                 block_number: Some(FORK_BLOCK_NUMBER),
+                cache_dir: edr_defaults::CACHE_DIR.into(),
                 http_headers: None,
+                url: get_alchemy_url(),
             });
 
             let block_spec = BlockSpec::Number(FORK_BLOCK_NUMBER);
@@ -3987,9 +3988,10 @@ mod tests {
                 .build()?;
 
             let default_config = create_test_config_with_fork(Some(ForkConfig {
-                url: get_alchemy_url(),
                 block_number: Some(EIP_1559_ACTIVATION_BLOCK),
+                cache_dir: edr_defaults::CACHE_DIR.into(),
                 http_headers: None,
+                url: get_alchemy_url(),
             }));
 
             let config = ProviderConfig {
