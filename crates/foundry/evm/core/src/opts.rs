@@ -5,10 +5,7 @@ use alloy_network::AnyRpcBlock;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 use eyre::WrapErr;
-use revm::{
-    context::{BlockEnv, CfgEnv, TxEnv},
-    primitives::hardfork::SpecId,
-};
+use revm::context::{BlockEnv, CfgEnv, TxEnv};
 use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
@@ -22,7 +19,7 @@ pub struct EvmOpts<BlockT, TxT, HardforkT> {
     pub env: Env,
 
     /// The hardfork to use for the EVM.
-    pub spec: SpecId,
+    pub spec: HardforkT,
 
     /// Fetch state over a remote instead of starting from empty state.
     #[serde(rename = "eth_rpc_url")]
@@ -125,7 +122,7 @@ where
 
     /// Returns the `revm::Env` configured with only local settings
     pub fn local_evm_env(&self) -> EvmEnv<BlockT, TxT, HardforkT> {
-        // Non-exhaustive
+        // Not using `..Default::default()` pattern, because `CfgEnv` is non-exhaustive.
         let mut cfg = CfgEnv::<HardforkT>::default();
         cfg.chain_id = self.env.chain_id.unwrap_or(edr_defaults::DEV_CHAIN_ID);
         cfg.limit_contract_code_size = self.env.code_size_limit.or(Some(usize::MAX));

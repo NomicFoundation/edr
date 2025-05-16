@@ -71,7 +71,7 @@ where
         eyre::bail!("Failed to get block for block number: {}", block_number)
     };
 
-    // Non-exhaustive
+    // Not using `..Default::default()` pattern, because `CfgEnv` is non-exhaustive.
     let mut cfg = CfgEnv::<HardforkT>::default();
     cfg.chain_id = override_chain_id.unwrap_or(rpc_chain_id);
     cfg.memory_limit = memory_limit;
