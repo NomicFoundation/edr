@@ -19,13 +19,15 @@ use edr_eth::{
 };
 use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
-    config::OwnedAccount,
-    test_utils::{create_test_config, one_ether, sign_authorization},
+    test_utils::{
+        create_test_config, one_ether, set_genesis_state_with_owned_accounts, sign_authorization,
+    },
     time::CurrentTime,
 };
 use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
+use k256::SecretKey;
 use tokio::runtime;
 
 const CHAIN_ID: u64 = 0x7a69;
@@ -44,7 +46,12 @@ fn assert_code_at(provider: &Provider<L1ChainSpec>, address: Address, expected: 
     assert_eq!(code, *expected);
 }
 
-fn new_provider(config: ProviderConfig<l1::SpecId>) -> anyhow::Result<Provider<L1ChainSpec>> {
+fn new_provider(
+    mut config: ProviderConfig<l1::SpecId>,
+    owned_accounts: Vec<SecretKey>,
+) -> anyhow::Result<Provider<L1ChainSpec>> {
+    set_genesis_state_with_owned_accounts(&mut config, owned_accounts, one_ether());
+
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
@@ -82,14 +89,10 @@ async fn trace_transaction() -> anyhow::Result<()> {
     };
 
     let mut config = create_test_config();
-    config.accounts = vec![OwnedAccount {
-        secret_key,
-        balance: one_ether(),
-    }];
     config.chain_id = CHAIN_ID;
     config.hardfork = l1::SpecId::PRAGUE;
 
-    let provider = new_provider(config)?;
+    let provider = new_provider(config, vec![secret_key])?;
 
     let response = provider
         .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
@@ -130,14 +133,10 @@ async fn get_transaction() -> anyhow::Result<()> {
     };
 
     let mut config = create_test_config();
-    config.accounts = vec![OwnedAccount {
-        secret_key,
-        balance: one_ether(),
-    }];
     config.chain_id = CHAIN_ID;
     config.hardfork = l1::SpecId::PRAGUE;
 
-    let provider = new_provider(config)?;
+    let provider = new_provider(config, vec![secret_key])?;
 
     let response = provider
         .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(

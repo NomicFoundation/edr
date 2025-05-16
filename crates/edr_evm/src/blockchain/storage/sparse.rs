@@ -2,12 +2,12 @@ use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use edr_eth::{
-    Address, B256, U256,
+    Address, B256, HashMap, HashSet, U256,
+    hash_map::OccupiedError,
     log::{FilterLog, matches_address_filter, matches_topics_filter},
     receipt::{ExecutionReceipt, ReceiptTrait},
     transaction::ExecutableTransaction,
 };
-use revm::primitives::{HashMap, HashSet, hash_map::OccupiedError};
 
 use super::InsertError;
 use crate::{Block, BlockReceipts};

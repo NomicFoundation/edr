@@ -40,7 +40,7 @@ use lazy_static::lazy_static;
 
 pub use self::{
     config::{
-        Account as AccountConfig, Interval as IntervalConfig, MemPool as MemPoolConfig,
+        AccountOverride, Fork as ForkConfig, Interval as IntervalConfig, MemPool as MemPoolConfig,
         Mining as MiningConfig, Provider as ProviderConfig,
     },
     data::{CallResult, ProviderData},

@@ -12,7 +12,7 @@ use napi::bindgen_prelude::BigInt;
 use napi_derive::napi;
 
 use crate::{
-    account::{Account, StorageSlot},
+    account::{AccountOverride, StorageSlot},
     provider::ProviderFactory,
 };
 
@@ -128,34 +128,34 @@ pub fn op_latest_hardfork() -> OpHardfork {
 pub const OP_CHAIN_TYPE: &str = edr_op::CHAIN_TYPE;
 
 #[napi]
-pub fn op_genesis_state(_hardfork: OpHardfork) -> Vec<Account> {
+pub fn op_genesis_state(_hardfork: OpHardfork) -> Vec<AccountOverride> {
     let gas_price_oracle_code = hex::decode(include_str!(
         "../../data/op/predeploys/gas_price_oracle.txt"
     ))
     .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
-    let gas_price_oracle = Account {
+    let gas_price_oracle = AccountOverride {
         address: hex!("420000000000000000000000000000000000000F").into(),
-        balance: BigInt::from(0u64),
-        nonce: BigInt::from(0u64),
+        balance: Some(BigInt::from(0u64)),
+        nonce: Some(BigInt::from(0u64)),
         code: Some(gas_price_oracle_code.into()),
-        storage: vec![StorageSlot {
+        storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
             // bool isEcotone = true
             // bool isFjord = true
             value: BigInt::from(
                 0x0000000000000000000000000000000000000000000000000000000000000101u64,
             ),
-        }],
+        }]),
     };
 
     let l1_block_code = hex::decode(include_str!("../../data/op/predeploys/l1_block.txt"))
         .expect("The bytecode for the L1Block predeploy should be a valid hex string");
-    let l1_block = Account {
+    let l1_block = AccountOverride {
         address: hex!("4200000000000000000000000000000000000015").into(),
-        balance: BigInt::from(0u64),
-        nonce: BigInt::from(0u64),
+        balance: Some(BigInt::from(0u64)),
+        nonce: Some(BigInt::from(0u64)),
         code: Some(l1_block_code.into()),
-        storage: vec![
+        storage: Some(vec![
             StorageSlot {
                 index: BigInt::from(0u64),
                 // uint64 public number = 1
@@ -213,7 +213,7 @@ pub fn op_genesis_state(_hardfork: OpHardfork) -> Vec<Account> {
                 // uint256 blobBaseFee = 10 gwei
                 value: BigInt::from(0x00000002540be400_u64),
             },
-        ],
+        ]),
     };
 
     /* The rest of the predeploys use a stubbed bytecode that reverts with a
@@ -324,16 +324,16 @@ pub fn op_genesis_state(_hardfork: OpHardfork) -> Vec<Account> {
 
     let stubbed_predeploys = stubbed_predeploys_data
         .iter()
-        .map(|(name, address, code)| Account {
+        .map(|(name, address, code)| AccountOverride {
             address: address.into(),
-            balance: BigInt::from(0u64),
-            nonce: BigInt::from(0u64),
+            balance: Some(BigInt::from(0u64)),
+            nonce: Some(BigInt::from(0u64)),
             code: Some(
                 hex::decode(code)
                     .unwrap_or_else(|e| panic!("The bytecode for the {name} predeploy should be a valid hex string, got error: {e}"))
                     .into(),
             ),
-            storage: vec![],
+            storage: Some(vec![]),
         });
 
     let predeploys = vec![gas_price_oracle, l1_block];

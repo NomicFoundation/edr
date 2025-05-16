@@ -54,9 +54,12 @@ fn provider_with_deployed_test_contract(
     }));
 
     let from = {
-        let account = config.accounts.first_mut().expect("should have an account");
+        let secret_key = config
+            .owned_accounts
+            .first_mut()
+            .expect("should have an account");
 
-        public_key_to_address(account.secret_key.public_key())
+        public_key_to_address(secret_key.public_key())
     };
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());

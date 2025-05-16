@@ -1,5 +1,5 @@
 use edr_eth::Address;
-use napi::bindgen_prelude::{BigInt, Buffer};
+use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
 use crate::cast::TryCast as _;
@@ -11,7 +11,7 @@ pub struct Withdrawal {
     /// The index of the validator that generated the withdrawal
     pub validator_index: BigInt,
     /// The recipient address for withdrawal value
-    pub address: Buffer,
+    pub address: Uint8Array,
     /// The value contained in withdrawal
     pub amount: BigInt,
 }
@@ -21,7 +21,7 @@ impl From<edr_eth::withdrawal::Withdrawal> for Withdrawal {
         Self {
             index: BigInt::from(withdrawal.index),
             validator_index: BigInt::from(withdrawal.validator_index),
-            address: Buffer::from(withdrawal.address.as_slice()),
+            address: Uint8Array::with_data_copied(withdrawal.address),
             amount: BigInt {
                 sign_bit: false,
                 words: withdrawal.amount.as_limbs().to_vec(),

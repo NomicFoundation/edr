@@ -630,7 +630,7 @@ impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::St
             StackTraceEntry::UnrecognizedContractCallstackEntry { address } => {
                 UnrecognizedContractCallstackEntryStackTraceEntry {
                     type_: StackTraceEntryTypeConst,
-                    address: Uint8Array::from(address.as_slice()),
+                    address: Uint8Array::with_data_copied(address),
                     source_reference: None,
                 }
                 .into()
@@ -762,7 +762,7 @@ impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::St
                 is_invalid_opcode_error,
             } => UnrecognizedContractErrorStackTraceEntry {
                 type_: StackTraceEntryTypeConst,
-                address: Uint8Array::from(address.as_slice()),
+                address: Uint8Array::with_data_copied(address),
                 return_data: return_data.into(),
                 is_invalid_opcode_error,
                 source_reference: None,

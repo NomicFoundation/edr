@@ -3,10 +3,9 @@ use std::sync::Arc;
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use derive_where::derive_where;
 use edr_eth::{
-    Address, B256, BlockSpec, PreEip1898BlockSpec, U256, filter::OneOrMore, log::FilterLog,
+    Address, B256, BlockSpec, HashSet, PreEip1898BlockSpec, U256, filter::OneOrMore, log::FilterLog,
 };
 use edr_rpc_eth::client::EthRpcClient;
-use revm::primitives::HashSet;
 use tokio::runtime;
 
 use super::{forked::ForkedBlockchainErrorForChainSpec, storage::SparseBlockchainStorage};

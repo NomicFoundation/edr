@@ -13,6 +13,7 @@ pub enum ForkCondition {
 
 /// A type representing the activation of a hardfork.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Activation<HardforkT> {
     /// The condition for the hardfork activation.
     pub condition: ForkCondition,
@@ -80,6 +81,7 @@ impl<HardforkT: Clone> From<&[Activation<HardforkT>]> for Activations<HardforkT>
 
 /// Type that stores the configuration for a chain.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChainConfig<HardforkT> {
     /// Chain name
     pub name: String,

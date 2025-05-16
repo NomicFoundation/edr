@@ -4,8 +4,8 @@ use edr_eth::{B256, l1};
 use edr_evm::hardfork::{self, ChainConfig};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
-    hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
+    test_utils::create_test_config_with_fork, time::CurrentTime,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
@@ -22,9 +22,10 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url().replace("eth-mainnet", "base-sepolia"),
         block_number: Some(BLOCK_NUMBER),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
         http_headers: None,
+        url: get_alchemy_url().replace("eth-mainnet", "base-sepolia"),
     }));
 
     config.chains.insert(

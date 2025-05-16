@@ -14,12 +14,12 @@ use edr_evm::{
     Block as _, BlockReceipts,
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
+    precompile::PrecompileFn,
     spec::SyncRuntimeSpec,
     state::{StateError, SyncState},
     trace::TraceCollector,
 };
 use itertools::Itertools;
-use revm_precompile::PrecompileFn;
 
 use crate::{data::call, error::ProviderErrorForChainSpec};
 

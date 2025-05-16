@@ -1,11 +1,12 @@
 use std::marker::PhantomData;
 
 use edr_eth::{Address, Bytes, HashMap, HashSet};
-use revm::interpreter::{Gas, InstructionResult, InterpreterResult};
-pub use revm::precompile::{
-    PrecompileError, PrecompileFn, PrecompileSpecId, Precompiles, u64_to_address,
-};
 pub use revm_handler::{EthPrecompiles, PrecompileProvider};
+use revm_interpreter::{Gas, InstructionResult, InterpreterResult};
+pub use revm_precompile::{
+    PrecompileError, PrecompileFn, PrecompileSpecId, PrecompileWithAddress, Precompiles, secp256r1,
+    u64_to_address,
+};
 
 use crate::{config::Cfg, interpreter::InputsImpl, spec::ContextTrait};
 

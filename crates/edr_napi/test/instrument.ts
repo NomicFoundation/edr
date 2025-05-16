@@ -1,3 +1,4 @@
+import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert, expect } from "chai";
 import * as fs from "fs";
 
@@ -5,7 +6,6 @@ import {
   addStatementCoverageInstrumentation,
   InstrumentationMetadata,
 } from "..";
-import { toBuffer } from "./helpers";
 
 function assertMetadata(
   metadata: InstrumentationMetadata,
@@ -40,7 +40,7 @@ describe("Code coverage", () => {
 
       assert.lengthOf(result.metadata, 3);
       assertMetadata(result.metadata[0], {
-        tag: toBuffer(
+        tag: toBytes(
           "0xdaa9804f41c839f316b418296d7b0ad8d91ca024d803ab632e9fd32d896f429b"
         ),
         kind: "statement",
@@ -49,7 +49,7 @@ describe("Code coverage", () => {
       });
 
       assertMetadata(result.metadata[1], {
-        tag: toBuffer(
+        tag: toBytes(
           "0x4b739f4956f43f9e2e753cecfe2569672686cba78a199684075dc494bc60b06b"
         ),
         kind: "statement",
@@ -58,7 +58,7 @@ describe("Code coverage", () => {
       });
 
       assertMetadata(result.metadata[2], {
-        tag: toBuffer(
+        tag: toBytes(
           "0x9f4fc9ded31350bade85ee54fc2d6dd8d0609fbe0f42203ab07c9a32b95fa4c4"
         ),
         kind: "statement",

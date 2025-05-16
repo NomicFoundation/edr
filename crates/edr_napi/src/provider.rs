@@ -69,7 +69,7 @@ impl Provider {
         &self,
         env: Env,
         #[napi(
-            ts_arg_type = "(contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>"
+            ts_arg_type = "(contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>"
         )]
         call_override_callback: JsFunction,
     ) -> napi::Result<JsObject> {

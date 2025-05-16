@@ -4,11 +4,7 @@ use edr_eth::{
     l1::{self, L1ChainSpec},
     signature::public_key_to_address,
 };
-use edr_provider::{
-    MethodInvocation, Provider, ProviderRequest,
-    config::OwnedAccount,
-    test_utils::{create_test_config, one_ether},
-};
+use edr_provider::{MethodInvocation, Provider, ProviderRequest, test_utils::create_test_config};
 use edr_rpc_eth::TransactionRequest;
 use edr_test_utils::secret_key::{SecretKey, secret_key_from_str};
 
@@ -16,14 +12,10 @@ use super::{CHAIN_ID, assert_code_at, sign_authorization};
 
 fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<L1ChainSpec>> {
     let mut config = create_test_config();
-    config.accounts = vec![OwnedAccount {
-        secret_key: sender_secret_key,
-        balance: one_ether(),
-    }];
     config.chain_id = CHAIN_ID;
     config.hardfork = l1::SpecId::PRAGUE;
 
-    super::new_provider(config)
+    super::new_provider(config, vec![sender_secret_key])
 }
 
 fn signed_authorization(secret_key: &SecretKey) -> anyhow::Result<eip7702::SignedAuthorization> {

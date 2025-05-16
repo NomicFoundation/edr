@@ -6,11 +6,11 @@ use edr_evm::{
     blockchain::{BlockHash, BlockchainErrorForChainSpec},
     config::CfgEnv,
     inspector::Inspector,
+    precompile::PrecompileFn,
     runtime::guaranteed_dry_run_with_inspector,
     spec::{BlockEnvConstructor as _, ContextForChainSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
 };
-use revm_precompile::PrecompileFn;
 
 use crate::{ProviderError, error::ProviderErrorForChainSpec};
 
