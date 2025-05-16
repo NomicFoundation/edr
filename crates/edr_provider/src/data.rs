@@ -836,7 +836,7 @@ where
     }
 
     /// Resets the provider to its initial state, with a modified
-    /// [`ForkConfig`].
+    /// [`ResetForkConfig`].
     pub fn reset(
         &mut self,
         fork_config: Option<ResetForkConfig>,

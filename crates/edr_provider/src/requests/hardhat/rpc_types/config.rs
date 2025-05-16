@@ -7,7 +7,7 @@ pub struct ResetProviderConfig {
     pub forking: Option<ResetForkConfig>,
 }
 
-/// Configuration for resetting the [`ForkConfig`] of a provider.
+/// Configuration for resetting the [`crate::ForkConfig`] of a provider.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResetForkConfig {
