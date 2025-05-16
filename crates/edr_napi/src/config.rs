@@ -26,15 +26,15 @@ use crate::{
     precompile::Precompile,
 };
 
-/// Configuration for a chain
+/// Specification of a chain with possible overrides.
 #[napi(object)]
-pub struct ChainConfig {
+pub struct ChainOverride {
     /// The chain ID
     pub chain_id: BigInt,
     /// The chain's name
     pub name: String,
-    /// The chain's supported hardforks
-    pub hardforks: Vec<HardforkActivation>,
+    /// If present, overrides for the chain's supported hardforks
+    pub hardfork_activation_overrides: Option<Vec<HardforkActivation>>,
 }
 
 /// Configuration for a code coverage reporter.
@@ -60,6 +60,8 @@ pub struct ForkConfig {
     pub block_number: Option<BigInt>,
     /// The directory to cache remote JSON-RPC responses
     pub cache_dir: Option<String>,
+    /// Overrides for the configuration of chains.
+    pub chain_overrides: Vec<ChainOverride>,
     /// The HTTP headers to use when making requests to the JSON-RPC endpoint
     pub http_headers: Option<Vec<HttpHeader>>,
     /// The URL of the JSON-RPC endpoint to fork from
@@ -144,8 +146,6 @@ pub struct ProviderConfig {
     pub block_gas_limit: BigInt,
     /// The chain ID of the blockchain
     pub chain_id: BigInt,
-    /// Overrides for the configuration of chains.
-    pub chain_overrides: Vec<ChainConfig>,
     /// The address of the coinbase
     pub coinbase: Uint8Array,
     /// The configuration for forking a blockchain. If not provided, a local
@@ -193,6 +193,56 @@ impl TryFrom<ForkConfig> for edr_provider::ForkConfig {
                 .unwrap_or(edr_defaults::CACHE_DIR.to_owned()),
         );
 
+        let chain_overrides = self
+            .chain_overrides
+            .into_iter()
+            .map(
+                |ChainOverride {
+                     chain_id,
+                     name,
+                     hardfork_activation_overrides: hardforks,
+                 }| {
+                    let hardfork_activations = hardforks
+                        .into_iter()
+                        .map(
+                            |HardforkActivation {
+                                 condition,
+                                 hardfork,
+                             }| {
+                                let condition = match condition {
+                                    Either::A(HardforkActivationByBlockNumber { block_number }) => {
+                                        edr_evm::hardfork::ForkCondition::Block(
+                                            block_number.try_cast()?,
+                                        )
+                                    }
+                                    Either::B(HardforkActivationByTimestamp { timestamp }) => {
+                                        edr_evm::hardfork::ForkCondition::Timestamp(
+                                            timestamp.try_cast()?,
+                                        )
+                                    }
+                                };
+
+                                Ok(edr_evm::hardfork::Activation {
+                                    condition,
+                                    hardfork,
+                                })
+                            },
+                        )
+                        .collect::<napi::Result<Vec<_>>>()?;
+
+                    let chain_config = edr_evm::hardfork::ChainConfig {
+                        name,
+                        hardfork_activations: edr_evm::hardfork::Activations::new(
+                            hardfork_activations,
+                        ),
+                    };
+
+                    let chain_id = chain_id.try_cast()?;
+                    Ok((chain_id, chain_config))
+                },
+            )
+            .collect::<napi::Result<_>>()?;
+
         let http_headers = value.http_headers.map(|http_headers| {
             http_headers
                 .into_iter()
@@ -203,6 +253,7 @@ impl TryFrom<ForkConfig> for edr_provider::ForkConfig {
         Ok(Self {
             block_number,
             cache_dir,
+            chain_overrides,
             http_headers,
             url: value.url,
         })
@@ -374,56 +425,6 @@ impl ProviderConfig {
                 )
             })?;
 
-        let chains = self
-            .chain_overrides
-            .into_iter()
-            .map(
-                |ChainConfig {
-                     chain_id,
-                     name,
-                     hardforks,
-                 }| {
-                    let hardfork_activations = hardforks
-                        .into_iter()
-                        .map(
-                            |HardforkActivation {
-                                 condition,
-                                 hardfork,
-                             }| {
-                                let condition = match condition {
-                                    Either::A(HardforkActivationByBlockNumber { block_number }) => {
-                                        edr_evm::hardfork::ForkCondition::Block(
-                                            block_number.try_cast()?,
-                                        )
-                                    }
-                                    Either::B(HardforkActivationByTimestamp { timestamp }) => {
-                                        edr_evm::hardfork::ForkCondition::Timestamp(
-                                            timestamp.try_cast()?,
-                                        )
-                                    }
-                                };
-
-                                Ok(edr_evm::hardfork::Activation {
-                                    condition,
-                                    hardfork,
-                                })
-                            },
-                        )
-                        .collect::<napi::Result<Vec<_>>>()?;
-
-                    let chain_config = edr_evm::hardfork::ChainConfig {
-                        name,
-                        hardfork_activations: edr_evm::hardfork::Activations::new(
-                            hardfork_activations,
-                        ),
-                    };
-
-                    let chain_id = chain_id.try_cast()?;
-                    Ok((chain_id, chain_config))
-                },
-            )
-            .collect::<napi::Result<_>>()?;
-
         let genesis_state = self
             .genesis_state
             .into_iter()
@@ -477,7 +478,6 @@ impl ProviderConfig {
             bail_on_transaction_failure: self.bail_on_transaction_failure,
             block_gas_limit,
             chain_id: self.chain_id.try_cast()?,
-            chain_overrides: chains,
             coinbase: self.coinbase.try_cast()?,
             fork: self.fork.map(TryInto::try_into).transpose()?,
             genesis_state,

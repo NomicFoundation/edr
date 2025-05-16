@@ -843,8 +843,12 @@ where
     ) -> Result<(), CreationErrorForChainSpec<ChainSpecT>> {
         let mut config = self.initial_config.clone();
         config.fork = fork_config.map(|fork_config| {
-            let cache_dir = config.fork.map(|fork_config| fork_config.cache_dir);
-            fork_config.resolve(cache_dir)
+            let (cache_dir, chain_overrides) = config
+                .fork
+                .map(|fork_config| (fork_config.cache_dir, fork_config.chain_overrides))
+                .unzip();
+
+            fork_config.resolve(cache_dir, chain_overrides.unwrap_or_default())
         });
 
         let mut reset_instance = Self::new(
@@ -2699,7 +2703,7 @@ fn create_blockchain_and_state<
                     fork_config.block_number,
                     &mut irregular_state,
                     state_root_generator.clone(),
-                    &config.chains,
+                    &fork_config.chain_overrides,
                 ))?;
 
                 Ok((blockchain, irregular_state))
@@ -4017,6 +4021,7 @@ mod tests {
             let default_config = create_test_config_with_fork(Some(ForkConfig {
                 block_number: Some(EIP_1559_ACTIVATION_BLOCK),
                 cache_dir: edr_defaults::CACHE_DIR.into(),
+                chain_overrides: HashMap::new(),
                 http_headers: None,
                 url: get_alchemy_url(),
             }));

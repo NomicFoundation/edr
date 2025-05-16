@@ -1,7 +1,7 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{Address, B256, Bytecode, ChainId, HashMap, U256, block::BlobGas};
-use edr_evm::{MineOrdering, hardfork::ChainConfig, precompile::PrecompileFn, state::EvmStorage};
+use edr_evm::{MineOrdering, hardfork::ChainOverride, precompile::PrecompileFn, state::EvmStorage};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -24,11 +24,12 @@ pub struct AccountOverride {
 }
 
 /// Configuration for forking a blockchain
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Fork {
+pub struct Fork<HardforkT> {
     pub block_number: Option<u64>,
     pub cache_dir: PathBuf,
+    pub chain_overrides: HashMap<ChainId, ChainOverride<HardforkT>>,
     pub http_headers: Option<std::collections::HashMap<String, String>>,
     pub url: String,
 }
@@ -108,9 +109,8 @@ pub struct Provider<HardforkT> {
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, ChainConfig<HardforkT>>,
     pub coinbase: Address,
-    pub fork: Option<Fork>,
+    pub fork: Option<Fork<HardforkT>>,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: HardforkT,
     pub initial_base_fee_per_gas: Option<u128>,
