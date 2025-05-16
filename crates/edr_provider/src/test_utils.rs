@@ -55,7 +55,7 @@ pub fn set_genesis_state_with_owned_accounts<HardforkT>(
 }
 
 pub fn create_test_config_with_fork<HardforkT: Default>(
-    fork: Option<ForkConfig>,
+    fork: Option<ForkConfig<HardforkT>>,
 ) -> ProviderConfig<HardforkT> {
     // This is test code, it's ok to use `DangerousSecretKeyStr`
     #[allow(deprecated)]
@@ -81,7 +81,6 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         // SAFETY: literal is non-zero
         block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
         chain_id: 123,
-        chains: HashMap::new(),
         coinbase: Address::from(U160::from(1)),
         fork,
         genesis_state,
@@ -184,6 +183,7 @@ where
         let fork = fork.map(|json_rpc_url| ForkConfig {
             block_number: None,
             cache_dir: edr_defaults::CACHE_DIR.into(),
+            chain_overrides: HashMap::new(),
             http_headers: None,
             url: json_rpc_url,
         });

@@ -1,7 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use edr_eth::{
-    Address, Bytes, U256,
+    Address, Bytes, HashMap, U256,
     l1::{self, L1ChainSpec},
 };
 use edr_provider::{
@@ -30,6 +30,7 @@ async fn issue_324() -> anyhow::Result<()> {
     let mut config = create_test_config_with_fork(Some(ForkConfig {
         block_number: Some(DEPLOYMENT_BLOCK_NUMBER),
         cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
         url: get_alchemy_url().replace("mainnet", "sepolia"),
     }));

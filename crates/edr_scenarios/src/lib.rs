@@ -9,7 +9,7 @@ use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use chrono::{DateTime, Utc};
 use edr_eth::{Address, B256, ChainId, HashMap, block::BlobGas};
-use edr_evm::hardfork::ChainConfig;
+use edr_evm::hardfork::ChainOverride;
 use edr_napi_core::provider::Config as ProviderConfig;
 use edr_provider::{AccountOverride, ForkConfig, MiningConfig};
 use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_str};
@@ -36,9 +36,9 @@ pub struct ScenarioProviderConfig {
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
-    pub chain_overrides: HashMap<ChainId, ChainConfig<String>>,
+    pub chain_overrides: HashMap<ChainId, ChainOverride<String>>,
     pub coinbase: Address,
-    pub fork: Option<ForkConfig>,
+    pub fork: Option<ForkConfig<String>>,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
     #[serde(with = "alloy_serde::quantity::opt")]
@@ -60,6 +60,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
         // to the default directory.
         let fork = value.fork.map(|mut fork_config| {
             fork_config.cache_dir = PathBuf::from(edr_defaults::CACHE_DIR);
+            fork_config.chain_overrides = value.chain_overrides;
 
             fork_config
         });
@@ -71,7 +72,6 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
-            chain_overrides: value.chain_overrides,
             coinbase: value.coinbase,
             fork,
             genesis_state: value.genesis_state,
@@ -112,7 +112,9 @@ impl TryFrom<ProviderConfig> for ScenarioProviderConfig {
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
-            chain_overrides: value.chain_overrides,
+            // Chain overrides are not supported for newly recorded scenarios. We merely maintain it
+            // for backwards compatibility for Hardhat 2.
+            chain_overrides: HashMap::new(),
             coinbase: value.coinbase,
             fork: value.fork,
             genesis_state: value.genesis_state,

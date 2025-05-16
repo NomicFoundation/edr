@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::l1::L1ChainSpec;
+use edr_eth::{HashMap, l1::L1ChainSpec};
 use edr_provider::{
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::create_test_config_with_fork, time::CurrentTime,
@@ -19,6 +19,7 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
     let config = create_test_config_with_fork(Some(ForkConfig {
         block_number: Some(BLOCK_NUMBER),
         cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
         url: get_infura_url().replace("mainnet", "avalanche-mainnet"),
     }));

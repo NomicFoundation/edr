@@ -88,3 +88,13 @@ pub struct ChainConfig<HardforkT> {
     /// Hardfork activations for the chain
     pub hardfork_activations: Activations<HardforkT>,
 }
+
+/// Type that stores the configuration for a chain.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainOverride<HardforkT> {
+    /// Chain name
+    pub name: String,
+    /// Hardfork activations for the chain
+    pub hardfork_activation_overrides: Option<Activations<HardforkT>>,
+}

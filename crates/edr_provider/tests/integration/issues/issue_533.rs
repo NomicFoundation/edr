@@ -1,6 +1,6 @@
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_eth::{B256, l1::L1ChainSpec};
+use edr_eth::{B256, HashMap, l1::L1ChainSpec};
 use edr_provider::{
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::create_test_config_with_fork, time::CurrentTime,
@@ -18,6 +18,7 @@ async fn issue_533() -> anyhow::Result<()> {
     let mut config = create_test_config_with_fork(Some(ForkConfig {
         block_number: Some(20_384_300),
         cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
         url: get_alchemy_url(),
     }));

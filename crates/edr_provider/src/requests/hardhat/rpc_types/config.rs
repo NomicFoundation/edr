@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
+
+use edr_eth::{ChainId, HashMap};
+use edr_evm::hardfork::ChainOverride;
 
 use crate::config;
 
@@ -13,7 +16,7 @@ pub struct ResetProviderConfig {
 pub struct ResetForkConfig {
     pub json_rpc_url: String,
     pub block_number: Option<u64>,
-    pub http_headers: Option<HashMap<String, String>>,
+    pub http_headers: Option<std::collections::HashMap<String, String>>,
 }
 
 impl ResetForkConfig {
@@ -21,10 +24,15 @@ impl ResetForkConfig {
     ///
     /// If no `cache_dir` is provided, it will default to the value of
     /// `edr_defaults::CACHE_DIR`.
-    pub fn resolve(self, cache_dir: Option<PathBuf>) -> config::Fork {
+    pub fn resolve<HardforkT>(
+        self,
+        cache_dir: Option<PathBuf>,
+        chain_overrides: HashMap<ChainId, ChainOverride<HardforkT>>,
+    ) -> config::Fork<HardforkT> {
         config::Fork {
             block_number: self.block_number,
             cache_dir: cache_dir.unwrap_or(edr_defaults::CACHE_DIR.into()),
+            chain_overrides,
             http_headers: self.http_headers,
             url: self.json_rpc_url,
         }

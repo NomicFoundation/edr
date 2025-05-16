@@ -2,7 +2,7 @@ use std::{str::FromStr, sync::Arc};
 
 use anyhow::Context;
 use edr_eth::{
-    Address, Bytes,
+    Address, Bytes, HashMap,
     l1::{self, L1ChainSpec},
 };
 use edr_provider::{
@@ -32,6 +32,7 @@ async fn issue_356() -> anyhow::Result<()> {
         // Pre-cancun Sepolia block
         block_number: Some(4243456),
         cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
         url: get_alchemy_url().replace("mainnet", "sepolia"),
     }));

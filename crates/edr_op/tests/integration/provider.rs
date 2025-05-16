@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use edr_eth::{Address, BlockSpec, U64, address, bytes};
+use edr_eth::{Address, BlockSpec, HashMap, U64, address, bytes};
 use edr_op::OpChainSpec;
 use edr_provider::{
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
@@ -26,6 +26,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let mut config = create_test_config_with_fork(Some(ForkConfig {
         block_number: None,
         cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
         url: op::sepolia_url(),
     }));

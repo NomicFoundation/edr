@@ -1,7 +1,7 @@
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_eth::{B256, l1};
-use edr_evm::hardfork::{self, ChainConfig};
+use edr_evm::hardfork::{self, ChainOverride};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
@@ -21,20 +21,25 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
     let logger = Box::new(NoopLogger::<GenericChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
+    let chain_overrides = [(
+        CHAIN_ID,
+        ChainOverride {
+            name: "Base Sepolia".to_owned(),
+            hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(
+                l1::SpecId::CANCUN,
+            )),
+        },
+    )]
+    .into_iter()
+    .collect();
+
     let mut config = create_test_config_with_fork(Some(ForkConfig {
         block_number: Some(BLOCK_NUMBER),
         cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides,
         http_headers: None,
         url: get_alchemy_url().replace("eth-mainnet", "base-sepolia"),
     }));
-
-    config.chains.insert(
-        CHAIN_ID,
-        ChainConfig {
-            name: "Base Sepolia".to_owned(),
-            hardfork_activations: hardfork::Activations::with_spec_id(l1::SpecId::CANCUN),
-        },
-    );
 
     config.chain_id = CHAIN_ID;
 

@@ -121,14 +121,14 @@ export const MERGE: string
 export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
-/** Configuration for a chain */
-export interface ChainConfig {
+/** Specification of a chain with possible overrides. */
+export interface ChainOverride {
   /** The chain ID */
   chainId: bigint
   /** The chain's name */
   name: string
-  /** The chain's supported hardforks */
-  hardforks: Array<HardforkActivation>
+  /** If present, overrides for the chain's supported hardforks */
+  hardforkActivationOverrides?: Array<HardforkActivation>
 }
 /** Configuration for a code coverage reporter. */
 export interface CodeCoverageConfig {
@@ -153,6 +153,8 @@ export interface ForkConfig {
   blockNumber?: bigint
   /** The directory to cache remote JSON-RPC responses */
   cacheDir?: string
+  /** Overrides for the configuration of chains. */
+  chainOverrides: Array<ChainOverride>
   /** The HTTP headers to use when making requests to the JSON-RPC endpoint */
   httpHeaders?: Array<HttpHeader>
   /** The URL of the JSON-RPC endpoint to fork from */
@@ -217,8 +219,6 @@ export interface ProviderConfig {
   blockGasLimit: bigint
   /** The chain ID of the blockchain */
   chainId: bigint
-  /** Overrides for the configuration of chains. */
-  chainOverrides: Array<ChainConfig>
   /** The address of the coinbase */
   coinbase: Uint8Array
   /**
