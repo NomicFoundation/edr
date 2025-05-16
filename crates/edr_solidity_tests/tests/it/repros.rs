@@ -350,6 +350,14 @@ test_repro!(7481);
 // https://github.com/foundry-rs/foundry/issues/8006
 test_repro!(8006);
 
+#[tokio::test(flavor = "multi_thread")]
+async fn test_one_issue_8006() {
+    repro_config(8006, false, None, &*TEST_DATA_DEFAULT)
+        .await
+        .run()
+        .await;
+}
+
 // https://github.com/foundry-rs/foundry/issues/8639
 test_repro!(8639; |config| {
     config.fuzz.runs = 1000;
