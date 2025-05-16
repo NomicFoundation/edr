@@ -212,6 +212,32 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
   });
 
+  it("LinkingTest", async function () {
+    const { totalTests, failedTests } =
+      await testContext.runTestsWithStats("LinkingTest");
+
+    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 1);
+  });
+
+  it("CounterDifferentSolc", async function () {
+    const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      "CounterDifferentSolcTest"
+    );
+
+    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 1);
+  });
+
+  it("CounterSameSolc", async function () {
+    const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      "CounterSameSolcTest"
+    );
+
+    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 1);
+  });
+
   it("UnsupportedCheatcode", async function () {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("UnsupportedCheatcodeTest");

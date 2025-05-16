@@ -13,11 +13,12 @@ contract LibraryConsumer {
 contract LinkingTest is Test {
     LibraryConsumer consumer;
 
+
     function setUp() public {
         consumer = new LibraryConsumer();
     }
 
-    function testCall() public {
+    function testCallLibrary() public {
         assertEq(consumer.consume(1), 101, "library call failed");
     }
 }

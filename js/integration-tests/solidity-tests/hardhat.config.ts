@@ -1,7 +1,14 @@
 export default {
   solidity: {
-    version: "0.8.24",
-    settings: { evmVersion: "cancun" },
+    compilers: [
+      {
+        version: "0.7.6",
+      },
+      {
+        version: "0.8.24",
+        settings: { evmVersion: "cancun" },
+      },
+    ],
   },
   paths: {
     sources: "./contracts",

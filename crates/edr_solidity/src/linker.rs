@@ -26,12 +26,16 @@ pub type ArtifactContracts<'a> = BTreeMap<ArtifactId, CompactContractBytecodeCow
 pub enum LinkerError {
     /// Error that occurs when a library artifact cannot be found at the
     /// specified file path with the given name.
-    #[error("wasn't able to find artifact for library '{name}' at '{file_path}'")]
+    #[error("wasn't able to find artifact for library '{library_name}' at '{library_file_path}' when linking '{contract_name}' at '{contract_file_path}'")]
     MissingLibraryArtifact {
-        /// The file path
-        file_path: String,
-        /// The contract name
-        name: String,
+        /// The file path of the contract being linked
+        contract_file_path: String,
+        /// The name of the contract being linked
+        contract_name: String,
+        /// The file path of the library being linked
+        library_file_path: String,
+        /// The name of the library being linked
+        library_name: String,
     },
 
     /// Error that occurs when the target artifact to link is not present in the
@@ -118,30 +122,41 @@ impl<'a> Linker<'a> {
 
     /// Finds an [`ArtifactId`] object in the given [`ArtifactContracts`] keys
     /// which corresponds to the library path in the form of
-    /// "./path/to/Lib.sol:Lib"
+    /// "./path/to/Lib.sol:Lib".
     ///
-    /// Optionally accepts solc version, and if present, only compares artifacts
-    /// with given version.
+    /// If there are multiple matching artifacts based on the name and the path,
+    /// returns the one that has the same version as the contract being linked.
+    /// If there isn't, returns the latest one.
     fn find_artifact_id_by_library_path(
         &'a self,
         file: &str,
         name: &str,
-        version: Option<&Version>,
+        version: &Version,
     ) -> Option<&'a ArtifactId> {
-        for id in self.contracts.keys() {
-            if let Some(version) = version {
-                if id.version != *version {
-                    continue;
-                }
-            }
-            let (artifact_path, artifact_name) = self.convert_artifact_id_to_lib_path(id);
+        // Find all the matching artifacts
+        let matching_artifacts = self
+            .contracts
+            .keys()
+            .filter(|id| {
+                let (artifact_path, artifact_name) = self.convert_artifact_id_to_lib_path(id);
 
-            if artifact_name == *name && artifact_path == Path::new(file) {
-                return Some(id);
-            }
+                artifact_name == *name && artifact_path == Path::new(file)
+            })
+            .collect::<Vec<_>>();
+
+        if matching_artifacts.len() < 2 {
+            // If there's only one matching artifact, return that. Return `None` if there
+            // are no matching artifacts.
+            matching_artifacts.into_iter().last()
+        } else {
+            // If there's more than one, use the one that has the same version as the
+            // contract being linked. If there isn't, use the latest one.
+            matching_artifacts
+                .iter()
+                .copied()
+                .find(|&id| &id.version == version)
+                .or_else(|| matching_artifacts.into_iter().max_by_key(|id| &id.version))
         }
-
-        None
     }
 
     /// Performs DFS on the graph of link references, and populates `deps` with
@@ -169,10 +184,12 @@ impl<'a> Linker<'a> {
         for (file_path, libs) in &references {
             for contract in libs.keys() {
                 let id = self
-                    .find_artifact_id_by_library_path(file_path, contract, Some(&target.version))
+                    .find_artifact_id_by_library_path(file_path, contract, &target.version)
                     .ok_or_else(|| LinkerError::MissingLibraryArtifact {
-                        file_path: file_path.to_string(),
-                        name: contract.to_string(),
+                        contract_file_path: target.source.to_string_lossy().to_string(),
+                        contract_name: target.name.clone(),
+                        library_file_path: file_path.to_string(),
+                        library_name: contract.to_string(),
                     })?;
                 if deps.insert(id) {
                     self.collect_dependencies(id, deps)?;
@@ -906,5 +923,125 @@ mod tests {
                     ),
                 );
         });
+    }
+
+    #[test]
+    fn find_artifact_id_by_library_path_with_multiple_artifacts_same_version() {
+        let root = PathBuf::from("/path/to/project");
+        let lib_path = PathBuf::from("/path/to/project/contracts/Lib.sol");
+        let other_path = PathBuf::from("/path/to/project/contracts/OtherLib.sol");
+        let version = Version::new(0, 8, 18);
+
+        let lib_artifact = ArtifactId {
+            name: "Lib".to_string(),
+            source: lib_path.clone(),
+            version: version.clone(),
+        };
+
+        let other_artifact = ArtifactId {
+            name: "OtherLib".to_string(),
+            source: other_path.clone(),
+            version: version.clone(),
+        };
+
+        let contracts = BTreeMap::from([
+            (lib_artifact.clone(), CompactContractBytecodeCow::default()),
+            (
+                other_artifact.clone(),
+                CompactContractBytecodeCow::default(),
+            ),
+        ]);
+
+        let linker = Linker { root, contracts };
+
+        let result = linker.find_artifact_id_by_library_path("contracts/Lib.sol", "Lib", &version);
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), &lib_artifact);
+    }
+
+    #[test]
+    fn find_artifact_id_by_library_path_returns_none_when_no_match() {
+        let root = PathBuf::from("/path/to/project");
+        let artifact_path = PathBuf::from("/path/to/project/contracts/Lib.sol");
+        let version = Version::new(0, 8, 18);
+
+        let artifact_id = ArtifactId {
+            name: "Lib".to_string(),
+            source: artifact_path.clone(),
+            version: version.clone(),
+        };
+
+        let contracts =
+            BTreeMap::from([(artifact_id.clone(), CompactContractBytecodeCow::default())]);
+
+        let linker = Linker { root, contracts };
+
+        let result =
+            linker.find_artifact_id_by_library_path("contracts/OtherLib.sol", "Lib", &version);
+        assert!(result.is_none());
+
+        let result =
+            linker.find_artifact_id_by_library_path("contracts/Lib.sol", "OtherLib", &version);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn find_artifact_id_by_library_path_with_multiple_versions() {
+        let root = PathBuf::from("/path/to/project");
+        let artifact_path = PathBuf::from("/path/to/project/contracts/Lib.sol");
+
+        let version_1_0_0 = Version::new(1, 0, 0);
+        let version_1_1_0 = Version::new(1, 1, 0);
+        let version_1_2_0 = Version::new(1, 2, 0);
+
+        let artifact_id_1_0_0 = ArtifactId {
+            name: "Lib".to_string(),
+            source: artifact_path.clone(),
+            version: version_1_0_0.clone(),
+        };
+
+        let artifact_id_1_1_0 = ArtifactId {
+            name: "Lib".to_string(),
+            source: artifact_path.clone(),
+            version: version_1_1_0.clone(),
+        };
+
+        let artifact_id_1_2_0 = ArtifactId {
+            name: "Lib".to_string(),
+            source: artifact_path.clone(),
+            version: version_1_2_0.clone(),
+        };
+
+        let contracts = BTreeMap::from([
+            (
+                artifact_id_1_0_0.clone(),
+                CompactContractBytecodeCow::default(),
+            ),
+            (
+                artifact_id_1_1_0.clone(),
+                CompactContractBytecodeCow::default(),
+            ),
+            (
+                artifact_id_1_2_0.clone(),
+                CompactContractBytecodeCow::default(),
+            ),
+        ]);
+
+        let linker = Linker { root, contracts };
+
+        let result =
+            linker.find_artifact_id_by_library_path("contracts/Lib.sol", "Lib", &version_1_1_0);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), &artifact_id_1_1_0);
+
+        let non_existent_version = Version::new(1, 3, 0);
+        let result = linker.find_artifact_id_by_library_path(
+            "contracts/Lib.sol",
+            "Lib",
+            &non_existent_version,
+        );
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), &artifact_id_1_2_0);
     }
 }
