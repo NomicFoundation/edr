@@ -18,7 +18,7 @@ use edr_solidity::{
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},
-    revm::primitives::SpecId,
+    revm::{context::TxEnv, primitives::hardfork::SpecId},
     MultiContractRunner, SolidityTestRunnerConfig,
 };
 use edr_test_utils::{
@@ -39,6 +39,7 @@ use foundry_evm::{
     fuzz::FuzzConfig,
     inspectors::cheatcodes::CheatsConfigOptions,
     opts::{Env, EvmOpts},
+    revm::context::BlockEnv,
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -84,7 +85,7 @@ impl ForgeTestProfile {
             .expect("Failed to build project")
     }
 
-    fn evm_opts() -> EvmOpts {
+    fn evm_opts() -> EvmOpts<BlockEnv, TxEnv, SpecId> {
         EvmOpts {
             env: Env {
                 gas_limit: u64::MAX,
@@ -356,10 +357,7 @@ impl ForgeTestData {
             };
 
             // if it's a test, link it and add to deployable contracts
-            if abi
-                .constructor
-                .as_ref()
-                .map_or(true, |c| c.inputs.is_empty())
+            if abi.constructor.as_ref().is_none_or(|c| c.inputs.is_empty())
                 && abi.functions().any(|func| func.name.is_any_test())
             {
                 let Some(bytecode) = contract

@@ -1,6 +1,6 @@
 # Build
 
-EDR exists in a mono-repo, together with Hardhat. Moreover, it's EDR is a dependency for Hardhat, so in order to build Hardhat with EDR its build process has been combined.
+EDR exists in a mono-repo. In order to test EDR with Hardhat, we use a pnpm workspace.
 
 To get started, install all dependencies in the root directory:
 
@@ -8,9 +8,4 @@ To get started, install all dependencies in the root directory:
 pnpm install
 ```
 
-Then navigate to the Hardhat Core directory and build Hardhat with EDR:
-
-```bash
-cd packages/hardhat-core &&
-pnpm build
-```
+The Rust build may require installing OpenSSL development and build dependencies.

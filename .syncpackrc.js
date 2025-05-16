@@ -13,7 +13,7 @@ const config = {
     {
       packages: ["**"],
       dependencies: [
-        "@ignored/edr",
+        "@nomicfoundation/edr",
         "@nomicfoundation/edr-helpers",
         "hardhat-solidity-tests",
       ],
@@ -21,7 +21,11 @@ const config = {
     },
     // These packages use HH v2
     {
-      packages: ["@ignored/edr", "hardhat-edr-tests", "hardhat-edr-smock-test"],
+      packages: [
+        "@nomicfoundation/edr",
+        "hardhat-edr-tests",
+        "hardhat-edr-smock-test",
+      ],
       dependencies: ["hardhat"],
     },
     // These packages use HH v3

@@ -9,7 +9,10 @@ use foundry_evm::{
 use crate::{
     fork::CreateFork,
     opts::{Env as EvmEnv, EvmOpts},
-    revm::primitives::{SpecId, U256},
+    revm::{
+        context::{BlockEnv, TxEnv},
+        primitives::{hardfork::SpecId, U256},
+    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -41,7 +44,7 @@ pub struct SolidityTestRunnerConfig {
     /// Cheats configuration options
     pub cheats_config_options: CheatsConfigOptions,
     /// EVM options
-    pub evm_opts: EvmOpts,
+    pub evm_opts: EvmOpts<BlockEnv, TxEnv, SpecId>,
     /// Configuration for fuzz testing
     pub fuzz: FuzzConfig,
     /// Configuration for invariant testing
@@ -50,8 +53,8 @@ pub struct SolidityTestRunnerConfig {
 
 impl SolidityTestRunnerConfig {
     /// The default evm options for the Solidity test runner.
-    pub fn default_evm_opts() -> EvmOpts {
-        EvmOpts {
+    pub fn default_evm_opts() -> EvmOpts<BlockEnv, TxEnv, SpecId> {
+        EvmOpts::<BlockEnv, TxEnv, SpecId> {
             env: EvmEnv {
                 gas_limit: i64::MAX.try_into().expect("max i64 fits into u64"),
                 chain_id: Some(31337),
@@ -76,14 +79,16 @@ impl SolidityTestRunnerConfig {
             sender: edr_defaults::SOLIDITY_TESTS_SENDER,
             initial_balance: U256::from(0xffffffffffffffffffffffffu128),
             ffi: false,
-            always_use_create_2_factory: false,
             memory_limit: 1 << 25, // 2**25 = 32MiB
             isolate: false,
             disable_block_gas_limit: false,
+            ..EvmOpts::<BlockEnv, TxEnv, SpecId>::default()
         }
     }
 
-    pub async fn get_fork(&self) -> Result<Option<CreateFork>, SolidityTestRunnerConfigError> {
+    pub async fn get_fork(
+        &self,
+    ) -> Result<Option<CreateFork<BlockEnv, TxEnv, SpecId>>, SolidityTestRunnerConfigError> {
         if let Some(fork_url) = self.evm_opts.fork_url.as_ref() {
             let evm_env = self
                 .evm_opts
@@ -94,7 +99,7 @@ impl SolidityTestRunnerConfig {
 
             let rpc_cache_path = self.rpc_cache_path(fork_url, evm_env.cfg.chain_id);
 
-            Ok(Some(CreateFork {
+            Ok(Some(CreateFork::<BlockEnv, TxEnv, SpecId> {
                 rpc_cache_path,
                 url: fork_url.clone(),
                 env: evm_env,

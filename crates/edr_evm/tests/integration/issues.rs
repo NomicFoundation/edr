@@ -3,10 +3,12 @@
 use std::{str::FromStr, sync::Arc};
 
 use edr_defaults::CACHE_DIR;
-use edr_eth::{Address, HashMap, SpecId, U256};
+use edr_eth::{
+    l1::{self, L1ChainSpec},
+    Address, HashMap, U256,
+};
 use edr_evm::{
     blockchain::ForkedBlockchain,
-    chain_spec::L1ChainSpec,
     precompile::{self, Precompiles},
     state::{AccountModifierFn, ForkState, IrregularState, StateDebug},
     RandomHashGenerator,
@@ -63,7 +65,7 @@ async fn issue_hh_4974_forking_avalanche_c_chain() -> anyhow::Result<()> {
     let _blockchain = ForkedBlockchain::new(
         runtime::Handle::current(),
         None,
-        SpecId::LATEST,
+        l1::SpecId::default(),
         Arc::new(rpc_client),
         Some(FORK_BLOCK_NUMBER),
         &mut irregular_state,

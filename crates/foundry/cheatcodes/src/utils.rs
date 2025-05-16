@@ -4,7 +4,10 @@ use alloy_primitives::{B256, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
-use foundry_evm_core::constants::DEFAULT_CREATE2_DEPLOYER;
+use foundry_evm_core::{
+    constants::DEFAULT_CREATE2_DEPLOYER,
+    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
+};
 use k256::{ecdsa::SigningKey, elliptic_curve::Curve, Secp256k1};
 use p256::ecdsa::{signature::hazmat::PrehashSigner, Signature, SigningKey as P256SigningKey};
 
@@ -18,7 +21,10 @@ use crate::{
 };
 impl_is_pure_true!(labelCall);
 impl Cheatcode for labelCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { account, newLabel } = self;
         state.labels.insert(*account, newLabel.clone());
         Ok(Vec::default())
@@ -27,7 +33,10 @@ impl Cheatcode for labelCall {
 
 impl_is_pure_true!(getLabelCall);
 impl Cheatcode for getLabelCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { account } = self;
         Ok(match state.labels.get(account) {
             Some(label) => label.abi_encode(),
@@ -38,7 +47,10 @@ impl Cheatcode for getLabelCall {
 
 impl_is_pure_true!(computeCreateAddressCall);
 impl Cheatcode for computeCreateAddressCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { nonce, deployer } = self;
         ensure!(
             *nonce <= U256::from(u64::MAX),
@@ -50,7 +62,10 @@ impl Cheatcode for computeCreateAddressCall {
 
 impl_is_pure_true!(computeCreate2Address_0Call);
 impl Cheatcode for computeCreate2Address_0Call {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             salt,
             initCodeHash,
@@ -62,7 +77,10 @@ impl Cheatcode for computeCreate2Address_0Call {
 
 impl_is_pure_true!(computeCreate2Address_1Call);
 impl Cheatcode for computeCreate2Address_1Call {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { salt, initCodeHash } = self;
         Ok(DEFAULT_CREATE2_DEPLOYER
             .create2(salt, initCodeHash)
@@ -72,7 +90,10 @@ impl Cheatcode for computeCreate2Address_1Call {
 
 impl_is_pure_true!(ensNamehashCall);
 impl Cheatcode for ensNamehashCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { name } = self;
         Ok(namehash(name).abi_encode())
     }
@@ -94,7 +115,7 @@ pub(super) fn sign(private_key: &U256, digest: &B256) -> Result {
     Ok(encode_vrs(sig))
 }
 
-pub(super) fn sign_p256(private_key: &U256, digest: &B256, _state: &mut Cheatcodes) -> Result {
+pub(super) fn sign_p256(private_key: &U256, digest: &B256) -> Result {
     ensure!(*private_key != U256::ZERO, "private key cannot be 0");
     let n = U256::from_limbs(*p256::NistP256::ORDER.as_words());
     ensure!(
@@ -130,26 +151,12 @@ pub(super) fn parse_wallet(private_key: &U256) -> Result<PrivateKeySigner> {
 
 #[cfg(test)]
 mod tests {
-    use std::{path::PathBuf, sync::Arc};
 
     use alloy_primitives::FixedBytes;
     use hex::FromHex;
     use p256::ecdsa::signature::hazmat::PrehashVerifier;
 
     use super::*;
-    use crate::CheatsConfig;
-
-    fn cheats() -> Cheatcodes {
-        let config = CheatsConfig {
-            ffi: true,
-            project_root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
-            ..Default::default()
-        };
-        Cheatcodes {
-            config: Arc::new(config),
-            ..Default::default()
-        }
-    }
 
     #[test]
     fn test_sign_p256() {
@@ -161,9 +168,8 @@ mod tests {
             "0x44acf6b7e36c1342c2c5897204fe09504e1e2efb1a900377dbc4e7a6a133ec56",
         )
         .unwrap();
-        let mut cheats = cheats();
 
-        let result = sign_p256(&pk_u256, &digest, &mut cheats).unwrap();
+        let result = sign_p256(&pk_u256, &digest).unwrap();
         let result_bytes: [u8; 64] = result.try_into().unwrap();
         let signature = Signature::from_bytes(&result_bytes.into()).unwrap();
         let verifying_key = VerifyingKey::from(&signing_key);
@@ -182,8 +188,7 @@ mod tests {
             "0x54705ba3baafdbdfba8c5f9a70f7a89bee98d906b53e31074da7baecdc0da9ad",
         )
         .unwrap();
-        let mut cheats = cheats();
-        let result = sign_p256(&pk, &digest, &mut cheats);
+        let result = sign_p256(&pk, &digest);
         assert_eq!(result.err().unwrap().to_string(), "private key must be less than the secp256r1 curve order (115792089210356248762697446949407573529996955224135760342422259061068512044369)");
     }
 
@@ -193,8 +198,7 @@ mod tests {
             "0x54705ba3baafdbdfba8c5f9a70f7a89bee98d906b53e31074da7baecdc0da9ad",
         )
         .unwrap();
-        let mut cheats = cheats();
-        let result = sign_p256(&U256::ZERO, &digest, &mut cheats);
+        let result = sign_p256(&U256::ZERO, &digest);
         assert_eq!(result.err().unwrap().to_string(), "private key cannot be 0");
     }
 }

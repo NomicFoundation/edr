@@ -12,6 +12,7 @@ import {
 } from "../helpers/providers";
 import { deployContract } from "../helpers/transactions";
 import { useHelpers } from "../helpers/useHelpers";
+import { makeCommon } from "../helpers/makeCommon";
 
 // `Error("a reason")` encoded
 const REVERT_REASON_STRING =
@@ -125,6 +126,8 @@ describe("error object in JSON-RPC response", function () {
               "0x10",
             ]);
 
+            const common = await makeCommon(this.provider);
+
             // build tx
             const nonce = rpcQuantityToNumber(
               await this.provider.send("eth_getTransactionCount", [
@@ -140,7 +143,7 @@ describe("error object in JSON-RPC response", function () {
                 gasLimit: 1_000_000,
                 gasPrice: 10_000_000_000,
               },
-              { common: (this.hardhatNetworkProvider as any)._common }
+              { common }
             ).sign(Buffer.from(DEFAULT_ACCOUNTS[0].privateKey.slice(2), "hex"));
 
             const rawTx = `0x${Buffer.from(tx.serialize()).toString("hex")}`;

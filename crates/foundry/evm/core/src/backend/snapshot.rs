@@ -1,9 +1,11 @@
-use alloy_primitives::{map::AddressHashMap, B256, U256};
-use revm::{
-    primitives::{AccountInfo, Env, HashMap},
-    JournaledState,
+use alloy_primitives::{
+    map::{AddressHashMap, HashMap},
+    B256, U256,
 };
+use revm::{context::JournalInner, state::AccountInfo, JournalEntry};
 use serde::{Deserialize, Serialize};
+
+use crate::evm_context::EvmEnv;
 
 /// A minimal abstraction of a state at a certain point in time
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -15,19 +17,23 @@ pub struct StateSnapshot {
 
 /// Represents a snapshot taken during evm execution
 #[derive(Clone, Debug)]
-pub struct BackendSnapshot<T> {
-    pub db: T,
+pub struct BackendSnapshot<DatabaseT, BlockT, TxT, HardforkT> {
+    pub db: DatabaseT,
     /// The `journaled_state` state at a specific point
-    pub journaled_state: JournaledState,
+    pub journaled_state: JournalInner<JournalEntry>,
     /// Contains the env at the time of the snapshot
-    pub env: Env,
+    pub env: EvmEnv<BlockT, TxT, HardforkT>,
 }
 
 // === impl BackendSnapshot ===
 
-impl<T> BackendSnapshot<T> {
+impl<DatabaseT, BlockT, TxT, HardforkT> BackendSnapshot<DatabaseT, BlockT, TxT, HardforkT> {
     /// Takes a new snapshot
-    pub fn new(db: T, journaled_state: JournaledState, env: Env) -> Self {
+    pub fn new(
+        db: DatabaseT,
+        journaled_state: JournalInner<JournalEntry>,
+        env: EvmEnv<BlockT, TxT, HardforkT>,
+    ) -> Self {
         Self {
             db,
             journaled_state,
@@ -43,7 +49,7 @@ impl<T> BackendSnapshot<T> {
     /// missing in the snapshot's `journaled_state`, since the current
     /// `journaled_state` includes the same logs, we can simply replace use that
     /// See also `DatabaseExt::revert`
-    pub fn merge(&mut self, current: &JournaledState) {
+    pub fn merge(&mut self, current: &JournalInner<JournalEntry>) {
         self.journaled_state.logs.clone_from(&current.logs);
     }
 }

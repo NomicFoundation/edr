@@ -1,38 +1,51 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
 use edr_eth::{
-    transaction::{self, upfront_cost, SignedTransaction as _, Transaction as _},
-    Address, B256, U256,
+    account::AccountInfo,
+    transaction::{upfront_cost, ExecutableTransaction},
+    Address, HashMap, B256, U256,
 };
 use indexmap::{map::Entry, IndexMap};
-use revm::{
-    db::StateRef,
-    primitives::{AccountInfo, HashMap},
-};
+
+use crate::state::State;
 
 /// An iterator over pending transactions.
-pub struct PendingTransactions<ComparatorT>
+pub struct PendingTransactions<SignedTransactionT: ExecutableTransaction, ComparatorT>
 where
-    ComparatorT: Fn(&OrderedTransaction, &OrderedTransaction) -> Ordering,
+    ComparatorT: Fn(
+        &OrderedTransaction<SignedTransactionT>,
+        &OrderedTransaction<SignedTransactionT>,
+    ) -> Ordering,
 {
-    transactions: IndexMap<Address, Vec<OrderedTransaction>>,
+    transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     comparator: ComparatorT,
 }
 
-impl<ComparatorT> PendingTransactions<ComparatorT>
+impl<SignedTransactionT, ComparatorT> PendingTransactions<SignedTransactionT, ComparatorT>
 where
-    ComparatorT: Fn(&OrderedTransaction, &OrderedTransaction) -> Ordering,
+    SignedTransactionT: ExecutableTransaction,
+    ComparatorT: Fn(
+        &OrderedTransaction<SignedTransactionT>,
+        &OrderedTransaction<SignedTransactionT>,
+    ) -> Ordering,
 {
     /// Removes all pending transactions of the account corresponding to the
     /// provided address.
-    pub fn remove_caller(&mut self, caller: &Address) -> Option<Vec<OrderedTransaction>> {
+    pub fn remove_caller(
+        &mut self,
+        caller: &Address,
+    ) -> Option<Vec<OrderedTransaction<SignedTransactionT>>> {
         self.transactions.shift_remove(caller)
     }
 }
 
-impl<ComparatorT> Debug for PendingTransactions<ComparatorT>
+impl<SignedTransactionT, ComparatorT> Debug for PendingTransactions<SignedTransactionT, ComparatorT>
 where
-    ComparatorT: Fn(&OrderedTransaction, &OrderedTransaction) -> Ordering,
+    SignedTransactionT: Debug + ExecutableTransaction,
+    ComparatorT: Fn(
+        &OrderedTransaction<SignedTransactionT>,
+        &OrderedTransaction<SignedTransactionT>,
+    ) -> Ordering,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PendingTransactions")
@@ -41,14 +54,19 @@ where
     }
 }
 
-impl<ComparatorT> Iterator for PendingTransactions<ComparatorT>
+impl<SignedTransactionT, ComparatorT> Iterator
+    for PendingTransactions<SignedTransactionT, ComparatorT>
 where
-    ComparatorT: Fn(&OrderedTransaction, &OrderedTransaction) -> Ordering,
+    SignedTransactionT: Debug + ExecutableTransaction,
+    ComparatorT: Fn(
+        &OrderedTransaction<SignedTransactionT>,
+        &OrderedTransaction<SignedTransactionT>,
+    ) -> Ordering,
 {
-    type Item = transaction::Signed;
+    type Item = SignedTransactionT;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn next(&mut self) -> Option<transaction::Signed> {
+    fn next(&mut self) -> Option<Self::Item> {
         let (to_be_removed, next) = self
             .transactions
             .iter_mut()
@@ -82,7 +100,9 @@ where
 #[derive(Debug, thiserror::Error)]
 pub enum MemPoolAddTransactionError<SE> {
     /// Transaction gas limit exceeds block gas limit.
-    #[error("Transaction gas limit is {transaction_gas_limit} and exceeds block gas limit of {block_gas_limit}")]
+    #[error(
+        "Transaction gas limit is {transaction_gas_limit} and exceeds block gas limit of {block_gas_limit}"
+    )]
     ExceedsBlockGasLimit {
         /// The block gas limit
         block_gas_limit: NonZeroU64,
@@ -90,7 +110,9 @@ pub enum MemPoolAddTransactionError<SE> {
         transaction_gas_limit: u64,
     },
     /// Sender does not have enough funds to send transaction.
-    #[error("Sender doesn't have enough funds to send tx. The max upfront cost is: {max_upfront_cost} and the sender's balance is: {sender_balance}.")]
+    #[error(
+        "Sender doesn't have enough funds to send tx. The max upfront cost is: {max_upfront_cost} and the sender's balance is: {sender_balance}."
+    )]
     InsufficientFunds {
         /// The maximum upfront cost of the transaction
         max_upfront_cost: U256,
@@ -98,7 +120,9 @@ pub enum MemPoolAddTransactionError<SE> {
         sender_balance: U256,
     },
     /// Transaction nonce is too low.
-    #[error("Transaction nonce too low. Expected nonce to be at least {sender_nonce} but got {transaction_nonce}.")]
+    #[error(
+        "Transaction nonce too low. Expected nonce to be at least {sender_nonce} but got {transaction_nonce}."
+    )]
     NonceTooLow {
         /// Transaction's nonce.
         transaction_nonce: u64,
@@ -115,18 +139,22 @@ pub enum MemPoolAddTransactionError<SE> {
     #[error(transparent)]
     State(#[from] SE),
     /// Replacement transaction has underpriced max fee per gas.
-    #[error("Replacement transaction underpriced. A gasPrice/maxFeePerGas of at least {min_new_max_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}.")]
+    #[error(
+        "Replacement transaction underpriced. A gasPrice/maxFeePerGas of at least {min_new_max_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}."
+    )]
     ReplacementMaxFeePerGasTooLow {
         /// The minimum new max fee per gas
-        min_new_max_fee_per_gas: U256,
+        min_new_max_fee_per_gas: u128,
         /// The transaction nonce
         transaction_nonce: u64,
     },
     /// Replacement transaction has underpriced max priority fee per gas.
-    #[error("Replacement transaction underpriced. A gasPrice/maxPriorityFeePerGas of at least {min_new_max_priority_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}.")]
+    #[error(
+        "Replacement transaction underpriced. A gasPrice/maxPriorityFeePerGas of at least {min_new_max_priority_fee_per_gas} is necessary to replace the existing transaction with nonce {transaction_nonce}."
+    )]
     ReplacementMaxPriorityFeePerGasTooLow {
         /// The minimum new max priority fee per gas
-        min_new_max_priority_fee_per_gas: U256,
+        min_new_max_priority_fee_per_gas: u128,
         /// The transaction nonce
         transaction_nonce: u64,
     },
@@ -134,19 +162,19 @@ pub enum MemPoolAddTransactionError<SE> {
 
 /// A pending transaction with an order ID.
 #[derive(Clone, Debug)]
-pub struct OrderedTransaction {
+pub struct OrderedTransaction<SignedTransactionT: ExecutableTransaction> {
     order_id: usize,
-    transaction: transaction::Signed,
+    transaction: SignedTransactionT,
 }
 
-impl OrderedTransaction {
+impl<SignedTransactionT: ExecutableTransaction> OrderedTransaction<SignedTransactionT> {
     /// Retrieves the order ID of the pending transaction.
     pub fn order_id(&self) -> usize {
         self.order_id
     }
 
     /// Retrieves the pending transaction.
-    pub fn pending(&self) -> &transaction::Signed {
+    pub fn pending(&self) -> &SignedTransactionT {
         &self.transaction
     }
 
@@ -165,20 +193,20 @@ impl OrderedTransaction {
 
 /// The mempool contains transactions pending inclusion in the blockchain.
 #[derive(Clone, Debug)]
-pub struct MemPool {
+pub struct MemPool<SignedTransactionT: ExecutableTransaction> {
     /// The block's gas limit
     block_gas_limit: NonZeroU64,
     /// Transactions that can be executed now
-    pending_transactions: IndexMap<Address, Vec<OrderedTransaction>>,
+    pending_transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     /// Mapping of transaction hashes to transaction
-    hash_to_transaction: HashMap<B256, OrderedTransaction>,
+    hash_to_transaction: HashMap<B256, OrderedTransaction<SignedTransactionT>>,
     /// Transactions that can be executed in the future, once the nonce is high
     /// enough
-    future_transactions: IndexMap<Address, Vec<OrderedTransaction>>,
+    future_transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     next_order_id: usize,
 }
 
-impl MemPool {
+impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
     /// Constructs a new [`MemPool`] with the specified block gas limit.
     pub fn new(block_gas_limit: NonZeroU64) -> Self {
         Self {
@@ -198,24 +226,12 @@ impl MemPool {
     /// Sets the instance's block gas limit.
     pub fn set_block_gas_limit<S>(&mut self, state: &S, limit: NonZeroU64) -> Result<(), S::Error>
     where
-        S: StateRef + ?Sized,
+        S: State + ?Sized,
         S::Error: Debug,
     {
         self.block_gas_limit = limit;
 
         self.update(state)
-    }
-
-    /// Creates an iterator for all pending transactions; i.e. for which the
-    /// nonces are guaranteed to be high enough.
-    pub fn iter<ComparatorT>(&self, comparator: ComparatorT) -> PendingTransactions<ComparatorT>
-    where
-        ComparatorT: Fn(&OrderedTransaction, &OrderedTransaction) -> Ordering,
-    {
-        PendingTransactions {
-            transactions: self.pending_transactions.clone(),
-            comparator,
-        }
     }
 
     /// Retrieves the nonce of the last pending transaction of the account
@@ -231,19 +247,23 @@ impl MemPool {
     }
 
     /// Retrieves an iterator for all future transactions.
-    pub fn future_transactions(&self) -> impl Iterator<Item = &OrderedTransaction> {
+    pub fn future_transactions(
+        &self,
+    ) -> impl Iterator<Item = &OrderedTransaction<SignedTransactionT>> {
         self.future_transactions.values().flatten()
     }
 
     /// Retrieves an iterator for all pending transactions.
-    pub fn pending_transactions(&self) -> impl Iterator<Item = &OrderedTransaction> {
+    pub fn pending_transactions(
+        &self,
+    ) -> impl Iterator<Item = &OrderedTransaction<SignedTransactionT>> {
         self.pending_transactions.values().flatten()
     }
 
     /// Retrieves an iterator for all transactions in the instance. Pending
     /// transactions are followed by future transactions, grouped by sender
     /// in order of insertion.
-    pub fn transactions(&self) -> impl Iterator<Item = &transaction::Signed> {
+    pub fn transactions(&self) -> impl Iterator<Item = &SignedTransactionT> {
         self.pending_transactions
             .values()
             .chain(self.future_transactions.values())
@@ -263,71 +283,13 @@ impl MemPool {
         !self.pending_transactions.is_empty()
     }
 
-    /// Tries to add the provided transaction to the [`MemPool`].
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn add_transaction<S: StateRef + ?Sized>(
-        &mut self,
-        state: &S,
-        transaction: transaction::Signed,
-    ) -> Result<(), MemPoolAddTransactionError<S::Error>> {
-        let transaction_gas_limit = transaction.gas_limit();
-        if transaction_gas_limit > self.block_gas_limit.get() {
-            return Err(MemPoolAddTransactionError::ExceedsBlockGasLimit {
-                block_gas_limit: self.block_gas_limit,
-                transaction_gas_limit,
-            });
-        }
-
-        if self
-            .hash_to_transaction
-            .contains_key(transaction.transaction_hash())
-        {
-            return Err(MemPoolAddTransactionError::TransactionAlreadyExists {
-                transaction_hash: *transaction.transaction_hash(),
-            });
-        }
-
-        let sender = state.basic(*transaction.caller())?.unwrap_or_default();
-        if transaction.nonce() < sender.nonce {
-            return Err(MemPoolAddTransactionError::NonceTooLow {
-                transaction_nonce: transaction.nonce(),
-                sender_nonce: sender.nonce,
-            });
-        }
-
-        // We need to validate funds at this stage to avoid DOS
-        let max_upfront_cost = upfront_cost(&transaction);
-        if max_upfront_cost > sender.balance {
-            return Err(MemPoolAddTransactionError::InsufficientFunds {
-                max_upfront_cost,
-                sender_balance: sender.balance,
-            });
-        }
-
-        let next_nonce = account_next_nonce(self, state, transaction.caller())?;
-        let transaction = OrderedTransaction {
-            order_id: self.next_order_id,
-            transaction,
-        };
-
-        if transaction.nonce() > next_nonce {
-            self.insert_future_transaction(transaction.clone())?;
-        } else {
-            self.insert_pending_transaction(transaction.clone())?;
-        }
-
-        self.next_order_id += 1;
-
-        self.hash_to_transaction
-            .insert(*transaction.hash(), transaction);
-
-        Ok(())
-    }
-
     /// Removes the transaction corresponding to the provided transaction hash,
     /// if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn remove_transaction(&mut self, hash: &B256) -> Option<OrderedTransaction> {
+    pub fn remove_transaction(
+        &mut self,
+        hash: &B256,
+    ) -> Option<OrderedTransaction<SignedTransactionT>> {
         if let Some(old_transaction) = self.hash_to_transaction.remove(hash) {
             let caller = old_transaction.caller();
             if let Some(pending_transactions) = self.pending_transactions.get_mut(caller) {
@@ -379,11 +341,11 @@ impl MemPool {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn update<S>(&mut self, state: &S) -> Result<(), S::Error>
     where
-        S: StateRef + ?Sized,
+        S: State + ?Sized,
         S::Error: Debug,
     {
         fn is_valid_tx(
-            transaction: &transaction::Signed,
+            transaction: &impl ExecutableTransaction,
             block_gas_limit: NonZeroU64,
             sender: &AccountInfo,
         ) -> bool {
@@ -456,14 +418,80 @@ impl MemPool {
     /// Returns the transaction corresponding to the provided hash, if it
     /// exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn transaction_by_hash(&self, hash: &B256) -> Option<&OrderedTransaction> {
+    pub fn transaction_by_hash(
+        &self,
+        hash: &B256,
+    ) -> Option<&OrderedTransaction<SignedTransactionT>> {
         self.hash_to_transaction.get(hash)
+    }
+}
+
+impl<SignedTransactionT: Clone + ExecutableTransaction> MemPool<SignedTransactionT> {
+    /// Tries to add the provided transaction to the [`MemPool`].
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn add_transaction<S: State + ?Sized>(
+        &mut self,
+        state: &S,
+        transaction: SignedTransactionT,
+    ) -> Result<(), MemPoolAddTransactionError<S::Error>> {
+        let transaction_gas_limit = transaction.gas_limit();
+        if transaction_gas_limit > self.block_gas_limit.get() {
+            return Err(MemPoolAddTransactionError::ExceedsBlockGasLimit {
+                block_gas_limit: self.block_gas_limit,
+                transaction_gas_limit,
+            });
+        }
+
+        if self
+            .hash_to_transaction
+            .contains_key(transaction.transaction_hash())
+        {
+            return Err(MemPoolAddTransactionError::TransactionAlreadyExists {
+                transaction_hash: *transaction.transaction_hash(),
+            });
+        }
+
+        let sender = state.basic(*transaction.caller())?.unwrap_or_default();
+        if transaction.nonce() < sender.nonce {
+            return Err(MemPoolAddTransactionError::NonceTooLow {
+                transaction_nonce: transaction.nonce(),
+                sender_nonce: sender.nonce,
+            });
+        }
+
+        // We need to validate funds at this stage to avoid DOS
+        let max_upfront_cost = upfront_cost(&transaction);
+        if max_upfront_cost > sender.balance {
+            return Err(MemPoolAddTransactionError::InsufficientFunds {
+                max_upfront_cost,
+                sender_balance: sender.balance,
+            });
+        }
+
+        let next_nonce = account_next_nonce(self, state, transaction.caller())?;
+        let transaction = OrderedTransaction {
+            order_id: self.next_order_id,
+            transaction,
+        };
+
+        if transaction.nonce() > next_nonce {
+            self.insert_future_transaction(transaction.clone())?;
+        } else {
+            self.insert_pending_transaction(transaction.clone())?;
+        }
+
+        self.next_order_id += 1;
+
+        self.hash_to_transaction
+            .insert(*transaction.hash(), transaction);
+
+        Ok(())
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_pending_transaction<StateError>(
         &mut self,
-        transaction: OrderedTransaction,
+        transaction: OrderedTransaction<SignedTransactionT>,
     ) -> Result<(), MemPoolAddTransactionError<StateError>> {
         let mut pending_transactions = self.pending_transactions.entry(*transaction.caller());
 
@@ -517,7 +545,7 @@ impl MemPool {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_future_transaction<StateError>(
         &mut self,
-        transaction: OrderedTransaction,
+        transaction: OrderedTransaction<SignedTransactionT>,
     ) -> Result<(), MemPoolAddTransactionError<StateError>> {
         let mut future_transactions = self.future_transactions.entry(*transaction.caller());
 
@@ -545,12 +573,29 @@ impl MemPool {
         future_transactions.or_default().push(transaction);
         Ok(())
     }
-}
 
+    /// Creates an iterator for all pending transactions; i.e. for which the
+    /// nonces are guaranteed to be high enough.
+    pub fn iter<ComparatorT>(
+        &self,
+        comparator: ComparatorT,
+    ) -> PendingTransactions<SignedTransactionT, ComparatorT>
+    where
+        ComparatorT: Fn(
+            &OrderedTransaction<SignedTransactionT>,
+            &OrderedTransaction<SignedTransactionT>,
+        ) -> Ordering,
+    {
+        PendingTransactions {
+            transactions: self.pending_transactions.clone(),
+            comparator,
+        }
+    }
+}
 /// Calculates the next nonce of the account corresponding to the provided
 /// address.
-pub fn account_next_nonce<StateT: StateRef + ?Sized>(
-    mem_pool: &MemPool,
+pub fn account_next_nonce<SignedTransactionT: ExecutableTransaction, StateT: State + ?Sized>(
+    mem_pool: &MemPool<SignedTransactionT>,
     state: &StateT,
     address: &Address,
 ) -> Result<u64, StateT::Error> {
@@ -565,16 +610,18 @@ pub fn account_next_nonce<StateT: StateRef + ?Sized>(
 }
 
 /// Whether the mempool has any transactions.
-pub fn has_transactions(mem_pool: &MemPool) -> bool {
+pub fn has_transactions<SignedTransactionT: ExecutableTransaction>(
+    mem_pool: &MemPool<SignedTransactionT>,
+) -> bool {
     mem_pool.has_future_transactions() || mem_pool.has_pending_transactions()
 }
 
 fn validate_replacement_transaction<StateError>(
-    old_transaction: &transaction::Signed,
-    new_transaction: &transaction::Signed,
+    old_transaction: &impl ExecutableTransaction,
+    new_transaction: &impl ExecutableTransaction,
 ) -> Result<(), MemPoolAddTransactionError<StateError>> {
-    let min_new_max_fee_per_gas = min_new_fee(old_transaction.gas_price());
-    if new_transaction.gas_price() < min_new_max_fee_per_gas {
+    let min_new_max_fee_per_gas = min_new_fee(*old_transaction.gas_price());
+    if *new_transaction.gas_price() < min_new_max_fee_per_gas {
         return Err(MemPoolAddTransactionError::ReplacementMaxFeePerGasTooLow {
             min_new_max_fee_per_gas,
             transaction_nonce: old_transaction.nonce(),
@@ -582,12 +629,12 @@ fn validate_replacement_transaction<StateError>(
     }
 
     let min_new_max_priority_fee_per_gas = min_new_fee(
-        old_transaction
+        *old_transaction
             .max_priority_fee_per_gas()
             .unwrap_or_else(|| old_transaction.gas_price()),
     );
 
-    if new_transaction
+    if *new_transaction
         .max_priority_fee_per_gas()
         .unwrap_or_else(|| new_transaction.gas_price())
         < min_new_max_priority_fee_per_gas
@@ -603,13 +650,13 @@ fn validate_replacement_transaction<StateError>(
     Ok(())
 }
 
-fn min_new_fee(fee: U256) -> U256 {
-    let min_new_priority_fee = fee * U256::from(110);
+fn min_new_fee(fee: u128) -> u128 {
+    let min_new_priority_fee = fee * 110u128;
 
-    let one_hundred = U256::from(100);
-    if min_new_priority_fee % one_hundred == U256::ZERO {
+    let one_hundred = 100u128;
+    if min_new_priority_fee % one_hundred == 0u128 {
         min_new_priority_fee / one_hundred
     } else {
-        min_new_priority_fee / one_hundred + U256::from(1)
+        min_new_priority_fee / one_hundred + 1u128
     }
 }

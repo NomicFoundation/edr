@@ -3,6 +3,7 @@
 use std::{
     collections::BTreeMap,
     fmt::{self, Write},
+    sync::Arc,
     time::Duration,
 };
 
@@ -13,10 +14,11 @@ use foundry_evm::{
     fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
 };
+use revm::context::{BlockEnv, TxEnv};
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
 
-use crate::gas_report::GasReport;
+use crate::{gas_report::GasReport, revm, revm::primitives::hardfork::SpecId};
 
 /// The aggregated result of a test run.
 #[derive(Clone, Debug)]
@@ -77,24 +79,6 @@ impl TestOutcome {
     /// Returns an iterator over all individual tests and their names.
     pub fn tests(&self) -> impl Iterator<Item = (&String, &TestResult)> {
         self.results.values().flat_map(SuiteResult::tests)
-    }
-
-    /// Flattens the test outcome into a list of individual tests.
-    // TODO: Replace this with `tests` and make it return `TestRef<'_>`
-    pub fn into_tests_cloned(&self) -> impl Iterator<Item = SuiteTestResult> + '_ {
-        self.results
-            .iter()
-            .flat_map(|(file, suite)| {
-                suite
-                    .test_results
-                    .iter()
-                    .map(move |(sig, result)| (file.clone(), sig.clone(), result.clone()))
-            })
-            .map(|(artifact_id, signature, result)| SuiteTestResult {
-                artifact_id,
-                signature,
-                result,
-            })
     }
 
     /// Flattens the test outcome into a list of individual tests.
@@ -365,7 +349,7 @@ pub struct TestResult {
     /// If the heuristic failed the vec is set but emtpy.
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
-    pub stack_trace_result: Option<StackTraceResult>,
+    pub stack_trace_result: Option<Arc<StackTraceResult>>,
 }
 
 impl fmt::Display for TestResult {
@@ -561,7 +545,7 @@ pub struct TestSetup {
 
 impl TestSetup {
     pub fn from_evm_error_with(
-        error: EvmError,
+        error: EvmError<BlockEnv, TxEnv, SpecId>,
         mut logs: Vec<Log>,
         mut traces: Traces,
         mut labeled_addresses: AddressHashMap<String>,

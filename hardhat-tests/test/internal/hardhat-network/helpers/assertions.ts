@@ -16,13 +16,6 @@ import {
   ProviderError,
 } from "hardhat/internal/core/providers/errors";
 import {
-  AccessListBufferItem,
-  AccessListTransactionParams,
-  EIP1559TransactionParams,
-  LegacyTransactionParams,
-  TransactionParams,
-} from "hardhat/internal/hardhat-network/provider/node-types";
-import {
   AccessListEIP2930RpcTransactionOutput,
   EIP1559RpcTransactionOutput,
   LegacyRpcTransactionOutput,
@@ -32,6 +25,13 @@ import {
 } from "hardhat/internal/hardhat-network/provider/output";
 import { SolidityError } from "hardhat/internal/hardhat-network/stack-traces/solidity-errors";
 import { EthereumProvider } from "hardhat/types";
+import {
+  AccessListBufferItem,
+  AccessListTransactionParams,
+  EIP1559TransactionParams,
+  LegacyTransactionParams,
+  TransactionParams,
+} from "./transactions";
 
 export async function assertProviderError(
   provider: EthereumProvider,

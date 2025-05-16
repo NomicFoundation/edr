@@ -1,5 +1,8 @@
 use alloy_primitives::{Address, Bytes};
-use foundry_evm_core::decode::RevertDecoder;
+use foundry_evm_core::{
+    decode::RevertDecoder,
+    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
+};
 use foundry_evm_fuzz::{
     invariant::{FuzzRunIdentifiedContracts, InvariantConfig},
     Reason,
@@ -71,12 +74,12 @@ pub struct FailedInvariantCaseData {
 }
 
 impl FailedInvariantCaseData {
-    pub fn new(
+    pub fn new<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
         invariant_contract: &InvariantContract<'_>,
         invariant_config: &InvariantConfig,
         targeted_contracts: &FuzzRunIdentifiedContracts,
         calldata: &[BasicTxDetails],
-        call_result: RawCallResult,
+        call_result: RawCallResult<BlockT, TxT, HardforkT>,
         inner_sequence: &[Option<BasicTxDetails>],
     ) -> Self {
         // Collect abis of fuzzed and invariant contracts to decode custom error.

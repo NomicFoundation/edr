@@ -1,7 +1,18 @@
-use revm_primitives::{EnvKzgSettings, B256, VERSIONED_HASH_VERSION_KZG};
+use std::sync::OnceLock;
+
+use alloy_rlp::Encodable as _;
 use sha2::Digest;
 
-use crate::{transaction, Blob, Bytes48};
+use crate::{
+    eips::{
+        eip2930,
+        eip4844::{KzgSettings, VERSIONED_HASH_VERSION_KZG},
+        eip7702,
+    },
+    transaction::{self, ExecutableTransaction, TxKind},
+    utils::enveloped,
+    Address, Blob, Bytes, Bytes48, B256, U256,
+};
 
 /// An EIP-4844 pooled transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -10,29 +21,41 @@ pub struct Eip4844 {
     blobs: Vec<Blob>,
     commitments: Vec<Bytes48>,
     proofs: Vec<Bytes48>,
+    rlp_encoding: OnceLock<Bytes>,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum CreationError {
-    #[error("Number of blobs ({actual}) does not match the payload's number of blob hashes ({expected}).")]
+    #[error(
+        "Number of blobs ({actual}) does not match the payload's number of blob hashes ({expected})."
+    )]
     BlobCount { expected: usize, actual: usize },
-    #[error("The versioned hash of the commitment at index {idx} does not match the payload's blob hash. Expected: {expected}, actual: {actual}.")]
+    #[error(
+        "The versioned hash of the commitment at index {idx} does not match the payload's blob hash. Expected: {expected}, actual: {actual}."
+    )]
     InvalidCommitment {
         idx: usize,
         expected: B256,
         actual: B256,
     },
-    #[error("Number of commitments ({actual}) does not match the payload's number of blob hashes ({expected}).")]
+    #[error(
+        "Number of commitments ({actual}) does not match the payload's number of blob hashes ({expected})."
+    )]
     CommitmentCount { expected: usize, actual: usize },
     #[error("An error occurred while verifying the blob KZG proof: {0}")]
     KzgProof(c_kzg::Error),
-    #[error("Number of proofs ({actual}) does not match the payload's number of blob hashes ({expected}).")]
+    #[error(
+        "Number of proofs ({actual}) does not match the payload's number of blob hashes ({expected})."
+    )]
     ProofCount { expected: usize, actual: usize },
     #[error("The verification of the KZG proof failed.")]
     Unverified,
 }
 
 impl Eip4844 {
+    /// The type identifier for an EIP-4844 transaction.
+    pub const TYPE: u8 = transaction::signed::Eip4844::TYPE;
+
     /// Creates a new EIP-4844 pooled transaction, if the provided blobs,
     /// commitments, and proofs are valid.
     pub fn new(
@@ -40,7 +63,7 @@ impl Eip4844 {
         blobs: Vec<Blob>,
         commitments: Vec<Bytes48>,
         proofs: Vec<Bytes48>,
-        settings: &c_kzg::KzgSettings,
+        settings: &KzgSettings,
     ) -> Result<Self, CreationError> {
         if payload.blob_hashes.len() != blobs.len() {
             return Err(CreationError::BlobCount {
@@ -63,13 +86,13 @@ impl Eip4844 {
             });
         }
 
-        let verified = c_kzg::KzgProof::verify_blob_kzg_proof_batch(
-            blobs.as_slice(),
-            commitments.as_slice(),
-            proofs.as_slice(),
-            settings,
-        )
-        .map_err(CreationError::KzgProof)?;
+        let verified = settings
+            .verify_blob_kzg_proof_batch(
+                blobs.as_slice(),
+                commitments.as_slice(),
+                proofs.as_slice(),
+            )
+            .map_err(CreationError::KzgProof)?;
 
         if !verified {
             return Err(CreationError::Unverified);
@@ -104,11 +127,17 @@ impl Eip4844 {
             blobs,
             commitments,
             proofs,
+            rlp_encoding: OnceLock::new(),
         })
     }
 
     /// Returns the blobs of the pooled transaction.
     pub fn blobs(&self) -> &[Blob] {
+        &self.blobs
+    }
+
+    /// Returns a reference to the blobs of the pooled transaction.
+    pub fn blobs_ref(&self) -> &Vec<Blob> {
         &self.blobs
     }
 
@@ -167,6 +196,84 @@ impl Eip4844 {
             + alloy_rlp::length_of_length(commitments_payload)
             + proofs_payload
             + alloy_rlp::length_of_length(proofs_payload)
+    }
+}
+
+impl ExecutableTransaction for Eip4844 {
+    fn caller(&self) -> &Address {
+        self.payload.caller()
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.payload.gas_limit()
+    }
+
+    fn gas_price(&self) -> &u128 {
+        self.payload.gas_price()
+    }
+
+    fn kind(&self) -> TxKind {
+        self.payload.kind()
+    }
+
+    fn value(&self) -> &U256 {
+        self.payload.value()
+    }
+
+    fn data(&self) -> &Bytes {
+        self.payload.data()
+    }
+
+    fn nonce(&self) -> u64 {
+        self.payload.nonce()
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        self.payload.chain_id()
+    }
+
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+        self.payload.access_list()
+    }
+
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
+        self.payload.effective_gas_price(block_base_fee)
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        self.payload.max_fee_per_gas()
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
+        self.payload.max_priority_fee_per_gas()
+    }
+
+    fn blob_hashes(&self) -> &[B256] {
+        self.payload.blob_hashes()
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
+        self.payload.max_fee_per_blob_gas()
+    }
+
+    fn total_blob_gas(&self) -> Option<u64> {
+        self.payload.total_blob_gas()
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+        self.payload.authorization_list()
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding.get_or_init(|| {
+            let mut encoded = Vec::with_capacity(1 + self.length());
+            enveloped(Self::TYPE, self, &mut encoded);
+            encoded.into()
+        })
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.payload.transaction_hash()
     }
 }
 
@@ -246,8 +353,14 @@ impl alloy_rlp::Decodable for Eip4844 {
             });
         }
 
-        let settings = EnvKzgSettings::Default;
-        Self::new(payload, blobs, commitments, proofs, settings.get()).map_err(|_error| {
+        Self::new(
+            payload,
+            blobs,
+            commitments,
+            proofs,
+            c_kzg::ethereum_kzg_settings(0),
+        )
+        .map_err(|_error| {
             alloy_rlp::Error::Custom("Failed to RLP decode Eip4844PooledTransaction.")
         })
     }

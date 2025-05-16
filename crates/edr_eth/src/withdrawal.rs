@@ -10,10 +10,10 @@ use crate::{Address, U256};
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Withdrawal {
     /// The index of withdrawal
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub index: u64,
     /// The index of the validator that generated the withdrawal
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub validator_index: u64,
     /// The recipient address for withdrawal value
     pub address: Address,

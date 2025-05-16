@@ -7,7 +7,7 @@ import {
   TracingConfigWithBuffers,
   UnexpectedError,
   UnsafeToReplay,
-} from "@ignored/edr";
+} from "@nomicfoundation/edr";
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,
