@@ -3916,10 +3916,10 @@ mod tests {
             let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
             let fork_config = Some(ResetForkConfig {
+                json_rpc_url: get_alchemy_url(),
                 // Random recent block for better cache consistency
                 block_number: Some(FORK_BLOCK_NUMBER),
                 http_headers: None,
-                url: get_alchemy_url(),
             });
 
             let block_spec = BlockSpec::Number(FORK_BLOCK_NUMBER);

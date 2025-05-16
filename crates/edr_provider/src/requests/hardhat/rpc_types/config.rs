@@ -11,9 +11,9 @@ pub struct ResetProviderConfig {
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResetForkConfig {
+    pub json_rpc_url: String,
     pub block_number: Option<u64>,
     pub http_headers: Option<HashMap<String, String>>,
-    pub url: String,
 }
 
 impl ResetForkConfig {
@@ -26,7 +26,7 @@ impl ResetForkConfig {
             block_number: self.block_number,
             cache_dir: cache_dir.unwrap_or(edr_defaults::CACHE_DIR.into()),
             http_headers: self.http_headers,
-            url: self.url,
+            url: self.json_rpc_url,
         }
     }
 }
