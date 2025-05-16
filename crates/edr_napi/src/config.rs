@@ -5,8 +5,8 @@ use std::{
 
 use edr_eth::KECCAK_EMPTY;
 use napi::{
-    Either,
     bindgen_prelude::{BigInt, Buffer, Uint8Array},
+    Either,
 };
 use napi_derive::napi;
 

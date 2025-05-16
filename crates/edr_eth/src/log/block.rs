@@ -77,7 +77,7 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use crate::{Address, Bytes, log::ExecutionLog};
+    use crate::{log::ExecutionLog, Address, Bytes};
 
     #[test]
     fn test_block_log_full_serde() -> anyhow::Result<()> {

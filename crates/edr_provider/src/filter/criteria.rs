@@ -1,7 +1,7 @@
 use edr_eth::{
-    Address, B256, Bloom, BloomInput, HashSet,
     filter::LogOutput,
-    log::{FilterLog, matches_address_filter, matches_topics_filter},
+    log::{matches_address_filter, matches_topics_filter, FilterLog},
+    Address, Bloom, BloomInput, HashSet, B256,
 };
 
 #[derive(Clone, Debug, PartialEq)]

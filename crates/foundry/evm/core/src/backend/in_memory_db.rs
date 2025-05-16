@@ -3,10 +3,10 @@ use alloy_primitives::{Address, B256, U256};
 use foundry_fork_db::DatabaseError;
 use revm::{
     bytecode::Bytecode,
-    context_interface::JournalTr,
     database::{CacheDB, DatabaseRef, EmptyDB},
     primitives::HashMap as Map,
-    state::{Account, AccountInfo}, Database, DatabaseCommit,
+    state::{Account, AccountInfo},
+    Database, DatabaseCommit,
 };
 
 use crate::snapshot::Snapshots;

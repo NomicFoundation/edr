@@ -2,11 +2,11 @@
 
 use std::sync::Arc;
 
-use edr_eth::{B256, PreEip1898BlockSpec, l1::L1ChainSpec};
+use edr_eth::{l1::L1ChainSpec, PreEip1898BlockSpec, B256};
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, Timestamp,
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},
+    MethodInvocation, NoopLogger, Provider, ProviderRequest, Timestamp,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;

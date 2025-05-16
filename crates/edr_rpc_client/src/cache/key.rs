@@ -1,8 +1,8 @@
-use edr_eth::block::{IsSafeBlockNumberArgs, is_safe_block_number};
+use edr_eth::block::{is_safe_block_number, IsSafeBlockNumberArgs};
 
 use super::{
-    CacheableMethod, block_spec::CacheableBlockSpec, filter::CacheableLogFilterRange,
-    hasher::KeyHasher,
+    block_spec::CacheableBlockSpec, filter::CacheableLogFilterRange, hasher::KeyHasher,
+    CacheableMethod,
 };
 
 /// Trait for retrieving the unique id of an enum variant.

@@ -8,10 +8,10 @@ use foundry_fork_db::{BlockchainDb, DatabaseError, SharedBackend};
 use parking_lot::Mutex;
 use revm::{
     bytecode::Bytecode,
-    context_interface::JournalTr,
     database::{CacheDB, DatabaseRef},
     primitives::HashMap as Map,
-    state::{Account, AccountInfo}, Database, DatabaseCommit,
+    state::{Account, AccountInfo},
+    Database, DatabaseCommit,
 };
 
 use crate::{
@@ -288,6 +288,8 @@ impl DatabaseRef for ForkDbSnapshot {
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
     use std::collections::BTreeSet;
+
+    use revm::context::BlockEnv;
 
     use super::*;
     use crate::{backend::BlockchainDbMeta, fork::provider::get_http_provider};

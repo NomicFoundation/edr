@@ -52,7 +52,7 @@ pub const DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE: &[u8] = &hex!("7fffffffffffffff
 /// The hash of the default CREATE2 deployer code.
 ///
 /// This is calculated as
-/// `keccak256([`DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE`])`.
+/// `keccak256([``DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE``])`.
 pub const DEFAULT_CREATE2_DEPLOYER_CODEHASH: B256 =
     b256!("0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989");
 

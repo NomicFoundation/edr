@@ -1,11 +1,12 @@
 use edr_eth::l1;
 use edr_napi_core::spec::SolidityTraceData;
+use edr_solidity::contract_decoder::NestedTraceDecoder;
 use napi::Either;
 use napi_derive::napi;
 
 use crate::{
     cast::TryCast,
-    trace::{RawTrace, solidity_stack_trace::SolidityStackTrace},
+    trace::{solidity_stack_trace::SolidityStackTrace, RawTrace},
 };
 
 #[napi]
@@ -44,7 +45,9 @@ impl Response {
         .map_err(|err| napi::Error::from_reason(err.to_string()))?;
 
         if let Some(vm_trace) = nested_trace {
-            let decoded_trace = contract_decoder.try_to_decode_message_trace(vm_trace);
+            let decoded_trace = contract_decoder
+                .try_to_decode_nested_trace(vm_trace)
+                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
             let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
                 .map_err(|err| napi::Error::from_reason(err.to_string()))?;
             let stack_trace = stack_trace

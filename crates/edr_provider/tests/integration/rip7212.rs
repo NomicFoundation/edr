@@ -2,10 +2,10 @@
 
 use std::sync::Arc;
 
-use edr_eth::{Bytes, bytes, l1::L1ChainSpec};
+use edr_eth::{bytes, l1::L1ChainSpec, Bytes};
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, test_utils::create_test_config,
-    time::CurrentTime,
+    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
+    ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;

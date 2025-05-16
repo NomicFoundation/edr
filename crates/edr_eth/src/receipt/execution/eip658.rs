@@ -1,7 +1,7 @@
 use super::Eip658;
 use crate::{
-    Bloom,
     receipt::{ExecutionReceipt, MapReceiptLogs, RootOrStatus},
+    Bloom,
 };
 
 impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Eip658<NewLogT>> for Eip658<LogT> {

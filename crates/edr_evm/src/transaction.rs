@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{U256, l1, spec::ChainSpec};
+use edr_eth::{l1, spec::ChainSpec, U256};
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 
@@ -139,7 +139,7 @@ pub fn validate<TransactionT: revm_context_interface::Transaction>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{Address, Bytes, transaction};
+    use edr_eth::{transaction, Address, Bytes};
 
     use super::*;
 

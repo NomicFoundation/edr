@@ -1,7 +1,8 @@
 use std::{cmp::Ordering, collections::HashMap};
 
 use alloy_primitives::{Address, Bytes, U256};
-use revm::{interpreter::InstructionResult, primitives::Bytecode};
+use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
+use revm::{bytecode::Bytecode, context::JournalTr, interpreter::InstructionResult};
 
 use crate::{
     impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Result,
@@ -51,7 +52,10 @@ impl Ord for MockCallDataContext {
 
 impl_is_pure_true!(clearMockedCallsCall);
 impl Cheatcode for clearMockedCallsCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {} = self;
         state.mocked_calls = HashMap::default();
         Ok(Vec::default())
@@ -60,21 +64,27 @@ impl Cheatcode for clearMockedCallsCall {
 
 impl_is_pure_true!(mockCall_0Call);
 impl Cheatcode for mockCall_0Call {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
         let Self {
             callee,
             data,
             returnData,
         } = self;
         // TODO: use ecx.load_account
-        let acc = ccx
-            .ecx
-            .journaled_state
-            .load_account(*callee, &mut ccx.ecx.db)?;
+        let acc = ccx.ecx.journaled_state.load_account(*callee)?;
 
         // Etches a single byte onto the account if it is empty to circumvent the
         // `extcodesize` check Solidity might perform.
-        let empty_bytecode = acc.info.code.as_ref().map_or(true, Bytecode::is_empty);
+        let empty_bytecode = acc.info.code.as_ref().is_none_or(Bytecode::is_empty);
         if empty_bytecode {
             let code = Bytecode::new_raw(Bytes::from_static(&[0u8]));
             ccx.ecx.journaled_state.set_code(*callee, code);
@@ -94,14 +104,23 @@ impl Cheatcode for mockCall_0Call {
 
 impl_is_pure_true!(mockCall_1Call);
 impl Cheatcode for mockCall_1Call {
-    fn apply_full<DB: CheatcodeBackend>(&self, ccx: &mut CheatsCtxt<DB>) -> Result {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
         let Self {
             callee,
             msgValue,
             data,
             returnData,
         } = self;
-        ccx.ecx.load_account(*callee)?;
+        ccx.ecx.journaled_state.load_account(*callee)?;
         mock_call(
             ccx.state,
             callee,
@@ -116,7 +135,10 @@ impl Cheatcode for mockCall_1Call {
 
 impl_is_pure_true!(mockCallRevert_0Call);
 impl Cheatcode for mockCallRevert_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             callee,
             data,
@@ -136,7 +158,10 @@ impl Cheatcode for mockCallRevert_0Call {
 
 impl_is_pure_true!(mockCallRevert_1Call);
 impl Cheatcode for mockCallRevert_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             callee,
             msgValue,
@@ -156,8 +181,8 @@ impl Cheatcode for mockCallRevert_1Call {
 }
 
 #[allow(clippy::ptr_arg)] // Not public API, doesn't matter
-fn mock_call(
-    state: &mut Cheatcodes,
+fn mock_call<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
     callee: &Address,
     cdata: &Bytes,
     value: Option<&U256>,

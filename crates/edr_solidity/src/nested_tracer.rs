@@ -2,7 +2,7 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use edr_eth::{Address, Bytes, U160, U256, result::ExecutionResult, spec::HaltReasonTrait};
+use edr_eth::{result::ExecutionResult, spec::HaltReasonTrait, Address, Bytes, U160, U256};
 use edr_evm::trace::{BeforeMessage, Step};
 
 use crate::{

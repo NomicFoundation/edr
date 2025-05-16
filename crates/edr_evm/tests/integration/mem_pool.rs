@@ -2,15 +2,15 @@
 
 use std::num::NonZeroU64;
 
-use edr_eth::{Address, U256, account::AccountInfo, transaction::ExecutableTransaction};
+use edr_eth::{account::AccountInfo, transaction::ExecutableTransaction, Address, U256};
 use edr_evm::{
-    MemPoolAddTransactionError, OrderedTransaction,
     state::{AccountModifierFn, StateDebug},
     test_utils::{
-        MemPoolTestFixture, dummy_eip155_transaction, dummy_eip155_transaction_with_limit,
+        dummy_eip1559_transaction, dummy_eip155_transaction, dummy_eip155_transaction_with_limit,
         dummy_eip155_transaction_with_price, dummy_eip155_transaction_with_price_limit_and_value,
-        dummy_eip1559_transaction,
+        MemPoolTestFixture,
     },
+    MemPoolAddTransactionError, OrderedTransaction,
 };
 
 #[test]
@@ -417,12 +417,10 @@ fn add_transaction_insufficient_funds() -> anyhow::Result<()> {
         Err(MemPoolAddTransactionError::InsufficientFunds { max_upfront_cost, sender_balance }) if max_upfront_cost == U256::from(INITIAL_COST) && sender_balance == balance
     ));
 
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("Sender doesn't have enough funds to send tx")
-    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Sender doesn't have enough funds to send tx"));
 
     Ok(())
 }

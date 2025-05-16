@@ -11,7 +11,7 @@ use edr_eth::l1;
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
 use edr_generic::GenericChainSpec;
 use edr_napi_core::spec::SyncNapiSpec;
-use edr_provider::{Logger, ProviderErrorForChainSpec, ProviderRequest, time::CurrentTime};
+use edr_provider::{time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -19,7 +19,7 @@ use flate2::bufread::GzDecoder;
 use indicatif::ProgressBar;
 use tokio::{runtime, task};
 #[cfg(feature = "tracing")]
-use tracing_subscriber::{Registry, prelude::*};
+use tracing_subscriber::{prelude::*, Registry};
 
 pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::Result<()> {
     let (config, requests) = load_requests(scenario_path).await?;

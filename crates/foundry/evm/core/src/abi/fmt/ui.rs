@@ -802,6 +802,7 @@ impl UIfmt for EthValue {
 }
 
 /// Returns the `UiFmt::pretty()` formatted attribute of the transactions
+#[allow(clippy::match_wildcard_for_single_variants)]
 pub fn get_pretty_tx_attr(transaction: &Transaction<AnyTxEnvelope>, attr: &str) -> Option<String> {
     let sig = match &transaction.inner.inner() {
         AnyTxEnvelope::Ethereum(envelope) => match &envelope {

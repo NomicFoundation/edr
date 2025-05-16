@@ -7,27 +7,27 @@ use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
-    Address, B256, BlockSpec, BlockTag, Bytes, U256,
     filter::SubscriptionType,
     hex, l1,
     result::ExecutionResult,
     spec::{ChainSpec, HaltReasonTrait},
     transaction::TransactionValidation,
+    Address, BlockSpec, BlockTag, Bytes, B256, U256,
 };
 use edr_evm::{
-    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
     blockchain::{BlockchainError, ForkedCreationError, LocalCreationError},
     debug_trace::DebugTraceError,
     spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
+    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;
 
-use crate::{ProviderSpec, config::IntervalConfigConversionError, time::TimeSinceEpoch};
+use crate::{config::IntervalConfigConversionError, time::TimeSinceEpoch, ProviderSpec};
 
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
@@ -364,12 +364,12 @@ pub enum ProviderError<
 }
 
 impl<
-    BlockConversionErrorT: std::error::Error,
-    HaltReasonT: HaltReasonTrait + Serialize,
-    HardforkT: Debug,
-    ReceiptConversionErrorT: std::error::Error,
-    TransactionValidationErrorT: std::error::Error,
->
+        BlockConversionErrorT: std::error::Error,
+        HaltReasonT: HaltReasonTrait + Serialize,
+        HardforkT: Debug,
+        ReceiptConversionErrorT: std::error::Error,
+        TransactionValidationErrorT: std::error::Error,
+    >
     From<
         ProviderError<
             BlockConversionErrorT,

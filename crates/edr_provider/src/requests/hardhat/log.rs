@@ -1,5 +1,5 @@
 use crate::{
-    ProviderErrorForChainSpec, data::ProviderData, spec::ProviderSpec, time::TimeSinceEpoch,
+    data::ProviderData, spec::ProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,
 };
 
 pub fn handle_set_logging_enabled_request<

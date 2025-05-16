@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    Address, B256, HashSet, U256, l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec,
+    l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec, Address, HashSet, B256, U256,
 };
 
 use self::storage::ReservableSparseBlockchainStorage;
@@ -17,10 +17,10 @@ pub use self::{
     local::{CreationError as LocalCreationError, GenesisBlockOptions, LocalBlockchain},
 };
 use crate::{
-    Block, BlockAndTotalDifficultyForChainSpec,
     hardfork::Activations,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateCommit, StateDiff, StateOverride, SyncState},
+    Block, BlockAndTotalDifficultyForChainSpec,
 };
 
 /// Helper type for a chain-specific [`BlockchainError`].

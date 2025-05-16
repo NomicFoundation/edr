@@ -1,7 +1,7 @@
 use revm::{
     context_interface::{ContextTr, Transaction},
     interpreter::{CallInputs, CallOutcome, CallScheme, Interpreter},
-    Database, Inspector,
+    Inspector,
 };
 
 use crate::{invariant::RandomCallGenerator, strategies::EvmFuzzState};
@@ -46,7 +46,7 @@ where
     }
 
     #[inline]
-    fn call_end(&mut self, _context: &mut CTX, _inputs: &CallInputs, outcome: &mut CallOutcome) {
+    fn call_end(&mut self, _context: &mut CTX, _inputs: &CallInputs, _outcome: &mut CallOutcome) {
         if let Some(ref mut call_generator) = self.call_generator {
             call_generator.used = false;
         }

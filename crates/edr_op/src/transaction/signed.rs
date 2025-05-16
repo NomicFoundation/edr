@@ -7,14 +7,15 @@ use std::sync::OnceLock;
 use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
 pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
-    Address, B256, Bytes, U256,
     eips::{eip2930, eip7702},
     impl_revm_transaction_trait,
     signature::{Fakeable, Signature},
     transaction::{
-        ExecutableTransaction, INVALID_TX_TYPE_ERROR_MESSAGE, IsEip4844, IsLegacy, IsSupported,
-        MaybeSignedTransaction, TransactionMut, TransactionType, TransactionValidation, TxKind,
+        ExecutableTransaction, IsEip4844, IsLegacy, IsSupported, MaybeSignedTransaction,
+        TransactionMut, TransactionType, TransactionValidation, TxKind,
+        INVALID_TX_TYPE_ERROR_MESSAGE,
     },
+    Address, Bytes, B256, U256,
 };
 
 use super::Signed;

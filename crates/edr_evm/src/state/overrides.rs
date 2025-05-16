@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
 use edr_eth::{
-    Address, B256, Bytecode, HashMap, U256,
     account::{AccountInfo, KECCAK_EMPTY},
+    Address, Bytecode, HashMap, B256, U256,
 };
 use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
 

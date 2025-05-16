@@ -1,4 +1,4 @@
-use edr_eth::{Address, B64, B256, Bytes};
+use edr_eth::{Address, Bytes, B256, B64};
 use napi::bindgen_prelude::{BigInt, Buffer};
 use napi_derive::napi;
 

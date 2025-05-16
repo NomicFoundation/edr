@@ -6,7 +6,7 @@ use edr_evm::{
 use edr_rpc_eth::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
-use crate::{GenericChainSpec, transaction};
+use crate::{transaction, GenericChainSpec};
 
 // We need to use a newtype here as `RpcTypeFrom` cannot be implemented here,
 // in an external crate, even though `TransactionAndBlock` is generic over

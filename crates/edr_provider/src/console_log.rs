@@ -1,4 +1,4 @@
-use edr_eth::{Address, Bytes, address};
+use edr_eth::{address, Address, Bytes};
 use edr_evm::{
     inspector::Inspector,
     interpreter::{CallInputs, CallOutcome, EthInterpreter},
@@ -36,9 +36,10 @@ impl<ContextT> Inspector<ContextT, EthInterpreter> for ConsoleLogCollector {
 pub(crate) mod tests {
     use anyhow::Context;
     use edr_eth::{
-        Bytes, U256, hex,
+        hex,
         l1::L1ChainSpec,
-        transaction::{self, TxKind, request::TransactionRequestAndSender},
+        transaction::{self, request::TransactionRequestAndSender, TxKind},
+        Bytes, U256,
     };
 
     use crate::{data::ProviderData, time::TimeSinceEpoch};

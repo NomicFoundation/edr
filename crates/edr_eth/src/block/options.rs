@@ -1,5 +1,5 @@
 use super::BlobGas;
-use crate::{Address, B64, B256, Bytes, U256, withdrawal::Withdrawal};
+use crate::{withdrawal::Withdrawal, Address, Bytes, B256, B64, U256};
 
 /// Data of a block header
 #[derive(Debug, Default)]

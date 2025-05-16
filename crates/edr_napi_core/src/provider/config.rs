@@ -2,9 +2,9 @@ use core::num::NonZeroU64;
 use std::{path::PathBuf, str::FromStr, time::SystemTime};
 
 use edr_eth::{
-    Address, B256, ChainId, HashMap,
     block::BlobGas,
     l1::{self, hardfork::UnknownHardfork},
+    Address, ChainId, HashMap, B256,
 };
 use edr_provider::{
     config,

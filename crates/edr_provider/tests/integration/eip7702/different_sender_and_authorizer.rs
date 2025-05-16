@@ -1,18 +1,19 @@
 use edr_eth::{
-    Bytes, U256, address, bytes,
+    address, bytes,
     eips::eip7702,
     l1::{self, L1ChainSpec},
     signature::public_key_to_address,
+    Bytes, U256,
 };
 use edr_provider::{
-    MethodInvocation, Provider, ProviderRequest,
     config::OwnedAccount,
     test_utils::{create_test_config, one_ether},
+    MethodInvocation, Provider, ProviderRequest,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
-use edr_test_utils::secret_key::{SecretKey, secret_key_from_str};
+use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
-use super::{CHAIN_ID, assert_code_at, sign_authorization};
+use super::{assert_code_at, sign_authorization, CHAIN_ID};
 
 static EXPECTED_CODE: Bytes = bytes!("ef01001234567890123456789012345678901234567890");
 

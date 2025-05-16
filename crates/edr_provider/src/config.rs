@@ -1,11 +1,11 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
-use edr_eth::{Address, B256, ChainId, HashMap, U256, account::AccountInfo, block::BlobGas};
-use edr_evm::{MineOrdering, hardfork, state::EvmStorage};
+use edr_eth::{account::AccountInfo, block::BlobGas, Address, ChainId, HashMap, B256, U256};
+use edr_evm::{hardfork, state::EvmStorage, MineOrdering};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::requests::{IntervalConfig as IntervalConfigRequest, hardhat::rpc_types::ForkConfig};
+use crate::requests::{hardhat::rpc_types::ForkConfig, IntervalConfig as IntervalConfigRequest};
 
 /// Configuration of an account and its storage.
 ///

@@ -13,7 +13,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
 use super::fork::{environment, provider::ProviderBuilder};
-use crate::evm_env::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
+use crate::evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EvmOpts<BlockT, TxT, HardforkT> {
@@ -135,6 +135,7 @@ where
         // caller is a contract. So we disable the check by default.
         cfg.disable_eip3607 = true;
         cfg.disable_block_gas_limit = self.disable_block_gas_limit;
+        cfg.disable_nonce_check = true;
 
         let block_env_opts = BlockEnvOpts {
             number: self.env.block_number,
@@ -148,7 +149,7 @@ where
 
         let tx_env_opts = TxEnvOpts {
             gas_price: self.env.gas_price.unwrap_or_default().into(),
-            gas_limit: self.gas_limit().into(),
+            gas_limit: self.gas_limit(),
             chain_id: None,
             caller: self.sender,
         };

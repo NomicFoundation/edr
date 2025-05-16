@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    Address, KECCAK_EMPTY,
     account::AccountInfo,
     l1::{self, L1ChainSpec},
+    Address, KECCAK_EMPTY,
 };
 use edr_provider::{
-    MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
+    MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;

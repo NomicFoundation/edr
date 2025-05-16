@@ -4,7 +4,6 @@ use alloy_rlp::Encodable as _;
 use sha2::Digest;
 
 use crate::{
-    Address, B256, Blob, Bytes, Bytes48, U256,
     eips::{
         eip2930,
         eip4844::{KzgSettings, VERSIONED_HASH_VERSION_KZG},
@@ -12,6 +11,7 @@ use crate::{
     },
     transaction::{self, ExecutableTransaction, TxKind},
     utils::enveloped,
+    Address, Blob, Bytes, Bytes48, B256, U256,
 };
 
 /// An EIP-4844 pooled transaction.

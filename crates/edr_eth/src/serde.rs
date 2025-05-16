@@ -1,7 +1,7 @@
 //! Helper utilities for serde
 
 use serde::{
-    Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned, ser::SerializeSeq,
+    de::DeserializeOwned, ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer,
 };
 
 /// for use with serde's `serialize_with` on an optional single value that

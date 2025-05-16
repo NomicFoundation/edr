@@ -1,9 +1,8 @@
-use edr_eth::{Address, BlockSpec, U64, U256, l1, transaction::TransactionValidation};
+use edr_eth::{l1, transaction::TransactionValidation, Address, BlockSpec, U256, U64};
 
 use crate::{
-    ProviderErrorForChainSpec, data::ProviderData,
-    requests::validation::validate_post_merge_block_tags, spec::SyncProviderSpec,
-    time::TimeSinceEpoch,
+    data::ProviderData, requests::validation::validate_post_merge_block_tags,
+    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,
 };
 
 pub fn handle_block_number_request<
@@ -26,13 +25,13 @@ pub fn handle_chain_id_request<
 
 pub fn handle_get_transaction_count_request<
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,

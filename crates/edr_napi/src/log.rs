@@ -1,4 +1,4 @@
-use napi::{Env, JsBuffer, JsBufferValue, bindgen_prelude::Buffer};
+use napi::{bindgen_prelude::Buffer, Env, JsBuffer, JsBufferValue};
 use napi_derive::napi;
 
 /// Ethereum execution log.

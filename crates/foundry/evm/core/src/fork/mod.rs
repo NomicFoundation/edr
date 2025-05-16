@@ -13,7 +13,7 @@ pub mod provider;
 
 pub use multi::{ForkId, MultiFork, MultiForkHandler};
 
-use crate::evm_env::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
+use crate::evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
 
 /// Represents a _fork_ of a remote chain whose data is available only via the
 /// `url` endpoint.

@@ -2,7 +2,7 @@ use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{Address, Bytes};
 
 use crate::{
-    ProviderErrorForChainSpec, data::ProviderData, spec::ProviderSpec, time::TimeSinceEpoch,
+    data::ProviderData, spec::ProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,
 };
 
 pub fn handle_sign_request<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(

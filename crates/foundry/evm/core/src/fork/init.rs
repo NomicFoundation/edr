@@ -7,7 +7,7 @@ use eyre::WrapErr;
 use revm::context::CfgEnv;
 
 use crate::{
-    evm_env::EvmEnv,
+    evm_context::EvmEnv,
     opts::{BlockEnvOpts, TxEnvOpts},
     utils::apply_chain_and_block_specific_env_changes,
 };
@@ -81,6 +81,7 @@ where
     // caller is a contract. So we disable the check by default.
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
+    cfg.disable_nonce_check = true;
 
     let mut block_env_opts = BlockEnvOpts {
         number: block.header().number(),

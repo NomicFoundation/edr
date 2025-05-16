@@ -4,11 +4,11 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use edr_defaults::CACHE_DIR;
-use edr_eth::{B256, HashMap, PreEip1898BlockSpec, b256, transaction::TransactionType as _};
+use edr_eth::{b256, transaction::TransactionType as _, HashMap, PreEip1898BlockSpec, B256};
 use edr_evm::{
-    Block, RandomHashGenerator, RemoteBlock, blockchain::ForkedBlockchain, state::IrregularState,
+    blockchain::ForkedBlockchain, state::IrregularState, Block, RandomHashGenerator, RemoteBlock,
 };
-use edr_op::{OpChainSpec, hardfork, transaction};
+use edr_op::{hardfork, transaction, OpChainSpec};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_test_utils::env::get_alchemy_url;
 use op_alloy_rpc_types::L1BlockInfo;

@@ -2,8 +2,8 @@ use core::fmt::{Debug, Display};
 
 use edr_eth::signature::secret_key_from_str;
 use napi::{
-    JsString, Status,
     bindgen_prelude::{BigInt, Uint8Array},
+    JsString, Status,
 };
 use napi_derive::napi;
 use serde::Serialize;

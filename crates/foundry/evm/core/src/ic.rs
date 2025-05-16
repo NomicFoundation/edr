@@ -121,7 +121,7 @@ pub fn decode_instructions(code: &[u8]) -> Result<Vec<Instruction<'_>>> {
     while pc < code.len() {
         let op = OpCode::new(code[pc]);
         pc += 1;
-        let immediate_size = op.map(|op| op.info().immediate_size()).unwrap_or(0) as usize;
+        let immediate_size = op.map_or(0, |op| op.info().immediate_size()) as usize;
 
         if pc + immediate_size > code.len() {
             eyre::bail!("incomplete sequence of bytecode");

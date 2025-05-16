@@ -9,7 +9,7 @@ mod recovery_id;
 mod y_parity;
 
 pub use k256::SecretKey;
-use k256::{FieldBytes, PublicKey, elliptic_curve::sec1::ToEncodedPoint};
+use k256::{elliptic_curve::sec1::ToEncodedPoint, FieldBytes, PublicKey};
 use sha3::{Digest, Keccak256};
 
 pub use self::{

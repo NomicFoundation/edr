@@ -1,7 +1,7 @@
 use edr_eth::{
-    Address, B256, Bloom,
     log::FilterLog,
     receipt::{AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus},
+    Address, Bloom, B256,
 };
 use op_alloy_rpc_types::L1BlockInfo;
 

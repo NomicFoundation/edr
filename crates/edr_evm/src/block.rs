@@ -8,12 +8,12 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    B256, U256,
     block::{self, BlobGas, Header, PartialHeader},
     receipt::ReceiptTrait,
     spec::ChainSpec,
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
+    B256, U256,
 };
 
 pub use self::{

@@ -5,10 +5,10 @@
 /// into logs.
 use std::{num::NonZeroU64, time::SystemTime};
 
-use edr_eth::{Address, B256, ChainId, HashMap, U256, block::BlobGas};
+use edr_eth::{block::BlobGas, Address, ChainId, HashMap, B256, U256};
 use edr_napi_core::provider::{Config as ProviderConfig, HardforkActivation};
 use edr_provider::{
-    AccountConfig, MiningConfig, config::OwnedAccount, hardhat_rpc_types::ForkConfig,
+    config::OwnedAccount, hardhat_rpc_types::ForkConfig, AccountConfig, MiningConfig,
 };
 use serde::{Deserialize, Serialize};
 

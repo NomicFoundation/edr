@@ -41,6 +41,7 @@ use foundry_evm_core::{
     backend::CowBackend,
     constants::{DEFAULT_CREATE2_DEPLOYER, TEST_TIMEOUT},
     contracts::{ContractsByAddress, ContractsByArtifact},
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
     precompiles::PRECOMPILES,
 };
 use foundry_evm_coverage::HitMaps;
@@ -124,7 +125,7 @@ pub struct InvariantMetrics {
 
 /// Contains data collected during invariant test runs.
 #[derive(Debug)]
-pub struct InvariantTestData {
+pub struct InvariantTestData<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     // Consumed gas and calldata of every successful fuzz call.
     pub fuzz_cases: Vec<FuzzedCases>,
     // Data related to reverts or failed assertions of the test.
@@ -134,7 +135,7 @@ pub struct InvariantTestData {
     // Additional traces for gas report.
     pub gas_report_traces: Vec<Vec<CallTraceArena>>,
     // Last call results of the invariant test.
-    pub last_call_results: Option<RawCallResult>,
+    pub last_call_results: Option<RawCallResult<BlockT, TxT, HardforkT>>,
     // Coverage information collected from all fuzzed calls.
     pub coverage: Option<HitMaps>,
     // Metrics for each fuzzed selector.
@@ -149,22 +150,24 @@ pub struct InvariantTestData {
 
 /// Contains invariant test data.
 #[derive(Debug)]
-pub struct InvariantTest {
+pub struct InvariantTest<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     // Fuzz state of invariant test.
     pub fuzz_state: EvmFuzzState,
     // Contracts fuzzed by the invariant test.
     pub targeted_contracts: FuzzRunIdentifiedContracts,
     // Data collected during invariant runs.
-    pub execution_data: RefCell<InvariantTestData>,
+    pub execution_data: RefCell<InvariantTestData<BlockT, TxT, HardforkT>>,
 }
 
-impl InvariantTest {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    InvariantTest<BlockT, TxT, HardforkT>
+{
     /// Instantiates an invariant test.
     pub fn new(
         fuzz_state: EvmFuzzState,
         targeted_contracts: FuzzRunIdentifiedContracts,
         failures: InvariantFailures,
-        last_call_results: Option<RawCallResult>,
+        last_call_results: Option<RawCallResult<BlockT, TxT, HardforkT>>,
         branch_runner: TestRunner,
     ) -> Self {
         let mut fuzz_cases = vec![];
@@ -204,7 +207,10 @@ impl InvariantTest {
     }
 
     /// Set last invariant test call results.
-    pub fn set_last_call_results(&self, call_result: Option<RawCallResult>) {
+    pub fn set_last_call_results(
+        &self,
+        call_result: Option<RawCallResult<BlockT, TxT, HardforkT>>,
+    ) {
         self.execution_data.borrow_mut().last_call_results = call_result;
     }
 
@@ -245,7 +251,11 @@ impl InvariantTest {
 
     /// End invariant test run by collecting results, cleaning collected
     /// artifacts and reverting created fuzz state.
-    pub fn end_run(&self, run: InvariantTestRun, gas_samples: usize) {
+    pub fn end_run<ChainContextT: ChainContextTr>(
+        &self,
+        run: InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT>,
+        gas_samples: usize,
+    ) {
         // We clear all the targeted contracts created during this run.
         self.targeted_contracts
             .clear_created_contracts(run.created_contracts);
@@ -269,11 +279,16 @@ impl InvariantTest {
 }
 
 /// Contains data for an invariant test run.
-pub struct InvariantTestRun {
+pub struct InvariantTestRun<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
     // Invariant run call sequence.
     pub inputs: Vec<BasicTxDetails>,
     // Current invariant run executor.
-    pub executor: Executor,
+    pub executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
     // Invariant run stat reports (eg. gas usage).
     pub fuzz_runs: Vec<FuzzCase>,
     // Contracts created during current invariant run.
@@ -286,9 +301,19 @@ pub struct InvariantTestRun {
     pub assume_rejects_counter: u32,
 }
 
-impl InvariantTestRun {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+    > InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT>
+{
     /// Instantiates an invariant test run.
-    pub fn new(first_input: BasicTxDetails, executor: Executor, depth: usize) -> Self {
+    pub fn new(
+        first_input: BasicTxDetails,
+        executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
+        depth: usize,
+    ) -> Self {
         Self {
             inputs: vec![first_input],
             executor,
@@ -308,8 +333,14 @@ impl InvariantTestRun {
 /// smart contracts with inputs, until it finds a counterexample sequence. The
 /// provided [`TestRunner`] contains all the configuration which can be
 /// overridden via [environment variables](proptest::test_runner::Config)
-pub struct InvariantExecutor<'a> {
-    pub executor: Executor,
+pub struct InvariantExecutor<
+    'a,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
+    pub executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
     /// Proptest runner.
     runner: TestRunner,
     /// The invariant configuration
@@ -323,10 +354,17 @@ pub struct InvariantExecutor<'a> {
     artifact_filters: ArtifactFilters,
 }
 
-impl<'a> InvariantExecutor<'a> {
+impl<
+        'a,
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+    > InvariantExecutor<'a, BlockT, TxT, HardforkT, ChainContextT>
+{
     /// Instantiates a fuzzed executor EVM given a testrunner
     pub fn new(
-        executor: Executor,
+        executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
         runner: TestRunner,
         config: InvariantConfig,
         setup_contracts: &'a ContractsByAddress,
@@ -538,7 +576,10 @@ impl<'a> InvariantExecutor<'a> {
         invariant_contract: &InvariantContract<'_>,
         fuzz_fixtures: &FuzzFixtures,
         deployed_libs: &[Address],
-    ) -> Result<(InvariantTest, impl Strategy<Value = BasicTxDetails>)> {
+    ) -> Result<(
+        InvariantTest<BlockT, TxT, HardforkT>,
+        impl Strategy<Value = BasicTxDetails>,
+    )> {
         // Finds out the chosen deployed contracts and/or senders.
         self.select_contract_artifacts(invariant_contract.address)?;
         let (targeted_senders, targeted_contracts) =
@@ -915,11 +956,11 @@ impl<'a> InvariantExecutor<'a> {
 /// Collects data from call for fuzzing. However, it first verifies that the
 /// sender is not an EOA before inserting it into the dictionary. Otherwise, we
 /// flood the dictionary with randomly generated addresses.
-fn collect_data(
-    invariant_test: &InvariantTest,
-    state_changeset: &mut HashMap<Address, revm::primitives::Account>,
+fn collect_data<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    invariant_test: &InvariantTest<BlockT, TxT, HardforkT>,
+    state_changeset: &mut HashMap<Address, revm::state::Account>,
     tx: &BasicTxDetails,
-    call_result: &RawCallResult,
+    call_result: &RawCallResult<BlockT, TxT, HardforkT>,
     run_depth: u32,
 ) {
     // Verify it has no code.
@@ -956,10 +997,19 @@ fn collect_data(
 /// Calls the `afterInvariant()` function on a contract.
 /// Returns call result and if call succeeded.
 /// The state after the call is not persisted.
-pub(crate) fn call_after_invariant_function(
-    executor: &Executor,
+#[allow(clippy::type_complexity)]
+pub(crate) fn call_after_invariant_function<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
+    executor: &Executor<BlockT, TxT, HardforkT, ChainContextT>,
     to: Address,
-) -> std::result::Result<(RawCallResult, bool), EvmError> {
+) -> std::result::Result<
+    (RawCallResult<BlockT, TxT, HardforkT>, bool),
+    EvmError<BlockT, TxT, HardforkT>,
+> {
     let calldata = Bytes::from_static(&IInvariantTest::afterInvariantCall::SELECTOR);
     let (mut call_result, _backend) = executor.call_raw(CALLER, to, calldata, U256::ZERO)?;
     let success = executor.is_raw_call_mut_success(to, &mut call_result, false);
@@ -967,11 +1017,21 @@ pub(crate) fn call_after_invariant_function(
 }
 
 /// Calls the invariant function and returns call result and if succeeded.
-pub(crate) fn call_invariant_function(
-    executor: &Executor,
+#[allow(clippy::type_complexity)]
+pub(crate) fn call_invariant_function<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
+    executor: &Executor<BlockT, TxT, HardforkT, ChainContextT>,
     address: Address,
     calldata: Bytes,
-) -> Result<(RawCallResult, bool, CowBackend<'_>)> {
+) -> Result<(
+    RawCallResult<BlockT, TxT, HardforkT>,
+    bool,
+    CowBackend<'_, BlockT, TxT, HardforkT, ChainContextT>,
+)> {
     let (mut call_result, backend) = executor.call_raw(CALLER, address, calldata, U256::ZERO)?;
     let success = executor.is_raw_call_mut_success(address, &mut call_result, false);
     Ok((call_result, success, backend))

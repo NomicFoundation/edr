@@ -4,11 +4,11 @@ use edr_eth::HashMap;
 use edr_napi_core::provider::{self, SyncProviderFactory};
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
-    Env, JsObject,
     tokio::{runtime, sync::Mutex as AsyncMutex},
+    Env, JsObject,
 };
 use napi_derive::napi;
-use tracing_subscriber::{EnvFilter, Registry, prelude::*};
+use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
     config::{ProviderConfig, TracingConfigWithBuffers},

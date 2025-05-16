@@ -64,7 +64,7 @@ impl From<edr_solidity::exit_code::ExitCode<edr_eth::l1::HaltReason>> for ExitCo
             ExitCode::Halt(edr_eth::l1::HaltReason::StackUnderflow) => Self::STACK_UNDERFLOW,
             ExitCode::Halt(edr_eth::l1::HaltReason::CreateContractSizeLimit) => Self::CODESIZE_EXCEEDS_MAXIMUM,
             ExitCode::Halt(edr_eth::l1::HaltReason::CreateCollision) => Self::CREATE_COLLISION,
-            ExitCode::Halt(_) => Self::UNKNOWN_HALT_REASON,
+            _ => Self::UNKNOWN_HALT_REASON,
         }
     }
 }

@@ -7,7 +7,7 @@ use alloy_sol_types::SolError;
 use edr_common::errors::FsPathError;
 use foundry_evm_core::backend::{BackendError, DatabaseError};
 use k256::ecdsa::signature::Error as SignatureError;
-use revm::primitives::EVMError;
+use revm::context_interface::result::EVMError;
 
 use crate::Vm;
 

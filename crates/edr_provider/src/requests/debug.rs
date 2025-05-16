@@ -1,4 +1,4 @@
-use edr_eth::{B256, BlockSpec, l1, transaction::TransactionValidation};
+use edr_eth::{l1, transaction::TransactionValidation, BlockSpec, B256};
 use edr_evm::{
     debug_trace::{DebugTraceResult, DebugTraceResultWithTraces},
     state::StateOverrides,
@@ -6,22 +6,22 @@ use edr_evm::{
 use serde::{Deserialize, Deserializer};
 
 use crate::{
-    ProviderError, ProviderResultWithTraces,
     data::ProviderData,
     requests::eth::{resolve_block_spec_for_call_request, resolve_call_request},
     spec::SyncProviderSpec,
     time::TimeSinceEpoch,
+    ProviderError, ProviderResultWithTraces,
 };
 
 pub fn handle_debug_trace_transaction<
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Clone + Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Clone + Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
@@ -51,13 +51,13 @@ pub fn handle_debug_trace_call<ChainSpecT, TimerT>(
 ) -> ProviderResultWithTraces<DebugTraceResult, ChainSpecT>
 where
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 {
     let block_spec = resolve_block_spec_for_call_request(block_spec);

@@ -1,18 +1,14 @@
-
 use alloy_chains::NamedChain;
 use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
-use alloy_primitives::{PrimitiveSignature, Selector, B256};
+use alloy_primitives::{PrimitiveSignature, Selector, TxKind, B256, U256};
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionRequest};
 pub use revm::state::EvmState as StateChangeset;
 use revm::{
     context::{CfgEnv, Evm},
-    context_interface::{Block, JournalTr},
-    handler::{
-        instructions::EthInstructions,
-        EthPrecompiles,
-    },
+    context_interface::JournalTr,
+    handler::{instructions::EthInstructions, EthPrecompiles},
     interpreter::interpreter::EthInterpreter,
     primitives::hardfork::SpecId,
     Context, Database, Inspector, Journal, JournalEntry,
@@ -20,7 +16,7 @@ use revm::{
 
 pub use crate::ic::*;
 use crate::{
-    evm_env::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
     opts::BlockEnvOpts,
 };
 
@@ -77,9 +73,11 @@ pub fn apply_chain_and_block_specific_env_changes<N: Network>(
                 if let Some(l1_block_number) = block
                     .other_fields()
                     .and_then(|other| other.get("l1BlockNumber").cloned())
-                    .and_then(|l1_block_number| l1_block_number.as_u64())
+                    .and_then(|l1_block_number| {
+                        serde_json::from_value::<U256>(l1_block_number).ok()
+                    })
                 {
-                    block_env.number = l1_block_number;
+                    block_env.number = l1_block_number.to();
                 }
             }
             _ => {}
@@ -123,66 +121,65 @@ pub fn is_impersonated_sig(sig: &PrimitiveSignature, ty: u8) -> bool {
 }
 
 /// Configures the env for the given RPC transaction.
-pub fn configure_tx_env<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
-    env: &mut EvmEnv<BlockT, TxT, HardforkT>,
+pub fn configure_tx_env<TxT: TransactionEnvTr>(
+    tx_env: &mut TxT,
     tx: &RpcTransaction<AnyTxEnvelope>,
 ) {
     if let AnyTxEnvelope::Ethereum(tx) = &tx.inner.inner() {
-        configure_tx_req_env(env, &tx.clone().into()).expect("cannot fail");
+        configure_tx_req_env(tx_env, &tx.clone().into()).expect("cannot fail");
     }
 }
 
 /// Configures the env for the given RPC transaction request.
-pub fn configure_tx_req_env<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
-    env: &mut EvmEnv<BlockT, TxT, HardforkT>,
+pub fn configure_tx_req_env<TxT: TransactionEnvTr>(
+    tx_env: &mut TxT,
     tx: &TransactionRequest,
 ) -> eyre::Result<()> {
-    todo!("rpc conversion");
-    // let TransactionRequest {
-    //     nonce,
-    //     from,
-    //     to,
-    //     value,
-    //     gas_price,
-    //     gas,
-    //     max_fee_per_gas,
-    //     max_priority_fee_per_gas,
-    //     max_fee_per_blob_gas,
-    //     ref input,
-    //     chain_id,
-    //     ref blob_versioned_hashes,
-    //     ref access_list,
-    //     transaction_type: _,
-    //     ref authorization_list,
-    //     sidecar: _,
-    // } = *tx;
-    //
-    // // If no `to` field then set create kind: https://eips.ethereum.org/EIPS/eip-2470#deployment-transaction
-    // env.tx.kind = to.unwrap_or(TxKind::Create);
-    // env.tx.caller = from.ok_or_else(|| eyre::eyre!("missing `from` field"))?;
-    // env.tx.gas_limit = gas.ok_or_else(|| eyre::eyre!("missing `gas`
-    // field"))?; env.tx.nonce = nonce.unwrap_or_default();
-    // env.tx.value = value.unwrap_or_default();
-    // env.tx.data = input.input().cloned().unwrap_or_default();
-    // env.tx.chain_id = chain_id;
-    //
-    // // Type 1, EIP-2930
-    // env.tx.access_list = access_list.clone().unwrap_or_default();
-    //
-    // // Type 2, EIP-1559
-    // env.tx.gas_price = gas_price.or(max_fee_per_gas).unwrap_or_default();
-    // env.tx.gas_priority_fee = max_priority_fee_per_gas;
-    //
-    // // Type 3, EIP-4844
-    // env.tx.blob_hashes = blob_versioned_hashes.clone().unwrap_or_default();
-    // env.tx.max_fee_per_blob_gas = max_fee_per_blob_gas.unwrap_or_default();
-    //
-    // // Type 4, EIP-7702
-    // if let Some(authorization_list) = authorization_list {
-    //     env.tx.authorization_list = authorization_list.clone();
-    // }
-    //
-    // Ok(())
+    let TransactionRequest {
+        nonce,
+        from,
+        to,
+        value,
+        gas_price,
+        gas,
+        max_fee_per_gas,
+        max_priority_fee_per_gas,
+        max_fee_per_blob_gas,
+        ref input,
+        chain_id,
+        ref blob_versioned_hashes,
+        ref access_list,
+        transaction_type: _,
+        ref authorization_list,
+        sidecar: _,
+    } = *tx;
+
+    // If no `to` field then set create kind: https://eips.ethereum.org/EIPS/eip-2470#deployment-transaction
+    tx_env.set_transact_to(to.unwrap_or(TxKind::Create));
+    tx_env.set_caller(from.ok_or_else(|| eyre::eyre!("missing `from` field"))?);
+    tx_env.set_gas_limit(gas.ok_or_else(|| eyre::eyre!("missing `gas` field"))?);
+    tx_env.set_nonce(nonce.unwrap_or_default());
+    tx_env.set_value(value.unwrap_or_default());
+    tx_env.set_input(input.input().cloned().unwrap_or_default());
+    tx_env.set_chain_id(chain_id);
+
+    // Type 1, EIP-2930
+    tx_env.set_access_list(access_list.clone().unwrap_or_default());
+
+    // Type 2, EIP-1559
+    tx_env.set_gas_price(gas_price.or(max_fee_per_gas).unwrap_or_default());
+    tx_env.set_gas_priority_fee(max_priority_fee_per_gas);
+
+    // Type 3, EIP-4844
+    tx_env.set_blob_versioned_hashes(blob_versioned_hashes.clone().unwrap_or_default());
+    tx_env.set_max_fee_per_blob_gas(max_fee_per_blob_gas.unwrap_or_default());
+
+    // Type 4, EIP-7702
+    if let Some(authorization_list) = authorization_list {
+        tx_env.set_authorization_list(authorization_list.clone());
+    }
+
+    Ok(())
 }
 
 /// Get the gas used, accounting for refunds
@@ -195,24 +192,29 @@ pub fn gas_used(spec: SpecId, spent: u64, refunded: u64) -> u64 {
     spent - (refunded).min(spent / refund_quotient)
 }
 
+// Type alias to simplify the return type of new_evm_with_inspector
+type EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT> =
+    Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>;
+
 /// Creates a new EVM with the given inspector.
+#[allow(clippy::type_complexity)]
 pub fn new_evm_with_inspector<BlockT, TxT, HardforkT, DatabaseT, ChainContextT, InspectorT>(
     db: DatabaseT,
     env: EvmEnv<BlockT, TxT, HardforkT>,
     inspector: InspectorT,
     chain: ChainContextT,
 ) -> Evm<
-    Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+    EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
     InspectorT,
     EthInstructions<
         EthInterpreter,
-        Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
     >,
     EthPrecompiles,
 >
 where
     InspectorT: Inspector<
-        Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
         EthInterpreter,
     >,
     BlockT: BlockEnvTr,
@@ -235,10 +237,6 @@ where
     Evm::new_with_inspector(
         context,
         inspector,
-        // EthInstructions::<
-        //     EthInterpreter,
-        //     Context<BlockT, TxT, HardforkT, DatabaseT, Journal<DatabaseT>, ChainContextT>,
-        // >::default(),
         EthInstructions::default(),
         EthPrecompiles::default(),
     )
@@ -252,14 +250,13 @@ mod tests {
 
     #[test]
     fn build_evm() {
-        let mut db = EmptyDB::default();
-
         let env = EvmEnv::default_mainnet_with_spec_id(SpecId::default());
+        let mut db = EmptyDB::default();
 
         let mut inspector = NoOpInspector;
 
         let mut evm = new_evm_with_inspector(&mut db, env, &mut inspector, ());
-        let result = evm.transact(Default::default()).unwrap();
+        let result = evm.transact(revm::context::TxEnv::default()).unwrap();
         assert!(result.result.is_success());
     }
 }

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use edr_eth::{Address, Bytes, HashMap, HashSet};
 use revm::interpreter::{Gas, InstructionResult, InterpreterResult};
 pub use revm::precompile::{
-    PrecompileError, PrecompileFn, PrecompileSpecId, Precompiles, u64_to_address,
+    u64_to_address, PrecompileError, PrecompileFn, PrecompileSpecId, Precompiles,
 };
 pub use revm_handler::{EthPrecompiles, PrecompileProvider};
 
@@ -25,9 +25,9 @@ pub struct OverriddenPrecompileProvider<
 }
 
 impl<
-    BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
-    ContextT: ContextTrait,
-> OverriddenPrecompileProvider<BaseProviderT, ContextT>
+        BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
+        ContextT: ContextTrait,
+    > OverriddenPrecompileProvider<BaseProviderT, ContextT>
 {
     /// Creates a new custom precompile provider.
     pub fn new(base: BaseProviderT) -> Self {
@@ -61,9 +61,9 @@ impl<
 }
 
 impl<
-    BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
-    ContextT: ContextTrait,
-> PrecompileProvider<ContextT> for OverriddenPrecompileProvider<BaseProviderT, ContextT>
+        BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
+        ContextT: ContextTrait,
+    > PrecompileProvider<ContextT> for OverriddenPrecompileProvider<BaseProviderT, ContextT>
 {
     type Output = InterpreterResult;
 

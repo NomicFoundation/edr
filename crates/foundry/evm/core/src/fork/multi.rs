@@ -28,7 +28,7 @@ use futures::{
 
 use super::CreateFork;
 use crate::{
-    evm_env::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
     fork::provider::{ProviderBuilder, RetryProvider},
 };
 
@@ -89,7 +89,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         let _shutdown = Arc::new(ShutDownMultiFork {
             handler: Some(handler.clone()),
         });
-        let _phantom = PhantomData::default();
+        let _phantom = PhantomData;
         (
             Self {
                 handler,

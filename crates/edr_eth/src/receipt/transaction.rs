@@ -2,10 +2,11 @@ use alloy_rlp::BufMut;
 
 use super::{AsExecutionReceipt, ExecutionReceipt, MapReceiptLogs};
 use crate::{
-    Address, B256, Bloom, l1,
+    l1,
     result::{ExecutionResult, Output},
     spec::HaltReasonTrait,
     transaction::{ExecutableTransaction, TransactionType},
+    Address, Bloom, B256,
 };
 
 /// Type for a receipt that's created when processing a transaction.

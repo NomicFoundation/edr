@@ -7,7 +7,6 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 mod account;
 mod block;
-mod serde;
 /// Types for overriding a call.
 pub mod call_override;
 /// Types for casting N-API types to Rust types.
@@ -30,6 +29,7 @@ pub mod result;
 /// Types relating to benchmark scenarios.
 #[cfg(feature = "scenarios")]
 pub mod scenarios;
+mod serde;
 /// Solidity test runner.
 pub mod solidity_tests;
 /// Types for subscribing to events.

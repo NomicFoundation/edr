@@ -19,13 +19,13 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    ExecutableTransaction, INVALID_TX_TYPE_ERROR_MESSAGE, IsEip155, IsEip4844, IsLegacy,
-    IsSupported, Signed, SignedTransaction, TransactionMut, TransactionType, TransactionValidation,
-    TxKind,
+    ExecutableTransaction, IsEip155, IsEip4844, IsLegacy, IsSupported, Signed, SignedTransaction,
+    TransactionMut, TransactionType, TransactionValidation, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
-    Address, B256, Bytes, U256, eips, impl_revm_transaction_trait, l1,
+    eips, impl_revm_transaction_trait, l1,
     signature::{Fakeable, Signature, SignatureError},
+    Address, Bytes, B256, U256,
 };
 
 /// Trait for signing a transaction request with a fake signature.
@@ -477,10 +477,9 @@ mod tests {
 
     use super::*;
     use crate::{
-        Bytes,
         eips::eip7702,
         signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
-        transaction,
+        transaction, Bytes,
     };
 
     #[test]

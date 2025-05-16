@@ -2,16 +2,16 @@ use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
 use edr_eth::{
-    B256, U256, block::Header, transaction::ExecutableTransaction as _, withdrawal::Withdrawal,
+    block::Header, transaction::ExecutableTransaction as _, withdrawal::Withdrawal, B256, U256,
 };
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 
 use crate::{
-    Block, EthBlockData,
     block::BlockReceipts,
     blockchain::{BlockchainErrorForChainSpec, ForkedBlockchainError},
     spec::RuntimeSpec,
+    Block, EthBlockData,
 };
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.

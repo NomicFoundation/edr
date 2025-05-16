@@ -1,9 +1,9 @@
 use alloy_rlp::Buf as _;
 
 use crate::{
-    Bloom,
     receipt::{self, ExecutionReceipt, MapReceiptLogs},
     transaction::{self, TransactionType},
+    Bloom,
 };
 
 /// An compile-time typed EIP-2718 envelope for L1 Ethereum.

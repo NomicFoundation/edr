@@ -3,7 +3,7 @@
 
 use std::convert::Infallible;
 
-use edr_eth::{U256, hex};
+use edr_eth::{hex, U256};
 use napi::bindgen_prelude::{BigInt, Either24, FromNapiValue, ToNapiValue, Uint8Array, Undefined};
 use napi_derive::napi;
 use serde::{Serialize, Serializer};

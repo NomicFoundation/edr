@@ -1,9 +1,10 @@
 use edr_eth::{
-    Address, HashMap, l1,
+    l1,
     result::{ExecutionResult, ExecutionResultAndState},
     transaction::TransactionValidation,
+    Address, HashMap,
 };
-use revm::{ExecuteEvm, InspectEvm, Inspector, Journal, precompile::PrecompileFn};
+use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
 use revm_context::JournalTr as _;
 
 use crate::{

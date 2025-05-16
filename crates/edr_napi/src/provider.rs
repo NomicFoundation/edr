@@ -5,9 +5,7 @@ mod response;
 use std::{fmt::Formatter, sync::Arc};
 
 use edr_napi_core::provider::SyncProvider;
-use edr_provider::{time::CurrentTime, InvalidRequestReason};
-use edr_rpc_eth::jsonrpc;
-use edr_solidity::contract_decoder::{ContractDecoder, NestedTraceDecoder};
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
     bindgen_prelude::Uint8Array, tokio::runtime, Either, Env, JsFunction, JsObject, Status,
 };
@@ -99,8 +97,10 @@ impl Provider {
     /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
     /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
     /// `false` to disable this.
-    #[napi(ts_return_type = "void")]
-    pub fn set_verbose_tracing(&self, verbose_tracing: bool) {
+    #[napi]
+    pub async fn set_verbose_tracing(&self, verbose_tracing: bool) -> napi::Result<()> {
+        let provider = self.provider.clone();
+
         self.runtime
             .spawn_blocking(move || {
                 provider.set_verbose_tracing(verbose_tracing);
@@ -182,65 +182,6 @@ impl<'a> From<&'a TracingConfigWithBuffers>
         Self {
             build_infos,
             ignore_contracts: value.ignore_contracts,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct SolidityTraceData {
-    trace: Arc<edr_evm::trace::Trace>,
-    contract_decoder: Arc<ContractDecoder>,
-}
-
-#[napi]
-pub struct Response {
-    // N-API is known to be slow when marshalling `serde_json::Value`s, so we try to return a
-    // `String`. If the object is too large to be represented as a `String`, we return a `Buffer`
-    // instead.
-    data: Either<String, serde_json::Value>,
-    /// When a transaction fails to execute, the provider returns a trace of the
-    /// transaction.
-    solidity_trace: Option<SolidityTraceData>,
-    /// This may contain zero or more traces, depending on the (batch) request
-    traces: Vec<Arc<edr_evm::trace::Trace>>,
-}
-
-#[napi]
-impl Response {
-    /// Returns the response data as a JSON string or a JSON object.
-    #[napi(getter)]
-    pub fn data(&self) -> Either<String, serde_json::Value> {
-        self.data.clone()
-    }
-
-    #[napi(getter)]
-    pub fn traces(&self) -> Vec<RawTrace> {
-        self.traces
-            .iter()
-            .map(|trace| RawTrace::new(trace.clone()))
-            .collect()
-    }
-
-    // Rust port of https://github.com/NomicFoundation/hardhat/blob/c20bf195a6efdc2d74e778b7a4a7799aac224841/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L590
-    #[doc = "Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace."]
-    #[napi]
-    pub async fn set_verbose_tracing(&self, verbose_tracing: bool) -> napi::Result<()> {
-        let provider = self.provider.clone();
-
-        if let Some(nested_trace) = nested_trace {
-            let decoded_trace = contract_decoder
-                .try_to_decode_nested_trace(nested_trace)
-                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
-            let stack_trace = edr_solidity::solidity_tracer::get_stack_trace(decoded_trace)
-                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
-            let stack_trace = stack_trace
-                .into_iter()
-                .map(super::cast::TryCast::try_cast)
-                .collect::<Result<Vec<_>, _>>()?;
-
-            Ok(Some(stack_trace))
-        } else {
-            Ok(None)
         }
     }
 }

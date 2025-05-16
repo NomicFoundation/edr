@@ -9,16 +9,20 @@ use eyre::Result;
 use foundry_evm::{
     contracts::ContractsByArtifact,
     decode::RevertDecoder,
+    evm_context::EvmEnv,
     executors::ExecutorBuilder,
     fork::CreateFork,
     inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
     opts::EvmOpts,
-    revm,
 };
 use futures::StreamExt;
 
 use crate::{
     result::SuiteResult,
+    revm::{
+        context::{result::HaltReason, BlockEnv, TxEnv},
+        primitives::hardfork::SpecId,
+    },
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestOptions,
@@ -52,13 +56,13 @@ pub struct MultiContractRunner<NestedTraceDecoderT> {
     /// Cheats config.
     cheats_config_options: Arc<CheatsConfigOptions>,
     /// The EVM instance used in the test runner
-    evm_opts: EvmOpts,
+    evm_opts: EvmOpts<BlockEnv, TxEnv, SpecId>,
     /// The configured evm
-    env: revm::primitives::Env,
+    env: EvmEnv<BlockEnv, TxEnv, SpecId>,
     /// Revert decoder. Contains all known errors and their selectors.
     revert_decoder: RevertDecoder,
     /// The fork to use at launch
-    fork: Option<CreateFork>,
+    fork: Option<CreateFork<BlockEnv, TxEnv, SpecId>>,
     /// Whether to collect coverage info
     coverage: bool,
     /// Whether to collect traces
@@ -71,7 +75,9 @@ pub struct MultiContractRunner<NestedTraceDecoderT> {
     test_options: TestOptions,
 }
 
-impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTraceDecoderT> {
+impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
+    MultiContractRunner<NestedTraceDecoderT>
+{
     /// Creates a new multi contract runner.
     pub async fn new(
         config: SolidityTestRunnerConfig,
@@ -231,7 +237,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
         &self,
         artifact_id: &ArtifactId,
         contract: &TestContract,
-        fork: Option<CreateFork>,
+        fork: Option<CreateFork<BlockEnv, TxEnv, SpecId>>,
         filter: &dyn TestFilter,
         handle: &tokio::runtime::Handle,
     ) -> SuiteResult {
@@ -246,7 +252,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             Some(artifact_id.version.clone()),
         );
 
-        let executor_builder = ExecutorBuilder::new()
+        let executor_builder = ExecutorBuilder::<BlockEnv, TxEnv, SpecId, ()>::new()
             .env(self.env.clone())
             .fork(fork)
             .gas_limit(self.evm_opts.gas_limit())

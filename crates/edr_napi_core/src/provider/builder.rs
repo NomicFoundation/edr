@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
-use edr_provider::{SyncLogger, time::CurrentTime};
+use edr_provider::{time::CurrentTime, SyncLogger};
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::tokio::runtime;
 

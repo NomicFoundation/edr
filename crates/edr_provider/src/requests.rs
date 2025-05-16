@@ -12,8 +12,8 @@ pub mod validation;
 use std::{fmt, marker::PhantomData};
 
 use ::serde::{
-    Deserialize, Deserializer, Serialize,
     de::{self, MapAccess, SeqAccess, Visitor},
+    Deserialize, Deserializer, Serialize,
 };
 use derive_where::derive_where;
 use edr_rpc_eth::spec::RpcSpec;

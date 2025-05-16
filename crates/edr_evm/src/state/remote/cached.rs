@@ -1,9 +1,9 @@
 use derive_where::derive_where;
-use edr_eth::{Address, B256, Bytecode, HashMap, U256, account::AccountInfo, hash_map::Entry};
+use edr_eth::{account::AccountInfo, hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
 use edr_rpc_eth::spec::RpcSpec;
 
 use super::RemoteState;
-use crate::state::{State, StateError, StateMut, account::EdrAccount};
+use crate::state::{account::EdrAccount, State, StateError, StateMut};
 
 /// A cached version of [`RemoteState`].
 #[derive_where(Debug)]

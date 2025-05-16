@@ -7,7 +7,7 @@
     "@nomicfoundation/hardhat-utils": "3.0.0-next.0"
   },
   "devDependencies": {
-    "@ignored/edr": "workspace:*",
+    "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
     "@types/argparse": "^2.0.16",
     "@types/lodash": "^4.14.123",

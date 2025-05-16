@@ -67,10 +67,7 @@ pub fn safe_block_depth(chain_id: u64) -> u64 {
         // Gnosis/xDai
         100 => 38,
         _ => {
-            log::warn!(
-                "Unknown chain id {chain_id}, using default safe block depth of {}",
-                DEFAULT_SAFE_BLOCK_DEPTH,
-            );
+            log::warn!("Unknown chain id {chain_id}, using default safe block depth of {DEFAULT_SAFE_BLOCK_DEPTH}");
             DEFAULT_SAFE_BLOCK_DEPTH
         }
     }
@@ -88,7 +85,7 @@ pub fn block_time(chain_id: u64) -> Duration {
         _ => {
             log::warn!(
                 "Unknown chain id {chain_id}, using default block time of {} seconds",
-                DEFAULT_SAFE_BLOCK_TIME.as_secs(),
+                DEFAULT_SAFE_BLOCK_TIME.as_secs()
             );
             DEFAULT_SAFE_BLOCK_TIME
         }

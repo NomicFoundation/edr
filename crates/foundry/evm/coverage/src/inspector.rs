@@ -1,12 +1,15 @@
 use std::ptr::NonNull;
 
 use alloy_primitives::B256;
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+};
 use revm::{
     bytecode::Bytecode,
-    context::ContextTr,
-    inspector::JournalExt,
+    context::{CfgEnv, Context as EvmContext},
     interpreter::{interpreter_types::Jumps, Interpreter},
-    Inspector,
+    Inspector, Journal,
 };
 
 use crate::{HitMap, HitMaps};
@@ -37,17 +40,46 @@ impl Default for CoverageCollector {
     }
 }
 
-impl<CTX: Inspector<CTX>> Inspector<CTX> for CoverageCollector
-where
-    CTX: ContextTr<Journal: JournalExt>,
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >
+    Inspector<
+        EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+    > for CoverageCollector
 {
-    fn initialize_interp(&mut self, interpreter: &mut Interpreter, _context: &mut CTX) {
+    fn initialize_interp(
+        &mut self,
+        interpreter: &mut Interpreter,
+        _context: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
         get_or_insert_contract_hash(interpreter);
         self.insert_map(interpreter);
     }
 
     #[inline]
-    fn step(&mut self, interpreter: &mut Interpreter, _context: &mut CTX) {
+    fn step(
+        &mut self,
+        interpreter: &mut Interpreter,
+        _context: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
         let map = self.get_or_insert_map(interpreter);
         map.hit(interpreter.bytecode.pc() as u32);
     }
