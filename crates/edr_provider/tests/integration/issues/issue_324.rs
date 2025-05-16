@@ -5,7 +5,7 @@ use edr_eth::{
     l1::{self, L1ChainSpec},
 };
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, hardhat_rpc_types::ForkConfig,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::create_test_config_with_fork, time::CurrentTime,
 };
 use edr_rpc_eth::CallRequest;

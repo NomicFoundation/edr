@@ -1,14 +1,11 @@
-use std::{num::NonZeroU64, time::SystemTime};
+use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{Address, B256, Bytecode, ChainId, HashMap, U256, block::BlobGas};
 use edr_evm::{MineOrdering, hardfork::ChainConfig, precompile::PrecompileFn, state::EvmStorage};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    observability,
-    requests::{IntervalConfig as IntervalConfigRequest, hardhat::rpc_types::ForkConfig},
-};
+use crate::{observability, requests::IntervalConfig as IntervalConfigRequest};
 
 /// Configuration of an account and its storage.
 ///
@@ -24,6 +21,16 @@ pub struct AccountOverride {
     pub code: Option<Bytecode>,
     /// If present, the overwriting storage
     pub storage: Option<EvmStorage>,
+}
+
+/// Configuration for forking a blockchain
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Fork {
+    pub block_number: Option<u64>,
+    pub cache_dir: PathBuf,
+    pub http_headers: Option<std::collections::HashMap<String, String>>,
+    pub url: String,
 }
 
 /// Configuration for interval mining.
@@ -103,7 +110,7 @@ pub struct Provider<HardforkT> {
     pub chain_id: ChainId,
     pub chains: HashMap<ChainId, ChainConfig<HardforkT>>,
     pub coinbase: Address,
-    pub fork: Option<ForkConfig>,
+    pub fork: Option<Fork>,
     pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: HardforkT,
     pub initial_base_fee_per_gas: Option<u128>,

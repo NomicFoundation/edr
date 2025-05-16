@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use edr_eth::l1::L1ChainSpec;
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, hardhat_rpc_types::ForkConfig,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::create_test_config_with_fork, time::CurrentTime,
 };
 use edr_solidity::contract_decoder::ContractDecoder;

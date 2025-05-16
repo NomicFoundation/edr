@@ -181,7 +181,7 @@ pub struct ProviderConfig {
     pub precompile_overrides: Vec<Reference<Precompile>>,
 }
 
-impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
+impl TryFrom<ForkConfig> for edr_provider::ForkConfig {
     type Error = napi::Error;
 
     fn try_from(value: ForkConfig) -> Result<Self, Self::Error> {

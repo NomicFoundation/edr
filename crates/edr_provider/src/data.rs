@@ -85,7 +85,7 @@ use crate::{
     mock::SyncCallOverride,
     observability::{self, RuntimeObserver},
     pending::BlockchainWithPending,
-    requests::hardhat::rpc_types::{ForkConfig, ForkMetadata},
+    requests::hardhat::rpc_types::{ForkMetadata, ResetForkConfig},
     snapshot::Snapshot,
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
@@ -839,10 +839,13 @@ where
     /// [`ForkConfig`].
     pub fn reset(
         &mut self,
-        fork_config: Option<ForkConfig>,
+        fork_config: Option<ResetForkConfig>,
     ) -> Result<(), CreationErrorForChainSpec<ChainSpecT>> {
         let mut config = self.initial_config.clone();
-        config.fork = fork_config;
+        config.fork = fork_config.map(|fork_config| {
+            let cache_dir = config.fork.map(|fork_config| fork_config.cache_dir);
+            fork_config.resolve(cache_dir)
+        });
 
         let mut reset_instance = Self::new(
             self.runtime_handle.clone(),
@@ -3906,16 +3909,15 @@ mod tests {
         use edr_test_utils::env::get_alchemy_url;
 
         use super::*;
-        use crate::test_utils::FORK_BLOCK_NUMBER;
+        use crate::{ForkConfig, test_utils::FORK_BLOCK_NUMBER};
 
         #[test]
         fn reset_local_to_forking() -> anyhow::Result<()> {
             let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
-            let fork_config = Some(ForkConfig {
+            let fork_config = Some(ResetForkConfig {
                 // Random recent block for better cache consistency
                 block_number: Some(FORK_BLOCK_NUMBER),
-                cache_dir: edr_defaults::CACHE_DIR.into(),
                 http_headers: None,
                 url: get_alchemy_url(),
             });

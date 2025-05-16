@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use edr_eth::{Address, B256, ChainId, HashMap, block::BlobGas};
 use edr_evm::hardfork::ChainConfig;
 use edr_napi_core::provider::Config as ProviderConfig;
-use edr_provider::{AccountOverride, MiningConfig, hardhat_rpc_types::ForkConfig};
+use edr_provider::{AccountOverride, ForkConfig, MiningConfig};
 use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_str};
 use serde::{Deserialize, Serialize};
 

@@ -18,11 +18,10 @@ use k256::SecretKey;
 use tokio::runtime;
 
 use crate::{
-    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData,
-    ProviderRequest, ProviderSpec, SyncProviderSpec, config,
+    AccountOverride, ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig,
+    ProviderData, ProviderRequest, ProviderSpec, SyncProviderSpec, config,
     error::ProviderErrorForChainSpec,
     observability,
-    requests::hardhat::rpc_types::ForkConfig,
     time::{CurrentTime, TimeSinceEpoch},
 };
 

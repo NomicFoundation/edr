@@ -11,7 +11,7 @@ use edr_evm::{
     hardfork::{self, ChainConfig},
     precompile::PrecompileFn,
 };
-use edr_provider::{AccountOverride, config, hardhat_rpc_types::ForkConfig};
+use edr_provider::{AccountOverride, ForkConfig, config};
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]

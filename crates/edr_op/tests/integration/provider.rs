@@ -5,8 +5,7 @@ use std::sync::Arc;
 use edr_eth::{Address, BlockSpec, U64, address, bytes};
 use edr_op::OpChainSpec;
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
-    hardhat_rpc_types::ForkConfig,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::{ProviderTestFixture, create_test_config_with_fork},
     time::CurrentTime,
 };
