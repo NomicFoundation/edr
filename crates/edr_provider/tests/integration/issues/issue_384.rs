@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use edr_eth::l1::L1ChainSpec;
+use edr_eth::{HashMap, l1::L1ChainSpec};
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, hardhat_rpc_types::ForkConfig,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::create_test_config_with_fork, time::CurrentTime,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -17,9 +17,11 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_infura_url().replace("mainnet", "avalanche-mainnet"),
         block_number: Some(BLOCK_NUMBER),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
+        url: get_infura_url().replace("mainnet", "avalanche-mainnet"),
     }));
 
     let provider = Provider::new(

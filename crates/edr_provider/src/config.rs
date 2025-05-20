@@ -1,37 +1,45 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
-use edr_eth::{Address, B256, ChainId, HashMap, U256, account::AccountInfo, block::BlobGas};
-use edr_evm::{MineOrdering, hardfork::ChainConfig, state::EvmStorage};
+use edr_eth::{Address, B256, Bytecode, ChainId, HashMap, U256, block::BlobGas};
+use edr_evm::{MineOrdering, hardfork::ChainOverride, precompile::PrecompileFn, state::EvmStorage};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    observability,
-    requests::{IntervalConfig as IntervalConfigRequest, hardhat::rpc_types::ForkConfig},
-};
+use crate::{observability, requests::IntervalConfig as IntervalConfigRequest};
 
-/// Configuration of an account and its storage.
+/// Specification of overrides for an account and its storage.
 ///
-/// Similar to `edr_eth::Account` but without the `status` field.
+/// Similar to `edr_eth::Account` but without the `status` field and optional
+/// fields.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-pub struct Account {
-    /// Balance, nonce, and code.
-    pub info: AccountInfo,
-    /// Storage cache
-    pub storage: EvmStorage,
+#[serde(rename_all = "camelCase")]
+pub struct AccountOverride {
+    /// If present, the overwriting balance.
+    pub balance: Option<U256>,
+    /// If present, the overwriting nonce.
+    pub nonce: Option<u64>,
+    /// If present, the overwriting code.
+    pub code: Option<Bytecode>,
+    // TODO: Add support for this field
+    // TODO: https://github.com/NomicFoundation/edr/issues/911
+    /// If present, the overwriting storage
+    pub storage: Option<EvmStorage>,
 }
 
-impl From<AccountInfo> for Account {
-    fn from(info: AccountInfo) -> Self {
-        Self {
-            info,
-            storage: HashMap::new(),
-        }
-    }
+/// Configuration for forking a blockchain
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Fork<HardforkT> {
+    pub block_number: Option<u64>,
+    pub cache_dir: PathBuf,
+    pub chain_overrides: HashMap<ChainId, ChainOverride<HardforkT>>,
+    pub http_headers: Option<std::collections::HashMap<String, String>>,
+    pub url: String,
 }
 
 /// Configuration for interval mining.
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all_fields = "camelCase")]
 pub enum Interval {
     Fixed(NonZeroU64),
     Range { min: u64, max: u64 },
@@ -79,12 +87,14 @@ impl TryInto<Option<Interval>> for IntervalConfigRequest {
 
 /// Configuration for the provider's mempool.
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MemPool {
     pub order: MineOrdering,
 }
 
 /// Configuration for the provider's miner.
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Mining {
     pub auto_mine: bool,
     pub interval: Option<Interval>,
@@ -96,19 +106,15 @@ pub struct Mining {
 pub struct Provider<HardforkT> {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
-    pub accounts: Vec<OwnedAccount>,
     /// Whether to return an `Err` when `eth_call` fails
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
-    pub cache_dir: PathBuf,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, ChainConfig<HardforkT>>,
     pub coinbase: Address,
-    pub enable_rip_7212: bool,
-    pub fork: Option<ForkConfig>,
-    pub genesis_state: HashMap<Address, Account>,
+    pub fork: Option<Fork<HardforkT>>,
+    pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: HardforkT,
     pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
@@ -118,15 +124,8 @@ pub struct Provider<HardforkT> {
     pub mining: Mining,
     pub network_id: u64,
     pub observability: observability::Config,
-}
-
-/// Configuration input for a single account
-#[derive(Clone, Debug)]
-pub struct OwnedAccount {
-    /// the secret key of the account
-    pub secret_key: k256::SecretKey,
-    /// the balance of the account
-    pub balance: U256,
+    pub owned_accounts: Vec<k256::SecretKey>,
+    pub precompile_overrides: HashMap<Address, PrecompileFn>,
 }
 
 impl Default for MemPool {

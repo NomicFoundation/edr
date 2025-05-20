@@ -9,8 +9,7 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
-use edr_eth::{B256, U256, receipt::ReceiptTrait, transaction::ExecutableTransaction};
-use revm::primitives::HashMap;
+use edr_eth::{B256, HashMap, U256, receipt::ReceiptTrait, transaction::ExecutableTransaction};
 
 use super::InsertError;
 use crate::{Block, EmptyBlock, LocalBlock};

@@ -1,8 +1,8 @@
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_eth::{B256, l1::L1ChainSpec};
+use edr_eth::{B256, HashMap, l1::L1ChainSpec};
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, hardhat_rpc_types::ForkConfig,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::create_test_config_with_fork, time::CurrentTime,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -16,9 +16,11 @@ async fn issue_533() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url(),
         block_number: Some(20_384_300),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
+        url: get_alchemy_url(),
     }));
 
     // The default chain id set by Hardhat

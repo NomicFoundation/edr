@@ -28,6 +28,7 @@ revm-context-interface = { version = "2.0.0", default-features = false }
 revm-database-interface = { version = "2.0.0", default-features = false }
 revm-handler = { version = "2.0.0", default-features = false }
 revm-interpreter = { version = "17.0.0", default-features = false }
+revm-precompile = { version = "18.0.0", default-features = false, features = ["blst", "c-kzg", "secp256r1", "std"] }
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde = { workspace = true, features = ["std"] }
 serde_json = { version = "1.0.127", default-features = false, features = ["std"] }

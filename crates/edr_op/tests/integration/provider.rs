@@ -2,11 +2,10 @@
 
 use std::sync::Arc;
 
-use edr_eth::{Address, BlockSpec, U64, address, bytes};
+use edr_eth::{Address, BlockSpec, HashMap, U64, address, bytes};
 use edr_op::OpChainSpec;
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
-    hardhat_rpc_types::ForkConfig,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::{ProviderTestFixture, create_test_config_with_fork},
     time::CurrentTime,
 };
@@ -25,9 +24,11 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: op::sepolia_url(),
         block_number: None,
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
+        url: op::sepolia_url(),
     }));
 
     // Set a different chain ID than the forked chain ID

@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "author": "",
   "devDependencies": {
+    "@ethereumjs/util": "^9.1.0",
     "@types/argparse": "^2.0.16",
     "@types/chai": "^4.2.0",
     "@types/lodash": "^4.14.123",

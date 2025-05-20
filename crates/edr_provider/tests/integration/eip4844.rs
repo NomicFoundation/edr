@@ -4,14 +4,13 @@ use std::{str::FromStr, sync::Arc};
 
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
-    Address, B256, Blob, Bytes, KECCAK_EMPTY, PreEip1898BlockSpec, U256,
-    account::AccountInfo,
+    Address, B256, Blob, Bytes, PreEip1898BlockSpec, U256,
     eips::eip4844::{self, GAS_PER_BLOB},
     l1::{self, L1ChainSpec},
     transaction::{self, ExecutableTransaction as _, TransactionType as _},
 };
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
+    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
 };
@@ -195,13 +194,10 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
 
     config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,
-        AccountInfo {
-            balance: one_ether(),
-            nonce: 0,
-            code: None,
-            code_hash: KECCAK_EMPTY,
-        }
-        .into(),
+        AccountOverride {
+            balance: Some(one_ether()),
+            ..AccountOverride::default()
+        },
     );
 
     let provider = Provider::new(
@@ -236,13 +232,10 @@ async fn get_transaction() -> anyhow::Result<()> {
 
     config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,
-        AccountInfo {
-            balance: one_ether(),
-            nonce: 0,
-            code: None,
-            code_hash: KECCAK_EMPTY,
-        }
-        .into(),
+        AccountOverride {
+            balance: Some(one_ether()),
+            ..AccountOverride::default()
+        },
     );
 
     let provider = Provider::new(
@@ -286,13 +279,10 @@ async fn block_header() -> anyhow::Result<()> {
 
     config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,
-        AccountInfo {
-            balance: one_ether(),
-            nonce: 0,
-            code: None,
-            code_hash: KECCAK_EMPTY,
-        }
-        .into(),
+        AccountOverride {
+            balance: Some(one_ether()),
+            ..AccountOverride::default()
+        },
     );
 
     let provider = Provider::new(
@@ -474,13 +464,10 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
     let caller = secret_key_to_address(SECRET_KEYS[0])?;
     config.genesis_state.insert(
         caller,
-        AccountInfo {
-            balance: one_ether(),
-            nonce: 0,
-            code: None,
-            code_hash: KECCAK_EMPTY,
-        }
-        .into(),
+        AccountOverride {
+            balance: Some(one_ether()),
+            ..AccountOverride::default()
+        },
     );
 
     let provider = Provider::new(

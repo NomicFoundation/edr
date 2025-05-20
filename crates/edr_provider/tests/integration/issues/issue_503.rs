@@ -1,11 +1,11 @@
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_eth::{
-    Address, U256,
+    Address, HashMap, U256,
     l1::{self, L1ChainSpec},
 };
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, hardhat_rpc_types::ForkConfig,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::create_test_config_with_fork, time::CurrentTime,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -19,9 +19,11 @@ async fn issue_503() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url(),
         block_number: Some(19_909_475),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
+        url: get_alchemy_url(),
     }));
     config.hardfork = l1::SpecId::CANCUN;
 

@@ -29,7 +29,7 @@ pub async fn scenario_file(
         let config = ScenarioConfig {
             chain_type: Some(chain_type),
             logger_enabled,
-            provider_config: provider_config.into(),
+            provider_config: provider_config.try_into()?,
         };
         let mut line = serde_json::to_string(&config)?;
         line.push('\n');
