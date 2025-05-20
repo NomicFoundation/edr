@@ -7,9 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{observability, requests::IntervalConfig as IntervalConfigRequest};
 
-/// Configuration of an account and its storage.
+/// Specification of overrides for an account and its storage.
 ///
-/// Similar to `edr_eth::Account` but without the `status` field.
+/// Similar to `edr_eth::Account` but without the `status` field and optional
+/// fields.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountOverride {
