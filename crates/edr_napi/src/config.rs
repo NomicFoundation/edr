@@ -11,7 +11,7 @@ use edr_eth::{
 };
 use edr_provider::coverage::SyncOnCollectedCoverageCallback;
 use napi::{
-    Either, JsFunction, JsString,
+    Either, JsFunction, JsString, JsStringUtf8,
     bindgen_prelude::{BigInt, Reference, Uint8Array},
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
@@ -409,6 +409,7 @@ impl ProviderConfig {
                 use edr_eth::signature::DangerousSecretKeyStr;
 
                 static_assertions::assert_not_impl_all!(JsString: Debug, Display, serde::Serialize);
+                static_assertions::assert_not_impl_all!(JsStringUtf8: Debug, Display, serde::Serialize);
                 // `SecretKey` has `Debug` implementation, but it's opaque (only shows the
                 // type name)
                 static_assertions::assert_not_impl_any!(SecretKey: Display, serde::Serialize);
