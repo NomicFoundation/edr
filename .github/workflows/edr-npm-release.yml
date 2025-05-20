@@ -10,9 +10,12 @@ permissions:
   id-token: write
 on:
   push:
+    # pre-releases will be triggered in any of these branches
+    # production releases will only be triggered for `main`
     branches:
       - main
       - prerelease
+      - release/optimism
     tags-ignore:
       - "**"
     paths-ignore:
@@ -399,7 +402,7 @@ jobs:
         run: |
           if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
           then
-            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/prerelease" ]; then
+            if [ "${{ github.event_name }}" = "push" ]; then
               echo "Publishing pre-release"
               echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
               pnpm publish --no-git-checks --provenance --tag next --access public
@@ -420,4 +423,4 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NOMICFOUNDATION_ORG_NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.IGNORED_ORG_NPM_TOKEN }}
