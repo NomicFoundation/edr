@@ -20,6 +20,8 @@ pub struct AccountOverride {
     pub nonce: Option<u64>,
     /// If present, the overwriting code.
     pub code: Option<Bytecode>,
+    // TODO: Add support for this field
+    // TODO: https://github.com/NomicFoundation/edr/issues/911
     /// If present, the overwriting storage
     pub storage: Option<EvmStorage>,
 }

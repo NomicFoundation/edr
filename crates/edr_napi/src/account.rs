@@ -1,7 +1,7 @@
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
-/// Specification of account state that should be overridden.
+/// Specification of overrides for an account and its storage.
 #[napi(object)]
 pub struct AccountOverride {
     /// The account's address
@@ -12,6 +12,8 @@ pub struct AccountOverride {
     pub nonce: Option<BigInt>,
     /// If present, the overwriting code.
     pub code: Option<Uint8Array>,
+    /// BEWARE: This field is not supported yet. See <https://github.com/NomicFoundation/edr/issues/911>
+    ///
     /// If present, the overwriting storage.
     pub storage: Option<Vec<StorageSlot>>,
 }

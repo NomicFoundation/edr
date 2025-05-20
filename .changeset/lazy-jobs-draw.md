@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": minor
 ---
 
-Removed ContractAndFunctionName
+Removed unused type definitions from API

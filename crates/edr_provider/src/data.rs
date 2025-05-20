@@ -2741,16 +2741,23 @@ fn create_blockchain_and_state<
                         code,
                     };
 
+                    // TODO: Add support for overriding the storage
+                    // TODO: https://github.com/NomicFoundation/edr/issues/911
+                    if account_override.storage.is_some() {
+                        return Err(ForkedCreationError::StorageOverridesUnsupported);
+                    }
+
                     let account = Account {
                         info,
-                        // TODO: Prevent overriding of the storage
-                        storage: account_override.storage.clone().unwrap_or(HashMap::new()),
+                        // TODO: Add support for overriding the storage
+                        // TODO: https://github.com/NomicFoundation/edr/issues/911
+                        storage: HashMap::new(),
                         status: AccountStatus::Created | AccountStatus::Touched,
                     };
 
-                    (*address, account)
+                    Ok((*address, account))
                 })
-                .collect();
+                .collect::<Result<_, _>>()?;
 
             irregular_state
                 .state_override_at_block_number(fork_block_number)

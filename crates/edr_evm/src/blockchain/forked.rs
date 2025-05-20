@@ -70,6 +70,11 @@ pub enum CreationError<HardforkT> {
         /// Detected hardfork
         hardfork: HardforkT,
     },
+    /// Unsupported storage overrides
+    #[error(
+        "Storage overrides are not supported for forked blocks yet. See https://github.com/NomicFoundation/edr/issues/911"
+    )]
+    StorageOverridesUnsupported,
 }
 
 /// Helper type for a chain-specific [`ForkedBlockchainError`].

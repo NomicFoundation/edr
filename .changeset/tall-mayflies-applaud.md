@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": minor
 ---
 
-Renamed ForkConfig::jsonRpcUrl to ForkConfig::url
+Moved (and renamed) fork-specific configuration options from `ProviderConfig` to `ForkConfig`
