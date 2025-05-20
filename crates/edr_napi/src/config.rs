@@ -61,7 +61,7 @@ pub struct ForkConfig {
     /// The directory to cache remote JSON-RPC responses
     pub cache_dir: Option<String>,
     /// Overrides for the configuration of chains.
-    pub chain_overrides: Vec<ChainOverride>,
+    pub chain_overrides: Option<Vec<ChainOverride>>,
     /// The HTTP headers to use when making requests to the JSON-RPC endpoint
     pub http_headers: Option<Vec<HttpHeader>>,
     /// The URL of the JSON-RPC endpoint to fork from
@@ -195,16 +195,19 @@ impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
 
         let chain_overrides = value
             .chain_overrides
-            .into_iter()
-            .map(
-                |ChainOverride {
-                     chain_id,
-                     name,
-                     hardfork_activation_overrides,
-                 }| {
-                    let hardfork_activation_overrides = hardfork_activation_overrides
-                        .map(|hardfork_activations| {
-                            hardfork_activations
+            .map(|chain_overrides| {
+                chain_overrides
+                    .into_iter()
+                    .map(
+                        |ChainOverride {
+                             chain_id,
+                             name,
+                             hardfork_activation_overrides,
+                         }| {
+                            let hardfork_activation_overrides =
+                                hardfork_activation_overrides
+                                    .map(|hardfork_activations| {
+                                        hardfork_activations
                                 .into_iter()
                                 .map(
                                     |HardforkActivation {
@@ -232,19 +235,21 @@ impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
                                 )
                                 .collect::<napi::Result<Vec<_>>>()
                                 .map(edr_evm::hardfork::Activations::new)
-                        })
-                        .transpose()?;
+                                    })
+                                    .transpose()?;
 
-                    let chain_config = edr_evm::hardfork::ChainOverride {
-                        name,
-                        hardfork_activation_overrides,
-                    };
+                            let chain_config = edr_evm::hardfork::ChainOverride {
+                                name,
+                                hardfork_activation_overrides,
+                            };
 
-                    let chain_id = chain_id.try_cast()?;
-                    Ok((chain_id, chain_config))
-                },
-            )
-            .collect::<napi::Result<_>>()?;
+                            let chain_id = chain_id.try_cast()?;
+                            Ok((chain_id, chain_config))
+                        },
+                    )
+                    .collect::<napi::Result<_>>()
+            })
+            .transpose()?;
 
         let http_headers = value.http_headers.map(|http_headers| {
             http_headers
@@ -256,7 +261,7 @@ impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
         Ok(Self {
             block_number,
             cache_dir,
-            chain_overrides,
+            chain_overrides: chain_overrides.unwrap_or_default(),
             http_headers,
             url: value.url,
         })
