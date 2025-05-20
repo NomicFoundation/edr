@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    Address, KECCAK_EMPTY,
-    account::AccountInfo,
+    Address,
     l1::{self, L1ChainSpec},
 };
 use edr_provider::{
-    MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
+    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
 };
@@ -30,13 +29,10 @@ async fn issue_326() -> anyhow::Result<()> {
     let impersonated_account = Address::random();
     config.genesis_state.insert(
         impersonated_account,
-        AccountInfo {
-            balance: one_ether(),
-            nonce: 0,
-            code: None,
-            code_hash: KECCAK_EMPTY,
-        }
-        .into(),
+        AccountOverride {
+            balance: Some(one_ether()),
+            ..AccountOverride::default()
+        },
     );
 
     let provider = Provider::new(

@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use napi::bindgen_prelude::{BigInt, Buffer};
+use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
 #[napi(object)]
 pub struct DebugTraceResult {
     pub pass: bool,
     pub gas_used: BigInt,
-    pub output: Option<Buffer>,
+    pub output: Option<Uint8Array>,
     pub struct_logs: Vec<DebugTraceLogItem>,
 }
 

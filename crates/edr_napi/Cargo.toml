@@ -11,6 +11,7 @@ alloy-dyn-abi = { version = "0.8.22", default-features = false, features = ["eip
 alloy-json-abi = { version = "0.8.22", default-features = false }
 alloy-sol-types = { version = "0.8.22", default-features = false, features = ["std"] }
 derive-where = { version = "1.2.7", default-features = false }
+edr_defaults = { path = "../edr_defaults" }
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
 edr_generic = { path = "../edr_generic" }
@@ -21,7 +22,6 @@ edr_provider = { path = "../edr_provider" }
 edr_rpc_client = { path = "../edr_rpc_client" }
 edr_scenarios = { version = "0.3.5", path = "../edr_scenarios", optional = true }
 edr_solidity ={ version = "0.3.5", path = "../edr_solidity" }
-k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8" ] }
 mimalloc = { version = "0.1.39", default-features = false, features = ["local_dynamic_tls"] }
 # The `async` feature ensures that a tokio runtime is available
 napi = { version = "2.16.17", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }

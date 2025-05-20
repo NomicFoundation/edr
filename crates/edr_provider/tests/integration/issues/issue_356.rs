@@ -2,11 +2,11 @@ use std::{str::FromStr, sync::Arc};
 
 use anyhow::Context;
 use edr_eth::{
-    Address, Bytes,
+    Address, Bytes, HashMap,
     l1::{self, L1ChainSpec},
 };
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, hardhat_rpc_types::ForkConfig,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::create_test_config_with_fork, time::CurrentTime,
 };
 use edr_rpc_eth::CallRequest;
@@ -29,10 +29,12 @@ async fn issue_356() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url().replace("mainnet", "sepolia"),
         // Pre-cancun Sepolia block
         block_number: Some(4243456),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
+        url: get_alchemy_url().replace("mainnet", "sepolia"),
     }));
     config.hardfork = l1::SpecId::CANCUN;
 

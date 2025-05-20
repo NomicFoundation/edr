@@ -1,32 +1,32 @@
 use core::num::NonZeroU64;
-use std::{path::PathBuf, str::FromStr, time::SystemTime};
+use std::{str::FromStr, time::SystemTime};
 
 use edr_eth::{
     Address, B256, ChainId, HashMap,
     block::BlobGas,
     l1::{self, hardfork::UnknownHardfork},
+    signature::SecretKey,
 };
-use edr_evm::hardfork::{self, ChainConfig};
-use edr_provider::{self, config, hardhat_rpc_types::ForkConfig};
+use edr_evm::{
+    hardfork::{self, ChainOverride},
+    precompile::PrecompileFn,
+};
+use edr_provider::{AccountOverride, ForkConfig, config};
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]
 pub struct Config {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
-    pub accounts: Vec<config::OwnedAccount>,
     /// Whether to return an `Err` when `eth_call` fails
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
-    pub cache_dir: Option<String>,
     pub chain_id: ChainId,
-    pub chains: HashMap<ChainId, ChainConfig<String>>,
     pub coinbase: Address,
-    pub enable_rip_7212: bool,
-    pub fork: Option<ForkConfig>,
-    pub genesis_state: HashMap<Address, config::Account>,
+    pub fork: Option<ForkConfig<String>>,
+    pub genesis_state: HashMap<Address, AccountOverride>,
     pub hardfork: String,
     pub initial_base_fee_per_gas: Option<u128>,
     pub initial_blob_gas: Option<BlobGas>,
@@ -36,6 +36,9 @@ pub struct Config {
     pub mining: config::Mining,
     pub network_id: u64,
     pub observability: edr_provider::observability::Config,
+    /// Secret keys of owned accounts.
+    pub owned_accounts: Vec<SecretKey>,
+    pub precompile_overrides: HashMap<Address, PrecompileFn>,
 }
 
 impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
@@ -45,49 +48,61 @@ where
     type Error = napi::Error;
 
     fn try_from(value: Config) -> Result<Self, Self::Error> {
-        let cache_dir = PathBuf::from(
-            value
-                .cache_dir
-                .unwrap_or(String::from(edr_defaults::CACHE_DIR)),
-        );
-
-        let chains = value
-            .chains
-            .into_iter()
-            .map(|(chain_id, chain_config)| {
-                let hardfork_activations = chain_config
-                    .hardfork_activations
-                    .into_inner()
+        let fork = value
+            .fork
+            .map(|fork| -> napi::Result<ForkConfig<HardforkT>> {
+                let chain_overrides = fork
+                    .chain_overrides
                     .into_iter()
-                    .map(
-                        |hardfork::Activation {
-                             condition,
-                             hardfork,
-                         }| {
-                            let hardfork = hardfork.parse().map_err(|UnknownHardfork| {
-                                napi::Error::new(
-                                    napi::Status::InvalidArg,
-                                    format!("Unknown hardfork: {hardfork}"),
-                                )
-                            })?;
+                    .map(|(chain_id, chain_config)| {
+                        let hardfork_activation_overrides = chain_config
+                            .hardfork_activation_overrides
+                            .map(|overrides| {
+                                overrides
+                                    .into_inner()
+                                    .into_iter()
+                                    .map(
+                                        |hardfork::Activation {
+                                             condition,
+                                             hardfork,
+                                         }| {
+                                            let hardfork =
+                                                hardfork.parse().map_err(|UnknownHardfork| {
+                                                    napi::Error::new(
+                                                        napi::Status::InvalidArg,
+                                                        format!("Unknown hardfork: {hardfork}"),
+                                                    )
+                                                })?;
 
-                            Ok(hardfork::Activation {
-                                condition,
-                                hardfork,
+                                            Ok(hardfork::Activation {
+                                                condition,
+                                                hardfork,
+                                            })
+                                        },
+                                    )
+                                    .collect::<napi::Result<_>>()
+                                    .map(hardfork::Activations::new)
                             })
-                        },
-                    )
-                    .collect::<napi::Result<_>>()
-                    .map(hardfork::Activations::new)?;
+                            .transpose()?;
 
-                let chain_config = ChainConfig {
-                    name: chain_config.name,
-                    hardfork_activations,
-                };
+                        let chain_config = ChainOverride {
+                            name: chain_config.name,
+                            hardfork_activation_overrides,
+                        };
 
-                Ok((chain_id, chain_config))
+                        Ok((chain_id, chain_config))
+                    })
+                    .collect::<napi::Result<_>>()?;
+
+                Ok(edr_provider::ForkConfig {
+                    block_number: fork.block_number,
+                    cache_dir: fork.cache_dir,
+                    chain_overrides,
+                    http_headers: fork.http_headers,
+                    url: fork.url,
+                })
             })
-            .collect::<napi::Result<_>>()?;
+            .transpose()?;
 
         let hardfork = value.hardfork.parse().map_err(|UnknownHardfork| {
             napi::Error::new(
@@ -99,16 +114,12 @@ where
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
-            accounts: value.accounts,
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
-            cache_dir,
             chain_id: value.chain_id,
-            chains,
             coinbase: value.coinbase,
-            enable_rip_7212: value.enable_rip_7212,
-            fork: value.fork,
+            fork,
             genesis_state: value.genesis_state,
             hardfork,
             initial_base_fee_per_gas: value.initial_base_fee_per_gas,
@@ -119,6 +130,8 @@ where
             mining: value.mining,
             network_id: value.network_id,
             observability: value.observability,
+            owned_accounts: value.owned_accounts,
+            precompile_overrides: value.precompile_overrides,
         })
     }
 }

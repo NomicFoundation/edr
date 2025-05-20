@@ -1,13 +1,18 @@
+use core::fmt::{Debug, Display};
 use std::{
     num::NonZeroU64,
+    path::PathBuf,
     time::{Duration, SystemTime},
 };
 
-use edr_eth::{Bytes, HashSet, KECCAK_EMPTY};
+use edr_eth::{
+    Bytes, HashSet,
+    signature::{SecretKey, secret_key_from_str},
+};
 use edr_provider::coverage::SyncOnCollectedCoverageCallback;
 use napi::{
-    Either, JsFunction,
-    bindgen_prelude::{BigInt, Buffer, Uint8Array},
+    Either, JsFunction, JsString, JsStringUtf8,
+    bindgen_prelude::{BigInt, Reference, Uint8Array},
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
@@ -15,20 +20,21 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-    account::{Account, OwnedAccount, StorageSlot},
+    account::{AccountOverride, StorageSlot},
     block::BlobGas,
     cast::TryCast,
+    precompile::Precompile,
 };
 
-/// Configuration for a chain
+/// Specification of a chain with possible overrides.
 #[napi(object)]
-pub struct ChainConfig {
+pub struct ChainOverride {
     /// The chain ID
     pub chain_id: BigInt,
     /// The chain's name
     pub name: String,
-    /// The chain's supported hardforks
-    pub hardforks: Vec<HardforkActivation>,
+    /// If present, overrides for the chain's supported hardforks
+    pub hardfork_activation_overrides: Option<Vec<HardforkActivation>>,
 }
 
 /// Configuration for a code coverage reporter.
@@ -42,20 +48,24 @@ pub struct CodeCoverageConfig {
     /// # Safety
     ///
     /// Errors should not be thrown inside the callback.
-    #[napi(ts_type = "(coverageHits: Buffer[]) => void")]
+    #[napi(ts_type = "(coverageHits: Uint8Array[]) => void")]
     pub on_collected_coverage_callback: JsFunction,
 }
 
 /// Configuration for forking a blockchain
 #[napi(object)]
 pub struct ForkConfig {
-    /// The URL of the JSON-RPC endpoint to fork from
-    pub json_rpc_url: String,
     /// The block number to fork from. If not provided, the latest safe block is
     /// used.
     pub block_number: Option<BigInt>,
+    /// The directory to cache remote JSON-RPC responses
+    pub cache_dir: Option<String>,
+    /// Overrides for the configuration of chains.
+    pub chain_overrides: Option<Vec<ChainOverride>>,
     /// The HTTP headers to use when making requests to the JSON-RPC endpoint
     pub http_headers: Option<Vec<HttpHeader>>,
+    /// The URL of the JSON-RPC endpoint to fork from
+    pub url: String,
 }
 
 #[napi(object)]
@@ -134,21 +144,15 @@ pub struct ProviderConfig {
     pub bail_on_transaction_failure: bool,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
-    /// The directory to cache remote JSON-RPC responses
-    pub cache_dir: Option<String>,
     /// The chain ID of the blockchain
     pub chain_id: BigInt,
-    /// The configuration for chains
-    pub chains: Vec<ChainConfig>,
     /// The address of the coinbase
-    pub coinbase: Buffer,
-    /// Enables RIP-7212
-    pub enable_rip_7212: bool,
+    pub coinbase: Uint8Array,
     /// The configuration for forking a blockchain. If not provided, a local
     /// blockchain will be created
     pub fork: Option<ForkConfig>,
     /// The genesis state of the blockchain
-    pub genesis_state: Vec<Account>,
+    pub genesis_state: Vec<AccountOverride>,
     /// The hardfork of the blockchain
     pub hardfork: String,
     /// The initial base fee per gas of the blockchain. Required for EIP-1559
@@ -160,7 +164,7 @@ pub struct ProviderConfig {
     pub initial_date: Option<BigInt>,
     /// The initial parent beacon block root of the blockchain. Required for
     /// EIP-4788
-    pub initial_parent_beacon_block_root: Option<Buffer>,
+    pub initial_parent_beacon_block_root: Option<Uint8Array>,
     /// The minimum gas price of the next block.
     pub min_gas_price: BigInt,
     /// The configuration for the miner
@@ -169,15 +173,84 @@ pub struct ProviderConfig {
     pub network_id: BigInt,
     /// The configuration for the provider's observability
     pub observability: ObservabilityConfig,
-    /// Owned accounts, for which the secret key is known
-    pub owned_accounts: Vec<OwnedAccount>,
+    // Using JsString here as it doesn't have `Debug`, `Display` and `Serialize` implementation
+    // which prevents accidentally leaking the secret keys to error messages and logs.
+    /// Secret keys of owned accounts
+    pub owned_accounts: Vec<JsString>,
+    /// Overrides for precompiles
+    pub precompile_overrides: Vec<Reference<Precompile>>,
 }
 
-impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
+impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
     type Error = napi::Error;
 
     fn try_from(value: ForkConfig) -> Result<Self, Self::Error> {
         let block_number: Option<u64> = value.block_number.map(TryCast::try_cast).transpose()?;
+
+        let cache_dir = PathBuf::from(
+            value
+                .cache_dir
+                .unwrap_or(edr_defaults::CACHE_DIR.to_owned()),
+        );
+
+        let chain_overrides = value
+            .chain_overrides
+            .map(|chain_overrides| {
+                chain_overrides
+                    .into_iter()
+                    .map(
+                        |ChainOverride {
+                             chain_id,
+                             name,
+                             hardfork_activation_overrides,
+                         }| {
+                            let hardfork_activation_overrides =
+                                hardfork_activation_overrides
+                                    .map(|hardfork_activations| {
+                                        hardfork_activations
+                                .into_iter()
+                                .map(
+                                    |HardforkActivation {
+                                         condition,
+                                         hardfork,
+                                     }| {
+                                        let condition = match condition {
+                                            Either::A(HardforkActivationByBlockNumber {
+                                                block_number,
+                                            }) => edr_evm::hardfork::ForkCondition::Block(
+                                                block_number.try_cast()?,
+                                            ),
+                                            Either::B(HardforkActivationByTimestamp {
+                                                timestamp,
+                                            }) => edr_evm::hardfork::ForkCondition::Timestamp(
+                                                timestamp.try_cast()?,
+                                            ),
+                                        };
+
+                                        Ok(edr_evm::hardfork::Activation {
+                                            condition,
+                                            hardfork,
+                                        })
+                                    },
+                                )
+                                .collect::<napi::Result<Vec<_>>>()
+                                .map(edr_evm::hardfork::Activations::new)
+                                    })
+                                    .transpose()?;
+
+                            let chain_config = edr_evm::hardfork::ChainOverride {
+                                name,
+                                hardfork_activation_overrides,
+                            };
+
+                            let chain_id = chain_id.try_cast()?;
+                            Ok((chain_id, chain_config))
+                        },
+                    )
+                    .collect::<napi::Result<_>>()
+            })
+            .transpose()?;
+
         let http_headers = value.http_headers.map(|http_headers| {
             http_headers
                 .into_iter()
@@ -186,9 +259,11 @@ impl TryFrom<ForkConfig> for edr_provider::hardhat_rpc_types::ForkConfig {
         });
 
         Ok(Self {
-            json_rpc_url: value.json_rpc_url,
             block_number,
+            cache_dir,
+            chain_overrides: chain_overrides.unwrap_or_default(),
             http_headers,
+            url: value.url,
         })
     }
 }
@@ -324,10 +399,31 @@ impl ObservabilityConfig {
 impl ProviderConfig {
     /// Resolves the instance to a [`edr_napi_core::provider::Config`].
     pub fn resolve(self, env: &napi::Env) -> napi::Result<edr_napi_core::provider::Config> {
-        let accounts = self
+        let owned_accounts = self
             .owned_accounts
             .into_iter()
-            .map(edr_provider::config::OwnedAccount::try_from)
+            .map(|secret_key| {
+                // This is the only place in production code where it's allowed to use
+                // `DangerousSecretKeyStr`.
+                #[allow(deprecated)]
+                use edr_eth::signature::DangerousSecretKeyStr;
+
+                static_assertions::assert_not_impl_all!(JsString: Debug, Display, serde::Serialize);
+                static_assertions::assert_not_impl_all!(JsStringUtf8: Debug, Display, serde::Serialize);
+                // `SecretKey` has `Debug` implementation, but it's opaque (only shows the
+                // type name)
+                static_assertions::assert_not_impl_any!(SecretKey: Display, serde::Serialize);
+
+                let secret_key = secret_key.into_utf8()?;
+                // This is the only place in production code where it's allowed to use
+                // `DangerousSecretKeyStr`.
+                #[allow(deprecated)]
+                let secret_key_str = DangerousSecretKeyStr(secret_key.as_str()?);
+                let secret_key: SecretKey = secret_key_from_str(secret_key_str)
+                    .map_err(|error| napi::Error::new(napi::Status::InvalidArg, error))?;
+
+                Ok(secret_key)
+            })
             .collect::<napi::Result<Vec<_>>>()?;
 
         let block_gas_limit =
@@ -338,112 +434,60 @@ impl ProviderConfig {
                 )
             })?;
 
-        let chains = self
-            .chains
-            .into_iter()
-            .map(
-                |ChainConfig {
-                     chain_id,
-                     name,
-                     hardforks,
-                 }| {
-                    let hardfork_activations = hardforks
-                        .into_iter()
-                        .map(
-                            |HardforkActivation {
-                                 condition,
-                                 hardfork,
-                             }| {
-                                let condition = match condition {
-                                    Either::A(HardforkActivationByBlockNumber { block_number }) => {
-                                        edr_evm::hardfork::ForkCondition::Block(
-                                            block_number.try_cast()?,
-                                        )
-                                    }
-                                    Either::B(HardforkActivationByTimestamp { timestamp }) => {
-                                        edr_evm::hardfork::ForkCondition::Timestamp(
-                                            timestamp.try_cast()?,
-                                        )
-                                    }
-                                };
-
-                                Ok(edr_evm::hardfork::Activation {
-                                    condition,
-                                    hardfork,
-                                })
-                            },
-                        )
-                        .collect::<napi::Result<Vec<_>>>()?;
-
-                    let chain_config = edr_evm::hardfork::ChainConfig {
-                        name,
-                        hardfork_activations: edr_evm::hardfork::Activations::new(
-                            hardfork_activations,
-                        ),
-                    };
-
-                    let chain_id = chain_id.try_cast()?;
-                    Ok((chain_id, chain_config))
-                },
-            )
-            .collect::<napi::Result<_>>()?;
-
         let genesis_state = self
             .genesis_state
             .into_iter()
             .map(
-                |Account {
+                |AccountOverride {
                      address,
                      balance,
                      nonce,
                      code,
                      storage,
                  }| {
-                    let code: Option<edr_eth::Bytecode> =
-                        code.map(TryCast::try_cast).transpose()?;
+                    let storage = storage
+                        .map(|storage| {
+                            storage
+                                .into_iter()
+                                .map(|StorageSlot { index, value }| {
+                                    let value = value.try_cast()?;
+                                    let slot = edr_evm::state::EvmStorageSlot::new(value);
 
-                    let code_hash = code
-                        .as_ref()
-                        .map_or(KECCAK_EMPTY, edr_eth::Bytecode::hash_slow);
+                                    let index: edr_eth::U256 = index.try_cast()?;
+                                    Ok((index, slot))
+                                })
+                                .collect::<napi::Result<_>>()
+                        })
+                        .transpose()?;
 
-                    let info = edr_eth::account::AccountInfo {
-                        balance: balance.try_cast()?,
-                        nonce: nonce.try_cast()?,
-                        code_hash,
-                        code,
+                    let account_override = edr_provider::AccountOverride {
+                        balance: balance.map(TryCast::try_cast).transpose()?,
+                        nonce: nonce.map(TryCast::try_cast).transpose()?,
+                        code: code.map(TryCast::try_cast).transpose()?,
+                        storage,
                     };
 
-                    let storage = storage
-                        .into_iter()
-                        .map(|StorageSlot { index, value }| {
-                            let value = value.try_cast()?;
-                            let slot = edr_evm::state::EvmStorageSlot::new(value);
-
-                            let index: edr_eth::U256 = index.try_cast()?;
-                            Ok((index, slot))
-                        })
-                        .collect::<napi::Result<_>>()?;
-
                     let address: edr_eth::Address = address.try_cast()?;
-                    let account = edr_provider::config::Account { info, storage };
 
-                    Ok((address, account))
+                    Ok((address, account_override))
                 },
             )
             .collect::<napi::Result<_>>()?;
 
+        let precompile_overrides = self
+            .precompile_overrides
+            .into_iter()
+            .map(|precompile| precompile.to_tuple())
+            .collect();
+
         Ok(edr_napi_core::provider::Config {
-            accounts,
             allow_blocks_with_same_timestamp: self.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: self.allow_unlimited_contract_size,
             bail_on_call_failure: self.bail_on_call_failure,
             bail_on_transaction_failure: self.bail_on_transaction_failure,
             block_gas_limit,
-            cache_dir: self.cache_dir,
             chain_id: self.chain_id.try_cast()?,
-            chains,
             coinbase: self.coinbase.try_cast()?,
-            enable_rip_7212: self.enable_rip_7212,
             fork: self.fork.map(TryInto::try_into).transpose()?,
             genesis_state,
             hardfork: self.hardfork,
@@ -467,6 +511,8 @@ impl ProviderConfig {
             min_gas_price: self.min_gas_price.try_cast()?,
             network_id: self.network_id.try_cast()?,
             observability: self.observability.resolve(env)?,
+            owned_accounts,
+            precompile_overrides,
         })
     }
 }

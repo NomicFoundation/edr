@@ -16,13 +16,23 @@ async fn estimate_gas() -> anyhow::Result<()> {
     let mut config = create_test_config();
 
     let from = {
-        let account = config.accounts.first_mut().expect("should have an account");
+        let secret_key = config
+            .owned_accounts
+            .first_mut()
+            .expect("should have an account");
+
+        let address = public_key_to_address(secret_key.public_key());
+
+        let account = config
+            .genesis_state
+            .get_mut(&address)
+            .expect("Account should be present in genesis state");
 
         // Lower the balance to zero. This should not trigger an `OutOfFunds` error in
         // REVM when estimating gas.
-        account.balance = U256::from(0x064);
+        account.balance = Some(U256::from(0u64));
 
-        public_key_to_address(account.secret_key.public_key())
+        address
     };
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
@@ -57,13 +67,23 @@ async fn estimate_gas_with_value() -> anyhow::Result<()> {
     let mut config = create_test_config();
 
     let from = {
-        let account = config.accounts.first_mut().expect("should have an account");
+        let secret_key = config
+            .owned_accounts
+            .first_mut()
+            .expect("should have an account");
 
-        // Lower the balance to below the transaction's value. This should not trigger
-        // an `OutOfFunds` error in REVM when estimating gas.
-        account.balance = value - U256::from(1u64);
+        let address = public_key_to_address(secret_key.public_key());
 
-        public_key_to_address(account.secret_key.public_key())
+        let account = config
+            .genesis_state
+            .get_mut(&address)
+            .expect("Account should be present in genesis state");
+
+        // Lower the balance to zero. This should not trigger an `OutOfFunds` error in
+        // REVM when estimating gas.
+        account.balance = Some(U256::from(0u64));
+
+        address
     };
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());

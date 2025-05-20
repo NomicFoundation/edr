@@ -1,8 +1,9 @@
+import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
 
 import {
-  ContractAndFunctionName,
+  AccountOverride,
   EdrContext,
   L1_CHAIN_TYPE,
   l1GenesisState,
@@ -38,6 +39,13 @@ describe("Multi-chain", () => {
     await context.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
   });
 
+  const genesisState: AccountOverride[] = [
+    {
+      address: toBytes("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
+      balance: 1000n * 10n ** 18n,
+    },
+  ];
+
   const providerConfig = {
     allowBlocksWithSameTimestamp: false,
     allowUnlimitedContractSize: true,
@@ -45,9 +53,9 @@ describe("Multi-chain", () => {
     bailOnTransactionFailure: false,
     blockGasLimit: 300_000_000n,
     chainId: 123n,
-    chains: [],
+    chainOverrides: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
-    enableRip7212: false,
+    genesisState,
     hardfork: opHardforkToString(opLatestHardfork()),
     initialBlobGas: {
       gasUsed: 0n,
@@ -65,28 +73,17 @@ describe("Multi-chain", () => {
       },
     },
     networkId: 123n,
-    ownedAccounts: [
-      {
-        secretKey:
-          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        balance: 1000n * 10n ** 18n,
-      },
-    ],
     observability: {},
+    ownedAccounts: [
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    ],
+    precompileOverrides: [],
   };
 
   const loggerConfig = {
     enable: false,
-    decodeConsoleLogInputsCallback: (_inputs: Buffer[]): string[] => {
+    decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
       return [];
-    },
-    getContractAndFunctionNameCallback: (
-      _code: Buffer,
-      _calldata?: Buffer
-    ): ContractAndFunctionName => {
-      return {
-        contractName: "",
-      };
     },
     printLineCallback: (_message: string, _replace: boolean) => {},
   };
@@ -97,7 +94,9 @@ describe("Multi-chain", () => {
       {
         ...providerConfig,
         hardfork: l1HardforkToString(l1HardforkLatest()),
-        genesisState: l1GenesisState(l1HardforkLatest()),
+        genesisState: providerConfig.genesisState.concat(
+          l1GenesisState(l1HardforkLatest())
+        ),
       },
       loggerConfig,
       {
@@ -138,7 +137,7 @@ describe("Multi-chain", () => {
       {
         ...providerConfig,
         fork: {
-          jsonRpcUrl: ALCHEMY_URL.replace("eth-", "opt-"),
+          url: ALCHEMY_URL.replace("eth-", "opt-"),
         },
         // TODO: Add support for overriding remote fork state when the local fork is different
         genesisState: [],
@@ -190,10 +189,10 @@ describe("Multi-chain", () => {
         const provider = await context.createProvider(
           OP_CHAIN_TYPE,
           {
-            genesisState: opGenesisState(
-              opHardforkFromString(providerConfig.hardfork)
-            ),
             ...providerConfig,
+            genesisState: providerConfig.genesisState.concat(
+              opGenesisState(opHardforkFromString(providerConfig.hardfork))
+            ),
           },
           loggerConfig,
           {
@@ -227,10 +226,10 @@ describe("Multi-chain", () => {
         const provider = await context.createProvider(
           OP_CHAIN_TYPE,
           {
-            genesisState: opGenesisState(
-              opHardforkFromString(providerConfig.hardfork)
-            ),
             ...providerConfig,
+            genesisState: providerConfig.genesisState.concat(
+              opGenesisState(opHardforkFromString(providerConfig.hardfork))
+            ),
           },
           loggerConfig,
           {
@@ -264,10 +263,10 @@ describe("Multi-chain", () => {
         const provider = await context.createProvider(
           OP_CHAIN_TYPE,
           {
-            genesisState: opGenesisState(
-              opHardforkFromString(providerConfig.hardfork)
-            ),
             ...providerConfig,
+            genesisState: providerConfig.genesisState.concat(
+              opGenesisState(opHardforkFromString(providerConfig.hardfork))
+            ),
           },
           loggerConfig,
           {

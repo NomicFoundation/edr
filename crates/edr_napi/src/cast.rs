@@ -1,7 +1,7 @@
 use edr_eth::{Address, B64, B256, Bytecode, Bytes, U256};
 use napi::{
     Status,
-    bindgen_prelude::{BigInt, Buffer, Uint8Array},
+    bindgen_prelude::{BigInt, Uint8Array},
 };
 
 /// An attempted conversion that consumes `self`, which may or may not be
@@ -13,20 +13,6 @@ pub trait TryCast<T>: Sized {
 
     /// Performs the conversion.
     fn try_cast(self) -> Result<T, Self::Error>;
-}
-
-impl TryCast<Address> for Buffer {
-    type Error = napi::Error;
-
-    fn try_cast(self) -> std::result::Result<Address, Self::Error> {
-        if self.len() != 20 {
-            return Err(napi::Error::new(
-                Status::InvalidArg,
-                "Buffer was expected to be 20 bytes.".to_string(),
-            ));
-        }
-        Ok(Address::from_slice(&self))
-    }
 }
 
 impl TryCast<Address> for Uint8Array {
@@ -43,28 +29,28 @@ impl TryCast<Address> for Uint8Array {
     }
 }
 
-impl TryCast<B64> for Buffer {
+impl TryCast<B64> for Uint8Array {
     type Error = napi::Error;
 
     fn try_cast(self) -> std::result::Result<B64, Self::Error> {
         if self.len() != 8 {
             return Err(napi::Error::new(
                 Status::InvalidArg,
-                "Buffer was expected to be 8 bytes.".to_string(),
+                "Uint8Array was expected to be 8 bytes.".to_string(),
             ));
         }
         Ok(B64::from_slice(&self))
     }
 }
 
-impl TryCast<B256> for Buffer {
+impl TryCast<B256> for Uint8Array {
     type Error = napi::Error;
 
     fn try_cast(self) -> std::result::Result<B256, Self::Error> {
         if self.len() != 32 {
             return Err(napi::Error::new(
                 Status::InvalidArg,
-                "Buffer was expected to be 32 bytes.".to_string(),
+                "Uint8Array was expected to be 32 bytes.".to_string(),
             ));
         }
         Ok(B256::from_slice(&self))
@@ -170,15 +156,7 @@ impl<T> TryCast<T> for T {
     }
 }
 
-impl TryCast<Bytes> for Buffer {
-    type Error = napi::Error;
-
-    fn try_cast(self) -> Result<Bytes, Self::Error> {
-        Ok(Bytes::copy_from_slice(&self))
-    }
-}
-
-impl TryCast<Option<Bytes>> for Option<Buffer> {
+impl TryCast<Option<Bytes>> for Option<Uint8Array> {
     type Error = napi::Error;
 
     fn try_cast(self) -> Result<Option<Bytes>, Self::Error> {

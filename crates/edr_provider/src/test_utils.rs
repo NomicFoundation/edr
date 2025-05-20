@@ -3,12 +3,11 @@ use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 
 use anyhow::anyhow;
 use edr_eth::{
-    Address, B256, Bytes, HashMap, KECCAK_EMPTY, U160, U256,
-    account::AccountInfo,
+    Address, B256, Bytes, HashMap, U160, U256,
     block::BlobGas,
     eips::eip7702,
     l1::{self, L1ChainSpec},
-    signature::{SignatureWithYParity, secret_key_from_str},
+    signature::{SignatureWithYParity, public_key_to_address, secret_key_from_str},
     transaction::{self, TransactionValidation, TxKind, request::TransactionRequestAndSender},
     trie::KECCAK_NULL_RLP,
 };
@@ -19,11 +18,10 @@ use k256::SecretKey;
 use tokio::runtime;
 
 use crate::{
-    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderData, ProviderRequest,
-    ProviderSpec, SyncProviderSpec, config,
+    AccountOverride, ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig,
+    ProviderData, ProviderRequest, ProviderSpec, SyncProviderSpec, config,
     error::ProviderErrorForChainSpec,
     observability,
-    requests::hardhat::rpc_types::ForkConfig,
     time::{CurrentTime, TimeSinceEpoch},
 };
 
@@ -45,47 +43,47 @@ pub fn one_ether() -> U256 {
     U256::from(10).pow(U256::from(18))
 }
 
+/// Sets the [`ProviderConfig`]'s owned accounts and genesis state - computed by
+/// funding each account with the provided `balance`.
+pub fn set_genesis_state_with_owned_accounts<HardforkT>(
+    config: &mut ProviderConfig<HardforkT>,
+    owned_accounts: Vec<SecretKey>,
+    balance: U256,
+) {
+    config.genesis_state = genesis_state_with_funded_owned_accounts(&owned_accounts, balance);
+    config.owned_accounts = owned_accounts;
+}
+
 pub fn create_test_config_with_fork<HardforkT: Default>(
-    fork: Option<ForkConfig>,
+    fork: Option<ForkConfig<HardforkT>>,
 ) -> ProviderConfig<HardforkT> {
     // This is test code, it's ok to use `DangerousSecretKeyStr`
     #[allow(deprecated)]
     use edr_eth::signature::DangerousSecretKeyStr;
 
+    // This is test code, it's ok to use `DangerousSecretKeyStr`
+    // Can't use `edr_test_utils` as a dependency here.
+    #[allow(deprecated)]
+    let owned_accounts = vec![
+        secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY))
+            .expect("should construct secret key from string"),
+        secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY_SIGN_TYPED_DATA_V4))
+            .expect("should construct secret key from string"),
+    ];
+
+    let genesis_state = genesis_state_with_funded_owned_accounts(&owned_accounts, one_ether());
+
     ProviderConfig {
-        accounts: vec![
-            config::OwnedAccount {
-                // This is test code, it's ok to use `DangerousSecretKeyStr`
-                // Can't use `edr_test_utils` as a dependency here.
-                #[allow(deprecated)]
-                secret_key: secret_key_from_str(DangerousSecretKeyStr(TEST_SECRET_KEY))
-                    .expect("should construct secret key from string"),
-                balance: one_ether(),
-            },
-            config::OwnedAccount {
-                // This is test code, it's ok to use `DangerousSecretKeyStr`
-                // Can't use `edr_test_utils` as a dependency here.
-                #[allow(deprecated)]
-                secret_key: secret_key_from_str(DangerousSecretKeyStr(
-                    TEST_SECRET_KEY_SIGN_TYPED_DATA_V4,
-                ))
-                .expect("should construct secret key from string"),
-                balance: one_ether(),
-            },
-        ],
         allow_blocks_with_same_timestamp: false,
         allow_unlimited_contract_size: false,
         bail_on_call_failure: false,
         bail_on_transaction_failure: false,
         // SAFETY: literal is non-zero
         block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
-        cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_id: 123,
-        chains: HashMap::new(),
         coinbase: Address::from(U160::from(1)),
-        enable_rip_7212: false,
         fork,
-        genesis_state: HashMap::new(),
+        genesis_state,
         hardfork: HardforkT::default(),
         initial_base_fee_per_gas: Some(1000000000),
         initial_blob_gas: Some(BlobGas {
@@ -98,6 +96,8 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         mining: config::Mining::default(),
         network_id: 123,
         observability: observability::Config::default(),
+        owned_accounts,
+        precompile_overrides: HashMap::new(),
     }
 }
 
@@ -181,9 +181,11 @@ where
 
     fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
         let fork = fork.map(|json_rpc_url| ForkConfig {
-            json_rpc_url,
             block_number: None,
+            cache_dir: edr_defaults::CACHE_DIR.into(),
+            chain_overrides: HashMap::new(),
             http_headers: None,
+            url: json_rpc_url,
         });
 
         let config = create_test_config_with_fork(fork);
@@ -207,13 +209,10 @@ where
         let impersonated_account = Address::random();
         config.genesis_state.insert(
             impersonated_account,
-            AccountInfo {
-                balance: one_ether(),
-                nonce: 0,
-                code: None,
-                code_hash: KECCAK_EMPTY,
-            }
-            .into(),
+            AccountOverride {
+                balance: Some(one_ether()),
+                ..AccountOverride::default()
+            },
         );
 
         let mut provider_data = ProviderData::<ChainSpecT>::new(
@@ -295,4 +294,24 @@ pub fn sign_authorization(
     let signature = SignatureWithYParity::with_message(authorization.signature_hash(), secret_key)?;
 
     Ok(authorization.into_signed(signature.into_inner()))
+}
+
+/// Constructs a genesis state by funding the owned accounts with the provided
+/// `balance`.
+fn genesis_state_with_funded_owned_accounts(
+    owned_accounts: &[SecretKey],
+    balance: U256,
+) -> HashMap<Address, AccountOverride> {
+    owned_accounts
+        .iter()
+        .map(|secret_key| {
+            let address = public_key_to_address(secret_key.public_key());
+            let account_override = AccountOverride {
+                balance: Some(balance),
+                ..AccountOverride::default()
+            };
+
+            (address, account_override)
+        })
+        .collect()
 }

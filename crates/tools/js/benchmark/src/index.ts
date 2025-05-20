@@ -1,5 +1,6 @@
 // Trigger change
 
+import { bytesToHex, privateToAddress, toBytes } from "@ethereumjs/util";
 import { ArgumentParser } from "argparse";
 import child_process, { SpawnSyncReturns } from "child_process";
 import fs from "fs";
@@ -363,15 +364,6 @@ async function loadScenario(scenarioFileName: string): Promise<Scenario> {
 }
 
 function preprocessConfig(config: any) {
-  // From https://stackoverflow.com/a/59771233
-  const camelize = (obj: any) =>
-    _.transform(obj, (acc: any, value: any, key: any, target: any) => {
-      const camelKey = _.isArray(target) ? key : _.camelCase(key);
-
-      acc[camelKey] = _.isObject(value) ? camelize(value) : value;
-    });
-  config = camelize(config);
-
   // EDR serializes None as null to json, but Hardhat expects it to be undefined
   const removeNull = (obj: any) =>
     _.transform(obj, (acc: any, value: any, key: any) => {
@@ -383,22 +375,28 @@ function preprocessConfig(config: any) {
     });
   config = removeNull(config);
 
-  config.chainType = removeNull(config.chainType);
-
   config.providerConfig.initialDate = new Date(
-    config.providerConfig.initialDate.secsSinceEpoch * 1000
+    config.providerConfig.initialDate
   );
 
   config.providerConfig.hardfork = normalizeHardfork(
     config.providerConfig.hardfork
   );
 
-  config.providerConfig.genesisAccounts = config.providerConfig.accounts.map(
-    ({ balance, secretKey }: any) => {
-      return { balance, privateKey: secretKey };
-    }
+  const genesisState = new Map<string, any>(
+    Object.entries(config.providerConfig.genesisState)
   );
-  delete config.providerConfig.accounts;
+
+  // In EDR, all state modifications are in the genesis state, so we need to
+  // retrieve the balance for the owned accounts from there.
+  config.providerConfig.genesisAccounts =
+    config.providerConfig.ownedAccounts.map((secretKey: string) => {
+      const address = bytesToHex(privateToAddress(toBytes(secretKey)));
+      const balance = genesisState.get(address)?.balance ?? 0n;
+
+      return { balance, privateKey: secretKey };
+    });
+  delete config.providerConfig.ownedAccounts;
 
   config.providerConfig.automine = config.providerConfig.mining.autoMine;
   config.providerConfig.mempoolOrder =
@@ -415,9 +413,9 @@ function preprocessConfig(config: any) {
   delete config.providerConfig.bailOnTransactionFailure;
 
   const chains: any = new Map();
-  for (const key of Object.keys(config.providerConfig.chains)) {
+  for (const key of Object.keys(config.providerConfig.chainOverrides)) {
     const hardforkHistory = new Map();
-    const chainConfig = config.providerConfig.chains[key];
+    const chainConfig = config.providerConfig.chainOverrides[key];
     for (const { condition, hardfork } of chainConfig.hardforkActivations) {
       if (!_.isUndefined(condition.timestamp)) {
         throw new Error("Hardfork activations by timestamp are not supported");
