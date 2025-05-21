@@ -321,12 +321,11 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
             self.stack.clone_from(interpreter.stack.data());
         }
 
-        let shared_memory = interpreter.memory.borrow();
         if !self.config.disable_memory {
-            self.memory = shared_memory.context_memory().to_vec();
+            self.memory = interpreter.memory.context_memory().to_vec();
         }
 
-        self.mem_size = shared_memory.context_memory().len();
+        self.mem_size = interpreter.memory.context_memory().len();
 
         self.opcode = interpreter.bytecode.opcode();
         self.pc = interpreter.bytecode.pc();
@@ -357,7 +356,7 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
             None
         } else {
             if matches!(self.opcode, opcode::SLOAD | opcode::SSTORE) {
-                let last_entry = journal.entries().last().and_then(|v| v.last());
+                let last_entry = journal.entries().last();
 
                 if let Some(
                     JournalEntry::StorageChanged { address, key, .. }

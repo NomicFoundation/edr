@@ -5,9 +5,14 @@ use revm::interpreter::{Gas, InstructionResult, InterpreterResult};
 pub use revm::precompile::{
     u64_to_address, PrecompileError, PrecompileFn, PrecompileSpecId, Precompiles,
 };
+use revm_context::LocalContextTr as _;
 pub use revm_handler::{EthPrecompiles, PrecompileProvider};
 
-use crate::{config::Cfg, interpreter::InputsImpl, spec::ContextTrait};
+use crate::{
+    config::Cfg,
+    interpreter::{CallInput, InputsImpl},
+    spec::ContextTrait,
+};
 
 /// A precompile provider that allows adding custom or overwriting existing
 /// precompiles.
@@ -101,7 +106,20 @@ impl<
             output: Bytes::new(),
         };
 
-        match (*precompile)(&inputs.input, gas_limit) {
+        let r;
+        let input_bytes = match &inputs.input {
+            CallInput::SharedBuffer(range) => {
+                if let Some(slice) = context.local().shared_memory_buffer_slice(range.clone()) {
+                    r = slice;
+                    r.as_ref()
+                } else {
+                    &[]
+                }
+            }
+            CallInput::Bytes(bytes) => bytes.0.iter().as_slice(),
+        };
+
+        match (*precompile)(input_bytes, gas_limit) {
             Ok(output) => {
                 let underflow = result.gas.record_cost(output.gas_used);
                 assert!(underflow, "Gas underflow is not possible");

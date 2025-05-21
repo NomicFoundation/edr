@@ -8,12 +8,14 @@ use edr_eth::{
     Address, Bytecode, Bytes, U256,
 };
 use revm::Inspector;
+use revm_context::LocalContextTr;
+use revm_interpreter::CallInput;
 
 use crate::{
     blockchain::BlockHash,
     interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
-        EthInterpreter, Interpreter, Jumps as _, MemoryGetter as _, SuccessOrHalt,
+        EthInterpreter, Interpreter, Jumps as _, SuccessOrHalt,
     },
     journal::{JournalExt, JournalTrait},
     spec::ContextTrait,
@@ -201,12 +203,16 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     /// Notifies the trace collector that a call is starting.
     pub fn notify_call_start<
         BlockchainT: BlockHash<Error: std::error::Error>,
-        JournalT: JournalExt
-            + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        ContextT: ContextTrait<
+            Journal: JournalExt
+                         + JournalTrait<
+                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
+        >,
         StateT: State<Error: std::error::Error>,
     >(
         &mut self,
-        journal: &JournalT,
+        context: &mut ContextT,
         inputs: &CallInputs,
     ) {
         if self.is_new_trace {
@@ -216,6 +222,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
         self.validate_before_message();
 
+        let journal = context.journal();
         let WrapDatabaseRef(DatabaseComponents { state, .. }) = journal.db_ref();
 
         // This needs to be split into two functions to avoid borrow checker issues
@@ -249,7 +256,14 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             to: Some(inputs.target_address),
             is_static_call: inputs.is_static,
             gas_limit: inputs.gas_limit,
-            data: inputs.input.clone(),
+            data: match &inputs.input {
+                CallInput::SharedBuffer(range) => context
+                    .local()
+                    .shared_memory_buffer_slice(range.clone())
+                    .map(|slice| Bytes::copy_from_slice(&slice))
+                    .expect("Shared buffer should be valid"),
+                CallInput::Bytes(bytes) => bytes.clone(),
+            },
             value: match inputs.value {
                 CallValue::Transfer(value) | CallValue::Apparent(value) => value,
             },
@@ -437,14 +451,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 Stack::Top(interpreter.stack.data().last().cloned())
             };
             let memory = if self.verbose {
-                Some(
-                    interpreter
-                        .memory
-                        .borrow()
-                        .memory()
-                        .context_memory()
-                        .to_vec(),
-                )
+                Some(interpreter.memory.context_memory().to_vec())
             } else {
                 None
             };
@@ -479,7 +486,7 @@ impl<
     > Inspector<ContextT, EthInterpreter> for TraceCollector<HaltReasonT>
 {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
-        self.notify_call_start(context.journal(), inputs);
+        self.notify_call_start(context, inputs);
         None
     }
 

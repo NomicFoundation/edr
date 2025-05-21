@@ -303,7 +303,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             )
         });
         let test_results = functions
-            .par_iter()
+            .iter()
             .map(|&func| {
                 let _guard = handle.enter();
 

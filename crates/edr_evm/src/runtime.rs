@@ -10,6 +10,7 @@ use revm_context::JournalTr as _;
 use crate::{
     blockchain::BlockHash,
     config::CfgEnv,
+    evm::LocalContext,
     precompile::OverriddenPrecompileProvider,
     result::EVMError,
     spec::{ContextForChainSpec, RuntimeSpec},
@@ -46,6 +47,7 @@ where
         journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
+        local: LocalContext::default(),
         error: Ok(()),
     };
 
@@ -93,6 +95,7 @@ where
         journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
+        local: LocalContext::default(),
         error: Ok(()),
     };
 
