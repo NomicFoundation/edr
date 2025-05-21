@@ -4,15 +4,16 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
-use edr_solidity_tests::executors::stack_trace::StackTraceResult;
+use edr_solidity_tests::{constants::CHEATCODE_ADDRESS, executors::stack_trace::StackTraceResult, traces::{self, SparsedTraceArena, TraceKind}};
+use edr_evm::hex;
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3, Either4},
-    Either,
+    Either
 };
 use napi_derive::napi;
 
 use crate::{
-    solidity_tests::artifact::ArtifactId, trace::solidity_stack_trace::SolidityStackTraceEntry,
+    solidity_tests::artifact::ArtifactId, trace::solidity_stack_trace::SolidityStackTraceEntry
 };
 
 /// See [edr_solidity_tests::result::SuiteResult]
@@ -86,6 +87,8 @@ pub struct TestResult {
     pub duration_ms: BigInt,
 
     stack_trace_result: Option<StackTraceResult>,
+    call_trace_arenas: Vec<(TraceKind, SparsedTraceArena)>,
+
 }
 
 /// The stack trace result
@@ -184,6 +187,11 @@ impl TestResult {
                 }),
             })
     }
+
+    #[napi]
+    pub fn call_traces(&self) -> Vec<CallTrace> {
+        self.call_trace_arenas.iter().map(|(_, a)| CallTrace::from(a)).collect()
+    }
 }
 
 impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
@@ -241,6 +249,7 @@ impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
             stack_trace_result: test_result.stack_trace_result,
+            call_trace_arenas: test_result.traces,
         }
     }
 }
@@ -384,6 +393,187 @@ impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
             contract_name: value.contract_name,
             signature: value.signature,
             args: value.args,
+        }
+    }
+}
+
+#[napi(object)]
+pub struct CallTrace {
+    pub kind: CallKind,
+    pub success: bool,
+    pub cheatcode: bool,
+    pub gas_used: BigInt,
+    pub contract: String,
+    pub function: String,
+    pub inputs: String,
+    pub outputs: String,
+    pub children: Vec<Either<CallTrace, CallLog>>, // interleaved subcalls and event logs
+}
+
+#[napi]
+#[derive(Debug)]
+pub enum CallKind {
+    Call,
+    CallCode,
+    DelegateCall,
+    StaticCall,
+    Create,
+}
+
+#[napi(object)]
+#[derive(Clone, Debug, Default)]
+pub struct CallLog {
+    pub name: String,
+    pub parameters: Vec<CallLogParameter>,
+}
+
+#[napi(object)]
+#[derive(Clone, Debug, Default)]
+pub struct CallLogParameter {
+    pub name: String,
+    pub value: String,
+}
+
+impl CallTrace {
+    /// Instantiates a `CallTrace` with the details from a node, but without any children.
+    fn new(node: &traces::CallTraceNode) -> Self {
+        let contract = node.trace.decoded.label.clone().unwrap_or(node.trace.address.to_checksum(None));
+
+        let (function, inputs) = match &node.trace.decoded.call_data {
+            Some(traces::DecodedCallData { signature, args }) => {
+                let name = signature.split('(').next().unwrap();
+                (name.to_string(), args.join(", "))
+            }
+            None => {
+                if node.trace.data.len() < 4 {
+                    ("fallback".to_string(), hex::encode(&node.trace.data))
+                } else {
+                    let (selector, data) = node.trace.data.split_at(4);
+                    (hex::encode(selector), hex::encode(data))
+                }
+            }
+        };
+
+        let outputs = match &node.trace.decoded.return_data {
+            Some(outputs) => outputs.clone(),
+            None => {
+                if node.kind().is_any_create() && node.trace.success {
+                    format!("{} bytes of code", node.trace.output.len())
+                } else {
+                    hex::encode(&node.trace.output)
+                }
+            }
+        };
+
+        Self {
+            kind: node.kind().into(),
+            success: node.trace.success,
+            cheatcode: node.trace.address == CHEATCODE_ADDRESS,
+            gas_used: node.trace.gas_used.into(),
+            contract,
+            function,
+            inputs,
+            outputs,
+            children: Vec::with_capacity(node.ordering.len()),
+        }
+    }
+}
+
+impl From<&traces::CallLog> for CallLog {
+    fn from(value: &traces::CallLog) -> Self {
+        let Some(name) = &value.decoded.name else { todo!() };
+        let Some(params) = &value.decoded.params else { todo!() };
+        let parameters = params.iter().map(|(name, value)|
+            CallLogParameter { name: name.clone(), value: value.clone() }
+        ).collect();
+        Self { name: name.clone(), parameters }
+    }
+}
+
+impl From<&SparsedTraceArena> for CallTrace {
+    fn from(value: &SparsedTraceArena) -> Self {
+        let arena = value.resolve_arena();
+
+        struct StackItem {
+            visited: bool,
+            parent_stack_index: Option<usize>,
+            arena_index: usize,
+            children_traces_rev: Vec<Option<CallTrace>>,
+        }
+
+        let mut stack = Vec::new();
+
+        stack.push(StackItem {
+            visited: false,
+            arena_index: 0,
+            parent_stack_index: None,
+            children_traces_rev: Vec::new(),
+        });
+
+        loop {
+            // We will break out of the loop before the stack goes empty.
+            let mut item = stack.pop().unwrap();
+            let node = &arena.nodes()[item.arena_index];
+
+            if item.visited {
+                let mut trace = CallTrace::new(node);
+                let mut logs = node.logs.iter().map(|log| Some(CallLog::from(log))).collect::<Vec<_>>();
+
+                trace.children = node.ordering.iter().filter_map(|ord| {
+                    match *ord {
+                        traces::TraceMemberOrder::Log(i) => {
+                            let log = logs[i].take().unwrap();
+                            Some(Either::B(log))
+                        }
+                        traces::TraceMemberOrder::Call(i) => {
+                            let len = item.children_traces_rev.len();
+                            let i_rev = len.checked_sub(i + 1).unwrap();
+                            let child_trace = item.children_traces_rev[i_rev].take().unwrap();
+                            Some(Either::A(child_trace))
+                        }
+                        traces::TraceMemberOrder::Step(_) => None,
+                    }
+                }).collect();
+
+                if let Some(parent_stack_index) = item.parent_stack_index {
+                    let parent = &mut stack[parent_stack_index];
+                    parent.children_traces_rev.push(Some(trace));
+                } else {
+                    return trace;
+                }
+            } else {
+                item.visited = true;
+                item.children_traces_rev.reserve(node.children.len());
+
+                stack.push(item);
+
+                let top_index = Some(stack.len() - 1);
+
+                // We assume the arena contains a pre-order traversal of the trace. Since we take
+                // from the top of the stack in each iteration, we push the children in reverse
+                // order so that we traverse the arena linearly for cache efficiency.
+                stack.extend(node.children.iter().rev().map(|&arena_index| StackItem {
+                    visited: false,
+                    parent_stack_index: top_index,
+                    arena_index,
+                    children_traces_rev: Vec::new(),
+                }));
+            }
+        }
+    }
+}
+
+impl From<traces::CallKind> for CallKind {
+    fn from(value: traces::CallKind) -> Self {
+        match value {
+            traces::CallKind::Call => CallKind::Call,
+            traces::CallKind::StaticCall => CallKind::StaticCall,
+            traces::CallKind::CallCode => CallKind::CallCode,
+            traces::CallKind::DelegateCall => CallKind::DelegateCall,
+            traces::CallKind::Create | traces::CallKind::Create2 => CallKind::Create,
+
+            // We do not support these EVM features.
+            traces::CallKind::AuthCall | traces::CallKind::EOFCreate => unimplemented!(),
         }
     }
 }

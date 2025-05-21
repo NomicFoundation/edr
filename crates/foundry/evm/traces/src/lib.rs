@@ -15,11 +15,11 @@ use std::{
 };
 
 use alloy_primitives::map::HashMap;
-use revm_inspectors::tracing::types::{DecodedTraceStep, TraceMemberOrder};
+use revm_inspectors::tracing::types::DecodedTraceStep;
 pub use revm_inspectors::tracing::{
     types::{
         CallKind, CallLog, CallTrace, CallTraceNode, CallTraceStep, DecodedCallData,
-        DecodedCallLog, DecodedCallTrace,
+        DecodedCallLog, DecodedCallTrace, TraceMemberOrder
     },
     CallTraceArena, FourByteInspector, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType,
     TraceWriter, TracingInspector, TracingInspectorConfig,
@@ -57,7 +57,7 @@ pub struct SparsedTraceArena {
 impl SparsedTraceArena {
     /// Goes over entire trace arena and removes ignored trace items.
     #[allow(dead_code)]
-    fn resolve_arena(&self) -> Cow<'_, CallTraceArena> {
+    pub fn resolve_arena(&self) -> Cow<'_, CallTraceArena> {
         if self.ignored.is_empty() {
             Cow::Borrowed(&self.arena)
         } else {

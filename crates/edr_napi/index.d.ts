@@ -545,6 +545,7 @@ export interface SolidityTestRunnerConfigArgs {
    * config value is set, then the fuzz config value will be used.
    */
   invariant?: InvariantConfigArgs
+  traces?: ShowTraces
 }
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {
@@ -687,6 +688,11 @@ export interface AddressLabel {
   /** The label to assign to the address */
   label: string
 }
+export const enum ShowTraces {
+  None = 0,
+  Failing = 1,
+  All = 2
+}
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -798,6 +804,32 @@ export interface BaseCounterExample {
   readonly signature?: string
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::args] */
   readonly args?: string
+}
+export interface CallTrace {
+  kind: CallKind
+  success: boolean
+  cheatcode: boolean
+  gasUsed: bigint
+  contract: string
+  function: string
+  inputs: string
+  outputs: string
+  children: Array<CallTrace | CallLog>
+}
+export const enum CallKind {
+  Call = 0,
+  CallCode = 1,
+  DelegateCall = 2,
+  StaticCall = 3,
+  Create = 4
+}
+export interface CallLog {
+  name: string
+  parameters: Array<CallLogParameter>
+}
+export interface CallLogParameter {
+  name: string
+  value: string
 }
 /**
  * Executes Solidity tests.
@@ -1121,6 +1153,7 @@ export declare class TestResult {
    * Cannot throw.
    */
   stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
+  callTraces(): Array<CallTrace>
 }
 export declare class Exit {
   get kind(): ExitCode
