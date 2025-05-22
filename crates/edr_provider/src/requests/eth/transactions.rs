@@ -327,9 +327,9 @@ fn send_raw_transaction_and_log<
 
         if let Some(failure) = transaction_failure {
             let (_transaction_hash, traces) = result.into();
-            return Err(ProviderError::TransactionFailed(
+            return Err(ProviderError::TransactionFailed(Box::new(
                 TransactionFailureWithTraces { failure, traces },
-            ));
+            )));
         }
     }
 

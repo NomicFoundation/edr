@@ -24,7 +24,7 @@ async fn eth_max_priority_fee_per_gas() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let response = provider.handle_request(ProviderRequest::Single(
+    let response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::MaxPriorityFeePerGas(()),
     ))?;
 

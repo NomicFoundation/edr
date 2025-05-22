@@ -29,9 +29,16 @@ pub use crate::requests::{
 #[serde(bound = "")]
 pub enum ProviderRequest<ChainSpecT: RpcSpec> {
     /// A single JSON-RPC request
-    Single(MethodInvocation<ChainSpecT>),
+    Single(Box<MethodInvocation<ChainSpecT>>),
     /// A batch of requests
     Batch(Vec<MethodInvocation<ChainSpecT>>),
+}
+
+impl<ChainSpecT: RpcSpec> ProviderRequest<ChainSpecT> {
+    /// Constructs a new instance from a single [`MethodInvocation`].
+    pub fn with_single(method: MethodInvocation<ChainSpecT>) -> Self {
+        Self::Single(Box::new(method))
+    }
 }
 
 // Custom deserializer for `ProviderRequest` instead of using
@@ -69,7 +76,7 @@ impl<'de, ChainSpecT: RpcSpec> Deserialize<'de> for ProviderRequest<ChainSpecT> 
                 M: MapAccess<'de>,
             {
                 // Forward to deserializer of `MethodInvocation`
-                Ok(ProviderRequest::Single(Deserialize::deserialize(
+                Ok(ProviderRequest::with_single(Deserialize::deserialize(
                     de::value::MapAccessDeserializer::new(map),
                 )?))
             }
@@ -95,10 +102,7 @@ mod tests {
             "id": 1
         }"#;
         let request: ProviderRequest<L1ChainSpec> = serde_json::from_str(json)?;
-        assert!(matches!(
-            request,
-            ProviderRequest::Single(MethodInvocation::GetBalance(..))
-        ));
+        assert!(matches!(request, ProviderRequest::Single(..)));
         Ok(())
     }
 

@@ -53,15 +53,16 @@ async fn issue_356() -> anyhow::Result<()> {
             .as_slice()[..4],
     );
 
-    let response = provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
-        CallRequest {
-            to: Some(contract_address),
-            data: Some(selector),
-            ..CallRequest::default()
-        },
-        None,
-        None,
-    )))?;
+    let response =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+            CallRequest {
+                to: Some(contract_address),
+                data: Some(selector),
+                ..CallRequest::default()
+            },
+            None,
+            None,
+        )))?;
 
     assert_eq!(
         response.result,

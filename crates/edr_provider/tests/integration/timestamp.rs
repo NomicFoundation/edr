@@ -42,7 +42,7 @@ impl TimestampFixture {
     }
 
     fn increase_time(&self, seconds: u64) -> anyhow::Result<()> {
-        self.provider.handle_request(ProviderRequest::Single(
+        self.provider.handle_request(ProviderRequest::with_single(
             MethodInvocation::EvmIncreaseTime(Timestamp::from(seconds)),
         ))?;
 
@@ -51,22 +51,24 @@ impl TimestampFixture {
 
     fn mine_block(&self) -> anyhow::Result<()> {
         self.provider
-            .handle_request(ProviderRequest::Single(MethodInvocation::EvmMine(None)))?;
+            .handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
+                None,
+            )))?;
 
         Ok(())
     }
 
     fn mine_block_with_timestamp(&self, timestamp: u64) -> anyhow::Result<()> {
         self.provider
-            .handle_request(ProviderRequest::Single(MethodInvocation::EvmMine(Some(
-                Timestamp::from(timestamp),
-            ))))?;
+            .handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
+                Some(Timestamp::from(timestamp)),
+            )))?;
 
         Ok(())
     }
 
     fn latest_block_timestamp(&self) -> anyhow::Result<u64> {
-        let result = self.provider.handle_request(ProviderRequest::Single(
+        let result = self.provider.handle_request(ProviderRequest::with_single(
             MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
         ))?;
 
@@ -75,7 +77,7 @@ impl TimestampFixture {
     }
 
     fn set_next_block_timestamp(&self, timestamp: u64) -> anyhow::Result<()> {
-        self.provider.handle_request(ProviderRequest::Single(
+        self.provider.handle_request(ProviderRequest::with_single(
             MethodInvocation::EvmSetNextBlockTimestamp(Timestamp::from(timestamp)),
         ))?;
 

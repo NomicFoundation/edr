@@ -44,23 +44,25 @@ async fn issue_326() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+        None, None,
+    )))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-        TransactionRequest {
+    provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(impersonated_account),
             nonce: Some(0),
             max_fee_per_gas: Some(0xA),
             ..TransactionRequest::default()
-        },
-    )))?;
+        }),
+    ))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::EstimateGas(
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
         CallRequest {
             from: Some(impersonated_account),
             to: Some(impersonated_account),

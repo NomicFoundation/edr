@@ -35,7 +35,7 @@ const CHAIN_ID: u64 = 0x7a69;
 fn assert_code_at(provider: &Provider<L1ChainSpec>, address: Address, expected: &Bytes) {
     let code: Bytes = {
         let response = provider
-            .handle_request(ProviderRequest::Single(MethodInvocation::GetCode(
+            .handle_request(ProviderRequest::with_single(MethodInvocation::GetCode(
                 address, None,
             )))
             .expect("eth_getCode should succeed");
@@ -95,15 +95,15 @@ async fn trace_transaction() -> anyhow::Result<()> {
     let provider = new_provider(config, vec![secret_key])?;
 
     let response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            transaction_request,
-        )))
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(transaction_request),
+        ))
         .expect("eth_sendTransaction should succeed");
 
     let transaction_hash: B256 = serde_json::from_value(response.result)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::Single(
+        .handle_request(ProviderRequest::with_single(
             MethodInvocation::DebugTraceTransaction(transaction_hash, None),
         ))
         .expect("debug_traceTransaction should succeed");
@@ -139,14 +139,14 @@ async fn get_transaction() -> anyhow::Result<()> {
     let provider = new_provider(config, vec![secret_key])?;
 
     let response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            transaction_request.clone(),
-        )))
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(transaction_request.clone()),
+        ))
         .expect("eth_sendTransaction should succeed");
 
     let transaction_hash: B256 = serde_json::from_value(response.result)?;
 
-    let response = provider.handle_request(ProviderRequest::Single(
+    let response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 

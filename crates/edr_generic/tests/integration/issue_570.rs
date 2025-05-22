@@ -64,7 +64,7 @@ async fn issue_570_error_message() -> anyhow::Result<()> {
     let transaction_hash =
         B256::from_str("0xe565eb3bfd815efcc82bed1eef580117f9dc3d6896db42500572c8e789c5edd4")?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ));
 
@@ -101,7 +101,7 @@ async fn issue_570_env_var() -> anyhow::Result<()> {
     let transaction_hash =
         B256::from_str("0xe565eb3bfd815efcc82bed1eef580117f9dc3d6896db42500572c8e789c5edd4")?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ))?;
 
@@ -130,7 +130,7 @@ async fn issue_570_unsupported_requested() -> anyhow::Result<()> {
     let transaction_hash =
         B256::from_str("0xa9d8bf76337ac4a72a4085d5fd6456f6950b6b95d9d4aa198707a649268ef91c")?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ));
 

@@ -172,7 +172,7 @@ impl<
         let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
 
         let response = match request {
-            ProviderRequest::Single(request) => self.handle_single_request(&mut data, request),
+            ProviderRequest::Single(request) => self.handle_single_request(&mut data, *request),
             ProviderRequest::Batch(requests) => self.handle_batch_request(&mut data, requests),
         }?;
 

@@ -104,7 +104,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
     )?;
 
     let error = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::Call(
+        .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
             request, None, None,
         )))
         .expect_err("Must return an error");
@@ -136,7 +136,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
     )?;
 
     let error = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::EstimateGas(
+        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
             request, None,
         )))
         .expect_err("Must return an error");
@@ -168,9 +168,9 @@ async fn send_transaction_unsupported() -> anyhow::Result<()> {
     )?;
 
     let error = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            transaction,
-        )))
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(transaction),
+        ))
         .expect_err("Must return an error");
 
     assert!(matches!(
@@ -209,7 +209,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
     ))?;
 
@@ -247,13 +247,13 @@ async fn get_transaction() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
     ))?;
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
@@ -297,11 +297,11 @@ async fn block_header() -> anyhow::Result<()> {
     // The genesis block has 0 excess blobs
     let mut excess_blobs = 0u64;
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
@@ -321,11 +321,11 @@ async fn block_header() -> anyhow::Result<()> {
         .nonce(1)
         .build_raw();
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendRawTransaction(excess_blob_transaction),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
@@ -345,11 +345,11 @@ async fn block_header() -> anyhow::Result<()> {
         .nonce(2)
         .build_raw();
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendRawTransaction(excess_blob_transaction),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
@@ -365,9 +365,11 @@ async fn block_header() -> anyhow::Result<()> {
     excess_blobs += 2;
 
     // Mine an empty block to validate the previous block's excess
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+        None, None,
+    )))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
@@ -384,9 +386,11 @@ async fn block_header() -> anyhow::Result<()> {
     excess_blobs = excess_blobs.saturating_sub(3);
 
     // Mine an empty block to validate the previous block's excess
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+        None, None,
+    )))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
@@ -418,14 +422,14 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         let blob_hashes = builder.blob_hashes();
         let call_transaction = builder.build_raw();
 
-        provider.handle_request(ProviderRequest::Single(
+        provider.handle_request(ProviderRequest::with_single(
             MethodInvocation::SendRawTransaction(call_transaction),
         ))?;
 
         for (idx, blob_hash) in blob_hashes.into_iter().enumerate() {
             let index = U256::from(idx);
 
-            let result = provider.handle_request(ProviderRequest::Single(
+            let result = provider.handle_request(ProviderRequest::with_single(
                 MethodInvocation::GetStorageAt(*contract_address, index, None),
             ))?;
 
@@ -436,7 +440,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         for idx in num_blobs..6 {
             let index = U256::from(idx);
 
-            let result = provider.handle_request(ProviderRequest::Single(
+            let result = provider.handle_request(ProviderRequest::with_single(
                 MethodInvocation::GetStorageAt(*contract_address, index, None),
             ))?;
 
