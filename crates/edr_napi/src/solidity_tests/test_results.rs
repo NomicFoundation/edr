@@ -190,7 +190,7 @@ impl TestResult {
 
     #[napi]
     pub fn call_traces(&self) -> Vec<CallTrace> {
-        self.call_trace_arenas.iter().map(|(_, a)| CallTrace::from(a)).collect()
+        self.call_trace_arenas.iter().filter_map(|(k, a)| (*k != traces::TraceKind::Deployment).then(|| CallTrace::from(a))).collect()
     }
 }
 
