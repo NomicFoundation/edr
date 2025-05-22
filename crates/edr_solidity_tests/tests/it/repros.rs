@@ -276,7 +276,7 @@ test_repro!(6355, false, None, |res| {
 
     let test = res
         .test_results
-        .remove("test_shouldFailWithRevertTo()")
+        .remove("test_shouldFailWithRevertToState()")
         .unwrap();
     assert_eq!(test.status, TestStatus::Failure);
 });
