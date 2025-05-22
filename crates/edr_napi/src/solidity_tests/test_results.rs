@@ -4,16 +4,20 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
-use edr_solidity_tests::{constants::CHEATCODE_ADDRESS, executors::stack_trace::StackTraceResult, traces::{self, SparsedTraceArena, TraceKind}};
 use edr_evm::hex;
+use edr_solidity_tests::{
+    constants::CHEATCODE_ADDRESS,
+    executors::stack_trace::StackTraceResult,
+    traces::{self, SparsedTraceArena, TraceKind},
+};
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3, Either4},
-    Either
+    Either,
 };
 use napi_derive::napi;
 
 use crate::{
-    solidity_tests::artifact::ArtifactId, trace::solidity_stack_trace::SolidityStackTraceEntry
+    solidity_tests::artifact::ArtifactId, trace::solidity_stack_trace::SolidityStackTraceEntry,
 };
 
 /// See [edr_solidity_tests::result::SuiteResult]
@@ -88,7 +92,6 @@ pub struct TestResult {
 
     stack_trace_result: Option<StackTraceResult>,
     call_trace_arenas: Vec<(TraceKind, SparsedTraceArena)>,
-
 }
 
 /// The stack trace result
@@ -190,7 +193,10 @@ impl TestResult {
 
     #[napi]
     pub fn call_traces(&self) -> Vec<CallTrace> {
-        self.call_trace_arenas.iter().filter_map(|(k, a)| (*k != traces::TraceKind::Deployment).then(|| CallTrace::from(a))).collect()
+        self.call_trace_arenas
+            .iter()
+            .filter_map(|(k, a)| (*k != traces::TraceKind::Deployment).then(|| CallTrace::from(a)))
+            .collect()
     }
 }
 
@@ -435,9 +441,15 @@ pub struct CallLogParameter {
 }
 
 impl CallTrace {
-    /// Instantiates a `CallTrace` with the details from a node, but without any children.
+    /// Instantiates a `CallTrace` with the details from a node, but without any
+    /// children.
     fn new(node: &traces::CallTraceNode) -> Self {
-        let contract = node.trace.decoded.label.clone().unwrap_or(node.trace.address.to_checksum(None));
+        let contract = node
+            .trace
+            .decoded
+            .label
+            .clone()
+            .unwrap_or(node.trace.address.to_checksum(None));
 
         let (function, inputs) = match &node.trace.decoded.call_data {
             Some(traces::DecodedCallData { signature, args }) => {
@@ -481,12 +493,23 @@ impl CallTrace {
 
 impl From<&traces::CallLog> for CallLog {
     fn from(value: &traces::CallLog) -> Self {
-        let Some(name) = &value.decoded.name else { todo!() };
-        let Some(params) = &value.decoded.params else { todo!() };
-        let parameters = params.iter().map(|(name, value)|
-            CallLogParameter { name: name.clone(), value: value.clone() }
-        ).collect();
-        Self { name: name.clone(), parameters }
+        let Some(name) = &value.decoded.name else {
+            todo!()
+        };
+        let Some(params) = &value.decoded.params else {
+            todo!()
+        };
+        let parameters = params
+            .iter()
+            .map(|(name, value)| CallLogParameter {
+                name: name.clone(),
+                value: value.clone(),
+            })
+            .collect();
+        Self {
+            name: name.clone(),
+            parameters,
+        }
     }
 }
 
@@ -517,10 +540,16 @@ impl From<&SparsedTraceArena> for CallTrace {
 
             if item.visited {
                 let mut trace = CallTrace::new(node);
-                let mut logs = node.logs.iter().map(|log| Some(CallLog::from(log))).collect::<Vec<_>>();
+                let mut logs = node
+                    .logs
+                    .iter()
+                    .map(|log| Some(CallLog::from(log)))
+                    .collect::<Vec<_>>();
 
-                trace.children = node.ordering.iter().filter_map(|ord| {
-                    match *ord {
+                trace.children = node
+                    .ordering
+                    .iter()
+                    .filter_map(|ord| match *ord {
                         traces::TraceMemberOrder::Log(i) => {
                             let log = logs[i].take().unwrap();
                             Some(Either::B(log))
@@ -532,8 +561,8 @@ impl From<&SparsedTraceArena> for CallTrace {
                             Some(Either::A(child_trace))
                         }
                         traces::TraceMemberOrder::Step(_) => None,
-                    }
-                }).collect();
+                    })
+                    .collect();
 
                 if let Some(parent_stack_index) = item.parent_stack_index {
                     let parent = &mut stack[parent_stack_index];
@@ -549,9 +578,10 @@ impl From<&SparsedTraceArena> for CallTrace {
 
                 let top_index = Some(stack.len() - 1);
 
-                // We assume the arena contains a pre-order traversal of the trace. Since we take
-                // from the top of the stack in each iteration, we push the children in reverse
-                // order so that we traverse the arena linearly for cache efficiency.
+                // We assume the arena contains a pre-order traversal of the trace. Since we
+                // take from the top of the stack in each iteration, we push the
+                // children in reverse order so that we traverse the arena
+                // linearly for cache efficiency.
                 stack.extend(node.children.iter().rev().map(|&arena_index| StackItem {
                     visited: false,
                     parent_stack_index: top_index,

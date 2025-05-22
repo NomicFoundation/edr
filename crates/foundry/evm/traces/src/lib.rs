@@ -19,7 +19,7 @@ use revm_inspectors::tracing::types::DecodedTraceStep;
 pub use revm_inspectors::tracing::{
     types::{
         CallKind, CallLog, CallTrace, CallTraceNode, CallTraceStep, DecodedCallData,
-        DecodedCallLog, DecodedCallTrace, TraceMemberOrder
+        DecodedCallLog, DecodedCallTrace, TraceMemberOrder,
     },
     CallTraceArena, FourByteInspector, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType,
     TraceWriter, TracingInspector, TracingInspectorConfig,
