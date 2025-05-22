@@ -41,11 +41,11 @@ async fn block_header() -> anyhow::Result<()> {
     // The genesis block has 0 excess blobs
     let mut excess_blobs = 0u64;
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendRawTransaction(raw_eip4844_transaction),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
@@ -64,11 +64,11 @@ async fn block_header() -> anyhow::Result<()> {
         .nonce(1)
         .build_raw();
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendRawTransaction(excess_blob_transaction),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
@@ -88,11 +88,11 @@ async fn block_header() -> anyhow::Result<()> {
         .nonce(2)
         .build_raw();
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendRawTransaction(excess_blob_transaction),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
@@ -108,9 +108,11 @@ async fn block_header() -> anyhow::Result<()> {
     excess_blobs += 2;
 
     // Mine an empty block to validate the previous block's excess
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+        None, None,
+    )))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
@@ -127,9 +129,11 @@ async fn block_header() -> anyhow::Result<()> {
     excess_blobs = excess_blobs.saturating_sub(6);
 
     // Mine an empty block to validate the previous block's excess
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::Mine(None, None)))?;
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::Mine(
+        None, None,
+    )))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 

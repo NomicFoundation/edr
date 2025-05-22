@@ -34,7 +34,7 @@ fn assert_transaction_gas_usage(
 
 fn estimate_gas(provider: &Provider<L1ChainSpec>, request: CallRequest) -> u64 {
     let response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::EstimateGas(
+        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
             request, None,
         )))
         .expect("eth_estimateGas should succeed");
@@ -46,7 +46,7 @@ fn estimate_gas(provider: &Provider<L1ChainSpec>, request: CallRequest) -> u64 {
 
 fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
     let response = provider
-        .handle_request(ProviderRequest::Single(
+        .handle_request(ProviderRequest::with_single(
             MethodInvocation::GetTransactionReceipt(transaction_hash),
         ))
         .expect("eth_getTransactionReceipt should succeed");
@@ -87,9 +87,9 @@ fn send_transaction(
     request: TransactionRequest,
 ) -> anyhow::Result<B256> {
     let response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            request,
-        )))
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(request),
+        ))
         .expect("eth_sendTransaction should succeed");
 
     let transaction_hash: B256 = serde_json::from_value(response.result)?;

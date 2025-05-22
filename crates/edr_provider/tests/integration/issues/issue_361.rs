@@ -40,19 +40,19 @@ async fn issue_361() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-        TransactionRequest {
+    provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
             ..TransactionRequest::default()
-        },
-    )))?;
+        }),
+    ))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::GetLogs(
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetLogs(
         LogFilterOptions {
             from_block: Some(BlockSpec::Number(0)),
             to_block: Some(BlockSpec::latest()),

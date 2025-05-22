@@ -138,13 +138,13 @@ where
         ..TransactionRequest::default()
     };
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendTransaction(deploy_transaction),
     ))?;
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 

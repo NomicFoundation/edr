@@ -49,7 +49,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
 
     let provider = new_provider(secret_key)?;
     let _response = provider
-        .handle_request(ProviderRequest::Single(
+        .handle_request(ProviderRequest::with_single(
             MethodInvocation::SendRawTransaction(RAW_TRANSACTION1.clone()),
         ))
         .expect("eth_sendRawTransaction should succeed");
@@ -57,7 +57,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
     assert_code_at(&provider, authorized_address, &EXPECTED_CODE);
 
     let _response = provider
-        .handle_request(ProviderRequest::Single(
+        .handle_request(ProviderRequest::with_single(
             MethodInvocation::SendRawTransaction(RAW_TRANSACTION2.clone()),
         ))
         .expect("eth_sendRawTransaction should succeed");
@@ -98,17 +98,17 @@ async fn send_transaction() -> anyhow::Result<()> {
     let provider = new_provider(secret_key)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            transaction_request1,
-        )))
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(transaction_request1),
+        ))
         .expect("eth_sendTransaction should succeed");
 
     assert_code_at(&provider, authorized_address, &EXPECTED_CODE);
 
     let _response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            transaction_request2,
-        )))
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(transaction_request2),
+        ))
         .expect("eth_sendTransaction should succeed");
 
     assert_code_at(&provider, authorized_address, &Bytes::new());

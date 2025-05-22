@@ -33,7 +33,9 @@ async fn avalanche_chain_mine_local_block() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::EvmMine(None)))?;
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::EvmMine(
+        None,
+    )))?;
 
     Ok(())
 }
