@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::Log;
@@ -36,6 +36,7 @@ pub struct ReplayRunArgs<'a, NestedTraceDecoderT> {
     pub logs: &'a mut Vec<Log>,
     pub traces: &'a mut Traces,
     pub coverage: &'a mut Option<HitMaps>,
+    pub deprecated_cheatcodes: &'a mut HashMap<&'static str, Option<&'static str>>,
     pub inputs: Vec<BasicTxDetails>,
     pub generate_stack_trace: bool,
     /// Must be provided if `generate_stack_trace` is true
@@ -67,6 +68,7 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
         logs,
         traces,
         coverage,
+        deprecated_cheatcodes,
         inputs,
         generate_stack_trace,
         contract_decoder,
@@ -156,6 +158,12 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
         invariant_result.traces.expect("tracing is on"),
     ));
     logs.extend(invariant_result.logs);
+    deprecated_cheatcodes.extend(
+        invariant_result
+            .cheatcodes
+            .as_ref()
+            .map_or_else(Default::default, |cheats| cheats.deprecated.clone()),
+    );
 
     // Collect after invariant logs and traces.
     if invariant_contract.call_after_invariant && invariant_success {
@@ -199,6 +207,7 @@ pub struct ReplayErrorArgs<'a, NestedTraceDecoderT> {
     pub logs: &'a mut Vec<Log>,
     pub traces: &'a mut Traces,
     pub coverage: &'a mut Option<HitMaps>,
+    pub deprecated_cheatcodes: &'a mut HashMap<&'static str, Option<&'static str>>,
     pub generate_stack_trace: bool,
     /// Must be provided if `generate_stack_trace` is true
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
@@ -220,6 +229,7 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
         logs,
         traces,
         coverage,
+        deprecated_cheatcodes,
         generate_stack_trace,
         contract_decoder,
         revert_decoder,
@@ -250,6 +260,7 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
                 logs,
                 traces,
                 coverage,
+                deprecated_cheatcodes,
                 inputs: calls,
                 generate_stack_trace,
                 contract_decoder,

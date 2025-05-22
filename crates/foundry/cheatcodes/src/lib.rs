@@ -23,6 +23,7 @@ use foundry_evm_core::backend::DatabaseExt;
 pub use fs_permissions::{FsAccessKind, FsAccessPermission, FsPermissions, PathPermission};
 pub use inspector::{BroadcastableTransaction, BroadcastableTransactions, Cheatcodes, Context};
 use revm::{ContextPrecompiles, InnerEvmContext};
+use spec::Status;
 pub use spec::{CheatcodeDef, Vm};
 
 mod ens;
@@ -96,6 +97,10 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
             );
         }
 
+        if let spec::Status::Deprecated(replacement) = self.status() {
+            ccx.state.deprecated.insert(self.signature(), *replacement);
+        }
+
         let _span = trace_span_and_call(self);
         ccx.db
             .record_cheatcode_purity(Self::CHEATCODE.func.declaration, self.is_pure());
@@ -107,12 +112,22 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
 
 pub(crate) trait DynCheatcode {
     fn cheatcode(&self) -> &'static foundry_cheatcodes_spec::Cheatcode<'static>;
+    fn signature(&self) -> &'static str;
+    fn status(&self) -> &Status<'static>;
     fn as_debug(&self) -> &dyn std::fmt::Debug;
 }
 
 impl<T: Cheatcode> DynCheatcode for T {
     fn cheatcode(&self) -> &'static foundry_cheatcodes_spec::Cheatcode<'static> {
         T::CHEATCODE
+    }
+
+    fn signature(&self) -> &'static str {
+        T::CHEATCODE.func.signature
+    }
+
+    fn status(&self) -> &Status<'static> {
+        &T::CHEATCODE.status
     }
 
     fn as_debug(&self) -> &dyn std::fmt::Debug {

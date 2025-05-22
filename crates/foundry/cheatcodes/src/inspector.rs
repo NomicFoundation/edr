@@ -208,6 +208,10 @@ pub struct Cheatcodes {
 
     /// The current program counter.
     pub pc: usize,
+
+    /// Deprecated cheatcodes mapped to the reason. Used to report warnings on
+    /// test results.
+    pub deprecated: HashMap<&'static str, Option<&'static str>>,
 }
 
 impl Cheatcodes {
