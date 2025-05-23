@@ -583,10 +583,9 @@ impl From<&SparsedTraceArena> for CallTrace {
 
                 let top_index = Some(stack.len() - 1);
 
-                // We assume the arena contains a pre-order traversal of the trace. Since we
-                // take from the top of the stack in each iteration, we push the
-                // children in reverse order so that we traverse the arena
-                // linearly for cache efficiency.
+                // Push children in reverse order to result in linear traversal of the arena for
+                // cache efficiency, on the assumption that the arena contains a pre-order
+                // traversal of the trace.
                 stack.extend(node.children.iter().rev().map(|&arena_index| StackItem {
                     visited: false,
                     parent_stack_index: top_index,
