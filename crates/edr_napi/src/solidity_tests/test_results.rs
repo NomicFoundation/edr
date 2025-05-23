@@ -8,16 +8,18 @@ use edr_evm::hex;
 use edr_solidity_tests::{
     constants::CHEATCODE_ADDRESS,
     executors::stack_trace::StackTraceResult,
-    traces::{self, SparsedTraceArena, TraceKind},
+    traces::{self, SparsedTraceArena},
 };
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3, Either4},
+    bindgen_prelude::{BigInt, Buffer, Either3, Either4, Uint8Array},
     Either,
 };
 use napi_derive::napi;
 
 use crate::{
-    solidity_tests::artifact::ArtifactId, trace::solidity_stack_trace::SolidityStackTraceEntry,
+    cast::TryCast,
+    solidity_tests::artifact::ArtifactId,
+    trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
 };
 
 /// See [edr_solidity_tests::result::SuiteResult]
@@ -91,7 +93,7 @@ pub struct TestResult {
     pub duration_ms: BigInt,
 
     stack_trace_result: Option<StackTraceResult>,
-    call_trace_arenas: Vec<(TraceKind, SparsedTraceArena)>,
+    call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
 }
 
 /// The stack trace result
@@ -163,7 +165,7 @@ impl TestResult {
                     entries: stack_trace
                         .iter()
                         .cloned()
-                        .map(crate::cast::TryCast::try_cast)
+                        .map(TryCast::try_cast)
                         .collect::<Result<Vec<_>, Infallible>>()
                         .expect("infallible"),
                 }),
@@ -409,15 +411,21 @@ pub struct CallTrace {
     pub success: bool,
     pub cheatcode: bool,
     pub gas_used: BigInt,
+    pub value: BigInt,
     pub contract: String,
-    pub function: String,
-    pub inputs: String,
+    pub inputs: Either<DecodedTraceParameters, Uint8Array>,
     pub outputs: String,
-    pub children: Vec<Either<CallTrace, CallLog>>, // interleaved subcalls and event logs
+    /// Interleaved subcalls and event logs.
+    pub children: Vec<Either<CallTrace, LogTrace>>,
+}
+
+#[napi(object)]
+pub struct LogTrace {
+    pub kind: LogKind,
+    pub parameters: Either<DecodedTraceParameters, Vec<Uint8Array>>,
 }
 
 #[napi]
-#[derive(Debug)]
 pub enum CallKind {
     Call,
     CallCode,
@@ -426,18 +434,15 @@ pub enum CallKind {
     Create,
 }
 
-#[napi(object)]
-#[derive(Clone, Debug, Default)]
-pub struct CallLog {
-    pub name: String,
-    pub parameters: Vec<CallLogParameter>,
+#[napi]
+pub enum LogKind {
+    Log,
 }
 
 #[napi(object)]
-#[derive(Clone, Debug, Default)]
-pub struct CallLogParameter {
+pub struct DecodedTraceParameters {
     pub name: String,
-    pub value: String,
+    pub arguments: Vec<String>,
 }
 
 impl CallTrace {
@@ -451,19 +456,13 @@ impl CallTrace {
             .clone()
             .unwrap_or(node.trace.address.to_checksum(None));
 
-        let (function, inputs) = match &node.trace.decoded.call_data {
+        let inputs = match &node.trace.decoded.call_data {
             Some(traces::DecodedCallData { signature, args }) => {
-                let name = signature.split('(').next().unwrap();
-                (name.to_string(), args.join(", "))
+                let name = signature.split('(').next().unwrap().to_string();
+                let arguments = args.clone();
+                Either::A(DecodedTraceParameters { name, arguments })
             }
-            None => {
-                if node.trace.data.len() < 4 {
-                    ("fallback".to_string(), hex::encode(&node.trace.data))
-                } else {
-                    let (selector, data) = node.trace.data.split_at(4);
-                    (hex::encode(selector), hex::encode(data))
-                }
-            }
+            None => Either::B(node.trace.data.as_ref().into()),
         };
 
         let outputs = match &node.trace.decoded.return_data {
@@ -482,8 +481,8 @@ impl CallTrace {
             success: node.trace.success,
             cheatcode: node.trace.address == CHEATCODE_ADDRESS,
             gas_used: node.trace.gas_used.into(),
+            value: u256_to_bigint(&node.trace.value),
             contract,
-            function,
             inputs,
             outputs,
             children: Vec::with_capacity(node.ordering.len()),
@@ -491,23 +490,29 @@ impl CallTrace {
     }
 }
 
-impl From<&traces::CallLog> for CallLog {
-    fn from(value: &traces::CallLog) -> Self {
-        let Some(name) = &value.decoded.name else {
-            todo!()
-        };
-        let Some(params) = &value.decoded.params else {
-            todo!()
-        };
-        let parameters = params
-            .iter()
-            .map(|(name, value)| CallLogParameter {
-                name: name.clone(),
-                value: value.clone(),
-            })
-            .collect();
+impl From<&traces::CallLog> for LogTrace {
+    fn from(log: &traces::CallLog) -> Self {
+        let decoded_log = log.decoded.name.clone().zip(log.decoded.params.as_ref());
+
+        let parameters = decoded_log.map_or_else(
+            || {
+                let raw_log = &log.raw_log;
+                let mut params = Vec::with_capacity(raw_log.topics().len() + 1);
+                params.extend(raw_log.topics().iter().map(|topic| topic.as_slice().into()));
+                params.push(log.raw_log.data.as_ref().into());
+                Either::B(params)
+            },
+            |(name, params)| {
+                let arguments = params
+                    .iter()
+                    .map(|(name, value)| format!("{name}: {value}"))
+                    .collect();
+                Either::A(DecodedTraceParameters { name, arguments })
+            },
+        );
+
         Self {
-            name: name.clone(),
+            kind: LogKind::Log,
             parameters,
         }
     }
@@ -543,7 +548,7 @@ impl From<&SparsedTraceArena> for CallTrace {
                 let mut logs = node
                     .logs
                     .iter()
-                    .map(|log| Some(CallLog::from(log)))
+                    .map(|log| Some(LogTrace::from(log)))
                     .collect::<Vec<_>>();
 
                 trace.children = node

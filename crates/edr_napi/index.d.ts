@@ -810,11 +810,16 @@ export interface CallTrace {
   success: boolean
   cheatcode: boolean
   gasUsed: bigint
+  value: bigint
   contract: string
-  function: string
-  inputs: string
+  inputs: DecodedTraceParameters | Uint8Array
   outputs: string
-  children: Array<CallTrace | CallLog>
+  /** Interleaved subcalls and event logs. */
+  children: Array<CallTrace | LogTrace>
+}
+export interface LogTrace {
+  kind: LogKind
+  parameters: DecodedTraceParameters | Array<Uint8Array>
 }
 export const enum CallKind {
   Call = 0,
@@ -823,13 +828,12 @@ export const enum CallKind {
   StaticCall = 3,
   Create = 4
 }
-export interface CallLog {
-  name: string
-  parameters: Array<CallLogParameter>
+export const enum LogKind {
+  Log = 0
 }
-export interface CallLogParameter {
+export interface DecodedTraceParameters {
   name: string
-  value: string
+  arguments: Array<string>
 }
 /**
  * Executes Solidity tests.
