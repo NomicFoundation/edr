@@ -196,7 +196,8 @@ impl TestResult {
     pub fn call_traces(&self) -> Vec<CallTrace> {
         self.call_trace_arenas
             .iter()
-            .filter_map(|(k, a)| (*k != traces::TraceKind::Deployment).then(|| CallTrace::from(a)))
+            .filter(|(k, _)| *k != traces::TraceKind::Deployment)
+            .map(|(_, a)| a.into())
             .collect()
     }
 }
