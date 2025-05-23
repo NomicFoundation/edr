@@ -56,7 +56,7 @@ pub struct ContractRunner<'a, NestedTraceDecoderT> {
     pub known_contracts: &'a ContractsByArtifact,
     /// Libraries to deploy.
     pub libs_to_deploy: &'a [Bytes],
-    /// Provides contract metadata from calldata and traces.
+    /// Provides contract metadata for calldata and traces.
     pub contract_decoder: Arc<NestedTraceDecoderT>,
     /// The initial balance of the test contract
     pub initial_balance: U256,
@@ -84,7 +84,7 @@ pub struct ContractRunnerOptions {
     pub solidity_fuzz_fixtures: bool,
 }
 
-/// Contract artifact related argumetns to the contract runner.
+/// Contract artifact related arguments to the contract runner.
 pub struct ContractRunnerArtifacts<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> {
     pub revert_decoder: &'a RevertDecoder,
     pub known_contracts: &'a ContractsByArtifact,
