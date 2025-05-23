@@ -4,7 +4,6 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
-use edr_evm::hex;
 use edr_solidity_tests::{
     constants::CHEATCODE_ADDRESS,
     executors::stack_trace::StackTraceResult,
@@ -414,7 +413,7 @@ pub struct CallTrace {
     pub value: BigInt,
     pub contract: String,
     pub inputs: Either<DecodedTraceParameters, Uint8Array>,
-    pub outputs: String,
+    pub outputs: Either<String, Uint8Array>,
     /// Interleaved subcalls and event logs.
     pub children: Vec<Either<CallTrace, LogTrace>>,
 }
@@ -466,12 +465,12 @@ impl CallTrace {
         };
 
         let outputs = match &node.trace.decoded.return_data {
-            Some(outputs) => outputs.clone(),
+            Some(outputs) => Either::A(outputs.clone()),
             None => {
                 if node.kind().is_any_create() && node.trace.success {
-                    format!("{} bytes of code", node.trace.output.len())
+                    Either::A(format!("{} bytes of code", node.trace.output.len()))
                 } else {
-                    hex::encode(&node.trace.output)
+                    Either::B(node.trace.output.as_ref().into())
                 }
             }
         };

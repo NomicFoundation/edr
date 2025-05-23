@@ -813,7 +813,7 @@ export interface CallTrace {
   value: bigint
   contract: string
   inputs: DecodedTraceParameters | Uint8Array
-  outputs: string
+  outputs: string | Uint8Array
   /** Interleaved subcalls and event logs. */
   children: Array<CallTrace | LogTrace>
 }

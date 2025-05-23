@@ -27,7 +27,7 @@ describe("Call traces", () => {
         name: "testNoChildren",
         arguments: [],
       },
-      outputs: "",
+      outputs: new Uint8Array(0),
       children: [],
     });
   });
