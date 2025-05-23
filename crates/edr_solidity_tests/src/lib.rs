@@ -30,7 +30,7 @@ mod test_filter;
 
 use foundry_evm::fuzz::{invariant::InvariantConfig, FuzzConfig};
 pub use foundry_evm::*;
-pub use test_filter::TestFilter;
+pub use test_filter::{TestFilter, TestFilterConfig};
 
 static FAILURE_PATHS: OnceLock<RwLock<HashSet<&'static str>>> = OnceLock::new();
 

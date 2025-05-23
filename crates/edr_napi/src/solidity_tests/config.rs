@@ -5,7 +5,7 @@ use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
     inspectors::cheatcodes::{CheatsConfigOptions, ExecutionContextConfig},
-    SolidityTestRunnerConfig,
+    SolidityTestRunnerConfig, TestFilterConfig,
 };
 use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
 use napi::{
@@ -129,6 +129,9 @@ pub struct SolidityTestRunnerConfigArgs {
     pub invariant: Option<InvariantConfigArgs>,
 
     pub traces: Option<ShowTraces>,
+    /// A regex pattern to filter tests. If provided, only test methods that
+    /// match the pattern will be executed and reported as a test result.
+    pub test_pattern: Option<String>,
 }
 
 impl Debug for SolidityTestRunnerConfigArgs {
@@ -160,6 +163,7 @@ impl Debug for SolidityTestRunnerConfigArgs {
             .field("prompt_timeout", &self.prompt_timeout)
             .field("fuzz", &self.fuzz)
             .field("invariant", &self.invariant)
+            .field("test_pattern", &self.test_pattern)
             .finish()
     }
 }
@@ -198,6 +202,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             fuzz,
             invariant,
             traces,
+            test_pattern: _,
         } = value;
 
         let invariant: InvariantConfig = fuzz
@@ -413,6 +418,20 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
         }
 
         Ok(fuzz)
+    }
+}
+
+impl SolidityTestRunnerConfigArgs {
+    pub fn try_get_test_filter(&self) -> napi::Result<TestFilterConfig> {
+        let test_pattern = self
+            .test_pattern
+            .as_ref()
+            .map(|p| {
+                p.parse()
+                    .map_err(|e| napi::Error::new(Status::InvalidArg, e))
+            })
+            .transpose()?;
+        Ok(TestFilterConfig { test_pattern })
     }
 }
 
