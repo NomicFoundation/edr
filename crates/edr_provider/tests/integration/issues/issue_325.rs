@@ -43,11 +43,11 @@ async fn issue_325() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
@@ -57,7 +57,7 @@ async fn issue_325() -> anyhow::Result<()> {
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DropTransaction(transaction_hash),
     ))?;
 
@@ -65,10 +65,9 @@ async fn issue_325() -> anyhow::Result<()> {
 
     assert!(dropped);
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::GetBlockByNumber(
-        PreEip1898BlockSpec::pending(),
-        false,
-    )))?;
+    provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::pending(), false),
+    ))?;
 
     Ok(())
 }

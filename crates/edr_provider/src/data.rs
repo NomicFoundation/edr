@@ -2567,12 +2567,14 @@ where
                         .clone(),
                 )),
             }
-            .map_err(|failure| EstimateGasFailure {
-                console_log_inputs: console_logger.into_encoded_messages(),
-                transaction_failure: TransactionFailureWithTraces {
-                    traces: vec![failure.solidity_trace.clone()],
-                    failure,
-                },
+            .map_err(|failure| {
+                Box::new(EstimateGasFailure {
+                    console_log_inputs: console_logger.into_encoded_messages(),
+                    transaction_failure: TransactionFailureWithTraces {
+                        traces: vec![failure.solidity_trace.clone()],
+                        failure,
+                    },
+                })
             })?;
 
             // Ensure that the initial estimation is at least the minimum cost + 1.
