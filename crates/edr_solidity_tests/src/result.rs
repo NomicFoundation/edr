@@ -1,7 +1,7 @@
 //! Test outcomes.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     fmt::{self, Write},
     time::Duration,
 };
@@ -181,8 +181,31 @@ impl SuiteResult {
     pub fn new(
         duration: Duration,
         test_results: BTreeMap<String, TestResult>,
-        warnings: Vec<String>,
+        mut warnings: Vec<String>,
     ) -> Self {
+        // Add deprecated cheatcodes warning, if any of them used in current test suite.
+        let mut deprecated_cheatcodes = HashMap::new();
+
+        for test_result in test_results.values() {
+            deprecated_cheatcodes.extend(&test_result.deprecated_cheatcodes);
+        }
+
+        if !deprecated_cheatcodes.is_empty() {
+            let mut warning =
+                "The following cheatcode(s) are deprecated and will be removed in future versions:"
+                    .to_owned();
+
+            for (cheatcode, reason) in deprecated_cheatcodes {
+                write!(warning, "\n  {cheatcode}").unwrap();
+
+                if let Some(reason) = reason {
+                    write!(warning, ": {reason}").unwrap();
+                }
+            }
+
+            warnings.push(warning);
+        }
+
         Self {
             duration,
             test_results,
@@ -366,6 +389,11 @@ pub struct TestResult {
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
     pub stack_trace_result: Option<StackTraceResult>,
+
+    /// Deprecated cheatcodes (mapped to their replacements, if any) used in
+    /// current test.
+    #[serde(skip)]
+    pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
 }
 
 impl fmt::Display for TestResult {
