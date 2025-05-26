@@ -643,7 +643,7 @@ mod tests {
         #[tokio::test]
         async fn get_logs_future_from_block() {
             let alchemy_url = get_alchemy_url();
-            let error = TestRpcClient::new(&alchemy_url)
+            let result = TestRpcClient::new(&alchemy_url)
                 .get_logs_by_range(
                     BlockSpec::Number(MAX_BLOCK_NUMBER),
                     BlockSpec::Number(MAX_BLOCK_NUMBER),
@@ -653,15 +653,28 @@ mod tests {
                     )),
                     None,
                 )
-                .await
-                .expect_err("should have failed to get logs");
+                .await;
 
-            if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.code, -32000);
-                assert_eq!(error.message, "One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found.");
-                assert!(error.data.is_none());
-            } else {
-                unreachable!("Invalid error: {error}");
+            // TODO: https://github.com/NomicFoundation/edr/issues/903
+            // Alchemy enabled [EIP-4444](https://eips.ethereum.org/EIPS/eip-4444) for part of their clients. As a
+            // result, it's possible that we get the updated result `[]` instead of the old
+            // JSON-RPC error.
+            match result {
+                Ok(response) => {
+                    assert!(response.is_empty());
+                }
+                Err(error) => {
+                    if let RpcClientError::JsonRpcError { error, .. } = error {
+                        assert_eq!(error.code, -32000);
+                        assert_eq!(
+                            error.message,
+                            "One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found."
+                        );
+                        assert!(error.data.is_none());
+                    } else {
+                        unreachable!("Invalid error: {error}");
+                    }
+                }
             }
         }
 
