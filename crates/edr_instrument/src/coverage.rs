@@ -3,7 +3,7 @@ pub use semver::Version;
 use serde::Serialize;
 use sha3::{Digest, Keccak256};
 use slang_solidity::{
-    cst::{Node, NonterminalKind},
+    cst::{Node, NodeKind, NonterminalKind},
     parser::{ParseError, Parser as SolidityParser, ParserInitializationError},
 };
 
@@ -90,6 +90,13 @@ pub fn instrument_code(
     while cursor.go_to_next() {
         match cursor.node() {
             Node::Nonterminal(node) if node.kind == NonterminalKind::Statement => {
+                // Don't instrument before a block statement
+                if let Some(NodeKind::Nonterminal(NonterminalKind::Block)) =
+                    cursor.children().first().map(|edge| edge.kind())
+                {
+                    continue;
+                }
+
                 statement_counter += 1;
 
                 let hash = compute_deterministic_hash_for_statement(
@@ -107,6 +114,33 @@ pub fn instrument_code(
                     start_utf16: range.start.utf16,
                     end_utf16: range.end.utf16,
                 });
+            }
+            Node::Nonterminal(node) if node.kind == NonterminalKind::IfStatement => {
+                let if_statement = cursor.spawn();
+
+                let body = if_statement
+                    .children()
+                    .iter()
+                    .filter(|edge| edge.is_nonterminal())
+                    .nth(1);
+
+                if let Some(body) = body {
+                    if body.kind() != NodeKind::Nonterminal(NonterminalKind::Block) {
+                        // TODO: modify cursor to wrap body in a block
+                    }
+                }
+            }
+            Node::Nonterminal(node)
+                if matches!(
+                    node.kind,
+                    NonterminalKind::ForStatement
+                        | NonterminalKind::WhileStatement
+                        | NonterminalKind::DoWhileStatement
+                        | NonterminalKind::ElseBranch
+                ) =>
+            {
+                // TOOD: wrap non-block statements in a block
+                todo!()
             }
             Node::Terminal(node) => {
                 instrumented_source.push_str(&node.text);
@@ -245,5 +279,40 @@ mod tests {
             b256!("0x9f4fc9ded31350bade85ee54fc2d6dd8d0609fbe0f42203ab07c9a32b95fa4c4"),
             "    uint z = x + y;\n",
         );
+    }
+
+    #[test]
+    fn control_flow() {
+        const FIXTURE: &str = r#"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract Counter {
+  function noop() public {
+    while (true) {
+      if (true) break;
+    }
+
+
+    do {
+      for (uint256 i = 0; i < 10; i++) {
+        if (i % 2 == 0) {
+          continue;
+        } else if (i == 9)
+          return 9;
+        else {
+          // Do something
+        }
+      }
+    } while (true);
+  }
+}
+"#;
+
+        let version = Version::parse("0.8.0").expect("Failed to parse version");
+        let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
+            .expect("Failed to instrument");
+
+        println!("Instrumented source:\n{}", result.source);
     }
 }
