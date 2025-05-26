@@ -90,7 +90,7 @@ pub trait DatabaseExt: Database<Error = DatabaseError> {
     /// Creates a new state snapshot at the current point of execution.
     ///
     /// A state snapshot is associated with a new unique id that's created for
-    /// the snapshot. State napshots can be reverted:
+    /// the snapshot. State snapshots can be reverted:
     /// [DatabaseExt::revert_state], however, depending on the
     /// [RevertStateSnapshotAction], it will keep the snapshot alive or
     /// delete it.
