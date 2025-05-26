@@ -89,6 +89,18 @@ async fn test_core() {
                 "default/core/ExecutionContext.t.sol:ExecutionContextTest",
                 vec![("testContext()", true, None, None, None)],
             ),
+            (
+                "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeTest",
+                vec![("test_deprecated_cheatcode()", true, None, None, None)],
+            ),
+            (
+                "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeFuzzTest",
+                vec![("test_deprecated_cheatcode(uint256)", true, None, None, None)],
+            ),
+            (
+                "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeInvariantTest",
+                vec![("invariant_deprecated_cheatcode()", true, None, None, None)],
+            ),
         ]),
     );
 }
