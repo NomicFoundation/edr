@@ -192,8 +192,8 @@ impl SuiteResult {
 
         if !deprecated_cheatcodes.is_empty() {
             let mut warning =
-                "the following cheatcode(s) are deprecated and will be removed in future versions:"
-                    .to_string();
+                "The following cheatcode(s) are deprecated and will be removed in future versions:"
+                    .to_owned();
 
             for (cheatcode, reason) in deprecated_cheatcodes {
                 write!(warning, "\n  {cheatcode}").unwrap();

@@ -793,7 +793,7 @@ async fn test_deprecated_cheatcode_warning() {
         actuals: &BTreeMap<String, SuiteResult>,
         expecteds: BTreeMap<&str, Vec<&str>>,
     ) {
-        const DEPRECATION_WARNING: &str = "the following cheatcode(s) are deprecated and will be removed in future versions:\n  keyExists(string,string): replaced by `keyExistsJson`";
+        const DEPRECATION_WARNING: &str = "The following cheatcode(s) are deprecated and will be removed in future versions:\n  keyExists(string,string): replaced by `keyExistsJson`";
 
         assert_eq!(
             actuals.len(),
