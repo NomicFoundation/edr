@@ -265,7 +265,7 @@ impl FuzzedExecutor {
         let deprecated_cheatcodes = call
             .cheatcodes
             .as_ref()
-            .map_or_else(Default::default, |cheets| cheets.deprecated.clone());
+            .map_or_else(Default::default, |cheatcodes| cheatcodes.deprecated.clone());
 
         let success = self
             .executor
