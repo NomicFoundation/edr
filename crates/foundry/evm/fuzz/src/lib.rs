@@ -261,7 +261,7 @@ pub struct FuzzTestResult {
     /// Raw coverage info
     pub coverage: Option<HitMaps>,
 
-    // Deprecated cheatcodes mapped to their replacements.
+    /// Deprecated cheatcodes mapped to their replacements.
     pub deprecated_cheatcodes: std::collections::HashMap<&'static str, Option<&'static str>>,
 }
 
