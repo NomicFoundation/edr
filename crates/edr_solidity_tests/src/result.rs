@@ -187,7 +187,7 @@ impl SuiteResult {
         let mut deprecated_cheatcodes = HashMap::new();
 
         for test_result in test_results.values() {
-            deprecated_cheatcodes.extend(test_result.deprecated_cheatcodes.clone());
+            deprecated_cheatcodes.extend(&test_result.deprecated_cheatcodes);
         }
 
         if !deprecated_cheatcodes.is_empty() {
