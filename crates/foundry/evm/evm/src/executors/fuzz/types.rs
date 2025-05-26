@@ -20,7 +20,7 @@ pub struct CaseOutcome {
     pub coverage: Option<HitMaps>,
     /// logs of a single fuzz test case.
     pub logs: Vec<Log>,
-    // Deprecated cheatcodes mapped to their replacements.
+    /// Deprecated cheatcodes mapped to their replacements.
     pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
 }
 
