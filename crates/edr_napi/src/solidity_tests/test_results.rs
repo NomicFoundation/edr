@@ -446,9 +446,8 @@ pub struct DecodedTraceParameters {
 }
 
 impl CallTrace {
-    /// Instantiates a `CallTrace` with the details from a node, but without any
-    /// children.
-    fn new(node: &traces::CallTraceNode) -> Self {
+    /// Instantiates a `CallTrace` with the details from a node and the supplied children.
+    fn new(node: &traces::CallTraceNode, children: Vec<Either<CallTrace, LogTrace>>) -> Self {
         let contract = node
             .trace
             .decoded
@@ -485,7 +484,7 @@ impl CallTrace {
             contract,
             inputs,
             outputs,
-            children: Vec::with_capacity(node.ordering.len()),
+            children,
         }
     }
 }
@@ -544,14 +543,13 @@ impl From<&SparsedTraceArena> for CallTrace {
             let node = &arena.nodes()[item.arena_index];
 
             if item.visited {
-                let mut trace = CallTrace::new(node);
                 let mut logs = node
                     .logs
                     .iter()
                     .map(|log| Some(LogTrace::from(log)))
                     .collect::<Vec<_>>();
 
-                trace.children = node
+                let children = node
                     .ordering
                     .iter()
                     .filter_map(|ord| match *ord {
@@ -568,6 +566,8 @@ impl From<&SparsedTraceArena> for CallTrace {
                         traces::TraceMemberOrder::Step(_) => None,
                     })
                     .collect();
+
+                let trace = CallTrace::new(node, children);
 
                 if let Some(parent_stack_index) = item.parent_stack_index {
                     let parent = &mut stack[parent_stack_index];
