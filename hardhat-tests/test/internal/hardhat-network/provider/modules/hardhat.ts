@@ -52,7 +52,7 @@ describe("Hardhat module", function () {
       const safeBlockInThePast = 11_200_000; // this should resolve CI errors probably caused by using a block too far in the past
 
       setCWD();
-      useProvider();
+      useProvider({ forkBlockNumber: 22559592 });
 
       describe("hardhat_impersonateAccount", function () {
         it("validates input parameter", async function () {
