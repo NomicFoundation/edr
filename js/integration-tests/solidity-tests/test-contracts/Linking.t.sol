@@ -18,7 +18,7 @@ contract LinkingTest is Test {
         consumer = new LibraryConsumer();
     }
 
-    function testCallLibrary() public {
+    function testCallLibrary() public view {
         assertEq(consumer.consume(1), 101, "library call failed");
     }
 }

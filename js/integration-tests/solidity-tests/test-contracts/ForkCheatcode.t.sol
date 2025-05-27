@@ -24,7 +24,7 @@ contract LatestForkCheatcodeTest is Test {
         fork = vm.createSelectFork("alchemyMainnet");
     }
 
-    function testThatFails() public view {
+    function testThatFails() public pure {
         revert("fail");
     }
 }
