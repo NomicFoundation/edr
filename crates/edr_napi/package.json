@@ -1,6 +1,6 @@
 {
   "name": "@ignored/edr-optimism",
-  "version": "0.13.0-alpha.3",
+  "version": "0.13.0-alpha.4",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@nomicfoundation/ethereumjs-util": "^9.0.4",
