@@ -126,10 +126,10 @@ pub fn instrument_code(
                         if matches!(
                             parent.kind,
                             NonterminalKind::IfStatement
+                                | NonterminalKind::ElseBranch
                                 | NonterminalKind::ForStatement
                                 | NonterminalKind::WhileStatement
                                 | NonterminalKind::DoWhileStatement
-                                | NonterminalKind::ElseBranch
                         ) {
                             let block = Node::nonterminal(
                                 NonterminalKind::Block,
