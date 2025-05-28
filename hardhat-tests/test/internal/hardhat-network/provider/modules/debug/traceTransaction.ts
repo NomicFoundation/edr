@@ -40,7 +40,7 @@ describe("Debug module", function () {
   PROVIDERS.forEach(({ name, useProvider }) => {
     describe(`${name} provider`, function () {
       setCWD();
-      useProvider();
+      useProvider({ forkBlockNumber: 22559592 });
 
       describe("debug_traceTransaction", function () {
         it("Should throw for unknown txs", async function () {
@@ -193,7 +193,7 @@ describe("Debug module", function () {
         });
 
         describe("berlin", function () {
-          useProvider({ hardfork: "berlin" });
+          useProvider({ hardfork: "berlin", forkBlockNumber: 22559592 });
 
           it("Should work with EIP-2930 txs", async function () {
             const txHash = await sendDummyTransaction(this.provider, 0, {

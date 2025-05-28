@@ -47,9 +47,9 @@ pub fn handle_estimate_gas<
             .log_estimate_gas_failure(hardfork, &transaction, &failure)
             .map_err(ProviderError::Logger)?;
 
-        Err(ProviderError::TransactionFailed(
+        Err(ProviderError::TransactionFailed(Box::new(
             failure.transaction_failure,
-        ))
+        )))
     } else {
         let result = result?;
         Ok((U64::from(result.estimation), result.traces))

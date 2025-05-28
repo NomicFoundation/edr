@@ -641,8 +641,7 @@ fn last_pending_nonce_some_future_to_pending_queue() -> anyhow::Result<()> {
 
 #[test]
 fn set_block_gas_limit() -> anyhow::Result<()> {
-    // SAFETY: literal is non-zero
-    const NEW_GAS_LIMIT: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(15_000_000) };
+    const NEW_GAS_LIMIT: NonZeroU64 = NonZeroU64::new(15_000_000).expect("literal is non-zero");
 
     let sender = Address::random();
 

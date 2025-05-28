@@ -77,15 +77,15 @@ fn provider_with_deployed_test_contract(
     // Deploy test contract
     let transaction_hash = {
         let response = provider
-            .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-                TransactionRequest {
+            .handle_request(ProviderRequest::with_single(
+                MethodInvocation::SendTransaction(TransactionRequest {
                     from,
                     data: Some(
                         Bytes::from_str(INCREMENT_DEPLOYED_BYTECODE).expect("Invalid bytecode"),
                     ),
                     ..TransactionRequest::default()
-                },
-            )))
+                }),
+            ))
             .expect("Failed to deploy test contract");
 
         serde_json::from_value::<B256>(response.result)
@@ -95,7 +95,7 @@ fn provider_with_deployed_test_contract(
     // Retrieve the deployed address
     let deployed_address = {
         let response = provider
-            .handle_request(ProviderRequest::Single(
+            .handle_request(ProviderRequest::with_single(
                 MethodInvocation::GetTransactionReceipt(transaction_hash),
             ))
             .expect("Failed to get transaction receipt");
@@ -125,16 +125,17 @@ async fn call() -> anyhow::Result<()> {
         provider,
     } = provider_with_deployed_test_contract(coverage_reporter.clone());
 
-    let _response = provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
-        CallRequest {
-            from: Some(from),
-            to: Some(deployed_address),
-            data: Some(INCREMENT_CALLDATA),
-            ..CallRequest::default()
-        },
-        None,
-        None,
-    )))?;
+    let _response =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+            CallRequest {
+                from: Some(from),
+                to: Some(deployed_address),
+                data: Some(INCREMENT_CALLDATA),
+                ..CallRequest::default()
+            },
+            None,
+            None,
+        )))?;
 
     assert_hits(&coverage_reporter.lock());
 
@@ -151,8 +152,8 @@ async fn debug_trace_call() -> anyhow::Result<()> {
         provider,
     } = provider_with_deployed_test_contract(coverage_reporter.clone());
 
-    let _response =
-        provider.handle_request(ProviderRequest::Single(MethodInvocation::DebugTraceCall(
+    let _response = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::DebugTraceCall(
             CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
@@ -161,7 +162,8 @@ async fn debug_trace_call() -> anyhow::Result<()> {
             },
             None,
             None,
-        )))?;
+        ),
+    ))?;
 
     assert_hits(&coverage_reporter.lock());
 
@@ -179,7 +181,7 @@ async fn debug_trace_transaction() -> anyhow::Result<()> {
     } = provider_with_deployed_test_contract(coverage_reporter.clone());
 
     let transaction_hash: B256 = {
-        let response = provider.handle_request(ProviderRequest::Single(
+        let response = provider.handle_request(ProviderRequest::with_single(
             MethodInvocation::SendTransaction(TransactionRequest {
                 from,
                 to: Some(deployed_address),
@@ -194,7 +196,7 @@ async fn debug_trace_transaction() -> anyhow::Result<()> {
     // Reset the hits after the transaction
     coverage_reporter.lock().hits.clear();
 
-    let _response = provider.handle_request(ProviderRequest::Single(
+    let _response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ))?;
 
@@ -214,7 +216,7 @@ async fn estimate_gas() -> anyhow::Result<()> {
     } = provider_with_deployed_test_contract(coverage_reporter.clone());
 
     let _response =
-        provider.handle_request(ProviderRequest::Single(MethodInvocation::EstimateGas(
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
             CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
@@ -239,7 +241,7 @@ async fn send_transaction() -> anyhow::Result<()> {
         provider,
     } = provider_with_deployed_test_contract(coverage_reporter.clone());
 
-    let _response = provider.handle_request(ProviderRequest::Single(
+    let _response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendTransaction(TransactionRequest {
             from,
             to: Some(deployed_address),
