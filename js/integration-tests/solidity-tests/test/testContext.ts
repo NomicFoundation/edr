@@ -1,6 +1,7 @@
 import {
   Artifact,
   ArtifactId,
+  CallTrace,
   HeuristicFailed,
   type SolidityTestRunnerConfigArgs,
   StackTrace,
@@ -81,8 +82,11 @@ export class TestContext {
     );
 
     const stackTraces = new Map();
+    const callTraces = new Map();
     for (const suiteResult of suiteResults) {
       for (const testResult of suiteResult.testResults) {
+        callTraces.set(testResult.name, testResult.callTraces());
+
         let failed = testResult.status === "Failure";
         totalTests++;
         if (failed) {
@@ -95,7 +99,7 @@ export class TestContext {
         }
       }
     }
-    return { totalTests, failedTests, stackTraces };
+    return { totalTests, failedTests, stackTraces, callTraces };
   }
 
   matchingTest(contractName: string): ArtifactId[] {
@@ -119,6 +123,7 @@ interface SolidityTestsRunResult {
       reason: string | undefined;
     }
   >;
+  callTraces: Map<string, CallTrace[]>;
 }
 
 type ActualStackTraceResult =

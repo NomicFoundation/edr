@@ -127,6 +127,8 @@ pub struct SolidityTestRunnerConfigArgs {
     /// If an invariant config setting is not set, but a corresponding fuzz
     /// config value is set, then the fuzz config value will be used.
     pub invariant: Option<InvariantConfigArgs>,
+
+    pub traces: Option<ShowTraces>,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
@@ -199,6 +201,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             prompt_timeout,
             fuzz,
             invariant,
+            traces,
             test_pattern: _,
         } = value;
 
@@ -310,7 +313,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
 
         Ok(SolidityTestRunnerConfig {
             project_root: project_root.into(),
-            trace: false,
+            traces: traces.unwrap_or_default().into(),
             // TODO
             coverage: false,
             test_fail: test_fail.unwrap_or_default(),
@@ -715,5 +718,24 @@ impl Debug for AddressLabel {
             .field("address", &hex::encode(&self.address))
             .field("label", &self.label)
             .finish()
+    }
+}
+
+#[napi]
+#[derive(Debug, Default, serde::Serialize)]
+pub enum ShowTraces {
+    #[default]
+    None,
+    Failing,
+    All,
+}
+
+impl From<ShowTraces> for edr_solidity_tests::ShowTraces {
+    fn from(value: ShowTraces) -> Self {
+        match value {
+            ShowTraces::None => edr_solidity_tests::ShowTraces::None,
+            ShowTraces::Failing => edr_solidity_tests::ShowTraces::Failing,
+            ShowTraces::All => edr_solidity_tests::ShowTraces::All,
+        }
     }
 }

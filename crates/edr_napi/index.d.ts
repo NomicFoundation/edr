@@ -545,6 +545,7 @@ export interface SolidityTestRunnerConfigArgs {
    * config value is set, then the fuzz config value will be used.
    */
   invariant?: InvariantConfigArgs
+  traces?: ShowTraces
   /**
    * A regex pattern to filter tests. If provided, only test methods that
    * match the pattern will be executed and reported as a test result.
@@ -692,6 +693,11 @@ export interface AddressLabel {
   /** The label to assign to the address */
   label: string
 }
+export const enum ShowTraces {
+  None = 0,
+  Failing = 1,
+  All = 2
+}
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -803,6 +809,36 @@ export interface BaseCounterExample {
   readonly signature?: string
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::args] */
   readonly args?: string
+}
+export interface CallTrace {
+  kind: CallKind
+  success: boolean
+  cheatcode: boolean
+  gasUsed: bigint
+  value: bigint
+  contract: string
+  inputs: DecodedTraceParameters | Uint8Array
+  outputs: string | Uint8Array
+  /** Interleaved subcalls and event logs. */
+  children: Array<CallTrace | LogTrace>
+}
+export interface LogTrace {
+  kind: LogKind
+  parameters: DecodedTraceParameters | Array<Uint8Array>
+}
+export const enum CallKind {
+  Call = 0,
+  CallCode = 1,
+  DelegateCall = 2,
+  StaticCall = 3,
+  Create = 4
+}
+export const enum LogKind {
+  Log = 0
+}
+export interface DecodedTraceParameters {
+  name: string
+  arguments: Array<string>
 }
 /**
  * Executes Solidity tests.
@@ -1126,6 +1162,7 @@ export declare class TestResult {
    * Cannot throw.
    */
   stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
+  callTraces(): Array<CallTrace>
 }
 export declare class Exit {
   get kind(): ExitCode

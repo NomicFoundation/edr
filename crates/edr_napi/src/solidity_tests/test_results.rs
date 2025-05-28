@@ -4,15 +4,21 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
-use edr_solidity_tests::executors::stack_trace::StackTraceResult;
+use edr_solidity_tests::{
+    constants::CHEATCODE_ADDRESS,
+    executors::stack_trace::StackTraceResult,
+    traces::{self, SparsedTraceArena},
+};
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3, Either4},
+    bindgen_prelude::{BigInt, Buffer, Either3, Either4, Uint8Array},
     Either,
 };
 use napi_derive::napi;
 
 use crate::{
-    solidity_tests::artifact::ArtifactId, trace::solidity_stack_trace::SolidityStackTraceEntry,
+    cast::TryCast,
+    solidity_tests::artifact::ArtifactId,
+    trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
 };
 
 /// See [edr_solidity_tests::result::SuiteResult]
@@ -86,6 +92,7 @@ pub struct TestResult {
     pub duration_ms: BigInt,
 
     stack_trace_result: Option<StackTraceResult>,
+    call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
 }
 
 /// The stack trace result
@@ -157,7 +164,7 @@ impl TestResult {
                     entries: stack_trace
                         .iter()
                         .cloned()
-                        .map(crate::cast::TryCast::try_cast)
+                        .map(TryCast::try_cast)
                         .collect::<Result<Vec<_>, Infallible>>()
                         .expect("infallible"),
                 }),
@@ -183,6 +190,15 @@ impl TestResult {
                         .collect(),
                 }),
             })
+    }
+
+    #[napi]
+    pub fn call_traces(&self) -> Vec<CallTrace> {
+        self.call_trace_arenas
+            .iter()
+            .filter(|(k, _)| *k != traces::TraceKind::Deployment)
+            .map(|(_, a)| a.into())
+            .collect()
     }
 }
 
@@ -241,6 +257,7 @@ impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
             stack_trace_result: test_result.stack_trace_result,
+            call_trace_arenas: test_result.traces,
         }
     }
 }
@@ -384,6 +401,213 @@ impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
             contract_name: value.contract_name,
             signature: value.signature,
             args: value.args,
+        }
+    }
+}
+
+#[napi(object)]
+pub struct CallTrace {
+    pub kind: CallKind,
+    pub success: bool,
+    pub cheatcode: bool,
+    pub gas_used: BigInt,
+    pub value: BigInt,
+    pub contract: String,
+    pub inputs: Either<DecodedTraceParameters, Uint8Array>,
+    pub outputs: Either<String, Uint8Array>,
+    /// Interleaved subcalls and event logs.
+    pub children: Vec<Either<CallTrace, LogTrace>>,
+}
+
+#[napi(object)]
+pub struct LogTrace {
+    pub kind: LogKind,
+    pub parameters: Either<DecodedTraceParameters, Vec<Uint8Array>>,
+}
+
+#[napi]
+pub enum CallKind {
+    Call,
+    CallCode,
+    DelegateCall,
+    StaticCall,
+    Create,
+}
+
+#[napi]
+pub enum LogKind {
+    Log,
+}
+
+#[napi(object)]
+pub struct DecodedTraceParameters {
+    pub name: String,
+    pub arguments: Vec<String>,
+}
+
+impl CallTrace {
+    /// Instantiates a `CallTrace` with the details from a node, but without any
+    /// children.
+    fn new(node: &traces::CallTraceNode) -> Self {
+        let contract = node
+            .trace
+            .decoded
+            .label
+            .clone()
+            .unwrap_or(node.trace.address.to_checksum(None));
+
+        let inputs = match &node.trace.decoded.call_data {
+            Some(traces::DecodedCallData { signature, args }) => {
+                let name = signature.split('(').next().unwrap().to_string();
+                let arguments = args.clone();
+                Either::A(DecodedTraceParameters { name, arguments })
+            }
+            None => Either::B(node.trace.data.as_ref().into()),
+        };
+
+        let outputs = match &node.trace.decoded.return_data {
+            Some(outputs) => Either::A(outputs.clone()),
+            None => {
+                if node.kind().is_any_create() && node.trace.success {
+                    Either::A(format!("{} bytes of code", node.trace.output.len()))
+                } else {
+                    Either::B(node.trace.output.as_ref().into())
+                }
+            }
+        };
+
+        Self {
+            kind: node.kind().into(),
+            success: node.trace.success,
+            cheatcode: node.trace.address == CHEATCODE_ADDRESS,
+            gas_used: node.trace.gas_used.into(),
+            value: u256_to_bigint(&node.trace.value),
+            contract,
+            inputs,
+            outputs,
+            children: Vec::with_capacity(node.ordering.len()),
+        }
+    }
+}
+
+impl From<&traces::CallLog> for LogTrace {
+    fn from(log: &traces::CallLog) -> Self {
+        let decoded_log = log.decoded.name.clone().zip(log.decoded.params.as_ref());
+
+        let parameters = decoded_log.map_or_else(
+            || {
+                let raw_log = &log.raw_log;
+                let mut params = Vec::with_capacity(raw_log.topics().len() + 1);
+                params.extend(raw_log.topics().iter().map(|topic| topic.as_slice().into()));
+                params.push(log.raw_log.data.as_ref().into());
+                Either::B(params)
+            },
+            |(name, params)| {
+                let arguments = params
+                    .iter()
+                    .map(|(name, value)| format!("{name}: {value}"))
+                    .collect();
+                Either::A(DecodedTraceParameters { name, arguments })
+            },
+        );
+
+        Self {
+            kind: LogKind::Log,
+            parameters,
+        }
+    }
+}
+
+impl From<&SparsedTraceArena> for CallTrace {
+    fn from(value: &SparsedTraceArena) -> Self {
+        let arena = value.resolve_arena();
+
+        struct StackItem {
+            visited: bool,
+            parent_stack_index: Option<usize>,
+            arena_index: usize,
+            children_traces_rev: Vec<Option<CallTrace>>,
+        }
+
+        let mut stack = Vec::new();
+
+        stack.push(StackItem {
+            visited: false,
+            arena_index: 0,
+            parent_stack_index: None,
+            children_traces_rev: Vec::new(),
+        });
+
+        loop {
+            // We will break out of the loop before the stack goes empty.
+            let mut item = stack.pop().unwrap();
+            let node = &arena.nodes()[item.arena_index];
+
+            if item.visited {
+                let mut trace = CallTrace::new(node);
+                let mut logs = node
+                    .logs
+                    .iter()
+                    .map(|log| Some(LogTrace::from(log)))
+                    .collect::<Vec<_>>();
+
+                trace.children = node
+                    .ordering
+                    .iter()
+                    .filter_map(|ord| match *ord {
+                        traces::TraceMemberOrder::Log(i) => {
+                            let log = logs[i].take().unwrap();
+                            Some(Either::B(log))
+                        }
+                        traces::TraceMemberOrder::Call(i) => {
+                            let len = item.children_traces_rev.len();
+                            let i_rev = len.checked_sub(i + 1).unwrap();
+                            let child_trace = item.children_traces_rev[i_rev].take().unwrap();
+                            Some(Either::A(child_trace))
+                        }
+                        traces::TraceMemberOrder::Step(_) => None,
+                    })
+                    .collect();
+
+                if let Some(parent_stack_index) = item.parent_stack_index {
+                    let parent = &mut stack[parent_stack_index];
+                    parent.children_traces_rev.push(Some(trace));
+                } else {
+                    return trace;
+                }
+            } else {
+                item.visited = true;
+                item.children_traces_rev.reserve(node.children.len());
+
+                stack.push(item);
+
+                let top_index = Some(stack.len() - 1);
+
+                // Push children in reverse order to result in linear traversal of the arena for
+                // cache efficiency, on the assumption that the arena contains a pre-order
+                // traversal of the trace.
+                stack.extend(node.children.iter().rev().map(|&arena_index| StackItem {
+                    visited: false,
+                    parent_stack_index: top_index,
+                    arena_index,
+                    children_traces_rev: Vec::new(),
+                }));
+            }
+        }
+    }
+}
+
+impl From<traces::CallKind> for CallKind {
+    fn from(value: traces::CallKind) -> Self {
+        match value {
+            traces::CallKind::Call => CallKind::Call,
+            traces::CallKind::StaticCall => CallKind::StaticCall,
+            traces::CallKind::CallCode => CallKind::CallCode,
+            traces::CallKind::DelegateCall => CallKind::DelegateCall,
+            traces::CallKind::Create | traces::CallKind::Create2 => CallKind::Create,
+
+            // We do not support these EVM features.
+            traces::CallKind::AuthCall | traces::CallKind::EOFCreate => unimplemented!(),
         }
     }
 }
