@@ -113,7 +113,7 @@ pub fn instrument_code(
 
     let mut metadata_iter = metadata.iter();
     let mut queue = vec![parsed_file.create_tree_cursor()];
-    while let Some(mut cursor) = queue.pop() {
+    'queue: while let Some(mut cursor) = queue.pop() {
         while !cursor.is_completed() {
             match cursor.node() {
                 Node::Nonterminal(node) => {
@@ -165,11 +165,13 @@ pub fn instrument_code(
                             // for the markers in an earlier step
                             let new_cursor = block.create_cursor(cursor.text_offset());
 
-                            // Skip the current node as we'll process it separately
+                            // Skip all descendants as `new_cursor` will already iterate those
                             cursor.go_to_next_non_descendant();
-                            queue.push(cursor);
 
-                            cursor = new_cursor;
+                            queue.push(cursor);
+                            queue.push(new_cursor);
+
+                            continue 'queue;
                         } else {
                             let metadata = metadata_iter
                                 .next()
