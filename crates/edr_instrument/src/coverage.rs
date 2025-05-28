@@ -3,7 +3,7 @@ pub use semver::Version;
 use serde::Serialize;
 use sha3::{Digest, Keccak256};
 use slang_solidity::{
-    cst::{Node, NonterminalKind},
+    cst::{Edge, EdgeLabel, Node, NodeKind, NonterminalKind, TerminalKind},
     parser::{ParseError, Parser as SolidityParser, ParserInitializationError},
 };
 
@@ -86,32 +86,110 @@ pub fn instrument_code(
     let mut metadata = Vec::new();
 
     let mut statement_counter: u64 = 0;
+
+    // Calculate metadata for statements using the correct text ranges
     let mut cursor = parsed_file.create_tree_cursor();
-    while cursor.go_to_next() {
-        match cursor.node() {
-            Node::Nonterminal(node) if node.kind == NonterminalKind::Statement => {
-                statement_counter += 1;
+    while !cursor.is_completed() {
+        if let NodeKind::Nonterminal(NonterminalKind::Statement) = cursor.node().kind() {
+            statement_counter += 1;
 
-                let hash = compute_deterministic_hash_for_statement(
-                    source_id,
-                    &content_hash,
-                    statement_counter,
-                );
+            let hash = compute_deterministic_hash_for_statement(
+                source_id,
+                &content_hash,
+                statement_counter,
+            );
 
-                instrumented_source.push_str(&format!("__HardhatCoverage.sendHit({hash}); "));
+            let text_range = cursor.text_range();
+            metadata.push(InstrumentationMetadata {
+                tag: hash,
+                kind: "statement",
+                start_utf16: text_range.start.utf16,
+                end_utf16: text_range.end.utf16,
+            });
+        }
 
-                let range = cursor.text_range();
-                metadata.push(InstrumentationMetadata {
-                    tag: hash,
-                    kind: "statement",
-                    start_utf16: range.start.utf16,
-                    end_utf16: range.end.utf16,
-                });
+        cursor.go_to_next();
+    }
+
+    let mut metadata_iter = metadata.iter();
+    let mut queue = vec![parsed_file.create_tree_cursor()];
+    'queue: while let Some(mut cursor) = queue.pop() {
+        while !cursor.is_completed() {
+            match cursor.node() {
+                Node::Nonterminal(node) => {
+                    if node.kind == NonterminalKind::Statement {
+                        let parent = cursor
+                            .ancestors()
+                            .next()
+                            .expect("Cursor should have a parent");
+
+                        if matches!(
+                            parent.kind,
+                            NonterminalKind::IfStatement
+                                | NonterminalKind::ElseBranch
+                                | NonterminalKind::ForStatement
+                                | NonterminalKind::WhileStatement
+                                | NonterminalKind::DoWhileStatement
+                        ) {
+                            let block = Node::nonterminal(
+                                NonterminalKind::Block,
+                                vec![
+                                    Edge {
+                                        label: EdgeLabel::OpenBrace,
+                                        node: Node::terminal(
+                                            TerminalKind::OpenBrace,
+                                            "{".to_owned(),
+                                        ),
+                                    },
+                                    Edge {
+                                        label: EdgeLabel::Statements,
+                                        node: Node::nonterminal(
+                                            NonterminalKind::Statements,
+                                            vec![Edge {
+                                                label: EdgeLabel::Item,
+                                                node: Node::Nonterminal(node),
+                                            }],
+                                        ),
+                                    },
+                                    Edge {
+                                        label: EdgeLabel::CloseBrace,
+                                        node: Node::terminal(
+                                            TerminalKind::CloseBrace,
+                                            "}".to_owned(),
+                                        ),
+                                    },
+                                ],
+                            );
+
+                            // The text offset doesn't matter as we already calculated text offsets
+                            // for the markers in an earlier step
+                            let new_cursor = block.create_cursor(cursor.text_offset());
+
+                            // Skip all descendants as `new_cursor` will already iterate those
+                            cursor.go_to_next_non_descendant();
+
+                            queue.push(cursor);
+                            queue.push(new_cursor);
+
+                            continue 'queue;
+                        } else {
+                            let metadata = metadata_iter
+                                .next()
+                                .expect("Metadata should exist for statement");
+
+                            let instrumentation_statement =
+                                format!("__HardhatCoverage.sendHit({hash}); ", hash = metadata.tag);
+
+                            instrumented_source.push_str(&instrumentation_statement);
+                        }
+                    }
+                }
+                Node::Terminal(node) => {
+                    instrumented_source.push_str(&node.text);
+                }
             }
-            Node::Terminal(node) => {
-                instrumented_source.push_str(&node.text);
-            }
-            Node::Nonterminal(_) => {}
+
+            cursor.go_to_next();
         }
     }
 
