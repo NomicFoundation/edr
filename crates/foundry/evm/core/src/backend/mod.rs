@@ -2277,7 +2277,8 @@ where
         ChainContextT,
     >,
 {
-    configure_tx_env(context.tx, tx);
+    let mut env = context.to_owned_env();
+    configure_tx_env(&mut env.tx, tx);
 
     let now = Instant::now();
     let res = {
@@ -2285,7 +2286,6 @@ where
         let journaled_state = context.journaled_state.clone();
         let db = Backend::new_with_fork(fork_id, fork, journaled_state);
 
-        let env = context.to_owned_env();
         let chain = context.chain_context.clone();
 
         crate::utils::new_evm_with_inspector(db, env, inspector, chain)
