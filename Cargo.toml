@@ -126,7 +126,7 @@ revm-state = { version = "2.0.0", default-features = false }
 c-kzg = { version = "2.1.0", default-features = false, features = ["ethereum_kzg_settings"] }
 
 revm-inspectors = { version = "0.18.1", features = ["serde"] }
-foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-fork-db", rev = "6144088" }
+foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-fork-db", rev = "811a61a" }
 
 ## ethers
 ethers-contract-abigen = { version = "2.0.14", default-features = false }
@@ -256,9 +256,6 @@ revm-primitives = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2
 revm-state = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
 op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
 # revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", rev = "a625c04" }
-
-## foundry
-foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-fork-db", rev = "811a61a" }
 
 [workspace.lints.rust]
 future_incompatible = "warn"
