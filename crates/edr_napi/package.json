@@ -53,8 +53,7 @@
   "scripts": {
     "artifacts": "napi artifacts",
     "build": "pnpm run build:publish",
-    "build:debug": "napi build --platform",
-    "build:dev": "napi build --platform --release",
+    "build:dev": "napi build --platform",
     "build:publish": "napi build --platform --profile napi-publish",
     "build:scenarios": "napi build --platform --release --features scenarios",
     "build:tracing": "napi build --platform --release --features tracing",
