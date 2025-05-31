@@ -525,7 +525,7 @@ impl From<&SparsedTraceArena> for CallTrace {
             visited: bool,
             parent_stack_index: Option<usize>,
             arena_index: usize,
-            children_traces_rev: Vec<Option<CallTrace>>,
+            children_traces: Vec<Option<CallTrace>>,
         }
 
         let mut stack = Vec::new();
@@ -534,7 +534,7 @@ impl From<&SparsedTraceArena> for CallTrace {
             visited: false,
             arena_index: 0,
             parent_stack_index: None,
-            children_traces_rev: Vec::new(),
+            children_traces: Vec::new(),
         });
 
         loop {
@@ -558,9 +558,7 @@ impl From<&SparsedTraceArena> for CallTrace {
                             Some(Either::B(log))
                         }
                         traces::TraceMemberOrder::Call(i) => {
-                            let len = item.children_traces_rev.len();
-                            let i_rev = len.checked_sub(i + 1).unwrap();
-                            let child_trace = item.children_traces_rev[i_rev].take().unwrap();
+                            let child_trace = item.children_traces[i].take().unwrap();
                             Some(Either::A(child_trace))
                         }
                         traces::TraceMemberOrder::Step(_) => None,
@@ -571,13 +569,13 @@ impl From<&SparsedTraceArena> for CallTrace {
 
                 if let Some(parent_stack_index) = item.parent_stack_index {
                     let parent = &mut stack[parent_stack_index];
-                    parent.children_traces_rev.push(Some(trace));
+                    parent.children_traces.push(Some(trace));
                 } else {
                     return trace;
                 }
             } else {
                 item.visited = true;
-                item.children_traces_rev.reserve(node.children.len());
+                item.children_traces.reserve(node.children.len());
 
                 stack.push(item);
 
@@ -590,7 +588,7 @@ impl From<&SparsedTraceArena> for CallTrace {
                     visited: false,
                     parent_stack_index: top_index,
                     arena_index,
-                    children_traces_rev: Vec::new(),
+                    children_traces: Vec::new(),
                 }));
             }
         }
