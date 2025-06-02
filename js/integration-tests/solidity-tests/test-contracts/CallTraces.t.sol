@@ -3,8 +3,6 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/src/Test.sol";
 
-contract CreateMe {}
-
 contract CallTraces is Test {
     function testNoChildren() public {
     }
@@ -70,6 +68,31 @@ contract CallTraces is Test {
         require(success2);
     }
 
+    function testRevertedCreate() public {
+        try new Failing() {} catch {}
+    }
+
+    function testUnlabeledAddress() public {
+        address target = address(0xaBcDef1234567890123456789012345678901234);
+        (bool success,) = target.call("");
+        require(success);
+    }
+
+    function testEmptyCallData() public {
+        // Since this contract has a receive function, this call will be recognized as that
+        (bool success1,) = address(this).call("");
+        require(success1);
+
+        // This other contract has a fallback function and no receive function
+        address other = address(new WithFallback());
+        (bool success2,) = address(other).call("");
+        require(success2);
+
+        address nonContract = address(0x1000000000000000000000000000000000000000);
+        (bool success3,) = address(nonContract).call("");
+        require(success3);
+    }
+
     function testRevertedCall() public {
         try this.revertWithEmpty() {} catch {}
         try this.revertWithString() {} catch {}
@@ -127,4 +150,29 @@ contract CallTraces is Test {
     fallback() external {}
 
     receive() external payable {}
+}
+
+// Markers make creation and deployed code different
+
+contract CreateMe {
+    bytes32 public create_me_marker;
+    constructor() {
+        create_me_marker = "CreateMe";
+    }
+}
+
+contract Failing {
+    bytes32 public failing_marker;
+    constructor() {
+        failing_marker = "Failing";
+        revert("Constructor failed");
+    }
+}
+
+contract WithFallback {
+    bytes32 public with_fallback_marker;
+    constructor() {
+        with_fallback_marker = "WithFallback";
+    }
+    fallback() external {}
 }

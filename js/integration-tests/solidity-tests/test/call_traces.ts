@@ -241,4 +241,51 @@ describe("Call traces", () => {
     assert.deepEqual(bytesRevert.inputs, { name: "revertWithBytes", arguments: [] });
     assert.deepEqual(bytesRevert.outputs, "custom error deadbeef:cafe");
   });
+
+  it("reverted contract creation", async function () {
+    const trace = testCallTraces.get("testRevertedCreate()");
+    assert.equal(trace?.length, 1);
+    assert.equal(trace[0].children.length, 1);
+
+    const revertedCreate = trace[0].children[0];
+    assert.equal(revertedCreate.kind, CallKind.Create);
+    assert.equal(revertedCreate.success, false);
+  });
+
+  it("unlabeled address", async function () {
+    const trace = testCallTraces.get("testUnlabeledAddress()");
+    assert.equal(trace?.length, 1);
+    assert.equal(trace[0].children.length, 1);
+
+    const unlabeledCall = trace[0].children[0];
+    assert.equal(unlabeledCall.kind, CallKind.Call);
+    assert.equal(unlabeledCall.success, true);
+    assert.equal(unlabeledCall.contract, "0xaBcDef1234567890123456789012345678901234");
+  });
+
+  it("empty call data", async function () {
+    const trace = testCallTraces.get("testEmptyCallData()");
+    assert.equal(trace?.length, 1);
+    assert.equal(trace[0].children.length, 4);
+
+    // receive in ABI
+    const emptyCall1 = trace[0].children[0];
+    assert.equal(emptyCall1.kind, CallKind.Call);
+    assert.equal(emptyCall1.success, true);
+    assert.equal(emptyCall1.contract, "CallTraces");
+    assert.deepEqual(emptyCall1.inputs, { name: 'receive', arguments: [] });
+
+    // fallback in ABI
+    const emptyCall2 = trace[0].children[2];
+    assert.equal(emptyCall2.kind, CallKind.Call);
+    assert.equal(emptyCall2.success, true);
+    assert.deepEqual(emptyCall2.inputs, { name: 'fallback', arguments: [] });
+
+    // no ABI
+    const emptyCall3 = trace[0].children[3];
+    assert.equal(emptyCall3.kind, CallKind.Call);
+    assert.equal(emptyCall3.success, true);
+    assert.equal(emptyCall3.contract, '0x1000000000000000000000000000000000000000');
+    assert.deepEqual(emptyCall3.inputs, { name: 'fallback', arguments: [] });
+  });
 });
