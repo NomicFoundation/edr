@@ -32,7 +32,7 @@ pub struct SolidityTestRunnerConfig {
     pub project_root: PathBuf,
     /// Whether to enable trace mode and which traces to include in test
     /// results.
-    pub show_traces: ShowTraces,
+    pub include_traces: IncludeTraces,
     /// Whether to collect coverage info
     pub coverage: bool,
     /// Whether to support the `testFail` prefix
@@ -125,7 +125,7 @@ impl SolidityTestRunnerConfig {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ShowTraces {
+pub enum IncludeTraces {
     None,
     Failing,
     All,

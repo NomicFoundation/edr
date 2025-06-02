@@ -20,7 +20,7 @@ mod runner;
 pub use runner::ContractRunner;
 
 mod config;
-pub use config::{ShowTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError};
+pub use config::{IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError};
 
 pub mod result;
 

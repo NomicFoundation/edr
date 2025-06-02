@@ -17,7 +17,7 @@ use napi_derive::napi;
 
 use crate::{
     cast::TryCast,
-    solidity_tests::{artifact::ArtifactId, config::ShowTraces},
+    solidity_tests::{artifact::ArtifactId, config::IncludeTraces},
     trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
 };
 
@@ -44,7 +44,7 @@ impl SuiteResult {
     pub fn new(
         id: edr_solidity::artifacts::ArtifactId,
         suite_result: edr_solidity_tests::result::SuiteResult,
-        show_traces: ShowTraces,
+        include_traces: IncludeTraces,
     ) -> Self {
         Self {
             id: id.into(),
@@ -52,7 +52,7 @@ impl SuiteResult {
             test_results: suite_result
                 .test_results
                 .into_iter()
-                .map(|(name, test_result)| TestResult::new(name, test_result, show_traces))
+                .map(|(name, test_result)| TestResult::new(name, test_result, include_traces))
                 .collect(),
             warnings: suite_result.warnings,
         }
@@ -200,10 +200,10 @@ impl TestResult {
     fn new(
         name: String,
         test_result: edr_solidity_tests::result::TestResult,
-        show_traces: ShowTraces,
+        include_traces: IncludeTraces,
     ) -> Self {
-        let include_trace = show_traces == ShowTraces::All
-            || (show_traces == ShowTraces::Failing && test_result.status.is_failure());
+        let include_trace = include_traces == IncludeTraces::All
+            || (include_traces == IncludeTraces::Failing && test_result.status.is_failure());
 
         Self {
             name,

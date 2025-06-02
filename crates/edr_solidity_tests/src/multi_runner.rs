@@ -21,7 +21,7 @@ use futures::StreamExt;
 use crate::{
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
-    ContractRunner, ShowTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
+    ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
     TestFilter, TestOptions,
 };
 
@@ -64,7 +64,7 @@ pub struct MultiContractRunner<NestedTraceDecoderT> {
     coverage: bool,
     /// Whether to enable trace mode and which traces to include in test
     /// results.
-    show_traces: ShowTraces,
+    include_traces: IncludeTraces,
     /// Whether to support the `testFail` prefix
     test_fail: bool,
     /// Whether to enable solidity fuzz fixtures support
@@ -92,7 +92,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
         let fork = config.get_fork().await?;
 
         let SolidityTestRunnerConfig {
-            show_traces,
+            include_traces,
             coverage,
             test_fail,
             evm_opts,
@@ -126,7 +126,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             revert_decoder,
             fork,
             coverage,
-            show_traces,
+            include_traces,
             test_fail,
             solidity_fuzz_fixtures,
             test_options,
@@ -256,7 +256,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             .inspectors(|stack| {
                 stack
                     .cheatcodes(Arc::new(cheats_config))
-                    .trace(self.show_traces != ShowTraces::None)
+                    .trace(self.include_traces != IncludeTraces::None)
                     .coverage(self.coverage)
                     .enable_isolation(self.evm_opts.isolate)
             })
@@ -288,11 +288,11 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
         );
         let mut r = runner.run_tests(filter, &self.test_options, handle);
 
-        if self.show_traces != ShowTraces::None {
+        if self.include_traces != IncludeTraces::None {
             let mut decoder = CallTraceDecoderBuilder::new().build();
 
             for result in r.test_results.values_mut() {
-                if result.status.is_success() && self.show_traces != ShowTraces::All {
+                if result.status.is_success() && self.include_traces != IncludeTraces::All {
                     continue;
                 }
 

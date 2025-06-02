@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { TestContext } from "./testContext.js";
-import { ShowTraces, CallKind, LogKind, CallTrace } from "@ignored/edr";
+import { IncludeTraces, CallKind, LogKind, CallTrace } from "@ignored/edr";
 
-describe("Call traces - ShowTraces.All", () => {
+describe("Call traces - IncludeTraces.All", () => {
   let testCallTraces: Map<string, CallTrace[]>;
 
   before(async () => {
     const testContext = await TestContext.setup();
     const runResult =
-      await testContext.runTestsWithStats("CallTraces", { showTraces: ShowTraces.All });
+      await testContext.runTestsWithStats("CallTraces", { showTraces: IncludeTraces.All });
     testCallTraces = runResult.callTraces;
   });
 
@@ -290,13 +290,13 @@ describe("Call traces - ShowTraces.All", () => {
   });
 });
 
-describe("Call traces - ShowTraces.Failing", () => {
+describe("Call traces - IncludeTraces.Failing", () => {
   let testCallTraces: Map<string, CallTrace[]>;
 
   before(async () => {
     const testContext = await TestContext.setup();
     const runResult =
-      await testContext.runTestsWithStats("CallTracesFailingOnly", { showTraces: ShowTraces.Failing });
+      await testContext.runTestsWithStats("CallTracesFailingOnly", { showTraces: IncludeTraces.Failing });
     testCallTraces = runResult.callTraces;
   });
 

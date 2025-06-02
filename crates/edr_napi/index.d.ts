@@ -545,7 +545,7 @@ export interface SolidityTestRunnerConfigArgs {
    * config value is set, then the fuzz config value will be used.
    */
   invariant?: InvariantConfigArgs
-  showTraces?: ShowTraces
+  includeTraces?: IncludeTraces
   /**
    * A regex pattern to filter tests. If provided, only test methods that
    * match the pattern will be executed and reported as a test result.
@@ -693,7 +693,7 @@ export interface AddressLabel {
   /** The label to assign to the address */
   label: string
 }
-export const enum ShowTraces {
+export const enum IncludeTraces {
   None = 0,
   Failing = 1,
   All = 2

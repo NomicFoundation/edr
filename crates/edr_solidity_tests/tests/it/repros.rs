@@ -3,7 +3,7 @@
 use alloy_dyn_abi::{DynSolValue, EventExt};
 use alloy_json_abi::Event;
 use alloy_primitives::{address, Address, U256};
-use edr_solidity_tests::{result::TestStatus, ShowTraces, SolidityTestRunnerConfig};
+use edr_solidity_tests::{result::TestStatus, IncludeTraces, SolidityTestRunnerConfig};
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 use foundry_evm::{
     constants::HARDHAT_CONSOLE_ADDRESS,
@@ -66,7 +66,7 @@ async fn runner_config(
         config.evm_opts.sender = sender;
     }
 
-    config.show_traces = ShowTraces::All;
+    config.include_traces = IncludeTraces::All;
 
     config
 }
