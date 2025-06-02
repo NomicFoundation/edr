@@ -9,7 +9,7 @@ describe("Call traces - IncludeTraces.All", () => {
   before(async () => {
     const testContext = await TestContext.setup();
     const runResult =
-      await testContext.runTestsWithStats("CallTraces", { showTraces: IncludeTraces.All });
+      await testContext.runTestsWithStats("CallTraces", { includeTraces: IncludeTraces.All });
     testCallTraces = runResult.callTraces;
   });
 
@@ -296,7 +296,7 @@ describe("Call traces - IncludeTraces.Failing", () => {
   before(async () => {
     const testContext = await TestContext.setup();
     const runResult =
-      await testContext.runTestsWithStats("CallTracesFailingOnly", { showTraces: IncludeTraces.Failing });
+      await testContext.runTestsWithStats("CallTracesFailingOnly", { includeTraces: IncludeTraces.Failing });
     testCallTraces = runResult.callTraces;
   });
 
