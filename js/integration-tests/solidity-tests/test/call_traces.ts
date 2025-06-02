@@ -3,7 +3,7 @@ import { before, describe, it } from "node:test";
 import { TestContext } from "./testContext.js";
 import { ShowTraces, CallKind, LogKind, CallTrace } from "@ignored/edr";
 
-describe("Call traces", () => {
+describe("Call traces - ShowTraces.All", () => {
   let testCallTraces: Map<string, CallTrace[]>;
 
   before(async () => {
@@ -287,5 +287,27 @@ describe("Call traces", () => {
     assert.equal(emptyCall3.success, true);
     assert.equal(emptyCall3.contract, '0x1000000000000000000000000000000000000000');
     assert.deepEqual(emptyCall3.inputs, { name: 'fallback', arguments: [] });
+  });
+});
+
+describe("Call traces - ShowTraces.Failing", () => {
+  let testCallTraces: Map<string, CallTrace[]>;
+
+  before(async () => {
+    const testContext = await TestContext.setup();
+    const runResult =
+      await testContext.runTestsWithStats("CallTracesFailingOnly", { showTraces: ShowTraces.Failing });
+    testCallTraces = runResult.callTraces;
+  });
+
+  it("should not capture traces for successful tests", async function () {
+    const trace = testCallTraces.get("testSuccessfulTest()");
+    assert.deepEqual(trace, []);
+  });
+
+  it("should capture traces for failing tests", async function () {
+    const trace = testCallTraces.get("testFailingTest()");
+    assert.equal(trace?.length, 1);
+    assert.equal(trace[0].success, false);
   });
 });

@@ -62,6 +62,7 @@ pub fn run_solidity_tests(
     )>();
 
     let test_filter: Arc<TestFilterConfig> = Arc::new(config_args.try_get_test_filter()?);
+    let show_traces = config_args.show_traces.unwrap_or_default();
 
     let runtime = runtime::Handle::current();
     runtime.spawn(async move {
@@ -83,8 +84,8 @@ pub fn run_solidity_tests(
         // Returns immediately after test suite execution is started
         runner.test(test_filter, tx_results);
 
-        while let Some(name_and_suite_result) = rx_results.recv().await {
-            let callback_arg = name_and_suite_result.into();
+        while let Some((id, suite_result)) = rx_results.recv().await {
+            let callback_arg = SuiteResult::new(id, suite_result, show_traces);
             // Blocking mode won't block in our case because the function was created with
             // unlimited queue size https://github.com/nodejs/node-addon-api/blob/main/doc/threadsafe_function.md#blockingcall--nonblockingcall
             let call_status =

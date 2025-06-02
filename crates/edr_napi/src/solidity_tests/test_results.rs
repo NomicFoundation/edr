@@ -17,7 +17,7 @@ use napi_derive::napi;
 
 use crate::{
     cast::TryCast,
-    solidity_tests::artifact::ArtifactId,
+    solidity_tests::{artifact::ArtifactId, config::ShowTraces},
     trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
 };
 
@@ -40,17 +40,11 @@ pub struct SuiteResult {
     pub warnings: Vec<String>,
 }
 
-impl
-    From<(
-        edr_solidity::artifacts::ArtifactId,
-        edr_solidity_tests::result::SuiteResult,
-    )> for SuiteResult
-{
-    fn from(
-        (id, suite_result): (
-            edr_solidity::artifacts::ArtifactId,
-            edr_solidity_tests::result::SuiteResult,
-        ),
+impl SuiteResult {
+    pub fn new(
+        id: edr_solidity::artifacts::ArtifactId,
+        suite_result: edr_solidity_tests::result::SuiteResult,
+        show_traces: ShowTraces,
     ) -> Self {
         Self {
             id: id.into(),
@@ -58,7 +52,7 @@ impl
             test_results: suite_result
                 .test_results
                 .into_iter()
-                .map(Into::into)
+                .map(|(name, test_result)| TestResult::new(name, test_result, show_traces))
                 .collect(),
             warnings: suite_result.warnings,
         }
@@ -202,8 +196,15 @@ impl TestResult {
     }
 }
 
-impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
-    fn from((name, test_result): (String, edr_solidity_tests::result::TestResult)) -> Self {
+impl TestResult {
+    fn new(
+        name: String,
+        test_result: edr_solidity_tests::result::TestResult,
+        show_traces: ShowTraces,
+    ) -> Self {
+        let include_trace = show_traces == ShowTraces::All
+            || (show_traces == ShowTraces::Failing && test_result.status.is_failure());
+
         Self {
             name,
             status: test_result.status.into(),
@@ -257,7 +258,11 @@ impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
             stack_trace_result: test_result.stack_trace_result,
-            call_trace_arenas: test_result.traces,
+            call_trace_arenas: if include_trace {
+                test_result.traces
+            } else {
+                vec![]
+            },
         }
     }
 }

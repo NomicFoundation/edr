@@ -722,7 +722,7 @@ impl Debug for AddressLabel {
 }
 
 #[napi]
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(PartialEq, Eq, Debug, Default, serde::Serialize)]
 pub enum ShowTraces {
     #[default]
     None,
