@@ -291,7 +291,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
         if self.traces != ShowTraces::None {
             let mut decoder = CallTraceDecoderBuilder::new().build();
 
-            for (_, result) in &mut r.test_results {
+            for result in r.test_results.values_mut() {
                 decoder.clear_addresses();
                 decoder.labels.extend(
                     result
@@ -303,9 +303,9 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
                 for (_, arena) in &mut result.traces {
                     let mut trace_identifier =
                         TraceIdentifiers::new().with_local(&self.known_contracts);
-                    decoder.identify(&arena, &mut trace_identifier);
+                    decoder.identify(arena, &mut trace_identifier);
                     tokio::task::block_in_place(|| {
-                        handle.block_on(decode_trace_arena(arena, &mut decoder))
+                        handle.block_on(decode_trace_arena(arena, &decoder));
                     });
                 }
             }

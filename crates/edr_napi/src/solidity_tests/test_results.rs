@@ -492,8 +492,6 @@ impl CallTrace {
     }
 
     fn from_arena_node(sparsed_arena: &SparsedTraceArena, arena_index: usize) -> Self {
-        let arena = sparsed_arena.resolve_arena();
-
         struct StackItem {
             visited: bool,
             parent_stack_index: Option<usize>,
@@ -509,6 +507,8 @@ impl CallTrace {
             parent_stack_index: None,
             children_traces: Vec::new(),
         });
+
+        let arena = sparsed_arena.resolve_arena();
 
         loop {
             // We will break out of the loop before the stack goes empty.
@@ -606,7 +606,9 @@ impl From<traces::CallKind> for CallKind {
             traces::CallKind::Create | traces::CallKind::Create2 => CallKind::Create,
 
             // We do not support these EVM features.
-            traces::CallKind::AuthCall | traces::CallKind::EOFCreate => unimplemented!(),
+            traces::CallKind::AuthCall | traces::CallKind::EOFCreate => {
+                panic!("Unsupported EVM features")
+            }
         }
     }
 }
