@@ -426,6 +426,7 @@ pub struct LogTrace {
 }
 
 #[napi]
+#[derive(Debug)]
 pub enum CallKind {
     Call,
     CallCode,
@@ -435,6 +436,7 @@ pub enum CallKind {
 }
 
 #[napi]
+#[derive(Debug)]
 pub enum LogKind {
     Log,
 }
