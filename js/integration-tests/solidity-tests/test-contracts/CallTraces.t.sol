@@ -70,9 +70,18 @@ contract CallTraces is Test {
         require(success2);
     }
 
-    // State, events, and functions used by the tests above
+    function testRevertedCall() public {
+        try this.revertWithEmpty() {} catch {}
+        try this.revertWithString() {} catch {}
+        try this.revertWithCustomError() {} catch {}
+        try this.revertWithBytes() {} catch {}
+    }
+
+    // State and external interface used by the tests above
 
     uint256 state;
+
+    error CustomRevertError(uint256 code, string reason);
 
     event OneEvent(uint256 x);
     event SomeEvent(uint256 x, string s);
@@ -93,6 +102,25 @@ contract CallTraces is Test {
         assembly {
             mstore(0, hex"12340042")
             return(0, 4)
+        }
+    }
+
+    function revertWithEmpty() external {
+        revert();
+    }
+
+    function revertWithString() external {
+        revert("Something went wrong");
+    }
+
+    function revertWithCustomError() external {
+        revert CustomRevertError(42, "Custom error occurred");
+    }
+
+    function revertWithBytes() external {
+        assembly {
+            mstore(0, hex"deadbeefcafe")
+            revert(0, 6)
         }
     }
 

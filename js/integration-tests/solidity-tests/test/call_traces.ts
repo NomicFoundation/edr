@@ -211,4 +211,34 @@ describe("Call traces", () => {
     assert.equal(delegateCall.kind, CallKind.DelegateCall);
     assert.deepEqual(delegateCall.inputs, { name: "simpleCall", arguments: [] });
   });
+
+  it("reverted calls", async function () {
+    const trace = testCallTraces.get("testRevertedCall()");
+    assert.equal(trace?.length, 1);
+    assert.equal(trace[0].children.length, 4);
+
+    const emptyRevert = trace[0].children[0];
+    assert.equal(emptyRevert.kind, CallKind.Call);
+    assert.equal(emptyRevert.success, false);
+    assert.deepEqual(emptyRevert.inputs, { name: "revertWithEmpty", arguments: [] });
+    assert.equal(emptyRevert.outputs, "EvmError: Revert");
+
+    const stringRevert = trace[0].children[1];
+    assert.equal(stringRevert.kind, CallKind.Call);
+    assert.equal(stringRevert.success, false);
+    assert.deepEqual(stringRevert.inputs, { name: "revertWithString", arguments: [] });
+    assert.equal(stringRevert.outputs, "revert: Something went wrong");
+
+    const customErrorRevert = trace[0].children[2];
+    assert.equal(customErrorRevert.kind, CallKind.Call);
+    assert.equal(customErrorRevert.success, false);
+    assert.deepEqual(customErrorRevert.inputs, { name: "revertWithCustomError", arguments: [] });
+    assert.equal(customErrorRevert.outputs, 'CustomRevertError(42, "Custom error occurred")');
+
+    const bytesRevert = trace[0].children[3];
+    assert.equal(bytesRevert.kind, CallKind.Call);
+    assert.equal(bytesRevert.success, false);
+    assert.deepEqual(bytesRevert.inputs, { name: "revertWithBytes", arguments: [] });
+    assert.deepEqual(bytesRevert.outputs, "custom error deadbeef:cafe");
+  });
 });
