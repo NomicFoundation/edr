@@ -292,6 +292,10 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
             let mut decoder = CallTraceDecoderBuilder::new().build();
 
             for result in r.test_results.values_mut() {
+                if result.status.is_success() && self.show_traces != ShowTraces::All {
+                    continue;
+                }
+
                 decoder.clear_addresses();
                 decoder.labels.extend(
                     result
