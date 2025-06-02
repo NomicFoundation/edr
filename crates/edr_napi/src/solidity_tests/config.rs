@@ -128,7 +128,7 @@ pub struct SolidityTestRunnerConfigArgs {
     /// config value is set, then the fuzz config value will be used.
     pub invariant: Option<InvariantConfigArgs>,
 
-    pub traces: Option<ShowTraces>,
+    pub show_traces: Option<ShowTraces>,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
@@ -201,7 +201,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             prompt_timeout,
             fuzz,
             invariant,
-            traces,
+            show_traces,
             test_pattern: _,
         } = value;
 
@@ -313,7 +313,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
 
         Ok(SolidityTestRunnerConfig {
             project_root: project_root.into(),
-            traces: traces.unwrap_or_default().into(),
+            show_traces: show_traces.unwrap_or_default().into(),
             // TODO
             coverage: false,
             test_fail: test_fail.unwrap_or_default(),

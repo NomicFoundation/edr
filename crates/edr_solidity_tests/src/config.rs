@@ -32,7 +32,7 @@ pub struct SolidityTestRunnerConfig {
     pub project_root: PathBuf,
     /// Whether to enable trace mode and which traces to include in test
     /// results.
-    pub traces: ShowTraces,
+    pub show_traces: ShowTraces,
     /// Whether to collect coverage info
     pub coverage: bool,
     /// Whether to support the `testFail` prefix

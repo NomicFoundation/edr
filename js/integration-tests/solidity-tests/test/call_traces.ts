@@ -9,7 +9,7 @@ describe("Call traces", () => {
   before(async () => {
     const testContext = await TestContext.setup();
     const runResult =
-      await testContext.runTestsWithStats("CallTraces", { traces: ShowTraces.All });
+      await testContext.runTestsWithStats("CallTraces", { showTraces: ShowTraces.All });
     testCallTraces = runResult.callTraces;
   });
 

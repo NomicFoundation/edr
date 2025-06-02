@@ -545,7 +545,7 @@ export interface SolidityTestRunnerConfigArgs {
    * config value is set, then the fuzz config value will be used.
    */
   invariant?: InvariantConfigArgs
-  traces?: ShowTraces
+  showTraces?: ShowTraces
   /**
    * A regex pattern to filter tests. If provided, only test methods that
    * match the pattern will be executed and reported as a test result.
