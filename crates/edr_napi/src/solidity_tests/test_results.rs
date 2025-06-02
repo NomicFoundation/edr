@@ -448,7 +448,8 @@ pub struct DecodedTraceParameters {
 }
 
 impl CallTrace {
-    /// Instantiates a `CallTrace` with the details from a node and the supplied children.
+    /// Instantiates a `CallTrace` with the details from a node and the supplied
+    /// children.
     fn new(node: &traces::CallTraceNode, children: Vec<Either<CallTrace, LogTrace>>) -> Self {
         let contract = node
             .trace

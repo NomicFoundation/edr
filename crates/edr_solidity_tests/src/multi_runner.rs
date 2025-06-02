@@ -293,9 +293,12 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
 
             for (_, result) in &mut r.test_results {
                 decoder.clear_addresses();
-                decoder
-                    .labels
-                    .extend(result.labeled_addresses.iter().map(|(k, v)| (*k, v.clone())));
+                decoder.labels.extend(
+                    result
+                        .labeled_addresses
+                        .iter()
+                        .map(|(k, v)| (*k, v.clone())),
+                );
 
                 for (_, arena) in &mut result.traces {
                     let mut trace_identifier =
