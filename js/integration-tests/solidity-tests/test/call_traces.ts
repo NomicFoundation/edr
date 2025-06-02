@@ -38,7 +38,8 @@ describe("Call traces", () => {
     assert.equal(trace[0].children.length, 1);
     const child = trace[0].children[0];
     assert.equal(child.kind, CallKind.Call);
-    assert.deepEqual(child.inputs, { name: "childCall", arguments: [] });
+    assert.deepEqual(child.inputs, { name: "childCall", arguments: ["55"] });
+    assert.deepEqual(child.outputs, "365");
   });
 
   it("single event", async function () {
@@ -47,7 +48,7 @@ describe("Call traces", () => {
     assert.equal(trace[0].children.length, 1);
     const event = trace[0].children[0];
     assert.equal(event.kind, LogKind.Log);
-    assert.deepEqual(event.parameters, { name: "OneEvent", arguments: ["x: 123"] });
+    assert.deepEqual(event.parameters, { name: "SomeEvent", arguments: ["x: 123", 's: "hello"'] });
   });
 
   it("multiple children", async function () {
@@ -61,19 +62,19 @@ describe("Call traces", () => {
 
     const child1 = trace[0].children[1];
     assert.equal(child1.kind, CallKind.Call);
-    assert.deepEqual(child1.inputs, { name: "childCall", arguments: [] });
+    assert.deepEqual(child1.inputs, { name: "childCall", arguments: ["2"] });
 
     const child2 = trace[0].children[2];
     assert.equal(child2.kind, LogKind.Log);
-    assert.deepEqual(child2.parameters, { name: "OneEvent", arguments: ["x: 2"] });
+    assert.deepEqual(child2.parameters, { name: "OneEvent", arguments: ["x: 3"] });
 
     const child3 = trace[0].children[3];
     assert.equal(child3.kind, CallKind.Call);
-    assert.deepEqual(child3.inputs, { name: "childCall", arguments: [] });
+    assert.deepEqual(child3.inputs, { name: "childCall", arguments: ["4"] });
 
     const child4 = trace[0].children[4];
     assert.equal(child4.kind, LogKind.Log);
-    assert.deepEqual(child4.parameters, { name: "OneEvent", arguments: ["x: 3"] });
+    assert.deepEqual(child4.parameters, { name: "OneEvent", arguments: ["x: 5"] });
   });
 
   it("nested calls", async function () {
@@ -88,7 +89,7 @@ describe("Call traces", () => {
 
     const grandChild = child.children[0];
     assert.equal(grandChild.kind, CallKind.Call);
-    assert.deepEqual(grandChild.inputs, { name: "childCall", arguments: [] });
+    assert.deepEqual(grandChild.inputs, { name: "childCall", arguments: ["0"] });
   });
 
   it("call with value", async function () {
@@ -139,7 +140,6 @@ describe("Call traces", () => {
 
     const child = trace[0].children[0];
     assert.equal(child.kind, CallKind.Call);
-    assert.ok(child.inputs instanceof Uint8Array);
     assert.deepEqual(child.inputs, new Uint8Array([0xde, 0xad, 0xbe, 0xef]));
   });
 
@@ -149,10 +149,8 @@ describe("Call traces", () => {
     assert.equal(trace[0].children.length, 1);
 
     const child = trace[0].children[0];
-    assert.equal(child.kind, CallKind.Call);
-    assert.ok(child.outputs instanceof Uint8Array);
-    // Should contain the raw bytes returned by the assembly code
-    assert.ok(child.outputs.length > 0);
+    assert.equal(child.kind, CallKind.StaticCall);
+    assert.deepEqual(child.outputs, new Uint8Array([0x12, 0x34, 0x00, 0x42]));
   });
 
   it("anonymous event", async function () {
@@ -162,9 +160,29 @@ describe("Call traces", () => {
 
     const event = trace[0].children[0];
     assert.equal(event.kind, LogKind.Log);
-    // TODO: test the contents of the array
-    assert.ok(Array.isArray(event.parameters));
+    assert(Array.isArray(event.parameters));
     assert.equal(event.parameters.length, 3); // 2 indexed topics + data
+
+    assert.deepEqual(
+      event.parameters[0],
+      new Uint8Array(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')),
+    );
+    assert.deepEqual(
+      event.parameters[1],
+      new Uint8Array(Buffer.from('0000000000000000000000000000000000000000000000000000000000000002', 'hex')),
+    );
+
+    const data = "test data";
+    assert.deepEqual(
+      event.parameters[2],
+      new Uint8Array(
+        Buffer.concat([
+          Buffer.from('0000000000000000000000000000000000000000000000000000000000000020', 'hex'), // start offset
+          Buffer.from(data.length.toString(16).padStart(64, '0'), 'hex'),
+          Buffer.from(data.padEnd(32, '\0'), 'utf8'),
+        ]),
+      ),
+    );
   });
 
   it("create contract", async function () {
@@ -187,10 +205,10 @@ describe("Call traces", () => {
 
     const staticCall = trace[0].children[0];
     assert.equal(staticCall.kind, CallKind.StaticCall);
-    assert.deepEqual(staticCall.inputs, { name: "childCall", arguments: [] });
+    assert.deepEqual(staticCall.inputs, { name: "simpleCall", arguments: [] });
 
     const delegateCall = trace[0].children[1];
     assert.equal(delegateCall.kind, CallKind.DelegateCall);
-    assert.deepEqual(delegateCall.inputs, { name: "childCall", arguments: [] });
+    assert.deepEqual(delegateCall.inputs, { name: "simpleCall", arguments: [] });
   });
 });

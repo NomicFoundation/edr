@@ -9,39 +9,20 @@ contract CallTraces is Test {
     function testNoChildren() public {
     }
 
-    function childCall() public {}
-    function nestedCall() public {
-        this.childCall();
-    }
-
-    function returnWithoutDeclaration() external {
-        assembly {
-            mstore(0x00, 0x42424242)
-            return(0x00, 0x20)
-        }
-    }
-
-    fallback() external {
-        // Handle raw bytes calls
-    }
-
-    event OneEvent(uint256 x);
-    event AnonEvent(bytes32 indexed, bytes32 indexed, bytes) anonymous;
-
     function testSingleChildCall() public {
-        this.childCall();
+        this.childCall(55);
     }
 
     function testSingleEvent() public {
-        emit OneEvent(123);
+        emit SomeEvent(123, "hello");
     }
 
     function testManyChildren() public {
         emit OneEvent(1);
-        this.childCall();
-        emit OneEvent(2);
-        this.childCall();
+        this.childCall(2);
         emit OneEvent(3);
+        this.childCall(4);
+        emit OneEvent(5);
     }
 
     function testNestedCalls() public {
@@ -53,24 +34,23 @@ contract CallTraces is Test {
         payable(address(this)).transfer(1 ether);
     }
 
-    receive() external payable {}
-
-    function testCheatcodeCall() public {
+    function testCheatcodeCall() public pure {
         vm.addr(1);
     }
 
     function testLabelAddress() public {
         address someone = address(0x1000000000000000000000000000000000000000);
         vm.label(someone, "a labelled someone");
-        someone.call("");
+        (bool b, ) = someone.call("");
+        require(b);
     }
 
     function testRawBytesCall() public {
-        (bool success, bytes memory data) = address(this).call(hex"deadbeef");
+        (bool success,) = address(this).call(hex"deadbeef");
         require(success);
     }
 
-    function testUndecodedOutputs() public {
+    function testUndecodedOutputs() public view {
         this.returnWithoutDeclaration();
     }
 
@@ -83,12 +63,40 @@ contract CallTraces is Test {
     }
 
     function testStaticAndDelegateCall() public {
-        // Static call
-        (bool success1,) = address(this).staticcall(abi.encodeWithSignature("childCall()"));
+        (bool success1,) = address(this).staticcall(abi.encodeCall(this.simpleCall, ()));
         require(success1);
 
-        // Delegate call
-        (bool success2,) = address(this).delegatecall(abi.encodeWithSignature("childCall()"));
+        (bool success2,) = address(this).delegatecall(abi.encodeCall(this.simpleCall, ()));
         require(success2);
     }
+
+    // State, events, and functions used by the tests above
+
+    uint256 state;
+
+    event OneEvent(uint256 x);
+    event SomeEvent(uint256 x, string s);
+    event AnonEvent(bytes32 indexed, bytes32 indexed, bytes) anonymous;
+
+    function simpleCall() external {}
+
+    function childCall(uint256 x) external returns (uint256) {
+        state = x;
+        return 365;
+    }
+
+    function nestedCall() external {
+        this.childCall(0);
+    }
+
+    function returnWithoutDeclaration() external pure {
+        assembly {
+            mstore(0, hex"12340042")
+            return(0, 4)
+        }
+    }
+
+    fallback() external {}
+
+    receive() external payable {}
 }
