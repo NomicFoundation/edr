@@ -612,7 +612,7 @@ impl From<traces::CallKind> for CallKind {
 
             // We do not support these EVM features.
             traces::CallKind::AuthCall | traces::CallKind::EOFCreate => {
-                panic!("Unsupported EVM features")
+                unreachable!("Unsupported EVM features")
             }
         }
     }
