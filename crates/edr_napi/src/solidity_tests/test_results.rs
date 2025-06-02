@@ -197,7 +197,7 @@ impl TestResult {
         self.call_trace_arenas
             .iter()
             .filter(|(k, _)| *k != traces::TraceKind::Deployment)
-            .map(|(_, a)| a.into())
+            .map(|(_, a)| CallTrace::from_arena_node(a, 0))
             .collect()
     }
 }
@@ -489,39 +489,9 @@ impl CallTrace {
             children,
         }
     }
-}
 
-impl From<&traces::CallLog> for LogTrace {
-    fn from(log: &traces::CallLog) -> Self {
-        let decoded_log = log.decoded.name.clone().zip(log.decoded.params.as_ref());
-
-        let parameters = decoded_log.map_or_else(
-            || {
-                let raw_log = &log.raw_log;
-                let mut params = Vec::with_capacity(raw_log.topics().len() + 1);
-                params.extend(raw_log.topics().iter().map(|topic| topic.as_slice().into()));
-                params.push(log.raw_log.data.as_ref().into());
-                Either::B(params)
-            },
-            |(name, params)| {
-                let arguments = params
-                    .iter()
-                    .map(|(name, value)| format!("{name}: {value}"))
-                    .collect();
-                Either::A(DecodedTraceParameters { name, arguments })
-            },
-        );
-
-        Self {
-            kind: LogKind::Log,
-            parameters,
-        }
-    }
-}
-
-impl From<&SparsedTraceArena> for CallTrace {
-    fn from(value: &SparsedTraceArena) -> Self {
-        let arena = value.resolve_arena();
+    fn from_arena_node(sparsed_arena: &SparsedTraceArena, arena_index: usize) -> Self {
+        let arena = sparsed_arena.resolve_arena();
 
         struct StackItem {
             visited: bool,
@@ -534,7 +504,7 @@ impl From<&SparsedTraceArena> for CallTrace {
 
         stack.push(StackItem {
             visited: false,
-            arena_index: 0,
+            arena_index,
             parent_stack_index: None,
             children_traces: Vec::new(),
         });
@@ -593,6 +563,34 @@ impl From<&SparsedTraceArena> for CallTrace {
                     children_traces: Vec::new(),
                 }));
             }
+        }
+    }
+}
+
+impl From<&traces::CallLog> for LogTrace {
+    fn from(log: &traces::CallLog) -> Self {
+        let decoded_log = log.decoded.name.clone().zip(log.decoded.params.as_ref());
+
+        let parameters = decoded_log.map_or_else(
+            || {
+                let raw_log = &log.raw_log;
+                let mut params = Vec::with_capacity(raw_log.topics().len() + 1);
+                params.extend(raw_log.topics().iter().map(|topic| topic.as_slice().into()));
+                params.push(log.raw_log.data.as_ref().into());
+                Either::B(params)
+            },
+            |(name, params)| {
+                let arguments = params
+                    .iter()
+                    .map(|(name, value)| format!("{name}: {value}"))
+                    .collect();
+                Either::A(DecodedTraceParameters { name, arguments })
+            },
+        );
+
+        Self {
+            kind: LogKind::Log,
+            parameters,
         }
     }
 }
