@@ -119,7 +119,7 @@ describe("Call traces", () => {
     assert.deepEqual(child.inputs, { name: "addr", arguments: ["<pk>"] });
   });
 
-  it.skip("labeled address", async function () {
+  it("labeled address", async function () {
     const trace = testCallTraces.get("testLabelAddress()");
     assert.equal(trace?.length, 1);
     assert.equal(trace[0].children.length, 2);

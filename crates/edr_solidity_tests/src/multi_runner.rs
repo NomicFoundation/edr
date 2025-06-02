@@ -289,10 +289,14 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> MultiContractRunner<NestedTrac
         let mut r = runner.run_tests(filter, &self.test_options, handle);
 
         if self.traces != ShowTraces::None {
-            // TODO: with_signature_identifier?
             let mut decoder = CallTraceDecoderBuilder::new().build();
 
             for (_, result) in &mut r.test_results {
+                decoder.clear_addresses();
+                decoder
+                    .labels
+                    .extend(result.labeled_addresses.iter().map(|(k, v)| (*k, v.clone())));
+
                 for (_, arena) in &mut result.traces {
                     let mut trace_identifier =
                         TraceIdentifiers::new().with_local(&self.known_contracts);
