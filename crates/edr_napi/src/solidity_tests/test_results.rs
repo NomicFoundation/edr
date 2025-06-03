@@ -7,7 +7,7 @@ use std::{
 use edr_solidity_tests::{
     constants::CHEATCODE_ADDRESS,
     executors::stack_trace::StackTraceResult,
-    traces::{self, SparsedTraceArena},
+    traces::{self, CallTraceArena, SparsedTraceArena},
 };
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3, Either4, Uint8Array},
@@ -191,7 +191,7 @@ impl TestResult {
         self.call_trace_arenas
             .iter()
             .filter(|(k, _)| *k != traces::TraceKind::Deployment)
-            .map(|(_, a)| CallTrace::from_arena_node(a, 0))
+            .map(|(_, a)| CallTrace::from_arena_node(&a.resolve_arena(), 0))
             .collect()
     }
 }
@@ -496,7 +496,7 @@ impl CallTrace {
         }
     }
 
-    fn from_arena_node(sparsed_arena: &SparsedTraceArena, arena_index: usize) -> Self {
+    fn from_arena_node(arena: &CallTraceArena, arena_index: usize) -> Self {
         struct StackItem {
             visited: bool,
             parent_stack_index: Option<usize>,
@@ -512,8 +512,6 @@ impl CallTrace {
             parent_stack_index: None,
             children_traces: Vec::new(),
         });
-
-        let arena = sparsed_arena.resolve_arena();
 
         loop {
             // We will break out of the loop before the stack goes empty.
