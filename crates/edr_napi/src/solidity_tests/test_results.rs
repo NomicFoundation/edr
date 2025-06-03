@@ -506,7 +506,11 @@ impl CallTrace {
 
         let inputs = match &node.trace.decoded.call_data {
             Some(traces::DecodedCallData { signature, args }) => {
-                let name = signature.split('(').next().expect("").to_string();
+                let name = signature
+                    .split('(')
+                    .next()
+                    .expect("invalid function signature")
+                    .to_string();
                 let arguments = args.clone();
                 Either::A(DecodedTraceParameters { name, arguments })
             }
