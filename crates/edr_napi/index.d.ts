@@ -702,8 +702,11 @@ export interface AddressLabel {
  * controls execution trace decoding and inclusion in test results.
  */
 export const enum IncludeTraces {
+  /** No traces will be included in any test result. */
   None = 0,
+  /** Traces will be included only on the results of failed tests. */
   Failing = 1,
+  /** Traces will be included in all test results. */
   All = 2
 }
 /** The stack trace result */
@@ -823,10 +826,15 @@ export interface BaseCounterExample {
  * creation.
  */
 export interface CallTrace {
+  /** The kind of call or contract creation this represents. */
   kind: CallKind
+  /** Whether the call succeeded or reverted. */
   success: boolean
+  /** Whether the call is a cheatcode. */
   cheatcode: boolean
+  /** The amount of gas that was consumed. */
   gasUsed: bigint
+  /** The amount of native token that was included with the call. */
   value: bigint
   /**
    * The target of the call. Provided as a contract name if known, otherwise
@@ -854,6 +862,7 @@ export interface CallTrace {
 }
 /** Object representing an event log in an execution trace. */
 export interface LogTrace {
+  /** A constant to help discriminate the union `CallTrace | LogTrace`. */
   kind: LogKind
   /**
    * If the log is a known event (based on its first topic), it will be
@@ -864,18 +873,32 @@ export interface LogTrace {
    */
   parameters: DecodedTraceParameters | Array<Uint8Array>
 }
+/** The various kinds of call frames possible in the EVM. */
 export const enum CallKind {
+  /** Regular call that may change state. */
   Call = 0,
+  /**
+   * Variant of `DelegateCall` that doesn't preserve sender or value in the
+   * frame.
+   */
   CallCode = 1,
+  /** Call that executes the code of the target in the context of the caller. */
   DelegateCall = 2,
+  /** Regular call that may not change state. */
   StaticCall = 3,
+  /** Contract creation. */
   Create = 4
 }
+/** Kind marker for log traces. */
 export const enum LogKind {
+  /** Single kind of log. */
   Log = 0
 }
+/** Decoded function call or event. */
 export interface DecodedTraceParameters {
+  /** The name of a function or an event. */
   name: string
+  /** The arguments of the function call of the event. */
   arguments: Array<string>
 }
 /**
