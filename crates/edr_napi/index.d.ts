@@ -545,6 +545,10 @@ export interface SolidityTestRunnerConfigArgs {
    * config value is set, then the fuzz config value will be used.
    */
   invariant?: InvariantConfigArgs
+  /**
+   * Controls which test results should include execution traces. Defaults to
+   * None.
+   */
   includeTraces?: IncludeTraces
   /**
    * A regex pattern to filter tests. If provided, only test methods that
@@ -647,7 +651,7 @@ export interface InvariantConfigArgs {
    */
   shrinkRunLimit?: number
 }
-/** Settings to configure caching of remote */
+/** Settings to configure caching of remote RPC endpoints. */
 export interface StorageCachingConfig {
   /**
    * Chains to cache. Either all or none or a list of chain names, e.g.
@@ -693,6 +697,10 @@ export interface AddressLabel {
   /** The label to assign to the address */
   label: string
 }
+/**
+ * Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
+ * controls execution trace decoding and inclusion in test results.
+ */
 export const enum IncludeTraces {
   None = 0,
   Failing = 1,
@@ -810,20 +818,50 @@ export interface BaseCounterExample {
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::args] */
   readonly args?: string
 }
+/**
+ * Object representing a call in an execution trace, including contract
+ * creation.
+ */
 export interface CallTrace {
   kind: CallKind
   success: boolean
   cheatcode: boolean
   gasUsed: bigint
   value: bigint
+  /**
+   * The target of the call. Provided as a contract name if known, otherwise
+   * a checksum address.
+   */
   contract: string
+  /**
+   * The input (calldata) to the call. If it encodes a known function call,
+   * it will be decoded into the function name and a list of arguments.
+   * For example, `{ name: "ownerOf", arguments: ["1"] }`. Note that the
+   * function name may also be any of the special `fallback` and `receive`
+   * functions. Otherwise, it will be provided as a raw byte array.
+   */
   inputs: DecodedTraceParameters | Uint8Array
+  /**
+   * The output of the call. This will be a decoded value if the function is
+   * known, otherwise a raw byte array.
+   */
   outputs: string | Uint8Array
-  /** Interleaved subcalls and event logs. */
+  /**
+   * Interleaved subcalls and event logs. Use `kind` to check if each member
+   * of the array is a call or log trace.
+   */
   children: Array<CallTrace | LogTrace>
 }
+/** Object representing an event log in an execution trace. */
 export interface LogTrace {
   kind: LogKind
+  /**
+   * If the log is a known event (based on its first topic), it will be
+   * decoded into the event name and list of named parameters. For
+   * example, `{ name: "Log", arguments: ["value: 1"] }`. Otherwise, it
+   * will be provided as an array where all but the last elements are the
+   * log topics, and the last element is the log data.
+   */
   parameters: DecodedTraceParameters | Array<Uint8Array>
 }
 export const enum CallKind {
@@ -1162,6 +1200,13 @@ export declare class TestResult {
    * Cannot throw.
    */
   stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
+  /**
+   * Constructs the execution traces for the test. Returns an empty array if
+   * traces for this test were not requested according to
+   * [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+   * an array of the root calls of the trace, which always includes the test
+   * call itself and may also include the setup call if there is one.
+   */
   callTraces(): Array<CallTrace>
 }
 export declare class Exit {

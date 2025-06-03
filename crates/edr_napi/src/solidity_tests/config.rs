@@ -127,7 +127,8 @@ pub struct SolidityTestRunnerConfigArgs {
     /// If an invariant config setting is not set, but a corresponding fuzz
     /// config value is set, then the fuzz config value will be used.
     pub invariant: Option<InvariantConfigArgs>,
-
+    /// Controls which test results should include execution traces. Defaults to
+    /// None.
     pub include_traces: Option<IncludeTraces>,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
@@ -570,7 +571,7 @@ impl From<InvariantConfigArgs> for InvariantConfig {
     }
 }
 
-/// Settings to configure caching of remote
+/// Settings to configure caching of remote RPC endpoints.
 #[napi(object)]
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct StorageCachingConfig {
@@ -721,6 +722,8 @@ impl Debug for AddressLabel {
     }
 }
 
+/// Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
+/// controls execution trace decoding and inclusion in test results.
 #[napi]
 #[derive(PartialEq, Eq, Debug, Default, serde::Serialize)]
 pub enum IncludeTraces {

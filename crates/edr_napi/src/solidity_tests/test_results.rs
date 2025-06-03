@@ -186,6 +186,11 @@ impl TestResult {
             })
     }
 
+    /// Constructs the execution traces for the test. Returns an empty array if
+    /// traces for this test were not requested according to
+    /// [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+    /// an array of the root calls of the trace, which always includes the test
+    /// call itself and may also include the setup call if there is one.
     #[napi]
     pub fn call_traces(&self) -> Vec<CallTrace> {
         self.call_trace_arenas
@@ -410,6 +415,8 @@ impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
     }
 }
 
+/// Object representing a call in an execution trace, including contract
+/// creation.
 #[napi(object)]
 pub struct CallTrace {
     pub kind: CallKind,
@@ -417,16 +424,32 @@ pub struct CallTrace {
     pub cheatcode: bool,
     pub gas_used: BigInt,
     pub value: BigInt,
+    /// The target of the call. Provided as a contract name if known, otherwise
+    /// a checksum address.
     pub contract: String,
+    /// The input (calldata) to the call. If it encodes a known function call,
+    /// it will be decoded into the function name and a list of arguments.
+    /// For example, `{ name: "ownerOf", arguments: ["1"] }`. Note that the
+    /// function name may also be any of the special `fallback` and `receive`
+    /// functions. Otherwise, it will be provided as a raw byte array.
     pub inputs: Either<DecodedTraceParameters, Uint8Array>,
+    /// The output of the call. This will be a decoded value if the function is
+    /// known, otherwise a raw byte array.
     pub outputs: Either<String, Uint8Array>,
-    /// Interleaved subcalls and event logs.
+    /// Interleaved subcalls and event logs. Use `kind` to check if each member
+    /// of the array is a call or log trace.
     pub children: Vec<Either<CallTrace, LogTrace>>,
 }
 
+/// Object representing an event log in an execution trace.
 #[napi(object)]
 pub struct LogTrace {
     pub kind: LogKind,
+    /// If the log is a known event (based on its first topic), it will be
+    /// decoded into the event name and list of named parameters. For
+    /// example, `{ name: "Log", arguments: ["value: 1"] }`. Otherwise, it
+    /// will be provided as an array where all but the last elements are the
+    /// log topics, and the last element is the log data.
     pub parameters: Either<DecodedTraceParameters, Vec<Uint8Array>>,
 }
 
@@ -496,6 +519,7 @@ impl CallTrace {
         }
     }
 
+    /// Creates a tree of `CallTrace` rooted at some node in a trace arena.
     fn from_arena_node(arena: &CallTraceArena, arena_index: usize) -> Self {
         struct StackItem {
             visited: bool,
