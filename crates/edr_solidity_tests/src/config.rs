@@ -124,9 +124,14 @@ impl SolidityTestRunnerConfig {
     }
 }
 
+/// Configuration for [`SolidityTestRunnerConfig::include_traces`] that
+/// controls execution trace decoding and inclusion in test results.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IncludeTraces {
+    /// No traces will be included in any test result.
     None,
+    /// Traces will be included only on the results of failed tests.
     Failing,
+    /// Traces will be included in all test results.
     All,
 }

@@ -419,10 +419,15 @@ impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
 /// creation.
 #[napi(object)]
 pub struct CallTrace {
+    /// The kind of call or contract creation this represents.
     pub kind: CallKind,
+    /// Whether the call succeeded or reverted.
     pub success: bool,
+    /// Whether the call is a cheatcode.
     pub cheatcode: bool,
+    /// The amount of gas that was consumed.
     pub gas_used: BigInt,
+    /// The amount of native token that was included with the call.
     pub value: BigInt,
     /// The target of the call. Provided as a contract name if known, otherwise
     /// a checksum address.
@@ -444,6 +449,7 @@ pub struct CallTrace {
 /// Object representing an event log in an execution trace.
 #[napi(object)]
 pub struct LogTrace {
+    /// A constant to help discriminate the union `CallTrace | LogTrace`.
     pub kind: LogKind,
     /// If the log is a known event (based on its first topic), it will be
     /// decoded into the event name and list of named parameters. For
@@ -453,25 +459,37 @@ pub struct LogTrace {
     pub parameters: Either<DecodedTraceParameters, Vec<Uint8Array>>,
 }
 
+/// The various kinds of call frames possible in the EVM.
 #[napi]
 #[derive(Debug)]
 pub enum CallKind {
+    /// Regular call that may change state.
     Call,
+    /// Variant of `DelegateCall` that doesn't preserve sender or value in the
+    /// frame.
     CallCode,
+    /// Call that executes the code of the target in the context of the caller.
     DelegateCall,
+    /// Regular call that may not change state.
     StaticCall,
+    /// Contract creation.
     Create,
 }
 
+/// Kind marker for log traces.
 #[napi]
 #[derive(Debug)]
 pub enum LogKind {
+    /// Single kind of log.
     Log,
 }
 
+/// Decoded function call or event.
 #[napi(object)]
 pub struct DecodedTraceParameters {
+    /// The name of a function or an event.
     pub name: String,
+    /// The arguments of the function call of the event.
     pub arguments: Vec<String>,
 }
 
@@ -488,7 +506,7 @@ impl CallTrace {
 
         let inputs = match &node.trace.decoded.call_data {
             Some(traces::DecodedCallData { signature, args }) => {
-                let name = signature.split('(').next().unwrap().to_string();
+                let name = signature.split('(').next().expect("").to_string();
                 let arguments = args.clone();
                 Either::A(DecodedTraceParameters { name, arguments })
             }

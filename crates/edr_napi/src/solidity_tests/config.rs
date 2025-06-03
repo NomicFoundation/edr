@@ -727,9 +727,12 @@ impl Debug for AddressLabel {
 #[napi]
 #[derive(PartialEq, Eq, Debug, Default, serde::Serialize)]
 pub enum IncludeTraces {
+    /// No traces will be included in any test result.
     #[default]
     None,
+    /// Traces will be included only on the results of failed tests.
     Failing,
+    /// Traces will be included in all test results.
     All,
 }
 
