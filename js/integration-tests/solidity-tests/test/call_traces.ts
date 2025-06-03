@@ -149,7 +149,7 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.equal(trace[0].children.length, 1);
 
     const child = trace[0].children[0];
-    assert.equal(child.kind, CallKind.StaticCall);
+    assert.equal(child.kind, CallKind.Call);
     assert.deepEqual(child.outputs, new Uint8Array([0x12, 0x34, 0x00, 0x42]));
   });
 
@@ -288,6 +288,26 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.equal(emptyCall3.contract, '0x1000000000000000000000000000000000000000');
     assert.deepEqual(emptyCall3.inputs, { name: 'fallback', arguments: [] });
   });
+
+  it("fuzzing test should have single trace", async function () {
+    const trace = testCallTraces.get("testWithFuzzing(uint256)");
+    assert.equal(trace?.length, 1);
+    assert.equal(trace[0].kind, CallKind.Call);
+    assert.equal(trace[0].success, true);
+    assert.equal(trace[0].contract, "CallTraces");
+    assert.equal(trace[0].children.length, 1);
+
+    const event = trace[0].children[0];
+    assert.equal(event.kind, LogKind.Log);
+    assert('name' in event.parameters);
+    assert.deepEqual(event.parameters.name, "OneEvent");
+    const argumentMatch = event.parameters.arguments[0].match(/^x: (.*)$/);
+    assert.ok(argumentMatch);
+    const x = argumentMatch[1];
+
+    assert('name' in trace[0].inputs);
+    assert.deepEqual(trace[0].inputs, { name: "testWithFuzzing", arguments: [x] });
+  });
 });
 
 describe("Call traces - IncludeTraces.Failing", () => {
@@ -309,5 +329,33 @@ describe("Call traces - IncludeTraces.Failing", () => {
     const trace = testCallTraces.get("testFailingTest()");
     assert.equal(trace?.length, 1);
     assert.equal(trace[0].success, false);
+  });
+});
+
+describe("Call traces - CallTracesSetup", () => {
+  let testCallTraces: Map<string, CallTrace[]>;
+
+  before(async () => {
+    const testContext = await TestContext.setup();
+    const runResult =
+      await testContext.runTestsWithStats("CallTracesSetup", { includeTraces: IncludeTraces.All });
+    testCallTraces = runResult.callTraces;
+  });
+
+  it("should include setUp function in traces", async function () {
+    const trace = testCallTraces.get("testAfterSetup()");
+    assert.equal(trace?.length, 2);
+
+    const setupTrace = trace[0];
+    assert.equal(setupTrace.kind, CallKind.Call);
+    assert.equal(setupTrace.success, true);
+    assert.equal(setupTrace.contract, "CallTracesSetup");
+    assert.deepEqual(setupTrace.inputs, { name: "setUp", arguments: [] });
+
+    const testTrace = trace[1];
+    assert.equal(testTrace.kind, CallKind.Call);
+    assert.equal(testTrace.success, true);
+    assert.equal(testTrace.contract, "CallTracesSetup");
+    assert.deepEqual(testTrace.inputs, { name: "testAfterSetup", arguments: [] });
   });
 });

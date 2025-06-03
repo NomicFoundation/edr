@@ -48,7 +48,7 @@ contract CallTraces is Test {
         require(success);
     }
 
-    function testUndecodedOutputs() public view {
+    function testUndecodedOutputs() public {
         this.returnWithoutDeclaration();
     }
 
@@ -100,6 +100,10 @@ contract CallTraces is Test {
         try this.revertWithBytes() {} catch {}
     }
 
+    function testWithFuzzing(uint256 x) public {
+        emit OneEvent(x);
+    }
+
     // State and external interface used by the tests above
 
     uint256 state;
@@ -121,7 +125,8 @@ contract CallTraces is Test {
         this.childCall(0);
     }
 
-    function returnWithoutDeclaration() external pure {
+    function returnWithoutDeclaration() external {
+        state = 0; // silence mutability warning
         assembly {
             mstore(0, hex"12340042")
             return(0, 4)
@@ -129,18 +134,22 @@ contract CallTraces is Test {
     }
 
     function revertWithEmpty() external {
+        state = 0; // silence mutability warning
         revert();
     }
 
     function revertWithString() external {
+        state = 0; // silence mutability warning
         revert("Something went wrong");
     }
 
     function revertWithCustomError() external {
+        state = 0; // silence mutability warning
         revert CustomRevertError(42, "Custom error occurred");
     }
 
     function revertWithBytes() external {
+        state = 0; // silence mutability warning
         assembly {
             mstore(0, hex"deadbeefcafe")
             revert(0, 6)
