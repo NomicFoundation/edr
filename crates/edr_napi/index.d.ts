@@ -868,7 +868,7 @@ export interface LogTrace {
    * If the log is a known event (based on its first topic), it will be
    * decoded into the event name and list of named parameters. For
    * example, `{ name: "Log", arguments: ["value: 1"] }`. Otherwise, it
-   * will be provided as an array where all but the last elements are the
+   * will be provided as an array where all but the last element are the
    * log topics, and the last element is the log data.
    */
   parameters: DecodedTraceParameters | Array<Uint8Array>
