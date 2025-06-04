@@ -190,7 +190,8 @@ impl TestResult {
     /// traces for this test were not requested according to
     /// [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
     /// an array of the root calls of the trace, which always includes the test
-    /// call itself and may also include the setup call if there is one.
+    /// call itself and may also include the setup call if there is one
+    /// (identified by the function name `setUp`).
     #[napi]
     pub fn call_traces(&self) -> Vec<CallTrace> {
         self.call_trace_arenas

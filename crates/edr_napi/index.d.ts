@@ -850,8 +850,9 @@ export interface CallTrace {
    */
   inputs: DecodedTraceParameters | Uint8Array
   /**
-   * The output of the call. This will be a decoded value if the function is
-   * known, otherwise a raw byte array.
+   * The output of the call. This will be a decoded human-readable
+   * representation of the value if the function is known, otherwise a
+   * raw byte array.
    */
   outputs: string | Uint8Array
   /**
@@ -898,7 +899,10 @@ export const enum LogKind {
 export interface DecodedTraceParameters {
   /** The name of a function or an event. */
   name: string
-  /** The arguments of the function call of the event. */
+  /**
+   * The arguments of the function call or the event, in their human-readable
+   * representations.
+   */
   arguments: Array<string>
 }
 /**
@@ -1228,7 +1232,8 @@ export declare class TestResult {
    * traces for this test were not requested according to
    * [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
    * an array of the root calls of the trace, which always includes the test
-   * call itself and may also include the setup call if there is one.
+   * call itself and may also include the setup call if there is one
+   * (identified by the function name `setUp`).
    */
   callTraces(): Array<CallTrace>
 }
