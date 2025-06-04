@@ -725,7 +725,7 @@ impl Debug for AddressLabel {
 /// Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
 /// controls execution trace decoding and inclusion in test results.
 #[napi]
-#[derive(PartialEq, Eq, Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub enum IncludeTraces {
     /// No traces will be included in any test result.
     #[default]
