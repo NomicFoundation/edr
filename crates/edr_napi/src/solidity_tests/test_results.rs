@@ -438,8 +438,9 @@ pub struct CallTrace {
     /// function name may also be any of the special `fallback` and `receive`
     /// functions. Otherwise, it will be provided as a raw byte array.
     pub inputs: Either<DecodedTraceParameters, Uint8Array>,
-    /// The output of the call. This will be a decoded value if the function is
-    /// known, otherwise a raw byte array.
+    /// The output of the call. This will be a decoded human-readable
+    /// representation of the value if the function is known, otherwise a
+    /// raw byte array.
     pub outputs: Either<String, Uint8Array>,
     /// Interleaved subcalls and event logs. Use `kind` to check if each member
     /// of the array is a call or log trace.
@@ -489,7 +490,8 @@ pub enum LogKind {
 pub struct DecodedTraceParameters {
     /// The name of a function or an event.
     pub name: String,
-    /// The arguments of the function call of the event.
+    /// The arguments of the function call or the event, in their human-readable
+    /// representations.
     pub arguments: Vec<String>,
 }
 
