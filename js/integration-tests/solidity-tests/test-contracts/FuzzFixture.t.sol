@@ -24,7 +24,7 @@ contract FuzzFixtureTest is Test {
         testDummy = new IdentityContract();
     }
 
-    function testFuzzDummy(uint256 amount) public {
+    function testFuzzDummy(uint256 amount) public view {
         assertEq(testDummy.identity(amount), amount);
     }
 }

@@ -18,7 +18,7 @@ contract OverflowTest is Test {
         myContract = new MyContract();
     }
 
-    function testFuzzAddWithOverflow(uint256 a, uint256 b) public {
+    function testFuzzAddWithOverflow(uint256 a, uint256 b) public view {
         uint256 result = myContract.addWithOverflow(a, b);
         assertEq(result, a + b);
     }

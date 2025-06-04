@@ -19,7 +19,7 @@ use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},
     revm::primitives::SpecId,
-    MultiContractRunner, SolidityTestRunnerConfig,
+    IncludeTraces, MultiContractRunner, SolidityTestRunnerConfig,
 };
 use edr_test_utils::{
     env::{get_alchemy_url_for_network, NetworkType},
@@ -105,7 +105,7 @@ impl ForgeTestProfile {
 
     fn runner_config() -> SolidityTestRunnerConfig {
         SolidityTestRunnerConfig {
-            trace: true,
+            include_traces: IncludeTraces::All,
             evm_opts: Self::evm_opts(),
             project_root: PROJECT_ROOT.clone(),
             cheats_config_options: CheatsConfigOptions {
@@ -466,7 +466,7 @@ impl ForgeTestData {
     /// Builds a tracing runner
     pub async fn tracing_runner(&self) -> MultiContractRunner<NoOpContractDecoder> {
         let mut config = self.base_runner_config();
-        config.trace = true;
+        config.include_traces = IncludeTraces::All;
         self.build_runner(config).await
     }
 

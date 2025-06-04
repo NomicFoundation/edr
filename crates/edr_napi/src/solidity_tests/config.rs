@@ -127,6 +127,9 @@ pub struct SolidityTestRunnerConfigArgs {
     /// If an invariant config setting is not set, but a corresponding fuzz
     /// config value is set, then the fuzz config value will be used.
     pub invariant: Option<InvariantConfigArgs>,
+    /// Controls which test results should include execution traces. Defaults to
+    /// None.
+    pub include_traces: Option<IncludeTraces>,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
@@ -199,6 +202,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
             prompt_timeout,
             fuzz,
             invariant,
+            include_traces,
             test_pattern: _,
         } = value;
 
@@ -310,7 +314,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
 
         Ok(SolidityTestRunnerConfig {
             project_root: project_root.into(),
-            trace: false,
+            include_traces: include_traces.unwrap_or_default().into(),
             // TODO
             coverage: false,
             test_fail: test_fail.unwrap_or_default(),
@@ -567,7 +571,7 @@ impl From<InvariantConfigArgs> for InvariantConfig {
     }
 }
 
-/// Settings to configure caching of remote
+/// Settings to configure caching of remote RPC endpoints.
 #[napi(object)]
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct StorageCachingConfig {
@@ -715,5 +719,29 @@ impl Debug for AddressLabel {
             .field("address", &hex::encode(&self.address))
             .field("label", &self.label)
             .finish()
+    }
+}
+
+/// Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
+/// controls execution trace decoding and inclusion in test results.
+#[napi]
+#[derive(Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub enum IncludeTraces {
+    /// No traces will be included in any test result.
+    #[default]
+    None,
+    /// Traces will be included only on the results of failed tests.
+    Failing,
+    /// Traces will be included in all test results.
+    All,
+}
+
+impl From<IncludeTraces> for edr_solidity_tests::IncludeTraces {
+    fn from(value: IncludeTraces) -> Self {
+        match value {
+            IncludeTraces::None => edr_solidity_tests::IncludeTraces::None,
+            IncludeTraces::Failing => edr_solidity_tests::IncludeTraces::Failing,
+            IncludeTraces::All => edr_solidity_tests::IncludeTraces::All,
+        }
     }
 }

@@ -4,15 +4,21 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
-use edr_solidity_tests::executors::stack_trace::StackTraceResult;
+use edr_solidity_tests::{
+    constants::CHEATCODE_ADDRESS,
+    executors::stack_trace::StackTraceResult,
+    traces::{self, CallTraceArena, SparsedTraceArena},
+};
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3, Either4},
+    bindgen_prelude::{BigInt, Buffer, Either3, Either4, Uint8Array},
     Either,
 };
 use napi_derive::napi;
 
 use crate::{
-    solidity_tests::artifact::ArtifactId, trace::solidity_stack_trace::SolidityStackTraceEntry,
+    cast::TryCast,
+    solidity_tests::{artifact::ArtifactId, config::IncludeTraces},
+    trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
 };
 
 /// See [edr_solidity_tests::result::SuiteResult]
@@ -34,17 +40,11 @@ pub struct SuiteResult {
     pub warnings: Vec<String>,
 }
 
-impl
-    From<(
-        edr_solidity::artifacts::ArtifactId,
-        edr_solidity_tests::result::SuiteResult,
-    )> for SuiteResult
-{
-    fn from(
-        (id, suite_result): (
-            edr_solidity::artifacts::ArtifactId,
-            edr_solidity_tests::result::SuiteResult,
-        ),
+impl SuiteResult {
+    pub fn new(
+        id: edr_solidity::artifacts::ArtifactId,
+        suite_result: edr_solidity_tests::result::SuiteResult,
+        include_traces: IncludeTraces,
     ) -> Self {
         Self {
             id: id.into(),
@@ -52,7 +52,7 @@ impl
             test_results: suite_result
                 .test_results
                 .into_iter()
-                .map(Into::into)
+                .map(|(name, test_result)| TestResult::new(name, test_result, include_traces))
                 .collect(),
             warnings: suite_result.warnings,
         }
@@ -86,6 +86,7 @@ pub struct TestResult {
     pub duration_ms: BigInt,
 
     stack_trace_result: Option<StackTraceResult>,
+    call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
 }
 
 /// The stack trace result
@@ -157,7 +158,7 @@ impl TestResult {
                     entries: stack_trace
                         .iter()
                         .cloned()
-                        .map(crate::cast::TryCast::try_cast)
+                        .map(TryCast::try_cast)
                         .collect::<Result<Vec<_>, Infallible>>()
                         .expect("infallible"),
                 }),
@@ -184,10 +185,32 @@ impl TestResult {
                 }),
             })
     }
+
+    /// Constructs the execution traces for the test. Returns an empty array if
+    /// traces for this test were not requested according to
+    /// [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+    /// an array of the root calls of the trace, which always includes the test
+    /// call itself and may also include the setup call if there is one
+    /// (identified by the function name `setUp`).
+    #[napi]
+    pub fn call_traces(&self) -> Vec<CallTrace> {
+        self.call_trace_arenas
+            .iter()
+            .filter(|(k, _)| *k != traces::TraceKind::Deployment)
+            .map(|(_, a)| CallTrace::from_arena_node(&a.resolve_arena(), 0))
+            .collect()
+    }
 }
 
-impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
-    fn from((name, test_result): (String, edr_solidity_tests::result::TestResult)) -> Self {
+impl TestResult {
+    fn new(
+        name: String,
+        test_result: edr_solidity_tests::result::TestResult,
+        include_traces: IncludeTraces,
+    ) -> Self {
+        let include_trace = include_traces == IncludeTraces::All
+            || (include_traces == IncludeTraces::Failing && test_result.status.is_failure());
+
         Self {
             name,
             status: test_result.status.into(),
@@ -241,6 +264,11 @@ impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
             stack_trace_result: test_result.stack_trace_result,
+            call_trace_arenas: if include_trace {
+                test_result.traces
+            } else {
+                vec![]
+            },
         }
     }
 }
@@ -384,6 +412,256 @@ impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
             contract_name: value.contract_name,
             signature: value.signature,
             args: value.args,
+        }
+    }
+}
+
+/// Object representing a call in an execution trace, including contract
+/// creation.
+#[napi(object)]
+pub struct CallTrace {
+    /// The kind of call or contract creation this represents.
+    pub kind: CallKind,
+    /// Whether the call succeeded or reverted.
+    pub success: bool,
+    /// Whether the call is a cheatcode.
+    pub is_cheatcode: bool,
+    /// The amount of gas that was consumed.
+    pub gas_used: BigInt,
+    /// The amount of native token that was included with the call.
+    pub value: BigInt,
+    /// The target of the call. Provided as a contract name if known, otherwise
+    /// a checksum address.
+    pub contract: String,
+    /// The input (calldata) to the call. If it encodes a known function call,
+    /// it will be decoded into the function name and a list of arguments.
+    /// For example, `{ name: "ownerOf", arguments: ["1"] }`. Note that the
+    /// function name may also be any of the special `fallback` and `receive`
+    /// functions. Otherwise, it will be provided as a raw byte array.
+    pub inputs: Either<DecodedTraceParameters, Uint8Array>,
+    /// The output of the call. This will be a decoded human-readable
+    /// representation of the value if the function is known, otherwise a
+    /// raw byte array.
+    pub outputs: Either<String, Uint8Array>,
+    /// Interleaved subcalls and event logs. Use `kind` to check if each member
+    /// of the array is a call or log trace.
+    pub children: Vec<Either<CallTrace, LogTrace>>,
+}
+
+/// Object representing an event log in an execution trace.
+#[napi(object)]
+pub struct LogTrace {
+    /// A constant to help discriminate the union `CallTrace | LogTrace`.
+    pub kind: LogKind,
+    /// If the log is a known event (based on its first topic), it will be
+    /// decoded into the event name and list of named parameters. For
+    /// example, `{ name: "Log", arguments: ["value: 1"] }`. Otherwise, it
+    /// will be provided as an array where all but the last element are the
+    /// log topics, and the last element is the log data.
+    pub parameters: Either<DecodedTraceParameters, Vec<Uint8Array>>,
+}
+
+/// The various kinds of call frames possible in the EVM.
+#[napi]
+#[derive(Debug)]
+pub enum CallKind {
+    /// Regular call that may change state.
+    Call = 0,
+    /// Variant of `DelegateCall` that doesn't preserve sender or value in the
+    /// frame.
+    CallCode = 1,
+    /// Call that executes the code of the target in the context of the caller.
+    DelegateCall = 2,
+    /// Regular call that may not change state.
+    StaticCall = 3,
+    /// Contract creation.
+    Create = 4,
+}
+
+/// Kind marker for log traces.
+#[napi]
+#[derive(Debug)]
+pub enum LogKind {
+    /// Single kind of log.
+    Log = 5,
+    // NOTE: The discriminants of LogKind and CallKind must be disjoint.
+}
+
+/// Decoded function call or event.
+#[napi(object)]
+pub struct DecodedTraceParameters {
+    /// The name of a function or an event.
+    pub name: String,
+    /// The arguments of the function call or the event, in their human-readable
+    /// representations.
+    pub arguments: Vec<String>,
+}
+
+impl CallTrace {
+    /// Instantiates a `CallTrace` with the details from a node and the supplied
+    /// children.
+    fn new(node: &traces::CallTraceNode, children: Vec<Either<CallTrace, LogTrace>>) -> Self {
+        let contract = node
+            .trace
+            .decoded
+            .label
+            .clone()
+            .unwrap_or(node.trace.address.to_checksum(None));
+
+        let inputs = match &node.trace.decoded.call_data {
+            Some(traces::DecodedCallData { signature, args }) => {
+                let name = signature
+                    .split('(')
+                    .next()
+                    .expect("invalid function signature")
+                    .to_string();
+                let arguments = args.clone();
+                Either::A(DecodedTraceParameters { name, arguments })
+            }
+            None => Either::B(node.trace.data.as_ref().into()),
+        };
+
+        let outputs = match &node.trace.decoded.return_data {
+            Some(outputs) => Either::A(outputs.clone()),
+            None => {
+                if node.kind().is_any_create() && node.trace.success {
+                    Either::A(format!("{} bytes of code", node.trace.output.len()))
+                } else {
+                    Either::B(node.trace.output.as_ref().into())
+                }
+            }
+        };
+
+        Self {
+            kind: node.kind().into(),
+            success: node.trace.success,
+            is_cheatcode: node.trace.address == CHEATCODE_ADDRESS,
+            gas_used: node.trace.gas_used.into(),
+            value: u256_to_bigint(&node.trace.value),
+            contract,
+            inputs,
+            outputs,
+            children,
+        }
+    }
+
+    /// Creates a tree of `CallTrace` rooted at some node in a trace arena.
+    fn from_arena_node(arena: &CallTraceArena, arena_index: usize) -> Self {
+        struct StackItem {
+            visited: bool,
+            parent_stack_index: Option<usize>,
+            arena_index: usize,
+            child_traces: Vec<Option<CallTrace>>,
+        }
+
+        let mut stack = Vec::new();
+
+        stack.push(StackItem {
+            visited: false,
+            arena_index,
+            parent_stack_index: None,
+            child_traces: Vec::new(),
+        });
+
+        loop {
+            // We will break out of the loop before the stack goes empty.
+            let mut item = stack.pop().unwrap();
+            let node = &arena.nodes()[item.arena_index];
+
+            if item.visited {
+                let mut logs = node
+                    .logs
+                    .iter()
+                    .map(|log| Some(LogTrace::from(log)))
+                    .collect::<Vec<_>>();
+
+                let children = node
+                    .ordering
+                    .iter()
+                    .filter_map(|ord| match *ord {
+                        traces::TraceMemberOrder::Log(i) => {
+                            let log = logs[i].take().unwrap();
+                            Some(Either::B(log))
+                        }
+                        traces::TraceMemberOrder::Call(i) => {
+                            let child_trace = item.child_traces[i].take().unwrap();
+                            Some(Either::A(child_trace))
+                        }
+                        traces::TraceMemberOrder::Step(_) => None,
+                    })
+                    .collect();
+
+                let trace = CallTrace::new(node, children);
+
+                if let Some(parent_stack_index) = item.parent_stack_index {
+                    let parent = &mut stack[parent_stack_index];
+                    parent.child_traces.push(Some(trace));
+                } else {
+                    return trace;
+                }
+            } else {
+                item.visited = true;
+                item.child_traces.reserve(node.children.len());
+
+                stack.push(item);
+
+                let top_index = Some(stack.len() - 1);
+
+                // Push children in reverse order to result in linear traversal of the arena for
+                // cache efficiency, on the assumption that the arena contains a pre-order
+                // traversal of the trace.
+                stack.extend(node.children.iter().rev().map(|&arena_index| StackItem {
+                    visited: false,
+                    parent_stack_index: top_index,
+                    arena_index,
+                    child_traces: Vec::new(),
+                }));
+            }
+        }
+    }
+}
+
+impl From<&traces::CallLog> for LogTrace {
+    fn from(log: &traces::CallLog) -> Self {
+        let decoded_log = log.decoded.name.clone().zip(log.decoded.params.as_ref());
+
+        let parameters = decoded_log.map_or_else(
+            || {
+                let raw_log = &log.raw_log;
+                let mut params = Vec::with_capacity(raw_log.topics().len() + 1);
+                params.extend(raw_log.topics().iter().map(|topic| topic.as_slice().into()));
+                params.push(log.raw_log.data.as_ref().into());
+                Either::B(params)
+            },
+            |(name, params)| {
+                let arguments = params
+                    .iter()
+                    .map(|(name, value)| format!("{name}: {value}"))
+                    .collect();
+                Either::A(DecodedTraceParameters { name, arguments })
+            },
+        );
+
+        Self {
+            kind: LogKind::Log,
+            parameters,
+        }
+    }
+}
+
+impl From<traces::CallKind> for CallKind {
+    fn from(value: traces::CallKind) -> Self {
+        match value {
+            traces::CallKind::Call => CallKind::Call,
+            traces::CallKind::StaticCall => CallKind::StaticCall,
+            traces::CallKind::CallCode => CallKind::CallCode,
+            traces::CallKind::DelegateCall => CallKind::DelegateCall,
+            traces::CallKind::Create | traces::CallKind::Create2 => CallKind::Create,
+
+            // We do not support these EVM features.
+            traces::CallKind::AuthCall | traces::CallKind::EOFCreate => {
+                unreachable!("Unsupported EVM features")
+            }
         }
     }
 }

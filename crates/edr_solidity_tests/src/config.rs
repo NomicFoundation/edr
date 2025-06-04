@@ -30,8 +30,9 @@ pub enum SolidityTestRunnerConfigError {
 pub struct SolidityTestRunnerConfig {
     /// Project root directory.
     pub project_root: PathBuf,
-    /// Whether to enable trace mode.
-    pub trace: bool,
+    /// Whether to enable trace mode and which traces to include in test
+    /// results.
+    pub include_traces: IncludeTraces,
     /// Whether to collect coverage info
     pub coverage: bool,
     /// Whether to support the `testFail` prefix
@@ -121,4 +122,16 @@ impl SolidityTestRunnerConfig {
             None
         }
     }
+}
+
+/// Configuration for [`SolidityTestRunnerConfig::include_traces`] that
+/// controls execution trace decoding and inclusion in test results.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IncludeTraces {
+    /// No traces will be included in any test result.
+    None,
+    /// Traces will be included only on the results of failed tests.
+    Failing,
+    /// Traces will be included in all test results.
+    All,
 }
