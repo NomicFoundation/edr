@@ -3,8 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "declaration": true,
-    "sourceMap": true,
-    "esModuleInterop": true
+    "sourceMap": true
   },
   "include": ["hardhat.config.ts", "./test/**/*.ts"]
 }
