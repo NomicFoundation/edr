@@ -831,7 +831,7 @@ export interface CallTrace {
   /** Whether the call succeeded or reverted. */
   success: boolean
   /** Whether the call is a cheatcode. */
-  cheatcode: boolean
+  isCheatcode: boolean
   /** The amount of gas that was consumed. */
   gasUsed: bigint
   /** The amount of native token that was included with the call. */

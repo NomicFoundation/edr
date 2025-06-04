@@ -425,7 +425,7 @@ pub struct CallTrace {
     /// Whether the call succeeded or reverted.
     pub success: bool,
     /// Whether the call is a cheatcode.
-    pub cheatcode: bool,
+    pub is_cheatcode: bool,
     /// The amount of gas that was consumed.
     pub gas_used: BigInt,
     /// The amount of native token that was included with the call.
@@ -534,7 +534,7 @@ impl CallTrace {
         Self {
             kind: node.kind().into(),
             success: node.trace.success,
-            cheatcode: node.trace.address == CHEATCODE_ADDRESS,
+            is_cheatcode: node.trace.address == CHEATCODE_ADDRESS,
             gas_used: node.trace.gas_used.into(),
             value: u256_to_bigint(&node.trace.value),
             contract,
