@@ -100,7 +100,7 @@ describe("Call traces - IncludeTraces.All", () => {
     // First child is vm.deal cheatcode
     const dealCall = trace[0].children[0];
     assert.equal(dealCall.kind, CallKind.Call);
-    assert.equal(dealCall.cheatcode, true);
+    assert.equal(dealCall.isCheatcode, true);
 
     // Second child is the transfer call
     const transferCall = trace[0].children[1];
@@ -115,7 +115,7 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const child = trace[0].children[0];
     assert.equal(child.kind, CallKind.StaticCall);
-    assert.equal(child.cheatcode, true);
+    assert.equal(child.isCheatcode, true);
     assert.deepEqual(child.inputs, { name: "addr", arguments: ["<pk>"] });
   });
 
@@ -126,7 +126,7 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const labelCall = trace[0].children[0];
     assert.equal(labelCall.kind, CallKind.Call);
-    assert.equal(labelCall.cheatcode, true);
+    assert.equal(labelCall.isCheatcode, true);
 
     const targetCall = trace[0].children[1];
     assert.equal(targetCall.kind, CallKind.Call);
