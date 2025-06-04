@@ -466,16 +466,16 @@ pub struct LogTrace {
 #[derive(Debug)]
 pub enum CallKind {
     /// Regular call that may change state.
-    Call,
+    Call = 0,
     /// Variant of `DelegateCall` that doesn't preserve sender or value in the
     /// frame.
-    CallCode,
+    CallCode = 1,
     /// Call that executes the code of the target in the context of the caller.
-    DelegateCall,
+    DelegateCall = 2,
     /// Regular call that may not change state.
-    StaticCall,
+    StaticCall = 3,
     /// Contract creation.
-    Create,
+    Create = 4,
 }
 
 /// Kind marker for log traces.
@@ -483,7 +483,8 @@ pub enum CallKind {
 #[derive(Debug)]
 pub enum LogKind {
     /// Single kind of log.
-    Log,
+    Log = 5,
+    // NOTE: The discriminants of LogKind and CallKind must be disjoint.
 }
 
 /// Decoded function call or event.

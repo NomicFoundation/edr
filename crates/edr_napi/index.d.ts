@@ -893,7 +893,7 @@ export const enum CallKind {
 /** Kind marker for log traces. */
 export const enum LogKind {
   /** Single kind of log. */
-  Log = 0
+  Log = 5
 }
 /** Decoded function call or event. */
 export interface DecodedTraceParameters {
