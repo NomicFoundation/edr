@@ -19,7 +19,7 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.deepEqual(trace[0], {
       kind: CallKind.Call,
       success: true,
-      cheatcode: false,
+      isCheatcode: false,
       gasUsed: trace[0].gasUsed, // avoid coupling test to specific gas costs
       value: 0n,
       contract: "CallTraces",
