@@ -551,7 +551,7 @@ impl CallTrace {
             visited: bool,
             parent_stack_index: Option<usize>,
             arena_index: usize,
-            children_traces: Vec<Option<CallTrace>>,
+            child_traces: Vec<Option<CallTrace>>,
         }
 
         let mut stack = Vec::new();
@@ -560,7 +560,7 @@ impl CallTrace {
             visited: false,
             arena_index,
             parent_stack_index: None,
-            children_traces: Vec::new(),
+            child_traces: Vec::new(),
         });
 
         loop {
@@ -584,7 +584,7 @@ impl CallTrace {
                             Some(Either::B(log))
                         }
                         traces::TraceMemberOrder::Call(i) => {
-                            let child_trace = item.children_traces[i].take().unwrap();
+                            let child_trace = item.child_traces[i].take().unwrap();
                             Some(Either::A(child_trace))
                         }
                         traces::TraceMemberOrder::Step(_) => None,
@@ -595,13 +595,13 @@ impl CallTrace {
 
                 if let Some(parent_stack_index) = item.parent_stack_index {
                     let parent = &mut stack[parent_stack_index];
-                    parent.children_traces.push(Some(trace));
+                    parent.child_traces.push(Some(trace));
                 } else {
                     return trace;
                 }
             } else {
                 item.visited = true;
-                item.children_traces.reserve(node.children.len());
+                item.child_traces.reserve(node.children.len());
 
                 stack.push(item);
 
@@ -614,7 +614,7 @@ impl CallTrace {
                     visited: false,
                     parent_stack_index: top_index,
                     arena_index,
-                    children_traces: Vec::new(),
+                    child_traces: Vec::new(),
                 }));
             }
         }
