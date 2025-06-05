@@ -1,12 +1,13 @@
 use alloy_primitives::{Bytes, Log};
+use derive_where::derive_where;
 use foundry_evm_core::{
     backend::IndeterminismReasons,
-    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::FuzzCase;
 use foundry_evm_traces::SparsedTraceArena;
-use revm::interpreter::InstructionResult;
+use revm::{context::result::HaltReasonTr, interpreter::InstructionResult};
 
 use crate::executors::RawCallResult;
 
@@ -24,29 +25,53 @@ pub struct CaseOutcome {
 }
 
 /// Returned by a single fuzz when a counterexample has been discovered
-#[derive(Debug)]
-pub struct CounterExampleOutcome<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
+#[derive_where(Debug; BlockT, HardforkT, TxT)]
+pub struct CounterExampleOutcome<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+> {
     /// Minimal reproduction test case for failing test.
-    pub counterexample: CounterExampleData<BlockT, TxT, HardforkT>,
+    pub counterexample:
+        CounterExampleData<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     /// The status of the call.
     pub exit_reason: InstructionResult,
 }
 
-#[derive(Debug, Default)]
-pub struct CounterExampleData<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
+#[derive_where(Debug, Default; BlockT, HardforkT, TxT)]
+pub struct CounterExampleData<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+> {
     /// The calldata of the call
     pub calldata: Bytes,
     /// The call result
-    pub call: RawCallResult<BlockT, TxT, HardforkT>,
+    pub call: RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     /// If re-executing the counter example is not guaranteed to yield the same
     /// results, this field contains the reason why.
     pub indeterminism_reasons: Option<IndeterminismReasons>,
 }
 
 /// Outcome of a single fuzz
-#[derive(Debug)]
+#[derive_where(Debug; BlockT, HardforkT, TxT)]
 #[allow(clippy::large_enum_variant)]
-pub enum FuzzOutcome<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
+pub enum FuzzOutcome<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+> {
     Case(CaseOutcome),
-    CounterExample(CounterExampleOutcome<BlockT, TxT, HardforkT>),
+    CounterExample(
+        CounterExampleOutcome<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+    ),
 }

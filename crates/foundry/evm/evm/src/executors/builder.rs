@@ -1,8 +1,11 @@
 use foundry_evm_core::{
     backend::Backend,
-    evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr, TransactionEnvTr,
+    },
     fork::CreateFork,
 };
+use revm::context::result::HaltReasonTr;
 
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
 
@@ -122,7 +125,12 @@ where
     }
 
     /// Builds the executor as configured.
-    pub fn build(self) -> Executor<BlockT, TxT, HardforkT, ChainContextT> {
+    pub fn build<
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+    >(
+        self,
+    ) -> Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT> {
         let Self {
             mut stack,
             gas_limit,

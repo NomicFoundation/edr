@@ -6,13 +6,17 @@ use std::{
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
+use derive_where::derive_where;
 use edr_eth::spec::HaltReasonTrait;
+use edr_evm::interpreter::InstructionResult;
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_evm::{
     contracts::ContractsByArtifact,
     decode::RevertDecoder,
-    evm_context::EvmEnv,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr, TransactionEnvTr,
+    },
     executors::ExecutorBuilder,
     fork::CreateFork,
     inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
@@ -22,10 +26,6 @@ use futures::StreamExt;
 
 use crate::{
     result::SuiteResult,
-    revm::{
-        context::{BlockEnv, TxEnv},
-        primitives::hardfork::SpecId,
-    },
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
     TestOptions,
@@ -44,8 +44,16 @@ pub type TestContracts = BTreeMap<ArtifactId, TestContract>;
 
 /// A multi contract runner receives a set of contracts deployed in an EVM
 /// instance and proceeds to run all test functions in these contracts.
-#[derive(Clone, Debug)]
-pub struct MultiContractRunner<HaltReasonT, NestedTraceDecoderT> {
+#[derive_where(Clone, Debug; BlockT, HardforkT, NestedTraceDecoderT, TransactionT)]
+pub struct MultiContractRunner<
+    BlockT: BlockEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    HaltReasonT: HaltReasonTrait,
+    HardforkT: HardforkTr,
+    NestedTraceDecoderT,
+    TransactionT: TransactionEnvTr,
+> {
     /// The project root directory.
     project_root: PathBuf,
     /// Test contracts to deploy
@@ -59,13 +67,13 @@ pub struct MultiContractRunner<HaltReasonT, NestedTraceDecoderT> {
     /// Cheats config.
     cheats_config_options: Arc<CheatsConfigOptions>,
     /// The EVM instance used in the test runner
-    evm_opts: EvmOpts<BlockEnv, TxEnv, SpecId>,
+    evm_opts: EvmOpts<BlockT, TransactionT, HardforkT>,
     /// The configured evm
-    env: EvmEnv<BlockEnv, TxEnv, SpecId>,
+    env: EvmEnv<BlockT, TransactionT, HardforkT>,
     /// Revert decoder. Contains all known errors and their selectors.
     revert_decoder: RevertDecoder,
     /// The fork to use at launch
-    fork: Option<CreateFork<BlockEnv, TxEnv, SpecId>>,
+    fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
     /// Whether to collect coverage info
     coverage: bool,
     /// Whether to collect traces
@@ -76,24 +84,37 @@ pub struct MultiContractRunner<HaltReasonT, NestedTraceDecoderT> {
     solidity_fuzz_fixtures: bool,
     /// Settings related to fuzz and/or invariant tests
     test_options: TestOptions,
-    _phantom: PhantomData<HaltReasonT>,
+    _phantom: PhantomData<fn(ChainContextT, EvmBuilderT, HaltReasonT)>,
 }
 
 impl<
-        HaltReasonT: HaltReasonTrait + Send + Sync + 'static,
+        BlockT: BlockEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+        HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
-    > MultiContractRunner<HaltReasonT, NestedTraceDecoderT>
+        TransactionT: TransactionEnvTr,
+    >
+    MultiContractRunner<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        NestedTraceDecoderT,
+        TransactionT,
+    >
 {
     /// Creates a new multi contract runner.
     pub async fn new(
-        config: SolidityTestRunnerConfig,
+        config: SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT>,
         test_contracts: TestContracts,
         known_contracts: ContractsByArtifact,
         libs_to_deploy: Vec<Bytes>,
         contract_decoder: NestedTraceDecoderT,
         revert_decoder: RevertDecoder,
-    ) -> Result<MultiContractRunner<HaltReasonT, NestedTraceDecoderT>, SolidityTestRunnerConfigError>
-    {
+    ) -> Result<Self, SolidityTestRunnerConfigError> {
         let env = config
             .evm_opts
             .evm_env()
@@ -148,6 +169,102 @@ impl<
     /// Returns the known contracts.
     pub fn known_contracts(&self) -> &ContractsByArtifact {
         &self.known_contracts
+    }
+
+    /// Returns an iterator over all contracts that match the filter.
+    fn matching_contracts<'a>(
+        &'a self,
+        filter: &'a dyn TestFilter,
+    ) -> impl Iterator<Item = (&'a ArtifactId, &'a TestContract)> {
+        self.test_contracts
+            .iter()
+            .filter(|&(id, _)| matches_contract(id, filter))
+    }
+}
+
+impl<
+        BlockT: BlockEnvTr,
+        ChainContextT: 'static + ChainContextTr + Send + Sync,
+        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+        HardforkT: HardforkTr,
+        NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionT: TransactionEnvTr,
+    >
+    MultiContractRunner<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        NestedTraceDecoderT,
+        TransactionT,
+    >
+{
+    fn run_tests(
+        &self,
+        artifact_id: &ArtifactId,
+        contract: &TestContract,
+        fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
+        filter: &dyn TestFilter,
+        handle: &tokio::runtime::Handle,
+    ) -> SuiteResult<HaltReasonT> {
+        let identifier = artifact_id.identifier();
+        let mut span_name = identifier.as_str();
+
+        let cheats_config = CheatsConfig::new(
+            self.project_root.clone(),
+            (*self.cheats_config_options).clone(),
+            self.evm_opts.clone(),
+            self.known_contracts.clone(),
+            Some(artifact_id.version.clone()),
+        );
+
+        let executor_builder =
+            ExecutorBuilder::<BlockT, TransactionT, HardforkT, ChainContextT>::new()
+                .env(self.env.clone())
+                .fork(fork)
+                .gas_limit(self.evm_opts.gas_limit())
+                .inspectors(|stack| {
+                    stack
+                        .cheatcodes(Arc::new(cheats_config))
+                        .trace(self.trace)
+                        .coverage(self.coverage)
+                        .enable_isolation(self.evm_opts.isolate)
+                })
+                .spec(self.evm_opts.spec);
+
+        if !enabled!(tracing::Level::TRACE) {
+            span_name = &artifact_id.name;
+        }
+        let _guard = info_span!("run_tests", name = span_name).entered();
+
+        debug!("start executing all tests in contract");
+
+        let runner: ContractRunner<'_, _, _, EvmBuilderT, HaltReasonT, _, _, _> =
+            ContractRunner::new(
+                &identifier,
+                executor_builder,
+                contract,
+                ContractRunnerArtifacts {
+                    revert_decoder: &self.revert_decoder,
+                    known_contracts: &self.known_contracts,
+                    libs_to_deploy: &self.libs_to_deploy,
+                    contract_decoder: Arc::clone(&self.contract_decoder),
+                    _phantom: PhantomData,
+                },
+                ContractRunnerOptions {
+                    initial_balance: self.evm_opts.initial_balance,
+                    sender: self.evm_opts.sender,
+                    test_fail: self.test_fail,
+                    solidity_fuzz_fixtures: self.solidity_fuzz_fixtures,
+                },
+            );
+        let r = runner.run_tests(filter, &self.test_options, handle);
+
+        debug!(duration=?r.duration, "executed all tests in contract");
+
+        r
     }
 
     /// Executes _all_ tests that match the given `filter`.
@@ -229,80 +346,6 @@ impl<
                 )
                 .await;
         });
-    }
-
-    /// Returns an iterator over all contracts that match the filter.
-    fn matching_contracts<'a>(
-        &'a self,
-        filter: &'a dyn TestFilter,
-    ) -> impl Iterator<Item = (&'a ArtifactId, &'a TestContract)> {
-        self.test_contracts
-            .iter()
-            .filter(|&(id, _)| matches_contract(id, filter))
-    }
-
-    fn run_tests(
-        &self,
-        artifact_id: &ArtifactId,
-        contract: &TestContract,
-        fork: Option<CreateFork<BlockEnv, TxEnv, SpecId>>,
-        filter: &dyn TestFilter,
-        handle: &tokio::runtime::Handle,
-    ) -> SuiteResult<HaltReasonT> {
-        let identifier = artifact_id.identifier();
-        let mut span_name = identifier.as_str();
-
-        let cheats_config = CheatsConfig::new(
-            self.project_root.clone(),
-            (*self.cheats_config_options).clone(),
-            self.evm_opts.clone(),
-            self.known_contracts.clone(),
-            Some(artifact_id.version.clone()),
-        );
-
-        let executor_builder = ExecutorBuilder::<BlockEnv, TxEnv, SpecId, ()>::new()
-            .env(self.env.clone())
-            .fork(fork)
-            .gas_limit(self.evm_opts.gas_limit())
-            .inspectors(|stack| {
-                stack
-                    .cheatcodes(Arc::new(cheats_config))
-                    .trace(self.trace)
-                    .coverage(self.coverage)
-                    .enable_isolation(self.evm_opts.isolate)
-            })
-            .spec(self.evm_opts.spec);
-
-        if !enabled!(tracing::Level::TRACE) {
-            span_name = &artifact_id.name;
-        }
-        let _guard = info_span!("run_tests", name = span_name).entered();
-
-        debug!("start executing all tests in contract");
-
-        let runner = ContractRunner::new(
-            &identifier,
-            executor_builder,
-            contract,
-            ContractRunnerArtifacts {
-                revert_decoder: &self.revert_decoder,
-                known_contracts: &self.known_contracts,
-                libs_to_deploy: &self.libs_to_deploy,
-                contract_decoder: Arc::clone(&self.contract_decoder),
-                _phantom: PhantomData,
-            },
-            ContractRunnerOptions {
-                initial_balance: self.evm_opts.initial_balance,
-                sender: self.evm_opts.sender,
-                test_fail: self.test_fail,
-                solidity_fuzz_fixtures: self.solidity_fuzz_fixtures,
-            },
-        );
-        let r = runner.run_tests(filter, &self.test_options, handle);
-
-        debug!(duration=?r.duration, "executed all tests in contract");
-
-        r
     }
 }
 

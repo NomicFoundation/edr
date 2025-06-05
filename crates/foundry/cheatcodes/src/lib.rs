@@ -19,11 +19,11 @@ use alloy_primitives::Address;
 pub use config::{CheatsConfig, CheatsConfigOptions, ExecutionContextConfig};
 pub use endpoints::{RpcEndpoint, RpcEndpoints};
 pub use error::{Error, ErrorKind, Result};
-use foundry_evm_core::backend::CheatcodeBackend;
+use foundry_evm_core::{backend::CheatcodeBackend, evm_context::EvmBuilderTrait};
 pub use fs_permissions::{FsAccessKind, FsAccessPermission, FsPermissions, PathPermission};
 pub use inspector::{BroadcastableTransaction, BroadcastableTransactions, Cheatcodes, Context};
 use revm::{
-    context::{CfgEnv, Context as EvmContext},
+    context::{result::HaltReasonTr, CfgEnv, Context as EvmContext},
     Journal,
 };
 pub use spec::{CheatcodeDef, Vm};
@@ -57,9 +57,16 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     ///
     /// Implement this function if you don't need access to the EVM data.
     #[allow(clippy::unimplemented)]
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let _ = state;
         unimplemented!("{}", Self::CHEATCODE.func.id)
@@ -72,12 +79,22 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     fn apply_full<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         self.apply(ccx.state)
     }
@@ -86,12 +103,22 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     fn apply_traced<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         // Separate and non-generic functions to avoid inline and monomorphization
         // bloat.
@@ -185,12 +212,15 @@ pub(crate) struct CheatsCtxt<
     'evm,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
 > {
     /// The cheatcodes inspector state.
-    pub(crate) state: &'cheats mut Cheatcodes<BlockT, TxT, HardforkT>,
+    pub(crate) state:
+        &'cheats mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     /// The EVM data.
     pub(crate) ecx: &'evm mut EvmContext<
         BlockT,
@@ -208,10 +238,23 @@ pub(crate) struct CheatsCtxt<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
-    > std::ops::Deref for CheatsCtxt<'_, '_, BlockT, TxT, HardforkT, ChainContextT, DatabaseT>
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    > std::ops::Deref
+    for CheatsCtxt<
+        '_,
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        ChainContextT,
+        DatabaseT,
+    >
 {
     type Target =
         EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>;
@@ -226,10 +269,23 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
-    > std::ops::DerefMut for CheatsCtxt<'_, '_, BlockT, TxT, HardforkT, ChainContextT, DatabaseT>
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    > std::ops::DerefMut
+    for CheatsCtxt<
+        '_,
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        ChainContextT,
+        DatabaseT,
+    >
 {
     #[inline(always)]
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -240,10 +296,13 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
-    > CheatsCtxt<'_, '_, BlockT, TxT, HardforkT, ChainContextT, DatabaseT>
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >
+    CheatsCtxt<'_, '_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>
 {
     #[inline]
     pub(crate) fn is_precompile(&self, address: &Address) -> bool {

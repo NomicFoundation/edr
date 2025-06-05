@@ -33,10 +33,12 @@ alloy-transport-ipc.workspace = true
 foundry-fork-db.workspace = true
 foundry-compilers.workspace = true
 
+op-revm.workspace = true
 revm.workspace = true
 
 auto_impl = "1"
 derive_more.workspace = true
+derive-where.workspace = true
 eyre = "0.6"
 futures = "0.3"
 hex.workspace = true
