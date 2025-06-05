@@ -29,7 +29,7 @@ pub(super) async fn build_runner(
     test_suites: Vec<JsArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
     tracing_config: TracingConfigWithBuffers,
-) -> napi::Result<MultiContractRunner<LazyContractDecoder>> {
+) -> napi::Result<MultiContractRunner<edr_eth::l1::HaltReason, LazyContractDecoder>> {
     let config: SolidityTestRunnerConfig = config_args.try_into()?;
 
     let artifact_contracts = artifacts

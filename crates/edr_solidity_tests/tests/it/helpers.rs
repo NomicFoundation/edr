@@ -5,10 +5,11 @@ pub use config::{assert_multiple, TestConfig};
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
+use edr_eth::{l1, spec::HaltReasonTrait};
 pub use solidity_test_filter::SolidityTestFilter;
 mod tracing;
 
-use std::{borrow::Cow, env, fmt, io::Write, path::PathBuf};
+use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf};
 
 use alloy_primitives::{Bytes, U256};
 use edr_solidity::{
@@ -285,16 +286,17 @@ impl From<TestFuzzDictionaryConfig> for FuzzDictionaryConfig {
 }
 
 /// Container for test data for a specific test profile.
-pub struct ForgeTestData {
+pub struct ForgeTestData<HaltReasonT: HaltReasonTrait> {
     project: Project,
     test_contracts: TestContracts,
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
     runner_config: SolidityTestRunnerConfig,
+    _phantom: PhantomData<HaltReasonT>,
 }
 
-impl ForgeTestData {
+impl<HaltReasonT: HaltReasonTrait + Send + Sync + 'static> ForgeTestData<HaltReasonT> {
     /// Builds [`ForgeTestData`] for the given [`ForgeTestProfile`].
     ///
     /// Uses [`get_compiled`] to lazily compile the project.
@@ -387,6 +389,7 @@ impl ForgeTestData {
             libs_to_deploy,
             revert_decoder,
             runner_config,
+            _phantom: PhantomData,
         })
     }
 
@@ -397,7 +400,9 @@ impl ForgeTestData {
     }
 
     /// Builds a non-tracing runner
-    pub async fn runner(&self) -> MultiContractRunner<NoOpContractDecoder> {
+    pub async fn runner(
+        &self,
+    ) -> MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>> {
         let config = self.base_runner_config();
         self.runner_with_config(config).await
     }
@@ -406,7 +411,7 @@ impl ForgeTestData {
     pub async fn runner_with_config(
         &self,
         mut config: SolidityTestRunnerConfig,
-    ) -> MultiContractRunner<NoOpContractDecoder> {
+    ) -> MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>> {
         config.cheats_config_options.rpc_endpoints = rpc_endpoints();
         // `**/edr-cache` is cached in CI
         config.cheats_config_options.rpc_cache_path =
@@ -422,7 +427,7 @@ impl ForgeTestData {
     pub async fn runner_with_fs_permissions(
         &self,
         fs_permissions: FsPermissions,
-    ) -> MultiContractRunner<NoOpContractDecoder> {
+    ) -> MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>> {
         let mut config = self.base_runner_config();
         config.cheats_config_options.fs_permissions = fs_permissions;
         self.runner_with_config(config).await
@@ -432,7 +437,7 @@ impl ForgeTestData {
     pub async fn runner_with_fuzz_config(
         &self,
         fuzz_config: TestFuzzConfig,
-    ) -> MultiContractRunner<NoOpContractDecoder> {
+    ) -> MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>> {
         let mut config = self.base_runner_config();
         config.fuzz = fuzz_config.into();
         self.runner_with_config(config).await
@@ -442,7 +447,7 @@ impl ForgeTestData {
     pub async fn runner_with_invariant_config(
         &self,
         invariant_config: TestInvariantConfig,
-    ) -> MultiContractRunner<NoOpContractDecoder> {
+    ) -> MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>> {
         let mut config = self.base_runner_config();
         config.invariant = invariant_config.into();
         self.runner_with_config(config).await
@@ -454,7 +459,7 @@ impl ForgeTestData {
         &self,
         seed: U256,
         invariant_config: TestInvariantConfig,
-    ) -> MultiContractRunner<NoOpContractDecoder> {
+    ) -> MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>> {
         let mut config = self.base_runner_config();
         config.fuzz.seed = Some(seed);
         config.invariant = invariant_config.into();
@@ -462,14 +467,19 @@ impl ForgeTestData {
     }
 
     /// Builds a tracing runner
-    pub async fn tracing_runner(&self) -> MultiContractRunner<NoOpContractDecoder> {
+    pub async fn tracing_runner(
+        &self,
+    ) -> MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>> {
         let mut config = self.base_runner_config();
         config.include_traces = IncludeTraces::All;
         self.build_runner(config).await
     }
 
     /// Builds a runner that runs against forked state
-    pub async fn forked_runner(&self, rpc: &str) -> MultiContractRunner<NoOpContractDecoder> {
+    pub async fn forked_runner(
+        &self,
+        rpc: &str,
+    ) -> MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>> {
         let mut config = self.base_runner_config();
 
         config.evm_opts.fork_url = Some(rpc.to_string());
@@ -480,8 +490,8 @@ impl ForgeTestData {
     async fn build_runner(
         &self,
         config: SolidityTestRunnerConfig,
-    ) -> MultiContractRunner<NoOpContractDecoder> {
-        MultiContractRunner::<NoOpContractDecoder>::new(
+    ) -> MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>> {
+        MultiContractRunner::<HaltReasonT, NoOpContractDecoder<HaltReasonT>>::new(
             config,
             self.test_contracts.clone(),
             self.known_contracts.clone(),
@@ -520,15 +530,15 @@ fn get_compiled(project: &Project) -> ProjectCompileOutput {
 }
 
 /// Default data for the tests group.
-pub static TEST_DATA_DEFAULT: Lazy<ForgeTestData> =
+pub static TEST_DATA_DEFAULT: Lazy<ForgeTestData<l1::HaltReason>> =
     Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Default).expect("linking ok"));
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
-pub static TEST_DATA_CANCUN: Lazy<ForgeTestData> =
+pub static TEST_DATA_CANCUN: Lazy<ForgeTestData<l1::HaltReason>> =
     Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Cancun).expect("linking ok"));
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
-pub static TEST_DATA_MULTI_VERSION: Lazy<ForgeTestData> =
+pub static TEST_DATA_MULTI_VERSION: Lazy<ForgeTestData<l1::HaltReason>> =
     Lazy::new(|| ForgeTestData::new(ForgeTestProfile::MultiVersion).expect("linking ok"));
 
 fn rpc_endpoints() -> RpcEndpoints {

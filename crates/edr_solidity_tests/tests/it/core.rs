@@ -5,6 +5,7 @@ use std::{
     env,
 };
 
+use edr_eth::l1;
 use edr_solidity_tests::result::{SuiteResult, TestStatus};
 use foundry_evm::traces::TraceKind;
 
@@ -790,7 +791,7 @@ async fn test_fail_test() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_deprecated_cheatcode_warning() {
     fn assert_multiple_deprecation_warnings(
-        actuals: &BTreeMap<String, SuiteResult>,
+        actuals: &BTreeMap<String, SuiteResult<l1::HaltReason>>,
         expecteds: BTreeMap<&str, Vec<&str>>,
     ) {
         const DEPRECATION_WARNING: &str = "The following cheatcode(s) are deprecated and will be removed in future versions:\n  keyExists(string,string): replaced by `keyExistsJson`";

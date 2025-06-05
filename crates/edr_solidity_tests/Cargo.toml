@@ -7,6 +7,7 @@ edition.workspace = true
 [dependencies]
 edr_common.workspace = true
 edr_defaults.workspace = true
+edr_eth.workspace = true
 edr_evm.workspace = true
 edr_solidity.workspace = true
 
@@ -15,6 +16,7 @@ foundry-compilers = { workspace = true }
 foundry-evm.workspace = true
 
 comfy-table = "7"
+derive-where.workspace = true
 dunce.workspace = true
 eyre.workspace = true
 futures = "0.3"

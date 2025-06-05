@@ -85,6 +85,7 @@ scrypt.opt-level = 3
 [workspace.dependencies]
 edr_common = { path = "crates/edr_common" }
 edr_defaults = { path = "crates/edr_defaults" }
+edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/edr_evm" }
 edr_macros = { path = "crates/edr_macros" }
 edr_solidity = { path = "crates/edr_solidity" }
@@ -180,6 +181,7 @@ chrono = { version = "0.4", default-features = false, features = [
 ] }
 color-eyre = "0.6"
 derive_more = "0.99"
+derive-where = { version = "1.2.7", default-features = false }
 evm-disassembler = "0.5"
 eyre = "0.6"
 hex = { package = "const-hex", version = "1.6", features = ["hex"] }
