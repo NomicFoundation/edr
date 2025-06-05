@@ -38,13 +38,13 @@ pub struct SuiteResult {
 impl
     From<(
         edr_solidity::artifacts::ArtifactId,
-        edr_solidity_tests::result::SuiteResult,
+        edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
     )> for SuiteResult
 {
     fn from(
         (id, suite_result): (
             edr_solidity::artifacts::ArtifactId,
-            edr_solidity_tests::result::SuiteResult,
+            edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
         ),
     ) -> Self {
         Self {
@@ -86,7 +86,7 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    stack_trace_result: Option<Arc<StackTraceResult>>,
+    stack_trace_result: Option<Arc<StackTraceResult<edr_eth::l1::HaltReason>>>,
 }
 
 /// The stack trace result
@@ -187,8 +187,18 @@ impl TestResult {
     }
 }
 
-impl From<(String, edr_solidity_tests::result::TestResult)> for TestResult {
-    fn from((name, test_result): (String, edr_solidity_tests::result::TestResult)) -> Self {
+impl
+    From<(
+        String,
+        edr_solidity_tests::result::TestResult<edr_eth::l1::HaltReason>,
+    )> for TestResult
+{
+    fn from(
+        (name, test_result): (
+            String,
+            edr_solidity_tests::result::TestResult<edr_eth::l1::HaltReason>,
+        ),
+    ) -> Self {
         Self {
             name,
             status: test_result.status.into(),

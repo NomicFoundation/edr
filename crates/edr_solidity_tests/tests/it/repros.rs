@@ -3,6 +3,7 @@
 use alloy_dyn_abi::{DynSolValue, EventExt};
 use alloy_json_abi::Event;
 use alloy_primitives::{address, Address, U256};
+use edr_eth::l1;
 use edr_solidity_tests::{result::TestStatus, SolidityTestRunnerConfig};
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 use foundry_evm::{
@@ -54,7 +55,7 @@ macro_rules! test_repro {
 
 async fn runner_config(
     sender: Option<Address>,
-    test_data: &ForgeTestData,
+    test_data: &ForgeTestData<l1::HaltReason>,
 ) -> SolidityTestRunnerConfig {
     let mut config = test_data.base_runner_config();
 
@@ -79,8 +80,8 @@ async fn repro_config(
     issue: usize,
     should_fail: bool,
     sender: Option<Address>,
-    test_data: &ForgeTestData,
-) -> TestConfig {
+    test_data: &ForgeTestData<l1::HaltReason>,
+) -> TestConfig<l1::HaltReason> {
     let config = runner_config(sender, test_data).await;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let filter = repro_filter(issue);

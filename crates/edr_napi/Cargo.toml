@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 alloy-dyn-abi = { version = "0.8.22", default-features = false, features = ["eip712", "std"] }
 alloy-json-abi = { version = "0.8.22", default-features = false }
 alloy-sol-types = { version = "0.8.22", default-features = false, features = ["std"] }
-derive-where = { version = "1.2.7", default-features = false }
+derive-where.workspace = true
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
 edr_generic = { path = "../edr_generic" }
