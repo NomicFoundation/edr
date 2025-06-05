@@ -10,7 +10,7 @@ alloy-rlp.workspace = true
 alloy-serde.workspace = true
 auto_impl = { version = "1.2", default-features = false }
 c-kzg.workspace = true
-derive-where = { version = "1.2.7", default-features = false }
+derive-where.workspace = true
 hash-db = { version = "0.15.2", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hashbrown = { version = "0.14.3", default-features = false, features = ["ahash", "allocator-api2", "inline-more"] }

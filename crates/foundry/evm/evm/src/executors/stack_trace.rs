@@ -16,14 +16,17 @@ use foundry_evm_core::{
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_traces::{SparsedTraceArena, TraceKind};
-use revm::interpreter::{InternalResult, SuccessOrHalt};
+use revm::{
+    context::result::HaltReasonTr,
+    interpreter::{InternalResult, SuccessOrHalt},
+};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
 use crate::executors::EvmError;
 
 /// Stack trace generation error during re-execution.
 #[derive(Debug, thiserror::Error)]
-pub enum StackTraceError {
+pub enum StackTraceError<HaltReasonT: HaltReasonTr> {
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
     #[error("Unexpected EVM execution error: {0}")]
@@ -33,12 +36,16 @@ pub enum StackTraceError {
     #[error("Invalid root node in call trace arena")]
     InvalidRootNode,
     #[error(transparent)]
-    Tracer(#[from] SolidityTracerError<revm::context::result::HaltReason>),
+    Tracer(#[from] SolidityTracerError<HaltReasonT>),
 }
 
 // `EvmError` is not `Clone`
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
-    From<EvmError<BlockT, TxT, HardforkT>> for StackTraceError
+impl<
+        BlockT: BlockEnvTr,
+        HaltReasonT: HaltReasonTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+    > From<EvmError<BlockT, TxT, HardforkT>> for StackTraceError<HaltReasonT>
 {
     fn from(value: EvmError<BlockT, TxT, HardforkT>) -> Self {
         Self::Evm(value.to_string())
@@ -50,11 +57,12 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 /// where there might be multiple errors traces. Returns `None` if `traces` is
 /// empty.
 pub fn get_stack_trace<
-    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
+    HaltReasonT: HaltReasonTr,
+    NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
 >(
     contract_decoder: &NestedTraceDecoderT,
     traces: &[(TraceKind, SparsedTraceArena)],
-) -> Result<Option<Vec<StackTraceEntry>>, StackTraceError> {
+) -> Result<Option<Vec<StackTraceEntry>>, StackTraceError<HaltReasonT>> {
     let mut address_to_creation_code = HashMap::new();
     let mut address_to_runtime_code = HashMap::new();
 
@@ -88,11 +96,11 @@ pub fn get_stack_trace<
     }
 }
 
-fn convert_call_trace_arena_to_nested_trace(
+fn convert_call_trace_arena_to_nested_trace<HaltReasonT: HaltReasonTr>(
     address_to_creation_code: &HashMap<Address, &Bytes>,
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
-) -> Result<NestedTrace<revm::context::result::HaltReason>, StackTraceError> {
+) -> Result<NestedTrace<HaltReasonT>, StackTraceError<HaltReasonT>> {
     // Start conversion from the root node (index 0)
     if arena.nodes().is_empty() {
         return Err(StackTraceError::InvalidRootNode);
@@ -101,12 +109,12 @@ fn convert_call_trace_arena_to_nested_trace(
     convert_node_to_nested_trace(address_to_creation_code, address_to_runtime_code, arena, 0)
 }
 
-fn convert_node_to_nested_trace(
+fn convert_node_to_nested_trace<HaltReasonT: HaltReasonTr>(
     address_to_creation_code: &HashMap<Address, &Bytes>,
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
     node_idx: usize,
-) -> Result<NestedTrace<revm::context::result::HaltReason>, StackTraceError> {
+) -> Result<NestedTrace<HaltReasonT>, StackTraceError<HaltReasonT>> {
     let node = &arena.nodes()[node_idx];
     let trace = &node.trace;
 
@@ -196,11 +204,10 @@ fn convert_node_to_nested_trace(
     }
 }
 
-fn convert_instruction_result_to_exit_code(
+fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTr>(
     result: revm::interpreter::InstructionResult,
-) -> ExitCode<revm::context::result::HaltReason> {
-    let success_or_halt: revm::interpreter::SuccessOrHalt<revm::context::result::HaltReason> =
-        result.into();
+) -> ExitCode<HaltReasonT> {
+    let success_or_halt: revm::interpreter::SuccessOrHalt<HaltReasonT> = result.into();
     match success_or_halt {
         SuccessOrHalt::Success(_) => ExitCode::Success,
         SuccessOrHalt::Revert => ExitCode::Revert,
@@ -231,11 +238,11 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
 
 /// The possible outcomes from computing stack traces.
 #[derive(Debug)]
-pub enum StackTraceResult {
+pub enum StackTraceResult<HaltReasonT: HaltReasonTr> {
     /// The stack trace result
     Success(Vec<StackTraceEntry>),
     /// We couldn't generate stack traces, because an unexpected error occurred.
-    Error(StackTraceError),
+    Error(StackTraceError<HaltReasonT>),
     HeuristicFailed,
     /// We couldn't generate stack traces, because the test execution is unsafe
     /// to replay due to indeterminism. This can be caused by either
@@ -255,8 +262,10 @@ pub enum StackTraceResult {
     },
 }
 
-impl From<Result<Vec<StackTraceEntry>, StackTraceError>> for StackTraceResult {
-    fn from(value: Result<Vec<StackTraceEntry>, StackTraceError>) -> Self {
+impl<HaltReasonT: HaltReasonTr> From<Result<Vec<StackTraceEntry>, StackTraceError<HaltReasonT>>>
+    for StackTraceResult<HaltReasonT>
+{
+    fn from(value: Result<Vec<StackTraceEntry>, StackTraceError<HaltReasonT>>) -> Self {
         match value {
             Ok(stack_trace) => {
                 if stack_trace.is_empty() {
@@ -270,7 +279,7 @@ impl From<Result<Vec<StackTraceEntry>, StackTraceError>> for StackTraceResult {
     }
 }
 
-impl From<IndeterminismReasons> for StackTraceResult {
+impl<HaltReasonT: HaltReasonTr> From<IndeterminismReasons> for StackTraceResult<HaltReasonT> {
     fn from(value: IndeterminismReasons) -> Self {
         Self::UnsafeToReplay {
             global_fork_latest: value.global_fork_latest,

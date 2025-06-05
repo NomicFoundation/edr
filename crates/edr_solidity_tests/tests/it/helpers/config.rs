@@ -1,7 +1,9 @@
 //! Test config.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, marker::PhantomData};
 
+use derive_where::derive_where;
+use edr_eth::spec::HaltReasonTrait;
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::NestedTrace,
@@ -12,7 +14,6 @@ use edr_solidity_tests::{
 };
 use foundry_evm::{
     decode::decode_console_logs,
-    revm::context::result::HaltReason,
     traces::{decode_trace_arena, render_trace_arena, CallTraceDecoderBuilder},
 };
 use futures::future::join_all;
@@ -21,19 +22,19 @@ use itertools::Itertools;
 use crate::helpers::{tracing::init_tracing_for_solidity_tests, SolidityTestFilter};
 
 /// How to execute a test run.
-pub struct TestConfig {
-    pub runner: MultiContractRunner<NoOpContractDecoder>,
+pub struct TestConfig<HaltReasonT: HaltReasonTrait> {
+    pub runner: MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>>,
     pub should_fail: bool,
     pub filter: SolidityTestFilter,
 }
 
-impl TestConfig {
-    pub fn new(runner: MultiContractRunner<NoOpContractDecoder>) -> Self {
+impl<HaltReasonT: HaltReasonTrait + Send + Sync + 'static> TestConfig<HaltReasonT> {
+    pub fn new(runner: MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>>) -> Self {
         Self::with_filter(runner, SolidityTestFilter::matches_all())
     }
 
     pub fn with_filter(
-        runner: MultiContractRunner<NoOpContractDecoder>,
+        runner: MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>>,
         filter: SolidityTestFilter,
     ) -> Self {
         init_tracing_for_solidity_tests();
@@ -54,7 +55,7 @@ impl TestConfig {
     }
 
     /// Executes the test runner
-    pub async fn test(self) -> BTreeMap<String, SuiteResult> {
+    pub async fn test(self) -> BTreeMap<String, SuiteResult<HaltReasonT>> {
         self.runner.test_collect(self.filter).await
     }
 
@@ -112,14 +113,18 @@ impl TestConfig {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct NoOpContractDecoder {}
+#[derive_where(Clone, Debug, Default)]
+pub struct NoOpContractDecoder<HaltReasonT: HaltReasonTrait> {
+    _phantom: PhantomData<HaltReasonT>,
+}
 
-impl NestedTraceDecoder<HaltReason> for NoOpContractDecoder {
+impl<HaltReasonT: HaltReasonTrait> NestedTraceDecoder<HaltReasonT>
+    for NoOpContractDecoder<HaltReasonT>
+{
     fn try_to_decode_nested_trace(
         &self,
-        nested_trace: NestedTrace<HaltReason>,
-    ) -> Result<NestedTrace<HaltReason>, ContractDecoderError> {
+        nested_trace: NestedTrace<HaltReasonT>,
+    ) -> Result<NestedTrace<HaltReasonT>, ContractDecoderError> {
         Ok(nested_trace)
     }
 }
@@ -128,8 +133,8 @@ impl NestedTraceDecoder<HaltReason> for NoOpContractDecoder {
 /// messages
 #[track_caller]
 #[allow(clippy::type_complexity)]
-pub fn assert_multiple(
-    actuals: &BTreeMap<String, SuiteResult>,
+pub fn assert_multiple<HaltReasonT: HaltReasonTrait>(
+    actuals: &BTreeMap<String, SuiteResult<HaltReasonT>>,
     expecteds: BTreeMap<
         &str,
         Vec<(

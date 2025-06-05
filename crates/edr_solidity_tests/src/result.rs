@@ -8,6 +8,8 @@ use std::{
 };
 
 use alloy_primitives::{map::AddressHashMap, Address, Log};
+use derive_where::derive_where;
+use edr_eth::spec::HaltReasonTrait;
 use foundry_evm::{
     coverage::HitMaps,
     executors::{stack_trace::StackTraceResult, EvmError},
@@ -22,12 +24,12 @@ use crate::{gas_report::GasReport, revm, revm::primitives::hardfork::SpecId};
 
 /// The aggregated result of a test run.
 #[derive(Clone, Debug)]
-pub struct TestOutcome {
+pub struct TestOutcome<HaltReasonT: HaltReasonTrait> {
     /// The results of all test suites by their identifier
     /// (`path:contract_name`).
     ///
     /// Essentially `identifier => signature => result`.
-    pub results: BTreeMap<String, SuiteResult>,
+    pub results: BTreeMap<String, SuiteResult<HaltReasonT>>,
     /// Whether to allow test failures without failing the entire test run.
     pub allow_failure: bool,
     /// The decoder used to decode traces and logs.
@@ -41,9 +43,9 @@ pub struct TestOutcome {
     pub gas_report: Option<GasReport>,
 }
 
-impl TestOutcome {
+impl<HaltReasonT: HaltReasonTrait> TestOutcome<HaltReasonT> {
     /// Creates a new test outcome with the given results.
-    pub fn new(results: BTreeMap<String, SuiteResult>, allow_failure: bool) -> Self {
+    pub fn new(results: BTreeMap<String, SuiteResult<HaltReasonT>>, allow_failure: bool) -> Self {
         Self {
             results,
             allow_failure,
@@ -59,30 +61,30 @@ impl TestOutcome {
 
     /// Returns an iterator over all individual succeeding tests and their
     /// names.
-    pub fn successes(&self) -> impl Iterator<Item = (&String, &TestResult)> {
+    pub fn successes(&self) -> impl Iterator<Item = (&String, &TestResult<HaltReasonT>)> {
         self.tests()
             .filter(|(_, t)| t.status == TestStatus::Success)
     }
 
     /// Returns an iterator over all individual skipped tests and their names.
-    pub fn skips(&self) -> impl Iterator<Item = (&String, &TestResult)> {
+    pub fn skips(&self) -> impl Iterator<Item = (&String, &TestResult<HaltReasonT>)> {
         self.tests()
             .filter(|(_, t)| t.status == TestStatus::Skipped)
     }
 
     /// Returns an iterator over all individual failing tests and their names.
-    pub fn failures(&self) -> impl Iterator<Item = (&String, &TestResult)> {
+    pub fn failures(&self) -> impl Iterator<Item = (&String, &TestResult<HaltReasonT>)> {
         self.tests()
             .filter(|(_, t)| t.status == TestStatus::Failure)
     }
 
     /// Returns an iterator over all individual tests and their names.
-    pub fn tests(&self) -> impl Iterator<Item = (&String, &TestResult)> {
+    pub fn tests(&self) -> impl Iterator<Item = (&String, &TestResult<HaltReasonT>)> {
         self.results.values().flat_map(SuiteResult::tests)
     }
 
     /// Flattens the test outcome into a list of individual tests.
-    pub fn into_tests(self) -> impl Iterator<Item = SuiteTestResult> {
+    pub fn into_tests(self) -> impl Iterator<Item = SuiteTestResult<HaltReasonT>> {
         self.results
             .into_iter()
             .flat_map(|(file, suite)| {
@@ -151,20 +153,20 @@ impl TestOutcome {
 /// A set of test results for a single test suite, which is all the tests in a
 /// single contract.
 #[derive(Clone, Debug, Serialize)]
-pub struct SuiteResult {
+pub struct SuiteResult<HaltReasonT: HaltReasonTrait> {
     /// Wall clock time it took to execute all tests in this suite.
     #[serde(with = "humantime_serde")]
     pub duration: Duration,
     /// Individual test results: `test fn signature -> TestResult`.
-    pub test_results: BTreeMap<String, TestResult>,
+    pub test_results: BTreeMap<String, TestResult<HaltReasonT>>,
     /// Generated warnings.
     pub warnings: Vec<String>,
 }
 
-impl SuiteResult {
+impl<HaltReasonT: HaltReasonTrait> SuiteResult<HaltReasonT> {
     pub fn new(
         duration: Duration,
-        test_results: BTreeMap<String, TestResult>,
+        test_results: BTreeMap<String, TestResult<HaltReasonT>>,
         warnings: Vec<String>,
     ) -> Self {
         Self {
@@ -176,19 +178,19 @@ impl SuiteResult {
 
     /// Returns an iterator over all individual succeeding tests and their
     /// names.
-    pub fn successes(&self) -> impl Iterator<Item = (&String, &TestResult)> {
+    pub fn successes(&self) -> impl Iterator<Item = (&String, &TestResult<HaltReasonT>)> {
         self.tests()
             .filter(|(_, t)| t.status == TestStatus::Success)
     }
 
     /// Returns an iterator over all individual skipped tests and their names.
-    pub fn skips(&self) -> impl Iterator<Item = (&String, &TestResult)> {
+    pub fn skips(&self) -> impl Iterator<Item = (&String, &TestResult<HaltReasonT>)> {
         self.tests()
             .filter(|(_, t)| t.status == TestStatus::Skipped)
     }
 
     /// Returns an iterator over all individual failing tests and their names.
-    pub fn failures(&self) -> impl Iterator<Item = (&String, &TestResult)> {
+    pub fn failures(&self) -> impl Iterator<Item = (&String, &TestResult<HaltReasonT>)> {
         self.tests()
             .filter(|(_, t)| t.status == TestStatus::Failure)
     }
@@ -209,7 +211,7 @@ impl SuiteResult {
     }
 
     /// Iterator over all tests and their names
-    pub fn tests(&self) -> impl Iterator<Item = (&String, &TestResult)> {
+    pub fn tests(&self) -> impl Iterator<Item = (&String, &TestResult<HaltReasonT>)> {
         self.test_results.iter()
     }
 
@@ -258,14 +260,14 @@ impl SuiteResult {
 ///
 /// This is flattened from a [`TestOutcome`].
 #[derive(Clone, Debug)]
-pub struct SuiteTestResult {
+pub struct SuiteTestResult<HaltReasonT: HaltReasonTrait> {
     /// The identifier of the artifact/contract in the form:
     /// `<artifact file name>:<contract name>`.
     pub artifact_id: String,
     /// The function signature of the Solidity test.
     pub signature: String,
     /// The result of the executed test.
-    pub result: TestResult,
+    pub result: TestResult<HaltReasonT>,
 }
 
 /// The status of a test.
@@ -298,8 +300,9 @@ impl TestStatus {
 }
 
 /// The result of an executed test.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct TestResult {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive_where(Default)]
+pub struct TestResult<HaltReasonT: HaltReasonTrait> {
     /// The test status, indicating whether the test case succeeded, failed, or
     /// was marked as skipped. This means that the transaction executed
     /// properly, the test was marked as skipped with `vm.skip()`, or that
@@ -349,10 +352,10 @@ pub struct TestResult {
     /// If the heuristic failed the vec is set but emtpy.
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
-    pub stack_trace_result: Option<Arc<StackTraceResult>>,
+    pub stack_trace_result: Option<Arc<StackTraceResult<HaltReasonT>>>,
 }
 
-impl fmt::Display for TestResult {
+impl<HaltReasonT: HaltReasonTrait> fmt::Display for TestResult<HaltReasonT> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.status {
             TestStatus::Success => "[PASS]".green().fmt(f),
@@ -391,7 +394,7 @@ impl fmt::Display for TestResult {
     }
 }
 
-impl TestResult {
+impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
     pub fn fail(reason: String) -> Self {
         Self {
             status: TestStatus::Failure,

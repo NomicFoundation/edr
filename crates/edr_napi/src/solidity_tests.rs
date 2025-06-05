@@ -58,7 +58,7 @@ pub fn run_solidity_tests(
 
     let (tx_results, mut rx_results) = tokio::sync::mpsc::unbounded_channel::<(
         edr_solidity::artifacts::ArtifactId,
-        edr_solidity_tests::result::SuiteResult,
+        edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
     )>();
 
     let test_filter: Arc<TestFilterConfig> = Arc::new(config_args.try_get_test_filter()?);

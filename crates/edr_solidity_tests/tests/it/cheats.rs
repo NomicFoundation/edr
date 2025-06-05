@@ -1,4 +1,5 @@
 //! Forge tests for cheatcodes.
+use edr_eth::l1::HaltReason;
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 use serial_test::serial;
 
@@ -9,7 +10,7 @@ use crate::helpers::{
 
 /// Executes all cheat code tests but not fork cheat codes or tests that require
 /// isolation mode
-async fn test_cheats_local(test_data: &ForgeTestData) {
+async fn test_cheats_local(test_data: &ForgeTestData<HaltReason>) {
     let mut filter = SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}*"))
         .exclude_paths("Fork")
         .exclude_contracts("Isolated|Sleep");
@@ -28,7 +29,7 @@ async fn test_cheats_local(test_data: &ForgeTestData) {
 }
 
 /// Executes subset of all cheat code tests in isolation mode
-async fn test_cheats_local_isolated(test_data: &ForgeTestData) {
+async fn test_cheats_local_isolated(test_data: &ForgeTestData<HaltReason>) {
     let filter = SolidityTestFilter::new(
         ".*",
         ".*(Isolated)",

@@ -1,9 +1,13 @@
 //! The Forge test runner.
-use std::{borrow::Cow, cmp::min, collections::BTreeMap, path::Path, sync::Arc, time::Instant};
+use std::{
+    borrow::Cow, cmp::min, collections::BTreeMap, marker::PhantomData, path::Path, sync::Arc,
+    time::Instant,
+};
 
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, U256};
+use edr_eth::spec::HaltReasonTrait;
 use edr_solidity::{
     contract_decoder::{NestedTraceDecoder, SyncNestedTraceDecoder},
     solidity_stack_trace::StackTraceEntry,
@@ -41,14 +45,14 @@ use crate::{
     fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
     multi_runner::TestContract,
     result::{SuiteResult, TestKind, TestResult, TestSetup, TestStatus},
-    revm::{context::result::HaltReason, primitives::hardfork::SpecId},
+    revm::primitives::hardfork::SpecId,
     traces::Traces,
     TestFilter, TestOptions,
 };
 
 /// A type that executes all tests of a contract
 #[derive(Clone, Debug)]
-pub struct ContractRunner<'a, NestedTraceDecoderT> {
+pub struct ContractRunner<'a, HaltReasonT: HaltReasonTrait, NestedTraceDecoderT> {
     pub name: &'a str,
     /// The data of the contract being ran.
     pub contract: &'a TestContract,
@@ -71,6 +75,7 @@ pub struct ContractRunner<'a, NestedTraceDecoderT> {
 
     /// The config values required to build the executor.
     executor_builder: ExecutorBuilder<BlockEnv, TxEnv, SpecId, ()>,
+    _phantom: PhantomData<HaltReasonT>,
 }
 
 /// Options for [`ContractRunner`].
@@ -87,21 +92,29 @@ pub struct ContractRunnerOptions {
 }
 
 /// Contract artifact related argumetns to the contract runner.
-pub struct ContractRunnerArtifacts<'a, NestedTracerDecoderT: SyncNestedTraceDecoder<HaltReason>> {
+pub struct ContractRunnerArtifacts<
+    'a,
+    HaltReasonT: HaltReasonTrait,
+    NestedTracerDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+> {
     pub revert_decoder: &'a RevertDecoder,
     pub known_contracts: &'a ContractsByArtifact,
     pub libs_to_deploy: &'a [Bytes],
     pub contract_decoder: Arc<NestedTracerDecoderT>,
+    pub _phantom: PhantomData<HaltReasonT>,
 }
 
-impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder<HaltReason>>
-    ContractRunner<'a, NestedTracerDecoderT>
+impl<
+        'a,
+        HaltReasonT: HaltReasonTrait,
+        NestedTracerDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+    > ContractRunner<'a, HaltReasonT, NestedTracerDecoderT>
 {
     pub fn new(
         name: &'a str,
         executor_builder: ExecutorBuilder<BlockEnv, TxEnv, SpecId, ()>,
         contract: &'a TestContract,
-        artifacts: ContractRunnerArtifacts<'a, NestedTracerDecoderT>,
+        artifacts: ContractRunnerArtifacts<'a, HaltReasonT, NestedTracerDecoderT>,
         options: ContractRunnerOptions,
     ) -> Self {
         let ContractRunnerArtifacts {
@@ -109,6 +122,7 @@ impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder<HaltReason>>
             known_contracts,
             libs_to_deploy,
             contract_decoder,
+            _phantom: _,
         } = artifacts;
         let ContractRunnerOptions {
             initial_balance,
@@ -129,12 +143,15 @@ impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder<HaltReason>>
             test_fail,
             solidity_fuzz_fixtures,
             executor_builder,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
-    ContractRunner<'_, NestedTraceDecoderT>
+impl<
+        HaltReasonT: HaltReasonTrait + Send + Sync,
+        NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+    > ContractRunner<'_, HaltReasonT, NestedTraceDecoderT>
 {
     /// Runs all tests for a contract whose names match the provided regular
     /// expression
@@ -143,7 +160,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         filter: &dyn TestFilter,
         test_options: &TestOptions,
         handle: &tokio::runtime::Handle,
-    ) -> SuiteResult {
+    ) -> SuiteResult<HaltReasonT> {
         info!("starting tests");
         let start = Instant::now();
         let mut warnings = Vec::new();
@@ -240,7 +257,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             let elapsed = start.elapsed();
 
             // Re-execute for stack traces
-            let stack_trace_result: StackTraceResult =
+            let stack_trace_result: StackTraceResult<HaltReasonT> =
                 if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
                     indeterminism_reasons.into()
                 } else {
@@ -610,7 +627,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         func: &Function,
         should_fail: bool,
         setup: TestSetup,
-    ) -> TestResult {
+    ) -> TestResult<HaltReasonT> {
         let span = info_span!("test", %should_fail);
         if !span.is_disabled() {
             let sig = &func.signature()[..];
@@ -700,7 +717,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         // Exclude stack trace generation from test execution time for accurate
         // reporting
         let stack_trace_result = if !success {
-            let stack_trace_result: StackTraceResult =
+            let stack_trace_result: StackTraceResult<HaltReasonT> =
                 if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
                     indeterminism_reasons.into()
                 } else {
@@ -736,7 +753,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         &self,
         func: &Function,
         needs_setup: bool,
-    ) -> Result<Vec<StackTraceEntry>, StackTraceError> {
+    ) -> Result<Vec<StackTraceEntry>, StackTraceError<HaltReasonT>> {
         let mut executor = self.executor_builder.clone().build();
 
         // We only need light-weight tracing for setup to be able to match contract
@@ -777,7 +794,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
 
     // It's one argument over, but follows the pattern in the file.
     #[instrument(name = "invariant_test", skip_all)]
-    fn run_invariant_test(&self, args: RunInvariantTestsArgs<'_>) -> TestResult {
+    fn run_invariant_test(&self, args: RunInvariantTestsArgs<'_>) -> TestResult<HaltReasonT> {
         let RunInvariantTestsArgs {
             executor,
             test_bytecode,
@@ -864,6 +881,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                 traces: &mut traces,
                 coverage: &mut coverage,
                 start: &start,
+                _phantom: PhantomData,
             }) {
                 return result;
             }
@@ -881,7 +899,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             Ok(x) => x,
             Err(e) => {
                 let duration = start.elapsed();
-                let stack_trace_result: StackTraceResult =
+                let stack_trace_result: StackTraceResult<HaltReasonT> =
                     if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
                         indeterminism_reasons.into()
                     } else {
@@ -922,22 +940,27 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                 | InvariantFuzzError::Revert(case_data) => {
                     // Replay error to create counterexample and to collect logs, traces and
                     // coverage.
-                    match replay_error::<NestedTraceDecoderT, BlockEnv, TxEnv, SpecId, ()>(
-                        ReplayErrorArgs {
-                            executor: executor.clone(),
-                            failed_case: &case_data,
-                            invariant_contract: &invariant_contract,
-                            known_contracts,
-                            ided_contracts: identified_contracts.clone(),
-                            logs: &mut logs,
-                            traces: &mut traces,
-                            coverage: &mut coverage,
-                            generate_stack_trace: true,
-                            contract_decoder: Some(&*self.contract_decoder),
-                            revert_decoder: self.revert_decoder,
-                            show_solidity: invariant_config.show_solidity,
-                        },
-                    ) {
+                    match replay_error::<
+                        NestedTraceDecoderT,
+                        BlockEnv,
+                        TxEnv,
+                        HaltReasonT,
+                        SpecId,
+                        (),
+                    >(ReplayErrorArgs {
+                        executor: executor.clone(),
+                        failed_case: &case_data,
+                        invariant_contract: &invariant_contract,
+                        known_contracts,
+                        ided_contracts: identified_contracts.clone(),
+                        logs: &mut logs,
+                        traces: &mut traces,
+                        coverage: &mut coverage,
+                        generate_stack_trace: true,
+                        contract_decoder: Some(&*self.contract_decoder),
+                        revert_decoder: self.revert_decoder,
+                        show_solidity: invariant_config.show_solidity,
+                    }) {
                         Ok(ReplayResult {
                             counterexample_sequence,
                             stack_trace_result,
@@ -995,21 +1018,24 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             // traces.
             _ => {
                 if let Err(err) =
-                    replay_run::<NestedTraceDecoderT, BlockEnv, TxEnv, SpecId, ()>(ReplayRunArgs {
-                        invariant_contract: &invariant_contract,
-                        executor,
-                        known_contracts,
-                        ided_contracts: identified_contracts.clone(),
-                        logs: &mut logs,
-                        traces: &mut traces,
-                        coverage: &mut coverage,
-                        inputs: last_run_inputs.clone(),
-                        generate_stack_trace: false,
-                        contract_decoder: None,
-                        revert_decoder: self.revert_decoder,
-                        fail_on_revert: invariant_config.fail_on_revert,
-                        show_solidity: invariant_config.show_solidity,
-                    })
+                    replay_run::<NestedTraceDecoderT, BlockEnv, TxEnv, HaltReasonT, SpecId, ()>(
+                        ReplayRunArgs {
+                            invariant_contract: &invariant_contract,
+                            executor,
+                            known_contracts,
+                            ided_contracts: identified_contracts.clone(),
+                            logs: &mut logs,
+                            traces: &mut traces,
+                            coverage: &mut coverage,
+                            inputs: last_run_inputs.clone(),
+                            generate_stack_trace: false,
+                            contract_decoder: None,
+                            revert_decoder: self.revert_decoder,
+                            fail_on_revert: invariant_config.fail_on_revert,
+                            show_solidity: invariant_config.show_solidity,
+                            _phantom: PhantomData,
+                        },
+                    )
                 {
                     error!(%err, "Failed to replay last invariant run");
                 }
@@ -1048,7 +1074,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         runner: TestRunner,
         setup: TestSetup,
         fuzz_config: FuzzConfig,
-    ) -> TestResult {
+    ) -> TestResult<HaltReasonT> {
         let span = info_span!("fuzz_test", %should_fail);
         if !span.is_disabled() {
             let sig = &func.signature()[..];
@@ -1119,7 +1145,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
 
         let stack_trace_result =
             if let Some(CounterExample::Single(counter_example)) = result.counterexample.as_ref() {
-                let stack_trace_result: StackTraceResult = if let Some(indeterminism_reasons) =
+                let stack_trace_result: StackTraceResult<_> = if let Some(indeterminism_reasons) =
                     counter_example.indeterminism_reasons.clone()
                 {
                     indeterminism_reasons.into()
@@ -1166,7 +1192,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         address: Address,
         counter_example: &BaseCounterExample,
         needs_setup: bool,
-    ) -> Result<Vec<StackTraceEntry>, StackTraceError> {
+    ) -> Result<Vec<StackTraceEntry>, StackTraceError<HaltReasonT>> {
         let mut executor = self.executor_builder.clone().build();
 
         // We only need light-weight tracing for setup to be able to match contract
@@ -1244,7 +1270,11 @@ fn persisted_call_sequence(path: &Path, bytecode: &Bytes) -> Option<Vec<BaseCoun
     )
 }
 
-struct ReplayRecordedFailureArgs<'a, NestedTraceDecoderT: NestedTraceDecoder<HaltReason>> {
+struct ReplayRecordedFailureArgs<
+    'a,
+    HaltReasonT: HaltReasonTrait,
+    NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
+> {
     executor: Executor<BlockEnv, TxEnv, SpecId, ()>,
     test_bytecode: &'a Bytes,
     contract_decoder: &'a NestedTraceDecoderT,
@@ -1258,11 +1288,15 @@ struct ReplayRecordedFailureArgs<'a, NestedTraceDecoderT: NestedTraceDecoder<Hal
     traces: &'a mut Traces,
     coverage: &'a mut Option<HitMaps>,
     start: &'a Instant,
+    _phantom: PhantomData<HaltReasonT>,
 }
 
-fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder<HaltReason>>(
-    args: ReplayRecordedFailureArgs<'_, NestedTraceDecoderT>,
-) -> Option<TestResult> {
+fn try_to_replay_recorded_failures<
+    HaltReasonT: HaltReasonTrait,
+    NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
+>(
+    args: ReplayRecordedFailureArgs<'_, HaltReasonT, NestedTraceDecoderT>,
+) -> Option<TestResult<HaltReasonT>> {
     let ReplayRecordedFailureArgs {
         executor,
         test_bytecode,
@@ -1277,6 +1311,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder<HaltR
         traces,
         coverage,
         start,
+        _phantom: _,
     } = args;
 
     if let Some(call_sequence) = persisted_call_sequence(failure_file, test_bytecode) {
@@ -1322,6 +1357,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder<HaltR
                     revert_decoder,
                     fail_on_revert: invariant_config.fail_on_revert,
                     show_solidity: invariant_config.show_solidity,
+                    _phantom: PhantomData,
                 })
                 .map_or(None, |result| result.stack_trace_result.map(Arc::new));
                 let reason = if replayed_entirely {
