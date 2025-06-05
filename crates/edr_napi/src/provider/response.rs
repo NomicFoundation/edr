@@ -1,6 +1,6 @@
 use edr_eth::l1;
 use edr_napi_core::spec::SolidityTraceData;
-use edr_solidity::contract_decoder::NestedTraceDecoder;
+use edr_solidity::contract_decoder::NestedTraceDecoder as _;
 use napi::Either;
 use napi_derive::napi;
 
