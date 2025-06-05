@@ -3,10 +3,11 @@
 use alloy_primitives::{Address, Bytes, U256};
 use foundry_evm_core::{
     constants::MAGIC_ASSUME,
-    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_fuzz::invariant::BasicTxDetails;
 use proptest::bits::{BitSetLike, VarBitSet};
+use revm::{context::result::HaltReasonTr, interpreter::InstructionResult};
 
 use crate::executors::{
     invariant::{
@@ -97,12 +98,14 @@ impl CallSequenceShrinker {
 pub(crate) fn shrink_sequence<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: 'static + HaltReasonTr + Into<InstructionResult>,
     HardforkT: HardforkTr,
-    ChainContextT: ChainContextTr,
+    ChainContextT: 'static + ChainContextTr,
 >(
     failed_case: &FailedInvariantCaseData,
     calls: &[BasicTxDetails],
-    executor: &Executor<BlockT, TxT, HardforkT, ChainContextT>,
+    executor: &Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     call_after_invariant: bool,
 ) -> eyre::Result<Vec<BasicTxDetails>> {
     trace!(target: "forge::test", "Shrinking sequence of {} calls.", calls.len());
@@ -151,10 +154,12 @@ pub(crate) fn shrink_sequence<
 pub fn check_sequence<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: 'static + HaltReasonTr + Into<InstructionResult>,
     HardforkT: HardforkTr,
-    ChainContextT: ChainContextTr,
+    ChainContextT: 'static + ChainContextTr,
 >(
-    mut executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
+    mut executor: Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     calls: &[BasicTxDetails],
     sequence: Vec<usize>,
     test_address: Address,

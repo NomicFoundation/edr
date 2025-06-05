@@ -3,15 +3,26 @@
 use alloy_dyn_abi::{DynSolValue, EventExt};
 use alloy_json_abi::Event;
 use alloy_primitives::{address, Address, U256};
-use edr_eth::l1;
-use edr_solidity_tests::{result::TestStatus, IncludeTraces, SolidityTestRunnerConfig};
+use edr_eth::{
+    l1::{self, BlockEnv},
+    spec::HaltReasonTrait,
+};
+use edr_evm::interpreter::InstructionResult;
+use edr_solidity_tests::{
+    result::TestStatus, revm::context::TxEnv, IncludeTraces, SolidityTestRunnerConfig,
+};
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 use foundry_evm::{
     constants::HARDHAT_CONSOLE_ADDRESS,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, L1EvmBuilder, TransactionEnvTr,
+    },
     traces::{CallKind, CallTraceDecoder, DecodedCallData, TraceKind},
 };
 
-use crate::helpers::{ForgeTestData, SolidityTestFilter, TestConfig, TEST_DATA_DEFAULT};
+use crate::helpers::{
+    ForgeTestData, L1ForgeTestData, SolidityTestFilter, TestConfig, TEST_DATA_DEFAULT,
+};
 
 /// Creates a test that runs `testdata/repros/Issue{issue}.t.sol`.
 macro_rules! test_repro {
@@ -53,10 +64,24 @@ macro_rules! test_repro {
     };
 }
 
-async fn runner_config(
+async fn runner_config<
+    BlockT: BlockEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+    HardforkT: HardforkTr,
+    TransactionT: TransactionEnvTr,
+>(
     sender: Option<Address>,
-    test_data: &ForgeTestData<l1::HaltReason>,
-) -> SolidityTestRunnerConfig {
+    test_data: &ForgeTestData<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionT,
+    >,
+) -> SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT> {
     let mut config = test_data.base_runner_config();
 
     config.cheats_config_options.fs_permissions = FsPermissions::new(vec![
@@ -80,8 +105,8 @@ async fn repro_config(
     issue: usize,
     should_fail: bool,
     sender: Option<Address>,
-    test_data: &ForgeTestData<l1::HaltReason>,
-) -> TestConfig<l1::HaltReason> {
+    test_data: &L1ForgeTestData,
+) -> TestConfig<BlockEnv, (), L1EvmBuilder, l1::HaltReason, l1::SpecId, TxEnv> {
     let config = runner_config(sender, test_data).await;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let filter = repro_filter(issue);

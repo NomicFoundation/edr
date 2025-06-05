@@ -5,6 +5,7 @@ use std::{
     fmt::Debug,
     fs::File,
     io::BufReader,
+    marker::PhantomData,
     ops::Range,
     path::PathBuf,
     sync::Arc,
@@ -13,17 +14,18 @@ use std::{
 use alloy_primitives::{Address, Bytes, Log, TxKind, B256, U256};
 use alloy_rpc_types::request::TransactionRequest;
 use alloy_sol_types::{SolInterface, SolValue};
+use derive_where::derive_where;
 use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
     backend::{CheatcodeBackend, RevertDiagnostic},
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
-    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
 };
 use itertools::Itertools;
 use revm::{
     self,
     bytecode::opcode,
-    context::{BlockEnv, CfgEnv, Context as EvmContext, JournalTr},
+    context::{result::HaltReasonTr, BlockEnv, CfgEnv, Context as EvmContext, JournalTr},
     interpreter::{
         interpreter_types::{Jumps, MemoryTr},
         CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, Host,
@@ -117,9 +119,17 @@ pub type BroadcastableTransactions = VecDeque<BroadcastableTransaction>;
 ///   cheatcodes by simply calling the cheatcode address: by default, the
 ///   caller, test contract and newly deployed contracts are allowed to execute
 ///   cheatcodes
-#[derive(Clone, Debug, Default)]
+
+#[derive_where(Clone, Debug, Default; BlockT, TxT, HardforkT)]
 // Need bounds for `Unpin` for `Arc`
-pub struct Cheatcodes<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
+pub struct Cheatcodes<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+> {
     /// The block environment
     ///
     /// Used in the cheatcode handler to overwrite the block environment
@@ -217,10 +227,18 @@ pub struct Cheatcodes<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: Hard
     /// Deprecated cheatcodes mapped to the reason. Used to report warnings on
     /// test results.
     pub deprecated: HashMap<&'static str, Option<&'static str>>,
+
+    _phantom: PhantomData<fn(ChainContextT, EvmBuilderT, HaltReasonT)>,
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
-    Cheatcodes<BlockT, TxT, HardforkT>
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    > Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>
 {
     /// Creates a new `Cheatcodes` with the given settings.
     #[inline]
@@ -235,8 +253,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     }
 
     fn apply_cheatcode<
-        ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &mut self,
         ecx: &mut EvmContext<
@@ -288,8 +305,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     /// to allow them automatically we need to determine the new address
     #[allow(clippy::unused_self)]
     fn allow_cheatcodes_on_create<
-        ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
         ecx: &mut EvmContext<
@@ -334,8 +350,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     /// Cleanup any previously applied cheatcodes that altered the state in such
     /// a way that revm's revert would run into issues.
     pub fn on_revert<
-        ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &mut self,
         ecx: &mut EvmContext<
@@ -374,13 +389,15 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >
     Inspector<
         EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
-    > for Cheatcodes<BlockT, TxT, HardforkT>
+    > for Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>
 {
     #[inline]
     fn initialize_interp(
@@ -1565,12 +1582,22 @@ fn disallowed_mem_write(
 fn apply_dispatch<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
 >(
     calls: &Vm::VmCalls,
-    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        ChainContextT,
+        DatabaseT,
+    >,
 ) -> Result {
     macro_rules! match_ {
         ($($variant:ident),*) => {

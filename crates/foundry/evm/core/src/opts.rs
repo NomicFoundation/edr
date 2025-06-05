@@ -62,7 +62,7 @@ pub struct EvmOpts<BlockT, TxT, HardforkT> {
     pub disable_block_gas_limit: bool,
 
     #[serde(skip)]
-    pub _phantom: PhantomData<(BlockT, TxT, HardforkT)>,
+    pub _phantom: PhantomData<fn(BlockT, TxT, HardforkT)>,
 }
 
 impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>

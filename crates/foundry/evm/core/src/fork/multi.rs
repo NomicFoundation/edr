@@ -75,7 +75,7 @@ pub struct MultiFork<BlockT, TxT, HardforkT> {
     handler: Sender<Request<BlockT, TxT, HardforkT>>,
     /// Ensures that all rpc resources get flushed properly
     _shutdown: Arc<ShutDownMultiFork<BlockT, TxT, HardforkT>>,
-    _phantom: PhantomData<(BlockT, TxT, HardforkT)>,
+    _phantom: PhantomData<fn(BlockT, TxT, HardforkT)>,
 }
 
 // === impl MultiForkBackend ===

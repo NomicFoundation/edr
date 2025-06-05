@@ -2,9 +2,12 @@ use std::collections::HashMap;
 
 use alloy_primitives::{keccak256, Address, B256, U256};
 use alloy_sol_types::SolValue;
-use foundry_evm_core::evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr};
+use foundry_evm_core::evm_context::{
+    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+};
 use revm::{
     bytecode::opcode,
+    context::result::HaltReasonTr,
     interpreter::{
         interpreter_types::{Jumps, MemoryTr},
         Interpreter,
@@ -60,9 +63,16 @@ impl MappingSlots {
 
 impl_is_pure_true!(startMappingRecordingCall);
 impl Cheatcode for startMappingRecordingCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self {} = self;
         if state.mapping_slots.is_none() {
@@ -74,9 +84,16 @@ impl Cheatcode for startMappingRecordingCall {
 
 impl_is_pure_true!(stopMappingRecordingCall);
 impl Cheatcode for stopMappingRecordingCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self {} = self;
         state.mapping_slots = None;
@@ -86,9 +103,16 @@ impl Cheatcode for stopMappingRecordingCall {
 
 impl_is_pure_true!(getMappingLengthCall);
 impl Cheatcode for getMappingLengthCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self {
             target,
@@ -101,9 +125,16 @@ impl Cheatcode for getMappingLengthCall {
 
 impl_is_pure_true!(getMappingSlotAtCall);
 impl Cheatcode for getMappingSlotAtCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self {
             target,
@@ -120,9 +151,16 @@ impl Cheatcode for getMappingSlotAtCall {
 
 impl_is_pure_true!(getMappingKeyAndParentOfCall);
 impl Cheatcode for getMappingKeyAndParentOfCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self {
             target,
@@ -146,15 +184,31 @@ impl Cheatcode for getMappingKeyAndParentOfCall {
     }
 }
 
-fn mapping_slot<'a, BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
-    state: &'a Cheatcodes<BlockT, TxT, HardforkT>,
+fn mapping_slot<
+    'a,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+>(
+    state: &'a Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     target: &'a Address,
 ) -> Option<&'a MappingSlots> {
     state.mapping_slots.as_ref()?.get(target)
 }
 
-fn slot_child<'a, BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
-    state: &'a Cheatcodes<BlockT, TxT, HardforkT>,
+fn slot_child<
+    'a,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+>(
+    state: &'a Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     target: &'a Address,
     slot: &'a B256,
 ) -> Option<&'a Vec<B256>> {

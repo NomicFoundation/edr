@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
-use alloy_primitives::{Address, B256};
+use edr_eth::{Address, B256, U256};
 use foundry_evm::{
+    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
 };
@@ -9,10 +10,6 @@ use foundry_evm::{
 use crate::{
     fork::CreateFork,
     opts::{Env as EvmEnv, EvmOpts},
-    revm::{
-        context::{BlockEnv, TxEnv},
-        primitives::{hardfork::SpecId, U256},
-    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -30,7 +27,11 @@ pub enum SolidityTestRunnerConfigError {
 
 /// Solidity tests configuration
 #[derive(Clone, Debug)]
-pub struct SolidityTestRunnerConfig {
+pub struct SolidityTestRunnerConfig<
+    BlockT: BlockEnvTr,
+    HardforkT: HardforkTr,
+    TransactionT: TransactionEnvTr,
+> {
     /// Project root directory.
     pub project_root: PathBuf,
     /// Whether to enable trace mode and which traces to include in test
@@ -45,51 +46,20 @@ pub struct SolidityTestRunnerConfig {
     /// Cheats configuration options
     pub cheats_config_options: CheatsConfigOptions,
     /// EVM options
-    pub evm_opts: EvmOpts<BlockEnv, TxEnv, SpecId>,
+    pub evm_opts: EvmOpts<BlockT, TransactionT, HardforkT>,
     /// Configuration for fuzz testing
     pub fuzz: FuzzConfig,
     /// Configuration for invariant testing
     pub invariant: InvariantConfig,
 }
 
-impl SolidityTestRunnerConfig {
-    /// The default evm options for the Solidity test runner.
-    pub fn default_evm_opts() -> EvmOpts<BlockEnv, TxEnv, SpecId> {
-        EvmOpts::<BlockEnv, TxEnv, SpecId> {
-            env: EvmEnv {
-                gas_limit: i64::MAX.try_into().expect("max i64 fits into u64"),
-                chain_id: Some(31337),
-                gas_price: Some(0),
-                block_base_fee_per_gas: 0,
-                tx_origin: edr_defaults::SOLIDITY_TESTS_SENDER,
-                block_number: 1,
-                block_difficulty: 0,
-                block_prevrandao: B256::default(),
-                block_gas_limit: None,
-                block_timestamp: 1,
-                block_coinbase: Address::default(),
-                code_size_limit: None,
-            },
-            spec: SpecId::CANCUN,
-            fork_url: None,
-            fork_block_number: None,
-            fork_retries: None,
-            fork_retry_backoff: None,
-            compute_units_per_second: None,
-            no_rpc_rate_limit: false,
-            sender: edr_defaults::SOLIDITY_TESTS_SENDER,
-            initial_balance: U256::from(0xffffffffffffffffffffffffu128),
-            ffi: false,
-            memory_limit: 1 << 25, // 2**25 = 32MiB
-            isolate: false,
-            disable_block_gas_limit: false,
-            ..EvmOpts::<BlockEnv, TxEnv, SpecId>::default()
-        }
-    }
-
+impl<BlockT: BlockEnvTr, HardforkT: HardforkTr, TransactionT: TransactionEnvTr>
+    SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT>
+{
     pub async fn get_fork(
         &self,
-    ) -> Result<Option<CreateFork<BlockEnv, TxEnv, SpecId>>, SolidityTestRunnerConfigError> {
+    ) -> Result<Option<CreateFork<BlockT, TransactionT, HardforkT>>, SolidityTestRunnerConfigError>
+    {
         if let Some(fork_url) = self.evm_opts.fork_url.as_ref() {
             let evm_env = self
                 .evm_opts
@@ -100,7 +70,7 @@ impl SolidityTestRunnerConfig {
 
             let rpc_cache_path = self.rpc_cache_path(fork_url, evm_env.cfg.chain_id);
 
-            Ok(Some(CreateFork::<BlockEnv, TxEnv, SpecId> {
+            Ok(Some(CreateFork::<BlockT, TransactionT, HardforkT> {
                 rpc_cache_path,
                 url: fork_url.clone(),
                 env: evm_env,
@@ -125,6 +95,44 @@ impl SolidityTestRunnerConfig {
             self.cheats_config_options.rpc_cache_path.clone()
         } else {
             None
+        }
+    }
+}
+
+impl<BlockT: BlockEnvTr, HardforkT: HardforkTr, TransactionT: TransactionEnvTr>
+    SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT>
+{
+    /// The default evm options for the Solidity test runner.
+    pub fn default_evm_opts() -> EvmOpts<BlockT, TransactionT, HardforkT> {
+        EvmOpts {
+            env: EvmEnv {
+                gas_limit: i64::MAX.try_into().expect("max i64 fits into u64"),
+                chain_id: Some(31337),
+                gas_price: Some(0),
+                block_base_fee_per_gas: 0,
+                tx_origin: edr_defaults::SOLIDITY_TESTS_SENDER,
+                block_number: 1,
+                block_difficulty: 0,
+                block_prevrandao: B256::default(),
+                block_gas_limit: None,
+                block_timestamp: 1,
+                block_coinbase: Address::default(),
+                code_size_limit: None,
+            },
+            spec: HardforkT::default(),
+            fork_url: None,
+            fork_block_number: None,
+            fork_retries: None,
+            fork_retry_backoff: None,
+            compute_units_per_second: None,
+            no_rpc_rate_limit: false,
+            sender: edr_defaults::SOLIDITY_TESTS_SENDER,
+            initial_balance: U256::from(0xffffffffffffffffffffffffu128),
+            ffi: false,
+            memory_limit: 1 << 25, // 2**25 = 32MiB
+            isolate: false,
+            disable_block_gas_limit: false,
+            ..EvmOpts::default()
         }
     }
 }

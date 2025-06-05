@@ -4,6 +4,7 @@ use std::{collections::BTreeMap, marker::PhantomData};
 
 use derive_where::derive_where;
 use edr_eth::spec::HaltReasonTrait;
+use edr_evm::interpreter::InstructionResult;
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::NestedTrace,
@@ -14,6 +15,7 @@ use edr_solidity_tests::{
 };
 use foundry_evm::{
     decode::decode_console_logs,
+    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
     traces::{decode_trace_arena, render_trace_arena, CallTraceDecoderBuilder},
 };
 use futures::future::join_all;
@@ -22,19 +24,60 @@ use itertools::Itertools;
 use crate::helpers::{tracing::init_tracing_for_solidity_tests, SolidityTestFilter};
 
 /// How to execute a test run.
-pub struct TestConfig<HaltReasonT: HaltReasonTrait> {
-    pub runner: MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>>,
+pub struct TestConfig<
+    BlockT: BlockEnvTr,
+    ChainContextT: 'static + ChainContextTr + Send + Sync,
+    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+    HardforkT: HardforkTr,
+    TransactionT: TransactionEnvTr,
+> {
+    pub runner: MultiContractRunner<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        NoOpContractDecoder<HaltReasonT>,
+        TransactionT,
+    >,
     pub should_fail: bool,
     pub filter: SolidityTestFilter,
 }
 
-impl<HaltReasonT: HaltReasonTrait + Send + Sync + 'static> TestConfig<HaltReasonT> {
-    pub fn new(runner: MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>>) -> Self {
+impl<
+        BlockT: BlockEnvTr,
+        ChainContextT: 'static + ChainContextTr + Send + Sync,
+        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+        HardforkT: HardforkTr,
+        TransactionT: TransactionEnvTr,
+    > TestConfig<BlockT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionT>
+{
+    pub fn new(
+        runner: MultiContractRunner<
+            BlockT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            NoOpContractDecoder<HaltReasonT>,
+            TransactionT,
+        >,
+    ) -> Self {
         Self::with_filter(runner, SolidityTestFilter::matches_all())
     }
 
     pub fn with_filter(
-        runner: MultiContractRunner<HaltReasonT, NoOpContractDecoder<HaltReasonT>>,
+        runner: MultiContractRunner<
+            BlockT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            NoOpContractDecoder<HaltReasonT>,
+            TransactionT,
+        >,
         filter: SolidityTestFilter,
     ) -> Self {
         init_tracing_for_solidity_tests();

@@ -3,7 +3,10 @@
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::U256;
 use alloy_sol_types::SolValue;
-use foundry_evm_core::evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr};
+use foundry_evm_core::evm_context::{
+    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+};
+use revm::context::result::HaltReasonTr;
 
 use crate::{
     impl_is_pure_true, Cheatcode, Cheatcodes, Result,
@@ -17,9 +20,16 @@ use crate::{
 // address
 impl_is_pure_true!(toString_0Call);
 impl Cheatcode for toString_0Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { value } = self;
         Ok(value.to_string().abi_encode())
@@ -29,9 +39,16 @@ impl Cheatcode for toString_0Call {
 // bytes
 impl_is_pure_true!(toString_1Call);
 impl Cheatcode for toString_1Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { value } = self;
         Ok(hex::encode_prefixed(value).abi_encode())
@@ -41,9 +58,16 @@ impl Cheatcode for toString_1Call {
 // bytes32
 impl_is_pure_true!(toString_2Call);
 impl Cheatcode for toString_2Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { value } = self;
         Ok(value.to_string().abi_encode())
@@ -53,9 +77,16 @@ impl Cheatcode for toString_2Call {
 // bool
 impl_is_pure_true!(toString_3Call);
 impl Cheatcode for toString_3Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { value } = self;
         Ok(value.to_string().abi_encode())
@@ -65,9 +96,16 @@ impl Cheatcode for toString_3Call {
 // uint256
 impl_is_pure_true!(toString_4Call);
 impl Cheatcode for toString_4Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { value } = self;
         Ok(value.to_string().abi_encode())
@@ -77,9 +115,16 @@ impl Cheatcode for toString_4Call {
 // int256
 impl_is_pure_true!(toString_5Call);
 impl Cheatcode for toString_5Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { value } = self;
         Ok(value.to_string().abi_encode())
@@ -88,9 +133,16 @@ impl Cheatcode for toString_5Call {
 
 impl_is_pure_true!(parseBytesCall);
 impl Cheatcode for parseBytesCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { stringifiedValue } = self;
         parse(stringifiedValue, &DynSolType::Bytes)
@@ -99,9 +151,16 @@ impl Cheatcode for parseBytesCall {
 
 impl_is_pure_true!(parseAddressCall);
 impl Cheatcode for parseAddressCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { stringifiedValue } = self;
         parse(stringifiedValue, &DynSolType::Address)
@@ -110,9 +169,16 @@ impl Cheatcode for parseAddressCall {
 
 impl_is_pure_true!(parseUintCall);
 impl Cheatcode for parseUintCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { stringifiedValue } = self;
         parse(stringifiedValue, &DynSolType::Uint(256))
@@ -121,9 +187,16 @@ impl Cheatcode for parseUintCall {
 
 impl_is_pure_true!(parseIntCall);
 impl Cheatcode for parseIntCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { stringifiedValue } = self;
         parse(stringifiedValue, &DynSolType::Int(256))
@@ -132,9 +205,16 @@ impl Cheatcode for parseIntCall {
 
 impl_is_pure_true!(parseBytes32Call);
 impl Cheatcode for parseBytes32Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { stringifiedValue } = self;
         parse(stringifiedValue, &DynSolType::FixedBytes(32))
@@ -143,9 +223,16 @@ impl Cheatcode for parseBytes32Call {
 
 impl_is_pure_true!(parseBoolCall);
 impl Cheatcode for parseBoolCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { stringifiedValue } = self;
         parse(stringifiedValue, &DynSolType::Bool)
@@ -155,9 +242,16 @@ impl Cheatcode for parseBoolCall {
 // toLowercase
 impl_is_pure_true!(toLowercaseCall);
 impl Cheatcode for toLowercaseCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { input } = self;
         Ok(input.to_lowercase().abi_encode())
@@ -167,9 +261,16 @@ impl Cheatcode for toLowercaseCall {
 // toUppercase
 impl_is_pure_true!(toUppercaseCall);
 impl Cheatcode for toUppercaseCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { input } = self;
         Ok(input.to_uppercase().abi_encode())
@@ -179,9 +280,16 @@ impl Cheatcode for toUppercaseCall {
 // trim
 impl_is_pure_true!(trimCall);
 impl Cheatcode for trimCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { input } = self;
         Ok(input.trim().abi_encode())
@@ -191,9 +299,16 @@ impl Cheatcode for trimCall {
 // Replace
 impl_is_pure_true!(replaceCall);
 impl Cheatcode for replaceCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { input, from, to } = self;
         Ok(input.replace(from, to).abi_encode())
@@ -203,9 +318,16 @@ impl Cheatcode for replaceCall {
 // Split
 impl_is_pure_true!(splitCall);
 impl Cheatcode for splitCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { input, delimiter } = self;
         let parts: Vec<&str> = input.split(delimiter).collect();
@@ -216,9 +338,16 @@ impl Cheatcode for splitCall {
 // indexOf
 impl_is_pure_true!(indexOfCall);
 impl Cheatcode for indexOfCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self { input, key } = self;
         Ok(input.find(key).map_or(U256::MAX, U256::from).abi_encode())

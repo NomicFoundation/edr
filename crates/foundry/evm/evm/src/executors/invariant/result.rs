@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap};
 use alloy_dyn_abi::JsonAbiExt;
 use eyre::Result;
 use foundry_evm_core::{
-    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
     utils::StateChangeset,
 };
 use foundry_evm_coverage::HitMaps;
@@ -11,6 +11,7 @@ use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, FuzzRunIdentifiedContracts, InvariantConfig, InvariantContract},
     FuzzedCases,
 };
+use revm::{context::result::HaltReasonTr, interpreter::InstructionResult};
 use revm_inspectors::tracing::CallTraceArena;
 
 use super::{
@@ -45,16 +46,31 @@ pub struct InvariantFuzzTestResult {
 pub(crate) struct RichInvariantResults<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
 > {
     pub(crate) can_continue: bool,
-    pub(crate) call_result: Option<RawCallResult<BlockT, TxT, HardforkT>>,
+    pub(crate) call_result:
+        Option<RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>>,
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
-    RichInvariantResults<BlockT, TxT, HardforkT>
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    > RichInvariantResults<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>
 {
-    fn new(can_continue: bool, call_result: Option<RawCallResult<BlockT, TxT, HardforkT>>) -> Self {
+    fn new(
+        can_continue: bool,
+        call_result: Option<
+            RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        >,
+    ) -> Self {
         Self {
             can_continue,
             call_result,
@@ -66,19 +82,23 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 /// Otherwise, it fills the external `invariant_failures.failed_invariant` map
 /// and returns a generic error. Either returns the call result if successful,
 /// or nothing if there was an error.
+#[allow(clippy::type_complexity)]
 pub(crate) fn assert_invariants<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: 'static + HaltReasonTr + Into<InstructionResult>,
     HardforkT: HardforkTr,
-    ChainContextT: ChainContextTr,
+    ChainContextT: 'static + ChainContextTr,
 >(
     invariant_contract: &InvariantContract<'_>,
     invariant_config: &InvariantConfig,
     targeted_contracts: &FuzzRunIdentifiedContracts,
-    executor: &Executor<BlockT, TxT, HardforkT, ChainContextT>,
+    executor: &Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     calldata: &[BasicTxDetails],
     invariant_failures: &mut InvariantFailures,
-) -> Result<Option<RawCallResult<BlockT, TxT, HardforkT>>> {
+) -> Result<Option<RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>>>
+{
     let mut inner_sequence = vec![];
 
     if let Some(fuzzer) = &executor.inspector.fuzzer {
@@ -123,16 +143,25 @@ pub(crate) fn assert_invariants<
 pub(crate) fn can_continue<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: 'static + HaltReasonTr + Into<InstructionResult>,
     HardforkT: HardforkTr,
-    ChainContextT: ChainContextTr,
+    ChainContextT: 'static + ChainContextTr,
 >(
     invariant_contract: &InvariantContract<'_>,
-    invariant_test: &InvariantTest<BlockT, TxT, HardforkT>,
-    invariant_run: &mut InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT>,
+    invariant_test: &InvariantTest<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+    invariant_run: &mut InvariantTestRun<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        ChainContextT,
+    >,
     invariant_config: &InvariantConfig,
-    call_result: RawCallResult<BlockT, TxT, HardforkT>,
+    call_result: RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     state_changeset: &StateChangeset,
-) -> Result<RichInvariantResults<BlockT, TxT, HardforkT>> {
+) -> Result<RichInvariantResults<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>> {
     let mut call_results = None;
 
     let handlers_succeeded = || {
@@ -201,12 +230,21 @@ pub(crate) fn can_continue<
 pub(crate) fn assert_after_invariant<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: 'static + HaltReasonTr + Into<InstructionResult>,
     HardforkT: HardforkTr,
-    ChainContextT: ChainContextTr,
+    ChainContextT: 'static + ChainContextTr,
 >(
     invariant_contract: &InvariantContract<'_>,
-    invariant_test: &InvariantTest<BlockT, TxT, HardforkT>,
-    invariant_run: &InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT>,
+    invariant_test: &InvariantTest<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+    invariant_run: &InvariantTestRun<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        ChainContextT,
+    >,
     invariant_config: &InvariantConfig,
 ) -> Result<bool> {
     let CallAfterInvariantResult {
