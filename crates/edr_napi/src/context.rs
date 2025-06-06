@@ -28,6 +28,7 @@ use crate::{
     solidity_tests::{
         artifact::{Artifact, ArtifactId},
         config::SolidityTestRunnerConfigArgs,
+        factory::SolidityTestRunnerFactory,
         test_results::SuiteResult,
         LinkingOutput,
     },
@@ -128,6 +129,17 @@ impl EdrContext {
     ) -> napi::Result<()> {
         let mut context = self.inner.lock().await;
         context.register_provider_factory(chain_type, factory.as_inner().clone());
+        Ok(())
+    }
+
+    #[napi]
+    pub async fn register_solidity_test_runner_factory(
+        &self,
+        chain_type: String,
+        factory: &SolidityTestRunnerFactory,
+    ) -> napi::Result<()> {
+        let mut context = self.inner.lock().await;
+        context.register_solidity_test_runner(chain_type, factory.as_inner().clone());
         Ok(())
     }
 
@@ -237,15 +249,21 @@ impl EdrContext {
 
             let config = try_or_reject_deferred!(config_args.try_into());
 
-            let test_runner = try_or_reject_deferred!(factory.create_test_runner(
-                runtime,
-                config,
-                contracts,
-                linking_output.known_contracts,
-                linking_output.libs_to_deploy,
-                revert_decoder,
-                tracing_config.into()
-            ));
+            let test_runner = try_or_reject_deferred!(runtime
+                .clone()
+                .spawn_blocking(move || {
+                    factory.create_test_runner(
+                        runtime,
+                        config,
+                        contracts,
+                        linking_output.known_contracts,
+                        linking_output.libs_to_deploy,
+                        revert_decoder,
+                        tracing_config.into(),
+                    )
+                })
+                .await
+                .expect("Failed to join test runner factory thread"));
 
             let () = try_or_reject_deferred!(test_runner.run_tests(
                 test_filter,

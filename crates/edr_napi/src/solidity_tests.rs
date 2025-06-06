@@ -1,6 +1,7 @@
 pub mod artifact;
 pub mod config;
-mod l1;
+pub mod factory;
+pub mod l1;
 pub mod runner;
 pub mod test_results;
 

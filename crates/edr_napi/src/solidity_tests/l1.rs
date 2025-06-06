@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use edr_eth::Bytes;
 use edr_napi_core::solidity::{
@@ -11,9 +11,11 @@ use edr_solidity_tests::{
     multi_runner::TestContract, revm::context::TxEnv, MultiContractRunner,
 };
 use napi::tokio;
+use napi_derive::napi;
 
-use crate::solidity_tests::runner::LazyContractDecoder;
-pub struct L1TestRunnerFactory;
+use crate::solidity_tests::{factory::SolidityTestRunnerFactory, runner::LazyContractDecoder};
+
+struct L1TestRunnerFactory;
 
 impl SyncTestRunnerFactory for L1TestRunnerFactory {
     fn create_test_runner(
@@ -54,4 +56,10 @@ impl SyncTestRunnerFactory for L1TestRunnerFactory {
 
         Ok(Box::new(runner))
     }
+}
+
+#[napi]
+pub fn l1_solidity_test_runner_factory() -> SolidityTestRunnerFactory {
+    let factory: Arc<dyn SyncTestRunnerFactory> = Arc::new(L1TestRunnerFactory);
+    factory.into()
 }
