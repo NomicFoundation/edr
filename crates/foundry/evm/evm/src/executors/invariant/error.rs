@@ -1,13 +1,14 @@
 use alloy_primitives::{Address, Bytes};
 use foundry_evm_core::{
     decode::RevertDecoder,
-    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_fuzz::{
     invariant::{FuzzRunIdentifiedContracts, InvariantConfig},
     Reason,
 };
 use proptest::test_runner::TestError;
+use revm::context::result::HaltReasonTr;
 
 use super::{BasicTxDetails, InvariantContract};
 use crate::executors::RawCallResult;
@@ -74,12 +75,19 @@ pub struct FailedInvariantCaseData {
 }
 
 impl FailedInvariantCaseData {
-    pub fn new<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    pub fn new<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         invariant_contract: &InvariantContract<'_>,
         invariant_config: &InvariantConfig,
         targeted_contracts: &FuzzRunIdentifiedContracts,
         calldata: &[BasicTxDetails],
-        call_result: RawCallResult<BlockT, TxT, HardforkT>,
+        call_result: RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
         inner_sequence: &[Option<BasicTxDetails>],
     ) -> Self {
         // Collect abis of fuzzed and invariant contracts to decode custom error.

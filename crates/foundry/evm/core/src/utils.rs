@@ -4,21 +4,11 @@ use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
 use alloy_primitives::{PrimitiveSignature, Selector, TxKind, B256, U256};
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionRequest};
+use revm::primitives::hardfork::SpecId;
 pub use revm::state::EvmState as StateChangeset;
-use revm::{
-    context::{CfgEnv, Evm},
-    context_interface::JournalTr,
-    handler::{instructions::EthInstructions, EthPrecompiles},
-    interpreter::interpreter::EthInterpreter,
-    primitives::hardfork::SpecId,
-    Context, Database, Inspector, Journal, JournalEntry,
-};
 
 pub use crate::ic::*;
-use crate::{
-    evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
-    opts::BlockEnvOpts,
-};
+use crate::{evm_context::TransactionEnvTr, opts::BlockEnvOpts};
 
 /// Transaction identifier of System transaction types
 pub const SYSTEM_TRANSACTION_TYPE: u8 = 126;
@@ -190,73 +180,4 @@ pub fn gas_used(spec: SpecId, spent: u64, refunded: u64) -> u64 {
         2
     };
     spent - (refunded).min(spent / refund_quotient)
-}
-
-// Type alias to simplify the return type of new_evm_with_inspector
-type EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT> =
-    Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>;
-
-/// Creates a new EVM with the given inspector.
-#[allow(clippy::type_complexity)]
-pub fn new_evm_with_inspector<BlockT, TxT, HardforkT, DatabaseT, ChainContextT, InspectorT>(
-    db: DatabaseT,
-    env: EvmEnv<BlockT, TxT, HardforkT>,
-    inspector: InspectorT,
-    chain: ChainContextT,
-) -> Evm<
-    EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
-    InspectorT,
-    EthInstructions<
-        EthInterpreter,
-        EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
-    >,
-    EthPrecompiles,
->
-where
-    InspectorT: Inspector<
-        EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
-        EthInterpreter,
-    >,
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    HardforkT: HardforkTr,
-    DatabaseT: Database,
-{
-    let mut journaled_state = Journal::<_, JournalEntry>::new(db);
-    journaled_state.set_spec_id(env.cfg.spec.into());
-
-    let context = Context {
-        tx: env.tx,
-        block: env.block,
-        cfg: env.cfg,
-        journaled_state,
-        chain,
-        error: Ok(()),
-    };
-
-    Evm::new_with_inspector(
-        context,
-        inspector,
-        EthInstructions::default(),
-        EthPrecompiles::default(),
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use revm::{database_interface::EmptyDB, inspector::NoOpInspector, ExecuteEvm};
-
-    use super::*;
-
-    #[test]
-    fn build_evm() {
-        let env = EvmEnv::default_mainnet_with_spec_id(SpecId::default());
-        let mut db = EmptyDB::default();
-
-        let mut inspector = NoOpInspector;
-
-        let mut evm = new_evm_with_inspector(&mut db, env, &mut inspector, ());
-        let result = evm.transact(revm::context::TxEnv::default()).unwrap();
-        assert!(result.result.is_success());
-    }
 }
