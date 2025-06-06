@@ -4,12 +4,23 @@ import {
   ArtifactId,
   ContractData,
   Artifact,
-  runSolidityTests,
   SolidityTestRunnerConfigArgs,
   SuiteResult,
+  EdrContext,
+  L1_CHAIN_TYPE,
+  l1SolidityTestRunnerFactory,
 } from "..";
 
 describe("Solidity Tests", () => {
+  const context = new EdrContext();
+
+  before(async () => {
+    await context.registerSolidityTestRunnerFactory(
+      L1_CHAIN_TYPE,
+      l1SolidityTestRunnerFactory()
+    );
+  });
+
   it("executes basic tests", async function () {
     const artifacts = [
       loadContract("./artifacts/SetupConsistencyCheck.json"),
@@ -21,7 +32,12 @@ describe("Solidity Tests", () => {
       projectRoot: __dirname,
     };
 
-    const results = await runAllSolidityTests(artifacts, testSuites, config);
+    const results = await runAllSolidityTests(
+      context,
+      artifacts,
+      testSuites,
+      config
+    );
 
     assert.equal(results.length, artifacts.length);
 
@@ -53,7 +69,7 @@ describe("Solidity Tests", () => {
     };
 
     await assert.isRejected(
-      runAllSolidityTests(artifacts, testSuites, config),
+      runAllSolidityTests(context, artifacts, testSuites, config),
       Error
     );
   });
@@ -72,7 +88,7 @@ describe("Solidity Tests", () => {
     artifacts[0].contract.bytecode = "invalid bytecode";
 
     await assert.isRejected(
-      runAllSolidityTests(artifacts, testSuites, config),
+      runAllSolidityTests(context, artifacts, testSuites, config),
       new RegExp("Hex decoding error")
     );
   });
@@ -82,7 +98,7 @@ describe("Solidity Tests", () => {
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
 
-    const results = await runAllSolidityTests(artifacts, testSuites, {
+    const results = await runAllSolidityTests(context, artifacts, testSuites, {
       projectRoot: __dirname,
       testPattern: "Multiply",
     });
@@ -122,6 +138,7 @@ function loadContract(artifactPath: string): Artifact {
 }
 
 async function runAllSolidityTests(
+  context: EdrContext,
   artifacts: Artifact[],
   testSuites: ArtifactId[],
   configArgs: SolidityTestRunnerConfigArgs
@@ -129,18 +146,20 @@ async function runAllSolidityTests(
   return new Promise((resolve, reject) => {
     const resultsFromCallback: SuiteResult[] = [];
 
-    runSolidityTests(
-      artifacts,
-      testSuites,
-      configArgs,
-      {}, // Empty tracing config
-      (suiteResult: SuiteResult) => {
-        resultsFromCallback.push(suiteResult);
-        if (resultsFromCallback.length === artifacts.length) {
-          resolve(resultsFromCallback);
+    context
+      .runSolidityTests(
+        L1_CHAIN_TYPE,
+        artifacts,
+        testSuites,
+        configArgs,
+        {}, // Empty tracing config
+        (suiteResult: SuiteResult) => {
+          resultsFromCallback.push(suiteResult);
+          if (resultsFromCallback.length === artifacts.length) {
+            resolve(resultsFromCallback);
+          }
         }
-      },
-      reject
-    );
+      )
+      .catch(reject);
   });
 }

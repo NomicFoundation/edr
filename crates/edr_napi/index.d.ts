@@ -170,6 +170,43 @@ export const MERGE: string
 export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
+/** Enumeration of supported OP hardforks. */
+export enum OpHardfork {
+  Bedrock = 100,
+  Regolith = 101,
+  Canyon = 102,
+  Ecotone = 103,
+  Fjord = 104,
+  Granite = 105,
+  Holocene = 106,
+  Isthmus = 107
+}
+/**
+ * Tries to parse the provided string to create an [`OpHardfork`]
+ * instance.
+ *
+ * Returns an error if the string does not match any known hardfork.
+ */
+export declare function opHardforkFromString(hardfork: string): OpHardfork
+/** Returns the string representation of the provided OP hardfork. */
+export declare function opHardforkToString(hardfork: OpHardfork): string
+/**
+ * Returns the latest supported OP hardfork.
+ *
+ * The returned value will be updated after each network upgrade.
+ */
+export declare function opLatestHardfork(): OpHardfork
+export const OP_CHAIN_TYPE: string
+export declare function opGenesisState(hardfork: OpHardfork): Array<Account>
+export declare function opProviderFactory(): ProviderFactory
+export const BEDROCK: string
+export const REGOLITH: string
+export const CANYON: string
+export const ECOTONE: string
+export const FJORD: string
+export const GRANITE: string
+export const HOLOCENE: string
+export const ISTHMUS: string
 /** Configuration for a chain */
 export interface ChainConfig {
   /** The chain ID */
@@ -752,6 +789,7 @@ export interface AddressLabel {
   /** The label to assign to the address */
   label: string
 }
+export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -864,16 +902,6 @@ export interface BaseCounterExample {
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::args] */
   readonly args?: string
 }
-/**
- * Executes Solidity tests.
- *
- * The function will return as soon as test execution is started.
- * The progress callback will be called with the results of each test suite.
- * It is up to the caller to track how many times the callback is called to
- * know when all tests are done.
- * The error callback is called if an invalid configuration value is provided.
- */
-export declare function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, progressCallback: (result: SuiteResult) => void, errorCallback: (error: Error) => void): void
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
   /** Callback to be called when a new event is received. */
@@ -1134,6 +1162,16 @@ export declare class EdrContext {
   createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: TracingConfigWithBuffers): Promise<Provider>
   /**Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
+  registerSolidityTestRunnerFactory(chainType: string, factory: SolidityTestRunnerFactory): Promise<void>
+  /**
+   * Executes Solidity tests.
+   *
+   * The function will return as soon as test execution is started.
+   * The progress callback will be called with the results of each test
+   * suite. It is up to the caller to track how many times the callback
+   * is called to know when all tests are done.
+   */
+  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
 }
 export declare class ProviderFactory { }
 export declare class Response {
@@ -1157,6 +1195,7 @@ export declare class Provider {
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
 }
+export declare class SolidityTestRunnerFactory { }
 /** See [edr_solidity_tests::result::SuiteResult] */
 export declare class SuiteResult {
   /**

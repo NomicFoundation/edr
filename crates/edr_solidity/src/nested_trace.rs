@@ -31,7 +31,7 @@ impl<HaltReasonT: HaltReasonTrait> NestedTrace<HaltReasonT> {
 
 /// Represents a precompile message.
 #[derive(Clone, Debug)]
-pub struct PrecompileMessage<HaltReasonT: HaltReasonTrait> {
+pub struct PrecompileMessage<HaltReasonT> {
     /// Precompile number.
     pub precompile: u32,
     /// Calldata buffer
@@ -50,7 +50,7 @@ pub struct PrecompileMessage<HaltReasonT: HaltReasonTrait> {
 
 /// Represents a create message.
 #[derive(Clone, Debug)]
-pub struct CreateMessage<HaltReasonT: HaltReasonTrait> {
+pub struct CreateMessage<HaltReasonT> {
     // The following is just an optimization: When processing this traces it's useful to know ahead
     // of time how many subtraces there are.
     /// Number of subtraces. Used to speed up the processing of the traces in
@@ -78,7 +78,7 @@ pub struct CreateMessage<HaltReasonT: HaltReasonTrait> {
 
 /// Represents a call message with contract metadata.
 #[derive(Clone, Debug)]
-pub struct CallMessage<HaltReasonT: HaltReasonTrait> {
+pub struct CallMessage<HaltReasonT> {
     // The following is just an optimization: When processing this traces it's useful to know ahead
     // of time how many subtraces there are.
     /// Number of subtraces. Used to speed up the processing of the traces in
@@ -209,7 +209,7 @@ impl<'a, HaltReasonT: HaltReasonTrait> From<&'a CallMessage<HaltReasonT>>
 
 /// Represents a nested trace step with contract metadata.
 #[derive(Clone, Debug)]
-pub enum NestedTraceStep<HaltReasonT: HaltReasonTrait> {
+pub enum NestedTraceStep<HaltReasonT> {
     /// Represents a create message.
     Create(CreateMessage<HaltReasonT>),
     /// Represents a call message.

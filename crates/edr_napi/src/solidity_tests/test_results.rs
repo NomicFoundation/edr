@@ -5,7 +5,9 @@ use std::{
     sync::Arc,
 };
 
-use edr_solidity_tests::executors::stack_trace::StackTraceResult;
+use edr_solidity_tests::{
+    executors::stack_trace::StackTraceResult, multi_runner::SuiteResultAndArtifactId,
+};
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3, Either4},
     Either,
@@ -35,27 +37,18 @@ pub struct SuiteResult {
     pub warnings: Vec<String>,
 }
 
-impl
-    From<(
-        edr_solidity::artifacts::ArtifactId,
-        edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
-    )> for SuiteResult
-{
-    fn from(
-        (id, suite_result): (
-            edr_solidity::artifacts::ArtifactId,
-            edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
-        ),
-    ) -> Self {
+impl From<SuiteResultAndArtifactId<edr_eth::l1::HaltReason>> for SuiteResult {
+    fn from(value: SuiteResultAndArtifactId<edr_eth::l1::HaltReason>) -> Self {
         Self {
-            id: id.into(),
-            duration_ms: BigInt::from(suite_result.duration.as_millis()),
-            test_results: suite_result
+            id: value.artifact_id.into(),
+            duration_ms: BigInt::from(value.result.duration.as_millis()),
+            test_results: value
+                .result
                 .test_results
                 .into_iter()
                 .map(Into::into)
                 .collect(),
-            warnings: suite_result.warnings,
+            warnings: value.result.warnings,
         }
     }
 }

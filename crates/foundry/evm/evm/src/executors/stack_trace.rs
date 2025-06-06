@@ -26,7 +26,7 @@ use crate::executors::EvmError;
 
 /// Stack trace generation error during re-execution.
 #[derive(Debug, thiserror::Error)]
-pub enum StackTraceError<HaltReasonT: HaltReasonTr> {
+pub enum StackTraceError<HaltReasonT> {
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
     #[error("Unexpected EVM execution error: {0}")]
@@ -243,7 +243,7 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
 
 /// The possible outcomes from computing stack traces.
 #[derive(Debug)]
-pub enum StackTraceResult<HaltReasonT: HaltReasonTr> {
+pub enum StackTraceResult<HaltReasonT> {
     /// The stack trace result
     Success(Vec<StackTraceEntry>),
     /// We couldn't generate stack traces, because an unexpected error occurred.
