@@ -8,7 +8,10 @@ use eyre::Result;
 use foundry_evm_core::{
     contracts::{ContractsByAddress, ContractsByArtifact},
     decode::RevertDecoder,
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::{
@@ -18,7 +21,10 @@ use foundry_evm_fuzz::{
 use foundry_evm_traces::{load_contracts, TraceKind, Traces};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
-use revm::{context::result::HaltReasonTr, interpreter::InstructionResult, primitives::U256};
+use revm::{
+    context::result::{HaltReason, HaltReasonTr},
+    primitives::U256,
+};
 
 use super::{
     call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
@@ -35,12 +41,21 @@ pub struct ReplayRunArgs<
     NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub executor: Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    pub executor: Executor<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
     pub invariant_contract: &'a InvariantContract<'a>,
     pub known_contracts: &'a ContractsByArtifact,
     pub ided_contracts: ContractsByAddress,
@@ -72,9 +87,11 @@ pub fn replay_run<
     NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
-    HaltReasonT: 'static + HaltReasonTr + Into<InstructionResult>,
+    EvmBuilderT: 'static
+        + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: 'static + HaltReasonTr + TryInto<HaltReason>,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: 'static + ChainContextTr,
 >(
     args: ReplayRunArgs<
@@ -85,6 +102,7 @@ pub fn replay_run<
         EvmBuilderT,
         HaltReasonT,
         HardforkT,
+        TransactionErrorT,
         ChainContextT,
     >,
 ) -> Result<ReplayResult<HaltReasonT>> {
@@ -224,12 +242,21 @@ pub struct ReplayErrorArgs<
     NestedTraceDecoderT,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub executor: Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    pub executor: Executor<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
     pub failed_case: &'a FailedInvariantCaseData,
     pub invariant_contract: &'a InvariantContract<'a>,
     pub known_contracts: &'a ContractsByArtifact,
@@ -250,9 +277,11 @@ pub fn replay_error<
     NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
-    HaltReasonT: 'static + HaltReasonTr + Into<InstructionResult>,
+    EvmBuilderT: 'static
+        + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: 'static + HaltReasonTr + TryInto<HaltReason>,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: 'static + ChainContextTr,
 >(
     args: ReplayErrorArgs<
@@ -263,6 +292,7 @@ pub fn replay_error<
         EvmBuilderT,
         HaltReasonT,
         HardforkT,
+        TransactionErrorT,
         ChainContextT,
     >,
 ) -> Result<ReplayResult<HaltReasonT>> {
@@ -320,12 +350,21 @@ pub fn replay_error<
 fn set_up_inner_replay<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 >(
-    executor: &mut Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    executor: &mut Executor<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
     inner_sequence: &[Option<BasicTxDetails>],
 ) {
     if let Some(fuzzer) = &mut executor.inspector.fuzzer {

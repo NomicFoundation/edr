@@ -2,6 +2,7 @@ use foundry_evm_core::{
     backend::Backend,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
     },
     fork::CreateFork,
 };
@@ -126,11 +127,13 @@ where
 
     /// Builds the executor as configured.
     pub fn build<
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         self,
-    ) -> Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT> {
+    ) -> Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
+    {
         let Self {
             mut stack,
             gas_limit,

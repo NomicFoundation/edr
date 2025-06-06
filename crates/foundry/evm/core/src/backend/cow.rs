@@ -4,6 +4,7 @@ use std::{borrow::Cow, collections::BTreeMap};
 
 use alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, B256, U256};
+use derive_where::derive_where;
 use eyre::WrapErr;
 use foundry_fork_db::DatabaseError;
 use revm::{
@@ -23,7 +24,7 @@ use crate::{
     },
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmContext, EvmEnv, HardforkTr,
-        IntoEvmContext as _, TransactionEnvTr,
+        IntoEvmContext as _, TransactionEnvTr, TransactionErrorTrait,
     },
     fork::{CreateFork, ForkId},
 };
@@ -46,22 +47,25 @@ use crate::{
 /// each test case would require its own `Backend` clone, which would add
 /// significant overhead for large fuzz sets even if the Database is not big
 /// after setup.
-#[derive(Clone, Debug)]
+#[derive_where(Clone, Debug; BlockT, HardforkT, TxT)]
 pub struct CowBackend<
     'cow,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
     /// The underlying `Backend`.
     ///
     /// No calls on the `CowBackend` will ever persistently modify the
     /// `backend`'s state.
-    pub backend:
-        Cow<'cow, Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>>,
+    pub backend: Cow<
+        'cow,
+        Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
+    >,
     /// Keeps track of whether the backed is already initialized
     is_initialized: bool,
     /// The [`SpecId`] of the current backend.
@@ -72,15 +76,34 @@ impl<
         'cow,
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-    > CowBackend<'cow, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+    >
+    CowBackend<
+        'cow,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
 {
     /// Creates a new `CowBackend` with the given `Backend`.
     pub fn new(
-        backend: &'cow Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        backend: &'cow Backend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     ) -> Self {
         Self {
             backend: Cow::Borrowed(backend),
@@ -133,7 +156,15 @@ impl<
     fn backend_mut(
         &mut self,
         mut env: EvmEnv<BlockT, TxT, HardforkT>,
-    ) -> &mut Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT> {
+    ) -> &mut Backend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    > {
         if !self.is_initialized {
             let backend = self.backend.to_mut();
 
@@ -149,7 +180,17 @@ impl<
     /// Returns a mutable instance of the Backend if it is initialized.
     fn initialized_backend_mut(
         &mut self,
-    ) -> Option<&mut Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>> {
+    ) -> Option<
+        &mut Backend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    > {
         if self.is_initialized {
             return Some(self.backend.to_mut());
         }
@@ -160,12 +201,31 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-    > CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
-    for CowBackend<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+    >
+    CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
+    for CowBackend<
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
 {
     fn snapshot(
         &mut self,
@@ -261,7 +321,15 @@ impl<
             BlockT,
             TxT,
             HardforkT,
-            Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+            Backend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            >,
             ChainContextT,
         >,
     {
@@ -347,12 +415,22 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
     > DatabaseRef
-    for CowBackend<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+    for CowBackend<
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
 {
     type Error = DatabaseError;
 
@@ -376,11 +454,22 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-    > Database for CowBackend<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+    > Database
+    for CowBackend<
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
 {
     type Error = DatabaseError;
 
@@ -404,12 +493,22 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
     > DatabaseCommit
-    for CowBackend<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+    for CowBackend<
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
 {
     fn commit(&mut self, changes: Map<Address, Account>) {
         self.backend.to_mut().commit(changes);

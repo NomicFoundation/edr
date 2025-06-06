@@ -13,6 +13,7 @@ edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
 edr_solidity = { path = "../edr_solidity" }
+edr_solidity_tests.workspace = true
 log = { version = "0.4.17", default-features = false }
 op-alloy-rpc-types = { version = "0.12.0", default-features = false }
 op-revm.workspace = true

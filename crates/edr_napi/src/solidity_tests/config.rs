@@ -5,7 +5,7 @@ use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
     inspectors::cheatcodes::{CheatsConfigOptions, ExecutionContextConfig},
-    SolidityTestRunnerConfig, TestFilterConfig,
+    TestFilterConfig,
 };
 use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
 use napi::{
@@ -166,7 +166,7 @@ impl Debug for SolidityTestRunnerConfigArgs {
     }
 }
 
-impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth::l1::SpecId> {
+impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::TestRunnerConfig {
     type Error = napi::Error;
 
     fn try_from(value: SolidityTestRunnerConfigArgs) -> Result<Self, Self::Error> {
@@ -199,8 +199,18 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth:
             prompt_timeout,
             fuzz,
             invariant,
-            test_pattern: _,
+            test_pattern,
         } = value;
+
+        let test_pattern = TestFilterConfig {
+            test_pattern: test_pattern
+                .as_ref()
+                .map(|p| {
+                    p.parse()
+                        .map_err(|error| napi::Error::new(Status::InvalidArg, error))
+                })
+                .transpose()?,
+        };
 
         let invariant: InvariantConfig = fuzz
             .as_ref()
@@ -212,7 +222,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth:
 
         let fuzz: FuzzConfig = fuzz.map(TryFrom::try_from).transpose()?.unwrap_or_default();
 
-        let cheats_config_options = CheatsConfigOptions {
+        let cheatcode = CheatsConfigOptions {
             // TODO https://github.com/NomicFoundation/edr/issues/657
             // If gas reporting or coverage is supported, take that into account here.
             execution_context: ExecutionContextConfig::Test,
@@ -244,83 +254,34 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth:
                 .collect::<Result<_, napi::Error>>()?,
         };
 
-        let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
-
-        if let Some(gas_limit) = gas_limit {
-            evm_opts.env.gas_limit = gas_limit.try_cast()?;
-        }
-
-        evm_opts.env.chain_id = chain_id.map(TryCast::try_cast).transpose()?;
-
-        evm_opts.env.gas_price = gas_price.map(TryCast::try_cast).transpose()?;
-
-        if let Some(block_base_fee_per_gas) = block_base_fee_per_gas {
-            evm_opts.env.block_base_fee_per_gas = block_base_fee_per_gas.try_cast()?;
-        }
-
-        if let Some(tx_origin) = tx_origin {
-            evm_opts.env.tx_origin = tx_origin.try_cast()?;
-        }
-
-        if let Some(block_number) = block_number {
-            evm_opts.env.block_number = block_number.try_cast()?;
-        }
-
-        if let Some(block_difficulty) = block_difficulty {
-            evm_opts.env.block_difficulty = block_difficulty.try_cast()?;
-        }
-
-        evm_opts.env.block_gas_limit = block_gas_limit.map(TryCast::try_cast).transpose()?;
-
-        if let Some(block_timestamp) = block_timestamp {
-            evm_opts.env.block_timestamp = block_timestamp.try_cast()?;
-        }
-
-        if let Some(block_coinbase) = block_coinbase {
-            evm_opts.env.block_coinbase = block_coinbase.try_cast()?;
-        }
-
-        evm_opts.fork_url = eth_rpc_url;
-
-        evm_opts.fork_block_number = fork_block_number.map(TryCast::try_cast).transpose()?;
-
-        if let Some(isolate) = isolate {
-            evm_opts.isolate = isolate;
-        }
-
-        if let Some(ffi) = ffi {
-            evm_opts.ffi = ffi;
-        }
-
-        if let Some(sender) = sender {
-            evm_opts.sender = sender.try_cast()?;
-        }
-
-        if let Some(initial_balance) = initial_balance {
-            evm_opts.initial_balance = initial_balance.try_cast()?;
-        }
-
-        if let Some(memory_limit) = memory_limit {
-            evm_opts.memory_limit = memory_limit.try_cast()?;
-        }
-
-        if let Some(disable_block_gas_limit) = disable_block_gas_limit {
-            evm_opts.disable_block_gas_limit = disable_block_gas_limit;
-        }
-
-        Ok(SolidityTestRunnerConfig {
+        let config = Self {
             project_root: project_root.into(),
-            trace: false,
-            // TODO
-            coverage: false,
             test_fail: test_fail.unwrap_or_default(),
-            cheats_config_options,
-            evm_opts,
+            isolate,
+            ffi,
+            sender: sender.map(TryCast::try_cast).transpose()?,
+            tx_origin: tx_origin.map(TryCast::try_cast).transpose()?,
+            initial_balance: initial_balance.map(TryCast::try_cast).transpose()?,
+            block_number: block_number.map(TryCast::try_cast).transpose()?,
+            chain_id: chain_id.map(TryCast::try_cast).transpose()?,
+            gas_limit: gas_limit.map(TryCast::try_cast).transpose()?,
+            gas_price: gas_price.map(TryCast::try_cast).transpose()?,
+            block_base_fee_per_gas: block_base_fee_per_gas.map(TryCast::try_cast).transpose()?,
+            block_coinbase: block_coinbase.map(TryCast::try_cast).transpose()?,
+            block_timestamp: block_timestamp.map(TryCast::try_cast).transpose()?,
+            block_difficulty: block_difficulty.map(TryCast::try_cast).transpose()?,
+            block_gas_limit: block_gas_limit.map(TryCast::try_cast).transpose()?,
+            disable_block_gas_limit,
+            memory_limit: memory_limit.map(TryCast::try_cast).transpose()?,
+            fork_url: eth_rpc_url,
+            fork_block_number: fork_block_number.map(TryCast::try_cast).transpose()?,
+            cheatcode,
             fuzz,
             invariant,
-            // Solidity fuzz fixtures are not supported by the JS backend
-            solidity_fuzz_fixtures: false,
-        })
+            test_pattern,
+        };
+
+        Ok(config)
     }
 }
 
