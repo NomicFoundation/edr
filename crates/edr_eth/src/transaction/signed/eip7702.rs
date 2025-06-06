@@ -1,14 +1,13 @@
 use std::sync::OnceLock;
 
-use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, AccessListItem, AuthorizationList, TransactTo, TxEnv};
+use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 
 use crate::{
-    eips::eip7702,
-    signature,
-    transaction::{self, request, ComputeTransactionHash as _},
-    utils::envelop_bytes,
-    AccessList, Address, Bytes, B256, U256,
+    eips::{eip2930, eip7702},
+    keccak256, signature,
+    transaction::{self, request, ComputeTransactionHash as _, ExecutableTransaction, TxKind},
+    utils::enveloped,
+    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -19,14 +18,16 @@ pub struct Eip7702 {
     pub chain_id: u64,
     #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    pub max_priority_fee_per_gas: u128,
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    pub max_fee_per_gas: u128,
     #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: AccessList,
+    pub access_list: eip2930::AccessList,
     pub authorization_list: Vec<eip7702::SignedAuthorization>,
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithYParity>,
@@ -34,45 +35,94 @@ pub struct Eip7702 {
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
+    /// Cached RLP-encoding
+    #[rlp(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub rlp_encoding: OnceLock<Bytes>,
 }
 
 impl Eip7702 {
     pub const TYPE: u8 = request::Eip7702::TYPE;
+}
 
-    /// Retrieves the caller/signer of the transaction.
-    pub fn caller(&self) -> &Address {
+impl ExecutableTransaction for Eip7702 {
+    fn caller(&self) -> &Address {
         self.signature.caller()
     }
 
-    /// Retrieves the cached transaction hash, if available. Otherwise, computes
-    /// the hash and caches it.
-    pub fn transaction_hash(&self) -> &B256 {
-        self.hash.get_or_init(|| {
-            let encoded = alloy_rlp::encode(self);
-            let enveloped = envelop_bytes(Self::TYPE, &encoded);
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
+    }
 
-            keccak256(enveloped)
+    fn gas_price(&self) -> &u128 {
+        &self.max_fee_per_gas
+    }
+
+    fn kind(&self) -> TxKind {
+        TxKind::Call(self.to)
+    }
+
+    fn value(&self) -> &U256 {
+        &self.value
+    }
+
+    fn data(&self) -> &Bytes {
+        &self.input
+    }
+
+    fn nonce(&self) -> u64 {
+        self.nonce
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        Some(self.chain_id)
+    }
+
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+        Some(&self.access_list)
+    }
+
+    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
+        Some(
+            self.max_fee_per_gas
+                .min(block_base_fee + self.max_priority_fee_per_gas),
+        )
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        Some(&self.max_fee_per_gas)
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
+        Some(&self.max_priority_fee_per_gas)
+    }
+
+    fn blob_hashes(&self) -> &[B256] {
+        &[]
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
+        None
+    }
+
+    fn total_blob_gas(&self) -> Option<u64> {
+        None
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+        Some(&self.authorization_list)
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding.get_or_init(|| {
+            let mut encoded = Vec::with_capacity(1 + self.length());
+            enveloped(Self::TYPE, self, &mut encoded);
+            encoded.into()
         })
     }
-}
 
-impl From<Eip7702> for TxEnv {
-    fn from(value: Eip7702) -> Self {
-        TxEnv {
-            caller: *value.caller(),
-            gas_limit: value.gas_limit,
-            gas_price: value.max_fee_per_gas,
-            transact_to: TransactTo::Call(value.to),
-            value: value.value,
-            data: value.input,
-            nonce: Some(value.nonce),
-            chain_id: Some(value.chain_id),
-            access_list: value.access_list.into(),
-            gas_priority_fee: Some(value.max_priority_fee_per_gas),
-            blob_hashes: Vec::new(),
-            max_fee_per_blob_gas: None,
-            authorization_list: Some(AuthorizationList::Signed(value.authorization_list)),
-        }
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
     }
 }
 
@@ -97,13 +147,13 @@ struct Decodable {
     // The order of these fields determines decoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
+    pub max_priority_fee_per_gas: u128,
+    pub max_fee_per_gas: u128,
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: Vec<AccessListItem>,
+    pub access_list: eip2930::AccessList,
     pub authorization_list: Vec<eip7702::SignedAuthorization>,
     pub signature: signature::SignatureWithYParity,
 }
@@ -128,10 +178,11 @@ impl alloy_rlp::Decodable for Eip7702 {
             to: transaction.to,
             value: transaction.value,
             input: transaction.input,
-            access_list: transaction.access_list.into(),
+            access_list: transaction.access_list,
             authorization_list: transaction.authorization_list,
             signature,
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         })
     }
 }
@@ -147,7 +198,7 @@ impl From<&Decodable> for transaction::request::Eip7702 {
             to: value.to,
             value: value.value,
             input: value.input.clone(),
-            access_list: value.access_list.clone(),
+            access_list: value.access_list.0.clone(),
             authorization_list: value.authorization_list.clone(),
         }
     }
@@ -189,7 +240,9 @@ mod tests {
         }
 
         pub fn raw() -> Result<Vec<u8>, FromHexError> {
-            hex::decode("04f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c01a0be47a039954e4dfb7f08927ef7f072e0ec7510290e3c4c1405f3bf0329d0be51a06f291c455321a863d4c8ebbd73d58e809328918bcb5555958247ca6ec27feec8")
+            hex::decode(
+                "04f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c01a0be47a039954e4dfb7f08927ef7f072e0ec7510290e3c4c1405f3bf0329d0be51a06f291c455321a863d4c8ebbd73d58e809328918bcb5555958247ca6ec27feec8",
+            )
         }
 
         // Test vector generated using secret key in `dummy_secret_key`.
@@ -197,8 +250,8 @@ mod tests {
             let request = transaction::request::Eip7702 {
                 chain_id: CHAIN_ID,
                 nonce: 0,
-                max_priority_fee_per_gas: U256::from(1_000_000_000u64),
-                max_fee_per_gas: U256::from(2_200_000_000u64),
+                max_priority_fee_per_gas: 1_000_000_000,
+                max_fee_per_gas: 2_200_000_000,
                 gas_limit: 63_000,
                 to: address!("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
                 value: U256::ZERO,
@@ -226,11 +279,7 @@ mod tests {
     use alloy_rlp::Decodable as _;
 
     use super::*;
-    use crate::{
-        address, b256,
-        signature::public_key_to_address,
-        transaction::{SignedTransaction as _, Transaction as _},
-    };
+    use crate::{address, b256, signature::public_key_to_address};
 
     #[test]
     fn decoding() -> anyhow::Result<()> {

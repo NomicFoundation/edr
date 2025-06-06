@@ -8,7 +8,11 @@ use std::{
 use alloy_primitives::Address;
 use edr_common::fs::normalize_path;
 use foundry_compilers::utils::canonicalize;
-use foundry_evm_core::{contracts::ContractsByArtifact, opts::EvmOpts};
+use foundry_evm_core::{
+    contracts::ContractsByArtifact,
+    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
+    opts::EvmOpts,
+};
 use semver::Version;
 
 use super::{FsAccessKind, FsPermissions, Result, RpcEndpoints};
@@ -19,15 +23,12 @@ use crate::{cache::StorageCachingConfig, Vm::Rpc};
 /// This is essentially a subset of various `Config` settings `Cheatcodes` needs
 /// to know.
 #[derive(Clone, Debug)]
-pub struct CheatsConfig {
+pub struct CheatsConfig<BlockT, TxT, HardforkT> {
     /// Whether the execution is in the context of a test run, gas snapshot or
     /// code coverage.
     pub execution_context: ExecutionContextConfig,
     /// Whether the FFI cheatcode is enabled.
     pub ffi: bool,
-    /// Use the create 2 factory in all cases including tests and
-    /// non-broadcasting scripts.
-    pub always_use_create_2_factory: bool,
     /// Sets a timeout for vm.prompt cheatcodes
     pub prompt_timeout: Duration,
     /// Optional RPC cache path. If this is none, then no RPC calls will be
@@ -45,7 +46,7 @@ pub struct CheatsConfig {
     /// Project root
     pub project_root: PathBuf,
     /// How the evm was configured by the user
-    pub evm_opts: EvmOpts,
+    pub evm_opts: EvmOpts<BlockT, TxT, HardforkT>,
     /// Address labels from config
     pub labels: HashMap<Address, String>,
     /// Solidity compilation artifacts.
@@ -93,12 +94,14 @@ pub struct CheatsConfigOptions {
     pub labels: HashMap<Address, String>,
 }
 
-impl CheatsConfig {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    CheatsConfig<BlockT, TxT, HardforkT>
+{
     /// Extracts the necessary settings from the Config
     pub fn new(
         project_root: PathBuf,
         config: CheatsConfigOptions,
-        evm_opts: EvmOpts,
+        evm_opts: EvmOpts<BlockT, TxT, HardforkT>,
         available_artifacts: Arc<ContractsByArtifact>,
         running_version: Option<Version>,
     ) -> Self {
@@ -117,7 +120,6 @@ impl CheatsConfig {
         Self {
             execution_context,
             ffi: evm_opts.ffi,
-            always_use_create_2_factory: evm_opts.always_use_create_2_factory,
             prompt_timeout: Duration::from_secs(prompt_timeout),
             rpc_cache_path,
             rpc_storage_caching,
@@ -257,12 +259,13 @@ impl CheatsConfig {
     }
 }
 
-impl Default for CheatsConfig {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> Default
+    for CheatsConfig<BlockT, TxT, HardforkT>
+{
     fn default() -> Self {
         Self {
             execution_context: ExecutionContextConfig::default(),
             ffi: false,
-            always_use_create_2_factory: false,
             prompt_timeout: Duration::from_secs(120),
             rpc_cache_path: None,
             rpc_storage_caching: StorageCachingConfig::default(),
@@ -279,10 +282,15 @@ impl Default for CheatsConfig {
 
 #[cfg(test)]
 mod tests {
+    use revm::{
+        context::{BlockEnv, TxEnv},
+        primitives::hardfork::SpecId,
+    };
+
     use super::*;
     use crate::{cache::StorageCachingConfig, PathPermission};
 
-    fn config(root: &str, fs_permissions: FsPermissions) -> CheatsConfig {
+    fn config(root: &str, fs_permissions: FsPermissions) -> CheatsConfig<BlockEnv, TxEnv, SpecId> {
         let cheats_config_options = CheatsConfigOptions {
             execution_context: ExecutionContextConfig::default(),
             rpc_endpoints: RpcEndpoints::default(),
@@ -304,7 +312,7 @@ mod tests {
 
     #[test]
     fn test_allowed_paths() {
-        fn test_cases(config: CheatsConfig) {
+        fn test_cases(config: CheatsConfig<BlockEnv, TxEnv, SpecId>) {
             assert!(config
                 .ensure_path_allowed("./t.txt", FsAccessKind::Read)
                 .is_ok());

@@ -3,7 +3,6 @@
 
 use std::fmt;
 
-use edr_evm::HaltReason;
 use napi_derive::napi;
 
 #[napi]
@@ -51,21 +50,21 @@ impl fmt::Display for ExitCode {
 }
 
 #[allow(clippy::fallible_impl_from)] // naively ported for now
-impl From<edr_solidity::exit_code::ExitCode> for ExitCode {
-    fn from(code: edr_solidity::exit_code::ExitCode) -> Self {
+impl From<edr_solidity::exit_code::ExitCode<edr_eth::l1::HaltReason>> for ExitCode {
+    fn from(code: edr_solidity::exit_code::ExitCode<edr_eth::l1::HaltReason>) -> Self {
         use edr_solidity::exit_code::ExitCode;
 
         match code {
             ExitCode::Success => Self::SUCCESS,
             ExitCode::Revert => Self::REVERT,
-            ExitCode::Halt(HaltReason::OutOfGas(_)) => Self::OUT_OF_GAS,
-            ExitCode::Halt(HaltReason::OpcodeNotFound | HaltReason::InvalidFEOpcode
+            ExitCode::Halt(edr_eth::l1::HaltReason::OutOfGas(_)) => Self::OUT_OF_GAS,
+            ExitCode::Halt(edr_eth::l1::HaltReason::OpcodeNotFound | edr_eth::l1::HaltReason::InvalidFEOpcode
               // Returned when an opcode is not implemented for the hardfork
-              | HaltReason::NotActivated) => Self::INVALID_OPCODE,
-            ExitCode::Halt(HaltReason::StackUnderflow) => Self::STACK_UNDERFLOW,
-            ExitCode::Halt(HaltReason::CreateContractSizeLimit) => Self::CODESIZE_EXCEEDS_MAXIMUM,
-            ExitCode::Halt(HaltReason::CreateCollision) => Self::CREATE_COLLISION,
-            ExitCode::Halt(_) => Self::UNKNOWN_HALT_REASON,
+              | edr_eth::l1::HaltReason::NotActivated) => Self::INVALID_OPCODE,
+            ExitCode::Halt(edr_eth::l1::HaltReason::StackUnderflow) => Self::STACK_UNDERFLOW,
+            ExitCode::Halt(edr_eth::l1::HaltReason::CreateContractSizeLimit) => Self::CODESIZE_EXCEEDS_MAXIMUM,
+            ExitCode::Halt(edr_eth::l1::HaltReason::CreateCollision) => Self::CREATE_COLLISION,
+            _ => Self::UNKNOWN_HALT_REASON,
         }
     }
 }

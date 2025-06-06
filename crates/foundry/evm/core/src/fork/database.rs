@@ -7,8 +7,10 @@ use alloy_rpc_types::BlockId;
 use foundry_fork_db::{BlockchainDb, DatabaseError, SharedBackend};
 use parking_lot::Mutex;
 use revm::{
-    db::{CacheDB, DatabaseRef},
-    primitives::{Account, AccountInfo, Bytecode, HashMap as Map},
+    bytecode::Bytecode,
+    database::{CacheDB, DatabaseRef},
+    primitives::HashMap as Map,
+    state::{Account, AccountInfo},
     Database, DatabaseCommit,
 };
 
@@ -228,6 +230,7 @@ pub struct ForkDbSnapshot {
 impl ForkDbSnapshot {
     fn get_storage(&self, address: Address, index: U256) -> Option<U256> {
         self.local
+            .cache
             .accounts
             .get(&address)
             .and_then(|account| account.storage.get(&index))
@@ -242,7 +245,7 @@ impl DatabaseRef for ForkDbSnapshot {
     type Error = DatabaseError;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        if let Some(account) = self.local.accounts.get(&address) {
+        if let Some(account) = self.local.cache.accounts.get(&address) {
             Ok(Some(account.info.clone()))
         } else {
             let mut acc = self.snapshot.accounts.get(&address).cloned();
@@ -259,7 +262,7 @@ impl DatabaseRef for ForkDbSnapshot {
     }
 
     fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
-        match self.local.accounts.get(&address) {
+        match self.local.cache.accounts.get(&address) {
             Some(account) => match account.storage.get(&index) {
                 Some(entry) => Ok(*entry),
                 None => match self.get_storage(address, index) {
@@ -286,7 +289,7 @@ impl DatabaseRef for ForkDbSnapshot {
 mod tests {
     use std::collections::BTreeSet;
 
-    use revm::primitives::{BlockEnv, CfgEnv};
+    use revm::context::BlockEnv;
 
     use super::*;
     use crate::{backend::BlockchainDbMeta, fork::provider::get_http_provider};
@@ -298,7 +301,6 @@ mod tests {
         let rpc = edr_test_utils::env::get_alchemy_url();
         let provider = get_http_provider(rpc.clone());
         let meta = BlockchainDbMeta {
-            cfg_env: CfgEnv::default(),
             block_env: BlockEnv::default(),
             hosts: BTreeSet::from([rpc]),
         };

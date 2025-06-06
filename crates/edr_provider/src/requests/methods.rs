@@ -1,12 +1,13 @@
 use alloy_dyn_abi::eip712::TypedData;
+use derive_where::derive_where;
 use edr_eth::{
     filter::{LogFilterOptions, SubscriptionType},
     serde::{optional_single_to_sequence, sequence_to_optional_single},
-    transaction::EthTransactionRequest,
-    Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U256, U64,
+    Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U128, U256, U64,
 };
-use edr_rpc_eth::{CallRequest, StateOverrideOptions};
+use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
 use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
+use serde::{Deserialize, Serialize};
 
 use super::serde::{RpcAddress, Timestamp};
 use crate::requests::{debug::DebugTraceConfig, hardhat::rpc_types::ResetProviderConfig};
@@ -24,9 +25,10 @@ mod optional_block_spec {
 }
 
 /// for an invoking a method on a remote ethereum node
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(tag = "method", content = "params")]
-pub enum MethodInvocation {
+#[derive(Deserialize, Serialize)]
+#[derive_where(Clone, Debug, PartialEq; ChainSpecT::RpcCallRequest, ChainSpecT::RpcTransactionRequest)]
+#[serde(bound = "", tag = "method", content = "params")]
+pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     /// `eth_accounts`
     #[serde(rename = "eth_accounts", with = "edr_eth::serde::empty_params")]
     Accounts(()),
@@ -39,7 +41,7 @@ pub enum MethodInvocation {
     /// `eth_call`
     #[serde(rename = "eth_call")]
     Call(
-        CallRequest,
+        ChainSpecT::RpcCallRequest,
         #[serde(
             skip_serializing_if = "Option::is_none",
             default = "optional_block_spec::latest"
@@ -56,7 +58,7 @@ pub enum MethodInvocation {
     /// `eth_estimateGas`
     #[serde(rename = "eth_estimateGas")]
     EstimateGas(
-        CallRequest,
+        ChainSpecT::RpcCallRequest,
         #[serde(
             skip_serializing_if = "Option::is_none",
             default = "optional_block_spec::pending"
@@ -218,7 +220,7 @@ pub enum MethodInvocation {
     SendRawTransaction(Bytes),
     /// `eth_sendTransaction`
     #[serde(rename = "eth_sendTransaction", with = "edr_eth::serde::sequence")]
-    SendTransaction(EthTransactionRequest),
+    SendTransaction(ChainSpecT::RpcTransactionRequest),
     /// `personal_sign`
     #[serde(rename = "personal_sign")]
     PersonalSign(
@@ -287,7 +289,7 @@ pub enum MethodInvocation {
     // `debug_traceTransaction`
     #[serde(rename = "debug_traceCall")]
     DebugTraceCall(
-        CallRequest,
+        ChainSpecT::RpcCallRequest,
         #[serde(default)] Option<BlockSpec>,
         #[serde(default)] Option<DebugTraceConfig>,
     ),
@@ -301,7 +303,7 @@ pub enum MethodInvocation {
         /// solc version:
         String,
         Box<CompilerInput>,
-        Box<CompilerOutput>,
+        CompilerOutput,
     ),
     /// `hardhat_dropTransaction`
     #[serde(rename = "hardhat_dropTransaction", with = "edr_eth::serde::sequence")]
@@ -325,13 +327,13 @@ pub enum MethodInvocation {
     #[serde(rename = "hardhat_mine")]
     Mine(
         /// block count:
-        #[serde(default, with = "edr_eth::serde::optional_u64")]
+        #[serde(default, with = "alloy_serde::quantity::opt")]
         Option<u64>,
         /// interval:
         #[serde(
             default,
             skip_serializing_if = "Option::is_none",
-            with = "edr_eth::serde::optional_u64"
+            with = "alloy_serde::quantity::opt"
         )]
         Option<u64>,
     ),
@@ -365,20 +367,20 @@ pub enum MethodInvocation {
     SetLoggingEnabled(bool),
     /// `hardhat_setMinGasPrice`
     #[serde(rename = "hardhat_setMinGasPrice", with = "edr_eth::serde::sequence")]
-    SetMinGasPrice(U256),
+    SetMinGasPrice(U128),
     /// `hardhat_setNextBlockBaseFeePerGas`
     #[serde(
         rename = "hardhat_setNextBlockBaseFeePerGas",
         with = "edr_eth::serde::sequence"
     )]
-    SetNextBlockBaseFeePerGas(U256),
+    SetNextBlockBaseFeePerGas(U128),
     /// `hardhat_setNonce`
     #[serde(rename = "hardhat_setNonce")]
     SetNonce(
         #[serde(deserialize_with = "crate::requests::serde::deserialize_address")] Address,
         #[serde(
             deserialize_with = "crate::requests::serde::deserialize_nonce",
-            serialize_with = "edr_eth::serde::u64::serialize"
+            serialize_with = "alloy_serde::quantity::serialize"
         )]
         u64,
     ),
@@ -400,7 +402,7 @@ pub enum MethodInvocation {
     StopImpersonatingAccount(RpcAddress),
 }
 
-impl MethodInvocation {
+impl<ChainSpecT: RpcSpec> MethodInvocation<ChainSpecT> {
     /// Retrieves the instance's method name.
     pub fn method_name(&self) -> &'static str {
         match self {

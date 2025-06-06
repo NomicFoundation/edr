@@ -7,7 +7,7 @@ import {
 } from "./testContext.js";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { FuzzTestKind, InvariantTestKind } from "@ignored/edr";
+import { FuzzTestKind, InvariantTestKind } from "@nomicfoundation/edr";
 import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
 describe("Fuzz and invariant testing", function () {
@@ -183,6 +183,7 @@ describe("Fuzz and invariant testing", function () {
     assert.equal(results3[0].testResults.length, 1);
     assert.equal(results3[0].testResults[0].status, "Failure");
     const fuzzTestResult3 = results3[0].testResults[0].kind as FuzzTestKind;
+    console.log(fuzzTestResult3);
     // The second time only one run should be needed, because the persisted failure is used.
     assert.equal(fuzzTestResult3.runs, 1n);
     const stackTrace3 = results3[0].testResults[0].stackTrace();
@@ -221,6 +222,7 @@ describe("Fuzz and invariant testing", function () {
     });
     assert.equal(result.failedTests, 1);
     assert.equal(result.totalTests, 1);
+    console.log(result.stackTraces.get("invariant()"));
     assertStackTraces(
       result.stackTraces.get("invariant()"),
       expectedReason,

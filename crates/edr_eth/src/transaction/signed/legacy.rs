@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use revm_primitives::{keccak256, TxEnv};
 
-use super::kind_to_transact_to;
 use crate::{
+    eips::{eip2930, eip7702},
+    keccak256,
     signature::{self, Fakeable},
-    transaction::{self, TxKind},
+    transaction::{self, ExecutableTransaction, TxKind},
     Address, Bytes, B256, U256,
 };
 
@@ -14,10 +14,11 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Legacy {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub nonce: u64,
-    pub gas_price: U256,
-    #[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))]
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    pub gas_price: u128,
+    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -25,40 +26,92 @@ pub struct Legacy {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithRecoveryId>,
     /// Cached transaction hash
-    #[rlp(default)]
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub hash: OnceLock<B256>,
+    /// Cached RLP-encoding
+    #[rlp(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub rlp_encoding: OnceLock<Bytes>,
 }
 
 impl Legacy {
-    /// Returns the caller/signer of the transaction.
-    pub fn caller(&self) -> &Address {
+    /// The type identifier for a pre-EIP-155 legacy transaction.
+    pub const TYPE: u8 = transaction::request::Legacy::TYPE;
+}
+
+impl ExecutableTransaction for Legacy {
+    fn caller(&self) -> &Address {
         self.signature.caller()
     }
 
-    pub fn hash(&self) -> &B256 {
-        self.hash.get_or_init(|| keccak256(alloy_rlp::encode(self)))
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
     }
-}
 
-impl From<Legacy> for TxEnv {
-    fn from(value: Legacy) -> Self {
-        TxEnv {
-            caller: *value.caller(),
-            gas_limit: value.gas_limit,
-            gas_price: value.gas_price,
-            transact_to: kind_to_transact_to(value.kind),
-            value: value.value,
-            data: value.input,
-            nonce: Some(value.nonce),
-            chain_id: None,
-            access_list: Vec::new(),
-            gas_priority_fee: None,
-            blob_hashes: Vec::new(),
-            max_fee_per_blob_gas: None,
-            authorization_list: None,
-        }
+    fn gas_price(&self) -> &u128 {
+        &self.gas_price
+    }
+
+    fn kind(&self) -> TxKind {
+        self.kind
+    }
+
+    fn value(&self) -> &U256 {
+        &self.value
+    }
+
+    fn data(&self) -> &Bytes {
+        &self.input
+    }
+
+    fn nonce(&self) -> u64 {
+        self.nonce
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        None
+    }
+
+    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+        None
+    }
+
+    fn effective_gas_price(&self, _block_base_fee: u128) -> Option<u128> {
+        None
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        None
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
+        None
+    }
+
+    fn blob_hashes(&self) -> &[B256] {
+        &[]
+    }
+
+    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
+        None
+    }
+
+    fn total_blob_gas(&self) -> Option<u64> {
+        None
+    }
+
+    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+        None
+    }
+
+    fn rlp_encoding(&self) -> &Bytes {
+        self.rlp_encoding
+            .get_or_init(|| alloy_rlp::encode(self).into())
+    }
+
+    fn transaction_hash(&self) -> &B256 {
+        self.hash.get_or_init(|| keccak256(self.rlp_encoding()))
     }
 }
 
@@ -88,7 +141,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
         struct Decodable {
             // The order of these fields determines decoding order.
             pub nonce: u64,
-            pub gas_price: U256,
+            pub gas_price: u128,
             pub gas_limit: u64,
             pub kind: TxKind,
             pub value: U256,
@@ -141,6 +194,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
                 input: transaction.input,
                 signature,
                 hash: OnceLock::new(),
+                rlp_encoding: OnceLock::new(),
             })
         } else {
             let request = transaction::request::Legacy::from(&transaction);
@@ -157,6 +211,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
                 input: request.input,
                 signature,
                 hash: OnceLock::new(),
+                rlp_encoding: OnceLock::new(),
             })
         };
 
@@ -179,7 +234,7 @@ mod tests {
         let input = hex::decode("1234").unwrap();
         transaction::request::Legacy {
             nonce: 1,
-            gas_price: U256::from(2),
+            gas_price: 2,
             gas_limit: 3,
             kind: TxKind::Call(to),
             value: U256::from(4),
@@ -216,7 +271,7 @@ mod tests {
         let request = dummy_request();
         let signed = request.sign(&dummy_secret_key()).unwrap();
 
-        assert_eq!(expected, *signed.hash());
+        assert_eq!(expected, *signed.transaction_hash());
     }
 
     #[test]

@@ -4,11 +4,13 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-eips = { workspace = true }
-alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
-alloy-serde = { workspace = true }
-anyhow = "1.0.75"
-c-kzg = { version = "1.0.3", default-features = false }
+anyhow = "1.0.89"
+alloy-eips.workspace = true
+alloy-rlp.workspace = true
+alloy-serde.workspace = true
+auto_impl = { version = "1.2", default-features = false }
+c-kzg.workspace = true
+derive-where = { version = "1.2.7", default-features = false }
 hash-db = { version = "0.15.2", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hashbrown = { version = "0.14.3", default-features = false, features = ["ahash", "allocator-api2", "inline-more"] }
@@ -16,8 +18,12 @@ hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 itertools = { version = "0.10.5", default-features = false, features = ["use_alloc"] }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", ] }
 log = { version = "0.4.17", default-features = false }
-once_cell = { version = "1.18.0", default-features = false, features = ["alloc", "race", "std"] }
+once_cell = { version = "1.19.0", default-features = false, features = ["alloc", "race", "std"] }
+revm-bytecode.workspace = true
+revm-context.workspace = true
+revm-context-interface.workspace = true
 revm-primitives.workspace = true
+revm-state.workspace = true
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 sha2 = { version = "0.10.8", default-features = false }
@@ -27,14 +33,14 @@ tracing = { version = "0.1.37", features = ["attributes", "std"], optional = tru
 triehash = { version = "0.8.4", default-features = false }
 
 [dev-dependencies]
-anyhow = "1.0.75"
+anyhow = "1.0.89"
 assert-json-diff = "2.0.2"
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
 lazy_static = "1.4.0"
-paste = { version = "1.0.14", default-features = false }
-serde_json = { workspace = true }
+paste.workspace = true
+serde_json.workspace = true
 serial_test = "2.0.0"
 tempfile = { version = "3.7.1", default-features = false }
 tokio = { version = "1.23.0", features = ["macros"] }
@@ -42,8 +48,8 @@ tokio = { version = "1.23.0", features = ["macros"] }
 [features]
 default = ["std"]
 rand = ["revm-primitives/rand"]
-serde = ["dep:serde", "dep:serde_json", "c-kzg/serde", "revm-primitives/serde"]
-std = ["alloy-eips/std", "alloy-serde/std", "hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-primitives/std", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
+serde = ["dep:serde", "dep:serde_json", "alloy-eips/serde", "c-kzg/serde", "revm-bytecode/serde", "revm-primitives/serde", "revm-state/serde"]
+std = ["alloy-eips/std", "alloy-serde/std", "hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "k256/std", "k256/precomputed-tables", "revm-bytecode/std", "revm-primitives/std", "revm-state/serde", "serde?/std", "sha2/std", "sha3/std", "triehash/std"]
 test-remote = []
 tracing = ["dep:tracing"]
 

@@ -1,11 +1,11 @@
 use std::str::FromStr as _;
 
 use edr_eth::{
+    eips::eip4844::ethereum_kzg_settings,
     rlp::{self, Decodable as _},
     transaction::{self, pooled::PooledTransaction},
     Address, Blob, Bytes, Bytes48, B256,
 };
-use edr_evm::EnvKzgSettings;
 use edr_test_utils::secret_key::secret_key_from_str;
 
 /// Helper struct to modify the pooled transaction from the value in
@@ -30,13 +30,12 @@ impl BlobTransactionBuilder {
             .sign(&secret_key)
             .expect("Failed to sign transaction");
 
-        let settings = EnvKzgSettings::Default;
         let pooled_transaction = transaction::pooled::Eip4844::new(
             signed_transaction,
             self.blobs,
             self.commitments,
             self.proofs,
-            settings.get(),
+            ethereum_kzg_settings(0),
         )
         .expect("Invalid blob transaction");
 

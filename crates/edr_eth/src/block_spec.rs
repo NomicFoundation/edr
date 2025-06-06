@@ -24,10 +24,7 @@ pub enum Eip1898BlockSpec {
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Number {
         /// the block number
-        #[cfg_attr(
-            feature = "serde",
-            serde(serialize_with = "crate::serde::u64::serialize")
-        )]
+        #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
         block_number: u64,
     },
 }
@@ -184,13 +181,7 @@ impl Display for BlockTag {
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum BlockSpec {
     /// as a block number
-    Number(
-        #[cfg_attr(
-            feature = "serde",
-            serde(serialize_with = "crate::serde::u64::serialize")
-        )]
-        u64,
-    ),
+    Number(#[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))] u64),
     /// as a block tag (eg "latest")
     Tag(BlockTag),
     /// as an EIP-1898-compliant block specifier
@@ -303,7 +294,7 @@ impl Display for BlockSpec {
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum PreEip1898BlockSpec {
     /// as a block number
-    Number(#[cfg_attr(feature = "serde", serde(with = "crate::serde::u64"))] u64),
+    Number(#[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))] u64),
     /// as a block tag (eg "latest")
     Tag(BlockTag),
 }

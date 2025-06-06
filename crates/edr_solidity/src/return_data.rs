@@ -32,7 +32,7 @@ impl ReturnData {
 
     pub fn matches_selector(&self, selector: impl AsRef<[u8]>) -> bool {
         self.selector
-            .map_or(false, |value| value == selector.as_ref())
+            .is_some_and(|value| value == selector.as_ref())
     }
 
     pub fn is_error_return_data(&self) -> bool {

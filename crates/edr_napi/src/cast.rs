@@ -1,6 +1,6 @@
-use edr_eth::{Address, Bytes, B256, B64, U256};
+use edr_eth::{Address, Bytecode, Bytes, B256, B64, U256};
 use napi::{
-    bindgen_prelude::{BigInt, Buffer},
+    bindgen_prelude::{BigInt, Buffer, Uint8Array},
     Status,
 };
 
@@ -23,6 +23,20 @@ impl TryCast<Address> for Buffer {
             return Err(napi::Error::new(
                 Status::InvalidArg,
                 "Buffer was expected to be 20 bytes.".to_string(),
+            ));
+        }
+        Ok(Address::from_slice(&self))
+    }
+}
+
+impl TryCast<Address> for Uint8Array {
+    type Error = napi::Error;
+
+    fn try_cast(self) -> std::result::Result<Address, Self::Error> {
+        if self.len() != 20 {
+            return Err(napi::Error::new(
+                Status::InvalidArg,
+                "Uint8Array was expected to be 20 bytes.".to_string(),
             ));
         }
         Ok(Address::from_slice(&self))
@@ -57,6 +71,20 @@ impl TryCast<B256> for Buffer {
     }
 }
 
+impl TryCast<Bytecode> for Uint8Array {
+    type Error = napi::Error;
+
+    fn try_cast(self) -> std::result::Result<Bytecode, Self::Error> {
+        let bytes = Bytes::copy_from_slice(&self);
+        Bytecode::new_raw_checked(bytes).map_err(|error| {
+            napi::Error::new(
+                Status::InvalidArg,
+                format!("Uint8Array was not valid bytecode: {error}"),
+            )
+        })
+    }
+}
+
 impl TryCast<u64> for BigInt {
     type Error = napi::Error;
 
@@ -74,6 +102,30 @@ impl TryCast<u64> for BigInt {
             return Err(napi::Error::new(
                 Status::InvalidArg,
                 "BigInt was expected to fit within 64 bits.".to_string(),
+            ));
+        }
+
+        Ok(value)
+    }
+}
+
+impl TryCast<u128> for BigInt {
+    type Error = napi::Error;
+
+    fn try_cast(self) -> std::result::Result<u128, Self::Error> {
+        let (signed, value, lossless) = self.get_u128();
+
+        if signed {
+            return Err(napi::Error::new(
+                Status::InvalidArg,
+                "BigInt was expected to be unsigned.".to_string(),
+            ));
+        }
+
+        if !lossless {
+            return Err(napi::Error::new(
+                Status::InvalidArg,
+                "BigInt was expected to fit within 128 bits.".to_string(),
             ));
         }
 

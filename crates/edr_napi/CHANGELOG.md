@@ -1,5 +1,18 @@
 # @nomicfoundation/edr
 
+## 0.12.0-alpha.0
+
+### Minor Changes
+
+- c9cc954: Removed support for pre-Byzantium root field from RPC receipts
+- 2a19726: Replaced the Provider constructor with an API for registering and creating chain-specific providers in the EdrContext
+
+## 0.11.0
+
+### Minor Changes
+
+- 66c7052: Replace const enums with non-const enums in \*.d.ts files
+
 ## 0.10.0
 
 ### Minor Changes

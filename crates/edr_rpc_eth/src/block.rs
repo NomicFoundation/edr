@@ -22,20 +22,20 @@ pub struct Block<TransactionT> {
     /// the root of the receipts trie of the block
     pub receipts_root: B256,
     /// the block number. None when its pending block.
-    #[serde(with = "edr_eth::serde::optional_u64")]
+    #[serde(with = "alloy_serde::quantity::opt")]
     pub number: Option<u64>,
     /// the total used gas by all transactions in this block
-    #[serde(with = "edr_eth::serde::u64")]
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_used: u64,
     /// the maximum gas allowed in this block
-    #[serde(with = "edr_eth::serde::u64")]
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     /// the "extra data" field of this block
     pub extra_data: Bytes,
     /// the bloom filter for the logs of the block
     pub logs_bloom: Bloom,
     /// the unix timestamp for when the block was collated
-    #[serde(with = "edr_eth::serde::u64")]
+    #[serde(with = "alloy_serde::quantity")]
     pub timestamp: u64,
     /// integer of the difficulty for this blocket
     pub difficulty: U256,
@@ -49,15 +49,19 @@ pub struct Block<TransactionT> {
     #[serde(default)]
     pub transactions: Vec<TransactionT>,
     /// the length of the RLP encoding of this block in bytes
-    #[serde(with = "edr_eth::serde::u64")]
+    #[serde(with = "alloy_serde::quantity")]
     pub size: u64,
     /// Mix hash. None when it's a pending block.
     pub mix_hash: Option<B256>,
     /// hash of the generated proof-of-work. null when its pending block.
     pub nonce: Option<B64>,
     /// base fee per gas
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub base_fee_per_gas: Option<U256>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alloy_serde::quantity::opt"
+    )]
+    pub base_fee_per_gas: Option<u128>,
     /// the address of the beneficiary to whom the mining rewards were given
     #[serde(skip_serializing_if = "Option::is_none")]
     pub miner: Option<Address>,
@@ -71,7 +75,7 @@ pub struct Block<TransactionT> {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "edr_eth::serde::optional_u64"
+        with = "alloy_serde::quantity::opt"
     )]
     pub blob_gas_used: Option<u64>,
     /// A running total of blob gas consumed in excess of the target, prior to
@@ -79,7 +83,7 @@ pub struct Block<TransactionT> {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "edr_eth::serde::optional_u64"
+        with = "alloy_serde::quantity::opt"
     )]
     pub excess_blob_gas: Option<u64>,
     /// Root of the parent beacon block
