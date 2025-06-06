@@ -5,7 +5,6 @@ use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
     inspectors::cheatcodes::{CheatsConfigOptions, ExecutionContextConfig},
-    revm::context::TxEnv,
     SolidityTestRunnerConfig, TestFilterConfig,
 };
 use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
@@ -170,9 +169,7 @@ impl Debug for SolidityTestRunnerConfigArgs {
     }
 }
 
-impl TryFrom<SolidityTestRunnerConfigArgs>
-    for SolidityTestRunnerConfig<edr_eth::l1::BlockEnv, edr_eth::l1::SpecId, TxEnv>
-{
+impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth::l1::SpecId> {
     type Error = napi::Error;
 
     fn try_from(value: SolidityTestRunnerConfigArgs) -> Result<Self, Self::Error> {

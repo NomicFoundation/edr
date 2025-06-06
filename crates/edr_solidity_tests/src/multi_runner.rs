@@ -68,7 +68,7 @@ pub struct MultiContractRunner<
     /// Cheats config.
     cheats_config_options: Arc<CheatsConfigOptions>,
     /// The EVM instance used in the test runner
-    evm_opts: EvmOpts<BlockT, TransactionT, HardforkT>,
+    evm_opts: EvmOpts<HardforkT>,
     /// The configured evm
     env: EvmEnv<BlockT, TransactionT, HardforkT>,
     /// Revert decoder. Contains all known errors and their selectors.
@@ -110,7 +110,7 @@ impl<
 {
     /// Creates a new multi contract runner.
     pub async fn new(
-        config: SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT>,
+        config: SolidityTestRunnerConfig<HardforkT>,
         test_contracts: TestContracts,
         known_contracts: ContractsByArtifact,
         libs_to_deploy: Vec<Bytes>,

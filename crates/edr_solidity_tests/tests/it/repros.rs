@@ -81,7 +81,7 @@ async fn runner_config<
         HardforkT,
         TransactionT,
     >,
-) -> SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT> {
+) -> SolidityTestRunnerConfig<HardforkT> {
     let mut config = test_data.base_runner_config();
 
     config.cheats_config_options.fs_permissions = FsPermissions::new(vec![

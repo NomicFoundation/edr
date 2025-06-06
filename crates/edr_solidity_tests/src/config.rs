@@ -27,11 +27,7 @@ pub enum SolidityTestRunnerConfigError {
 
 /// Solidity tests configuration
 #[derive(Clone, Debug)]
-pub struct SolidityTestRunnerConfig<
-    BlockT: BlockEnvTr,
-    HardforkT: HardforkTr,
-    TransactionT: TransactionEnvTr,
-> {
+pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Project root directory.
     pub project_root: PathBuf,
     /// Whether to enable trace mode and which traces to include in test
@@ -46,17 +42,15 @@ pub struct SolidityTestRunnerConfig<
     /// Cheats configuration options
     pub cheats_config_options: CheatsConfigOptions,
     /// EVM options
-    pub evm_opts: EvmOpts<BlockT, TransactionT, HardforkT>,
+    pub evm_opts: EvmOpts<HardforkT>,
     /// Configuration for fuzz testing
     pub fuzz: FuzzConfig,
     /// Configuration for invariant testing
     pub invariant: InvariantConfig,
 }
 
-impl<BlockT: BlockEnvTr, HardforkT: HardforkTr, TransactionT: TransactionEnvTr>
-    SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT>
-{
-    pub async fn get_fork(
+impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
+    pub async fn get_fork<BlockT: BlockEnvTr, TransactionT: TransactionEnvTr>(
         &self,
     ) -> Result<Option<CreateFork<BlockT, TransactionT, HardforkT>>, SolidityTestRunnerConfigError>
     {
@@ -99,11 +93,9 @@ impl<BlockT: BlockEnvTr, HardforkT: HardforkTr, TransactionT: TransactionEnvTr>
     }
 }
 
-impl<BlockT: BlockEnvTr, HardforkT: HardforkTr, TransactionT: TransactionEnvTr>
-    SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT>
-{
+impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
     /// The default evm options for the Solidity test runner.
-    pub fn default_evm_opts() -> EvmOpts<BlockT, TransactionT, HardforkT> {
+    pub fn default_evm_opts() -> EvmOpts<HardforkT> {
         EvmOpts {
             env: EvmEnv {
                 gas_limit: i64::MAX.try_into().expect("max i64 fits into u64"),
@@ -132,7 +124,6 @@ impl<BlockT: BlockEnvTr, HardforkT: HardforkTr, TransactionT: TransactionEnvTr>
             memory_limit: 1 << 25, // 2**25 = 32MiB
             isolate: false,
             disable_block_gas_limit: false,
-            ..EvmOpts::default()
         }
     }
 }

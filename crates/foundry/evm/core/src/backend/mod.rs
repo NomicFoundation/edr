@@ -2418,7 +2418,7 @@ mod tests {
 
         let block_num = provider.get_block_number().await.unwrap();
 
-        let evm_opts = EvmOpts::<BlockEnv, TxEnv, SpecId> {
+        let evm_opts = EvmOpts::<SpecId> {
             fork_block_number: Some(block_num),
             ..EvmOpts::default()
         };
