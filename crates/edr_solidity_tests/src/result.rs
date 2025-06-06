@@ -3,7 +3,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::{self, Write},
-    sync::Arc,
     time::Duration,
 };
 
@@ -12,7 +11,10 @@ use derive_where::derive_where;
 use edr_eth::spec::HaltReasonTrait;
 use foundry_evm::{
     coverage::HitMaps,
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
     executors::{stack_trace::StackTraceResult, EvmError},
     fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
@@ -153,7 +155,7 @@ impl<HaltReasonT: HaltReasonTrait> TestOutcome<HaltReasonT> {
 /// A set of test results for a single test suite, which is all the tests in a
 /// single contract.
 #[derive(Clone, Debug, Serialize)]
-pub struct SuiteResult<HaltReasonT: HaltReasonTrait> {
+pub struct SuiteResult<HaltReasonT> {
     /// Wall clock time it took to execute all tests in this suite.
     #[serde(with = "humantime_serde")]
     pub duration: Duration,
@@ -161,6 +163,30 @@ pub struct SuiteResult<HaltReasonT: HaltReasonTrait> {
     pub test_results: BTreeMap<String, TestResult<HaltReasonT>>,
     /// Generated warnings.
     pub warnings: Vec<String>,
+}
+
+impl<HaltReasonT> SuiteResult<HaltReasonT>
+where
+    HaltReasonT: HaltReasonTrait,
+{
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> SuiteResult<NewHaltReasonT> {
+        let test_results = self
+            .test_results
+            .into_iter()
+            .map(|(name, result)| (name, result.map_halt_reason(conversion_fn)))
+            .collect();
+        SuiteResult {
+            duration: self.duration,
+            test_results,
+            warnings: self.warnings,
+        }
+    }
 }
 
 impl<HaltReasonT: HaltReasonTrait> SuiteResult<HaltReasonT> {
@@ -325,7 +351,7 @@ impl TestStatus {
 /// The result of an executed test.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[derive_where(Default)]
-pub struct TestResult<HaltReasonT: HaltReasonTrait> {
+pub struct TestResult<HaltReasonT> {
     /// The test status, indicating whether the test case succeeded, failed, or
     /// was marked as skipped. This means that the transaction executed
     /// properly, the test was marked as skipped with `vm.skip()`, or that
@@ -375,12 +401,40 @@ pub struct TestResult<HaltReasonT: HaltReasonTrait> {
     /// If the heuristic failed the vec is set but emtpy.
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
-    pub stack_trace_result: Option<Arc<StackTraceResult<HaltReasonT>>>,
+    pub stack_trace_result: Option<StackTraceResult<HaltReasonT>>,
 
     /// Deprecated cheatcodes (mapped to their replacements, if any) used in
     /// current test.
     #[serde(skip)]
     pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
+}
+
+impl<HaltReasonT> TestResult<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> TestResult<NewHaltReasonT> {
+        TestResult {
+            status: self.status,
+            reason: self.reason,
+            counterexample: self.counterexample,
+            logs: self.logs,
+            decoded_logs: self.decoded_logs,
+            kind: self.kind,
+            traces: self.traces,
+            gas_report_traces: self.gas_report_traces,
+            coverage: self.coverage,
+            labeled_addresses: self.labeled_addresses,
+            duration: self.duration,
+            stack_trace_result: self
+                .stack_trace_result
+                .map(|s| s.map_halt_reason(conversion_fn)),
+            deprecated_cheatcodes: self.deprecated_cheatcodes,
+        }
+    }
 }
 
 impl<HaltReasonT: HaltReasonTrait> fmt::Display for TestResult<HaltReasonT> {
@@ -578,12 +632,28 @@ impl TestSetup {
     pub fn from_evm_error_with<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        EvmBuilderT: EvmBuilderTrait<
+            BlockT,
+            ChainContextT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TransactionT,
+        >,
         HaltReasonT: HaltReasonTrait,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >(
-        error: EvmError<BlockT, TransactionT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        error: EvmError<
+            BlockT,
+            TransactionT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
         mut logs: Vec<Log>,
         mut traces: Traces,
         mut labeled_addresses: AddressHashMap<String>,

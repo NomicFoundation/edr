@@ -7,8 +7,7 @@ use std::{
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
 use derive_where::derive_where;
-use edr_eth::spec::HaltReasonTrait;
-use edr_evm::interpreter::InstructionResult;
+use edr_eth::{l1, spec::HaltReasonTrait};
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_evm::{
@@ -16,6 +15,7 @@ use foundry_evm::{
     decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
     },
     executors::ExecutorBuilder,
     fork::CreateFork,
@@ -32,6 +32,11 @@ use crate::{
     TestFilter, TestOptions,
 };
 
+pub struct SuiteResultAndArtifactId<HaltReasonT> {
+    pub artifact_id: ArtifactId,
+    pub result: SuiteResult<HaltReasonT>,
+}
+
 /// A deployable test contract
 #[derive(Debug, Clone)]
 pub struct TestContract {
@@ -39,6 +44,16 @@ pub struct TestContract {
     pub abi: JsonAbi,
     /// The test contract bytecode
     pub bytecode: Bytes,
+}
+
+pub trait OnTestSuiteCompletedFn<HaltReasonT>:
+    Fn(SuiteResultAndArtifactId<HaltReasonT>) + Send + Sync
+{
+}
+
+impl<FnT, HaltReasonT> OnTestSuiteCompletedFn<HaltReasonT> for FnT where
+    FnT: Fn(SuiteResultAndArtifactId<HaltReasonT>) + Send + Sync
+{
 }
 
 pub type TestContracts = BTreeMap<ArtifactId, TestContract>;
@@ -49,10 +64,11 @@ pub type TestContracts = BTreeMap<ArtifactId, TestContract>;
 pub struct MultiContractRunner<
     BlockT: BlockEnvTr,
     ChainContextT: ChainContextTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TransactionT>,
     HaltReasonT: HaltReasonTrait,
     HardforkT: HardforkTr,
     NestedTraceDecoderT,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 > {
     /// The project root directory.
@@ -87,16 +103,24 @@ pub struct MultiContractRunner<
     /// Settings related to fuzz and/or invariant tests
     test_options: TestOptions,
     #[allow(clippy::type_complexity)]
-    _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT)>,
+    _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
 
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
-        HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+        EvmBuilderT: EvmBuilderTrait<
+            BlockT,
+            ChainContextT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TransactionT,
+        >,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >
     MultiContractRunner<
@@ -106,6 +130,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >
 {
@@ -188,10 +213,19 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr + Send + Sync,
-        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
-        HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<
+                BlockT,
+                ChainContextT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                TransactionT,
+            >,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >
     MultiContractRunner<
@@ -201,6 +235,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >
 {
@@ -244,7 +279,7 @@ impl<
 
         debug!("start executing all tests in contract");
 
-        let runner: ContractRunner<'_, _, _, EvmBuilderT, HaltReasonT, _, _, _> =
+        let runner: ContractRunner<'_, _, _, EvmBuilderT, HaltReasonT, _, _, _, _> =
             ContractRunner::new(
                 &identifier,
                 executor_builder,
@@ -308,14 +343,23 @@ impl<
         filter: impl TestFilter + 'static,
     ) -> BTreeMap<String, SuiteResult<HaltReasonT>> {
         let (tx_results, mut rx_results) =
-            tokio::sync::mpsc::unbounded_channel::<(ArtifactId, SuiteResult<HaltReasonT>)>();
+            tokio::sync::mpsc::unbounded_channel::<SuiteResultAndArtifactId<HaltReasonT>>();
 
-        self.test(Arc::new(filter), tx_results);
+        self.test(
+            Arc::new(filter),
+            Arc::new(move |suite_result| {
+                let _ = tx_results.clone().send(suite_result);
+            }),
+        );
 
         let mut results = BTreeMap::new();
 
-        while let Some((id, result)) = rx_results.recv().await {
-            results.insert(id.identifier(), result);
+        while let Some(SuiteResultAndArtifactId {
+            artifact_id,
+            result,
+        }) = rx_results.recv().await
+        {
+            results.insert(artifact_id.identifier(), result);
         }
 
         results
@@ -334,7 +378,7 @@ impl<
     pub fn test(
         mut self,
         filter: Arc<impl TestFilter + 'static>,
-        tx: tokio::sync::mpsc::UnboundedSender<(ArtifactId, SuiteResult<HaltReasonT>)>,
+        on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<HaltReasonT>>,
     ) {
         trace!("running all tests");
 
@@ -356,20 +400,29 @@ impl<
         let handle = tokio::runtime::Handle::current();
 
         let this = Arc::new(self);
-        let args = contracts
-            .into_iter()
-            .zip(std::iter::repeat((this, fork, filter, tx)));
+        let args = contracts.into_iter().zip(std::iter::repeat((
+            this,
+            fork,
+            filter,
+            on_test_suite_completed_fn,
+        )));
 
         handle.spawn(async {
             futures::stream::iter(args)
                 .for_each_concurrent(
                     Some(num_cpus::get()),
-                    |((id, contract), (this, fork, filter, tx))| async move {
+                    |((id, contract), (this, fork, filter, on_test_suite_completed_fn))| async move {
                         tokio::task::spawn_blocking(move || {
                             let handle = tokio::runtime::Handle::current();
                             let result =
                                 this.run_tests(&id, &contract, fork, filter.as_ref(), &handle);
-                            let _ = tx.send((id, result));
+
+                            on_test_suite_completed_fn(
+                                SuiteResultAndArtifactId {
+                                    artifact_id: id,
+                                    result,
+                                },
+                            );
                         })
                         .await
                         .expect("failed to join task");

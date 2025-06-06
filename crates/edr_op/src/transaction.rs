@@ -7,7 +7,10 @@ pub mod request;
 /// Types for signed transactions.
 pub mod signed;
 
-pub use op_revm::{transaction::OpTxTr as OpTxTrait, OpTransactionError as InvalidTransaction};
+pub use op_revm::{
+    transaction::OpTxTr as OpTxTrait, OpTransaction as OpTxEnv,
+    OpTransactionError as InvalidTransaction,
+};
 
 /// An OP pooled transaction, used to communicate between node pools.
 pub enum Pooled {

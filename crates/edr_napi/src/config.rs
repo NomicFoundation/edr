@@ -528,6 +528,23 @@ pub struct TracingConfigWithBuffers {
     pub ignore_contracts: Option<bool>,
 }
 
+impl From<TracingConfigWithBuffers> for edr_napi_core::solidity::config::TracingConfigWithBuffers {
+    fn from(value: TracingConfigWithBuffers) -> Self {
+        edr_napi_core::solidity::config::TracingConfigWithBuffers {
+            build_infos: value.build_infos.map(|infos| match infos {
+                Either::A(with_output) => Either::A(with_output),
+                Either::B(separate_output) => Either::B(
+                    separate_output
+                        .into_iter()
+                        .map(edr_napi_core::solidity::config::BuildInfoAndOutput::from)
+                        .collect(),
+                ),
+            }),
+            ignore_contracts: value.ignore_contracts,
+        }
+    }
+}
+
 /// Hardhat V3 build info where the compiler output is not part of the build
 /// info file.
 #[napi(object)]
@@ -538,41 +555,11 @@ pub struct BuildInfoAndOutput {
     pub output: Uint8Array,
 }
 
-impl<'a> From<&'a BuildInfoAndOutput>
-    for edr_solidity::artifacts::BuildInfoBufferSeparateOutput<'a>
-{
-    fn from(value: &'a BuildInfoAndOutput) -> Self {
+impl From<BuildInfoAndOutput> for edr_napi_core::solidity::config::BuildInfoAndOutput {
+    fn from(value: BuildInfoAndOutput) -> Self {
         Self {
-            build_info: value.build_info.as_ref(),
-            output: value.output.as_ref(),
-        }
-    }
-}
-
-impl<'a> From<&'a TracingConfigWithBuffers>
-    for edr_solidity::artifacts::BuildInfoConfigWithBuffers<'a>
-{
-    fn from(value: &'a TracingConfigWithBuffers) -> Self {
-        use edr_solidity::artifacts::{BuildInfoBufferSeparateOutput, BuildInfoBuffers};
-
-        let build_infos = value.build_infos.as_ref().map(|infos| match infos {
-            Either::A(with_output) => BuildInfoBuffers::WithOutput(
-                with_output
-                    .iter()
-                    .map(std::convert::AsRef::as_ref)
-                    .collect(),
-            ),
-            Either::B(separate_output) => BuildInfoBuffers::SeparateInputOutput(
-                separate_output
-                    .iter()
-                    .map(BuildInfoBufferSeparateOutput::from)
-                    .collect(),
-            ),
-        });
-
-        Self {
-            build_infos,
-            ignore_contracts: value.ignore_contracts,
+            build_info: value.build_info,
+            output: value.output,
         }
     }
 }
