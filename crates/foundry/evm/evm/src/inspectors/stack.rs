@@ -31,12 +31,7 @@ use super::{
 
 #[derive(Clone, Debug, Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
-pub struct InspectorStackBuilder<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    HardforkT: HardforkTr,
-    ChainContextT: ChainContextTr,
-> {
+pub struct InspectorStackBuilder<HardforkT: HardforkTr, ChainContextT: ChainContextTr> {
     /// The block environment.
     ///
     /// Used in the cheatcode handler to overwrite the block environment
@@ -50,7 +45,7 @@ pub struct InspectorStackBuilder<
     /// the gas price in the execution environment.
     pub gas_price: Option<u128>,
     /// The cheatcodes config.
-    pub cheatcodes: Option<Arc<CheatsConfig<BlockT, TxT, HardforkT>>>,
+    pub cheatcodes: Option<Arc<CheatsConfig<HardforkT>>>,
     /// The fuzzer inspector and its state, if it exists.
     pub fuzzer: Option<Fuzzer>,
     /// Whether to enable tracing.
@@ -66,12 +61,8 @@ pub struct InspectorStackBuilder<
     pub enable_isolation: bool,
 }
 
-impl<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        HardforkT: HardforkTr,
-        ChainContextT: ChainContextTr,
-    > InspectorStackBuilder<BlockT, TxT, HardforkT, ChainContextT>
+impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
+    InspectorStackBuilder<HardforkT, ChainContextT>
 {
     /// Create a new inspector stack builder.
     #[inline]
@@ -95,7 +86,7 @@ impl<
 
     /// Enable cheatcodes with the given config.
     #[inline]
-    pub fn cheatcodes(mut self, config: Arc<CheatsConfig<BlockT, TxT, HardforkT>>) -> Self {
+    pub fn cheatcodes(mut self, config: Arc<CheatsConfig<HardforkT>>) -> Self {
         self.cheatcodes = Some(config);
         self
     }
@@ -142,8 +133,10 @@ impl<
     ///
     /// See also [`revm::Evm::inspect_ref`] and [`revm::Evm::commit_ref`].
     pub fn build<
+        BlockT: BlockEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
         HaltReasonT: HaltReasonTr,
+        TxT: TransactionEnvTr,
     >(
         self,
     ) -> InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT> {

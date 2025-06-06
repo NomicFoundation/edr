@@ -27,7 +27,7 @@ where
     ChainContextT: ChainContextTr,
 {
     /// The configuration used to build an [`InspectorStack`].
-    stack: InspectorStackBuilder<BlockT, TxT, HardforkT, ChainContextT>,
+    stack: InspectorStackBuilder<HardforkT, ChainContextT>,
     /// The gas limit.
     gas_limit: Option<u64>,
     /// The spec ID.
@@ -79,8 +79,8 @@ where
     pub fn inspectors(
         mut self,
         f: impl FnOnce(
-            InspectorStackBuilder<BlockT, TxT, HardforkT, ChainContextT>,
-        ) -> InspectorStackBuilder<BlockT, TxT, HardforkT, ChainContextT>,
+            InspectorStackBuilder<HardforkT, ChainContextT>,
+        ) -> InspectorStackBuilder<HardforkT, ChainContextT>,
     ) -> Self {
         self.stack = f(self.stack);
         self

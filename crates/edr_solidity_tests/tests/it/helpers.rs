@@ -92,8 +92,7 @@ impl ForgeTestProfile {
             .expect("Failed to build project")
     }
 
-    fn evm_opts<BlockT: BlockEnvTr, HardforkT: HardforkTr, TransactionT: TransactionEnvTr>(
-    ) -> EvmOpts<BlockT, TransactionT, HardforkT> {
+    fn evm_opts<HardforkT: HardforkTr>() -> EvmOpts<HardforkT> {
         EvmOpts {
             env: Env {
                 gas_limit: u64::MAX,
@@ -112,8 +111,7 @@ impl ForgeTestProfile {
         }
     }
 
-    fn runner_config<BlockT: BlockEnvTr, HardforkT: HardforkTr, TransactionT: TransactionEnvTr>(
-    ) -> SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT> {
+    fn runner_config<HardforkT: HardforkTr>() -> SolidityTestRunnerConfig<HardforkT> {
         SolidityTestRunnerConfig {
             trace: true,
             evm_opts: Self::evm_opts(),
@@ -311,8 +309,9 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
-    runner_config: SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT>,
-    _phantom: PhantomData<fn(ChainContextT, EvmBuilderT, HaltReasonT)>,
+    runner_config: SolidityTestRunnerConfig<HardforkT>,
+    #[allow(clippy::type_complexity)]
+    _phantom: PhantomData<fn(BlockT, ChainContextT, EvmBuilderT, HaltReasonT, TransactionT)>,
 }
 
 impl<
@@ -421,7 +420,7 @@ impl<
     }
 
     /// Builds a base runner config
-    pub fn base_runner_config(&self) -> SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT> {
+    pub fn base_runner_config(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
         self.runner_config.clone()
     }
@@ -445,7 +444,7 @@ impl<
     /// Builds a non-tracing runner with the given config
     pub async fn runner_with_config(
         &self,
-        mut config: SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT>,
+        mut config: SolidityTestRunnerConfig<HardforkT>,
     ) -> MultiContractRunner<
         BlockT,
         ChainContextT,
@@ -580,7 +579,7 @@ impl<
 
     async fn build_runner(
         &self,
-        config: SolidityTestRunnerConfig<BlockT, HardforkT, TransactionT>,
+        config: SolidityTestRunnerConfig<HardforkT>,
     ) -> MultiContractRunner<
         BlockT,
         ChainContextT,

@@ -120,7 +120,7 @@ pub type BroadcastableTransactions = VecDeque<BroadcastableTransaction>;
 ///   caller, test contract and newly deployed contracts are allowed to execute
 ///   cheatcodes
 
-#[derive_where(Clone, Debug, Default; BlockT, TxT, HardforkT)]
+#[derive_where(Clone, Debug, Default; HardforkT)]
 // Need bounds for `Unpin` for `Arc`
 pub struct Cheatcodes<
     BlockT: BlockEnvTr,
@@ -188,7 +188,7 @@ pub struct Cheatcodes<
 
     /// Additional, user configurable context this Inspector has access to when
     /// inspecting a call
-    pub config: Arc<CheatsConfig<BlockT, TxT, HardforkT>>,
+    pub config: Arc<CheatsConfig<HardforkT>>,
 
     /// Test-scoped context holding data that needs to be reset every test run
     pub context: Context,
@@ -224,7 +224,8 @@ pub struct Cheatcodes<
     /// The current program counter.
     pub pc: usize,
 
-    _phantom: PhantomData<fn(ChainContextT, EvmBuilderT, HaltReasonT)>,
+    #[allow(clippy::type_complexity)]
+    _phantom: PhantomData<fn(BlockT, ChainContextT, EvmBuilderT, HaltReasonT, TxT)>,
 }
 
 impl<
@@ -238,7 +239,7 @@ impl<
 {
     /// Creates a new `Cheatcodes` with the given settings.
     #[inline]
-    pub fn new(config: Arc<CheatsConfig<BlockT, TxT, HardforkT>>) -> Self {
+    pub fn new(config: Arc<CheatsConfig<HardforkT>>) -> Self {
         let labels = config.labels.clone();
         Self {
             config,
