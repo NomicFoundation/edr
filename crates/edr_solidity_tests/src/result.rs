@@ -3,7 +3,6 @@
 use std::{
     collections::BTreeMap,
     fmt::{self, Write},
-    sync::Arc,
     time::Duration,
 };
 
@@ -161,6 +160,30 @@ pub struct SuiteResult<HaltReasonT> {
     pub test_results: BTreeMap<String, TestResult<HaltReasonT>>,
     /// Generated warnings.
     pub warnings: Vec<String>,
+}
+
+impl<HaltReasonT> SuiteResult<HaltReasonT>
+where
+    HaltReasonT: HaltReasonTrait,
+{
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> SuiteResult<NewHaltReasonT> {
+        let test_results = self
+            .test_results
+            .into_iter()
+            .map(|(name, result)| (name, result.map_halt_reason(conversion_fn)))
+            .collect();
+        SuiteResult {
+            duration: self.duration,
+            test_results,
+            warnings: self.warnings,
+        }
+    }
 }
 
 impl<HaltReasonT: HaltReasonTrait> SuiteResult<HaltReasonT> {
@@ -352,7 +375,34 @@ pub struct TestResult<HaltReasonT> {
     /// If the heuristic failed the vec is set but emtpy.
     /// Error if there was an error computing the stack trace.
     #[serde(skip)]
-    pub stack_trace_result: Option<Arc<StackTraceResult<HaltReasonT>>>,
+    pub stack_trace_result: Option<StackTraceResult<HaltReasonT>>,
+}
+
+impl<HaltReasonT> TestResult<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> TestResult<NewHaltReasonT> {
+        TestResult {
+            status: self.status,
+            reason: self.reason,
+            counterexample: self.counterexample,
+            logs: self.logs,
+            decoded_logs: self.decoded_logs,
+            kind: self.kind,
+            traces: self.traces,
+            gas_report_traces: self.gas_report_traces,
+            coverage: self.coverage,
+            labeled_addresses: self.labeled_addresses,
+            duration: self.duration,
+            stack_trace_result: self
+                .stack_trace_result
+                .map(|s| s.map_halt_reason(conversion_fn)),
+        }
+    }
 }
 
 impl<HaltReasonT: HaltReasonTrait> fmt::Display for TestResult<HaltReasonT> {

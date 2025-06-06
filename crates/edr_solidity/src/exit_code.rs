@@ -23,6 +23,24 @@ pub enum ExitCode<HaltReasonT> {
     InvalidExtDelegateCallTarget,
 }
 
+impl<HaltReasonT> ExitCode<HaltReasonT> {
+    pub fn map_halt_reason<ConversionFnT: Fn(HaltReasonT) -> NewHaltReasonT, NewHaltReasonT>(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> ExitCode<NewHaltReasonT> {
+        match self {
+            ExitCode::Success => ExitCode::Success,
+            ExitCode::Revert => ExitCode::Revert,
+            ExitCode::Halt(reason) => ExitCode::Halt(conversion_fn(reason)),
+            ExitCode::FatalExternalError => ExitCode::FatalExternalError,
+            ExitCode::InternalContinue => ExitCode::InternalContinue,
+            ExitCode::InternalCallOrCreate => ExitCode::InternalCallOrCreate,
+            ExitCode::CreateInitCodeStartingEF00 => ExitCode::CreateInitCodeStartingEF00,
+            ExitCode::InvalidExtDelegateCallTarget => ExitCode::InvalidExtDelegateCallTarget,
+        }
+    }
+}
+
 impl<HaltReasonT: HaltReasonTrait> ExitCode<HaltReasonT> {
     /// Returns whether the exit code is an error.
     pub fn is_error(&self) -> bool {

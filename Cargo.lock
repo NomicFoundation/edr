@@ -2480,6 +2480,7 @@ dependencies = [
  "edr_provider",
  "edr_rpc_eth",
  "edr_solidity",
+ "edr_solidity_tests",
  "edr_test_utils",
  "log",
  "op-alloy-rpc-types",

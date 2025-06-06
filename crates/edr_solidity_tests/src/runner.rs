@@ -570,7 +570,7 @@ impl<
                     self.re_run_test_for_stack_traces(func, setup.has_setup_method)
                         .into()
                 };
-            Some(Arc::new(stack_trace_result))
+            Some(stack_trace_result)
         } else {
             None
         };
@@ -737,7 +737,7 @@ impl<
                     )
                     .into()
                 };
-                Some(Arc::new(stack_trace_result))
+                Some(stack_trace_result)
             } else {
                 None
             };
@@ -966,7 +966,7 @@ impl<
                         reverts: 0,
                     },
                     duration,
-                    stack_trace_result: Some(Arc::new(stack_trace_result)),
+                    stack_trace_result: Some(stack_trace_result),
                     ..Default::default()
                 };
             }
@@ -1041,7 +1041,7 @@ impl<
                             if reason.is_some() && revert_reason.is_none() {
                                 tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
                             } else {
-                                stack_trace = stack_trace_result.map(Arc::new);
+                                stack_trace = stack_trace_result;
                                 reason = revert_reason;
                             }
                         }
@@ -1258,7 +1258,7 @@ impl<
                         coverage: setup.coverage,
                         labeled_addresses: setup.labeled_addresses,
                         duration: elapsed,
-                        stack_trace_result: Some(Arc::new(stack_trace_result)),
+                        stack_trace_result: Some(stack_trace_result),
                     },
                 )]
                 .into(),
@@ -1504,7 +1504,7 @@ fn try_to_replay_recorded_failures<
                     fail_on_revert: invariant_config.fail_on_revert,
                     show_solidity: invariant_config.show_solidity,
                 })
-                .map_or(None, |result| result.stack_trace_result.map(Arc::new));
+                .map_or(None, |result| result.stack_trace_result);
                 let reason = if replayed_entirely {
                     Some(format!(
                         "{} replay failure",

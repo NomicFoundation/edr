@@ -19,6 +19,8 @@ pub mod receipt;
 mod spec;
 pub use self::spec::OpChainSpec;
 
+pub mod solidity_tests;
+
 /// OP transaction types
 pub mod transaction;
 

@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// Errors that can occur during the generation of the stack trace.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum SolidityTracerError<HaltReasonT> {
     /// Errors that can occur when decoding the contract metadata.
     #[error(transparent)]
@@ -28,6 +28,26 @@ pub enum SolidityTracerError<HaltReasonT> {
     /// Errors that can occur during the heuristics.
     #[error(transparent)]
     Heuristics(#[from] HeuristicsError),
+}
+
+impl<HaltReasonT> SolidityTracerError<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> SolidityTracerError<NewHaltReasonT> {
+        match self {
+            SolidityTracerError::ContractMetadata(err) => {
+                SolidityTracerError::ContractMetadata(err)
+            }
+            SolidityTracerError::ErrorInferrer(err) => {
+                SolidityTracerError::ErrorInferrer(err.map_halt_reason(conversion_fn))
+            }
+            SolidityTracerError::Heuristics(err) => SolidityTracerError::Heuristics(err),
+        }
+    }
 }
 
 /// Generates a stack trace for the provided nested trace.

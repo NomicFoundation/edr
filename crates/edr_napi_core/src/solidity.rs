@@ -3,11 +3,12 @@ mod factory;
 
 use std::sync::Arc;
 
-use edr_eth::l1;
+use edr_eth::spec::HaltReasonTrait;
+use edr_evm::interpreter::InstructionResult;
 use edr_solidity::contract_decoder::SyncNestedTraceDecoder;
 use edr_solidity_tests::{
     evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
-    multi_runner::OnTestSuiteCompletedFn,
+    multi_runner::{OnTestSuiteCompletedFn, SuiteResultAndArtifactId},
     MultiContractRunner, TestFilterConfig,
 };
 
@@ -17,26 +18,24 @@ pub trait SyncTestRunner: Send + Sync {
     fn run_tests(
         self: Box<Self>,
         test_filter: Arc<TestFilterConfig>,
-        // TODO: Convert `l1::HaltReason` to `serde_json::Value`
-        on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<l1::HaltReason>>,
+        on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<String>>,
     ) -> napi::Result<()>;
 }
 
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr + Send + Sync,
-        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, l1::HaltReason, HardforkT, TransactionT>,
-        // HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync +
-        // serde::Serialize,
+        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync + serde::Serialize,
         HardforkT: HardforkTr,
-        NestedTraceDecoderT: SyncNestedTraceDecoder<l1::HaltReason>,
+        NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
         TransactionT: TransactionEnvTr,
     > SyncTestRunner
     for MultiContractRunner<
         BlockT,
         ChainContextT,
         EvmBuilderT,
-        l1::HaltReason,
+        HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
         TransactionT,
@@ -45,9 +44,27 @@ impl<
     fn run_tests(
         self: Box<Self>,
         test_filter: Arc<TestFilterConfig>,
-        on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<l1::HaltReason>>,
+        on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<String>>,
     ) -> napi::Result<()> {
-        self.test(test_filter, on_test_suite_completed_fn);
+        self.test(
+            test_filter,
+            Arc::new(
+                move |SuiteResultAndArtifactId {
+                          artifact_id,
+                          result,
+                      }| {
+                    let result = result.map_halt_reason(|halt_reason: HaltReasonT| {
+                        serde_json::to_string(&halt_reason)
+                            .expect("Failed to serialize halt reason")
+                    });
+
+                    on_test_suite_completed_fn(SuiteResultAndArtifactId {
+                        artifact_id,
+                        result,
+                    });
+                },
+            ),
+        );
 
         Ok(())
     }

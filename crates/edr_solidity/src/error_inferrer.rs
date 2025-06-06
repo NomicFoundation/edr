@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashSet, mem};
+use std::{borrow::Cow, collections::HashSet, mem, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use edr_eth::{bytecode::opcode::OpCode, hex, spec::HaltReasonTrait, U256};
@@ -44,7 +44,7 @@ pub(crate) struct SubmessageData<HaltReasonT: HaltReasonTrait> {
 }
 
 /// Errors that can occur during the inference of the stack trace.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum InferrerError<HaltReasonT> {
     /// Errors that can occur when decoding the ABI.
     #[error("{0}")]
@@ -57,7 +57,7 @@ pub enum InferrerError<HaltReasonT> {
     ExpectedEvmStep,
     /// Serde JSON error while parsing [`ContractFunction`].
     #[error("Failed to parse function: {0}")]
-    InvalidFunction(serde_json::Error),
+    InvalidFunction(Arc<serde_json::Error>),
     /// Invalid input or logic error: Missing contract metadata.
     #[error("Missing contract")]
     MissingContract,
@@ -71,6 +71,29 @@ pub enum InferrerError<HaltReasonT> {
     /// Solidity types error.
     #[error(transparent)]
     SolidityTypes(#[from] alloy_sol_types::Error),
+}
+
+impl<HaltReasonT> InferrerError<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> InferrerError<NewHaltReasonT> {
+        match self {
+            InferrerError::Abi(err) => InferrerError::Abi(err),
+            InferrerError::ContractMetadata(err) => InferrerError::ContractMetadata(err),
+            InferrerError::ExpectedEvmStep => InferrerError::ExpectedEvmStep,
+            InferrerError::InvalidFunction(err) => InferrerError::InvalidFunction(err),
+            InferrerError::MissingContract => InferrerError::MissingContract,
+            InferrerError::MissingFunctionJumpDest(call_message) => {
+                InferrerError::MissingFunctionJumpDest(call_message.map_halt_reason(conversion_fn))
+            }
+            InferrerError::MissingSourceReference => InferrerError::MissingSourceReference,
+            InferrerError::SolidityTypes(err) => InferrerError::SolidityTypes(err),
+        }
+    }
 }
 
 // Automatic conversion from `alloy_dyn_abi::Error` to `InferrerError` is not
@@ -548,7 +571,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 
     if let Some(called_function) = called_function {
         let abi = alloy_json_abi::Function::try_from(&**called_function)
-            .map_err(InferrerError::InvalidFunction)?;
+            .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
 
         let is_valid_calldata = match &called_function.param_types {
             Some(_) => abi.abi_decode_input(calldata, true).is_ok(),

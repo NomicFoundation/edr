@@ -25,7 +25,7 @@ use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 use crate::executors::EvmError;
 
 /// Stack trace generation error during re-execution.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum StackTraceError<HaltReasonT> {
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
@@ -37,6 +37,26 @@ pub enum StackTraceError<HaltReasonT> {
     InvalidRootNode,
     #[error(transparent)]
     Tracer(#[from] SolidityTracerError<HaltReasonT>),
+}
+
+impl<HaltReasonT> StackTraceError<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> StackTraceError<NewHaltReasonT> {
+        match self {
+            StackTraceError::ContractDecoder(err) => StackTraceError::ContractDecoder(err),
+            StackTraceError::Evm(err) => StackTraceError::Evm(err),
+            StackTraceError::FailingSetup(reason) => StackTraceError::FailingSetup(reason),
+            StackTraceError::InvalidRootNode => StackTraceError::InvalidRootNode,
+            StackTraceError::Tracer(err) => {
+                StackTraceError::Tracer(err.map_halt_reason(conversion_fn))
+            }
+        }
+    }
 }
 
 // `EvmError` is not `Clone`
@@ -242,7 +262,7 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
 }
 
 /// The possible outcomes from computing stack traces.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum StackTraceResult<HaltReasonT> {
     /// The stack trace result
     Success(Vec<StackTraceEntry>),
@@ -265,6 +285,31 @@ pub enum StackTraceResult<HaltReasonT> {
         /// urlOrAlias) external returns (uint256 forkId);`.
         impure_cheatcodes: Vec<Cow<'static, str>>,
     },
+}
+
+impl<HaltReasonT> StackTraceResult<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> StackTraceResult<NewHaltReasonT> {
+        match self {
+            StackTraceResult::Success(stack_trace) => StackTraceResult::Success(stack_trace),
+            StackTraceResult::Error(error) => {
+                StackTraceResult::Error(error.map_halt_reason(conversion_fn))
+            }
+            StackTraceResult::HeuristicFailed => StackTraceResult::HeuristicFailed,
+            StackTraceResult::UnsafeToReplay {
+                global_fork_latest,
+                impure_cheatcodes,
+            } => StackTraceResult::UnsafeToReplay {
+                global_fork_latest,
+                impure_cheatcodes,
+            },
+        }
+    }
 }
 
 impl<HaltReasonT: HaltReasonTr> From<Result<Vec<StackTraceEntry>, StackTraceError<HaltReasonT>>>

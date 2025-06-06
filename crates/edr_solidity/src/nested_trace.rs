@@ -48,6 +48,23 @@ pub struct PrecompileMessage<HaltReasonT> {
     pub depth: usize,
 }
 
+impl<HaltReasonT> PrecompileMessage<HaltReasonT> {
+    pub fn map_halt_reason<ConversionFnT: Fn(HaltReasonT) -> NewHaltReasonT, NewHaltReasonT>(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> PrecompileMessage<NewHaltReasonT> {
+        PrecompileMessage {
+            precompile: self.precompile,
+            calldata: self.calldata,
+            value: self.value,
+            return_data: self.return_data,
+            exit: self.exit.map_halt_reason(conversion_fn),
+            gas_used: self.gas_used,
+            depth: self.depth,
+        }
+    }
+}
+
 /// Represents a create message.
 #[derive(Clone, Debug)]
 pub struct CreateMessage<HaltReasonT> {
@@ -74,6 +91,33 @@ pub struct CreateMessage<HaltReasonT> {
     pub gas_used: u64,
     /// Depth of the message.
     pub depth: usize,
+}
+
+impl<HaltReasonT> CreateMessage<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> CreateMessage<NewHaltReasonT> {
+        CreateMessage {
+            number_of_subtraces: self.number_of_subtraces,
+            steps: self
+                .steps
+                .into_iter()
+                .map(|step| step.map_halt_reason(conversion_fn))
+                .collect(),
+            contract_meta: self.contract_meta,
+            deployed_contract: self.deployed_contract,
+            code: self.code,
+            value: self.value,
+            return_data: self.return_data,
+            exit: self.exit.map_halt_reason(conversion_fn),
+            gas_used: self.gas_used,
+            depth: self.depth,
+        }
+    }
 }
 
 /// Represents a call message with contract metadata.
@@ -106,6 +150,35 @@ pub struct CallMessage<HaltReasonT> {
     pub gas_used: u64,
     /// Depth of the message.
     pub depth: usize,
+}
+
+impl<HaltReasonT> CallMessage<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> CallMessage<NewHaltReasonT> {
+        CallMessage {
+            number_of_subtraces: self.number_of_subtraces,
+            steps: self
+                .steps
+                .into_iter()
+                .map(|step| step.map_halt_reason(conversion_fn))
+                .collect(),
+            contract_meta: self.contract_meta,
+            calldata: self.calldata,
+            address: self.address,
+            code_address: self.code_address,
+            code: self.code,
+            value: self.value,
+            return_data: self.return_data,
+            exit: self.exit.map_halt_reason(conversion_fn),
+            gas_used: self.gas_used,
+            depth: self.depth,
+        }
+    }
 }
 
 /// Represents a create or call message.
@@ -218,6 +291,29 @@ pub enum NestedTraceStep<HaltReasonT> {
     Precompile(PrecompileMessage<HaltReasonT>),
     /// Minimal EVM step that contains only PC (program counter).
     Evm(EvmStep),
+}
+
+impl<HaltReasonT> NestedTraceStep<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> NestedTraceStep<NewHaltReasonT> {
+        match self {
+            NestedTraceStep::Create(create) => {
+                NestedTraceStep::Create(create.map_halt_reason(conversion_fn))
+            }
+            NestedTraceStep::Call(call) => {
+                NestedTraceStep::Call(call.map_halt_reason(conversion_fn))
+            }
+            NestedTraceStep::Precompile(precompile) => {
+                NestedTraceStep::Precompile(precompile.map_halt_reason(conversion_fn))
+            }
+            NestedTraceStep::Evm(evm_step) => NestedTraceStep::Evm(evm_step),
+        }
+    }
 }
 
 /// Minimal EVM step that contains only PC (program counter).

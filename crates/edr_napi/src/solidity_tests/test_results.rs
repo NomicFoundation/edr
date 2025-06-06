@@ -37,8 +37,8 @@ pub struct SuiteResult {
     pub warnings: Vec<String>,
 }
 
-impl From<SuiteResultAndArtifactId<edr_eth::l1::HaltReason>> for SuiteResult {
-    fn from(value: SuiteResultAndArtifactId<edr_eth::l1::HaltReason>) -> Self {
+impl From<SuiteResultAndArtifactId<String>> for SuiteResult {
+    fn from(value: SuiteResultAndArtifactId<String>) -> Self {
         Self {
             id: value.artifact_id.into(),
             duration_ms: BigInt::from(value.result.duration.as_millis()),
@@ -79,7 +79,7 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    stack_trace_result: Option<Arc<StackTraceResult<edr_eth::l1::HaltReason>>>,
+    stack_trace_result: Option<Arc<StackTraceResult<String>>>,
 }
 
 /// The stack trace result
@@ -180,18 +180,8 @@ impl TestResult {
     }
 }
 
-impl
-    From<(
-        String,
-        edr_solidity_tests::result::TestResult<edr_eth::l1::HaltReason>,
-    )> for TestResult
-{
-    fn from(
-        (name, test_result): (
-            String,
-            edr_solidity_tests::result::TestResult<edr_eth::l1::HaltReason>,
-        ),
-    ) -> Self {
+impl From<(String, edr_solidity_tests::result::TestResult<String>)> for TestResult {
+    fn from((name, test_result): (String, edr_solidity_tests::result::TestResult<String>)) -> Self {
         Self {
             name,
             status: test_result.status.into(),
@@ -244,7 +234,7 @@ impl
                 }),
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
-            stack_trace_result: test_result.stack_trace_result,
+            stack_trace_result: test_result.stack_trace_result.map(Arc::new),
         }
     }
 }
