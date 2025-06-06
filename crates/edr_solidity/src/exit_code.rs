@@ -4,7 +4,7 @@ use edr_eth::{l1, spec::HaltReasonTrait};
 
 /// Represents the exit code of the EVM.
 #[derive(Clone, Debug)]
-pub enum ExitCode<HaltReasonT: HaltReasonTrait> {
+pub enum ExitCode<HaltReasonT> {
     /// Execution was successful.
     Success,
     /// Execution was reverted.

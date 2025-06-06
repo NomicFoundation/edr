@@ -45,7 +45,7 @@ pub(crate) struct SubmessageData<HaltReasonT: HaltReasonTrait> {
 
 /// Errors that can occur during the inference of the stack trace.
 #[derive(Debug, thiserror::Error)]
-pub enum InferrerError<HaltReasonT: HaltReasonTrait> {
+pub enum InferrerError<HaltReasonT> {
     /// Errors that can occur when decoding the ABI.
     #[error("{0}")]
     Abi(String),

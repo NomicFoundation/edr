@@ -153,7 +153,7 @@ impl<HaltReasonT: HaltReasonTrait> TestOutcome<HaltReasonT> {
 /// A set of test results for a single test suite, which is all the tests in a
 /// single contract.
 #[derive(Clone, Debug, Serialize)]
-pub struct SuiteResult<HaltReasonT: HaltReasonTrait> {
+pub struct SuiteResult<HaltReasonT> {
     /// Wall clock time it took to execute all tests in this suite.
     #[serde(with = "humantime_serde")]
     pub duration: Duration,
@@ -302,7 +302,7 @@ impl TestStatus {
 /// The result of an executed test.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[derive_where(Default)]
-pub struct TestResult<HaltReasonT: HaltReasonTrait> {
+pub struct TestResult<HaltReasonT> {
     /// The test status, indicating whether the test case succeeded, failed, or
     /// was marked as skipped. This means that the transaction executed
     /// properly, the test was marked as skipped with `vm.skip()`, or that

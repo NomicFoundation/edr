@@ -2457,6 +2457,7 @@ dependencies = [
  "edr_provider",
  "edr_rpc_client",
  "edr_solidity",
+ "edr_solidity_tests",
  "itertools 0.12.1",
  "napi",
  "serde",

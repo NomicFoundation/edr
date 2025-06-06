@@ -31,6 +31,11 @@ use crate::{
     TestOptions,
 };
 
+pub struct SuiteResultAndArtifactId<HaltReasonT> {
+    pub artifact_id: ArtifactId,
+    pub result: SuiteResult<HaltReasonT>,
+}
+
 /// A deployable test contract
 #[derive(Debug, Clone)]
 pub struct TestContract {
@@ -38,6 +43,16 @@ pub struct TestContract {
     pub abi: JsonAbi,
     /// The test contract bytecode
     pub bytecode: Bytes,
+}
+
+pub trait OnTestSuiteCompletedFn<HaltReasonT>:
+    Fn(SuiteResultAndArtifactId<HaltReasonT>) + Send + Sync
+{
+}
+
+impl<FnT, HaltReasonT> OnTestSuiteCompletedFn<HaltReasonT> for FnT where
+    FnT: Fn(SuiteResultAndArtifactId<HaltReasonT>) + Send + Sync
+{
 }
 
 pub type TestContracts = BTreeMap<ArtifactId, TestContract>;
@@ -278,14 +293,23 @@ impl<
         filter: impl TestFilter + 'static,
     ) -> BTreeMap<String, SuiteResult<HaltReasonT>> {
         let (tx_results, mut rx_results) =
-            tokio::sync::mpsc::unbounded_channel::<(ArtifactId, SuiteResult<HaltReasonT>)>();
+            tokio::sync::mpsc::unbounded_channel::<SuiteResultAndArtifactId<HaltReasonT>>();
 
-        self.test(Arc::new(filter), tx_results);
+        self.test(
+            Arc::new(filter),
+            Arc::new(move |suite_result| {
+                let _ = tx_results.clone().send(suite_result);
+            }),
+        );
 
         let mut results = BTreeMap::new();
 
-        while let Some((id, result)) = rx_results.recv().await {
-            results.insert(id.identifier(), result);
+        while let Some(SuiteResultAndArtifactId {
+            artifact_id,
+            result,
+        }) = rx_results.recv().await
+        {
+            results.insert(artifact_id.identifier(), result);
         }
 
         results
@@ -304,7 +328,7 @@ impl<
     pub fn test(
         mut self,
         filter: Arc<impl TestFilter + 'static>,
-        tx: tokio::sync::mpsc::UnboundedSender<(ArtifactId, SuiteResult<HaltReasonT>)>,
+        on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<HaltReasonT>>,
     ) {
         trace!("running all tests");
 
@@ -324,21 +348,30 @@ impl<
         );
 
         let this = Arc::new(self);
-        let args = contracts
-            .into_iter()
-            .zip(std::iter::repeat((this, fork, filter, tx)));
+        let args = contracts.into_iter().zip(std::iter::repeat((
+            this,
+            fork,
+            filter,
+            on_test_suite_completed_fn,
+        )));
 
         let handle = tokio::runtime::Handle::current();
         handle.spawn(async {
             futures::stream::iter(args)
                 .for_each_concurrent(
                     Some(num_cpus::get()),
-                    |((id, contract), (this, fork, filter, tx))| async move {
+                    |((id, contract), (this, fork, filter, on_test_suite_completed_fn))| async move {
                         tokio::task::spawn_blocking(move || {
                             let handle = tokio::runtime::Handle::current();
                             let result =
                                 this.run_tests(&id, &contract, fork, filter.as_ref(), &handle);
-                            let _ = tx.send((id, result));
+
+                            on_test_suite_completed_fn(
+                                SuiteResultAndArtifactId {
+                                    artifact_id: id,
+                                    result,
+                                },
+                            );
                         })
                         .await
                         .expect("failed to join task");

@@ -2,13 +2,11 @@
 pub mod factory;
 mod response;
 
-use std::{fmt::Formatter, sync::Arc};
+use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::contract_decoder::ContractDecoder;
-use napi::{
-    bindgen_prelude::Uint8Array, tokio::runtime, Either, Env, JsFunction, JsObject, Status,
-};
+use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 
 pub use self::factory::ProviderFactory;
@@ -107,81 +105,5 @@ impl Provider {
             })
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
-    }
-}
-
-/// Tracing config for Solidity stack trace generation.
-#[napi(object)]
-pub struct TracingConfigWithBuffers {
-    /// Build information to use for decoding contracts. Either a Hardhat v2
-    /// build info file that contains both input and output or a Hardhat v3
-    /// build info file that doesn't contain output and a separate output file.
-    pub build_infos: Option<Either<Vec<Uint8Array>, Vec<BuildInfoAndOutput>>>,
-    /// Whether to ignore contracts whose name starts with "Ignored".
-    pub ignore_contracts: Option<bool>,
-}
-
-impl std::fmt::Debug for TracingConfigWithBuffers {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let build_infos = self.build_infos.as_ref().map_or_else(
-            || "None".to_string(),
-            |bi| match bi {
-                Either::A(arrays) => format!("Uint8Array[{}]", arrays.len()),
-                Either::B(build_infos) => format!("BuildInfoAndOutput[{}]", build_infos.len()),
-            },
-        );
-        f.debug_struct("TracingConfigWithBuffers")
-            .field("build_infos", &build_infos)
-            .field("ignore_contracts", &self.ignore_contracts)
-            .finish()
-    }
-}
-
-/// Hardhat V3 build info where the compiler output is not part of the build
-/// info file.
-#[napi(object)]
-pub struct BuildInfoAndOutput {
-    /// The build info input file
-    pub build_info: Uint8Array,
-    /// The build info output file
-    pub output: Uint8Array,
-}
-
-impl<'a> From<&'a BuildInfoAndOutput>
-    for edr_solidity::artifacts::BuildInfoBufferSeparateOutput<'a>
-{
-    fn from(value: &'a BuildInfoAndOutput) -> Self {
-        Self {
-            build_info: value.build_info.as_ref(),
-            output: value.output.as_ref(),
-        }
-    }
-}
-
-impl<'a> From<&'a TracingConfigWithBuffers>
-    for edr_solidity::artifacts::BuildInfoConfigWithBuffers<'a>
-{
-    fn from(value: &'a TracingConfigWithBuffers) -> Self {
-        use edr_solidity::artifacts::{BuildInfoBufferSeparateOutput, BuildInfoBuffers};
-
-        let build_infos = value.build_infos.as_ref().map(|infos| match infos {
-            Either::A(with_output) => BuildInfoBuffers::WithOutput(
-                with_output
-                    .iter()
-                    .map(std::convert::AsRef::as_ref)
-                    .collect(),
-            ),
-            Either::B(separate_output) => BuildInfoBuffers::SeparateInputOutput(
-                separate_output
-                    .iter()
-                    .map(BuildInfoBufferSeparateOutput::from)
-                    .collect(),
-            ),
-        });
-
-        Self {
-            build_infos,
-            ignore_contracts: value.ignore_contracts,
-        }
     }
 }

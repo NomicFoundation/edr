@@ -18,7 +18,7 @@ use crate::{
 
 /// Errors that can occur during the generation of the stack trace.
 #[derive(Debug, thiserror::Error)]
-pub enum SolidityTracerError<HaltReasonT: HaltReasonTrait> {
+pub enum SolidityTracerError<HaltReasonT> {
     /// Errors that can occur when decoding the contract metadata.
     #[error(transparent)]
     ContractMetadata(#[from] ContractMetadataError),

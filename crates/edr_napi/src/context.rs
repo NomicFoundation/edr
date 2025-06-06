@@ -1,11 +1,22 @@
 use std::sync::Arc;
 
 use edr_eth::HashMap;
-use edr_napi_core::provider::{self, SyncProviderFactory};
+use edr_napi_core::{
+    provider::{self, SyncProviderFactory},
+    solidity,
+};
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity_tests::{
+    decode::RevertDecoder,
+    multi_runner::{TestContract, TestContracts},
+    TestFilterConfig,
+};
 use napi::{
+    threadsafe_function::{
+        ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
+    },
     tokio::{runtime, sync::Mutex as AsyncMutex},
-    Env, JsObject,
+    Env, JsFunction, JsObject,
 };
 use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
@@ -14,6 +25,12 @@ use crate::{
     config::{ProviderConfig, TracingConfigWithBuffers},
     logger::LoggerConfig,
     provider::{Provider, ProviderFactory},
+    solidity_tests::{
+        artifact::{Artifact, ArtifactId},
+        config::SolidityTestRunnerConfigArgs,
+        test_results::SuiteResult,
+        LinkingOutput,
+    },
     subscription::SubscriptionConfig,
 };
 
@@ -49,9 +66,11 @@ impl EdrContext {
         let logger_config = logger_config.resolve(&env)?;
 
         // TODO: https://github.com/NomicFoundation/edr/issues/760
-        let build_info_config =
-            edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers((&tracing_config).into())
-                .map_err(|err| napi::Error::from_reason(err.to_string()))?;
+        let build_info_config = edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers(
+            (&edr_napi_core::solidity::config::TracingConfigWithBuffers::from(tracing_config))
+                .into(),
+        )
+        .map_err(|err| napi::Error::from_reason(err.to_string()))?;
 
         let contract_decoder = ContractDecoder::new(&build_info_config).map_or_else(
             |error| Err(napi::Error::from_reason(error.to_string())),
@@ -111,10 +130,149 @@ impl EdrContext {
         context.register_provider_factory(chain_type, factory.as_inner().clone());
         Ok(())
     }
+
+    /// Executes Solidity tests.
+    ///
+    /// The function will return as soon as test execution is started.
+    /// The progress callback will be called with the results of each test
+    /// suite. It is up to the caller to track how many times the callback
+    /// is called to know when all tests are done.
+    #[napi(ts_return_type = "Promise<void>")]
+    pub fn run_solidity_tests(
+        &self,
+        env: Env,
+        chain_type: String,
+        artifacts: Vec<Artifact>,
+        test_suites: Vec<ArtifactId>,
+        config_args: SolidityTestRunnerConfigArgs,
+        tracing_config: TracingConfigWithBuffers,
+        #[napi(ts_arg_type = "(result: SuiteResult) => void")]
+        on_test_suite_completed_callback: JsFunction,
+    ) -> napi::Result<JsObject> {
+        let (deferred, promise) = env.create_deferred()?;
+
+        let on_test_suite_completed_callback: ThreadsafeFunction<_, ErrorStrategy::Fatal> =
+            match on_test_suite_completed_callback.create_threadsafe_function(
+                // Unbounded queue size
+                0,
+                |ctx: ThreadSafeCallContext<SuiteResult>| Ok(vec![ctx.value]),
+            ) {
+                Ok(value) => value,
+                Err(error) => {
+                    deferred.reject(error);
+                    return Ok(promise);
+                }
+            };
+
+        let runtime = runtime::Handle::current();
+
+        let context = self.inner.clone();
+        runtime.clone().spawn(async move {
+            macro_rules! try_or_reject_deferred {
+                ($expr:expr) => {
+                    match $expr {
+                        Ok(value) => value,
+                        Err(error) => {
+                            deferred.reject(error);
+                            return;
+                        }
+                    }
+                };
+            }
+            let factory = {
+                let context = context.lock().await;
+                try_or_reject_deferred!(context.solidity_test_runner_factory(&chain_type).await)
+            };
+
+            let linking_output =
+                try_or_reject_deferred!(LinkingOutput::link(&config_args.project_root, artifacts));
+
+            // Build revert decoder from ABIs of all artifacts.
+            let abis = linking_output
+                .known_contracts
+                .iter()
+                .map(|(_, contract)| &contract.abi);
+
+            let revert_decoder = RevertDecoder::new().with_abis(abis);
+
+            let test_suites = try_or_reject_deferred!(test_suites
+                .into_iter()
+                .map(edr_solidity::artifacts::ArtifactId::try_from)
+                .collect::<Result<Vec<_>, _>>());
+
+            let contracts = try_or_reject_deferred!(test_suites
+                .iter()
+                .map(|artifact_id| {
+                    let contract_data = linking_output
+                        .known_contracts
+                        .get(artifact_id)
+                        .ok_or_else(|| {
+                            napi::Error::new(
+                                napi::Status::GenericFailure,
+                                format!("Unknown contract: {}", artifact_id.identifier()),
+                            )
+                        })?;
+
+                    let bytecode = contract_data.bytecode.clone().ok_or_else(|| {
+                        napi::Error::new(
+                            napi::Status::GenericFailure,
+                            format!(
+                                "No bytecode for test suite contract: {}",
+                                artifact_id.identifier()
+                            ),
+                        )
+                    })?;
+
+                    let test_contract = TestContract {
+                        abi: contract_data.abi.clone(),
+                        bytecode,
+                    };
+
+                    Ok((artifact_id.clone(), test_contract))
+                })
+                .collect::<napi::Result<TestContracts>>());
+
+            let test_filter: Arc<TestFilterConfig> =
+                Arc::new(try_or_reject_deferred!(config_args.try_get_test_filter()));
+
+            let config = try_or_reject_deferred!(config_args.try_into());
+
+            let test_runner = try_or_reject_deferred!(factory.create_test_runner(
+                runtime,
+                config,
+                contracts,
+                linking_output.known_contracts,
+                linking_output.libs_to_deploy,
+                revert_decoder,
+                tracing_config.into()
+            ));
+
+            let () = try_or_reject_deferred!(test_runner.run_tests(
+                test_filter,
+                Arc::new(move |suite_result| {
+                    let status = on_test_suite_completed_callback
+                        .call(suite_result.into(), ThreadsafeFunctionCallMode::Blocking);
+
+                    // This should always succeed since we're using an unbounded queue. We add an
+                    // assertion for completeness.
+                    assert_eq!(
+                        status,
+                        napi::Status::Ok,
+                        "Failed to call on_test_suite_completed_callback with status: {status}"
+                    );
+                }),
+            ));
+
+            deferred.resolve(move |_env| Ok(()));
+        });
+
+        Ok(promise)
+    }
 }
 
 pub struct Context {
     provider_factories: HashMap<String, Arc<dyn SyncProviderFactory>>,
+    solidity_test_runner_factories: HashMap<String, Arc<dyn solidity::SyncTestRunnerFactory>>,
     #[cfg(feature = "tracing")]
     _tracing_write_guard: tracing_flame::FlushGuard<std::io::BufWriter<std::fs::File>>,
 }
@@ -158,6 +316,7 @@ impl Context {
 
         Ok(Self {
             provider_factories: HashMap::new(),
+            solidity_test_runner_factories: HashMap::new(),
             #[cfg(feature = "tracing")]
             _tracing_write_guard: guard,
         })
@@ -170,6 +329,15 @@ impl Context {
         factory: Arc<dyn SyncProviderFactory>,
     ) {
         self.provider_factories.insert(chain_type, factory);
+    }
+
+    pub fn register_solidity_test_runner(
+        &mut self,
+        chain_type: String,
+        factory: Arc<dyn solidity::SyncTestRunnerFactory>,
+    ) {
+        self.solidity_test_runner_factories
+            .insert(chain_type, factory);
     }
 
     /// Tries to create a new provider for the provided chain type and
@@ -195,6 +363,20 @@ impl Context {
             Err(napi::Error::new(
                 napi::Status::GenericFailure,
                 "Provider for provided chain type does not exist",
+            ))
+        }
+    }
+
+    pub async fn solidity_test_runner_factory(
+        &self,
+        chain_type: &str,
+    ) -> napi::Result<Arc<dyn solidity::SyncTestRunnerFactory>> {
+        if let Some(factory) = self.solidity_test_runner_factories.get(chain_type) {
+            Ok(Arc::clone(factory))
+        } else {
+            Err(napi::Error::new(
+                napi::Status::GenericFailure,
+                "Solidity test runner for provided chain type does not exist",
             ))
         }
     }
