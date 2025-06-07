@@ -1,0 +1,49 @@
+name: Hardhat Regression Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: 'The preset to use'
+        required: false
+        type: choice
+        options:
+          - solidity-test
+          - solidity-compile
+          - default
+        default: 'default'
+      hardhat-ref:
+        description: 'The branch, tag or SHA of hardhat to test against'
+        required: false
+        type: string
+      edr-ref:
+        description: 'The branch, tag or SHA of edr to test against'
+        required: false
+        type: string
+      repositories:
+        description: 'A list of repositories to test against'
+        required: false
+        type: string
+      runners:
+        description: 'A list of runners to test against'
+        required: false
+        type: string
+      commands:
+        description: 'A list of commands to test against'
+        required: false
+        type: string
+
+jobs:
+  test:
+    name: Run the regression tests
+    # TODO: Change the ref to v-next once the reusable-regression-tests branch is merged
+    uses: NomicFoundation/hardhat/.github/workflows/regression-tests.yml@reusable-regression-tests
+    with:
+      # TODO: Change the ref to v-next once the reusable-regression-tests branch is merged
+      ref: reusable-regression-tests
+      preset: ${{ inputs.preset }}
+      hardhat-ref: ${{ inputs.hardhat-ref }}
+      edr-ref: ${{ inputs.edr-ref || github.ref }}
+      repositories: ${{ inputs.repositories }}
+      runners: ${{ inputs.runners }}
+      commands: ${{ inputs.commands }}
