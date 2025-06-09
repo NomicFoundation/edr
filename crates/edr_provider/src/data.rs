@@ -8,7 +8,7 @@ use std::{
     ffi::OsString,
     fmt::Debug,
     num::{NonZeroU64, NonZeroUsize},
-    sync::Arc,
+    sync::{Arc, LazyLock},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -34,7 +34,7 @@ use edr_evm::{
     },
     chain_spec::{ChainSpec, L1ChainSpec},
     db::StateRef,
-    debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
+    debug_trace_transaction, execution_result_to_debug_result, hex, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
@@ -88,6 +88,36 @@ const DEFAULT_MAX_CACHED_STATES: usize = 100_000;
 const EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES: &str =
     "__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES";
 const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
+
+// Common test accounts that have had their private keys leaked.
+static LEAKED_ADDRESSES: LazyLock<HashSet<Address>> = LazyLock::new(|| {
+    HashSet::from_iter(
+        [
+            hex!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
+            hex!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
+            hex!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
+            hex!("90f79bf6eb2c4f870365e785982e1f101e93b906"),
+            hex!("15d34aaf54267db7d7c367839aaf71a00a2c6a65"),
+            hex!("9965507d1a55bcc2695c58ba16fb37d819b0a4dc"),
+            hex!("976ea74026e726554db657fa54763abd0c3a0aa9"),
+            hex!("14dc79964da2c08b23698b3d3cc7ca32193d9955"),
+            hex!("23618e81e3f5cdf7f54c3d65f7fbc0abf5b21e8f"),
+            hex!("a0ee7a142d267c1f36714e4a8f75612f20a79720"),
+            hex!("bcd4042de499d14e55001ccbb24a551f3b954096"),
+            hex!("71be63f3384f5fb98995898a86b02fb2426c5788"),
+            hex!("fabb0ac9d68b0b445fb7357272ff202c5651694a"),
+            hex!("1cbd3b2770909d4e10f157cabc84c7264073c9ec"),
+            hex!("df3e18d64bc6a983f673ab319ccae4f1a57c7097"),
+            hex!("cd3b766ccdd6ae721141f452c550ca635964ce71"),
+            hex!("2546bcd3c84621e976d8185a91a922ae77ecec30"),
+            hex!("bda5747bfd65f08deb54cb465eb87d40e51b197e"),
+            hex!("dd2fd4581271e230360230f9337d5c0430bf44c0"),
+            hex!("8626f6940e2eb28930efb4cef49b2d1f2c9c1199"),
+        ]
+        .into_iter()
+        .map(|a| Address::from_slice(&a)),
+    )
+});
 
 /// The result of executing an `eth_call`.
 #[derive(Clone, Debug)]
@@ -2670,8 +2700,14 @@ fn create_blockchain_and_state(
                     } = &mut account.info;
 
                     *nonce = account_info.nonce;
-                    *code = account_info.code;
-                    *code_hash = account_info.code_hash;
+
+                    // We avoid copying code from addresses that are known to have had their
+                    // private keys leaked. These tend to be delegated to sweepers that interfere
+                    // with tests.
+                    if !LEAKED_ADDRESSES.contains(&address) {
+                        *code = account_info.code;
+                        *code_hash = account_info.code_hash;
+                    }
                 });
             }
 
@@ -2840,7 +2876,7 @@ pub(crate) mod test_utils {
 
     impl ProviderTestFixture {
         pub(crate) fn new_local() -> anyhow::Result<Self> {
-            Self::with_fork(None)
+            Self::with_fork(None, None)
         }
 
         #[cfg(feature = "test-remote")]
@@ -2848,15 +2884,26 @@ pub(crate) mod test_utils {
             use edr_test_utils::env::get_alchemy_url;
 
             let fork_url = url.unwrap_or(get_alchemy_url());
-            Self::with_fork(Some(fork_url))
+            Self::with_fork(Some(fork_url), None)
         }
 
-        fn with_fork(fork: Option<String>) -> anyhow::Result<Self> {
+        #[cfg(feature = "test-remote")]
+        pub(crate) fn new_forked_at(
+            url: Option<String>,
+            block_number: Option<u64>,
+        ) -> anyhow::Result<Self> {
+            use edr_test_utils::env::get_alchemy_url;
+
+            let fork_url = url.unwrap_or(get_alchemy_url());
+            Self::with_fork(Some(fork_url), block_number)
+        }
+
+        fn with_fork(fork: Option<String>, block_number: Option<u64>) -> anyhow::Result<Self> {
             let fork = fork.map(|json_rpc_url| {
                 ForkConfig {
                     json_rpc_url,
                     // Random recent block for better cache consistency
-                    block_number: Some(FORK_BLOCK_NUMBER),
+                    block_number: block_number.or(Some(FORK_BLOCK_NUMBER)),
                     http_headers: None,
                 }
             });
@@ -3037,6 +3084,33 @@ mod tests {
         let balance = fixture.provider_data.balance(account, Some(&block_spec))?;
 
         assert_eq!(balance, one_ether());
+
+        Ok(())
+    }
+
+    #[cfg(feature = "test-remote")]
+    #[test]
+    fn test_local_account_code_forked() -> anyhow::Result<()> {
+        let mut fixture = ProviderTestFixture::new_forked_at(None, Some(22437572))?;
+
+        let account = *fixture
+            .provider_data
+            .local_accounts
+            .keys()
+            .next()
+            .expect("there are local accounts");
+
+        assert_eq!(
+            account,
+            "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".parse::<Address>()?
+        );
+
+        let last_block_number = fixture.provider_data.last_block_number();
+        let block_spec = BlockSpec::Number(last_block_number);
+
+        let code = fixture.provider_data.get_code(account, Some(&block_spec))?;
+
+        assert_eq!(code, Bytes::new());
 
         Ok(())
     }
