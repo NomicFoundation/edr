@@ -14,6 +14,7 @@ use foundry_evm::{
     constants::HARDHAT_CONSOLE_ADDRESS,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, L1EvmBuilder, TransactionEnvTr,
+        TransactionErrorTrait,
     },
     traces::{CallKind, CallTraceDecoder, DecodedCallData, TraceKind},
 };
@@ -65,9 +66,10 @@ macro_rules! test_repro {
 async fn runner_config<
     BlockT: BlockEnvTr,
     ChainContextT: ChainContextTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TransactionT>,
     HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 >(
     sender: Option<Address>,
@@ -77,6 +79,7 @@ async fn runner_config<
         EvmBuilderT,
         HaltReasonT,
         HardforkT,
+        TransactionErrorT,
         TransactionT,
     >,
 ) -> SolidityTestRunnerConfig<HardforkT> {
@@ -104,7 +107,8 @@ async fn repro_config(
     should_fail: bool,
     sender: Option<Address>,
     test_data: &L1ForgeTestData,
-) -> TestConfig<BlockEnv, (), L1EvmBuilder, l1::HaltReason, l1::SpecId, TxEnv> {
+) -> TestConfig<BlockEnv, (), L1EvmBuilder, l1::HaltReason, l1::SpecId, l1::InvalidTransaction, TxEnv>
+{
     let config = runner_config(sender, test_data).await;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let filter = repro_filter(issue);

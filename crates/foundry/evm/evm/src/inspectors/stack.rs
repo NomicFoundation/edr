@@ -6,7 +6,7 @@ use foundry_evm_core::{
     backend::{update_state, CheatcodeBackend},
     evm_context::{
         split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr,
-        IntoEvmContext as _, TransactionEnvTr,
+        IntoEvmContext as _, TransactionEnvTr, TransactionErrorTrait,
     },
 };
 use foundry_evm_coverage::HitMaps;
@@ -134,12 +134,21 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
     /// See also [`revm::Evm::inspect_ref`] and [`revm::Evm::commit_ref`].
     pub fn build<
         BlockT: BlockEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
+        TransactionErrorT: TransactionErrorTrait,
         TxT: TransactionEnvTr,
     >(
         self,
-    ) -> InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT> {
+    ) -> InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    > {
         let Self {
             block,
             chain_context,
@@ -241,16 +250,26 @@ pub struct InspectorData<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     ChainContextT: ChainContextTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
 > {
     pub logs: Vec<Log>,
     pub labels: AddressHashMap<String>,
     pub traces: Option<SparsedTraceArena>,
     pub coverage: Option<HitMaps>,
-    pub cheatcodes:
-        Option<Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>>,
+    pub cheatcodes: Option<
+        Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    >,
 }
 
 /// Contains data about the state of outer/main EVM which created and invoked
@@ -281,13 +300,23 @@ pub struct InnerContextData {
 pub struct InspectorStack<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub cheatcodes:
-        Option<Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>>,
+    pub cheatcodes: Option<
+        Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    >,
     pub coverage: Option<CoverageCollector>,
     pub fuzzer: Option<Fuzzer>,
     pub log_collector: Option<LogCollector>,
@@ -303,11 +332,21 @@ pub struct InspectorStack<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-    > InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+    >
+    InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
 {
     /// Creates a new inspector stack.
     ///
@@ -352,7 +391,15 @@ impl<
     #[inline]
     pub fn set_cheatcodes(
         &mut self,
-        cheatcodes: Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        cheatcodes: Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) {
         self.cheatcodes = Some(cheatcodes);
     }
@@ -420,7 +467,15 @@ impl<
     #[inline]
     pub fn collect(
         self,
-    ) -> InspectorData<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT> {
+    ) -> InspectorData<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    > {
         let traces = self
             .tracer
             .map(foundry_evm_traces::TracingInspector::into_traces)
@@ -454,8 +509,15 @@ impl<
     }
 
     fn do_call_end<
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
-            + DatabaseCommit,
+        DatabaseT: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            > + DatabaseCommit,
     >(
         &mut self,
         ecx: &mut EvmContext<
@@ -496,7 +558,15 @@ impl<
     /// backwards compatibility Updates tx.origin to the value before
     /// entering inner context
     fn adjust_evm_data_for_inner_context<
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &mut self,
         ecx: &mut EvmContext<
@@ -527,15 +597,32 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr + Into<InstructionResult>,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-    > InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+    >
+    InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
 {
     fn transact_inner<
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
-            + DatabaseCommit,
+        DatabaseT: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            > + DatabaseCommit,
     >(
         &mut self,
         ecx: &mut EvmContext<
@@ -714,16 +801,33 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr + Into<InstructionResult>,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
-            + DatabaseCommit,
+        DatabaseT: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            > + DatabaseCommit,
     >
     Inspector<
         EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
-    > for InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+    >
+    for InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
 {
     fn initialize_interp(
         &mut self,

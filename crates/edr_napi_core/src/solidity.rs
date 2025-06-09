@@ -7,7 +7,10 @@ use edr_eth::spec::HaltReasonTrait;
 use edr_evm::interpreter::InstructionResult;
 use edr_solidity::contract_decoder::SyncNestedTraceDecoder;
 use edr_solidity_tests::{
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
     multi_runner::{OnTestSuiteCompletedFn, SuiteResultAndArtifactId},
     MultiContractRunner, TestFilterConfig,
 };
@@ -25,10 +28,19 @@ pub trait SyncTestRunner: Send + Sync {
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr + Send + Sync,
-        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<
+                BlockT,
+                ChainContextT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                TransactionT,
+            >,
         HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync + serde::Serialize,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     > SyncTestRunner
     for MultiContractRunner<
@@ -38,6 +50,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >
 {

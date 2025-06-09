@@ -16,6 +16,7 @@ use foundry_evm::{
     decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
     },
     executors::ExecutorBuilder,
     fork::CreateFork,
@@ -63,10 +64,11 @@ pub type TestContracts = BTreeMap<ArtifactId, TestContract>;
 pub struct MultiContractRunner<
     BlockT: BlockEnvTr,
     ChainContextT: ChainContextTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TransactionT>,
     HaltReasonT: HaltReasonTrait,
     HardforkT: HardforkTr,
     NestedTraceDecoderT,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 > {
     /// The project root directory.
@@ -99,16 +101,24 @@ pub struct MultiContractRunner<
     solidity_fuzz_fixtures: bool,
     /// Settings related to fuzz and/or invariant tests
     test_options: TestOptions,
-    _phantom: PhantomData<fn(ChainContextT, EvmBuilderT, HaltReasonT)>,
+    _phantom: PhantomData<fn(ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
 
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        EvmBuilderT: EvmBuilderTrait<
+            BlockT,
+            ChainContextT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TransactionT,
+        >,
         HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >
     MultiContractRunner<
@@ -118,6 +128,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >
 {
@@ -200,10 +211,19 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr + Send + Sync,
-        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<
+                BlockT,
+                ChainContextT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                TransactionT,
+            >,
         HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >
     MultiContractRunner<
@@ -213,6 +233,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >
 {
@@ -256,7 +277,7 @@ impl<
 
         debug!("start executing all tests in contract");
 
-        let runner: ContractRunner<'_, _, _, EvmBuilderT, HaltReasonT, _, _, _> =
+        let runner: ContractRunner<'_, _, _, EvmBuilderT, HaltReasonT, _, _, _, _> =
             ContractRunner::new(
                 &identifier,
                 executor_builder,

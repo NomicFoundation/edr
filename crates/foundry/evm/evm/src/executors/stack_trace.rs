@@ -13,7 +13,10 @@ use edr_solidity::{
 use foundry_evm_core::{
     backend::IndeterminismReasons,
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use foundry_evm_traces::{SparsedTraceArena, TraceKind};
 use revm::{
@@ -63,15 +66,34 @@ impl<HaltReasonT> StackTraceError<HaltReasonT> {
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
-        TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
-    > From<EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>>
-    for StackTraceError<HaltReasonT>
+        TransactionErrorT: TransactionErrorTrait,
+        TxT: TransactionEnvTr,
+    >
+    From<
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > for StackTraceError<HaltReasonT>
 {
     fn from(
-        value: EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        value: EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Self {
         Self::Evm(value.to_string())
     }

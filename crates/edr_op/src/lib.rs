@@ -19,6 +19,7 @@ pub mod receipt;
 mod spec;
 pub use self::spec::OpChainSpec;
 
+/// Types for running Solidity tests.
 pub mod solidity_tests;
 
 /// OP transaction types
@@ -34,6 +35,7 @@ pub const CHAIN_TYPE: &str = "op";
 ///
 /// This type duplicates [`op_revm::L1BlockInfo`] but excludes the private
 /// field to allow manual construction.
+#[derive(Clone, Debug, Default)]
 pub struct L1BlockInfo {
     /// The base fee of the L1 origin block.
     pub l1_base_fee: U256,

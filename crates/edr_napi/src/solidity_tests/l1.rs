@@ -38,6 +38,7 @@ impl SyncTestRunnerFactory for L1TestRunnerFactory {
                 edr_eth::l1::HaltReason,
                 edr_eth::l1::SpecId,
                 _,
+                edr_eth::l1::InvalidTransaction,
                 TxEnv,
             >::new(
                 config.into(),

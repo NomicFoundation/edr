@@ -3,6 +3,7 @@ use alloy_network::AnyRpcBlock;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 use eyre::WrapErr;
+use op_revm::OpTransaction;
 use revm::context::{BlockEnv, CfgEnv, TxEnv};
 use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
@@ -326,6 +327,13 @@ impl From<TxEnvOpts> for TxEnv {
             caller,
             ..Self::default()
         }
+    }
+}
+
+impl From<TxEnvOpts> for OpTransaction<TxEnv> {
+    fn from(value: TxEnvOpts) -> Self {
+        let base = TxEnv::from(value);
+        Self::new(base)
     }
 }
 

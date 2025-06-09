@@ -5,7 +5,7 @@ use edr_napi_core::solidity::{
     config::{TestRunnerConfig, TracingConfigWithBuffers},
     SyncTestRunner, SyncTestRunnerFactory,
 };
-use edr_op::L1BlockInfo;
+use edr_op::solidity_tests::OpEvmBuilder;
 use edr_solidity::artifacts::ArtifactId;
 use edr_solidity_tests::{
     contracts::ContractsByArtifact, decode::RevertDecoder, evm_context::L1EvmBuilder,
@@ -34,12 +34,13 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
         let runner = runtime
             .block_on(MultiContractRunner::<
                 edr_eth::l1::BlockEnv,
-                L1BlockInfo,
-                L1EvmBuilder,
-                edr_eth::l1::HaltReason,
-                edr_eth::l1::SpecId,
                 _,
-                TxEnv,
+                OpEvmBuilder,
+                edr_op::OpHaltReason,
+                edr_op::OpSpecId,
+                _,
+                edr_op::transaction::InvalidTransaction,
+                edr_op::transaction::OpTxEnv<edr_eth::l1::TxEnv>,
             >::new(
                 config.into(),
                 contracts,

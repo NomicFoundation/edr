@@ -11,7 +11,10 @@ use derive_where::derive_where;
 use edr_eth::spec::HaltReasonTrait;
 use foundry_evm::{
     coverage::HitMaps,
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
     executors::{stack_trace::StackTraceResult, EvmError},
     fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
@@ -600,12 +603,28 @@ impl TestSetup {
     pub fn from_evm_error_with<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        EvmBuilderT: EvmBuilderTrait<
+            BlockT,
+            ChainContextT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TransactionT,
+        >,
         HaltReasonT: HaltReasonTrait,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >(
-        error: EvmError<BlockT, TransactionT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        error: EvmError<
+            BlockT,
+            TransactionT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
         mut logs: Vec<Log>,
         mut traces: Traces,
         mut labeled_addresses: AddressHashMap<String>,

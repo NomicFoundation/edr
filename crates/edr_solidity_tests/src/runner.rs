@@ -21,7 +21,10 @@ use foundry_evm::{
     contracts::{ContractsByAddress, ContractsByArtifact},
     coverage::HitMaps,
     decode::{decode_console_logs, RevertDecoder},
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
     executors::{
         fuzz::FuzzedExecutor,
         invariant::{
@@ -57,10 +60,11 @@ pub struct ContractRunner<
     'a,
     BlockT: BlockEnvTr,
     ChainContextT: ChainContextTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TransactionT>,
     HaltReasonT: HaltReasonTrait,
     HardforkT: HardforkTr,
     NestedTraceDecoderT,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 > {
     pub name: &'a str,
@@ -85,7 +89,7 @@ pub struct ContractRunner<
 
     /// The config values required to build the executor.
     executor_builder: ExecutorBuilder<BlockT, TransactionT, HardforkT, ChainContextT>,
-    _phantom: PhantomData<fn(EvmBuilderT, HaltReasonT)>,
+    _phantom: PhantomData<fn(EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
 
 /// Options for [`ContractRunner`].
@@ -118,10 +122,18 @@ impl<
         'a,
         BlockT: BlockEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        EvmBuilderT: EvmBuilderTrait<
+            BlockT,
+            ChainContextT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TransactionT,
+        >,
         HaltReasonT: HaltReasonTrait,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >
     ContractRunner<
@@ -132,6 +144,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >
 {
@@ -176,10 +189,19 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr,
-        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<
+                BlockT,
+                ChainContextT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                TransactionT,
+            >,
         HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult>,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >
     ContractRunner<
@@ -190,6 +212,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >
 {
@@ -203,6 +226,7 @@ impl<
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
         >,
         needs_setup: bool,
@@ -219,6 +243,7 @@ impl<
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
         >,
         needs_setup: bool,
@@ -392,6 +417,7 @@ impl<
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
         >,
         address: Address,
@@ -468,6 +494,7 @@ impl<
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
         >,
         func: &Function,
@@ -647,6 +674,7 @@ impl<
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
         >,
         func: &Function,
@@ -810,10 +838,19 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr,
-        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<
+                BlockT,
+                ChainContextT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                TransactionT,
+            >,
         HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult>,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >
     ContractRunner<
@@ -824,6 +861,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >
 {
@@ -838,6 +876,7 @@ impl<
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             TransactionT,
         >,
     ) -> TestResult<HaltReasonT> {
@@ -1103,10 +1142,19 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr + Send + Sync,
-        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<
+                BlockT,
+                ChainContextT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                TransactionT,
+            >,
         HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
     >
     ContractRunner<
@@ -1117,6 +1165,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >
 {
@@ -1132,10 +1181,7 @@ impl<
         let start = Instant::now();
         let mut warnings = Vec::new();
 
-        let mut executor = self
-            .executor_builder
-            .clone()
-            .build::<EvmBuilderT, HaltReasonT>();
+        let mut executor = self.executor_builder.clone().build();
 
         let setup_fns: Vec<_> = self
             .contract
@@ -1350,12 +1396,29 @@ struct RunInvariantTestsArgs<
     'a,
     BlockT: BlockEnvTr,
     ChainContextT: 'static + ChainContextTr,
-    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    EvmBuilderT: 'static
+        + EvmBuilderTrait<
+            BlockT,
+            ChainContextT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TransactionT,
+        >,
     HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult>,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 > {
-    executor: Executor<BlockT, TransactionT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    executor: Executor<
+        BlockT,
+        TransactionT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
     test_bytecode: &'a Bytes,
     runner: TestRunner,
     setup: TestSetup,
@@ -1401,13 +1464,22 @@ struct ReplayRecordedFailureArgs<
     'a,
     BlockT: BlockEnvTr,
     ChainContextT: ChainContextTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TransactionT>,
     HaltReasonT: HaltReasonTrait,
     HardforkT: HardforkTr,
     NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 > {
-    executor: Executor<BlockT, TransactionT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    executor: Executor<
+        BlockT,
+        TransactionT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
     test_bytecode: &'a Bytes,
     contract_decoder: &'a NestedTraceDecoderT,
     revert_decoder: &'a RevertDecoder,
@@ -1426,10 +1498,19 @@ struct ReplayRecordedFailureArgs<
 fn try_to_replay_recorded_failures<
     BlockT: BlockEnvTr,
     ChainContextT: 'static + ChainContextTr,
-    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    EvmBuilderT: 'static
+        + EvmBuilderTrait<
+            BlockT,
+            ChainContextT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TransactionT,
+        >,
     HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult>,
     HardforkT: HardforkTr,
     NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 >(
     args: ReplayRecordedFailureArgs<
@@ -1440,6 +1521,7 @@ fn try_to_replay_recorded_failures<
         HaltReasonT,
         HardforkT,
         NestedTraceDecoderT,
+        TransactionErrorT,
         TransactionT,
     >,
 ) -> Option<TestResult<HaltReasonT>> {

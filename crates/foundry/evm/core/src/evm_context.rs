@@ -1,9 +1,9 @@
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use foundry_fork_db::DatabaseError;
-use op_revm::OpEvm;
+use op_revm::{OpEvm, OpTransaction};
 use revm::{
     context::{
-        result::{EVMError, HaltReasonTr, ResultAndState},
+        result::{EVMError, HaltReasonTr, InvalidTransaction, ResultAndState},
         transaction::SignedAuthorization,
         BlockEnv, CfgEnv, Evm, JournalInner, TxEnv,
     },
@@ -72,6 +72,7 @@ pub trait EvmBuilderTrait<
     ChainContextT,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 >
 {
@@ -83,7 +84,7 @@ pub trait EvmBuilderTrait<
             EthInterpreter,
         >,
     >: InspectEvm<Block = BlockT, Inspector = InspectorT, Tx = TransactionT, Output = Result<
-        ResultAndState<HaltReasonT>, EVMError<DatabaseT::Error>
+        ResultAndState<HaltReasonT>, EVMError<DatabaseT::Error, TransactionErrorT>
     >> + IntoEvmContext<
         BlockT,
         ChainContextT,
@@ -115,8 +116,15 @@ pub trait EvmBuilderTrait<
 
 pub struct L1EvmBuilder;
 
-impl EvmBuilderTrait<BlockEnv, (), revm::context::result::HaltReason, SpecId, TxEnv>
-    for L1EvmBuilder
+impl
+    EvmBuilderTrait<
+        BlockEnv,
+        (),
+        revm::context::result::HaltReason,
+        SpecId,
+        InvalidTransaction,
+        TxEnv,
+    > for L1EvmBuilder
 {
     type Evm<
         DatabaseT: Database,
@@ -258,6 +266,16 @@ impl<T> TransactionEnvTr for T where
 {
 }
 
+pub trait TransactionErrorTrait:
+    'static + From<InvalidTransaction> + std::error::Error + Send + Sync
+{
+}
+
+impl<TransactionErrorT> TransactionErrorTrait for TransactionErrorT where
+    TransactionErrorT: 'static + From<InvalidTransaction> + std::error::Error + Send + Sync
+{
+}
+
 pub trait ChainContextTr: Clone + std::fmt::Debug + Default {}
 
 impl<T> ChainContextTr for T where T: Clone + std::fmt::Debug + Default {}
@@ -332,6 +350,60 @@ impl TransactionEnvMut for TxEnv {
     }
 }
 
+impl TransactionEnvMut for OpTransaction<TxEnv> {
+    fn set_access_list(&mut self, access_list: AccessList) {
+        self.base.access_list = access_list;
+    }
+
+    fn set_authorization_list(&mut self, authorization_list: Vec<SignedAuthorization>) {
+        self.base.authorization_list = authorization_list;
+    }
+
+    fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {
+        self.base.blob_hashes = blob_hashes;
+    }
+
+    fn set_caller(&mut self, caller: Address) {
+        self.base.caller = caller;
+    }
+
+    fn set_chain_id(&mut self, chain_id: Option<u64>) {
+        self.base.chain_id = chain_id;
+    }
+
+    fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.base.gas_limit = gas_limit;
+    }
+
+    fn set_gas_price(&mut self, gas_price: u128) {
+        self.base.gas_price = gas_price;
+    }
+
+    fn set_gas_priority_fee(&mut self, gas_priority_fee: Option<u128>) {
+        self.base.gas_priority_fee = gas_priority_fee;
+    }
+
+    fn set_max_fee_per_blob_gas(&mut self, max_fee_per_blob_gas: u128) {
+        self.base.max_fee_per_blob_gas = max_fee_per_blob_gas;
+    }
+
+    fn set_nonce(&mut self, nonce: u64) {
+        self.base.nonce = nonce;
+    }
+
+    fn set_input(&mut self, input: Bytes) {
+        self.base.data = input;
+    }
+
+    fn set_transact_to(&mut self, kind: TxKind) {
+        self.base.kind = kind;
+    }
+
+    fn set_value(&mut self, value: U256) {
+        self.base.value = value;
+    }
+}
+
 pub trait BlockEnvMut {
     fn set_basefee(&mut self, basefee: u64);
     fn set_beneficiary(&mut self, beneficiary: Address);
@@ -379,7 +451,16 @@ impl BlockEnvMut for BlockEnv {
 
 /// Split the database from EVM execution context so that a mutable method can
 /// be called on the database with arguments from the execution context.
-pub fn split_context<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, DatabaseT, ChainContextT>(
+pub fn split_context<
+    BlockT,
+    TxT,
+    EvmBuilderT,
+    HaltReasonT,
+    HardforkT,
+    TransactionErrorT,
+    DatabaseT,
+    ChainContextT,
+>(
     context: &mut revm::context::Context<
         BlockT,
         TxT,
@@ -395,11 +476,21 @@ pub fn split_context<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, DatabaseT
 where
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT:
+        EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
 {
     let evm_context = EvmContext {
         block: &mut context.block,
