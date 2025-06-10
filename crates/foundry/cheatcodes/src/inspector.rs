@@ -225,7 +225,7 @@ pub struct Cheatcodes<
     pub pc: usize,
 
     #[allow(clippy::type_complexity)]
-    _phantom: PhantomData<fn(BlockT, ChainContextT, EvmBuilderT, HaltReasonT, TxT)>,
+    _phantom: PhantomData<fn() -> (BlockT, ChainContextT, EvmBuilderT, HaltReasonT, TxT)>,
 }
 
 impl<

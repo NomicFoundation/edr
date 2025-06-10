@@ -311,7 +311,15 @@ pub struct ForgeTestData<
     revert_decoder: RevertDecoder,
     runner_config: SolidityTestRunnerConfig<HardforkT>,
     #[allow(clippy::type_complexity)]
-    _phantom: PhantomData<fn(BlockT, ChainContextT, EvmBuilderT, HaltReasonT, TransactionT)>,
+    _phantom: PhantomData<
+        fn() -> (
+            BlockT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            TransactionT,
+        ),
+    >,
 }
 
 impl<

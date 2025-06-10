@@ -84,7 +84,8 @@ pub struct MultiContractRunner<
     solidity_fuzz_fixtures: bool,
     /// Settings related to fuzz and/or invariant tests
     test_options: TestOptions,
-    _phantom: PhantomData<fn(ChainContextT, EvmBuilderT, HaltReasonT)>,
+    #[allow(clippy::type_complexity)]
+    _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT)>,
 }
 
 impl<

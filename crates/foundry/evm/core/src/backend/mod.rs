@@ -540,7 +540,8 @@ pub struct Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContex
     /// holds additional Backend data
     inner: BackendInner<BlockT, TxT, HardforkT>,
 
-    _phantom: PhantomData<fn(ChainContextT, EvmBuilderT, HaltReasonT)>,
+    #[allow(clippy::type_complexity)]
+    _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT)>,
 }
 
 // === impl Backend ===
