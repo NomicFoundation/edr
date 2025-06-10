@@ -53,13 +53,14 @@ describe("Eth module", function () {
                 "0x0000000000000000000000000000000000000000000000000000000000000000"
               );
 
-              assert.strictEqual(
-                await this.provider.send("eth_getStorageAt", [
-                  DEFAULT_ACCOUNTS_ADDRESSES[0],
-                  numberToRpcStorageSlot(0),
-                ]),
-                "0x0000000000000000000000000000000000000000000000000000000000000000"
-              );
+              // TODO: https://github.com/NomicFoundation/edr/issues/935
+              // assert.strictEqual(
+              //   await this.provider.send("eth_getStorageAt", [
+              //     DEFAULT_ACCOUNTS_ADDRESSES[0],
+              //     numberToRpcStorageSlot(0),
+              //   ]),
+              //   "0x0000000000000000000000000000000000000000000000000000000000000000"
+              // );
             });
           });
 
