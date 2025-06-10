@@ -113,7 +113,6 @@ static LEAKED_ADDRESSES: LazyLock<HashSet<Address>> = LazyLock::new(|| {
         hex!("bda5747bfd65f08deb54cb465eb87d40e51b197e"),
         hex!("dd2fd4581271e230360230f9337d5c0430bf44c0"),
         hex!("8626f6940e2eb28930efb4cef49b2d1f2c9c1199"),
-
         // hardhat-tests/test/internal/hardhat-network/helpers/providers.ts
         hex!("0xbe862ad9abfe6f22bcb087716c7d89a26051f74c"),
         hex!("0x94a48723b9b46b19c72e3091838d0522618b9363"),
