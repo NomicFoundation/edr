@@ -3,7 +3,7 @@ use alloy_network::AnyRpcBlock;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 use eyre::WrapErr;
-use op_revm::OpTransaction;
+use op_revm::{transaction::deposit::DepositTransactionParts, OpTransaction};
 use revm::context::{BlockEnv, CfgEnv, TxEnv};
 use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
@@ -333,7 +333,18 @@ impl From<TxEnvOpts> for TxEnv {
 impl From<TxEnvOpts> for OpTransaction<TxEnv> {
     fn from(value: TxEnvOpts) -> Self {
         let base = TxEnv::from(value);
-        Self::new(base)
+
+        OpTransaction {
+            base,
+            // We don't know enough information to determine whether the transaction is enveloped,
+            // but all transactions except deposits require this parameter, while the
+            // deposit transaction ignores it. As such, we're always setting this to a default
+            // value.
+            // TODO: https://github.com/NomicFoundation/edr/issues/934
+            // TODO: Properly calculate `enveloped_tx` to ensure correct gas calculation.
+            enveloped_tx: Some(vec![0x00].into()),
+            deposit: DepositTransactionParts::default(),
+        }
     }
 }
 
