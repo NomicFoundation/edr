@@ -6,7 +6,6 @@
 use std::{
     collections::HashMap,
     fmt::{self, Write},
-    marker::PhantomData,
     pin::Pin,
     sync::{
         atomic::AtomicUsize,
@@ -75,7 +74,6 @@ pub struct MultiFork<BlockT, TxT, HardforkT> {
     handler: Sender<Request<BlockT, TxT, HardforkT>>,
     /// Ensures that all rpc resources get flushed properly
     _shutdown: Arc<ShutDownMultiFork<BlockT, TxT, HardforkT>>,
-    _phantom: PhantomData<fn(BlockT, TxT, HardforkT)>,
 }
 
 // === impl MultiForkBackend ===
@@ -89,13 +87,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         let _shutdown = Arc::new(ShutDownMultiFork {
             handler: Some(handler.clone()),
         });
-        let _phantom = PhantomData;
         (
-            Self {
-                handler,
-                _shutdown,
-                _phantom,
-            },
+            Self { handler, _shutdown },
             MultiForkHandler::new(handler_rx),
         )
     }

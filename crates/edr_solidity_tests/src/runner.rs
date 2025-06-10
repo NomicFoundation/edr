@@ -90,7 +90,7 @@ pub struct ContractRunner<
 
     /// The config values required to build the executor.
     executor_builder: ExecutorBuilder<BlockT, TransactionT, HardforkT, ChainContextT>,
-    _phantom: PhantomData<fn(EvmBuilderT, HaltReasonT)>,
+    _phantom: PhantomData<fn() -> (EvmBuilderT, HaltReasonT)>,
 }
 
 /// Options for [`ContractRunner`].

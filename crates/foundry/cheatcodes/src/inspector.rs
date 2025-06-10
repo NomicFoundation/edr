@@ -229,7 +229,7 @@ pub struct Cheatcodes<
     pub deprecated: HashMap<&'static str, Option<&'static str>>,
 
     #[allow(clippy::type_complexity)]
-    _phantom: PhantomData<fn(BlockT, ChainContextT, EvmBuilderT, HaltReasonT, TxT)>,
+    _phantom: PhantomData<fn() -> (BlockT, ChainContextT, EvmBuilderT, HaltReasonT, TxT)>,
 }
 
 impl<
