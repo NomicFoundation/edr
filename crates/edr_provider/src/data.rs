@@ -4025,6 +4025,20 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn leaked_addresses_include_default_keys() {
+        use edr_test_utils::secret_key::secret_key_to_address;
+
+        for (i, secret_key) in edr_defaults::SECRET_KEYS.iter().enumerate() {
+            let address = secret_key_to_address(secret_key).expect("invalid private key");
+
+            assert!(
+                LEAKED_ADDRESSES.contains(&address),
+                "{address:?} derived from secret key #{i} not in LEAKED_ADDRESSES"
+            );
+        }
+    }
+
     #[cfg(feature = "test-remote")]
     mod alchemy {
         use edr_test_utils::env::get_alchemy_url;
