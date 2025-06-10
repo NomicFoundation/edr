@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use alloy_chains::Chain;
 use alloy_network::AnyRpcBlock;
 use alloy_primitives::{Address, B256, U256};
@@ -10,10 +8,10 @@ use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
 use super::fork::{environment, provider::ProviderBuilder};
-use crate::evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
+use crate::evm_context::{EvmEnv, HardforkTr};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct EvmOpts<BlockT, TxT, HardforkT> {
+pub struct EvmOpts<HardforkT> {
     /// The EVM environment configuration.
     #[serde(flatten)]
     pub env: Env,
@@ -60,23 +58,19 @@ pub struct EvmOpts<BlockT, TxT, HardforkT> {
 
     /// Whether to disable block gas limit checks.
     pub disable_block_gas_limit: bool,
-
-    #[serde(skip)]
-    pub _phantom: PhantomData<(BlockT, TxT, HardforkT)>,
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
-    EvmOpts<BlockT, TxT, HardforkT>
+impl<HardforkT: HardforkTr> EvmOpts<HardforkT>
 where
-    BlockT: From<BlockEnvOpts>,
-    TxT: From<TxEnvOpts>,
     HardforkT: Default,
 {
     /// Configures a new `revm::Env`
     ///
     /// If a `fork_url` is set, it gets configured with settings fetched from
     /// the endpoint (chain id, )
-    pub async fn evm_env(&self) -> eyre::Result<EvmEnv<BlockT, TxT, HardforkT>> {
+    pub async fn evm_env<BlockT: From<BlockEnvOpts>, TxT: From<TxEnvOpts>>(
+        &self,
+    ) -> eyre::Result<EvmEnv<BlockT, TxT, HardforkT>> {
         if let Some(ref fork_url) = self.fork_url {
             Ok(self.fork_evm_env(fork_url).await?.0)
         } else {
@@ -87,7 +81,7 @@ where
     /// Returns the `revm::Env` that is configured with settings retrieved from
     /// the endpoint. And the block that was used to configure the
     /// environment.
-    pub async fn fork_evm_env(
+    pub async fn fork_evm_env<BlockT: From<BlockEnvOpts>, TxT: From<TxEnvOpts>>(
         &self,
         fork_url: impl AsRef<str>,
     ) -> eyre::Result<(EvmEnv<BlockT, TxT, HardforkT>, AnyRpcBlock)> {
@@ -121,7 +115,9 @@ where
     }
 
     /// Returns the `revm::Env` configured with only local settings
-    pub fn local_evm_env(&self) -> EvmEnv<BlockT, TxT, HardforkT> {
+    pub fn local_evm_env<BlockT: From<BlockEnvOpts>, TxT: From<TxEnvOpts>>(
+        &self,
+    ) -> EvmEnv<BlockT, TxT, HardforkT> {
         // Not using `..Default::default()` pattern, because `CfgEnv` is non-exhaustive.
         let mut cfg = CfgEnv::<HardforkT>::default();
         cfg.chain_id = self.env.chain_id.unwrap_or(edr_defaults::DEV_CHAIN_ID);
@@ -159,9 +155,7 @@ where
     }
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
-    EvmOpts<BlockT, TxT, HardforkT>
-{
+impl<HardforkT: HardforkTr> EvmOpts<HardforkT> {
     /// Returns the gas limit to use
     pub fn gas_limit(&self) -> u64 {
         self.env.block_gas_limit.unwrap_or(self.env.gas_limit)
