@@ -5,7 +5,9 @@ use std::{
     sync::Arc,
 };
 
-use edr_solidity_tests::executors::stack_trace::StackTraceResult;
+use edr_solidity_tests::{
+    executors::stack_trace::StackTraceResult, multi_runner::SuiteResultAndArtifactId,
+};
 use napi::{
     bindgen_prelude::{BigInt, Buffer, Either3, Either4},
     Either,
@@ -35,27 +37,18 @@ pub struct SuiteResult {
     pub warnings: Vec<String>,
 }
 
-impl
-    From<(
-        edr_solidity::artifacts::ArtifactId,
-        edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
-    )> for SuiteResult
-{
-    fn from(
-        (id, suite_result): (
-            edr_solidity::artifacts::ArtifactId,
-            edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
-        ),
-    ) -> Self {
+impl From<SuiteResultAndArtifactId<String>> for SuiteResult {
+    fn from(value: SuiteResultAndArtifactId<String>) -> Self {
         Self {
-            id: id.into(),
-            duration_ms: BigInt::from(suite_result.duration.as_millis()),
-            test_results: suite_result
+            id: value.artifact_id.into(),
+            duration_ms: BigInt::from(value.result.duration.as_millis()),
+            test_results: value
+                .result
                 .test_results
                 .into_iter()
                 .map(Into::into)
                 .collect(),
-            warnings: suite_result.warnings,
+            warnings: value.result.warnings,
         }
     }
 }
@@ -86,7 +79,7 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    stack_trace_result: Option<Arc<StackTraceResult<edr_eth::l1::HaltReason>>>,
+    stack_trace_result: Option<Arc<StackTraceResult<String>>>,
 }
 
 /// The stack trace result
@@ -187,18 +180,8 @@ impl TestResult {
     }
 }
 
-impl
-    From<(
-        String,
-        edr_solidity_tests::result::TestResult<edr_eth::l1::HaltReason>,
-    )> for TestResult
-{
-    fn from(
-        (name, test_result): (
-            String,
-            edr_solidity_tests::result::TestResult<edr_eth::l1::HaltReason>,
-        ),
-    ) -> Self {
+impl From<(String, edr_solidity_tests::result::TestResult<String>)> for TestResult {
+    fn from((name, test_result): (String, edr_solidity_tests::result::TestResult<String>)) -> Self {
         Self {
             name,
             status: test_result.status.into(),
@@ -251,7 +234,7 @@ impl
                 }),
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
-            stack_trace_result: test_result.stack_trace_result,
+            stack_trace_result: test_result.stack_trace_result.map(Arc::new),
         }
     }
 }

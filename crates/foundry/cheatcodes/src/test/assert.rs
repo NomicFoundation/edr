@@ -3,7 +3,10 @@ use std::fmt::{Debug, Display};
 use alloy_primitives::{I256, U256};
 use foundry_evm_core::{
     abi::{format_units_int, format_units_uint},
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use itertools::Itertools;
 use revm::context::result::HaltReasonTr;
@@ -214,12 +217,21 @@ impl Cheatcode for assertTrue_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_true(self.condition).map_err(|e| e.to_string())?)
     }
@@ -231,12 +243,21 @@ impl Cheatcode for assertTrue_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_true(self.condition).map_err(|_err| self.error.clone())?)
     }
@@ -248,12 +269,21 @@ impl Cheatcode for assertFalse_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_false(self.condition).map_err(|e| e.to_string())?)
     }
@@ -265,12 +295,21 @@ impl Cheatcode for assertFalse_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_false(self.condition).map_err(|_err| self.error.clone())?)
     }
@@ -282,12 +321,21 @@ impl Cheatcode for assertEq_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -301,12 +349,21 @@ impl Cheatcode for assertEq_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -319,12 +376,21 @@ impl Cheatcode for assertEq_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -338,12 +404,21 @@ impl Cheatcode for assertEq_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -356,12 +431,21 @@ impl Cheatcode for assertEq_4Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -375,12 +459,21 @@ impl Cheatcode for assertEq_5Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -393,12 +486,21 @@ impl Cheatcode for assertEq_6Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -412,12 +514,21 @@ impl Cheatcode for assertEq_7Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -430,12 +541,21 @@ impl Cheatcode for assertEq_8Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -449,12 +569,21 @@ impl Cheatcode for assertEq_9Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -467,12 +596,21 @@ impl Cheatcode for assertEq_10Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -486,12 +624,21 @@ impl Cheatcode for assertEq_11Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -504,12 +651,21 @@ impl Cheatcode for assertEq_12Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(
@@ -525,12 +681,21 @@ impl Cheatcode for assertEq_13Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(
@@ -546,12 +711,21 @@ impl Cheatcode for assertEq_14Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -565,12 +739,21 @@ impl Cheatcode for assertEq_15Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_arrays()))?)
@@ -583,12 +766,21 @@ impl Cheatcode for assertEq_16Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -602,12 +794,21 @@ impl Cheatcode for assertEq_17Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_arrays()))?)
@@ -620,12 +821,21 @@ impl Cheatcode for assertEq_18Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -639,12 +849,21 @@ impl Cheatcode for assertEq_19Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_arrays()))?)
@@ -657,12 +876,21 @@ impl Cheatcode for assertEq_20Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -676,12 +904,21 @@ impl Cheatcode for assertEq_21Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_arrays()))?)
@@ -694,12 +931,21 @@ impl Cheatcode for assertEq_22Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -713,12 +959,21 @@ impl Cheatcode for assertEq_23Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_arrays()))?)
@@ -731,12 +986,21 @@ impl Cheatcode for assertEq_24Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_eq(left, right)
@@ -750,12 +1014,21 @@ impl Cheatcode for assertEq_25Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_eq(left, right).map_err(|e| format!("{}: {}", error, e.format_for_arrays()))?)
@@ -768,12 +1041,21 @@ impl Cheatcode for assertEq_26Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         let left = left.iter().map(hex::encode_prefixed).collect::<Vec<_>>();
@@ -789,12 +1071,21 @@ impl Cheatcode for assertEq_27Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         let left = left.iter().map(hex::encode_prefixed).collect::<Vec<_>>();
@@ -812,12 +1103,21 @@ impl Cheatcode for assertEqDecimal_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_eq(&self.left, &self.right).map_err(|e| {
             format!(
@@ -834,12 +1134,21 @@ impl Cheatcode for assertEqDecimal_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_eq(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -852,12 +1161,21 @@ impl Cheatcode for assertEqDecimal_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_eq(&self.left, &self.right).map_err(|e| {
             format!(
@@ -874,12 +1192,21 @@ impl Cheatcode for assertEqDecimal_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_eq(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -892,12 +1219,21 @@ impl Cheatcode for assertNotEq_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -911,12 +1247,21 @@ impl Cheatcode for assertNotEq_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -930,12 +1275,21 @@ impl Cheatcode for assertNotEq_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -949,12 +1303,21 @@ impl Cheatcode for assertNotEq_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -968,12 +1331,21 @@ impl Cheatcode for assertNotEq_4Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -987,12 +1359,21 @@ impl Cheatcode for assertNotEq_5Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1006,12 +1387,21 @@ impl Cheatcode for assertNotEq_6Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -1025,12 +1415,21 @@ impl Cheatcode for assertNotEq_7Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1044,12 +1443,21 @@ impl Cheatcode for assertNotEq_8Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -1063,12 +1471,21 @@ impl Cheatcode for assertNotEq_9Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1082,12 +1499,21 @@ impl Cheatcode for assertNotEq_10Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -1101,12 +1527,21 @@ impl Cheatcode for assertNotEq_11Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1120,12 +1555,21 @@ impl Cheatcode for assertNotEq_12Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(
@@ -1141,12 +1585,21 @@ impl Cheatcode for assertNotEq_13Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(
@@ -1162,12 +1615,21 @@ impl Cheatcode for assertNotEq_14Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -1181,12 +1643,21 @@ impl Cheatcode for assertNotEq_15Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1200,12 +1671,21 @@ impl Cheatcode for assertNotEq_16Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -1219,12 +1699,21 @@ impl Cheatcode for assertNotEq_17Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1238,12 +1727,21 @@ impl Cheatcode for assertNotEq_18Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -1257,12 +1755,21 @@ impl Cheatcode for assertNotEq_19Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1276,12 +1783,21 @@ impl Cheatcode for assertNotEq_20Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -1295,12 +1811,21 @@ impl Cheatcode for assertNotEq_21Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1314,12 +1839,21 @@ impl Cheatcode for assertNotEq_22Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -1333,12 +1867,21 @@ impl Cheatcode for assertNotEq_23Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1352,12 +1895,21 @@ impl Cheatcode for assertNotEq_24Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_not_eq(left, right)
@@ -1371,12 +1923,21 @@ impl Cheatcode for assertNotEq_25Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_not_eq(left, right)
@@ -1390,12 +1951,21 @@ impl Cheatcode for assertNotEq_26Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         let left = left.iter().map(hex::encode_prefixed).collect::<Vec<_>>();
@@ -1411,12 +1981,21 @@ impl Cheatcode for assertNotEq_27Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         let left = left.iter().map(hex::encode_prefixed).collect::<Vec<_>>();
@@ -1432,12 +2011,21 @@ impl Cheatcode for assertNotEqDecimal_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_not_eq(&self.left, &self.right).map_err(|e| {
             format!(
@@ -1454,12 +2042,21 @@ impl Cheatcode for assertNotEqDecimal_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_not_eq(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -1472,12 +2069,21 @@ impl Cheatcode for assertNotEqDecimal_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_not_eq(&self.left, &self.right).map_err(|e| {
             format!(
@@ -1494,12 +2100,21 @@ impl Cheatcode for assertNotEqDecimal_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_not_eq(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -1512,12 +2127,21 @@ impl Cheatcode for assertGt_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_gt(left, right)
@@ -1531,12 +2155,21 @@ impl Cheatcode for assertGt_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_gt(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -1549,12 +2182,21 @@ impl Cheatcode for assertGt_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_gt(left, right)
@@ -1568,12 +2210,21 @@ impl Cheatcode for assertGt_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_gt(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -1586,12 +2237,21 @@ impl Cheatcode for assertGtDecimal_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_gt(&self.left, &self.right).map_err(|e| {
             format!(
@@ -1608,12 +2268,21 @@ impl Cheatcode for assertGtDecimal_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_gt(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -1626,12 +2295,21 @@ impl Cheatcode for assertGtDecimal_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_gt(&self.left, &self.right).map_err(|e| {
             format!(
@@ -1648,12 +2326,21 @@ impl Cheatcode for assertGtDecimal_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_gt(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -1666,12 +2353,21 @@ impl Cheatcode for assertGe_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_ge(left, right)
@@ -1685,12 +2381,21 @@ impl Cheatcode for assertGe_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_ge(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -1703,12 +2408,21 @@ impl Cheatcode for assertGe_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_ge(left, right)
@@ -1722,12 +2436,21 @@ impl Cheatcode for assertGe_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_ge(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -1740,12 +2463,21 @@ impl Cheatcode for assertGeDecimal_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_ge(&self.left, &self.right).map_err(|e| {
             format!(
@@ -1762,12 +2494,21 @@ impl Cheatcode for assertGeDecimal_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_ge(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -1780,12 +2521,21 @@ impl Cheatcode for assertGeDecimal_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_ge(&self.left, &self.right).map_err(|e| {
             format!(
@@ -1802,12 +2552,21 @@ impl Cheatcode for assertGeDecimal_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_ge(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -1820,12 +2579,21 @@ impl Cheatcode for assertLt_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_lt(left, right)
@@ -1839,12 +2607,21 @@ impl Cheatcode for assertLt_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_lt(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -1857,12 +2634,21 @@ impl Cheatcode for assertLt_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_lt(left, right)
@@ -1876,12 +2662,21 @@ impl Cheatcode for assertLt_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_lt(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -1894,12 +2689,21 @@ impl Cheatcode for assertLtDecimal_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_lt(&self.left, &self.right).map_err(|e| {
             format!(
@@ -1916,12 +2720,21 @@ impl Cheatcode for assertLtDecimal_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_lt(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -1934,12 +2747,21 @@ impl Cheatcode for assertLtDecimal_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_lt(&self.left, &self.right).map_err(|e| {
             format!(
@@ -1956,12 +2778,21 @@ impl Cheatcode for assertLtDecimal_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_lt(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -1974,12 +2805,21 @@ impl Cheatcode for assertLe_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_le(left, right)
@@ -1993,12 +2833,21 @@ impl Cheatcode for assertLe_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_le(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -2011,12 +2860,21 @@ impl Cheatcode for assertLe_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right } = self;
         Ok(assert_le(left, right)
@@ -2030,12 +2888,21 @@ impl Cheatcode for assertLe_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { left, right, error } = self;
         Ok(assert_le(left, right).map_err(|e| format!("{}: {}", error, e.format_for_values()))?)
@@ -2048,12 +2915,21 @@ impl Cheatcode for assertLeDecimal_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_le(&self.left, &self.right).map_err(|e| {
             format!(
@@ -2070,12 +2946,21 @@ impl Cheatcode for assertLeDecimal_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_le(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -2088,12 +2973,21 @@ impl Cheatcode for assertLeDecimal_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_le(&self.left, &self.right).map_err(|e| {
             format!(
@@ -2110,12 +3004,21 @@ impl Cheatcode for assertLeDecimal_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(assert_le(&self.left, &self.right)
             .map_err(|e| format!("{}: {}", self.error, e.format_with_decimals(&self.decimals)))?)
@@ -2128,12 +3031,21 @@ impl Cheatcode for assertApproxEqAbs_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             uint_assert_approx_eq_abs(self.left, self.right, self.maxDelta)
@@ -2148,12 +3060,21 @@ impl Cheatcode for assertApproxEqAbs_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             uint_assert_approx_eq_abs(self.left, self.right, self.maxDelta)
@@ -2168,12 +3089,21 @@ impl Cheatcode for assertApproxEqAbs_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             int_assert_approx_eq_abs(self.left, self.right, self.maxDelta)
@@ -2188,12 +3118,21 @@ impl Cheatcode for assertApproxEqAbs_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             int_assert_approx_eq_abs(self.left, self.right, self.maxDelta)
@@ -2208,12 +3147,21 @@ impl Cheatcode for assertApproxEqAbsDecimal_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             uint_assert_approx_eq_abs(self.left, self.right, self.maxDelta).map_err(|e| {
@@ -2232,12 +3180,21 @@ impl Cheatcode for assertApproxEqAbsDecimal_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             uint_assert_approx_eq_abs(self.left, self.right, self.maxDelta).map_err(|e| {
@@ -2253,12 +3210,21 @@ impl Cheatcode for assertApproxEqAbsDecimal_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             int_assert_approx_eq_abs(self.left, self.right, self.maxDelta).map_err(|e| {
@@ -2277,12 +3243,21 @@ impl Cheatcode for assertApproxEqAbsDecimal_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             int_assert_approx_eq_abs(self.left, self.right, self.maxDelta).map_err(|e| {
@@ -2298,12 +3273,21 @@ impl Cheatcode for assertApproxEqRel_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             uint_assert_approx_eq_rel(self.left, self.right, self.maxPercentDelta)
@@ -2318,12 +3302,21 @@ impl Cheatcode for assertApproxEqRel_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             uint_assert_approx_eq_rel(self.left, self.right, self.maxPercentDelta)
@@ -2338,12 +3331,21 @@ impl Cheatcode for assertApproxEqRel_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             int_assert_approx_eq_rel(self.left, self.right, self.maxPercentDelta)
@@ -2358,12 +3360,21 @@ impl Cheatcode for assertApproxEqRel_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             int_assert_approx_eq_rel(self.left, self.right, self.maxPercentDelta)
@@ -2378,12 +3389,21 @@ impl Cheatcode for assertApproxEqRelDecimal_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             uint_assert_approx_eq_rel(self.left, self.right, self.maxPercentDelta).map_err(
@@ -2404,12 +3424,21 @@ impl Cheatcode for assertApproxEqRelDecimal_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             uint_assert_approx_eq_rel(self.left, self.right, self.maxPercentDelta).map_err(
@@ -2425,12 +3454,21 @@ impl Cheatcode for assertApproxEqRelDecimal_2Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             int_assert_approx_eq_rel(self.left, self.right, self.maxPercentDelta).map_err(|e| {
@@ -2449,12 +3487,21 @@ impl Cheatcode for assertApproxEqRelDecimal_3Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         Ok(
             int_assert_approx_eq_rel(self.left, self.right, self.maxPercentDelta).map_err(|e| {

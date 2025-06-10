@@ -19,7 +19,10 @@ use alloy_primitives::Address;
 pub use config::{CheatsConfig, CheatsConfigOptions, ExecutionContextConfig};
 pub use endpoints::{RpcEndpoint, RpcEndpoints};
 pub use error::{Error, ErrorKind, Result};
-use foundry_evm_core::{backend::CheatcodeBackend, evm_context::EvmBuilderTrait};
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{EvmBuilderTrait, TransactionErrorTrait},
+};
 pub use fs_permissions::{FsAccessKind, FsAccessPermission, FsPermissions, PathPermission};
 pub use inspector::{BroadcastableTransaction, BroadcastableTransactions, Cheatcodes, Context};
 use revm::{
@@ -61,12 +64,13 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
     ) -> Result {
         let _ = state;
         unimplemented!("{}", Self::CHEATCODE.func.id)
@@ -79,11 +83,20 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     fn apply_full<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         ccx: &mut CheatsCtxt<
@@ -92,6 +105,7 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
             DatabaseT,
         >,
@@ -103,11 +117,20 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     fn apply_traced<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         ccx: &mut CheatsCtxt<
@@ -116,6 +139,7 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
             DatabaseT,
         >,
@@ -212,15 +236,24 @@ pub(crate) struct CheatsCtxt<
     'evm,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
 > {
     /// The cheatcodes inspector state.
     pub(crate) state:
-        &'cheats mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        &'cheats mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
     /// The EVM data.
     pub(crate) ecx: &'evm mut EvmContext<
         BlockT,
@@ -238,11 +271,20 @@ pub(crate) struct CheatsCtxt<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     > std::ops::Deref
     for CheatsCtxt<
         '_,
@@ -252,6 +294,7 @@ impl<
         EvmBuilderT,
         HaltReasonT,
         HardforkT,
+        TransactionErrorT,
         ChainContextT,
         DatabaseT,
     >
@@ -269,11 +312,20 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     > std::ops::DerefMut
     for CheatsCtxt<
         '_,
@@ -283,6 +335,7 @@ impl<
         EvmBuilderT,
         HaltReasonT,
         HardforkT,
+        TransactionErrorT,
         ChainContextT,
         DatabaseT,
     >
@@ -296,13 +349,33 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >
-    CheatsCtxt<'_, '_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>
+    CheatsCtxt<
+        '_,
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >
 {
     #[inline]
     pub(crate) fn is_precompile(&self, address: &Address) -> bool {

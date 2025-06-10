@@ -12,6 +12,7 @@ edr_evm = { path = "../edr_evm" }
 edr_generic = { path = "../edr_generic" }
 edr_provider = { path = "../edr_provider" }
 edr_solidity = { path = "../edr_solidity" }
+edr_solidity_tests.workspace = true
 edr_rpc_client = { path = "../edr_rpc_client" }
 itertools = { version = "0.12.0", default-features = false }
 napi = { version = "2.16.10", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }

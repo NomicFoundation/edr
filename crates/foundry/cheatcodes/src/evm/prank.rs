@@ -1,6 +1,7 @@
 use alloy_primitives::Address;
 use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
 };
 use revm::{context::result::HaltReasonTr, context_interface::JournalTr};
 
@@ -68,11 +69,20 @@ impl Cheatcode for prank_0Call {
     fn apply_full<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         ccx: &mut CheatsCtxt<
@@ -81,6 +91,7 @@ impl Cheatcode for prank_0Call {
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
             DatabaseT,
         >,
@@ -95,11 +106,20 @@ impl Cheatcode for startPrank_0Call {
     fn apply_full<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         ccx: &mut CheatsCtxt<
@@ -108,6 +128,7 @@ impl Cheatcode for startPrank_0Call {
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
             DatabaseT,
         >,
@@ -122,11 +143,20 @@ impl Cheatcode for prank_1Call {
     fn apply_full<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         ccx: &mut CheatsCtxt<
@@ -135,6 +165,7 @@ impl Cheatcode for prank_1Call {
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
             DatabaseT,
         >,
@@ -152,11 +183,20 @@ impl Cheatcode for startPrank_1Call {
     fn apply_full<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         ccx: &mut CheatsCtxt<
@@ -165,6 +205,7 @@ impl Cheatcode for startPrank_1Call {
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
+            TransactionErrorT,
             ChainContextT,
             DatabaseT,
         >,
@@ -183,12 +224,21 @@ impl Cheatcode for stopPrankCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {} = self;
         state.prank = None;
@@ -199,11 +249,20 @@ impl Cheatcode for stopPrankCall {
 fn prank<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
 >(
     ccx: &mut CheatsCtxt<
         BlockT,
@@ -211,6 +270,7 @@ fn prank<
         EvmBuilderT,
         HaltReasonT,
         HardforkT,
+        TransactionErrorT,
         ChainContextT,
         DatabaseT,
     >,
