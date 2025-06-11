@@ -36,11 +36,9 @@ on:
 jobs:
   test:
     name: Run the regression tests
-    # TODO: Change the ref to v-next once the reusable-regression-tests branch is merged
-    uses: NomicFoundation/hardhat/.github/workflows/regression-tests.yml@reusable-regression-tests
+    uses: NomicFoundation/hardhat/.github/workflows/regression-tests.yml@v-next
     with:
-      # TODO: Change the ref to v-next once the reusable-regression-tests branch is merged
-      ref: reusable-regression-tests
+      ref: v-next
       preset: ${{ inputs.preset }}
       hardhat-ref: ${{ inputs.hardhat-ref }}
       edr-ref: ${{ inputs.edr-ref || github.ref }}
