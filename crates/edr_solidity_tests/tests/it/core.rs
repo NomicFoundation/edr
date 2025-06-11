@@ -1,8 +1,11 @@
 //! Forge tests for core functionality.
 
-use std::{collections::BTreeMap, env};
+use std::{
+    collections::{BTreeMap, HashMap},
+    env,
+};
 
-use edr_solidity_tests::result::SuiteResult;
+use edr_solidity_tests::result::{SuiteResult, TestStatus};
 use foundry_evm::traces::TraceKind;
 
 use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
@@ -85,6 +88,18 @@ async fn test_core() {
             (
                 "default/core/ExecutionContext.t.sol:ExecutionContextTest",
                 vec![("testContext()", true, None, None, None)],
+            ),
+            (
+                "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeTest",
+                vec![("test_deprecated_cheatcode()", true, None, None, None)],
+            ),
+            (
+                "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeFuzzTest",
+                vec![("test_deprecated_cheatcode(uint256)", true, None, None, None)],
+            ),
+            (
+                "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeInvariantTest",
+                vec![("invariant_deprecated_cheatcode()", true, None, None, None)],
             ),
         ]),
     );
@@ -769,5 +784,82 @@ async fn test_fail_test() {
                 None,
             )],
         )]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_deprecated_cheatcode_warning() {
+    fn assert_multiple_deprecation_warnings(
+        actuals: &BTreeMap<String, SuiteResult>,
+        expecteds: BTreeMap<&str, Vec<&str>>,
+    ) {
+        const DEPRECATION_WARNING: &str = "The following cheatcode(s) are deprecated and will be removed in future versions:\n  keyExists(string,string): replaced by `keyExistsJson`";
+
+        assert_eq!(
+            actuals.len(),
+            expecteds.len(),
+            "We did not run as many contracts as we expected"
+        );
+
+        for (contract_name, tests) in &expecteds {
+            assert!(
+                actuals.contains_key(*contract_name),
+                "We did not run the contract {contract_name}"
+            );
+
+            let suite_result = &actuals[*contract_name];
+            assert_eq!(
+                suite_result.len(),
+                expecteds[contract_name].len(),
+                "We did not run as many test functions as we expected for {contract_name}"
+            );
+
+            assert!(
+                suite_result
+                    .warnings
+                    .contains(&DEPRECATION_WARNING.to_owned()),
+                "We did not get the expected deprecation warning for contract {contract_name}: {:?}",
+                suite_result.warnings
+            );
+
+            for test_name in tests {
+                assert!(
+                    suite_result.test_results.contains_key(*test_name),
+                    "We did not run the test {test_name} in contract {contract_name}: {:?}",
+                    suite_result.test_results.keys()
+                );
+
+                let test_result = &actuals[*contract_name].test_results[*test_name];
+                assert_eq!(test_result.status, TestStatus::Success);
+
+                let expected: HashMap<&'static str, Option<&'static str>> = HashMap::from([(
+                    "keyExists(string,string)",
+                    Some("replaced by `keyExistsJson`"),
+                )]);
+                assert_eq!(test_result.deprecated_cheatcodes, expected);
+            }
+        }
+    }
+
+    let filter = SolidityTestFilter::new(".*", ".*", "default/core/DeprecatedCheatcode.t.sol");
+    let runner = TEST_DATA_DEFAULT.runner().await;
+    let results = runner.test_collect(filter).await;
+
+    assert_multiple_deprecation_warnings(
+        &results,
+        BTreeMap::from([
+            (
+                "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeTest",
+                vec!["test_deprecated_cheatcode()"],
+            ),
+            (
+                "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeFuzzTest",
+                vec!["test_deprecated_cheatcode(uint256)"],
+            ),
+            (
+                "default/core/DeprecatedCheatcode.t.sol:DeprecatedCheatcodeInvariantTest",
+                vec!["invariant_deprecated_cheatcode()"],
+            ),
+        ]),
     );
 }

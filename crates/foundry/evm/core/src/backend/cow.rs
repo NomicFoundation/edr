@@ -19,7 +19,8 @@ use revm::{
 use super::{BackendError, CheatcodeInspectorTr};
 use crate::{
     backend::{
-        diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId, RevertSnapshotAction,
+        diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId,
+        RevertStateSnapshotAction,
     },
     evm_context::{BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvTr},
     fork::{CreateFork, ForkId},
@@ -109,12 +110,12 @@ impl<
         Ok(res)
     }
 
-    /// Returns whether there was a snapshot failure in the backend.
+    /// Returns whether there was a state snapshot failure in the backend.
     ///
     /// This is bubbled up from the underlying Copy-On-Write backend when a
     /// revert occurs.
-    pub fn has_snapshot_failure(&self) -> bool {
-        self.backend.has_snapshot_failure()
+    pub fn has_state_snapshot_failure(&self) -> bool {
+        self.backend.has_state_snapshot_failure()
     }
 
     /// Returns a mutable instance of the Backend.
@@ -156,35 +157,36 @@ impl<
     > CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
     for CowBackend<'_, BlockT, TxT, HardforkT, ChainContextT>
 {
-    fn snapshot(
+    fn snapshot_state(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
         env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> U256 {
-        self.backend_mut(env.clone()).snapshot(journaled_state, env)
+        self.backend_mut(env.clone())
+            .snapshot_state(journaled_state, env)
     }
 
-    fn revert<'b>(
+    fn revert_state<'b>(
         &'b mut self,
         id: U256,
-        action: RevertSnapshotAction,
+        action: RevertStateSnapshotAction,
         context: &'b mut EvmContext<'b, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> Option<JournalInner<JournalEntry>> {
         self.backend_mut(context.to_owned_env())
-            .revert(id, action, context)
+            .revert_state(id, action, context)
     }
 
-    fn delete_snapshot(&mut self, id: U256) -> bool {
+    fn delete_state_snapshot(&mut self, id: U256) -> bool {
         // delete snapshot requires a previous snapshot to be initialized
         if let Some(backend) = self.initialized_backend_mut() {
-            return backend.delete_snapshot(id);
+            return backend.delete_state_snapshot(id);
         }
         false
     }
 
-    fn delete_snapshots(&mut self) {
+    fn delete_state_snapshots(&mut self) {
         if let Some(backend) = self.initialized_backend_mut() {
-            backend.delete_snapshots();
+            backend.delete_state_snapshots();
         }
     }
 

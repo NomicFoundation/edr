@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     constants::{CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, TEST_CONTRACT_ADDRESS},
     fork::{CreateFork, ForkId, MultiFork},
-    snapshot::Snapshots,
+    state_snapshot::StateSnapshots,
     utils::configure_tx_env,
 };
 
@@ -46,7 +46,7 @@ mod in_memory_db;
 pub use in_memory_db::{EmptyDBWrapper, FoundryEvmInMemoryDB, MemDb};
 
 mod snapshot;
-pub use snapshot::{BackendSnapshot, RevertSnapshotAction, StateSnapshot};
+pub use snapshot::{BackendStateSnapshot, RevertStateSnapshotAction, StateSnapshot};
 
 use crate::evm_context::{
     BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvMut, TransactionEnvTr,
@@ -140,19 +140,20 @@ pub trait CheatcodeBackend<
     ChainContextT: ChainContextTr,
 >: Database<Error = DatabaseError>
 {
-    /// Creates a new snapshot at the current point of execution.
+    /// Creates a new state snapshot at the current point of execution.
     ///
-    /// A snapshot is associated with a new unique id that's created for the
-    /// snapshot. Snapshots can be reverted: [CheatcodeBackend::revert],
-    /// however, depending on the [RevertSnapshotAction], it will keep the
-    /// snapshot alive or delete it.
-    fn snapshot(
+    /// A state snapshot is associated with a new unique id that's created for
+    /// the snapshot. State snapshots can be reverted:
+    /// [CheatcodeBackend::revert_state], however, depending on the
+    /// [RevertStateSnapshotAction], it will keep the snapshot alive or
+    /// delete it.
+    fn snapshot_state(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
         env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> U256;
 
-    /// Reverts the snapshot if it exists
+    /// Reverts the state snapshot if it exists
     ///
     /// Returns `true` if the snapshot was successfully reverted, `false` if no
     /// snapshot for that id exists.
@@ -162,25 +163,25 @@ pub trait CheatcodeBackend<
     /// show logs that were emitted between snapshot and its revert.
     /// This will also revert any changes in the `EvmEnv<BlockT, TxT,
     /// CfgEnv<HardforkT>>` and replace it with the captured `EvmEnv<BlockT,
-    /// TxT, CfgEnv<HardforkT>>` of `Self::snapshot`.
+    /// TxT, CfgEnv<HardforkT>>` of `Self::state_snapshot`.
     ///
-    /// Depending on [RevertSnapshotAction] it will keep the snapshot alive or
-    /// delete it.
-    fn revert<'a>(
+    /// Depending on [RevertStateSnapshotAction] it will keep the snapshot alive
+    /// or delete it.
+    fn revert_state<'a>(
         &'a mut self,
         id: U256,
-        action: RevertSnapshotAction,
+        action: RevertStateSnapshotAction,
         context: &'a mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> Option<JournalInner<JournalEntry>>;
 
-    /// Deletes the snapshot with the given `id`
+    /// Deletes the state snapshot with the given `id`
     ///
     /// Returns `true` if the snapshot was successfully deleted, `false` if no
     /// snapshot for that id exists.
-    fn delete_snapshot(&mut self, id: U256) -> bool;
+    fn delete_state_snapshot(&mut self, id: U256) -> bool;
 
-    /// Deletes all snapshots.
-    fn delete_snapshots(&mut self);
+    /// Deletes all state snapshots.
+    fn delete_state_snapshots(&mut self);
 
     /// Creates and also selects a new fork
     ///
@@ -489,9 +490,9 @@ struct _ObjectSafe<
 /// afterwards, as well as any snapshots taken after the reverted snapshot,
 /// (e.g.: reverting to id 0x1 will delete snapshots with ids 0x1, 0x2, etc.)
 ///
-/// **Note:** Snapshots work across fork-swaps, e.g. if fork `A` is currently
-/// active, then a snapshot is created before fork `B` is selected, then fork
-/// `A` will be the active fork again after reverting the snapshot.
+/// **Note:** State snapshots work across fork-swaps, e.g. if fork `A` is
+/// currently active, then a snapshot is created before fork `B` is selected,
+/// then fork `A` will be the active fork again after reverting the snapshot.
 #[derive(Clone, Debug)]
 pub struct Backend<BlockT, TxT, HardforkT, ChainContextT> {
     /// The access point for managing forks
@@ -666,11 +667,12 @@ impl<
         }
     }
 
-    /// Returns all snapshots created in this backend
-    pub fn snapshots(
+    /// Returns all state snapshots created in this backend
+    pub fn state_snapshots(
         &self,
-    ) -> &Snapshots<BackendSnapshot<BackendDatabaseSnapshot, BlockT, TxT, HardforkT>> {
-        &self.inner.snapshots
+    ) -> &StateSnapshots<BackendStateSnapshot<BackendDatabaseSnapshot, BlockT, TxT, HardforkT>>
+    {
+        &self.inner.state_snapshots
     }
 
     /// Sets the address of the `DSTest` contract that is being executed
@@ -713,26 +715,27 @@ impl<
         self.inner.caller
     }
 
-    /// Failures occurred in snapshots are tracked when the snapshot is reverted
+    /// Failures occurred in state snapshots are tracked when the state snapshot
+    /// is reverted
     ///
-    /// If an error occurs in a restored snapshot, the test is considered
+    /// If an error occurs in a restored state snapshot, the test is considered
     /// failed.
     ///
-    /// This returns whether there was a reverted snapshot that recorded an
-    /// error
-    pub fn has_snapshot_failure(&self) -> bool {
-        self.inner.has_snapshot_failure
+    /// This returns whether there was a reverted state snapshot that recorded
+    /// an error.
+    pub fn has_state_snapshot_failure(&self) -> bool {
+        self.inner.has_state_snapshot_failure
     }
 
-    /// Sets the snapshot failure flag.
-    pub fn set_snapshot_failure(&mut self, has_snapshot_failure: bool) {
-        self.inner.has_snapshot_failure = has_snapshot_failure;
+    /// Sets the state snapshot failure flag.
+    pub fn set_state_snapshot_failure(&mut self, has_state_snapshot_failure: bool) {
+        self.inner.has_state_snapshot_failure = has_state_snapshot_failure;
     }
 
     /// Checks if the test contract associated with this backend failed, See
     /// [`Self::is_failed_test_contract`]
     pub fn is_failed(&self) -> bool {
-        self.has_snapshot_failure()
+        self.has_state_snapshot_failure()
             || self
                 .test_contract_address()
                 .map(|addr| self.is_failed_test_contract(addr))
@@ -1154,13 +1157,13 @@ impl<
     > CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
     for Backend<BlockT, TxT, HardforkT, ChainContextT>
 {
-    fn snapshot(
+    fn snapshot_state(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
         env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> U256 {
         trace!("create snapshot");
-        let id = self.inner.snapshots.insert(BackendSnapshot::new(
+        let id = self.inner.state_snapshots.insert(BackendStateSnapshot::new(
             self.create_db_snapshot(),
             journaled_state.clone(),
             env,
@@ -1169,27 +1172,27 @@ impl<
         id
     }
 
-    fn revert(
+    fn revert_state(
         &mut self,
         id: U256,
-        action: RevertSnapshotAction,
+        action: RevertStateSnapshotAction,
         context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> Option<JournalInner<JournalEntry>> {
         trace!(?id, "revert snapshot");
-        if let Some(mut snapshot) = self.inner.snapshots.remove_at(id) {
+        if let Some(mut snapshot) = self.inner.state_snapshots.remove_at(id) {
             // Re-insert snapshot to persist it
             if action.is_keep() {
-                self.inner.snapshots.insert_at(snapshot.clone(), id);
+                self.inner.state_snapshots.insert_at(snapshot.clone(), id);
             }
             // need to check whether there's a global failure which means an error occurred
             // either during the snapshot or even before
             if self.is_global_failure(context.journaled_state) {
-                self.set_snapshot_failure(true);
+                self.set_state_snapshot_failure(true);
             }
 
             // merge additional logs
             snapshot.merge(context.journaled_state);
-            let BackendSnapshot {
+            let BackendStateSnapshot {
                 db,
                 mut journaled_state,
                 env,
@@ -1217,7 +1220,7 @@ impl<
                         }
                         caller_account.into()
                     });
-                    self.inner.revert_snapshot(id, fork_id, idx, *fork);
+                    self.inner.revert_state_snapshot(id, fork_id, idx, *fork);
                     self.active_fork_ids = Some((id, idx));
                 }
             }
@@ -1232,12 +1235,12 @@ impl<
         }
     }
 
-    fn delete_snapshot(&mut self, id: U256) -> bool {
-        self.inner.snapshots.remove_at(id).is_some()
+    fn delete_state_snapshot(&mut self, id: U256) -> bool {
+        self.inner.state_snapshots.remove_at(id).is_some()
     }
 
-    fn delete_snapshots(&mut self) {
-        self.inner.snapshots.clear();
+    fn delete_state_snapshots(&mut self) {
+        self.inner.state_snapshots.clear();
     }
 
     fn create_fork(
@@ -1885,8 +1888,9 @@ pub struct BackendInner<BlockT, TxT, HardforkT> {
     /// Holds all created fork databases
     // Note: data is stored in an `Option` so we can remove it without reshuffling
     pub forks: Vec<Option<Fork>>,
-    /// Contains snapshots made at a certain point
-    pub snapshots: Snapshots<BackendSnapshot<BackendDatabaseSnapshot, BlockT, TxT, HardforkT>>,
+    /// Contains state snapshots made at a certain point
+    pub state_snapshots:
+        StateSnapshots<BackendStateSnapshot<BackendDatabaseSnapshot, BlockT, TxT, HardforkT>>,
     /// Tracks whether there was a failure in a snapshot that was reverted
     ///
     /// The Test contract contains a bool variable that is set to true when an
@@ -1897,7 +1901,7 @@ pub struct BackendInner<BlockT, TxT, HardforkT> {
     /// When a snapshot is reverted we get the _current_
     /// `JournaledState` which contains the state that we can check if
     /// the `_failed` variable is set, additionally
-    pub has_snapshot_failure: bool,
+    pub has_state_snapshot_failure: bool,
     /// Tracks the address of a Test contract
     ///
     /// This address can be used to inspect the state of the contract when a
@@ -1996,7 +2000,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     }
 
     /// Reverts the entire fork database
-    pub fn revert_snapshot(
+    pub fn revert_state_snapshot(
         &mut self,
         id: LocalForkId,
         fork_id: ForkId,
@@ -2097,8 +2101,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> Default
             issued_local_fork_ids: HashMap::default(),
             created_forks: HashMap::default(),
             forks: vec![],
-            snapshots: Snapshots::default(),
-            has_snapshot_failure: false,
+            state_snapshots: StateSnapshots::default(),
+            has_state_snapshot_failure: false,
             test_contract_address: None,
             caller: None,
             next_fork_id: LocalForkId::default(),

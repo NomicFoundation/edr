@@ -606,6 +606,11 @@ export interface SolidityTestRunnerConfigArgs {
    */
   invariant?: InvariantConfigArgs
   /**
+   * Controls which test results should include execution traces. Defaults to
+   * None.
+   */
+  includeTraces?: IncludeTraces
+  /**
    * A regex pattern to filter tests. If provided, only test methods that
    * match the pattern will be executed and reported as a test result.
    */
@@ -706,7 +711,7 @@ export interface InvariantConfigArgs {
    */
   shrinkRunLimit?: number
 }
-/** Settings to configure caching of remote */
+/** Settings to configure caching of remote RPC endpoints. */
 export interface StorageCachingConfig {
   /**
    * Chains to cache. Either all or none or a list of chain names, e.g.
@@ -751,6 +756,18 @@ export interface AddressLabel {
   address: Buffer
   /** The label to assign to the address */
   label: string
+}
+/**
+ * Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
+ * controls execution trace decoding and inclusion in test results.
+ */
+export const enum IncludeTraces {
+  /** No traces will be included in any test result. */
+  None = 0,
+  /** Traces will be included only on the results of failed tests. */
+  Failing = 1,
+  /** Traces will be included in all test results. */
+  All = 2
 }
 /** The stack trace result */
 export interface StackTrace {
@@ -863,6 +880,90 @@ export interface BaseCounterExample {
   readonly signature?: string
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::args] */
   readonly args?: string
+}
+/**
+ * Object representing a call in an execution trace, including contract
+ * creation.
+ */
+export interface CallTrace {
+  /** The kind of call or contract creation this represents. */
+  kind: CallKind
+  /** Whether the call succeeded or reverted. */
+  success: boolean
+  /** Whether the call is a cheatcode. */
+  isCheatcode: boolean
+  /** The amount of gas that was consumed. */
+  gasUsed: bigint
+  /** The amount of native token that was included with the call. */
+  value: bigint
+  /**
+   * The target of the call. Provided as a contract name if known, otherwise
+   * a checksum address.
+   */
+  contract: string
+  /**
+   * The input (calldata) to the call. If it encodes a known function call,
+   * it will be decoded into the function name and a list of arguments.
+   * For example, `{ name: "ownerOf", arguments: ["1"] }`. Note that the
+   * function name may also be any of the special `fallback` and `receive`
+   * functions. Otherwise, it will be provided as a raw byte array.
+   */
+  inputs: DecodedTraceParameters | Uint8Array
+  /**
+   * The output of the call. This will be a decoded human-readable
+   * representation of the value if the function is known, otherwise a
+   * raw byte array.
+   */
+  outputs: string | Uint8Array
+  /**
+   * Interleaved subcalls and event logs. Use `kind` to check if each member
+   * of the array is a call or log trace.
+   */
+  children: Array<CallTrace | LogTrace>
+}
+/** Object representing an event log in an execution trace. */
+export interface LogTrace {
+  /** A constant to help discriminate the union `CallTrace | LogTrace`. */
+  kind: LogKind
+  /**
+   * If the log is a known event (based on its first topic), it will be
+   * decoded into the event name and list of named parameters. For
+   * example, `{ name: "Log", arguments: ["value: 1"] }`. Otherwise, it
+   * will be provided as an array where all but the last element are the
+   * log topics, and the last element is the log data.
+   */
+  parameters: DecodedTraceParameters | Array<Uint8Array>
+}
+/** The various kinds of call frames possible in the EVM. */
+export const enum CallKind {
+  /** Regular call that may change state. */
+  Call = 0,
+  /**
+   * Variant of `DelegateCall` that doesn't preserve sender or value in the
+   * frame.
+   */
+  CallCode = 1,
+  /** Call that executes the code of the target in the context of the caller. */
+  DelegateCall = 2,
+  /** Regular call that may not change state. */
+  StaticCall = 3,
+  /** Contract creation. */
+  Create = 4
+}
+/** Kind marker for log traces. */
+export const enum LogKind {
+  /** Single kind of log. */
+  Log = 5
+}
+/** Decoded function call or event. */
+export interface DecodedTraceParameters {
+  /** The name of a function or an event. */
+  name: string
+  /**
+   * The arguments of the function call or the event, in their human-readable
+   * representations.
+   */
+  arguments: Array<string>
 }
 /**
  * Executes Solidity tests.
@@ -1195,6 +1296,15 @@ export declare class TestResult {
    * Cannot throw.
    */
   stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
+  /**
+   * Constructs the execution traces for the test. Returns an empty array if
+   * traces for this test were not requested according to
+   * [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+   * an array of the root calls of the trace, which always includes the test
+   * call itself and may also include the setup call if there is one
+   * (identified by the function name `setUp`).
+   */
+  callTraces(): Array<CallTrace>
 }
 export declare class Exit {
   get kind(): ExitCode

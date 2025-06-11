@@ -1,5 +1,12 @@
 //! The Forge test runner.
-use std::{borrow::Cow, cmp::min, collections::BTreeMap, path::Path, sync::Arc, time::Instant};
+use std::{
+    borrow::Cow,
+    cmp::min,
+    collections::{BTreeMap, HashMap},
+    path::Path,
+    sync::Arc,
+    time::Instant,
+};
 
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
@@ -58,7 +65,7 @@ pub struct ContractRunner<'a, NestedTraceDecoderT> {
     pub known_contracts: &'a ContractsByArtifact,
     /// Libraries to deploy.
     pub libs_to_deploy: &'a [Bytes],
-    /// Provides contract metadata from calldata and traces.
+    /// Provides contract metadata for calldata and traces.
     pub contract_decoder: Arc<NestedTraceDecoderT>,
     /// The initial balance of the test contract
     pub initial_balance: U256,
@@ -86,7 +93,7 @@ pub struct ContractRunnerOptions {
     pub solidity_fuzz_fixtures: bool,
 }
 
-/// Contract artifact related argumetns to the contract runner.
+/// Contract artifact related arguments to the contract runner.
 pub struct ContractRunnerArtifacts<'a, NestedTracerDecoderT: SyncNestedTraceDecoder<HaltReason>> {
     pub revert_decoder: &'a RevertDecoder,
     pub known_contracts: &'a ContractsByArtifact,
@@ -272,6 +279,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                         labeled_addresses: setup.labeled_addresses,
                         duration: elapsed,
                         stack_trace_result: Some(Arc::new(stack_trace_result)),
+                        deprecated_cheatcodes: HashMap::new(),
                     },
                 )]
                 .into(),
@@ -678,6 +686,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             coverage: execution_coverage,
             labels: new_labels,
             state_changeset,
+            cheatcodes,
             ..
         } = raw_call_result;
 
@@ -712,6 +721,9 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             None
         };
 
+        let deprecated_cheatcodes =
+            cheatcodes.map_or_else(HashMap::new, |cheatcodes| cheatcodes.deprecated);
+
         TestResult {
             status: match success {
                 true => TestStatus::Success,
@@ -728,6 +740,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             duration,
             gas_report_traces: Vec::new(),
             stack_trace_result,
+            deprecated_cheatcodes,
         }
     }
     /// Re-run the deployment, setup and test execution with expensive EVM step
@@ -804,6 +817,8 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         } = setup;
         debug_assert!(reason.is_none());
 
+        let mut deprecated_cheatcodes = HashMap::new();
+
         // First, run the test normally to see if it needs to be skipped.
         let start = Instant::now();
         if let Err(EvmError::Skip(reason)) = executor.call(
@@ -861,6 +876,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                 identified_contracts,
                 invariant_contract: &invariant_contract,
                 logs: &mut logs,
+                deprecated_cheatcodes: &mut deprecated_cheatcodes,
                 traces: &mut traces,
                 coverage: &mut coverage,
                 start: &start,
@@ -932,6 +948,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                             logs: &mut logs,
                             traces: &mut traces,
                             coverage: &mut coverage,
+                            deprecated_cheatcodes: &mut deprecated_cheatcodes,
                             generate_stack_trace: true,
                             contract_decoder: Some(&*self.contract_decoder),
                             revert_decoder: self.revert_decoder,
@@ -1003,6 +1020,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                         logs: &mut logs,
                         traces: &mut traces,
                         coverage: &mut coverage,
+                        deprecated_cheatcodes: &mut deprecated_cheatcodes,
                         inputs: last_run_inputs.clone(),
                         generate_stack_trace: false,
                         contract_decoder: None,
@@ -1036,6 +1054,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             duration: start.elapsed(),
             gas_report_traces,
             stack_trace_result: stack_trace,
+            deprecated_cheatcodes,
         }
     }
 
@@ -1156,6 +1175,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                 .map(|t| vec![t])
                 .collect(),
             stack_trace_result,
+            deprecated_cheatcodes: result.deprecated_cheatcodes,
         }
     }
 
@@ -1257,6 +1277,7 @@ struct ReplayRecordedFailureArgs<'a, NestedTraceDecoderT: NestedTraceDecoder<Hal
     logs: &'a mut Vec<Log>,
     traces: &'a mut Traces,
     coverage: &'a mut Option<HitMaps>,
+    deprecated_cheatcodes: &'a mut HashMap<&'static str, Option<&'static str>>,
     start: &'a Instant,
 }
 
@@ -1275,6 +1296,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder<HaltR
         invariant_contract,
         logs,
         traces,
+        deprecated_cheatcodes,
         coverage,
         start,
     } = args;
@@ -1316,6 +1338,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder<HaltR
                     logs,
                     traces,
                     coverage,
+                    deprecated_cheatcodes,
                     inputs: txes,
                     generate_stack_trace: true,
                     contract_decoder: Some(contract_decoder),
@@ -1356,6 +1379,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder<HaltR
                     logs: vec![],
                     labeled_addresses: AddressHashMap::<String>::default(),
                     stack_trace_result,
+                    deprecated_cheatcodes: deprecated_cheatcodes.clone(),
                 });
             }
         }

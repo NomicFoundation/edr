@@ -392,9 +392,9 @@ impl<
         let result = db.inspect(&mut env, &mut inspector, self.chain_context.clone())?;
 
         // Persist the snapshot failure recorded on the fuzz backend wrapper.
-        let has_snapshot_failure = db.has_snapshot_failure();
+        let has_state_snapshot_failure = db.has_state_snapshot_failure();
         Ok((
-            convert_executed_result(env, inspector, result, has_snapshot_failure)?,
+            convert_executed_result(env, inspector, result, has_state_snapshot_failure)?,
             db,
         ))
     }
@@ -419,7 +419,12 @@ impl<
         let result = self
             .backend
             .inspect(&mut env, self.chain_context.clone(), &mut inspector)?;
-        convert_executed_result(env, inspector, result, self.backend.has_snapshot_failure())
+        convert_executed_result(
+            env,
+            inspector,
+            result,
+            self.backend.has_state_snapshot_failure(),
+        )
     }
 
     /// Commit the changeset to the database and adjust `self.inspector_config`
@@ -560,7 +565,7 @@ impl<
         call_result: &RawCallResult<BlockT, TxT, HardforkT>,
         should_fail: bool,
     ) -> bool {
-        if call_result.has_snapshot_failure {
+        if call_result.has_state_snapshot_failure {
             // a failure occurred in a reverted snapshot, which is considered a failed test
             return should_fail;
         }
@@ -574,7 +579,7 @@ impl<
         state_changeset: Cow<'_, StateChangeset>,
         should_fail: bool,
     ) -> Result<bool, BackendError> {
-        if self.backend.has_snapshot_failure() {
+        if self.backend.has_state_snapshot_failure() {
             // a failure occurred in a reverted snapshot, which is considered a failed test
             return Ok(should_fail);
         }
@@ -787,7 +792,7 @@ pub struct RawCallResult<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: H
     /// This is tracked separately from revert because a snapshot failure can
     /// occur without a revert, since assert failures are stored in a global
     /// variable (ds-test legacy)
-    pub has_snapshot_failure: bool,
+    pub has_state_snapshot_failure: bool,
     /// The raw result of the call.
     pub result: Bytes,
     /// The gas used for the call
@@ -821,7 +826,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> Default
         Self {
             exit_reason: InstructionResult::Continue,
             reverted: false,
-            has_snapshot_failure: false,
+            has_state_snapshot_failure: false,
             result: Bytes::new(),
             gas_used: 0,
             gas_refunded: 0,
@@ -955,7 +960,7 @@ fn convert_executed_result<
     env: EvmEnv<BlockT, TxT, HardforkT>,
     inspector: InspectorStack<BlockT, TxT, HardforkT, ChainContextT>,
     result: ResultAndState,
-    has_snapshot_failure: bool,
+    has_state_snapshot_failure: bool,
 ) -> eyre::Result<RawCallResult<BlockT, TxT, HardforkT>> {
     let ResultAndState {
         result: exec_result,
@@ -1006,7 +1011,7 @@ fn convert_executed_result<
     Ok(RawCallResult {
         exit_reason,
         reverted: !matches!(exit_reason, return_ok!()),
-        has_snapshot_failure,
+        has_state_snapshot_failure,
         result,
         gas_used,
         gas_refunded,

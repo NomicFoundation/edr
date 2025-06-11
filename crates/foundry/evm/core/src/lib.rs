@@ -19,5 +19,5 @@ pub mod fork;
 pub mod opcodes;
 pub mod opts;
 pub mod precompiles;
-pub mod snapshot;
+pub mod state_snapshot;
 pub mod utils;

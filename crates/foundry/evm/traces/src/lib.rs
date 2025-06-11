@@ -15,11 +15,11 @@ use std::{
 };
 
 use alloy_primitives::map::HashMap;
-use revm_inspectors::tracing::types::{DecodedTraceStep, TraceMemberOrder};
+use revm_inspectors::tracing::types::DecodedTraceStep;
 pub use revm_inspectors::tracing::{
     types::{
         CallKind, CallLog, CallTrace, CallTraceNode, CallTraceStep, DecodedCallData,
-        DecodedCallLog, DecodedCallTrace,
+        DecodedCallLog, DecodedCallTrace, TraceMemberOrder,
     },
     CallTraceArena, FourByteInspector, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType,
     TraceWriter, TracingInspector, TracingInspectorConfig,
@@ -56,8 +56,7 @@ pub struct SparsedTraceArena {
 
 impl SparsedTraceArena {
     /// Goes over entire trace arena and removes ignored trace items.
-    #[allow(dead_code)]
-    fn resolve_arena(&self) -> Cow<'_, CallTraceArena> {
+    pub fn resolve_arena(&self) -> Cow<'_, CallTraceArena> {
         if self.ignored.is_empty() {
             Cow::Borrowed(&self.arena)
         } else {
@@ -161,14 +160,9 @@ impl DerefMut for SparsedTraceArena {
 /// Decode a collection of call traces.
 ///
 /// The traces will be decoded using the given decoder, if possible.
-pub async fn decode_trace_arena(
-    arena: &mut CallTraceArena,
-    decoder: &CallTraceDecoder,
-) -> Result<(), std::fmt::Error> {
+pub async fn decode_trace_arena(arena: &mut CallTraceArena, decoder: &CallTraceDecoder) {
     decoder.prefetch_signatures(arena.nodes()).await;
     decoder.populate_traces(arena.nodes_mut()).await;
-
-    Ok(())
 }
 
 /// Render a collection of call traces to a string.

@@ -31,7 +31,7 @@ contract FailingInvariantTest is Test {
         wrongContract = new StochasticWrongContract();
     }
 
-    function invariant() external {
+    function invariant() external view {
         assertEq(wrongContract.a() + wrongContract.b(), wrongContract.both());
     }
 }
@@ -44,7 +44,7 @@ contract BuggyInvariantTest is Test {
         wrongContract = new StochasticWrongContract();
     }
 
-    function invariant() external {
+    function invariant() external pure {
         require(1 == 2, "one is not two");
     }
 }
@@ -57,7 +57,7 @@ contract ImpureInvariantTest is Test {
         wrongContract = new StochasticWrongContract();
     }
 
-    function invariant() external {
+    function invariant() external view {
         assert(vm.unixTime() > 0);
         assertEq(wrongContract.a() + wrongContract.b(), wrongContract.both());
     }

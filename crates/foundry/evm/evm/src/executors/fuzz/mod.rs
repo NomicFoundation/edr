@@ -1,4 +1,7 @@
-use std::{cell::RefCell, collections::BTreeMap};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, HashMap},
+};
 
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::Function;
@@ -39,6 +42,8 @@ pub struct FuzzTestData<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: Ha
     pub coverage: Option<HitMaps>,
     // Stores logs for all fuzz cases
     pub logs: Vec<Log>,
+    // Deprecated cheatcodes mapped to their replacements.
+    pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
     // Stores gas snapshots for all fuzz cases
     pub gas_snapshots: BTreeMap<String, BTreeMap<String, String>>,
 }
@@ -147,6 +152,7 @@ impl<
                     }
 
                     HitMaps::merge_opt(&mut data.coverage, case.coverage);
+                    data.deprecated_cheatcodes = case.deprecated_cheatcodes;
 
                     Ok(())
                 }
@@ -192,6 +198,7 @@ impl<
             reason: None,
             counterexample: None,
             logs: fuzz_result.logs,
+            deprecated_cheatcodes: fuzz_result.deprecated_cheatcodes,
             labeled_addresses: call.labels,
             traces: last_run_traces,
             gas_report_traces: traces.into_iter().map(|a| a.arena).collect(),
@@ -267,6 +274,11 @@ impl<
             return Err(TestCaseError::reject(FuzzError::AssumeReject));
         }
 
+        let deprecated_cheatcodes = call
+            .cheatcodes
+            .as_ref()
+            .map_or_else(Default::default, |cheatcodes| cheatcodes.deprecated.clone());
+
         let success = self
             .executor
             .is_raw_call_mut_success(address, &mut call, should_fail);
@@ -280,6 +292,7 @@ impl<
                 traces: call.traces,
                 coverage: call.coverage,
                 logs: call.logs,
+                deprecated_cheatcodes,
             }))
         } else {
             Ok(FuzzOutcome::CounterExample(CounterExampleOutcome {

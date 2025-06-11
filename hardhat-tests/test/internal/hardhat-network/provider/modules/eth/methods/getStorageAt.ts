@@ -26,7 +26,7 @@ describe("Eth module", function () {
 
     describe(`${name} provider`, function () {
       setCWD();
-      useProvider();
+      useProvider({ forkBlockNumber: 22559592 });
 
       describe("eth_getStorageAt", function () {
         describe("Imitating Ganache", function () {

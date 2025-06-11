@@ -14,6 +14,7 @@ use foundry_evm::{
     fork::CreateFork,
     inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
     opts::EvmOpts,
+    traces::{decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder},
 };
 use futures::StreamExt;
 
@@ -24,8 +25,8 @@ use crate::{
         primitives::hardfork::SpecId,
     },
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
-    ContractRunner, SolidityTestRunnerConfig, SolidityTestRunnerConfigError, TestFilter,
-    TestOptions,
+    ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
+    TestFilter, TestOptions,
 };
 
 /// A deployable test contract
@@ -65,8 +66,9 @@ pub struct MultiContractRunner<NestedTraceDecoderT> {
     fork: Option<CreateFork<BlockEnv, TxEnv, SpecId>>,
     /// Whether to collect coverage info
     coverage: bool,
-    /// Whether to collect traces
-    trace: bool,
+    /// Whether to enable trace mode and which traces to include in test
+    /// results.
+    include_traces: IncludeTraces,
     /// Whether to support the `testFail` prefix
     test_fail: bool,
     /// Whether to enable solidity fuzz fixtures support
@@ -96,7 +98,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         let fork = config.get_fork().await?;
 
         let SolidityTestRunnerConfig {
-            trace,
+            include_traces,
             coverage,
             test_fail,
             evm_opts,
@@ -130,7 +132,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             revert_decoder,
             fork,
             coverage,
-            trace,
+            include_traces,
             test_fail,
             solidity_fuzz_fixtures,
             test_options,
@@ -198,12 +200,13 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             find_time,
         );
 
+        let handle = tokio::runtime::Handle::current();
+
         let this = Arc::new(self);
         let args = contracts
             .into_iter()
             .zip(std::iter::repeat((this, fork, filter, tx)));
 
-        let handle = tokio::runtime::Handle::current();
         handle.spawn(async {
             futures::stream::iter(args)
                 .for_each_concurrent(
@@ -259,7 +262,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             .inspectors(|stack| {
                 stack
                     .cheatcodes(Arc::new(cheats_config))
-                    .trace(self.trace)
+                    .trace(self.include_traces != IncludeTraces::None)
                     .coverage(self.coverage)
                     .enable_isolation(self.evm_opts.isolate)
             })
@@ -289,7 +292,34 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                 solidity_fuzz_fixtures: self.solidity_fuzz_fixtures,
             },
         );
-        let r = runner.run_tests(filter, &self.test_options, handle);
+        let mut r = runner.run_tests(filter, &self.test_options, handle);
+
+        if self.include_traces != IncludeTraces::None {
+            let mut decoder = CallTraceDecoderBuilder::new().build();
+
+            for result in r.test_results.values_mut() {
+                if result.status.is_success() && self.include_traces != IncludeTraces::All {
+                    continue;
+                }
+
+                decoder.clear_addresses();
+                decoder.labels.extend(
+                    result
+                        .labeled_addresses
+                        .iter()
+                        .map(|(k, v)| (*k, v.clone())),
+                );
+
+                for (_, arena) in &mut result.traces {
+                    let mut trace_identifier =
+                        TraceIdentifiers::new().with_local(&self.known_contracts);
+                    decoder.identify(arena, &mut trace_identifier);
+                    tokio::task::block_in_place(|| {
+                        handle.block_on(decode_trace_arena(arena, &decoder));
+                    });
+                }
+            }
+        }
 
         debug!(duration=?r.duration, "executed all tests in contract");
 

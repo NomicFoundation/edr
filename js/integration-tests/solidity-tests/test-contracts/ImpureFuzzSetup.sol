@@ -20,7 +20,7 @@ contract ImpureFuzzSetup is Test {
         fileContents = vm.readFile("./invalid-path");
     }
 
-    function testFuzzAddWithOverflow(uint256 a, uint256 b) public {
+    function testFuzzAddWithOverflow(uint256 a, uint256 b) public view {
         uint256 result = myContract.addWithOverflow(a, b);
         assertEq(result, a + b);
     }
@@ -34,7 +34,7 @@ contract ImpureFuzzTest is Test {
         myContract = new MyContract();
     }
 
-    function testFuzzAddWithOverflow(uint256 a, uint256 b) public {
+    function testFuzzAddWithOverflow(uint256 a, uint256 b) public view {
         // Impure cheatcode
         assert(vm.unixTime() > 0);
         uint256 result = myContract.addWithOverflow(a, b);

@@ -50,8 +50,8 @@ const DEFAULT_SAMPLES = 5;
 export const FORGE_STD_SAMPLES = {
   [TOTAL_NAME]: DEFAULT_SAMPLES,
   StdCheatsTest: DEFAULT_SAMPLES,
-  StdCheatsForkTest: 15,
-  StdMathTest: 9,
+  StdCheatsForkTest: 45,
+  StdMathTest: 45,
   StdStorageTest: DEFAULT_SAMPLES,
   StdUtilsForkTest: 15,
 };

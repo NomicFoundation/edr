@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use alloy_primitives::{Bytes, Log};
 use foundry_evm_core::{
     backend::IndeterminismReasons,
@@ -21,6 +23,8 @@ pub struct CaseOutcome {
     pub coverage: Option<HitMaps>,
     /// logs of a single fuzz test case.
     pub logs: Vec<Log>,
+    /// Deprecated cheatcodes mapped to their replacements.
+    pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
 }
 
 /// Returned by a single fuzz when a counterexample has been discovered

@@ -10,7 +10,7 @@ use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_sol_types::SolValue;
 use edr_common::fs::{read_json_file, write_json_file};
 use foundry_evm_core::{
-    backend::{CheatcodeBackend, RevertSnapshotAction},
+    backend::{CheatcodeBackend, RevertStateSnapshotAction},
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, TEST_CONTRACT_ADDRESS},
     evm_context::{split_context, BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
@@ -27,14 +27,15 @@ use crate::{
     impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result,
     Vm::{
         accessesCall, addrCall, blobBaseFeeCall, blobhashesCall, chainIdCall, coinbaseCall,
-        coolCall, dealCall, deleteSnapshotCall, deleteSnapshotsCall, difficultyCall, dumpStateCall,
-        etchCall, feeCall, getBlobBaseFeeCall, getBlobhashesCall, getBlockNumberCall,
-        getBlockTimestampCall, getNonceCall, getRecordedLogsCall, lastCallGasCall, loadAllocsCall,
-        loadCall, pauseGasMeteringCall, prevrandao_0Call, prevrandao_1Call, readCallersCall,
-        recordCall, recordLogsCall, resetNonceCall, resumeGasMeteringCall, revertToAndDeleteCall,
-        revertToCall, rollCall, setNonceCall, setNonceUnsafeCall, signP256Call, snapshotCall,
-        startStateDiffRecordingCall, stopAndReturnStateDiffCall, storeCall, txGasPriceCall,
-        warpCall, CallerMode,
+        coolCall, dealCall, deleteSnapshotCall, deleteSnapshotsCall, deleteStateSnapshotCall,
+        deleteStateSnapshotsCall, difficultyCall, dumpStateCall, etchCall, feeCall,
+        getBlobBaseFeeCall, getBlobhashesCall, getBlockNumberCall, getBlockTimestampCall,
+        getNonceCall, getRecordedLogsCall, lastCallGasCall, loadAllocsCall, loadCall,
+        pauseGasMeteringCall, prevrandao_0Call, prevrandao_1Call, readCallersCall, recordCall,
+        recordLogsCall, resetNonceCall, resumeGasMeteringCall, revertToAndDeleteCall, revertToCall,
+        revertToStateAndDeleteCall, revertToStateCall, rollCall, setNonceCall, setNonceUnsafeCall,
+        signP256Call, snapshotCall, snapshotStateCall, startStateDiffRecordingCall,
+        stopAndReturnStateDiffCall, storeCall, txGasPriceCall, warpCall, CallerMode,
     },
 };
 
@@ -852,6 +853,7 @@ impl Cheatcode for readCallersCall {
     }
 }
 
+// Deprecated in favor of `snapshotStateCall`
 impl_is_pure_true!(snapshotCall);
 impl Cheatcode for snapshotCall {
     fn apply_full<
@@ -865,13 +867,28 @@ impl Cheatcode for snapshotCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
-        let (db, context) = split_context(ccx.ecx);
-        Ok(db
-            .snapshot(context.journaled_state, context.to_owned_env())
-            .abi_encode())
+        inner_snapshot_state(ccx)
     }
 }
 
+impl_is_pure_true!(snapshotStateCall);
+impl Cheatcode for snapshotStateCall {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
+        let Self {} = self;
+        inner_snapshot_state(ccx)
+    }
+}
+
+// Deprecated in favor of `revertToStateCall`
 impl_is_pure_true!(revertToCall);
 impl Cheatcode for revertToCall {
     fn apply_full<
@@ -885,21 +902,28 @@ impl Cheatcode for revertToCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { snapshotId } = self;
-        let (db, mut context) = split_context(ccx.ecx);
-        let result = if let Some(journaled_state) =
-            db.revert(*snapshotId, RevertSnapshotAction::RevertKeep, &mut context)
-        {
-            // we reset the evm's journaled_state to the state of the snapshot previous
-            // state
-            ccx.ecx.journaled_state.inner = journaled_state;
-            true
-        } else {
-            false
-        };
-        Ok(result.abi_encode())
+        inner_revert_to_state(ccx, *snapshotId)
     }
 }
 
+impl_is_pure_true!(revertToStateCall);
+impl Cheatcode for revertToStateCall {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
+        let Self { snapshotId } = self;
+        inner_revert_to_state(ccx, *snapshotId)
+    }
+}
+
+// Deprecated in favor of `revertToStateAndDeleteCall`
 impl_is_pure_true!(revertToAndDeleteCall);
 impl Cheatcode for revertToAndDeleteCall {
     fn apply_full<
@@ -913,23 +937,28 @@ impl Cheatcode for revertToAndDeleteCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { snapshotId } = self;
-        let (db, mut context) = split_context(ccx.ecx);
-        let result = if let Some(journaled_state) = db.revert(
-            *snapshotId,
-            RevertSnapshotAction::RevertRemove,
-            &mut context,
-        ) {
-            // we reset the evm's journaled_state to the state of the snapshot previous
-            // state
-            ccx.ecx.journaled_state.inner = journaled_state;
-            true
-        } else {
-            false
-        };
-        Ok(result.abi_encode())
+        inner_revert_to_state_and_delete(ccx, *snapshotId)
     }
 }
 
+impl_is_pure_true!(revertToStateAndDeleteCall);
+impl Cheatcode for revertToStateAndDeleteCall {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
+        let Self { snapshotId } = self;
+        inner_revert_to_state_and_delete(ccx, *snapshotId)
+    }
+}
+
+// Deprecated in favor of `deleteStateSnapshotCall`
 impl_is_pure_true!(deleteSnapshotCall);
 impl Cheatcode for deleteSnapshotCall {
     fn apply_full<
@@ -943,15 +972,28 @@ impl Cheatcode for deleteSnapshotCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { snapshotId } = self;
-        let result = ccx
-            .ecx
-            .journaled_state
-            .database
-            .delete_snapshot(*snapshotId);
-        Ok(result.abi_encode())
+        inner_delete_state_snapshot(ccx, *snapshotId)
     }
 }
 
+impl_is_pure_true!(deleteStateSnapshotCall);
+impl Cheatcode for deleteStateSnapshotCall {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
+        let Self { snapshotId } = self;
+        inner_delete_state_snapshot(ccx, *snapshotId)
+    }
+}
+
+// Deprecated in favor of `deleteStateSnapshotsCall`
 impl_is_pure_true!(deleteSnapshotsCall);
 impl Cheatcode for deleteSnapshotsCall {
     fn apply_full<
@@ -965,8 +1007,24 @@ impl Cheatcode for deleteSnapshotsCall {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self {} = self;
-        ccx.ecx.journaled_state.database.delete_snapshots();
-        Ok(Vec::default())
+        inner_delete_state_snapshots(ccx)
+    }
+}
+
+impl_is_pure_true!(deleteStateSnapshotsCall);
+impl Cheatcode for deleteStateSnapshotsCall {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    ) -> Result {
+        let Self {} = self;
+        inner_delete_state_snapshots(ccx)
     }
 }
 
@@ -1005,6 +1063,104 @@ pub(super) fn get_nonce<
 ) -> Result {
     let account = ccx.ecx.journaled_state.load_account(*address)?;
     Ok(account.info.nonce.abi_encode())
+}
+
+fn inner_snapshot_state<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+>(
+    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+) -> Result {
+    let (db, context) = split_context(ccx.ecx);
+    Ok(db
+        .snapshot_state(context.journaled_state, context.to_owned_env())
+        .abi_encode())
+}
+
+fn inner_revert_to_state<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+>(
+    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    snapshot_id: U256,
+) -> Result {
+    let (db, mut context) = split_context(ccx.ecx);
+    let result = if let Some(journaled_state) = db.revert_state(
+        snapshot_id,
+        RevertStateSnapshotAction::RevertKeep,
+        &mut context,
+    ) {
+        // we reset the evm's journaled_state to the state of the snapshot previous
+        // state
+        ccx.ecx.journaled_state.inner = journaled_state;
+        true
+    } else {
+        false
+    };
+    Ok(result.abi_encode())
+}
+
+fn inner_revert_to_state_and_delete<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+>(
+    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    snapshot_id: U256,
+) -> Result {
+    let (db, mut context) = split_context(ccx.ecx);
+    let result = if let Some(journaled_state) = db.revert_state(
+        snapshot_id,
+        RevertStateSnapshotAction::RevertRemove,
+        &mut context,
+    ) {
+        // we reset the evm's journaled_state to the state of the snapshot previous
+        // state
+        ccx.ecx.journaled_state.inner = journaled_state;
+        true
+    } else {
+        false
+    };
+    Ok(result.abi_encode())
+}
+
+fn inner_delete_state_snapshot<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+>(
+    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+    snapshot_id: U256,
+) -> Result {
+    let result = ccx
+        .ecx
+        .journaled_state
+        .database
+        .delete_state_snapshot(snapshot_id);
+    Ok(result.abi_encode())
+}
+
+fn inner_delete_state_snapshots<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+>(
+    ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+) -> Result {
+    ccx.ecx.journaled_state.database.delete_state_snapshots();
+    Ok(Vec::default())
 }
 
 /// Reads the current caller information and returns the current [`CallerMode`],

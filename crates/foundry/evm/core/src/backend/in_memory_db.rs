@@ -9,7 +9,7 @@ use revm::{
     Database, DatabaseCommit,
 };
 
-use crate::snapshot::Snapshots;
+use crate::state_snapshot::StateSnapshots;
 
 /// Type alias for an in memory database
 ///
@@ -23,14 +23,14 @@ pub type FoundryEvmInMemoryDB = CacheDB<EmptyDBWrapper>;
 #[derive(Debug)]
 pub struct MemDb {
     pub inner: FoundryEvmInMemoryDB,
-    pub snapshots: Snapshots<FoundryEvmInMemoryDB>,
+    pub state_snapshots: StateSnapshots<FoundryEvmInMemoryDB>,
 }
 
 impl Default for MemDb {
     fn default() -> Self {
         Self {
             inner: CacheDB::new(EmptyDBWrapper::default()),
-            snapshots: Snapshots::default(),
+            state_snapshots: StateSnapshots::default(),
         }
     }
 }
