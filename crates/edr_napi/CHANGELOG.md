@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.11.1
+
+### Patch Changes
+
+- 65e8d25: Fixed bug where native token sent to test account does not increase recipient balance.
+
 ## 0.11.0
 
 ### Minor Changes
