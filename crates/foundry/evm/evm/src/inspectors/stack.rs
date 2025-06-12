@@ -702,7 +702,7 @@ impl<
     ) {
         call_inspectors_adjust_depth!(
             #[no_ret]
-            [&mut self.coverage, &mut self.tracer, &mut self.cheatcodes,],
+            [&mut self.coverage, &mut self.tracer, &mut self.cheatcodes],
             |inspector| inspector.initialize_interp(interpreter, ecx),
             self,
             ecx
@@ -727,7 +727,7 @@ impl<
                 &mut self.fuzzer,
                 &mut self.tracer,
                 &mut self.coverage,
-                &mut self.cheatcodes,
+                &mut self.cheatcodes
             ],
             |inspector| inspector.step(interpreter, ecx),
             self,
@@ -774,7 +774,7 @@ impl<
             [
                 &mut self.tracer,
                 &mut self.log_collector,
-                &mut self.cheatcodes,
+                &mut self.cheatcodes
             ],
             |inspector| inspector.log(interpreter, ecx, log.clone()),
             self,
@@ -804,7 +804,7 @@ impl<
                 &mut self.fuzzer,
                 &mut self.tracer,
                 &mut self.log_collector,
-                &mut self.cheatcodes,
+                &mut self.cheatcodes
             ],
             |inspector| {
                 let mut out = None;

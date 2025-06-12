@@ -12,13 +12,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-// Type aliases to simplify complex types
-type CallResultType<BlockT, TxT, HardforkT, R> = CallResult<BlockT, TxT, HardforkT, R>;
-type EvmErrorType<BlockT, TxT, HardforkT> = EvmError<BlockT, TxT, HardforkT>;
-type RawCallResultType<BlockT, TxT, HardforkT> = RawCallResult<BlockT, TxT, HardforkT>;
-type CowBackendType<'a, BlockT, TxT, HardforkT, ChainContextT> =
-    CowBackend<'a, BlockT, TxT, HardforkT, ChainContextT>;
-
 use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{
@@ -352,10 +345,8 @@ impl<
         args: &C,
         value: U256,
         rd: Option<&RevertDecoder>,
-    ) -> Result<
-        CallResultType<BlockT, TxT, HardforkT, C::Return>,
-        EvmErrorType<BlockT, TxT, HardforkT>,
-    > {
+    ) -> Result<CallResult<BlockT, TxT, HardforkT, C::Return>, EvmError<BlockT, TxT, HardforkT>>
+    {
         let calldata = Bytes::from(args.abi_encode());
         let (mut raw, _cow_backend) = self.call_raw(from, to, calldata, value)?;
         raw = raw.into_result(rd)?;
@@ -382,8 +373,8 @@ impl<
         calldata: Bytes,
         value: U256,
     ) -> eyre::Result<(
-        RawCallResultType<BlockT, TxT, HardforkT>,
-        CowBackendType<'_, BlockT, TxT, HardforkT, ChainContextT>,
+        RawCallResult<BlockT, TxT, HardforkT>,
+        CowBackend<'_, BlockT, TxT, HardforkT, ChainContextT>,
     )> {
         let mut inspector = self.inspector.clone();
         // Build VM
