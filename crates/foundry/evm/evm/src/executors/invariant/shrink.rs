@@ -11,7 +11,7 @@ use proptest::bits::{BitSetLike, VarBitSet};
 use crate::executors::{
     invariant::{
         call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
-        CallInvariantResult,
+        CallAfterInvariantResult, CallInvariantResult,
     },
     Executor,
 };
@@ -190,7 +190,10 @@ pub fn check_sequence<
     // Check after invariant result if invariant is success and `afterInvariant`
     // function is declared.
     if success && call_after_invariant {
-        (_, success) = call_after_invariant_function(&executor, test_address)?;
+        CallAfterInvariantResult {
+            call_result: _,
+            success,
+        } = call_after_invariant_function(&executor, test_address)?;
     }
 
     Ok((success, true))

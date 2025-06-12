@@ -15,8 +15,8 @@ use revm_inspectors::tracing::CallTraceArena;
 
 use super::{
     call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
-    CallInvariantResult, InvariantFailures, InvariantFuzzError, InvariantMetrics, InvariantTest,
-    InvariantTestRun,
+    CallAfterInvariantResult, CallInvariantResult, InvariantFailures, InvariantFuzzError,
+    InvariantMetrics, InvariantTest, InvariantTestRun,
 };
 use crate::executors::{Executor, RawCallResult};
 
@@ -209,8 +209,10 @@ pub(crate) fn assert_after_invariant<
     invariant_run: &InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT>,
     invariant_config: &InvariantConfig,
 ) -> Result<bool> {
-    let (call_result, success) =
-        call_after_invariant_function(&invariant_run.executor, invariant_contract.address)?;
+    let CallAfterInvariantResult {
+        call_result,
+        success,
+    } = call_after_invariant_function(&invariant_run.executor, invariant_contract.address)?;
     // Fail the test case if `afterInvariant` doesn't succeed.
     if !success {
         let case_data = FailedInvariantCaseData::new(

@@ -21,7 +21,7 @@ use revm::primitives::U256;
 
 use super::{
     call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
-    shrink_sequence, CallInvariantResult,
+    shrink_sequence, CallAfterInvariantResult, CallInvariantResult,
 };
 use crate::executors::{
     stack_trace::{get_stack_trace, StackTraceResult},
@@ -185,8 +185,10 @@ pub fn replay_run<
 
     // Collect after invariant logs and traces.
     if invariant_contract.call_after_invariant && invariant_success {
-        let (after_invariant_result, _) =
-            call_after_invariant_function(&executor, invariant_contract.address)?;
+        let CallAfterInvariantResult {
+            call_result: after_invariant_result,
+            success: _,
+        } = call_after_invariant_function(&executor, invariant_contract.address)?;
         traces.push((
             TraceKind::Execution,
             after_invariant_result.traces.clone().unwrap(),

@@ -1007,13 +1007,25 @@ pub(crate) fn call_after_invariant_function<
     executor: &Executor<BlockT, TxT, HardforkT, ChainContextT>,
     to: Address,
 ) -> std::result::Result<
-    (RawCallResult<BlockT, TxT, HardforkT>, bool),
+    CallAfterInvariantResult<BlockT, TxT, HardforkT>,
     EvmError<BlockT, TxT, HardforkT>,
 > {
     let calldata = Bytes::from_static(&IInvariantTest::afterInvariantCall::SELECTOR);
     let (mut call_result, _backend) = executor.call_raw(CALLER, to, calldata, U256::ZERO)?;
     let success = executor.is_raw_call_mut_success(to, &mut call_result, false);
-    Ok((call_result, success))
+    Ok(CallAfterInvariantResult {
+        call_result,
+        success,
+    })
+}
+
+pub(crate) struct CallAfterInvariantResult<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+> {
+    pub call_result: RawCallResult<BlockT, TxT, HardforkT>,
+    pub success: bool,
 }
 
 /// Calls the invariant function and returns call result and if succeeded.
