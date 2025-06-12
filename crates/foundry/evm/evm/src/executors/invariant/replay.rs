@@ -21,7 +21,7 @@ use revm::primitives::U256;
 
 use super::{
     call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
-    shrink_sequence,
+    shrink_sequence, CallInvariantResult,
 };
 use crate::executors::{
     stack_trace::{get_stack_trace, StackTraceResult},
@@ -158,7 +158,11 @@ pub fn replay_run<
     // Checking after each call doesn't add valuable info for passing scenario
     // (invariant call result is always success) nor for failed scenarios
     // (invariant call result is always success until the last call that breaks it).
-    let (invariant_result, invariant_success, cow_backend) = call_invariant_function(
+    let CallInvariantResult {
+        call_result: invariant_result,
+        success: invariant_success,
+        cow_backend,
+    } = call_invariant_function(
         &executor,
         invariant_contract.address,
         invariant_contract

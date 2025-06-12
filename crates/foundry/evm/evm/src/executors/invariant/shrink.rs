@@ -11,6 +11,7 @@ use proptest::bits::{BitSetLike, VarBitSet};
 use crate::executors::{
     invariant::{
         call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
+        CallInvariantResult,
     },
     Executor,
 };
@@ -108,8 +109,11 @@ pub(crate) fn shrink_sequence<
 
     // Special case test: the invariant is *unsatisfiable* - it took 0 calls to
     // break the invariant -- consider emitting a warning.
-    let (_call, success, _cow_backend) =
-        call_invariant_function(executor, failed_case.addr, failed_case.calldata.clone())?;
+    let CallInvariantResult {
+        call_result: _,
+        success,
+        cow_backend: _,
+    } = call_invariant_function(executor, failed_case.addr, failed_case.calldata.clone())?;
     if !success {
         return Ok(vec![]);
     }
@@ -178,8 +182,11 @@ pub fn check_sequence<
     }
 
     // Check the invariant for call sequence.
-    let (_call, mut success, _cow_backend) =
-        call_invariant_function(&executor, test_address, calldata)?;
+    let CallInvariantResult {
+        call_result: _,
+        mut success,
+        cow_backend: _,
+    } = call_invariant_function(&executor, test_address, calldata)?;
     // Check after invariant result if invariant is success and `afterInvariant`
     // function is declared.
     if success && call_after_invariant {

@@ -15,7 +15,8 @@ use revm_inspectors::tracing::CallTraceArena;
 
 use super::{
     call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
-    InvariantFailures, InvariantFuzzError, InvariantMetrics, InvariantTest, InvariantTestRun,
+    CallInvariantResult, InvariantFailures, InvariantFuzzError, InvariantMetrics, InvariantTest,
+    InvariantTestRun,
 };
 use crate::executors::{Executor, RawCallResult};
 
@@ -86,7 +87,11 @@ pub(crate) fn assert_invariants<
         }
     }
 
-    let (call_result, success, _cow_backend) = call_invariant_function(
+    let CallInvariantResult {
+        call_result,
+        success,
+        cow_backend: _,
+    } = call_invariant_function(
         executor,
         invariant_contract.address,
         invariant_contract

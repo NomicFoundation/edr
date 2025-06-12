@@ -1017,7 +1017,6 @@ pub(crate) fn call_after_invariant_function<
 }
 
 /// Calls the invariant function and returns call result and if succeeded.
-#[allow(clippy::type_complexity)]
 pub(crate) fn call_invariant_function<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -1027,12 +1026,25 @@ pub(crate) fn call_invariant_function<
     executor: &Executor<BlockT, TxT, HardforkT, ChainContextT>,
     address: Address,
     calldata: Bytes,
-) -> Result<(
-    RawCallResult<BlockT, TxT, HardforkT>,
-    bool,
-    CowBackend<'_, BlockT, TxT, HardforkT, ChainContextT>,
-)> {
-    let (mut call_result, backend) = executor.call_raw(CALLER, address, calldata, U256::ZERO)?;
+) -> Result<CallInvariantResult<'_, BlockT, TxT, HardforkT, ChainContextT>> {
+    let (mut call_result, cow_backend) =
+        executor.call_raw(CALLER, address, calldata, U256::ZERO)?;
     let success = executor.is_raw_call_mut_success(address, &mut call_result, false);
-    Ok((call_result, success, backend))
+    Ok(CallInvariantResult {
+        call_result,
+        success,
+        cow_backend,
+    })
+}
+
+pub(crate) struct CallInvariantResult<
+    'cow,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
+    pub call_result: RawCallResult<BlockT, TxT, HardforkT>,
+    pub success: bool,
+    pub cow_backend: CowBackend<'cow, BlockT, TxT, HardforkT, ChainContextT>,
 }
