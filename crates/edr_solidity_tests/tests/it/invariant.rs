@@ -795,7 +795,7 @@ async fn test_invariant_scrape_values() {
 async fn test_invariant_roll_fork_handler() {
     let path_pattern = ".*fuzz/invariant/common/InvariantRollFork.t.sol";
 
-    let _runner = TEST_DATA_DEFAULT
+    let runner = TEST_DATA_DEFAULT
         .runner_with_invariant_config_and_seed(
             U256::from(119u32),
             TestInvariantConfig {
@@ -806,27 +806,27 @@ async fn test_invariant_roll_fork_handler() {
         )
         .await;
 
-    // let results = runner
-    //     .test_collect(SolidityTestFilter::new(
-    //         "invariant_fork_handler_block",
-    //         "InvariantRollForkBlockTest",
-    //         path_pattern,
-    //     ))
-    //     .await;
-    //
-    // assert_multiple(
-    //     &results,
-    //     BTreeMap::from([(
-    //         "default/fuzz/invariant/common/InvariantRollFork.t.sol:
-    // InvariantRollForkBlockTest",         vec![(
-    //             "invariant_fork_handler_block()",
-    //             false,
-    //             Some("revert: too many blocks mined".into()),
-    //             None,
-    //             None,
-    //         )],
-    //     )]),
-    // );
+    let results = runner
+        .test_collect(SolidityTestFilter::new(
+            "invariant_fork_handler_block",
+            "InvariantRollForkBlockTest",
+            path_pattern,
+        ))
+        .await;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantRollFork.t.sol:InvariantRollForkBlockTest",
+            vec![(
+                "invariant_fork_handler_block()",
+                false,
+                Some("revert: too many blocks mined".into()),
+                None,
+                None,
+            )],
+        )]),
+    );
 
     let runner = TEST_DATA_DEFAULT
         .runner_with_invariant_config_and_seed(
