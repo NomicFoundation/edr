@@ -761,7 +761,7 @@ export interface AddressLabel {
  * Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
  * controls execution trace decoding and inclusion in test results.
  */
-export const enum IncludeTraces {
+export enum IncludeTraces {
   /** No traces will be included in any test result. */
   None = 0,
   /** Traces will be included only on the results of failed tests. */
@@ -935,7 +935,7 @@ export interface LogTrace {
   parameters: DecodedTraceParameters | Array<Uint8Array>
 }
 /** The various kinds of call frames possible in the EVM. */
-export const enum CallKind {
+export enum CallKind {
   /** Regular call that may change state. */
   Call = 0,
   /**
@@ -951,7 +951,7 @@ export const enum CallKind {
   Create = 4
 }
 /** Kind marker for log traces. */
-export const enum LogKind {
+export enum LogKind {
   /** Single kind of log. */
   Log = 5
 }
