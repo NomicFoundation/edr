@@ -1,5 +1,25 @@
 # @nomicfoundation/edr
 
+## 0.12.0
+
+### Minor Changes
+
+- 8396d70: Changed the ChainConfig to include a chain name and allow timestamp-based hardfork activations
+- 097b8c3: Changed ProviderConfig members to decouple from Hardhat 2 concepts
+- edc20dc: Added code coverage to the provider. It can be configured through the ProviderConfig
+- 097b8c3: Removed unused type definitions from API
+- 6f0f557: Added instrumenting of source code for statement code coverage measurement
+- 289de8a: Changed the instrumentation API to require a coverage library path
+- 097b8c3: Moved (and renamed) fork-specific configuration options from `ProviderConfig` to `ForkConfig`
+- 097b8c3: Replaced all occurences of Buffer with Uint8Array or ArrayBuffer
+
+### Patch Changes
+
+- f606fc6: Fixed instrumentation for control flow statements
+- 1b6d123: Fixed a bug causing async functions to throw errors at the callsite
+- ab4e20d: Added hardfork activations for Prague
+- 2ec6415: Added hardfork activations for Base Mainnet and Base Sepolia.
+
 ## 0.12.0-alpha.0
 
 ### Minor Changes
