@@ -16,7 +16,7 @@ use revm::{
 
 pub use crate::ic::*;
 use crate::{
-    evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, EvmEnvWithChainContext, HardforkTr, TransactionEnvTr},
     opts::BlockEnvOpts,
 };
 
@@ -200,9 +200,8 @@ type EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT> =
 #[allow(clippy::type_complexity)]
 pub fn new_evm_with_inspector<BlockT, TxT, HardforkT, DatabaseT, ChainContextT, InspectorT>(
     db: DatabaseT,
-    env: EvmEnv<BlockT, TxT, HardforkT>,
+    env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
     inspector: InspectorT,
-    chain: ChainContextT,
 ) -> Evm<
     EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>,
     InspectorT,
@@ -230,7 +229,7 @@ where
         block: env.block,
         cfg: env.cfg,
         journaled_state,
-        chain,
+        chain: env.chain_context,
         error: Ok(()),
     };
 
@@ -250,12 +249,12 @@ mod tests {
 
     #[test]
     fn build_evm() {
-        let env = EvmEnv::default_mainnet_with_spec_id(SpecId::default());
+        let env = EvmEnvWithChainContext::default_mainnet_with_spec_id(SpecId::default());
         let mut db = EmptyDB::default();
 
         let mut inspector = NoOpInspector;
 
-        let mut evm = new_evm_with_inspector(&mut db, env, &mut inspector, ());
+        let mut evm = new_evm_with_inspector(&mut db, env, &mut inspector);
         let result = evm.transact(revm::context::TxEnv::default()).unwrap();
         assert!(result.result.is_success());
     }

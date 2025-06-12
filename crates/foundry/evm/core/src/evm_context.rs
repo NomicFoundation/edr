@@ -286,12 +286,24 @@ where
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
 {
     pub fn to_owned_env(&self) -> EvmEnv<BlockT, TxT, HardforkT> {
         EvmEnv {
             block: self.block.clone(),
             tx: self.tx.clone(),
             cfg: self.cfg.clone(),
+        }
+    }
+
+    pub fn to_owned_env_with_chain_context(
+        &self,
+    ) -> EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT> {
+        EvmEnvWithChainContext {
+            block: self.block.clone(),
+            tx: self.tx.clone(),
+            cfg: self.cfg.clone(),
+            chain_context: self.chain_context.clone(),
         }
     }
 }
@@ -332,8 +344,30 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     }
 }
 
-// `Env` implementation with mainnet types.
-impl EvmEnv<BlockEnv, TxEnv, SpecId> {
+/// EVM execution environment with chain context.
+#[derive(Clone, Debug, Default)]
+pub struct EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT> {
+    pub block: BlockT,
+    pub tx: TxT,
+    pub cfg: CfgEnv<HardforkT>,
+    pub chain_context: ChainContextT,
+}
+
+impl<BlockT, TxT, HardforkT, ChainContextT>
+    EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>
+{
+    pub fn new(env: EvmEnv<BlockT, TxT, HardforkT>, chain_context: ChainContextT) -> Self {
+        Self {
+            block: env.block,
+            tx: env.tx,
+            cfg: env.cfg,
+            chain_context,
+        }
+    }
+}
+
+// `EvmEnvWithChainContext` implementation with mainnet types.
+impl EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()> {
     pub fn default_mainnet_with_spec_id(spec_id: SpecId) -> Self {
         let mut cfg = CfgEnv::<SpecId>::default();
         cfg.spec = spec_id;
@@ -342,18 +376,24 @@ impl EvmEnv<BlockEnv, TxEnv, SpecId> {
     }
 
     pub fn from_mainnet(cfg: CfgEnv<SpecId>, block: BlockEnv, tx: TxEnv) -> Self {
-        Self { block, tx, cfg }
+        Self {
+            block,
+            tx,
+            cfg,
+            chain_context: (),
+        }
     }
+}
 
-    pub fn from_mainnet_with_spec_id(
-        cfg: CfgEnv,
-        block: BlockEnv,
-        tx: TxEnv,
-        spec_id: SpecId,
-    ) -> Self {
-        let mut cfg = cfg;
-        cfg.spec = spec_id;
-
-        Self::from_mainnet(cfg, block, tx)
+impl<BlockT, TxT, HardforkT, ChainContextT>
+    From<EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>>
+    for EvmEnv<BlockT, TxT, HardforkT>
+{
+    fn from(value: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>) -> Self {
+        Self {
+            block: value.block,
+            tx: value.tx,
+            cfg: value.cfg,
+        }
     }
 }

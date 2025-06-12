@@ -537,12 +537,11 @@ impl<
         });
         self.in_inner_context = true;
 
-        let env = context.to_owned_env();
-        let tx = env.tx.clone();
         let res = {
-            let chain_context = self.chain_context.clone();
+            let env_with_chain = context.to_owned_env_with_chain_context();
+            let tx = env_with_chain.tx.clone();
             let mut evm =
-                crate::utils::new_evm_with_inspector(&mut *db, env, &mut *self, chain_context);
+                crate::utils::new_evm_with_inspector(&mut *db, env_with_chain, &mut *self);
             let res = evm.transact(tx);
 
             // need to reset the env in case it was modified via cheatcodes during execution

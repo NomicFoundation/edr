@@ -22,7 +22,10 @@ use crate::{
         diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId,
         RevertStateSnapshotAction,
     },
-    evm_context::{BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, EvmEnvWithChainContext, HardforkTr,
+        TransactionEnvTr,
+    },
     fork::{CreateFork, ForkId},
 };
 
@@ -98,8 +101,8 @@ impl<
         // backend already, we reset the initialized state
         self.is_initialized = false;
         self.spec_id = env.cfg.spec();
-        let mut evm =
-            crate::utils::new_evm_with_inspector(self, env.clone(), inspector, chain_context);
+        let env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
+        let mut evm = crate::utils::new_evm_with_inspector(self, env_with_chain, inspector);
 
         let res = evm
             .inspect_replay()
@@ -240,12 +243,13 @@ impl<
             .roll_fork_to_transaction(id, transaction, context)
     }
 
-    fn transact<'d, InspectorT>(
-        &'d mut self,
+    fn transact<InspectorT>(
+        &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
         inspector: &mut InspectorT,
-        context: &'d mut EvmContext<'d, BlockT, TxT, HardforkT, ChainContextT>,
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()>
     where
         InspectorT: CheatcodeInspectorTr<
@@ -256,8 +260,13 @@ impl<
             ChainContextT,
         >,
     {
-        self.backend_mut(context.to_owned_env())
-            .transact(id, transaction, inspector, context)
+        self.backend_mut(env.clone().into()).transact(
+            id,
+            transaction,
+            inspector,
+            env,
+            journaled_state,
+        )
     }
 
     fn active_fork_id(&self) -> Option<LocalForkId> {

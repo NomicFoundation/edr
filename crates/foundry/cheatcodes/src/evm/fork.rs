@@ -262,8 +262,14 @@ impl Cheatcode for transact_0Call {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { txHash } = *self;
-        let (db, mut context) = split_context(ccx.ecx);
-        db.transact(None, txHash, ccx.state, &mut context)?;
+        let (db, context) = split_context(ccx.ecx);
+        db.transact(
+            None,
+            txHash,
+            ccx.state,
+            context.to_owned_env_with_chain_context(),
+            context.journaled_state,
+        )?;
         Ok(Vec::default())
     }
 }
@@ -281,8 +287,14 @@ impl Cheatcode for transact_1Call {
         ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
     ) -> Result {
         let Self { forkId, txHash } = *self;
-        let (db, mut context) = split_context(ccx.ecx);
-        db.transact(Some(forkId), txHash, ccx.state, &mut context)?;
+        let (db, context) = split_context(ccx.ecx);
+        db.transact(
+            Some(forkId),
+            txHash,
+            ccx.state,
+            context.to_owned_env_with_chain_context(),
+            context.journaled_state,
+        )?;
         Ok(Vec::default())
     }
 }

@@ -49,7 +49,8 @@ mod snapshot;
 pub use snapshot::{BackendStateSnapshot, RevertStateSnapshotAction, StateSnapshot};
 
 use crate::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, HardforkTr, TransactionEnvMut, TransactionEnvTr,
+    BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, EvmEnvWithChainContext, HardforkTr,
+    TransactionEnvMut, TransactionEnvTr,
 };
 
 // A `revm::Database` that is used in forking mode
@@ -274,12 +275,13 @@ pub trait CheatcodeBackend<
 
     /// Fetches the given transaction for the fork and executes it, committing
     /// the state in the DB
-    fn transact<'a, InspectorT>(
-        &'a mut self,
+    fn transact<InspectorT>(
+        &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
         inspector: &mut InspectorT,
-        context: &'a mut EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT>,
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()>
     where
         InspectorT: CheatcodeInspectorTr<
@@ -979,8 +981,8 @@ impl<
     /// Returns the `EvmEnv` with the current `spec_id` set.
     fn env_with_handler_cfg(
         &self,
-        mut env: EvmEnv<BlockT, TxT, HardforkT>,
-    ) -> EvmEnv<BlockT, TxT, HardforkT> {
+        mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+    ) -> EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT> {
         env.cfg.spec = self.inner.spec_id;
         env
     }
@@ -1000,8 +1002,8 @@ impl<
         InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'a mut Self, ChainContextT>,
     {
         self.initialize(env);
-        let mut evm =
-            crate::utils::new_evm_with_inspector(self, env.clone(), inspector, chain_context);
+        let env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
+        let mut evm = crate::utils::new_evm_with_inspector(self, env_with_chain, inspector);
 
         let res = evm
             .inspect_replay()
@@ -1108,14 +1110,15 @@ impl<
         &mut self,
         id: LocalForkId,
         tx_hash: B256,
-        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<Option<RpcTransaction<AnyTxEnvelope>>> {
         trace!(?id, ?tx_hash, "replay until transaction");
 
         let persistent_accounts = self.inner.persistent_accounts.clone();
         let fork_id = self.ensure_fork_id(id)?.clone();
 
-        let env = self.env_with_handler_cfg(context.to_owned_env());
+        let env = self.env_with_handler_cfg(env);
         let fork = self.inner.get_fork_by_id_mut(id)?;
         let full_block = fork.db.db.get_full_block(env.block.number())?;
 
@@ -1136,8 +1139,9 @@ impl<
             trace!(tx=?tx.tx_hash(), "committing transaction");
 
             commit_transaction(
-                context,
                 &tx.inner,
+                env.clone(),
+                journaled_state,
                 fork,
                 &fork_id,
                 &persistent_accounts,
@@ -1485,8 +1489,11 @@ impl<
 
         update_env_block(context.block, &block);
 
+        let env_with_chain =
+            EvmEnvWithChainContext::new(context.to_owned_env(), context.chain_context.clone());
+
         // replay all transactions that came before
-        self.replay_until(id, transaction, context)?;
+        self.replay_until(id, transaction, env_with_chain, context.journaled_state)?;
 
         Ok(())
     }
@@ -1496,7 +1503,8 @@ impl<
         maybe_id: Option<LocalForkId>,
         transaction: B256,
         inspector: &mut InspectorT,
-        context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
+        mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
     ) -> eyre::Result<()>
     where
         InspectorT: CheatcodeInspectorTr<
@@ -1521,21 +1529,14 @@ impl<
         // So we modify the env to match the transaction's block
         let (_fork_block, block) =
             self.get_block_number_and_block_for_transaction(id, transaction)?;
-        let mut env = context.to_owned_env();
         update_env_block(&mut env.block, &block);
-        let mut env = self.env_with_handler_cfg(env);
+        let env = self.env_with_handler_cfg(env);
 
-        let mut modified_context = EvmContext {
-            block: &mut env.block,
-            tx: &mut env.tx,
-            cfg: &mut env.cfg,
-            journaled_state: context.journaled_state,
-            chain_context: context.chain_context,
-        };
         let fork = self.inner.get_fork_by_id_mut(id)?;
         commit_transaction(
-            &mut modified_context,
             &tx,
+            env,
+            journaled_state,
             fork,
             &fork_id,
             &persistent_accounts,
@@ -2265,8 +2266,9 @@ fn commit_transaction<
     ChainContextT: ChainContextTr,
     InspectorT,
 >(
-    context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     tx: &RpcTransaction<AnyTxEnvelope>,
+    mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+    journaled_state: &mut JournalInner<JournalEntry>,
     fork: &mut Fork,
     fork_id: &ForkId,
     persistent_accounts: &HashSet<Address>,
@@ -2281,29 +2283,21 @@ where
         ChainContextT,
     >,
 {
-    configure_tx_env(context.tx, tx);
+    configure_tx_env(&mut env.tx, tx);
 
     let now = Instant::now();
     let res = {
         let fork = fork.clone();
-        let journaled_state = context.journaled_state.clone();
+        let journaled_state = journaled_state.clone();
         let db = Backend::new_with_fork(fork_id, fork, journaled_state);
 
-        let env = context.to_owned_env();
-        let chain = context.chain_context.clone();
-
-        crate::utils::new_evm_with_inspector(db, env, inspector, chain)
+        crate::utils::new_evm_with_inspector(db, env, inspector)
             .inspect_replay()
             .wrap_err("backend: failed committing transaction")?
     };
     trace!(elapsed = ?now.elapsed(), "transacted transaction");
 
-    apply_state_changeset(
-        res.state,
-        context.journaled_state,
-        fork,
-        persistent_accounts,
-    )?;
+    apply_state_changeset(res.state, journaled_state, fork, persistent_accounts)?;
     Ok(())
 }
 
