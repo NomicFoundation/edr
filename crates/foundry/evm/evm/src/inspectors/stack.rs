@@ -185,54 +185,42 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
 /// resorting to dynamic dispatch.
 #[macro_export]
 macro_rules! call_inspectors {
-    ([$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr $(,)?) => {{$(
-        if let Some($id) = $inspector {
-            $call
-        }
-    )+}}
+    ([$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr $(,)?) => {
+        $(
+            if let Some($id) = $inspector {
+                ({ #[inline(always)] #[cold] || $call })();
+            }
+        )+
+    };
+    (#[ret] [$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr $(,)?) => {
+        $(
+            if let Some($id) = $inspector {
+                if let Some(result) = ({ #[inline(always)] #[cold] || $call })() {
+                    return result;
+                }
+            }
+        )+
+    };
 }
 
-/// Same as [`call_inspectors`] macro, but with depth adjustment for isolated
-/// execution.
+/// Same as [`call_inspectors!`], but with depth adjustment for isolated execution.
 macro_rules! call_inspectors_adjust_depth {
-    (#[no_ret] [$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr, $self:ident, $data:ident $(,)?) => {
-        if $self.in_inner_context {
-            $data.journaled_state.inner.depth += 1;
-            $(
-                if let Some($id) = $inspector {
-                    $call
-                }
-            )+
-            $data.journaled_state.inner.depth -= 1;
-        } else {
-            $(
-                if let Some($id) = $inspector {
-                    $call
-                }
-            )+
-        }
-    };
     ([$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr, $self:ident, $data:ident $(,)?) => {
-        if $self.in_inner_context {
-            $data.journaled_state.inner.depth += 1;
-            $(
-                if let Some($id) = $inspector {
-                    if let Some(result) = $call {
-                        $data.journaled_state.inner.depth -= 1;
-                        return result;
-                    }
+        $data.journaled_state.depth += $self.in_inner_context as usize;
+        call_inspectors!([$($inspector),+], |$id| $call);
+        $data.journaled_state.depth -= $self.in_inner_context as usize;
+    };
+    (#[ret] [$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr, $self:ident, $data:ident $(,)?) => {
+        $data.journaled_state.depth += $self.in_inner_context as usize;
+        $(
+            if let Some($id) = $inspector {
+                if let Some(result) = ({ #[inline(always)] #[cold] || $call })() {
+                    $data.journaled_state.depth -= $self.in_inner_context as usize;
+                    return result;
                 }
-            )+
-            $data.journaled_state.inner.depth -= 1;
-        } else {
-            $(
-                if let Some($id) = $inspector {
-                    if let Some(result) = $call {
-                        return result;
-                    }
-                }
-            )+
-        }
+            }
+        )+
+        $data.journaled_state.depth -= $self.in_inner_context as usize;
     };
 }
 
@@ -471,6 +459,7 @@ impl<
     ) -> CallOutcome {
         let result = outcome.result.result;
         call_inspectors_adjust_depth!(
+            #[ret]
             [&mut self.fuzzer, &mut self.tracer, &mut self.cheatcodes,],
             |inspector| {
                 let previous_outcome = outcome.clone();
@@ -738,7 +727,6 @@ impl<
         >,
     ) {
         call_inspectors_adjust_depth!(
-            #[no_ret]
             [&mut self.coverage, &mut self.tracer, &mut self.cheatcodes,],
             |inspector| inspector.initialize_interp(interpreter, ecx),
             self,
@@ -759,7 +747,6 @@ impl<
         >,
     ) {
         call_inspectors_adjust_depth!(
-            #[no_ret]
             [
                 &mut self.fuzzer,
                 &mut self.tracer,
@@ -785,7 +772,6 @@ impl<
         >,
     ) {
         call_inspectors_adjust_depth!(
-            #[no_ret]
             [&mut self.tracer, &mut self.cheatcodes],
             |inspector| inspector.step_end(interpreter, ecx),
             self,
@@ -807,7 +793,6 @@ impl<
         log: Log,
     ) {
         call_inspectors_adjust_depth!(
-            #[no_ret]
             [
                 &mut self.tracer,
                 &mut self.log_collector,
@@ -837,6 +822,7 @@ impl<
         }
 
         call_inspectors_adjust_depth!(
+            #[ret]
             [
                 &mut self.fuzzer,
                 &mut self.tracer,
@@ -926,6 +912,7 @@ impl<
         }
 
         call_inspectors_adjust_depth!(
+            #[ret]
             [&mut self.tracer, &mut self.coverage, &mut self.cheatcodes],
             |inspector| inspector.create(ecx, create).map(Some),
             self,
@@ -967,7 +954,6 @@ impl<
         }
 
         call_inspectors_adjust_depth!(
-            #[no_ret]
             [&mut self.tracer, &mut self.cheatcodes],
             |inspector| {
                 inspector.create_end(ecx, call, outcome);
