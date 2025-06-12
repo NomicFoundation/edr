@@ -1,6 +1,10 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, HashMap, VecDeque};
 
-use alloy_primitives::{address, Address, Bytes, LogData as RawLog, U256};
+use alloy_primitives::{
+    address,
+    map::AddressHashMap,
+    Address, Bytes, LogData as RawLog, U256,
+};
 use alloy_sol_types::{SolError, SolValue};
 use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
@@ -18,7 +22,8 @@ use crate::{
         _expectCheatcodeRevert_0Call, _expectCheatcodeRevert_1Call, _expectCheatcodeRevert_2Call,
         expectCallMinGas_0Call, expectCallMinGas_1Call, expectCall_0Call, expectCall_1Call,
         expectCall_2Call, expectCall_3Call, expectCall_4Call, expectCall_5Call, expectEmit_0Call,
-        expectEmit_1Call, expectEmit_2Call, expectEmit_3Call, expectRevert_0Call,
+        expectEmit_1Call, expectEmit_2Call, expectEmit_3Call, expectEmit_4Call,
+        expectEmit_5Call, expectEmit_6Call, expectEmit_7Call, expectRevert_0Call,
         expectRevert_1Call, expectRevert_2Call, expectSafeMemoryCall, expectSafeMemoryCallCall,
         stopExpectSafeMemoryCall,
     },
@@ -116,6 +121,8 @@ pub struct ExpectedEmit {
     pub address: Option<Address>,
     /// Whether the log was actually found in the subcalls
     pub found: bool,
+    /// Number of times the log is expected to be emitted
+    pub count: u64,
 }
 
 impl_is_pure_true!(expectCall_0Call);
@@ -402,6 +409,7 @@ impl Cheatcode for expectEmit_0Call {
             ccx.ecx.journaled_state.depth() as u64,
             [checkTopic1, checkTopic2, checkTopic3, checkData],
             None,
+            1,
         )
     }
 }
@@ -440,6 +448,7 @@ impl Cheatcode for expectEmit_1Call {
             ccx.ecx.journaled_state.depth() as u64,
             [checkTopic1, checkTopic2, checkTopic3, checkData],
             Some(emitter),
+            1,
         )
     }
 }
@@ -472,6 +481,7 @@ impl Cheatcode for expectEmit_2Call {
             ccx.ecx.journaled_state.depth() as u64,
             [true; 4],
             None,
+            1,
         )
     }
 }
@@ -504,6 +514,139 @@ impl Cheatcode for expectEmit_3Call {
             ccx.ecx.journaled_state.depth() as u64,
             [true; 4],
             Some(emitter),
+            1,
+        )
+    }
+}
+
+impl_is_pure_true!(expectEmit_4Call);
+impl Cheatcode for expectEmit_4Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { checkTopic1, checkTopic2, checkTopic3, checkData, count } = *self;
+        expect_emit(
+            ccx.state,
+            ccx.ecx.journaled_state.depth() as u64,
+            [checkTopic1, checkTopic2, checkTopic3, checkData],
+            None,
+            count,
+        )
+    }
+}
+
+impl_is_pure_true!(expectEmit_5Call);
+impl Cheatcode for expectEmit_5Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { checkTopic1, checkTopic2, checkTopic3, checkData, emitter, count } = *self;
+        expect_emit(
+            ccx.state,
+            ccx.ecx.journaled_state.depth() as u64,
+            [checkTopic1, checkTopic2, checkTopic3, checkData],
+            Some(emitter),
+            count,
+        )
+    }
+}
+
+impl_is_pure_true!(expectEmit_6Call);
+impl Cheatcode for expectEmit_6Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { count } = *self;
+        expect_emit(
+            ccx.state,
+            ccx.ecx.journaled_state.depth() as u64,
+            [true; 4],
+            None,
+            count,
+        )
+    }
+}
+
+impl_is_pure_true!(expectEmit_7Call);
+impl Cheatcode for expectEmit_7Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { emitter, count } = *self;
+        expect_emit(
+            ccx.state,
+            ccx.ecx.journaled_state.depth() as u64,
+            [true; 4],
+            Some(emitter),
+            count,
         )
     }
 }
@@ -875,7 +1018,7 @@ fn expect_call<
                     let (expected, _) = entry.get_mut();
                     // Ensure we're not overwriting a counted expectCall.
                     ensure!(
-                        expected.call_type == ExpectedCallType::NonCount,
+                        ExpectedCallType::NonCount == expected.call_type,
                         "cannot overwrite a counted expectCall with a non-counted expectCall"
                     );
                     expected.count += 1;
@@ -912,14 +1055,19 @@ fn expect_emit<
     depth: u64,
     checks: [bool; 4],
     address: Option<Address>,
+    count: u64,
 ) -> Result {
-    state.expected_emits.push_back(ExpectedEmit {
-        depth,
-        checks,
-        address,
-        found: false,
-        log: None,
-    });
+    let expected_emit =
+        ExpectedEmit { depth, checks, address, found: false, log: None, count };
+    if let Some(found_emit_pos) = state.expected_emits.iter().position(|(emit, _)| emit.found) {
+        // The order of emits already found (back of queue) should not be modified, hence push any
+        // new emit before first found emit.
+        state.expected_emits.insert(found_emit_pos, (expected_emit, Default::default()));
+    } else {
+        // If no expected emits then push new one at the back of queue.
+        state.expected_emits.push_back((expected_emit, Default::default()));
+    }
+
     Ok(Vec::default())
 }
 
@@ -943,71 +1091,183 @@ pub(crate) fn handle_expect_emit<
     // bail.
 
     // First, we can return early if all events have been matched.
-    // This allows a contract to arbitrarily emit more events than expected
-    // (additive behavior), as long as all the previous events were matched in
-    // the order they were expected to be.
-    if state.expected_emits.iter().all(|expected| expected.found) {
-        return;
+    // This allows a contract to arbitrarily emit more events than expected (additive behavior),
+    // as long as all the previous events were matched in the order they were expected to be.
+    if state.expected_emits.iter().all(|(expected, _)| expected.found) {
+        return
     }
 
-    // if there's anything to fill, we need to pop back.
-    // Otherwise, if there are any events that are unmatched, we try to match to
-    // match them in the order declared, so we start popping from the front
-    // (like a queue).
-    let mut event_to_fill_or_check = if state
-        .expected_emits
-        .iter()
-        .any(|expected| expected.log.is_none())
-    {
-        state.expected_emits.pop_back()
+    let should_fill_logs = state.expected_emits.iter().any(|(expected, _)| expected.log.is_none());
+    let index_to_fill_or_check = if should_fill_logs {
+        // If there's anything to fill, we start with the last event to match in the queue
+        // (without taking into account events already matched).
+        state
+            .expected_emits
+            .iter()
+            .position(|(emit, _)| emit.found)
+            .unwrap_or(state.expected_emits.len())
+            .saturating_sub(1)
     } else {
-        state.expected_emits.pop_front()
-    }
-    .expect("we should have an emit to fill or check");
+        // Otherwise, we try to match them in the order declared, so we start from the front.
+        0
+    };
+
+    let (mut event_to_fill_or_check, mut count_map) = state
+        .expected_emits
+        .remove(index_to_fill_or_check)
+        .expect("we should have an emit to fill or check");
 
     let Some(expected) = &event_to_fill_or_check.log else {
         // Fill the event.
-        event_to_fill_or_check.log = Some(log.data.clone());
-        state.expected_emits.push_back(event_to_fill_or_check);
-        return;
+        if !log.topics().is_empty() {
+            event_to_fill_or_check.log = Some(log.data.clone());
+            // If we only filled the expected log then we put it back at the same position.
+            state
+                .expected_emits
+                .insert(index_to_fill_or_check, (event_to_fill_or_check, count_map));
+        }
+        return
     };
 
-    let expected_topic_0 = expected.topics().first();
-    let log_topic_0 = log.topics().first();
-
-    if expected_topic_0
-        .zip(log_topic_0)
-        .is_some_and(|(a, b)| a == b && expected.topics().len() == log.topics().len())
-    {
-        // Match topics
-        event_to_fill_or_check.found = log
-            .topics()
-            .iter()
-            .skip(1)
-            .enumerate()
-            .filter(|(i, _)| event_to_fill_or_check.checks[*i])
-            .all(|(i, topic)| topic == &expected.topics()[i + 1]);
-
-        // Maybe match source address
-        if let Some(addr) = event_to_fill_or_check.address {
-            event_to_fill_or_check.found &= addr == log.address;
+    // Increment/set `count` for `log.address` and `log.data`
+    match count_map.entry(log.address) {
+        alloy_primitives::map::Entry::Occupied(mut entry) => {
+            // Checks and inserts the log into the map.
+            // If the log doesn't pass the checks, it is ignored and `count` is not incremented.
+            let log_count_map = entry.get_mut();
+            log_count_map.insert(&log.data);
         }
+        alloy_primitives::map::Entry::Vacant(entry) => {
+            let mut log_count_map = LogCountMap::new(&event_to_fill_or_check);
 
-        // Maybe match data
-        if event_to_fill_or_check.checks[3] {
-            event_to_fill_or_check.found &= expected.data.as_ref() == log.data.data.as_ref();
+            if log_count_map.satisfies_checks(&log.data) {
+                log_count_map.insert(&log.data);
+
+                // Entry is only inserted if it satisfies the checks.
+                entry.insert(log_count_map);
+            }
         }
     }
+
+    event_to_fill_or_check.found = || -> bool {
+        if !checks_topics_and_data(event_to_fill_or_check.checks, expected, log) {
+            return false
+        }
+
+        // Maybe match source address.
+        if event_to_fill_or_check.address.is_some_and(|addr| addr != log.address) {
+            return false;
+        }
+
+        let expected_count = event_to_fill_or_check.count;
+
+        match event_to_fill_or_check.address {
+            Some(emitter) => count_map
+                .get(&emitter)
+                .is_some_and(|log_map| log_map.count(&log.data) >= expected_count),
+            None => count_map
+                .values()
+                .find(|log_map| log_map.satisfies_checks(&log.data))
+                .is_some_and(|map| map.count(&log.data) >= expected_count),
+        }
+    }();
 
     // If we found the event, we can push it to the back of the queue
     // and begin expecting the next event.
     if event_to_fill_or_check.found {
-        state.expected_emits.push_back(event_to_fill_or_check);
+        state.expected_emits.push_back((event_to_fill_or_check, count_map));
     } else {
         // We did not match this event, so we need to keep waiting for the right one to
         // appear.
-        state.expected_emits.push_front(event_to_fill_or_check);
+        state.expected_emits.push_front((event_to_fill_or_check, count_map));
     }
+}
+
+/// Handles expected emits specified by the `expectEmit` cheatcodes.
+///
+/// The second element of the tuple counts the number of times the log has been emitted by a
+/// particular address
+pub(crate) type ExpectedEmitTracker = VecDeque<(ExpectedEmit, AddressHashMap<LogCountMap>)>;
+
+#[derive(Clone, Debug, Default)]
+pub struct LogCountMap {
+    checks: [bool; 4],
+    expected_log: RawLog,
+    map: HashMap<RawLog, u64>,
+}
+
+impl LogCountMap {
+    /// Instantiates `LogCountMap`.
+    fn new(expected_emit: &ExpectedEmit) -> Self {
+        Self {
+            checks: expected_emit.checks,
+            expected_log: expected_emit.log.clone().expect("log should be filled here"),
+            map: Default::default(),
+        }
+    }
+
+    /// Inserts a log into the map and increments the count.
+    ///
+    /// The log must pass all checks against the expected log for the count to increment.
+    ///
+    /// Returns true if the log was inserted and count was incremented.
+    fn insert(&mut self, log: &RawLog) -> bool {
+        // If its already in the map, increment the count without checking.
+        if self.map.contains_key(log) {
+            self.map.entry(log.clone()).and_modify(|c| *c += 1);
+
+            return true
+        }
+
+        if !self.satisfies_checks(log) {
+            return false
+        }
+
+        self.map.entry(log.clone()).and_modify(|c| *c += 1).or_insert(1);
+
+        true
+    }
+
+    /// Checks the incoming raw log against the expected logs topics and data.
+    fn satisfies_checks(&self, log: &RawLog) -> bool {
+        checks_topics_and_data(self.checks, &self.expected_log, log)
+    }
+
+    pub fn count(&self, log: &RawLog) -> u64 {
+        if !self.satisfies_checks(log) {
+            return 0
+        }
+
+        self.count_unchecked()
+    }
+
+    pub fn count_unchecked(&self) -> u64 {
+        self.map.values().sum()
+    }
+}
+
+fn checks_topics_and_data(checks: [bool; 4], expected: &RawLog, log: &RawLog) -> bool {
+    if log.topics().len() != expected.topics().len() {
+        return false
+    }
+
+    // Check topics.
+    if !log
+        .topics()
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| checks[*i])
+        .all(|(i, topic)| topic == &expected.topics()[i])
+    {
+        return false
+    }
+
+    // Check data
+    if checks[3] && expected.data.as_ref() != log.data.as_ref() {
+        return false
+    }
+
+    true
 }
 
 fn expect_revert<
