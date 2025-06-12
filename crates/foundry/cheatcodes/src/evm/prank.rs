@@ -6,7 +6,7 @@ use revm::{context::result::HaltReasonTr, context_interface::JournalTr};
 
 use crate::{
     impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Result,
-    Vm::{prank_0Call, prank_1Call, startPrank_0Call, startPrank_1Call, stopPrankCall},
+    Vm::{prank_0Call, prank_1Call, prank_2Call, prank_3Call, startPrank_0Call, startPrank_1Call, startPrank_2Call, startPrank_3Call, stopPrankCall},
 };
 
 /// Prank information.
@@ -24,6 +24,8 @@ pub struct Prank {
     pub depth: u64,
     /// Whether the prank stops by itself after the next call
     pub single_call: bool,
+    /// Whether the prank should be be applied to delegate call
+    pub delegate_call: bool,
     /// Whether the prank has been used yet (false if unused)
     pub used: bool,
 }
@@ -37,6 +39,7 @@ impl Prank {
         new_origin: Option<Address>,
         depth: u64,
         single_call: bool,
+        delegate_call: bool,
     ) -> Prank {
         Prank {
             prank_caller,
@@ -45,6 +48,7 @@ impl Prank {
             new_origin,
             depth,
             single_call,
+            delegate_call,
             used: false,
         }
     }
@@ -86,7 +90,7 @@ impl Cheatcode for prank_0Call {
         >,
     ) -> Result {
         let Self { msgSender } = self;
-        prank(ccx, msgSender, None, true)
+        prank(ccx, msgSender, None, true, false)
     }
 }
 
@@ -113,7 +117,7 @@ impl Cheatcode for startPrank_0Call {
         >,
     ) -> Result {
         let Self { msgSender } = self;
-        prank(ccx, msgSender, None, false)
+        prank(ccx, msgSender, None, false, false)
     }
 }
 
@@ -143,7 +147,7 @@ impl Cheatcode for prank_1Call {
             msgSender,
             txOrigin,
         } = self;
-        prank(ccx, msgSender, Some(txOrigin), true)
+        prank(ccx, msgSender, Some(txOrigin), true, false)
     }
 }
 
@@ -173,7 +177,115 @@ impl Cheatcode for startPrank_1Call {
             msgSender,
             txOrigin,
         } = self;
-        prank(ccx, msgSender, Some(txOrigin), false)
+        prank(ccx, msgSender, Some(txOrigin), false, false)
+    }
+}
+
+impl_is_pure_true!(prank_2Call);
+impl Cheatcode for prank_2Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { msgSender, delegateCall } = self;
+        prank(ccx, msgSender, None, true, *delegateCall)
+    }
+}
+
+impl_is_pure_true!(startPrank_2Call);
+impl Cheatcode for startPrank_2Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { msgSender, delegateCall } = self;
+        prank(ccx, msgSender, None, false, *delegateCall)
+    }
+}
+
+impl_is_pure_true!(prank_3Call);
+impl Cheatcode for prank_3Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { msgSender, txOrigin, delegateCall } = self;
+        prank(ccx, msgSender, Some(txOrigin), true, *delegateCall)
+    }
+}
+
+impl_is_pure_true!(startPrank_3Call);
+impl Cheatcode for startPrank_3Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { msgSender, txOrigin, delegateCall } = self;
+        prank(ccx, msgSender, Some(txOrigin), false, *delegateCall)
     }
 }
 
@@ -217,6 +329,7 @@ fn prank<
     new_caller: &Address,
     new_origin: Option<&Address>,
     single_call: bool,
+    delegate_call: bool,
 ) -> Result {
     let prank = Prank::new(
         ccx.caller,
@@ -225,7 +338,14 @@ fn prank<
         new_origin.copied(),
         ccx.ecx.journaled_state.depth() as u64,
         single_call,
+        delegate_call,
     );
+
+    // Ensure that code exists at `msg.sender` if delegate calling.
+    if delegate_call {
+        let code = ccx.ecx.journaled_state.code(*new_caller)?;
+        ensure!(!code.is_empty(), "cannot `prank` delegate call from an EOA");
+    }
 
     if let Some(Prank {
         used,

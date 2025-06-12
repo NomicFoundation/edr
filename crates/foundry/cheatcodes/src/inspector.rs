@@ -28,7 +28,7 @@ use revm::{
     context::{result::HaltReasonTr, BlockEnv, CfgEnv, Context as EvmContext, JournalTr},
     interpreter::{
         interpreter_types::{Jumps, MemoryTr},
-        CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, Host,
+        CallInputs, CallOutcome, CallScheme, CallValue, CreateInputs, CreateOutcome, Gas, Host,
         InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
     },
     Inspector, Journal,
@@ -1002,6 +1002,19 @@ impl<
 
         // Apply our prank
         if let Some(prank) = &self.prank {
+            // Apply delegate call, `call.caller`` will not equal `prank.prank_caller`
+            if let CallScheme::DelegateCall | CallScheme::ExtDelegateCall = call.scheme {
+                if prank.delegate_call {
+                    call.target_address = prank.new_caller;
+                    call.caller = prank.new_caller;
+                    let acc = ecx.journaled_state.account(prank.new_caller);
+                    call.value = CallValue::Apparent(acc.info.balance);
+                    if let Some(new_origin) = prank.new_origin {
+                        ecx.tx.set_caller(new_origin);
+                    }
+                }
+            }
+
             if curr_depth >= prank.depth && call.caller == prank.prank_caller {
                 let mut prank_applied = false;
 
