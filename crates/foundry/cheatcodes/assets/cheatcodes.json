@@ -7377,6 +7377,46 @@
     },
     {
       "func": {
+        "id": "getStateDiff",
+        "description": "Returns state diffs from current `vm.startStateDiffRecording` session.",
+        "declaration": "function getStateDiff() external view returns (string memory diff);",
+        "visibility": "external",
+        "mutability": "view",
+        "signature": "getStateDiff()",
+        "selector": "0x80df01cc",
+        "selectorBytes": [
+          128,
+          223,
+          1,
+          204
+        ]
+      },
+      "group": "evm",
+      "status": "stable",
+      "safety": "safe"
+    },
+    {
+      "func": {
+        "id": "getStateDiffJson",
+        "description": "Returns state diffs from current `vm.startStateDiffRecording` session, in json format.",
+        "declaration": "function getStateDiffJson() external view returns (string memory diff);",
+        "visibility": "external",
+        "mutability": "view",
+        "signature": "getStateDiffJson()",
+        "selector": "0xf54fe009",
+        "selectorBytes": [
+          245,
+          79,
+          224,
+          9
+        ]
+      },
+      "group": "evm",
+      "status": "stable",
+      "safety": "safe"
+    },
+    {
+      "func": {
         "id": "stopExpectSafeMemory",
         "description": "Stops all safe memory expectation in the current subcontext.",
         "declaration": "function stopExpectSafeMemory() external;",

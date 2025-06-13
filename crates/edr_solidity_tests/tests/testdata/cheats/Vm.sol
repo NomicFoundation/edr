@@ -232,6 +232,8 @@ interface Vm {
     function getMappingSlotAt(address target, bytes32 mappingSlot, uint256 idx) external returns (bytes32 value);
     function getNonce(address account) external view returns (uint64 nonce);
     function getRecordedLogs() external returns (Log[] memory logs);
+    function getStateDiff() external view returns (string memory diff);
+    function getStateDiffJson() external view returns (string memory diff);
     function indexOf(string calldata input, string calldata key) external pure returns (uint256);
     function isContext(ExecutionContext context) external view returns (bool result);
     function isDir(string calldata path) external returns (bool result);
