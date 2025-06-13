@@ -27,7 +27,7 @@ edr_rpc_client = { path = "../edr_rpc_client" }
 edr_test_utils = { path = "../edr_test_utils" }
 parking_lot = { version = "0.12.1", default-features = false }
 paste = { version = "1.0.14", default-features = false }
-serde_json = { version = "1.0.127" }
+serde_json = { workspace = true }
 serial_test = "2.0.0"
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 

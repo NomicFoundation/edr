@@ -188,7 +188,9 @@ similar-asserts = "1.5"
 rand = "0.8"
 rustc-hash = "1.1"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["arbitrary_precision"] }
+# Arbitrary precision is needed by the `parseJson` cheatcode and preserve order is needed by `edr_solidity`.
+# The features are listed here instead of in the Cargo.toml of those packages to avoid surprises from feature unification.
+serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order"] }
 strum = "0.26"
 toml = "0.8"
 tracing = "0.1"

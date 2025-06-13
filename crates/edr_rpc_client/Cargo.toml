@@ -17,7 +17,7 @@ reqwest-middleware = { version = "0.2.4", default-features = false }
 reqwest-retry = { version = "0.3.0", default-features = false }
 reqwest-tracing = { version = "0.4.7", default-features = false, optional = true }
 serde = { version = "1.0.209", default-features = false, features = ["derive", "std"] }
-serde_json = { version = "1.0.127" }
+serde_json = { workspace = true }
 sha3 = { version = "0.10.8", default-features = false, features = ["std"] }
 thiserror = { version = "1.0.37", default-features = false }
 tokio = { version = "1.21.2", default-features = false, features = ["fs", "macros", "sync"] }
