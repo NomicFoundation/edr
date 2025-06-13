@@ -9,6 +9,7 @@ use alloy_primitives::{Address, Log, U256};
 use foundry_evm_core::{
     constants::{MAGIC_ASSUME, TEST_TIMEOUT},
     decode::{RevertDecoder, SkipReason},
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::{
@@ -28,13 +29,13 @@ use crate::executors::fuzz::types::CounterExampleData;
 
 /// Contains data collected during fuzz test runs.
 #[derive(Default)]
-pub struct FuzzTestData {
+pub struct FuzzTestData<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     // Stores the first fuzz case.
     pub first_case: Option<FuzzCase>,
     // Stored gas usage per fuzz case.
     pub gas_by_case: Vec<(u64, u64)>,
     // Stores the result and calldata of the last failed call, if any.
-    pub counterexample: CounterExampleData,
+    pub counterexample: CounterExampleData<BlockT, TxT, HardforkT>,
     // Stores up to `max_traces_to_collect` traces.
     pub traces: Vec<SparsedTraceArena>,
     // Stores coverage information for all fuzz cases.
@@ -54,9 +55,14 @@ pub struct FuzzTestData {
 /// smart contract with inputs, until it finds a counterexample. The provided
 /// [`TestRunner`] contains all the configuration which can be overridden via
 /// [environment variables](proptest::test_runner::Config)
-pub struct FuzzedExecutor {
+pub struct FuzzedExecutor<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
     /// The EVM executor
-    executor: Executor,
+    executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
     /// The fuzzer
     runner: TestRunner,
     /// The account that calls tests
@@ -65,10 +71,16 @@ pub struct FuzzedExecutor {
     config: FuzzConfig,
 }
 
-impl FuzzedExecutor {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+    > FuzzedExecutor<BlockT, TxT, HardforkT, ChainContextT>
+{
     /// Instantiates a fuzzed executor given a testrunner
     pub fn new(
-        executor: Executor,
+        executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
         runner: TestRunner,
         sender: Address,
         config: FuzzConfig,
@@ -251,7 +263,7 @@ impl FuzzedExecutor {
         address: Address,
         should_fail: bool,
         calldata: alloy_primitives::Bytes,
-    ) -> Result<FuzzOutcome, TestCaseError> {
+    ) -> Result<FuzzOutcome<BlockT, TxT, HardforkT>, TestCaseError> {
         let (mut call, cow_backend) = self
             .executor
             .call_raw(self.sender, address, calldata.clone(), U256::ZERO)

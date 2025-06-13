@@ -7,6 +7,7 @@ members = [
     "crates/edr_evm",
     "crates/edr_macros",
     "crates/edr_napi",
+    "crates/edr_op",
     "crates/edr_provider",
     "crates/edr_rpc_client",
     "crates/edr_rpc_eth",
@@ -37,6 +38,7 @@ rpath = true
 # Uncomment this section if you're using a debugger.
 debug = 1
 
+[profile.release]
 # Optimized profile for released packages.
 [profile.napi-publish]
 inherits = "release"
@@ -77,13 +79,193 @@ foundry-evm-fuzz.opt-level = 3
 # keystores
 scrypt.opt-level = 3
 
+
+[workspace.dependencies]
+edr_common = { path = "crates/edr_common" }
+edr_defaults = { path = "crates/edr_defaults" }
+edr_evm = { path = "crates/edr_evm" }
+edr_macros = { path = "crates/edr_macros" }
+edr_solidity = { path = "crates/edr_solidity" }
+edr_solidity_tests = { path = "crates/edr_solidity_tests" }
+edr_test_utils = { path = "crates/edr_test_utils" }
+
+foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
+foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }
+foundry-evm = { path = "crates/foundry/evm/evm" }
+foundry-evm-core = { path = "crates/foundry/evm/core" }
+foundry-evm-coverage = { path = "crates/foundry/evm/coverage" }
+foundry-evm-fuzz = { path = "crates/foundry/evm/fuzz" }
+foundry-evm-traces = { path = "crates/foundry/evm/traces" }
+
+# solc & compilation utilities
+foundry-block-explorers = { version = "=0.11.0", default-features = false }
+foundry-compilers = { version = "=0.14.1", features = ["full"] }
+
+## revm
+revm = { version = "21.0.0", default-features = false, features = [
+    "arbitrary",
+    "blst",
+    "c-kzg",
+    "dev",
+    "memory_limit",
+    "optional_block_gas_limit",
+    "optional_eip3607",
+    "optional_no_base_fee",
+    "serde",
+    "std",
+] }
+revm-bytecode = { version = "2.0.0", default-features = false }
+revm-context = { version = "2.0.0", default-features = false }
+revm-context-interface = { version = "2.0.0", default-features = false }
+revm-database-interface = { version = "2.0.0", default-features = false }
+revm-handler = { version = "2.0.0", default-features = false }
+revm-interpreter = { version = "17.0.0", default-features = false }
+revm-precompile = { version = "18.0.0", default-features = false, features = ["blst", "c-kzg", "secp256r1", "std"] }
+revm-primitives = { version = "17.0.0", default-features = false, features = ["hashbrown", "rand"] }
+revm-state = { version = "2.0.0", default-features = false }
+c-kzg = { version = "2.1.0", default-features = false, features = ["ethereum_kzg_settings"] }
+
+revm-inspectors = { version = "0.18.1", features = ["serde"] }
+foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-fork-db", rev = "811a61a" }
+
+## ethers
+ethers-contract-abigen = { version = "2.0.14", default-features = false }
+
+## alloy
+alloy-consensus = { version = "0.13.0", default-features = false }
+alloy-contract = { version = "0.13.0", default-features = false }
+alloy-eips = { version = "0.13.0", default-features = false }
+alloy-genesis = { version = "0.13.0", default-features = false }
+alloy-json-rpc = { version = "0.13.0", default-features = false }
+alloy-network = { version = "0.13.0", default-features = false }
+alloy-node-bindings = { version = "0.13.0", default-features = false }
+alloy-provider = { version = "0.13.0", default-features = false }
+alloy-pubsub = { version = "0.13.0", default-features = false }
+alloy-rpc-client = { version = "0.13.0", default-features = false }
+alloy-rpc-types = { version = "0.13.0", default-features = false }
+alloy-serde = { version = "0.13.0", default-features = false }
+alloy-signer = { version = "0.13.0", default-features = false }
+alloy-signer-aws = { version = "0.13.0", default-features = false }
+alloy-signer-gcp = { version = "0.13.0", default-features = false }
+alloy-signer-ledger = { version = "0.13.0", default-features = false }
+alloy-signer-local = { version = "0.13.0", default-features = false }
+alloy-signer-trezor = { version = "0.13.0", default-features = false }
+alloy-transport = { version = "0.13.0", default-features = false }
+alloy-transport-http = { version = "0.13.0", default-features = false }
+alloy-transport-ipc = { version = "0.13.0", default-features = false }
+alloy-transport-ws = { version = "0.13.0", default-features = false }
+
+alloy-dyn-abi = { version = "=0.8.25", features = ["eip712"] }
+alloy-json-abi = "=0.8.25"
+alloy-primitives = { version = "=0.8.25", features = ["getrandom", "rand", "map-fxhash", "map-foldhash", "map-hashbrown", "map-indexmap"] }
+alloy-sol-macro-expander = "=0.8.25"
+alloy-sol-macro-input = "=0.8.25"
+alloy-sol-types = "=0.8.25"
+syn-solidity = "=0.8.25"
+
+alloy-chains = "0.1"
+alloy-rlp = "0.3.3"
+alloy-trie = "0.7.0"
+
+## misc
+arrayvec = "0.7"
+dunce = "1"
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = [
+    "clock",
+    "std",
+] }
+color-eyre = "0.6"
+derive_more = "0.99"
+evm-disassembler = "0.5"
+eyre = "0.6"
+hex = { package = "const-hex", version = "1.6", features = ["hex"] }
+itertools = "0.12"
+jsonpath_lib = "0.3"
+k256 = "0.13"
+paste = { version = "1.0.14", default-features = false }
+similar-asserts = "1.5"
+rand = "0.8"
+rustc-hash = "1.1"
+serde = { version = "1.0", features = ["derive"] }
+# Arbitrary precision is needed by the `parseJson` cheatcode and preserve order is needed by `edr_solidity`.
+# The features are listed here instead of in the Cargo.toml of those packages to avoid surprises from feature unification.
+serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order"] }
+strum = "0.26"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+vergen = { version = "8", default-features = false }
+indexmap = "2.2"
+tikv-jemallocator = "0.5.4"
+num-format = "0.4.4"
+yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
+tempfile = "3.10"
+tokio = "1"
+
+hyper = "1.0"
+reqwest = { version = "0.12", default-features = false }
+tower = "0.4"
+tower-http = "0.5"
+
+[patch.crates-io]
+## alloy-core
+# alloy-dyn-abi = { path = "../../alloy-rs/core/crates/dyn-abi" }
+# alloy-json-abi = { path = "../../alloy-rs/core/crates/json-abi" }
+# alloy-primitives = { path = "../../alloy-rs/core/crates/primitives" }
+# alloy-sol-macro = { path = "../../alloy-rs/core/crates/sol-macro" }
+# alloy-sol-macro-expander = { path = "../../alloy-rs/core/crates/sol-macro-expander" }
+# alloy-sol-macro-input = { path = "../../alloy-rs/core/crates/sol-macro-input" }
+# alloy-sol-type-parser = { path = "../../alloy-rs/core/crates/sol-type-parser" }
+# alloy-sol-types = { path = "../../alloy-rs/core/crates/sol-types" }
+# syn-solidity = { path = "../../alloy-rs/core/crates/syn-solidity" }
+
+## alloy
+# alloy-consensus = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-contract = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-eips = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-genesis = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-json-rpc = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-network = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-network-primitives = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-provider = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-pubsub = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-rpc-client = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-rpc-types = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-rpc-types-eth = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-serde = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-signer = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-signer-aws = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-signer-gcp = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-signer-ledger = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-signer-local = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-signer-trezor = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-transport = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-transport-http = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-transport-ipc = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+# alloy-transport-ws = { git = "https://github.com/alloy-rs/alloy", rev = "7fab7ee" }
+
+## revm
+revm = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm-bytecode = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm-context = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm-context-interface = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm-database-interface = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm-handler = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm-interpreter = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm-precompile = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm-primitives = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm-state = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+# revm-inspectors = { git = "https://github.com/paradigmxyz/revm-inspectors.git", rev = "a625c04" }
+
 [workspace.lints.rust]
 future_incompatible = "warn"
 nonstandard_style = "warn"
 rust_2018_idioms = "warn"
 
 [workspace.lints.clippy]
-all = "warn"
+all = { level = "warn", priority = -1 }
 await_holding_lock = "warn"
 bool-to-int-with-if = "warn"
 cast_lossless = "warn"
@@ -158,108 +340,3 @@ useless_transmute = "warn"
 verbose_file_reads = "warn"
 wildcard-imports = "warn"
 zero_sized_map_values = "warn"
-
-[workspace.dependencies]
-edr_common = { path = "crates/edr_common" }
-edr_defaults = { path = "crates/edr_defaults" }
-edr_evm = { path = "crates/edr_evm" }
-edr_macros = { path = "crates/edr_macros" }
-edr_solidity = { path = "crates/edr_solidity" }
-edr_solidity_tests = { path = "crates/edr_solidity_tests" }
-edr_test_utils = { path = "crates/edr_test_utils" }
-
-foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
-foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }
-foundry-evm = { path = "crates/foundry/evm/evm" }
-foundry-evm-core = { path = "crates/foundry/evm/core" }
-foundry-evm-coverage = { path = "crates/foundry/evm/coverage" }
-foundry-evm-fuzz = { path = "crates/foundry/evm/fuzz" }
-foundry-evm-traces = { path = "crates/foundry/evm/traces" }
-
-# solc & compilation utilities
-foundry-block-explorers = { version = "=0.11.0", default-features = false }
-foundry-compilers = { version = "0.13.3", features = ["full"] }
-foundry-fork-db = "=0.11.1"
-
-## revm
-# no default features to avoid c-kzg
-revm = { version = "=19.5.0", default-features = false }
-revm-primitives = { version = "=15.2.0", default-features = false, features = ["c-kzg", "hashbrown"] }
-revm-inspectors = { version = "0.16.0", features = ["serde"] }
-
-## ethers
-ethers-contract-abigen = { version = "2.0.14", default-features = false }
-
-## alloy
-alloy-consensus = { version = "0.11.1", default-features = false }
-alloy-contract = { version = "0.11.1", default-features = false }
-alloy-eips = { version = "0.11.1", default-features = false }
-alloy-genesis = { version = "0.11.1", default-features = false }
-alloy-json-rpc = { version = "0.11.1", default-features = false }
-alloy-network = { version = "0.11.1", default-features = false }
-alloy-node-bindings = { version = "0.11.1", default-features = false }
-alloy-provider = { version = "0.11.1", default-features = false }
-alloy-pubsub = { version = "0.11.1", default-features = false }
-alloy-rpc-client = { version = "0.11.1", default-features = false }
-alloy-rpc-types = { version = "0.11.1", default-features = false }
-alloy-serde = { version = "0.11.1", default-features = false }
-alloy-signer = { version = "0.11.1", default-features = false }
-alloy-signer-aws = { version = "0.11.1", default-features = false }
-alloy-signer-gcp = { version = "0.11.1", default-features = false }
-alloy-signer-ledger = { version = "0.11.1", default-features = false }
-alloy-signer-local = { version = "0.11.1", default-features = false }
-alloy-signer-trezor = { version = "0.11.1", default-features = false }
-alloy-transport = { version = "0.11.1", default-features = false }
-alloy-transport-http = { version = "0.11.1", default-features = false }
-alloy-transport-ipc = { version = "0.11.1", default-features = false }
-alloy-transport-ws = { version = "0.11.1", default-features = false }
-
-alloy-dyn-abi = { version = "=0.8.25", features = ["eip712"] }
-alloy-json-abi = "=0.8.25"
-alloy-primitives = { version = "=0.8.25", features = ["getrandom", "rand", "map-fxhash", "map-foldhash", "map-hashbrown", "map-indexmap"] }
-alloy-sol-macro-expander = "=0.8.25"
-alloy-sol-macro-input = "=0.8.25"
-alloy-sol-types = "=0.8.25"
-syn-solidity = "=0.8.25"
-
-alloy-chains = "0.1"
-alloy-rlp = "0.3.3"
-alloy-trie = "0.7.0"
-
-## misc
-arrayvec = "0.7"
-dunce = "1"
-base64 = "0.22"
-chrono = { version = "0.4", default-features = false, features = [
-    "clock",
-    "std",
-] }
-color-eyre = "0.6"
-derive_more = "0.99"
-evm-disassembler = "0.5"
-eyre = "0.6"
-hex = { package = "const-hex", version = "1.6", features = ["hex"] }
-itertools = "0.12"
-jsonpath_lib = "0.3"
-k256 = "0.13"
-similar-asserts = "1.5"
-rand = "0.8"
-rustc-hash = "1.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["arbitrary_precision"] }
-strum = "0.26"
-toml = "0.8"
-tracing = "0.1"
-tracing-subscriber = "0.3"
-vergen = { version = "8", default-features = false }
-indexmap = "2.2"
-tikv-jemallocator = "0.5.4"
-num-format = "0.4.4"
-yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
-tempfile = "3.10"
-tokio = "1"
-
-hyper = "1.0"
-reqwest = { version = "0.12", default-features = false }
-tower = "0.4"
-tower-http = "0.5"

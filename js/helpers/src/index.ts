@@ -10,7 +10,7 @@ import {
   SolidityTestRunnerConfigArgs,
   TestResult,
   TracingConfigWithBuffers,
-} from "@ignored/edr";
+} from "@nomicfoundation/edr";
 import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import { BuildOptions } from "hardhat/types/solidity";
 import { Abi } from "hardhat/types/artifacts";

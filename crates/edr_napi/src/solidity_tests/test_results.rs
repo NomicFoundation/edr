@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     convert::Infallible,
     fmt::{Debug, Formatter},
+    sync::Arc,
 };
 
 use edr_solidity_tests::{
@@ -85,7 +86,7 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    stack_trace_result: Option<StackTraceResult>,
+    stack_trace_result: Option<Arc<StackTraceResult>>,
     call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
 }
 
@@ -150,9 +151,8 @@ impl TestResult {
     pub fn stack_trace(
         &self,
     ) -> Option<Either4<StackTrace, UnexpectedError, HeuristicFailed, UnsafeToReplay>> {
-        self.stack_trace_result
-            .as_ref()
-            .map(|stack_trace_result| match stack_trace_result {
+        self.stack_trace_result.as_ref().map(|stack_trace_result| {
+            match stack_trace_result.as_ref() {
                 StackTraceResult::Success(stack_trace) => Either4::A(StackTrace {
                     kind: "StackTrace",
                     entries: stack_trace
@@ -183,7 +183,8 @@ impl TestResult {
                         .map(Cow::into_owned)
                         .collect(),
                 }),
-            })
+            }
+        })
     }
 
     /// Constructs the execution traces for the test. Returns an empty array if

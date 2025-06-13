@@ -2,9 +2,9 @@ use std::sync::OnceLock;
 
 use alloy_rlp::{BufMut, Encodable};
 use k256::SecretKey;
-use revm_primitives::keccak256;
 
 use crate::{
+    keccak256,
     signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
@@ -14,7 +14,7 @@ use crate::{
 pub struct Eip155 {
     // The order of these fields determines encoding order.
     pub nonce: u64,
-    pub gas_price: U256,
+    pub gas_price: u128,
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
@@ -23,6 +23,9 @@ pub struct Eip155 {
 }
 
 impl Eip155 {
+    /// The type identifier for a post-EIP-155 transaction.
+    pub const TYPE: u8 = super::Legacy::TYPE;
+
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         keccak256(alloy_rlp::encode(self))
@@ -62,8 +65,10 @@ impl Eip155 {
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature: Fakeable::with_address_unchecked(signature, caller),
+            // SAFETY: The safety concern is propagated in the function signature.
+            signature: unsafe { Fakeable::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         })
     }
 
@@ -80,6 +85,7 @@ impl Eip155 {
             input: self.input,
             signature: signature::Fakeable::fake(address, Some(v)),
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         }
     }
 
@@ -132,6 +138,8 @@ impl Encodable for Eip155 {
 mod tests {
     use std::str::FromStr;
 
+    use transaction::ExecutableTransaction as _;
+
     use super::*;
     use crate::transaction::fake_signature::tests::test_fake_sign_properties;
 
@@ -140,7 +148,7 @@ mod tests {
         let input = hex::decode("1234").unwrap();
         Eip155 {
             nonce: 1,
-            gas_price: U256::from(2),
+            gas_price: 2,
             gas_limit: 3,
             kind: TxKind::Call(to),
             value: U256::from(4),
@@ -180,7 +188,7 @@ mod tests {
     fn test_fake_sign_test_vector() -> anyhow::Result<()> {
         let transaction = Eip155 {
             nonce: 0,
-            gas_price: U256::from(678_912),
+            gas_price: 678_912,
             gas_limit: 30_000,
             kind: TxKind::Call("0xb5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?),
             value: U256::from(1),
@@ -194,7 +202,7 @@ mod tests {
 
         let expected_hash: B256 =
             "bcdd3230665912079522dfbfe605e70443c81bf78db768a688a8d8007accf14b".parse()?;
-        assert_eq!(signed.hash(), &expected_hash);
+        assert_eq!(signed.transaction_hash(), &expected_hash);
 
         Ok(())
     }

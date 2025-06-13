@@ -4,11 +4,11 @@ use alloy_rlp::RlpEncodable;
 use revm_primitives::keccak256;
 
 use crate::{
-    eips::eip7702,
+    eips::{eip2930, eip7702},
     signature::{self, public_key_to_address, SecretKey, SignatureError, SignatureWithYParity},
     transaction::{self, ComputeTransactionHash},
     utils::envelop_bytes,
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 /// An [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) transaction.
@@ -17,13 +17,13 @@ pub struct Eip7702 {
     // The order of these fields determines encoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
+    pub max_priority_fee_per_gas: u128,
+    pub max_fee_per_gas: u128,
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: Vec<AccessListItem>,
+    pub access_list: Vec<eip2930::AccessListItem>,
     pub authorization_list: Vec<eip7702::SignedAuthorization>,
 }
 
@@ -66,8 +66,10 @@ impl Eip7702 {
             input: self.input,
             access_list: self.access_list.into(),
             authorization_list: self.authorization_list,
-            signature: signature::Fakeable::with_address_unchecked(signature, caller),
+            // SAFETY: The safety concern is propagated in the function signature.
+            signature: unsafe { signature::Fakeable::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         })
     }
 
@@ -85,6 +87,7 @@ impl Eip7702 {
             authorization_list: self.authorization_list,
             signature: signature::Fakeable::fake(address, None),
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         }
     }
 }
@@ -111,7 +114,9 @@ mod tests {
             b256!("056880940567cb424c9959fc670bca016107f9b305158837ef1b0c721e1cbb65");
 
         pub fn raw() -> Result<Vec<u8>, FromHexError> {
-            hex::decode("f889827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c")
+            hex::decode(
+                "f889827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c",
+            )
         }
 
         // Test vector generated using secret key in `dummy_secret_key`.
@@ -121,8 +126,8 @@ mod tests {
             let request = transaction::request::Eip7702 {
                 chain_id: CHAIN_ID,
                 nonce: 0,
-                max_priority_fee_per_gas: U256::from(1_000_000_000u64),
-                max_fee_per_gas: U256::from(2_200_000_000u64),
+                max_priority_fee_per_gas: 1_000_000_000,
+                max_fee_per_gas: 2_200_000_000,
                 gas_limit: 63_000,
                 to: address!("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
                 value: U256::ZERO,

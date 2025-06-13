@@ -9,7 +9,7 @@
     "@types/node": "^20.0.0",
     "chai": "^4.3.6",
     "ethers": "5.7.2",
-    "hardhat": "2.22.18",
+    "hardhat": "2.23.1-alpha.0",
     "mocha": "^10.0.0"
   },
   "keywords": [],

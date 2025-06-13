@@ -1,13 +1,17 @@
 use std::{
-    convert::Infallible,
+    marker::PhantomData,
     path::{Path, PathBuf},
     sync::Arc,
     time::Instant,
 };
 
 use anyhow::Context;
-use edr_evm::blockchain::BlockchainError;
-use edr_provider::{time::CurrentTime, Logger, ProviderError, ProviderRequest};
+use derive_where::derive_where;
+use edr_eth::l1;
+use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
+use edr_generic::GenericChainSpec;
+use edr_napi_core::spec::SyncNapiSpec;
+use edr_provider::{time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -24,7 +28,17 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         anyhow::bail!("This scenario expects logging, but logging is not yet implemented")
     }
 
-    let logger = Box::<DisabledLogger>::default();
+    if let Some(chain_type) = config.chain_type {
+        if chain_type != GenericChainSpec::CHAIN_TYPE {
+            anyhow::bail!("Unsupported chain type: {chain_type}")
+        }
+    }
+
+    let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::try_from(
+        edr_napi_core::provider::Config::from(config.provider_config),
+    )?;
+
+    let logger = Box::<DisabledLogger<GenericChainSpec>>::default();
     let subscription_callback = Box::new(|_| ());
 
     #[cfg(feature = "tracing")]
@@ -49,7 +63,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
             runtime::Handle::current(),
             logger,
             subscription_callback,
-            config.provider_config.into(),
+            provider_config,
             Arc::new(ContractDecoder::default()),
             CurrentTime,
         )
@@ -98,7 +112,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
 
 async fn load_requests(
     scenario_path: &Path,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
     println!("Loading requests from {scenario_path:?}");
 
     match load_gzipped_json(scenario_path.to_path_buf()).await {
@@ -110,7 +124,7 @@ async fn load_requests(
 
 async fn load_gzipped_json(
     scenario_path: PathBuf,
-) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest>)> {
+) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
     use std::{
         fs::File,
         io::{BufRead, BufReader},
@@ -129,11 +143,18 @@ async fn load_gzipped_json(
                 .context("Invalid gzip")?;
             let config: ScenarioConfig = serde_json::from_str(&first_line)?;
 
-            let mut requests: Vec<ProviderRequest> = Vec::new();
+            if let Some(chain_type) = &config.chain_type {
+                anyhow::ensure!(
+                    chain_type == GenericChainSpec::CHAIN_TYPE,
+                    "Unsupported chain type: {chain_type}"
+                );
+            }
+
+            let mut requests: Vec<ProviderRequest<GenericChainSpec>> = Vec::new();
 
             for gzipped_line in lines {
                 let line = gzipped_line.context("Invalid gzip")?;
-                let request: ProviderRequest = serde_json::from_str(&line)?;
+                let request: ProviderRequest<GenericChainSpec> = serde_json::from_str(&line)?;
                 requests.push(request);
             }
 
@@ -142,7 +163,9 @@ async fn load_gzipped_json(
         .await?
 }
 
-async fn load_json(scenario_path: &Path) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest>)> {
+async fn load_json(
+    scenario_path: &Path,
+) -> anyhow::Result<(ScenarioConfig, Vec<ProviderRequest<GenericChainSpec>>)> {
     use tokio::io::AsyncBufReadExt;
 
     let reader = tokio::io::BufReader::new(tokio::fs::File::open(scenario_path).await?);
@@ -151,23 +174,30 @@ async fn load_json(scenario_path: &Path) -> anyhow::Result<(ScenarioConfig, Vec<
     let first_line = lines.next_line().await?.context("Scenario file is empty")?;
     let config: ScenarioConfig = serde_json::from_str(&first_line)?;
 
-    let mut requests: Vec<ProviderRequest> = Vec::new();
+    if let Some(chain_type) = &config.chain_type {
+        anyhow::ensure!(
+            chain_type == GenericChainSpec::CHAIN_TYPE,
+            "Unsupported chain type: {chain_type}"
+        );
+    }
+
+    let mut requests: Vec<ProviderRequest<GenericChainSpec>> = Vec::new();
 
     while let Some(line) = lines.next_line().await? {
-        let request: ProviderRequest = serde_json::from_str(&line)?;
+        let request: ProviderRequest<GenericChainSpec> = serde_json::from_str(&line)?;
         requests.push(request);
     }
 
     Ok((config, requests))
 }
 
-#[derive(Clone, Default)]
-struct DisabledLogger;
+#[derive_where(Clone, Default)]
+struct DisabledLogger<ChainSpecT: RuntimeSpec> {
+    _phantom: PhantomData<ChainSpecT>,
+}
 
-impl Logger for DisabledLogger {
-    type BlockchainError = BlockchainError;
-
-    type LoggerError = Infallible;
+impl<ChainSpecT: RuntimeSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
+    type BlockchainError = BlockchainErrorForChainSpec<GenericChainSpec>;
 
     fn is_enabled(&self) -> bool {
         false
@@ -175,15 +205,18 @@ impl Logger for DisabledLogger {
 
     fn set_is_enabled(&mut self, _is_enabled: bool) {}
 
-    fn print_method_logs(
+    fn print_contract_decoding_error(
         &mut self,
-        _method: &str,
-        _error: Option<&ProviderError<Infallible>>,
-    ) -> Result<(), Infallible> {
+        _error: &str,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }
 
-    fn print_contract_decoding_error(&mut self, _error: &str) -> Result<(), Self::LoggerError> {
+    fn print_method_logs(
+        &mut self,
+        _method: &str,
+        _error: Option<&ProviderErrorForChainSpec<ChainSpecT>>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
     }
 }

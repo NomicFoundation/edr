@@ -1,6 +1,7 @@
-use core::fmt::Debug;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
+use edr_eth::{l1, transaction::TransactionValidation};
+use edr_evm::spec::RuntimeSpec;
 use tokio::{
     runtime,
     sync::{oneshot, Mutex},
@@ -8,26 +9,41 @@ use tokio::{
     time::Instant,
 };
 
-use crate::{data::ProviderData, time::TimeSinceEpoch, IntervalConfig, ProviderError};
+use crate::{
+    data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
+    time::TimeSinceEpoch, IntervalConfig,
+};
 
 /// Type for interval mining on a separate thread.
-pub struct IntervalMiner<LoggerErrorT: Debug> {
-    inner: Option<Inner<LoggerErrorT>>,
+pub struct IntervalMiner<ChainSpecT: RuntimeSpec, TimerT> {
+    inner: Option<Inner<ChainSpecT>>,
     runtime: runtime::Handle,
+    phantom: PhantomData<TimerT>,
 }
 
 /// Inner type for interval mining on a separate thread, required for
 /// implementation of `Drop`.
-struct Inner<LoggerErrorT: Debug> {
+struct Inner<ChainSpecT: RuntimeSpec> {
     cancellation_sender: oneshot::Sender<()>,
-    background_task: JoinHandle<Result<(), ProviderError<LoggerErrorT>>>,
+    background_task: JoinHandle<Result<(), ProviderErrorForChainSpec<ChainSpecT>>>,
 }
 
-impl<LoggerErrorT: Debug + Send + Sync + 'static> IntervalMiner<LoggerErrorT> {
-    pub fn new<TimerT: Clone + TimeSinceEpoch>(
+impl<
+        ChainSpecT: SyncProviderSpec<
+            TimerT,
+            BlockEnv: Default,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
+        >,
+        TimerT: Clone + TimeSinceEpoch,
+    > IntervalMiner<ChainSpecT, TimerT>
+{
+    pub fn new(
         runtime: runtime::Handle,
         config: IntervalConfig,
-        data: Arc<Mutex<ProviderData<LoggerErrorT, TimerT>>>,
+        data: Arc<Mutex<ProviderData<ChainSpecT, TimerT>>>,
     ) -> Self {
         let (cancellation_sender, cancellation_receiver) = oneshot::channel();
         let background_task = runtime
@@ -39,19 +55,27 @@ impl<LoggerErrorT: Debug + Send + Sync + 'static> IntervalMiner<LoggerErrorT> {
                 background_task,
             }),
             runtime,
+            phantom: PhantomData,
         }
     }
 }
 
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 async fn interval_mining_loop<
-    LoggerErrorT: Debug + Send + Sync + 'static,
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+        >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     config: IntervalConfig,
-    data: Arc<Mutex<ProviderData<LoggerErrorT, TimerT>>>,
+    data: Arc<Mutex<ProviderData<ChainSpecT, TimerT>>>,
     mut cancellation_receiver: oneshot::Receiver<()>,
-) -> Result<(), ProviderError<LoggerErrorT>> {
+) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let mut now = Instant::now();
     loop {
         let delay = config.generate_interval();
@@ -71,7 +95,7 @@ async fn interval_mining_loop<
                             return Err(error);
                         }
 
-                        Result::<(), ProviderError<LoggerErrorT>>::Ok(())
+                        Result::<(), ProviderErrorForChainSpec<ChainSpecT>>::Ok(())
                     }
                 }
             },
@@ -79,7 +103,7 @@ async fn interval_mining_loop<
     }
 }
 
-impl<LoggerErrorT: Debug> Drop for IntervalMiner<LoggerErrorT> {
+impl<ChainSpecT: RuntimeSpec, TimerT> Drop for IntervalMiner<ChainSpecT, TimerT> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn drop(&mut self) {
         if let Some(Inner {
@@ -87,12 +111,14 @@ impl<LoggerErrorT: Debug> Drop for IntervalMiner<LoggerErrorT> {
             background_task: task,
         }) = self.inner.take()
         {
-            cancellation_sender
-                .send(())
-                .expect("Failed to send cancellation signal");
-
-            let _result = tokio::task::block_in_place(move || self.runtime.block_on(task))
-                .expect("Failed to join interval mininig task");
+            if let Ok(()) = cancellation_sender.send(()) {
+                let _result = tokio::task::block_in_place(move || self.runtime.block_on(task))
+                    .expect("Failed to join interval mininig task");
+            } else {
+                log::debug!(
+                    "Failed to send cancellation signal to interval mining task. The runtime must have already terminated."
+                );
+            }
         }
     }
 }

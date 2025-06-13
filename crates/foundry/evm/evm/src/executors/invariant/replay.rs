@@ -7,6 +7,7 @@ use eyre::Result;
 use foundry_evm_core::{
     contracts::{ContractsByAddress, ContractsByArtifact},
     decode::RevertDecoder,
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::{
@@ -20,7 +21,7 @@ use revm::primitives::U256;
 
 use super::{
     call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
-    shrink_sequence,
+    shrink_sequence, CallAfterInvariantResult, CallInvariantResult,
 };
 use crate::executors::{
     stack_trace::{get_stack_trace, StackTraceResult},
@@ -28,8 +29,15 @@ use crate::executors::{
 };
 
 /// Arguments to `replay_run`.
-pub struct ReplayRunArgs<'a, NestedTraceDecoderT> {
-    pub executor: Executor,
+pub struct ReplayRunArgs<
+    'a,
+    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
+    pub executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
     pub invariant_contract: &'a InvariantContract<'a>,
     pub known_contracts: &'a ContractsByArtifact,
     pub ided_contracts: ContractsByAddress,
@@ -57,8 +65,14 @@ pub struct ReplayResult {
 /// Replays a call sequence for collecting logs and traces.
 /// Returns counterexample to be used when the call sequence is a failed
 /// scenario.
-pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
-    args: ReplayRunArgs<'_, NestedTraceDecoderT>,
+pub fn replay_run<
+    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
+    args: ReplayRunArgs<'_, NestedTraceDecoderT, BlockT, TxT, HardforkT, ChainContextT>,
 ) -> Result<ReplayResult> {
     let ReplayRunArgs {
         mut executor,
@@ -144,7 +158,11 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
     // Checking after each call doesn't add valuable info for passing scenario
     // (invariant call result is always success) nor for failed scenarios
     // (invariant call result is always success until the last call that breaks it).
-    let (invariant_result, invariant_success, cow_backend) = call_invariant_function(
+    let CallInvariantResult {
+        call_result: invariant_result,
+        success: invariant_success,
+        cow_backend,
+    } = call_invariant_function(
         &executor,
         invariant_contract.address,
         invariant_contract
@@ -167,8 +185,10 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
 
     // Collect after invariant logs and traces.
     if invariant_contract.call_after_invariant && invariant_success {
-        let (after_invariant_result, _) =
-            call_after_invariant_function(&executor, invariant_contract.address)?;
+        let CallAfterInvariantResult {
+            call_result: after_invariant_result,
+            success: _,
+        } = call_after_invariant_function(&executor, invariant_contract.address)?;
         traces.push((
             TraceKind::Execution,
             after_invariant_result.traces.clone().unwrap(),
@@ -198,8 +218,15 @@ pub fn replay_run<NestedTraceDecoderT: NestedTraceDecoder>(
 }
 
 /// Arguments to `replay_run`.
-pub struct ReplayErrorArgs<'a, NestedTraceDecoderT> {
-    pub executor: Executor,
+pub struct ReplayErrorArgs<
+    'a,
+    NestedTraceDecoderT,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+> {
+    pub executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
     pub failed_case: &'a FailedInvariantCaseData,
     pub invariant_contract: &'a InvariantContract<'a>,
     pub known_contracts: &'a ContractsByArtifact,
@@ -217,8 +244,14 @@ pub struct ReplayErrorArgs<'a, NestedTraceDecoderT> {
 
 /// Replays the error case, shrinks the failing sequence and collects all
 /// necessary traces.
-pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
-    args: ReplayErrorArgs<'_, NestedTraceDecoderT>,
+pub fn replay_error<
+    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
+    args: ReplayErrorArgs<'_, NestedTraceDecoderT, BlockT, TxT, HardforkT, ChainContextT>,
 ) -> Result<ReplayResult> {
     let ReplayErrorArgs {
         mut executor,
@@ -252,7 +285,7 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
 
             // Replay calls to get the counterexample and to collect logs, traces and
             // coverage.
-            replay_run::<NestedTraceDecoderT>(ReplayRunArgs {
+            replay_run::<NestedTraceDecoderT, _, _, _, _>(ReplayRunArgs {
                 invariant_contract,
                 executor,
                 known_contracts,
@@ -273,7 +306,15 @@ pub fn replay_error<NestedTraceDecoderT: NestedTraceDecoder>(
 }
 
 /// Sets up the calls generated by the internal fuzzer, if they exist.
-fn set_up_inner_replay(executor: &mut Executor, inner_sequence: &[Option<BasicTxDetails>]) {
+fn set_up_inner_replay<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
+    executor: &mut Executor<BlockT, TxT, HardforkT, ChainContextT>,
+    inner_sequence: &[Option<BasicTxDetails>],
+) {
     if let Some(fuzzer) = &mut executor.inspector.fuzzer {
         if let Some(call_generator) = &mut fuzzer.call_generator {
             call_generator.last_sequence = Arc::new(RwLock::new(inner_sequence.to_owned()));
