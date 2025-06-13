@@ -1,7 +1,8 @@
 //! Implementations of [`Evm`](crate::Group::Evm) cheatcodes.
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{btree_map::Entry, BTreeMap, HashMap},
+    fmt::Display,
     path::Path,
 };
 
@@ -23,6 +24,7 @@ use revm::{
     state::Account,
     Journal,
 };
+use serde::Serialize;
 use spec::Vm::signCall;
 
 use crate::{
@@ -35,7 +37,7 @@ use crate::{
         loadCall, pauseGasMeteringCall, prevrandao_0Call, prevrandao_1Call, readCallersCall,
         recordCall, recordLogsCall, resetNonceCall, resumeGasMeteringCall, revertToAndDeleteCall,
         revertToCall, rollCall, setNonceCall, setNonceUnsafeCall, signP256Call, snapshotCall,
-        startStateDiffRecordingCall, stopAndReturnStateDiffCall, storeCall, txGasPriceCall,
+        startStateDiffRecordingCall, stopAndReturnStateDiffCall, getStateDiffCall, getStateDiffJsonCall, storeCall, txGasPriceCall,
         warpCall, CallerMode,
     },
 };
@@ -63,6 +65,70 @@ pub struct DealRecord {
     pub old_balance: U256,
     /// Balance after deal was applied
     pub new_balance: U256,
+}
+
+/// Storage slot diff info.
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct SlotStateDiff {
+    /// Initial storage value.
+    previous_value: B256,
+    /// Current storage value.
+    new_value: B256,
+}
+
+/// Balance diff info.
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct BalanceDiff {
+    /// Initial storage value.
+    previous_value: U256,
+    /// Current storage value.
+    new_value: U256,
+}
+
+/// Account state diff info.
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct AccountStateDiffs {
+    /// Address label, if any set.
+    label: Option<String>,
+    /// Account balance changes.
+    balance_diff: Option<BalanceDiff>,
+    /// State changes, per slot.
+    state_diff: BTreeMap<B256, SlotStateDiff>,
+}
+
+impl Display for AccountStateDiffs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Print changed account.
+        if let Some(label) = &self.label {
+            writeln!(f, "label: {label}")?;
+        }
+        // Print balance diff if changed.
+        if let Some(balance_diff) = &self.balance_diff {
+            if balance_diff.previous_value != balance_diff.new_value {
+                writeln!(
+                    f,
+                    "- balance diff: {} → {}",
+                    balance_diff.previous_value, balance_diff.new_value
+                )?;
+            }
+        }
+        // Print state diff if any.
+        if !&self.state_diff.is_empty() {
+            writeln!(f, "- state diff:")?;
+            for (slot, slot_changes) in &self.state_diff {
+                writeln!(
+                    f,
+                    "@ {slot}: {} → {}",
+                    slot_changes.previous_value, slot_changes.new_value
+                )?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl_is_pure_true!(addrCall);
@@ -1405,6 +1471,49 @@ impl Cheatcode for stopAndReturnStateDiffCall {
     }
 }
 
+impl_is_pure_true!(getStateDiffCall);
+impl Cheatcode for getStateDiffCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+    ) -> Result {
+        let Self {} = self;
+        let mut diffs = String::new();
+        let state_diffs = get_recorded_state_diffs(state);
+        for (address, state_diffs) in state_diffs {
+            diffs.push_str(&format!("{address}\n"));
+            diffs.push_str(&format!("{state_diffs}\n"));
+        }
+        Ok(diffs.abi_encode())
+    }
+}
+
+impl_is_pure_true!(getStateDiffJsonCall);
+impl Cheatcode for getStateDiffJsonCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+    ) -> Result {
+        let Self {} = self;
+        let state_diffs = get_recorded_state_diffs(state);
+        Ok(serde_json::to_string(&state_diffs)?.abi_encode())
+    }
+}
+
 pub(super) fn get_nonce<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -1534,4 +1643,66 @@ fn get_state_diff<
         .flatten()
         .collect::<Vec<_>>();
     Ok(res.abi_encode())
+}
+
+/// Helper function to returns state diffs recorded for each changed account.
+fn get_recorded_state_diffs<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+>(
+    state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+) -> BTreeMap<Address, AccountStateDiffs> {
+    let mut state_diffs: BTreeMap<Address, AccountStateDiffs> = BTreeMap::default();
+    if let Some(records) = &state.recorded_account_diffs_stack {
+        records
+            .iter()
+            .flatten()
+            .filter(|account_access| {
+                !account_access.storageAccesses.is_empty() ||
+                    account_access.oldBalance != account_access.newBalance
+            })
+            .for_each(|account_access| {
+                let account_diff =
+                    state_diffs.entry(account_access.account).or_insert(AccountStateDiffs {
+                        label: state.labels.get(&account_access.account).cloned(),
+                        ..Default::default()
+                    });
+
+                // Record account balance diffs.
+                if account_access.oldBalance != account_access.newBalance {
+                    // Update balance diff. Do not overwrite the initial balance if already set.
+                    if let Some(diff) = &mut account_diff.balance_diff {
+                        diff.new_value = account_access.newBalance;
+                    } else {
+                        account_diff.balance_diff = Some(BalanceDiff {
+                            previous_value: account_access.oldBalance,
+                            new_value: account_access.newBalance,
+                        });
+                    }
+                }
+
+                // Record account state diffs.
+                for storage_access in &account_access.storageAccesses {
+                    if storage_access.isWrite && !storage_access.reverted {
+                        // Update state diff. Do not overwrite the initial value if already set.
+                        match account_diff.state_diff.entry(storage_access.slot) {
+                            Entry::Vacant(slot_state_diff) => {
+                                slot_state_diff.insert(SlotStateDiff {
+                                    previous_value: storage_access.previousValue,
+                                    new_value: storage_access.newValue,
+                                });
+                            }
+                            Entry::Occupied(mut slot_state_diff) => {
+                                slot_state_diff.get_mut().new_value = storage_access.newValue;
+                            }
+                        }
+                    }
+                }
+            });
+    }
+    state_diffs
 }

@@ -45,6 +45,7 @@ semver = "1"
 regex = "1"
 thiserror = "1"
 walkdir = "2"
+serde.workspace = true
 
 [lints]
 workspace = true
