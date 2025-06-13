@@ -7,7 +7,7 @@ import {
 } from "./testContext.js";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { FuzzTestKind, InvariantTestKind } from "@ignored/edr";
+import { FuzzTestKind, InvariantTestKind } from "@nomicfoundation/edr";
 import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
 describe("Fuzz and invariant testing", function () {

@@ -1,4 +1,4 @@
-use alloy_primitives::hex;
+use edr_eth::hex;
 use napi::bindgen_prelude::{BigInt, Buffer};
 use serde::Serializer;
 

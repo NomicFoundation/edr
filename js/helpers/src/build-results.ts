@@ -1,6 +1,9 @@
 // Copied from <https://github.com/NomicFoundation/hardhat/blob/58463c16270ae154b6671d2d2eea2ba95d024d2e/v-next/hardhat/src/internal/builtin-plugins/solidity/build-results.ts>
 // One modification: passing in link references
-import type { BuildInfoAndOutput, Artifact as EdrArtifact } from "@ignored/edr";
+import type {
+  BuildInfoAndOutput,
+  Artifact as EdrArtifact,
+} from "@nomicfoundation/edr";
 
 import {
   assertHardhatInvariant,

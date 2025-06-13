@@ -3,9 +3,13 @@ import chaiAsPromised from "chai-as-promised";
 
 import {
   ContractAndFunctionName,
+  GENERIC_CHAIN_TYPE,
+  genericChainProviderFactory,
+  l1GenesisState,
+  l1HardforkFromString,
+  l1HardforkLatest,
+  l1HardforkToString,
   MineOrdering,
-  Provider,
-  SpecId,
   SubscriptionEvent,
 } from "..";
 import {
@@ -19,6 +23,14 @@ chai.use(chaiAsPromised);
 
 describe("Provider", () => {
   const context = getContext();
+
+  before(async () => {
+    await context.registerProviderFactory(
+      GENERIC_CHAIN_TYPE,
+      genericChainProviderFactory()
+    );
+  });
+
   const providerConfig = {
     allowBlocksWithSameTimestamp: false,
     allowUnlimitedContractSize: true,
@@ -29,14 +41,7 @@ describe("Provider", () => {
     chains: [],
     coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
     enableRip7212: false,
-    genesisAccounts: [
-      {
-        secretKey:
-          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-        balance: 1000n * 10n ** 18n,
-      },
-    ],
-    hardfork: SpecId.Latest,
+    hardfork: l1HardforkToString(l1HardforkLatest()),
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
@@ -53,6 +58,13 @@ describe("Provider", () => {
       },
     },
     networkId: 123n,
+    ownedAccounts: [
+      {
+        secretKey:
+          "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+        balance: 1000n * 10n ** 18n,
+      },
+    ],
   };
 
   const loggerConfig = {
@@ -71,13 +83,20 @@ describe("Provider", () => {
     printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
-  it("initialize local", async function () {
-    const provider = Provider.withConfig(
-      context,
-      providerConfig,
+  it("initialize local generic provider", async function () {
+    const provider = context.createProvider(
+      GENERIC_CHAIN_TYPE,
+      {
+        genesisState: l1GenesisState(
+          l1HardforkFromString(providerConfig.hardfork)
+        ),
+        ...providerConfig,
+      },
       loggerConfig,
-      {},
-      (_event: SubscriptionEvent) => {}
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      },
+      {}
     );
 
     await assert.isFulfilled(provider);
@@ -88,17 +107,21 @@ describe("Provider", () => {
       this.skip();
     }
 
-    const provider = Provider.withConfig(
-      context,
+    const provider = context.createProvider(
+      GENERIC_CHAIN_TYPE,
       {
         fork: {
           jsonRpcUrl: ALCHEMY_URL,
         },
+        // TODO: Add support for overriding remote fork state when the local fork is different
+        genesisState: [],
         ...providerConfig,
       },
       loggerConfig,
-      {},
-      (_event: SubscriptionEvent) => {}
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      },
+      {}
     );
 
     await assert.isFulfilled(provider);
@@ -106,12 +129,19 @@ describe("Provider", () => {
 
   describe("verbose mode", function () {
     it("should only include the top of the stack by default", async function () {
-      const provider = await Provider.withConfig(
-        context,
-        providerConfig,
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
-        {},
-        (_event: SubscriptionEvent) => {}
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        {}
       );
 
       const responseObject = await provider.handleRequest(
@@ -147,15 +177,22 @@ describe("Provider", () => {
     });
 
     it("should only include the whole stack if verbose mode is enabled", async function () {
-      const provider = await Provider.withConfig(
-        context,
-        providerConfig,
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
-        {},
-        (_event: SubscriptionEvent) => {}
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        {}
       );
 
-      provider.setVerboseTracing(true);
+      await provider.setVerboseTracing(true);
 
       const responseObject = await provider.handleRequest(
         JSON.stringify({
@@ -193,12 +230,19 @@ describe("Provider", () => {
     });
 
     it("should not include memory by default", async function () {
-      const provider = await Provider.withConfig(
-        context,
-        providerConfig,
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
-        {},
-        (_event: SubscriptionEvent) => {}
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        {}
       );
 
       const responseObject = await provider.handleRequest(
@@ -233,15 +277,22 @@ describe("Provider", () => {
     });
 
     it("should include memory if verbose mode is enabled", async function () {
-      const provider = await Provider.withConfig(
-        context,
-        providerConfig,
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
-        {},
-        (_event: SubscriptionEvent) => {}
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        {}
       );
 
-      provider.setVerboseTracing(true);
+      await provider.setVerboseTracing(true);
 
       const responseObject = await provider.handleRequest(
         JSON.stringify({
@@ -280,12 +331,19 @@ describe("Provider", () => {
     });
 
     it("should include isStaticCall flag in tracing messages", async function () {
-      const provider = await Provider.withConfig(
-        context,
-        providerConfig,
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
-        {},
-        (_event: SubscriptionEvent) => {}
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        {}
       );
 
       const responseObject = await provider.handleRequest(
@@ -320,12 +378,19 @@ describe("Provider", () => {
     });
 
     it("should have tracing information when debug_traceTransaction is used", async function () {
-      const provider = await Provider.withConfig(
-        context,
-        providerConfig,
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
-        {},
-        (_event: SubscriptionEvent) => {}
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        {}
       );
 
       const sendTxResponse = await provider.handleRequest(
@@ -373,12 +438,19 @@ describe("Provider", () => {
     });
 
     it("should have tracing information when debug_traceCall is used", async function () {
-      const provider = await Provider.withConfig(
-        context,
-        providerConfig,
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          genesisState: l1GenesisState(
+            l1HardforkFromString(providerConfig.hardfork)
+          ),
+          ...providerConfig,
+        },
         loggerConfig,
-        {},
-        (_event: SubscriptionEvent) => {}
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        {}
       );
 
       const traceCallResponse = await provider.handleRequest(

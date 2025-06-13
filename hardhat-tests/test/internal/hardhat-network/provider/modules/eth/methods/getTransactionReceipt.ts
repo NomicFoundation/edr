@@ -8,7 +8,6 @@ import {
   numberToRpcQuantity,
   rpcQuantityToNumber,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
-import { TransactionParams } from "hardhat/internal/hardhat-network/provider/node-types";
 import {
   RpcBlockOutput,
   RpcReceiptOutput,
@@ -28,6 +27,7 @@ import {
 import {
   deployContract,
   getSignedTxHash,
+  TransactionParams,
 } from "../../../../helpers/transactions";
 
 function toBuffer(x: Parameters<typeof toBytes>[0]) {
@@ -198,11 +198,7 @@ describe("Eth module", function () {
             gasPrice: await getPendingBaseFeePerGas(this.provider),
           };
 
-          const txHash = await getSignedTxHash(
-            this.hardhatNetworkProvider,
-            txParams,
-            1
-          );
+          const txHash = await getSignedTxHash(this.provider, txParams, 1);
 
           // Revert. This is a deployment transaction that immediately reverts without a reason
           await assertTransactionFailure(

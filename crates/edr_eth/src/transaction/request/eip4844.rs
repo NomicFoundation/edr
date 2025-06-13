@@ -2,13 +2,14 @@ use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
 use k256::SecretKey;
-use revm_primitives::keccak256;
 
 use crate::{
+    eips::eip2930,
+    keccak256,
     signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction,
     utils::envelop_bytes,
-    AccessListItem, Address, Bytes, B256, U256,
+    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
@@ -16,18 +17,21 @@ pub struct Eip4844 {
     // The order of these fields determines encoding order.
     pub chain_id: u64,
     pub nonce: u64,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
+    pub max_priority_fee_per_gas: u128,
+    pub max_fee_per_gas: u128,
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: Vec<AccessListItem>,
-    pub max_fee_per_blob_gas: U256,
+    pub access_list: Vec<eip2930::AccessListItem>,
+    pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
 }
 
 impl Eip4844 {
+    /// The type identifier for an EIP-4844 transaction.
+    pub const TYPE: u8 = 3;
+
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
         let encoded = alloy_rlp::encode(self);
@@ -72,8 +76,10 @@ impl Eip4844 {
             input: self.input,
             access_list: self.access_list.into(),
             blob_hashes: self.blob_hashes,
-            signature: Fakeable::with_address_unchecked(signature, caller),
+            // SAFETY: The safety concern is propagated in the function signature.
+            signature: unsafe { Fakeable::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         })
     }
 
@@ -92,6 +98,7 @@ impl Eip4844 {
             blob_hashes: self.blob_hashes,
             signature: signature::Fakeable::fake(address, None),
             hash: OnceLock::new(),
+            rlp_encoding: OnceLock::new(),
         }
     }
 }
@@ -110,14 +117,14 @@ pub(crate) mod tests {
         Eip4844 {
             chain_id: 1337,
             nonce: 0,
-            max_priority_fee_per_gas: U256::from(0x3b9aca00u64),
-            max_fee_per_gas: U256::from(0x3b9aca00u64),
+            max_priority_fee_per_gas: 0x3b9aca00,
+            max_fee_per_gas: 0x3b9aca00,
             gas_limit: 1000000u64,
             to: Address::ZERO,
             value: U256::ZERO,
             input: Bytes::from_str("0x2069b0c7").expect("Valid hex string"),
             access_list: Vec::new(),
-            max_fee_per_blob_gas: U256::from(1u64),
+            max_fee_per_blob_gas: 1,
             blob_hashes: vec![b256!(
                 "01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e"
             )],

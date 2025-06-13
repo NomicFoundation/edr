@@ -243,7 +243,7 @@ pub fn fuzz_param_from_state(
 #[cfg(test)]
 mod tests {
     use foundry_evm_traces::abi::get_func;
-    use revm::db::{CacheDB, EmptyDB};
+    use revm::database::{CacheDB, EmptyDB};
 
     use crate::{
         strategies::{fuzz_calldata, fuzz_calldata_from_state, EvmFuzzState},

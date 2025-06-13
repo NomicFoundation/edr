@@ -12,7 +12,7 @@ pub struct AccountOverrideOptions {
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
-        with = "edr_eth::serde::optional_u64"
+        with = "alloy_serde::quantity::opt"
     )]
     /// Account nonce override.
     pub nonce: Option<u64>,

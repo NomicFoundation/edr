@@ -12,6 +12,7 @@ use edr_solidity_tests::{
 };
 use foundry_evm::{
     decode::decode_console_logs,
+    revm::context::result::HaltReason,
     traces::{decode_trace_arena, render_trace_arena, CallTraceDecoderBuilder},
 };
 use futures::future::join_all;
@@ -112,11 +113,11 @@ impl TestConfig {
 #[derive(Clone, Debug, Default)]
 pub struct NoOpContractDecoder {}
 
-impl NestedTraceDecoder for NoOpContractDecoder {
+impl NestedTraceDecoder<HaltReason> for NoOpContractDecoder {
     fn try_to_decode_nested_trace(
         &self,
-        nested_trace: NestedTrace,
-    ) -> Result<NestedTrace, ContractDecoderError> {
+        nested_trace: NestedTrace<HaltReason>,
+    ) -> Result<NestedTrace<HaltReason>, ContractDecoderError> {
         Ok(nested_trace)
     }
 }

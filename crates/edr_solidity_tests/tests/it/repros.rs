@@ -216,11 +216,6 @@ test_repro!(4640);
 // https://github.com/foundry-rs/foundry/issues/5038
 test_repro!(5038);
 
-// https://github.com/foundry-rs/foundry/issues/5529
-test_repro!(5529; |config| {
-  config.evm_opts.always_use_create_2_factory = true;
-});
-
 // https://github.com/foundry-rs/foundry/issues/5739
 test_repro!(5739);
 

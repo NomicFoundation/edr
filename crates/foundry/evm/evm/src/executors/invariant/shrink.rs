@@ -1,13 +1,17 @@
 // Removed unused import
 
 use alloy_primitives::{Address, Bytes, U256};
-use foundry_evm_core::constants::MAGIC_ASSUME;
+use foundry_evm_core::{
+    constants::MAGIC_ASSUME,
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+};
 use foundry_evm_fuzz::invariant::BasicTxDetails;
 use proptest::bits::{BitSetLike, VarBitSet};
 
 use crate::executors::{
     invariant::{
         call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
+        CallAfterInvariantResult, CallInvariantResult,
     },
     Executor,
 };
@@ -90,18 +94,26 @@ impl CallSequenceShrinker {
 ///
 /// The shrunk call sequence always respect the order failure is reproduced as
 /// it is tested top-down.
-pub(crate) fn shrink_sequence(
+pub(crate) fn shrink_sequence<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
     failed_case: &FailedInvariantCaseData,
     calls: &[BasicTxDetails],
-    executor: &Executor,
+    executor: &Executor<BlockT, TxT, HardforkT, ChainContextT>,
     call_after_invariant: bool,
 ) -> eyre::Result<Vec<BasicTxDetails>> {
     trace!(target: "forge::test", "Shrinking sequence of {} calls.", calls.len());
 
     // Special case test: the invariant is *unsatisfiable* - it took 0 calls to
     // break the invariant -- consider emitting a warning.
-    let (_call, success, _cow_backend) =
-        call_invariant_function(executor, failed_case.addr, failed_case.calldata.clone())?;
+    let CallInvariantResult {
+        call_result: _,
+        success,
+        cow_backend: _,
+    } = call_invariant_function(executor, failed_case.addr, failed_case.calldata.clone())?;
     if !success {
         return Ok(vec![]);
     }
@@ -136,8 +148,13 @@ pub(crate) fn shrink_sequence(
 /// failures phase to test persisted failures.
 /// Returns the result of invariant check (and afterInvariant call if needed)
 /// and if sequence was entirely applied.
-pub fn check_sequence(
-    mut executor: Executor,
+pub fn check_sequence<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
+    mut executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
     calls: &[BasicTxDetails],
     sequence: Vec<usize>,
     test_address: Address,
@@ -165,12 +182,18 @@ pub fn check_sequence(
     }
 
     // Check the invariant for call sequence.
-    let (_call, mut success, _cow_backend) =
-        call_invariant_function(&executor, test_address, calldata)?;
+    let CallInvariantResult {
+        call_result: _,
+        mut success,
+        cow_backend: _,
+    } = call_invariant_function(&executor, test_address, calldata)?;
     // Check after invariant result if invariant is success and `afterInvariant`
     // function is declared.
     if success && call_after_invariant {
-        (_, success) = call_after_invariant_function(&executor, test_address)?;
+        CallAfterInvariantResult {
+            call_result: _,
+            success,
+        } = call_after_invariant_function(&executor, test_address)?;
     }
 
     Ok((success, true))

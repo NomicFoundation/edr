@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "",
   "dependencies": {
-    "@ignored/edr": "workspace:*",
+    "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/hardhat-errors": "3.0.0-next.0",
     "@nomicfoundation/hardhat-utils": "3.0.0-next.0",
     "fs-extra": "^7.0.1",

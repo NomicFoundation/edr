@@ -1,15 +1,21 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { TestContext } from "./testContext.js";
-import { IncludeTraces, CallKind, LogKind, CallTrace } from "@ignored/edr";
+import {
+  IncludeTraces,
+  CallKind,
+  LogKind,
+  CallTrace,
+} from "@nomicfoundation/edr";
 
 describe("Call traces - IncludeTraces.All", () => {
   let testCallTraces: Map<string, CallTrace[]>;
 
   before(async () => {
     const testContext = await TestContext.setup();
-    const runResult =
-      await testContext.runTestsWithStats("CallTraces", { includeTraces: IncludeTraces.All });
+    const runResult = await testContext.runTestsWithStats("CallTraces", {
+      includeTraces: IncludeTraces.All,
+    });
     testCallTraces = runResult.callTraces;
   });
 
@@ -48,7 +54,10 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.equal(trace[0].children.length, 1);
     const event = trace[0].children[0];
     assert.equal(event.kind, LogKind.Log);
-    assert.deepEqual(event.parameters, { name: "SomeEvent", arguments: ["x: 123", 's: "hello"'] });
+    assert.deepEqual(event.parameters, {
+      name: "SomeEvent",
+      arguments: ["x: 123", 's: "hello"'],
+    });
   });
 
   it("multiple children", async function () {
@@ -58,7 +67,10 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const child0 = trace[0].children[0];
     assert.equal(child0.kind, LogKind.Log);
-    assert.deepEqual(child0.parameters, { name: "OneEvent", arguments: ["x: 1"] });
+    assert.deepEqual(child0.parameters, {
+      name: "OneEvent",
+      arguments: ["x: 1"],
+    });
 
     const child1 = trace[0].children[1];
     assert.equal(child1.kind, CallKind.Call);
@@ -66,7 +78,10 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const child2 = trace[0].children[2];
     assert.equal(child2.kind, LogKind.Log);
-    assert.deepEqual(child2.parameters, { name: "OneEvent", arguments: ["x: 3"] });
+    assert.deepEqual(child2.parameters, {
+      name: "OneEvent",
+      arguments: ["x: 3"],
+    });
 
     const child3 = trace[0].children[3];
     assert.equal(child3.kind, CallKind.Call);
@@ -74,7 +89,10 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const child4 = trace[0].children[4];
     assert.equal(child4.kind, LogKind.Log);
-    assert.deepEqual(child4.parameters, { name: "OneEvent", arguments: ["x: 5"] });
+    assert.deepEqual(child4.parameters, {
+      name: "OneEvent",
+      arguments: ["x: 5"],
+    });
   });
 
   it("nested calls", async function () {
@@ -89,7 +107,10 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const grandChild = child.children[0];
     assert.equal(grandChild.kind, CallKind.Call);
-    assert.deepEqual(grandChild.inputs, { name: "childCall", arguments: ["0"] });
+    assert.deepEqual(grandChild.inputs, {
+      name: "childCall",
+      arguments: ["0"],
+    });
   });
 
   it("call with value", async function () {
@@ -165,11 +186,21 @@ describe("Call traces - IncludeTraces.All", () => {
 
     assert.deepEqual(
       event.parameters[0],
-      new Uint8Array(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')),
+      new Uint8Array(
+        Buffer.from(
+          "0000000000000000000000000000000000000000000000000000000000000001",
+          "hex"
+        )
+      )
     );
     assert.deepEqual(
       event.parameters[1],
-      new Uint8Array(Buffer.from('0000000000000000000000000000000000000000000000000000000000000002', 'hex')),
+      new Uint8Array(
+        Buffer.from(
+          "0000000000000000000000000000000000000000000000000000000000000002",
+          "hex"
+        )
+      )
     );
 
     const data = "test data";
@@ -177,11 +208,14 @@ describe("Call traces - IncludeTraces.All", () => {
       event.parameters[2],
       new Uint8Array(
         Buffer.concat([
-          Buffer.from('0000000000000000000000000000000000000000000000000000000000000020', 'hex'), // start offset
-          Buffer.from(data.length.toString(16).padStart(64, '0'), 'hex'),
-          Buffer.from(data.padEnd(32, '\0'), 'utf8'),
-        ]),
-      ),
+          Buffer.from(
+            "0000000000000000000000000000000000000000000000000000000000000020",
+            "hex"
+          ), // start offset
+          Buffer.from(data.length.toString(16).padStart(64, "0"), "hex"),
+          Buffer.from(data.padEnd(32, "\0"), "utf8"),
+        ])
+      )
     );
   });
 
@@ -194,7 +228,7 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.equal(child.kind, CallKind.Create);
     assert.equal(child.success, true);
     assert.equal(child.contract, "CreateMe");
-    assert(typeof child.outputs === 'string');
+    assert(typeof child.outputs === "string");
     assert.match(child.outputs, /^\d+ bytes of code$/);
   });
 
@@ -209,7 +243,10 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const delegateCall = trace[0].children[1];
     assert.equal(delegateCall.kind, CallKind.DelegateCall);
-    assert.deepEqual(delegateCall.inputs, { name: "simpleCall", arguments: [] });
+    assert.deepEqual(delegateCall.inputs, {
+      name: "simpleCall",
+      arguments: [],
+    });
   });
 
   it("reverted calls", async function () {
@@ -220,25 +257,40 @@ describe("Call traces - IncludeTraces.All", () => {
     const emptyRevert = trace[0].children[0];
     assert.equal(emptyRevert.kind, CallKind.Call);
     assert.equal(emptyRevert.success, false);
-    assert.deepEqual(emptyRevert.inputs, { name: "revertWithEmpty", arguments: [] });
+    assert.deepEqual(emptyRevert.inputs, {
+      name: "revertWithEmpty",
+      arguments: [],
+    });
     assert.equal(emptyRevert.outputs, "EvmError: Revert");
 
     const stringRevert = trace[0].children[1];
     assert.equal(stringRevert.kind, CallKind.Call);
     assert.equal(stringRevert.success, false);
-    assert.deepEqual(stringRevert.inputs, { name: "revertWithString", arguments: [] });
+    assert.deepEqual(stringRevert.inputs, {
+      name: "revertWithString",
+      arguments: [],
+    });
     assert.equal(stringRevert.outputs, "revert: Something went wrong");
 
     const customErrorRevert = trace[0].children[2];
     assert.equal(customErrorRevert.kind, CallKind.Call);
     assert.equal(customErrorRevert.success, false);
-    assert.deepEqual(customErrorRevert.inputs, { name: "revertWithCustomError", arguments: [] });
-    assert.equal(customErrorRevert.outputs, 'CustomRevertError(42, "Custom error occurred")');
+    assert.deepEqual(customErrorRevert.inputs, {
+      name: "revertWithCustomError",
+      arguments: [],
+    });
+    assert.equal(
+      customErrorRevert.outputs,
+      'CustomRevertError(42, "Custom error occurred")'
+    );
 
     const bytesRevert = trace[0].children[3];
     assert.equal(bytesRevert.kind, CallKind.Call);
     assert.equal(bytesRevert.success, false);
-    assert.deepEqual(bytesRevert.inputs, { name: "revertWithBytes", arguments: [] });
+    assert.deepEqual(bytesRevert.inputs, {
+      name: "revertWithBytes",
+      arguments: [],
+    });
     assert.deepEqual(bytesRevert.outputs, "custom error deadbeef:cafe");
   });
 
@@ -260,7 +312,10 @@ describe("Call traces - IncludeTraces.All", () => {
     const unlabeledCall = trace[0].children[0];
     assert.equal(unlabeledCall.kind, CallKind.Call);
     assert.equal(unlabeledCall.success, true);
-    assert.equal(unlabeledCall.contract, "0xaBcDef1234567890123456789012345678901234");
+    assert.equal(
+      unlabeledCall.contract,
+      "0xaBcDef1234567890123456789012345678901234"
+    );
   });
 
   it("empty call data", async function () {
@@ -273,20 +328,23 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.equal(emptyCall1.kind, CallKind.Call);
     assert.equal(emptyCall1.success, true);
     assert.equal(emptyCall1.contract, "CallTraces");
-    assert.deepEqual(emptyCall1.inputs, { name: 'receive', arguments: [] });
+    assert.deepEqual(emptyCall1.inputs, { name: "receive", arguments: [] });
 
     // fallback in ABI
     const emptyCall2 = trace[0].children[2];
     assert.equal(emptyCall2.kind, CallKind.Call);
     assert.equal(emptyCall2.success, true);
-    assert.deepEqual(emptyCall2.inputs, { name: 'fallback', arguments: [] });
+    assert.deepEqual(emptyCall2.inputs, { name: "fallback", arguments: [] });
 
     // no ABI
     const emptyCall3 = trace[0].children[3];
     assert.equal(emptyCall3.kind, CallKind.Call);
     assert.equal(emptyCall3.success, true);
-    assert.equal(emptyCall3.contract, '0x1000000000000000000000000000000000000000');
-    assert.deepEqual(emptyCall3.inputs, { name: 'fallback', arguments: [] });
+    assert.equal(
+      emptyCall3.contract,
+      "0x1000000000000000000000000000000000000000"
+    );
+    assert.deepEqual(emptyCall3.inputs, { name: "fallback", arguments: [] });
   });
 
   it("fuzzing test should have single trace", async function () {
@@ -299,14 +357,17 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const event = trace[0].children[0];
     assert.equal(event.kind, LogKind.Log);
-    assert('name' in event.parameters);
+    assert("name" in event.parameters);
     assert.deepEqual(event.parameters.name, "OneEvent");
     const argumentMatch = event.parameters.arguments[0].match(/^x: (.*)$/);
     assert.ok(argumentMatch);
     const x = argumentMatch[1];
 
-    assert('name' in trace[0].inputs);
-    assert.deepEqual(trace[0].inputs, { name: "testWithFuzzing", arguments: [x] });
+    assert("name" in trace[0].inputs);
+    assert.deepEqual(trace[0].inputs, {
+      name: "testWithFuzzing",
+      arguments: [x],
+    });
   });
 });
 
@@ -315,8 +376,10 @@ describe("Call traces - IncludeTraces.Failing", () => {
 
   before(async () => {
     const testContext = await TestContext.setup();
-    const runResult =
-      await testContext.runTestsWithStats("CallTracesFailingOnly", { includeTraces: IncludeTraces.Failing });
+    const runResult = await testContext.runTestsWithStats(
+      "CallTracesFailingOnly",
+      { includeTraces: IncludeTraces.Failing }
+    );
     testCallTraces = runResult.callTraces;
   });
 
@@ -337,8 +400,9 @@ describe("Call traces - CallTracesSetup", () => {
 
   before(async () => {
     const testContext = await TestContext.setup();
-    const runResult =
-      await testContext.runTestsWithStats("CallTracesSetup", { includeTraces: IncludeTraces.All });
+    const runResult = await testContext.runTestsWithStats("CallTracesSetup", {
+      includeTraces: IncludeTraces.All,
+    });
     testCallTraces = runResult.callTraces;
   });
 
@@ -356,6 +420,9 @@ describe("Call traces - CallTracesSetup", () => {
     assert.equal(testTrace.kind, CallKind.Call);
     assert.equal(testTrace.success, true);
     assert.equal(testTrace.contract, "CallTracesSetup");
-    assert.deepEqual(testTrace.inputs, { name: "testAfterSetup", arguments: [] });
+    assert.deepEqual(testTrace.inputs, {
+      name: "testAfterSetup",
+      arguments: [],
+    });
   });
 });

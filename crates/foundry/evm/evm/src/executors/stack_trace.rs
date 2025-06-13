@@ -13,14 +13,16 @@ use edr_solidity::{
 use foundry_evm_core::{
     backend::IndeterminismReasons,
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
+    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_traces::{SparsedTraceArena, TraceKind};
+use revm::interpreter::{InternalResult, SuccessOrHalt};
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
 use crate::executors::EvmError;
 
 /// Stack trace generation error during re-execution.
-#[derive(Clone, Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum StackTraceError {
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
@@ -31,12 +33,14 @@ pub enum StackTraceError {
     #[error("Invalid root node in call trace arena")]
     InvalidRootNode,
     #[error(transparent)]
-    Tracer(#[from] SolidityTracerError),
+    Tracer(#[from] SolidityTracerError<revm::context::result::HaltReason>),
 }
 
 // `EvmError` is not `Clone`
-impl From<EvmError> for StackTraceError {
-    fn from(value: EvmError) -> Self {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    From<EvmError<BlockT, TxT, HardforkT>> for StackTraceError
+{
+    fn from(value: EvmError<BlockT, TxT, HardforkT>) -> Self {
         Self::Evm(value.to_string())
     }
 }
@@ -45,7 +49,9 @@ impl From<EvmError> for StackTraceError {
 /// Assumes last trace is the error one. This is important for invariant tests
 /// where there might be multiple errors traces. Returns `None` if `traces` is
 /// empty.
-pub fn get_stack_trace<NestedTraceDecoderT: NestedTraceDecoder>(
+pub fn get_stack_trace<
+    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
+>(
     contract_decoder: &NestedTraceDecoderT,
     traces: &[(TraceKind, SparsedTraceArena)],
 ) -> Result<Option<Vec<StackTraceEntry>>, StackTraceError> {
@@ -86,7 +92,7 @@ fn convert_call_trace_arena_to_nested_trace(
     address_to_creation_code: &HashMap<Address, &Bytes>,
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
-) -> Result<NestedTrace, StackTraceError> {
+) -> Result<NestedTrace<revm::context::result::HaltReason>, StackTraceError> {
     // Start conversion from the root node (index 0)
     if arena.nodes().is_empty() {
         return Err(StackTraceError::InvalidRootNode);
@@ -100,7 +106,7 @@ fn convert_node_to_nested_trace(
     address_to_runtime_code: &HashMap<Address, &Bytes>,
     arena: &CallTraceArena,
     node_idx: usize,
-) -> Result<NestedTrace, StackTraceError> {
+) -> Result<NestedTrace<revm::context::result::HaltReason>, StackTraceError> {
     let node = &arena.nodes()[node_idx];
     let trace = &node.trace;
 
@@ -192,20 +198,25 @@ fn convert_node_to_nested_trace(
 
 fn convert_instruction_result_to_exit_code(
     result: revm::interpreter::InstructionResult,
-) -> ExitCode {
-    let success_or_halt: revm::interpreter::SuccessOrHalt = result.into();
-    if success_or_halt.is_success() {
-        ExitCode::Success
-    } else if success_or_halt.is_revert() {
-        ExitCode::Revert
-    } else {
-        let halt = success_or_halt.to_halt().expect("must be a halt");
-        ExitCode::Halt(halt)
+) -> ExitCode<revm::context::result::HaltReason> {
+    let success_or_halt: revm::interpreter::SuccessOrHalt<revm::context::result::HaltReason> =
+        result.into();
+    match success_or_halt {
+        SuccessOrHalt::Success(_) => ExitCode::Success,
+        SuccessOrHalt::Revert => ExitCode::Revert,
+        SuccessOrHalt::Halt(halt) => ExitCode::Halt(halt),
+        SuccessOrHalt::FatalExternalError => ExitCode::FatalExternalError,
+        SuccessOrHalt::Internal(result) => match result {
+            InternalResult::InternalContinue => ExitCode::InternalContinue,
+            InternalResult::InternalCallOrCreate => ExitCode::InternalCallOrCreate,
+            InternalResult::CreateInitCodeStartingEF00 => ExitCode::CreateInitCodeStartingEF00,
+            InternalResult::InvalidExtDelegateCallTarget => ExitCode::InvalidExtDelegateCallTarget,
+        },
     }
 }
 
 fn is_calllike_op(step: &CallTraceStep) -> bool {
-    use revm::interpreter::opcode;
+    use revm::bytecode::opcode;
 
     matches!(
         step.op.get(),
@@ -219,7 +230,7 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
 }
 
 /// The possible outcomes from computing stack traces.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum StackTraceResult {
     /// The stack trace result
     Success(Vec<StackTraceEntry>),

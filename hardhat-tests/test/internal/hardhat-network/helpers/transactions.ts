@@ -7,8 +7,7 @@ import {
 
 import { numberToRpcQuantity } from "hardhat/internal/core/jsonrpc/types/base-types";
 import { RpcTransactionRequestInput } from "hardhat/internal/core/jsonrpc/types/input/transactionRequest";
-import { TransactionParams } from "hardhat/internal/hardhat-network/provider/node-types";
-import { EIP1193Provider, EthereumProvider } from "hardhat/types";
+import { EthereumProvider } from "hardhat/types";
 
 import {
   DEFAULT_ACCOUNTS,
@@ -16,7 +15,43 @@ import {
   DEFAULT_BLOCK_GAS_LIMIT,
 } from "./providers";
 import { getPendingBaseFeePerGas } from "./getPendingBaseFeePerGas";
-import { retrieveCommon } from "./retrieveCommon";
+import { makeCommon } from "./makeCommon";
+
+export type AccessListBufferItem = [Uint8Array, Uint8Array[]];
+
+export type TransactionParams =
+  | LegacyTransactionParams
+  | AccessListTransactionParams
+  | EIP1559TransactionParams;
+
+interface BaseTransactionParams {
+  // `to` should be undefined for contract creation
+  to?: Uint8Array;
+  from: Uint8Array;
+  gasLimit: bigint;
+  value: bigint;
+  data: Uint8Array;
+  nonce: bigint;
+}
+
+export interface LegacyTransactionParams extends BaseTransactionParams {
+  gasPrice: bigint;
+}
+
+export interface AccessListTransactionParams extends BaseTransactionParams {
+  gasPrice: bigint;
+  // We use this access list format because @nomicfoundation/ethereumjs-tx access list data
+  // forces us to use it or stringify them
+  accessList: AccessListBufferItem[];
+  // We don't include chainId as it's not necessary, the node
+  // already knows its chainId, and the Eth module must validate it
+}
+
+export interface EIP1559TransactionParams extends BaseTransactionParams {
+  accessList: AccessListBufferItem[];
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+}
 
 function toBuffer(x: Parameters<typeof toBytes>[0]) {
   return Buffer.from(toBytes(x));
@@ -98,12 +133,14 @@ export async function sendTransactionFromTxParams(
 }
 
 export async function getSignedTxHash(
-  hardhatNetworkProvider: EIP1193Provider,
+  provider: EthereumProvider,
   txParams: TransactionParams,
   signerAccountIndex: number
 ) {
+  const common = await makeCommon(provider);
+
   const txToSign = new LegacyTransaction(txParams, {
-    common: await retrieveCommon(hardhatNetworkProvider),
+    common,
   });
 
   const signedTx = txToSign.sign(

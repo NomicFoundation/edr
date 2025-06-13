@@ -32,7 +32,7 @@ import {
   type CachedChains,
   type CachedEndpoints,
   SuiteResult,
-} from "@ignored/edr";
+} from "@nomicfoundation/edr";
 import { hexStringToBytes } from "@nomicfoundation/hardhat-utils/hex";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import { SolidityTestUserConfig } from "hardhat/types/config";

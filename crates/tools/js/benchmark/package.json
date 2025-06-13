@@ -7,7 +7,7 @@
     "@nomicfoundation/hardhat-utils": "3.0.0-next.0"
   },
   "devDependencies": {
-    "@ignored/edr": "workspace:*",
+    "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
     "@types/argparse": "^2.0.16",
     "@types/lodash": "^4.14.123",
@@ -20,7 +20,7 @@
     "eslint-plugin-import": "2.27.5",
     "eslint-plugin-prettier": "5.2.1",
     "hardhat": "3.0.0-next.4",
-    "hardhat2": "npm:hardhat@2.22.18",
+    "hardhat2": "npm:hardhat@2.23.1-alpha.0",
     "lodash": "^4.17.11",
     "prettier": "^3.2.5",
     "simple-git": "^3.25.0",
