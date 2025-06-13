@@ -37,6 +37,7 @@ use foundry_evm::{
         invariant::{CallDetails, InvariantContract},
         CounterExample, FuzzFixtures,
     },
+    revm::context::{BlockEnv, TxEnv},
     traces::{load_contracts, TraceKind},
 };
 use proptest::test_runner::{TestError, TestRunner};
@@ -47,6 +48,7 @@ use crate::{
     fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
     multi_runner::TestContract,
     result::{SuiteResult, TestKind, TestResult, TestSetup, TestStatus},
+    revm::{context::result::HaltReason, primitives::hardfork::SpecId},
     traces::Traces,
     TestFilter, TestOptions,
 };
@@ -75,7 +77,7 @@ pub struct ContractRunner<'a, NestedTraceDecoderT> {
     pub solidity_fuzz_fixtures: bool,
 
     /// The config values required to build the executor.
-    executor_builder: ExecutorBuilder,
+    executor_builder: ExecutorBuilder<BlockEnv, TxEnv, SpecId, ()>,
 }
 
 /// Options for [`ContractRunner`].
@@ -92,17 +94,19 @@ pub struct ContractRunnerOptions {
 }
 
 /// Contract artifact related arguments to the contract runner.
-pub struct ContractRunnerArtifacts<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> {
+pub struct ContractRunnerArtifacts<'a, NestedTracerDecoderT: SyncNestedTraceDecoder<HaltReason>> {
     pub revert_decoder: &'a RevertDecoder,
     pub known_contracts: &'a ContractsByArtifact,
     pub libs_to_deploy: &'a [Bytes],
     pub contract_decoder: Arc<NestedTracerDecoderT>,
 }
 
-impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, NestedTracerDecoderT> {
+impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder<HaltReason>>
+    ContractRunner<'a, NestedTracerDecoderT>
+{
     pub fn new(
         name: &'a str,
-        executor_builder: ExecutorBuilder,
+        executor_builder: ExecutorBuilder<BlockEnv, TxEnv, SpecId, ()>,
         contract: &'a TestContract,
         artifacts: ContractRunnerArtifacts<'a, NestedTracerDecoderT>,
         options: ContractRunnerOptions,
@@ -136,7 +140,9 @@ impl<'a, NestedTracerDecoderT: SyncNestedTraceDecoder> ContractRunner<'a, Nested
     }
 }
 
-impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTraceDecoderT> {
+impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
+    ContractRunner<'_, NestedTraceDecoderT>
+{
     /// Runs all tests for a contract whose names match the provided regular
     /// expression
     pub fn run_tests(
@@ -272,7 +278,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                         coverage: setup.coverage,
                         labeled_addresses: setup.labeled_addresses,
                         duration: elapsed,
-                        stack_trace_result: Some(stack_trace_result),
+                        stack_trace_result: Some(Arc::new(stack_trace_result)),
                         deprecated_cheatcodes: HashMap::new(),
                     },
                 )]
@@ -362,12 +368,20 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
 
     /// Deploys the test contract inside the runner from the sending account,
     /// and optionally runs the `setUp` function on the test contract.
-    fn setup(&self, executor: &mut Executor, needs_setup: bool) -> TestSetup {
+    fn setup(
+        &self,
+        executor: &mut Executor<BlockEnv, TxEnv, SpecId, ()>,
+        needs_setup: bool,
+    ) -> TestSetup {
         self._setup(executor, needs_setup)
             .unwrap_or_else(|err| TestSetup::failed(err.to_string()))
     }
 
-    fn _setup(&self, executor: &mut Executor, needs_setup: bool) -> Result<TestSetup> {
+    fn _setup(
+        &self,
+        executor: &mut Executor<BlockEnv, TxEnv, SpecId, ()>,
+        needs_setup: bool,
+    ) -> Result<TestSetup> {
         trace!(?needs_setup, "Setting test contract");
 
         // We max out their balance so that they can deploy and make calls.
@@ -529,7 +543,11 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
     /// `function fixture_owner() public returns (address[] memory){}`
     /// returns an array of addresses to be used for fuzzing `owner` named
     /// parameter in scope of the current test.
-    fn fuzz_fixtures(&self, executor: &mut Executor, address: Address) -> FuzzFixtures {
+    fn fuzz_fixtures(
+        &self,
+        executor: &mut Executor<BlockEnv, TxEnv, SpecId, ()>,
+        address: Address,
+    ) -> FuzzFixtures {
         let fixture_funcs = self
             .contract
             .abi
@@ -596,7 +614,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
     /// after the call, similar to `eth_call`.
     fn run_test(
         &self,
-        mut executor: Executor,
+        mut executor: Executor<BlockEnv, TxEnv, SpecId, ()>,
         func: &Function,
         should_fail: bool,
         setup: TestSetup,
@@ -698,7 +716,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                     self.re_run_test_for_stack_traces(func, setup.has_setup_method)
                         .into()
                 };
-            Some(stack_trace_result)
+            Some(Arc::new(stack_trace_result))
         } else {
             None
         };
@@ -900,7 +918,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                         reverts: 0,
                     },
                     duration,
-                    stack_trace_result: Some(stack_trace_result),
+                    stack_trace_result: Some(Arc::new(stack_trace_result)),
                     ..Default::default()
                 };
             }
@@ -920,21 +938,23 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                 | InvariantFuzzError::Revert(case_data) => {
                     // Replay error to create counterexample and to collect logs, traces and
                     // coverage.
-                    match replay_error::<NestedTraceDecoderT>(ReplayErrorArgs {
-                        executor: executor.clone(),
-                        failed_case: &case_data,
-                        invariant_contract: &invariant_contract,
-                        known_contracts,
-                        ided_contracts: identified_contracts.clone(),
-                        logs: &mut logs,
-                        traces: &mut traces,
-                        coverage: &mut coverage,
-                        deprecated_cheatcodes: &mut deprecated_cheatcodes,
-                        generate_stack_trace: true,
-                        contract_decoder: Some(&*self.contract_decoder),
-                        revert_decoder: self.revert_decoder,
-                        show_solidity: invariant_config.show_solidity,
-                    }) {
+                    match replay_error::<NestedTraceDecoderT, BlockEnv, TxEnv, SpecId, ()>(
+                        ReplayErrorArgs {
+                            executor: executor.clone(),
+                            failed_case: &case_data,
+                            invariant_contract: &invariant_contract,
+                            known_contracts,
+                            ided_contracts: identified_contracts.clone(),
+                            logs: &mut logs,
+                            traces: &mut traces,
+                            coverage: &mut coverage,
+                            deprecated_cheatcodes: &mut deprecated_cheatcodes,
+                            generate_stack_trace: true,
+                            contract_decoder: Some(&*self.contract_decoder),
+                            revert_decoder: self.revert_decoder,
+                            show_solidity: invariant_config.show_solidity,
+                        },
+                    ) {
                         Ok(ReplayResult {
                             counterexample_sequence,
                             stack_trace_result,
@@ -976,7 +996,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                             if reason.is_some() && revert_reason.is_none() {
                                 tracing::warn!(?invariant_contract.invariant_function, "Failed to compute stack trace");
                             } else {
-                                stack_trace = stack_trace_result.map(StackTraceResult::from);
+                                stack_trace = stack_trace_result.map(Arc::new);
                                 reason = revert_reason;
                             }
                         }
@@ -991,22 +1011,24 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
             // If invariants ran successfully, replay the last run to collect logs and
             // traces.
             _ => {
-                if let Err(err) = replay_run::<NestedTraceDecoderT>(ReplayRunArgs {
-                    invariant_contract: &invariant_contract,
-                    executor,
-                    known_contracts,
-                    ided_contracts: identified_contracts.clone(),
-                    logs: &mut logs,
-                    traces: &mut traces,
-                    coverage: &mut coverage,
-                    deprecated_cheatcodes: &mut deprecated_cheatcodes,
-                    inputs: last_run_inputs.clone(),
-                    generate_stack_trace: false,
-                    contract_decoder: None,
-                    revert_decoder: self.revert_decoder,
-                    fail_on_revert: invariant_config.fail_on_revert,
-                    show_solidity: invariant_config.show_solidity,
-                }) {
+                if let Err(err) =
+                    replay_run::<NestedTraceDecoderT, BlockEnv, TxEnv, SpecId, ()>(ReplayRunArgs {
+                        invariant_contract: &invariant_contract,
+                        executor,
+                        known_contracts,
+                        ided_contracts: identified_contracts.clone(),
+                        logs: &mut logs,
+                        traces: &mut traces,
+                        coverage: &mut coverage,
+                        deprecated_cheatcodes: &mut deprecated_cheatcodes,
+                        inputs: last_run_inputs.clone(),
+                        generate_stack_trace: false,
+                        contract_decoder: None,
+                        revert_decoder: self.revert_decoder,
+                        fail_on_revert: invariant_config.fail_on_revert,
+                        show_solidity: invariant_config.show_solidity,
+                    })
+                {
                     error!(%err, "Failed to replay last invariant run");
                 }
             }
@@ -1039,7 +1061,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
     #[instrument(name = "fuzz_test", skip_all, fields(name = %func.signature(), %should_fail))]
     fn run_fuzz_test(
         &self,
-        executor: Executor,
+        executor: Executor<BlockEnv, TxEnv, SpecId, ()>,
         func: &Function,
         should_fail: bool,
         runner: TestRunner,
@@ -1128,7 +1150,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
                     )
                     .into()
                 };
-                Some(stack_trace_result)
+                Some(Arc::new(stack_trace_result))
             } else {
                 None
             };
@@ -1200,7 +1222,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder> ContractRunner<'_, NestedTrace
 }
 
 struct RunInvariantTestsArgs<'a> {
-    executor: Executor,
+    executor: Executor<BlockEnv, TxEnv, SpecId, ()>,
     test_bytecode: &'a Bytes,
     runner: TestRunner,
     setup: TestSetup,
@@ -1242,8 +1264,8 @@ fn persisted_call_sequence(path: &Path, bytecode: &Bytes) -> Option<Vec<BaseCoun
     )
 }
 
-struct ReplayRecordedFailureArgs<'a, NestedTraceDecoderT: NestedTraceDecoder> {
-    executor: Executor,
+struct ReplayRecordedFailureArgs<'a, NestedTraceDecoderT: NestedTraceDecoder<HaltReason>> {
+    executor: Executor<BlockEnv, TxEnv, SpecId, ()>,
     test_bytecode: &'a Bytes,
     contract_decoder: &'a NestedTraceDecoderT,
     revert_decoder: &'a RevertDecoder,
@@ -1259,7 +1281,7 @@ struct ReplayRecordedFailureArgs<'a, NestedTraceDecoderT: NestedTraceDecoder> {
     start: &'a Instant,
 }
 
-fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
+fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder<HaltReason>>(
     args: ReplayRecordedFailureArgs<'_, NestedTraceDecoderT>,
 ) -> Option<TestResult> {
     let ReplayRecordedFailureArgs {
@@ -1324,9 +1346,7 @@ fn try_to_replay_recorded_failures<NestedTraceDecoderT: NestedTraceDecoder>(
                     fail_on_revert: invariant_config.fail_on_revert,
                     show_solidity: invariant_config.show_solidity,
                 })
-                .map_or(None, |result| {
-                    result.stack_trace_result.map(StackTraceResult::from)
-                });
+                .map_or(None, |result| result.stack_trace_result.map(Arc::new));
                 let reason = if replayed_entirely {
                     Some(format!(
                         "{} replay failure",

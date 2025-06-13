@@ -1,22 +1,25 @@
+use std::marker::PhantomData;
+
 use alloy_chains::Chain;
 use alloy_network::AnyRpcBlock;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 use eyre::WrapErr;
-use revm::primitives::{BlockEnv, CfgEnv, TxEnv};
+use revm::context::{BlockEnv, CfgEnv, TxEnv};
 use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
 use super::fork::{environment, provider::ProviderBuilder};
+use crate::evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct EvmOpts {
+pub struct EvmOpts<BlockT, TxT, HardforkT> {
     /// The EVM environment configuration.
     #[serde(flatten)]
     pub env: Env,
 
     /// The hardfork to use for the EVM.
-    pub spec: revm::primitives::SpecId,
+    pub spec: HardforkT,
 
     /// Fetch state over a remote instead of starting from empty state.
     #[serde(rename = "eth_rpc_url")]
@@ -48,10 +51,6 @@ pub struct EvmOpts {
     /// Enables the FFI cheatcode.
     pub ffi: bool,
 
-    /// Use the create 2 factory in all cases including tests and
-    /// non-broadcasting scripts.
-    pub always_use_create_2_factory: bool,
-
     /// The memory limit per EVM execution in bytes.
     /// If this limit is exceeded, a `MemoryLimitOOG` result is thrown.
     pub memory_limit: u64,
@@ -61,14 +60,23 @@ pub struct EvmOpts {
 
     /// Whether to disable block gas limit checks.
     pub disable_block_gas_limit: bool,
+
+    #[serde(skip)]
+    pub _phantom: PhantomData<(BlockT, TxT, HardforkT)>,
 }
 
-impl EvmOpts {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    EvmOpts<BlockT, TxT, HardforkT>
+where
+    BlockT: From<BlockEnvOpts>,
+    TxT: From<TxEnvOpts>,
+    HardforkT: Default,
+{
     /// Configures a new `revm::Env`
     ///
     /// If a `fork_url` is set, it gets configured with settings fetched from
     /// the endpoint (chain id, )
-    pub async fn evm_env(&self) -> eyre::Result<revm::primitives::Env> {
+    pub async fn evm_env(&self) -> eyre::Result<EvmEnv<BlockT, TxT, HardforkT>> {
         if let Some(ref fork_url) = self.fork_url {
             Ok(self.fork_evm_env(fork_url).await?.0)
         } else {
@@ -82,7 +90,7 @@ impl EvmOpts {
     pub async fn fork_evm_env(
         &self,
         fork_url: impl AsRef<str>,
-    ) -> eyre::Result<(revm::primitives::Env, AnyRpcBlock)> {
+    ) -> eyre::Result<(EvmEnv<BlockT, TxT, HardforkT>, AnyRpcBlock)> {
         let fork_url = fork_url.as_ref();
         let provider = ProviderBuilder::new(fork_url)
             .compute_units_per_second(self.get_compute_units_per_second())
@@ -113,8 +121,9 @@ impl EvmOpts {
     }
 
     /// Returns the `revm::Env` configured with only local settings
-    pub fn local_evm_env(&self) -> revm::primitives::Env {
-        let mut cfg = CfgEnv::default();
+    pub fn local_evm_env(&self) -> EvmEnv<BlockT, TxT, HardforkT> {
+        // Not using `..Default::default()` pattern, because `CfgEnv` is non-exhaustive.
+        let mut cfg = CfgEnv::<HardforkT>::default();
         cfg.chain_id = self.env.chain_id.unwrap_or(edr_defaults::DEV_CHAIN_ID);
         cfg.limit_contract_code_size = self.env.code_size_limit.or(Some(usize::MAX));
         cfg.memory_limit = self.memory_limit;
@@ -123,31 +132,39 @@ impl EvmOpts {
         // caller is a contract. So we disable the check by default.
         cfg.disable_eip3607 = true;
         cfg.disable_block_gas_limit = self.disable_block_gas_limit;
+        cfg.disable_nonce_check = true;
 
-        revm::primitives::Env {
-            block: BlockEnv {
-                number: U256::from(self.env.block_number),
-                coinbase: self.env.block_coinbase,
-                timestamp: U256::from(self.env.block_timestamp),
-                difficulty: U256::from(self.env.block_difficulty),
-                prevrandao: Some(self.env.block_prevrandao),
-                basefee: U256::from(self.env.block_base_fee_per_gas),
-                gas_limit: self.gas_limit(),
-                ..Default::default()
-            },
+        let block_env_opts = BlockEnvOpts {
+            number: self.env.block_number,
+            beneficiary: self.env.block_coinbase,
+            timestamp: self.env.block_timestamp,
+            difficulty: U256::from(self.env.block_difficulty),
+            prevrandao: Some(self.env.block_prevrandao),
+            basefee: self.env.block_base_fee_per_gas,
+            gas_limit: self.gas_limit(),
+        };
+
+        let tx_env_opts = TxEnvOpts {
+            gas_price: self.env.gas_price.unwrap_or_default().into(),
+            gas_limit: self.gas_limit(),
+            chain_id: None,
+            caller: self.sender,
+        };
+
+        EvmEnv {
+            block: block_env_opts.into(),
+            tx: tx_env_opts.into(),
             cfg,
-            tx: TxEnv {
-                gas_price: U256::from(self.env.gas_price.unwrap_or_default()),
-                gas_limit: self.gas_limit().to(),
-                caller: self.sender,
-                ..Default::default()
-            },
         }
     }
+}
 
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    EvmOpts<BlockT, TxT, HardforkT>
+{
     /// Returns the gas limit to use
-    pub fn gas_limit(&self) -> U256 {
-        U256::from(self.env.block_gas_limit.unwrap_or(self.env.gas_limit))
+    pub fn gas_limit(&self) -> u64 {
+        self.env.block_gas_limit.unwrap_or(self.env.gas_limit)
     }
 
     /// Returns the configured chain id, which will be
@@ -255,6 +272,67 @@ pub struct Env {
     /// because of tests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code_size_limit: Option<usize>,
+}
+
+pub struct BlockEnvOpts {
+    pub number: u64,
+    pub beneficiary: Address,
+    pub timestamp: u64,
+    pub difficulty: U256,
+    pub prevrandao: Option<B256>,
+    pub basefee: u64,
+    pub gas_limit: u64,
+}
+
+impl From<BlockEnvOpts> for BlockEnv {
+    fn from(value: BlockEnvOpts) -> Self {
+        let BlockEnvOpts {
+            number,
+            beneficiary,
+            timestamp,
+            difficulty,
+            prevrandao,
+            basefee,
+            gas_limit,
+        } = value;
+
+        Self {
+            number,
+            beneficiary,
+            timestamp,
+            difficulty,
+            prevrandao,
+            basefee,
+            gas_limit,
+            ..Self::default()
+        }
+    }
+}
+
+pub struct TxEnvOpts {
+    pub gas_price: u128,
+    pub gas_limit: u64,
+    pub chain_id: Option<u64>,
+    pub caller: Address,
+}
+
+impl From<TxEnvOpts> for TxEnv {
+    fn from(value: TxEnvOpts) -> Self {
+        let TxEnvOpts {
+            gas_price,
+            gas_limit,
+            chain_id,
+            caller,
+        } = value;
+
+        Self {
+            gas_price,
+            gas_limit,
+            chain_id,
+            caller,
+            ..Self::default()
+        }
+    }
 }
 
 #[derive(Deserialize)]

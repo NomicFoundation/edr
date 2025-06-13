@@ -1,11 +1,10 @@
-//! Implementations of [`Json`](crate::Group::Json) cheatcodes.
-
 use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
 
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::{Address, B256, I256};
 use alloy_sol_types::SolValue;
 use edr_common::fs;
+use foundry_evm_core::evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr};
 use serde_json::Value;
 
 use crate::{
@@ -26,7 +25,10 @@ use crate::{
 
 impl_is_pure_true!(keyExistsCall);
 impl Cheatcode for keyExistsCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         check_json_key_exists(json, key)
     }
@@ -34,7 +36,10 @@ impl Cheatcode for keyExistsCall {
 
 impl_is_pure_true!(keyExistsJsonCall);
 impl Cheatcode for keyExistsJsonCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         check_json_key_exists(json, key)
     }
@@ -42,7 +47,10 @@ impl Cheatcode for keyExistsJsonCall {
 
 impl_is_pure_true!(parseJson_0Call);
 impl Cheatcode for parseJson_0Call {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json } = self;
         parse_json(json, "$")
     }
@@ -50,7 +58,10 @@ impl Cheatcode for parseJson_0Call {
 
 impl_is_pure_true!(parseJson_1Call);
 impl Cheatcode for parseJson_1Call {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json(json, key)
     }
@@ -58,7 +69,10 @@ impl Cheatcode for parseJson_1Call {
 
 impl_is_pure_true!(parseJsonUintCall);
 impl Cheatcode for parseJsonUintCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Uint(256))
     }
@@ -66,7 +80,10 @@ impl Cheatcode for parseJsonUintCall {
 
 impl_is_pure_true!(parseJsonUintArrayCall);
 impl Cheatcode for parseJsonUintArrayCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Uint(256))
     }
@@ -74,7 +91,10 @@ impl Cheatcode for parseJsonUintArrayCall {
 
 impl_is_pure_true!(parseJsonIntCall);
 impl Cheatcode for parseJsonIntCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Int(256))
     }
@@ -82,7 +102,10 @@ impl Cheatcode for parseJsonIntCall {
 
 impl_is_pure_true!(parseJsonIntArrayCall);
 impl Cheatcode for parseJsonIntArrayCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Int(256))
     }
@@ -90,7 +113,10 @@ impl Cheatcode for parseJsonIntArrayCall {
 
 impl_is_pure_true!(parseJsonBoolCall);
 impl Cheatcode for parseJsonBoolCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Bool)
     }
@@ -98,7 +124,10 @@ impl Cheatcode for parseJsonBoolCall {
 
 impl_is_pure_true!(parseJsonBoolArrayCall);
 impl Cheatcode for parseJsonBoolArrayCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Bool)
     }
@@ -106,7 +135,10 @@ impl Cheatcode for parseJsonBoolArrayCall {
 
 impl_is_pure_true!(parseJsonAddressCall);
 impl Cheatcode for parseJsonAddressCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Address)
     }
@@ -114,7 +146,10 @@ impl Cheatcode for parseJsonAddressCall {
 
 impl_is_pure_true!(parseJsonAddressArrayCall);
 impl Cheatcode for parseJsonAddressArrayCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Address)
     }
@@ -122,7 +157,10 @@ impl Cheatcode for parseJsonAddressArrayCall {
 
 impl_is_pure_true!(parseJsonStringCall);
 impl Cheatcode for parseJsonStringCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::String)
     }
@@ -130,7 +168,10 @@ impl Cheatcode for parseJsonStringCall {
 
 impl_is_pure_true!(parseJsonStringArrayCall);
 impl Cheatcode for parseJsonStringArrayCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::String)
     }
@@ -138,7 +179,10 @@ impl Cheatcode for parseJsonStringArrayCall {
 
 impl_is_pure_true!(parseJsonBytesCall);
 impl Cheatcode for parseJsonBytesCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Bytes)
     }
@@ -146,7 +190,10 @@ impl Cheatcode for parseJsonBytesCall {
 
 impl_is_pure_true!(parseJsonBytesArrayCall);
 impl Cheatcode for parseJsonBytesArrayCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Bytes)
     }
@@ -154,7 +201,10 @@ impl Cheatcode for parseJsonBytesArrayCall {
 
 impl_is_pure_true!(parseJsonBytes32Call);
 impl Cheatcode for parseJsonBytes32Call {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::FixedBytes(32))
     }
@@ -162,7 +212,10 @@ impl Cheatcode for parseJsonBytes32Call {
 
 impl_is_pure_true!(parseJsonBytes32ArrayCall);
 impl Cheatcode for parseJsonBytes32ArrayCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::FixedBytes(32))
     }
@@ -170,7 +223,10 @@ impl Cheatcode for parseJsonBytes32ArrayCall {
 
 impl_is_pure_true!(parseJsonKeysCall);
 impl Cheatcode for parseJsonKeysCall {
-    fn apply(&self, _state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        _state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, key } = self;
         parse_json_keys(json, key)
     }
@@ -178,7 +234,10 @@ impl Cheatcode for parseJsonKeysCall {
 
 impl_is_pure_true!(serializeJsonCall);
 impl Cheatcode for serializeJsonCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { objectKey, value } = self;
         serialize_json(state, objectKey, None, value)
     }
@@ -186,7 +245,10 @@ impl Cheatcode for serializeJsonCall {
 
 impl_is_pure_true!(serializeBool_0Call);
 impl Cheatcode for serializeBool_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -198,7 +260,10 @@ impl Cheatcode for serializeBool_0Call {
 
 impl_is_pure_true!(serializeUint_0Call);
 impl Cheatcode for serializeUint_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -210,7 +275,10 @@ impl Cheatcode for serializeUint_0Call {
 
 impl_is_pure_true!(serializeInt_0Call);
 impl Cheatcode for serializeInt_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -222,7 +290,10 @@ impl Cheatcode for serializeInt_0Call {
 
 impl_is_pure_true!(serializeAddress_0Call);
 impl Cheatcode for serializeAddress_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -234,7 +305,10 @@ impl Cheatcode for serializeAddress_0Call {
 
 impl_is_pure_true!(serializeBytes32_0Call);
 impl Cheatcode for serializeBytes32_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -246,7 +320,10 @@ impl Cheatcode for serializeBytes32_0Call {
 
 impl_is_pure_true!(serializeString_0Call);
 impl Cheatcode for serializeString_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -258,7 +335,10 @@ impl Cheatcode for serializeString_0Call {
 
 impl_is_pure_true!(serializeBytes_0Call);
 impl Cheatcode for serializeBytes_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -275,7 +355,10 @@ impl Cheatcode for serializeBytes_0Call {
 
 impl_is_pure_true!(serializeBool_1Call);
 impl Cheatcode for serializeBool_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -287,7 +370,10 @@ impl Cheatcode for serializeBool_1Call {
 
 impl_is_pure_true!(serializeUint_1Call);
 impl Cheatcode for serializeUint_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -299,7 +385,10 @@ impl Cheatcode for serializeUint_1Call {
 
 impl_is_pure_true!(serializeInt_1Call);
 impl Cheatcode for serializeInt_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -311,7 +400,10 @@ impl Cheatcode for serializeInt_1Call {
 
 impl_is_pure_true!(serializeAddress_1Call);
 impl Cheatcode for serializeAddress_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -323,7 +415,10 @@ impl Cheatcode for serializeAddress_1Call {
 
 impl_is_pure_true!(serializeBytes32_1Call);
 impl Cheatcode for serializeBytes32_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -335,7 +430,10 @@ impl Cheatcode for serializeBytes32_1Call {
 
 impl_is_pure_true!(serializeString_1Call);
 impl Cheatcode for serializeString_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -347,7 +445,10 @@ impl Cheatcode for serializeString_1Call {
 
 impl_is_pure_true!(serializeBytes_1Call);
 impl Cheatcode for serializeBytes_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -360,7 +461,10 @@ impl Cheatcode for serializeBytes_1Call {
 
 impl_is_pure_true!(serializeUintToHexCall);
 impl Cheatcode for serializeUintToHexCall {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             objectKey,
             valueKey,
@@ -373,7 +477,10 @@ impl Cheatcode for serializeUintToHexCall {
 
 impl_is_pure_false!(writeJson_0Call);
 impl Cheatcode for writeJson_0Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self { json, path } = self;
         let json = serde_json::from_str(json).unwrap_or_else(|_err| Value::String(json.to_owned()));
         let json_string = serde_json::to_string_pretty(&json)?;
@@ -383,7 +490,10 @@ impl Cheatcode for writeJson_0Call {
 
 impl_is_pure_false!(writeJson_1Call);
 impl Cheatcode for writeJson_1Call {
-    fn apply(&self, state: &mut Cheatcodes) -> Result {
+    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+        &self,
+        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+    ) -> Result {
         let Self {
             json,
             path,
@@ -594,8 +704,8 @@ pub(super) fn json_value_to_token(value: &Value) -> Result<DynSolValue> {
 /// a value to a new invocation of the same function with a new object key. This
 /// enables the user to reuse the same function to crate arbitrarily complex
 /// object structures (JSON).
-fn serialize_json(
-    state: &mut Cheatcodes,
+fn serialize_json<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
     object_key: &str,
     value_key: Option<&str>,
     value: &str,

@@ -1,5 +1,6 @@
 use std::sync::{Mutex, OnceLock};
 
+use edr_eth::l1::HaltReason;
 use edr_solidity::{
     artifacts::{ArtifactId, BuildInfoConfigWithBuffers},
     contract_decoder::{ContractDecoder, ContractDecoderError, NestedTraceDecoder},
@@ -129,11 +130,11 @@ impl LazyContractDecoder {
     }
 }
 
-impl NestedTraceDecoder for LazyContractDecoder {
+impl NestedTraceDecoder<HaltReason> for LazyContractDecoder {
     fn try_to_decode_nested_trace(
         &self,
-        nested_trace: NestedTrace,
-    ) -> Result<NestedTrace, ContractDecoderError> {
+        nested_trace: NestedTrace<HaltReason>,
+    ) -> Result<NestedTrace<HaltReason>, ContractDecoderError> {
         self.contract_decoder
             .get_or_init(|| {
                 let tracing_config = self

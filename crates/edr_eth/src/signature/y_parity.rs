@@ -1,6 +1,6 @@
 use alloy_rlp::BufMut;
 use k256::SecretKey;
-use revm_primitives::PrimitiveSignature;
+use revm_primitives::alloy_primitives::PrimitiveSignature;
 
 use super::{Recoverable, RecoveryMessage, Signature, SignatureError, SignatureWithRecoveryId};
 use crate::{Address, U256};

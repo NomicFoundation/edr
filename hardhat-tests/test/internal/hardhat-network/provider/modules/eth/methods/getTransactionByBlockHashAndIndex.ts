@@ -9,7 +9,6 @@ import {
   numberToRpcQuantity,
   rpcQuantityToNumber,
 } from "hardhat/internal/core/jsonrpc/types/base-types";
-import { TransactionParams } from "hardhat/internal/hardhat-network/provider/node-types";
 import {
   AccessListEIP2930RpcTransactionOutput,
   EIP1559RpcTransactionOutput,
@@ -27,7 +26,10 @@ import {
   DEFAULT_ACCOUNTS_ADDRESSES,
   PROVIDERS,
 } from "../../../../helpers/providers";
-import { sendTransactionFromTxParams } from "../../../../helpers/transactions";
+import {
+  sendTransactionFromTxParams,
+  TransactionParams,
+} from "../../../../helpers/transactions";
 
 function toBuffer(x: Parameters<typeof toBytes>[0]) {
   return Buffer.from(toBytes(x));

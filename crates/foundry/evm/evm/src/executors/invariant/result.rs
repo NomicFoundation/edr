@@ -2,7 +2,10 @@ use std::{borrow::Cow, collections::HashMap};
 
 use alloy_dyn_abi::JsonAbiExt;
 use eyre::Result;
-use foundry_evm_core::utils::StateChangeset;
+use foundry_evm_core::{
+    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+    utils::StateChangeset,
+};
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, FuzzRunIdentifiedContracts, InvariantConfig, InvariantContract},
@@ -12,7 +15,8 @@ use revm_inspectors::tracing::CallTraceArena;
 
 use super::{
     call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
-    InvariantFailures, InvariantFuzzError, InvariantMetrics, InvariantTest, InvariantTestRun,
+    CallAfterInvariantResult, CallInvariantResult, InvariantFailures, InvariantFuzzError,
+    InvariantMetrics, InvariantTest, InvariantTestRun,
 };
 use crate::executors::{Executor, RawCallResult};
 
@@ -38,13 +42,19 @@ pub struct InvariantFuzzTestResult {
 /// Enriched results of an invariant run check.
 ///
 /// Contains the success condition and call results of the last run
-pub(crate) struct RichInvariantResults {
+pub(crate) struct RichInvariantResults<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+> {
     pub(crate) can_continue: bool,
-    pub(crate) call_result: Option<RawCallResult>,
+    pub(crate) call_result: Option<RawCallResult<BlockT, TxT, HardforkT>>,
 }
 
-impl RichInvariantResults {
-    fn new(can_continue: bool, call_result: Option<RawCallResult>) -> Self {
+impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
+    RichInvariantResults<BlockT, TxT, HardforkT>
+{
+    fn new(can_continue: bool, call_result: Option<RawCallResult<BlockT, TxT, HardforkT>>) -> Self {
         Self {
             can_continue,
             call_result,
@@ -56,14 +66,19 @@ impl RichInvariantResults {
 /// Otherwise, it fills the external `invariant_failures.failed_invariant` map
 /// and returns a generic error. Either returns the call result if successful,
 /// or nothing if there was an error.
-pub(crate) fn assert_invariants(
+pub(crate) fn assert_invariants<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
     invariant_contract: &InvariantContract<'_>,
     invariant_config: &InvariantConfig,
     targeted_contracts: &FuzzRunIdentifiedContracts,
-    executor: &Executor,
+    executor: &Executor<BlockT, TxT, HardforkT, ChainContextT>,
     calldata: &[BasicTxDetails],
     invariant_failures: &mut InvariantFailures,
-) -> Result<Option<RawCallResult>> {
+) -> Result<Option<RawCallResult<BlockT, TxT, HardforkT>>> {
     let mut inner_sequence = vec![];
 
     if let Some(fuzzer) = &executor.inspector.fuzzer {
@@ -72,7 +87,11 @@ pub(crate) fn assert_invariants(
         }
     }
 
-    let (call_result, success, _cow_backend) = call_invariant_function(
+    let CallInvariantResult {
+        call_result,
+        success,
+        cow_backend: _,
+    } = call_invariant_function(
         executor,
         invariant_contract.address,
         invariant_contract
@@ -101,14 +120,19 @@ pub(crate) fn assert_invariants(
 
 /// Returns if invariant test can continue and last successful call result of
 /// the invariant test function (if it can continue).
-pub(crate) fn can_continue(
+pub(crate) fn can_continue<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
     invariant_contract: &InvariantContract<'_>,
-    invariant_test: &InvariantTest,
-    invariant_run: &mut InvariantTestRun,
+    invariant_test: &InvariantTest<BlockT, TxT, HardforkT>,
+    invariant_run: &mut InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT>,
     invariant_config: &InvariantConfig,
-    call_result: RawCallResult,
+    call_result: RawCallResult<BlockT, TxT, HardforkT>,
     state_changeset: &StateChangeset,
-) -> Result<RichInvariantResults> {
+) -> Result<RichInvariantResults<BlockT, TxT, HardforkT>> {
     let mut call_results = None;
 
     let handlers_succeeded = || {
@@ -174,14 +198,21 @@ pub(crate) fn can_continue(
 
 /// Given the executor state, asserts conditions within `afterInvariant`
 /// function. If call fails then the invariant test is considered failed.
-pub(crate) fn assert_after_invariant(
+pub(crate) fn assert_after_invariant<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    HardforkT: HardforkTr,
+    ChainContextT: ChainContextTr,
+>(
     invariant_contract: &InvariantContract<'_>,
-    invariant_test: &InvariantTest,
-    invariant_run: &InvariantTestRun,
+    invariant_test: &InvariantTest<BlockT, TxT, HardforkT>,
+    invariant_run: &InvariantTestRun<BlockT, TxT, HardforkT, ChainContextT>,
     invariant_config: &InvariantConfig,
 ) -> Result<bool> {
-    let (call_result, success) =
-        call_after_invariant_function(&invariant_run.executor, invariant_contract.address)?;
+    let CallAfterInvariantResult {
+        call_result,
+        success,
+    } = call_after_invariant_function(&invariant_run.executor, invariant_contract.address)?;
     // Fail the test case if `afterInvariant` doesn't succeed.
     if !success {
         let case_data = FailedInvariantCaseData::new(

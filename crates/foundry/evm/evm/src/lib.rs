@@ -16,7 +16,7 @@ pub mod executors;
 pub mod inspectors;
 
 pub use foundry_evm_core::{
-    abi, backend, constants, contracts, decode, fork, opts, utils, InspectorExt,
+    abi, backend, constants, contracts, decode, evm_context, fork, opts, utils,
 };
 pub use foundry_evm_coverage as coverage;
 pub use foundry_evm_fuzz as fuzz;

@@ -65,7 +65,9 @@ pub enum RpcClientError {
     InvalidJsonRequest(serde_json::Error),
 
     /// The server returned an invalid JSON-RPC response.
-    #[error("Response '{response}' failed to parse with expected type '{expected_type}', due to error: '{error}'")]
+    #[error(
+        "Response '{response}' failed to parse with expected type '{expected_type}', due to error: '{error}'"
+    )]
     InvalidResponse {
         /// The response text
         response: String,
@@ -556,7 +558,8 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
                         error,
                     } => {
                         log::error!(
-                            "Failed to deserialize item from RPC response cache. error: '{error}' expected type: '{expected_type}'. item: '{response}'");
+                            "Failed to deserialize item from RPC response cache. error: '{error}' expected type: '{expected_type}'. item: '{response}'"
+                        );
                     }
                     // For other errors, return early.
                     _ => return Err(error),
@@ -666,11 +669,7 @@ impl SerializedRequest {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Deref;
-
     use edr_eth::PreEip1898BlockSpec;
-    use hyper::StatusCode;
-    use tempfile::TempDir;
 
     use self::cache::{
         block_spec::{
@@ -842,63 +841,45 @@ mod tests {
         }
     }
 
-    struct TestRpcClient {
-        client: RpcClient<TestMethod>,
-
-        // Need to keep the tempdir around to prevent it from being deleted
-        // Only accessed when feature = "test-remote", hence the allow.
-        #[allow(dead_code)]
-        cache_dir: TempDir,
-    }
-
-    impl TestRpcClient {
-        fn new(url: &str) -> Self {
-            let tempdir = TempDir::new().unwrap();
-            Self {
-                client: RpcClient::new(url, tempdir.path().into(), None).expect("url ok"),
-                cache_dir: tempdir,
-            }
-        }
-    }
-
-    impl Deref for TestRpcClient {
-        type Target = RpcClient<TestMethod>;
-
-        fn deref(&self) -> &Self::Target {
-            &self.client
-        }
-    }
-
-    #[tokio::test]
-    async fn call_bad_api_key() {
-        let api_key = "invalid-api-key";
-        let alchemy_url = format!("https://eth-mainnet.g.alchemy.com/v2/{api_key}");
-
-        let error = TestRpcClient::new(&alchemy_url)
-            .call::<U64>(TestMethod::BlockNumber(()))
-            .await
-            .expect_err("should have failed to interpret response as a Transaction");
-
-        assert!(!error.to_string().contains(api_key));
-
-        if let RpcClientError::HttpStatus(error) = error {
-            assert_eq!(
-                reqwest::Error::from(error).status(),
-                Some(StatusCode::from_u16(401).unwrap())
-            );
-        } else {
-            unreachable!("Invalid error: {error}");
-        }
-    }
-
     #[cfg(feature = "test-remote")]
     mod alchemy {
+        use std::ops::Deref;
+
         use edr_eth::U64;
         use edr_test_utils::env::get_alchemy_url;
         use futures::future::join_all;
+        use hyper::StatusCode;
+        use tempfile::TempDir;
         use walkdir::WalkDir;
 
         use super::*;
+
+        struct TestRpcClient {
+            client: RpcClient<TestMethod>,
+
+            // Need to keep the tempdir around to prevent it from being deleted
+            // Only accessed when feature = "test-remote", hence the allow.
+            #[allow(dead_code)]
+            cache_dir: TempDir,
+        }
+
+        impl TestRpcClient {
+            fn new(url: &str) -> Self {
+                let tempdir = TempDir::new().unwrap();
+                Self {
+                    client: RpcClient::new(url, tempdir.path().into(), None).expect("url ok"),
+                    cache_dir: tempdir,
+                }
+            }
+        }
+
+        impl Deref for TestRpcClient {
+            type Target = RpcClient<TestMethod>;
+
+            fn deref(&self) -> &Self::Target {
+                &self.client
+            }
+        }
 
         impl TestRpcClient {
             fn files_in_cache(&self) -> Vec<PathBuf> {
@@ -913,6 +894,28 @@ mod tests {
                     }
                 }
                 files
+            }
+        }
+
+        #[tokio::test]
+        async fn call_bad_api_key() {
+            let api_key = "invalid-api-key";
+            let alchemy_url = format!("https://eth-mainnet.g.alchemy.com/v2/{api_key}");
+
+            let error = TestRpcClient::new(&alchemy_url)
+                .call::<U64>(TestMethod::BlockNumber(()))
+                .await
+                .expect_err("should have failed to interpret response as a Transaction");
+
+            assert!(!error.to_string().contains(api_key));
+
+            if let RpcClientError::HttpStatus(error) = error {
+                assert_eq!(
+                    reqwest::Error::from(error).status(),
+                    Some(StatusCode::from_u16(401).unwrap())
+                );
+            } else {
+                unreachable!("Invalid error: {error}");
             }
         }
 

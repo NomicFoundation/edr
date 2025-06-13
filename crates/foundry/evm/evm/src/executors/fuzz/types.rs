@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use alloy_primitives::{Bytes, Log};
-use foundry_evm_core::backend::IndeterminismReasons;
+use foundry_evm_core::{
+    backend::IndeterminismReasons,
+    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
+};
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::FuzzCase;
 use foundry_evm_traces::SparsedTraceArena;
@@ -26,19 +29,19 @@ pub struct CaseOutcome {
 
 /// Returned by a single fuzz when a counterexample has been discovered
 #[derive(Debug)]
-pub struct CounterExampleOutcome {
+pub struct CounterExampleOutcome<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     /// Minimal reproduction test case for failing test.
-    pub counterexample: CounterExampleData,
+    pub counterexample: CounterExampleData<BlockT, TxT, HardforkT>,
     /// The status of the call.
     pub exit_reason: InstructionResult,
 }
 
 #[derive(Debug, Default)]
-pub struct CounterExampleData {
+pub struct CounterExampleData<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     /// The calldata of the call
     pub calldata: Bytes,
     /// The call result
-    pub call: RawCallResult,
+    pub call: RawCallResult<BlockT, TxT, HardforkT>,
     /// If re-executing the counter example is not guaranteed to yield the same
     /// results, this field contains the reason why.
     pub indeterminism_reasons: Option<IndeterminismReasons>,
@@ -47,7 +50,7 @@ pub struct CounterExampleData {
 /// Outcome of a single fuzz
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
-pub enum FuzzOutcome {
+pub enum FuzzOutcome<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
     Case(CaseOutcome),
-    CounterExample(CounterExampleOutcome),
+    CounterExample(CounterExampleOutcome<BlockT, TxT, HardforkT>),
 }
