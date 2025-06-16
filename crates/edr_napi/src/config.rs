@@ -6,16 +6,16 @@ use std::{
 };
 
 use edr_eth::{
+    signature::{secret_key_from_str, SecretKey},
     Bytes, HashSet,
-    signature::{SecretKey, secret_key_from_str},
 };
 use edr_provider::coverage::SyncOnCollectedCoverageCallback;
 use napi::{
-    Either, JsFunction, JsString, JsStringUtf8,
     bindgen_prelude::{BigInt, Reference, Uint8Array},
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
+    Either, JsFunction, JsString, JsStringUtf8,
 };
 use napi_derive::napi;
 

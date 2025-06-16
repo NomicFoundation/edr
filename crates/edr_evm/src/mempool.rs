@@ -1,11 +1,11 @@
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
 use edr_eth::{
-    Address, B256, HashMap, U256,
     account::AccountInfo,
-    transaction::{ExecutableTransaction, upfront_cost},
+    transaction::{upfront_cost, ExecutableTransaction},
+    Address, HashMap, B256, U256,
 };
-use indexmap::{IndexMap, map::Entry};
+use indexmap::{map::Entry, IndexMap};
 
 use crate::state::State;
 

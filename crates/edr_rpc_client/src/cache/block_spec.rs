@@ -1,4 +1,4 @@
-use edr_eth::{B256, BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};
+use edr_eth::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec, B256};
 
 use super::key::CacheKeyVariant;
 

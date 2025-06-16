@@ -12,10 +12,10 @@ pub use self::{
     legacy::Legacy,
 };
 use super::{
-    Request, Signed,
     signed::{FakeSign, Sign},
+    Request, Signed,
 };
-use crate::{Address, eips, signature::SignatureError};
+use crate::{eips, signature::SignatureError, Address};
 
 impl Request {
     /// Retrieves the instance's authorization list (EIP-7702).

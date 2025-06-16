@@ -3,39 +3,36 @@ use std::sync::Arc;
 
 pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
-    Address, B256, Blob, BlockSpec,
     eips::{eip2930, eip7702},
     l1::L1ChainSpec,
     rlp,
     transaction::{
-        ExecutableTransaction, IsSupported,
         signed::{FakeSign, Sign},
+        ExecutableTransaction, IsSupported,
     },
+    Address, Blob, BlockSpec, B256,
 };
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
-    BlockAndTotalDifficulty, BlockReceipts, blockchain::BlockchainErrorForChainSpec,
-    state::StateOverrides, transaction,
+    blockchain::BlockchainErrorForChainSpec, state::StateOverrides, transaction,
+    BlockAndTotalDifficulty, BlockReceipts,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
-    TransactionFailureReason, data::ProviderData, error::ProviderErrorForChainSpec,
-    time::TimeSinceEpoch,
+    data::ProviderData, error::ProviderErrorForChainSpec, time::TimeSinceEpoch,
+    TransactionFailureReason,
 };
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RuntimeSpec<
-        Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
-        LocalBlock: BlockReceipts<
-            Arc<Self::BlockReceipt>,
-            Error = BlockchainErrorForChainSpec<Self>,
-        >,
-        RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
-        RpcCallRequest: MaybeSender,
-        RpcTransactionRequest: Sender,
-        SignedTransaction: IsSupported,
-    >
+    Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
+    LocalBlock: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
+    RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
+    RpcCallRequest: MaybeSender,
+    RpcTransactionRequest: Sender,
+    SignedTransaction: IsSupported,
+>
 {
     type PooledTransaction: HardforkValidationData
         + Into<Self::SignedTransaction>

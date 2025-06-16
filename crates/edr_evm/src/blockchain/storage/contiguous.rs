@@ -9,7 +9,7 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
-use edr_eth::{B256, HashMap, U256, receipt::ReceiptTrait, transaction::ExecutableTransaction};
+use edr_eth::{receipt::ReceiptTrait, transaction::ExecutableTransaction, HashMap, B256, U256};
 
 use super::InsertError;
 use crate::{Block, EmptyBlock, LocalBlock};
@@ -116,11 +116,11 @@ impl<BlockReceiptT, BlockT: Block<SignedTransactionT>, HardforkT, SignedTransact
 }
 
 impl<
-    BlockReceiptT: Clone + ReceiptTrait,
-    BlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT> + Clone,
-    HardforkT,
-    SignedTransactionT: ExecutableTransaction,
-> ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+        BlockReceiptT: Clone + ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT> + Clone,
+        HardforkT,
+        SignedTransactionT: ExecutableTransaction,
+    > ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
     pub fn with_block(block: BlockT, total_difficulty: U256) -> Self {

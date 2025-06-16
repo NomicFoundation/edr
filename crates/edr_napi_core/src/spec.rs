@@ -8,7 +8,7 @@ use edr_eth::{
 use edr_evm::trace::Trace;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec, time::CurrentTime,
+    time::CurrentTime, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -51,16 +51,16 @@ pub struct SolidityTraceData<HaltReasonT: HaltReasonTrait> {
 /// Trait for a defining a chain's associated type in the N-API.
 pub trait SyncNapiSpec:
     SyncProviderSpec<
-        CurrentTime,
-        BlockEnv: Clone + Default,
-        PooledTransaction: IsEip155,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
-        >,
-    >
+    CurrentTime,
+    BlockEnv: Clone + Default,
+    PooledTransaction: IsEip155,
+    SignedTransaction: Default
+                           + TransactionMut
+                           + TransactionType<Type: IsEip4844>
+                           + TransactionValidation<
+        ValidationError: From<l1::InvalidTransaction> + PartialEq,
+    >,
+>
 {
     /// The string type identifier of the chain.
     const CHAIN_TYPE: &'static str;

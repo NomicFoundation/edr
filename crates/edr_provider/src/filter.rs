@@ -6,8 +6,8 @@ use std::{
 };
 
 use edr_eth::{
-    B256,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
+    B256,
 };
 
 pub use self::criteria::*;

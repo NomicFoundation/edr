@@ -3,13 +3,13 @@ use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 
 use anyhow::anyhow;
 use edr_eth::{
-    Address, B256, Bytes, HashMap, U160, U256,
     block::BlobGas,
     eips::eip7702,
     l1::{self, L1ChainSpec},
-    signature::{SignatureWithYParity, public_key_to_address, secret_key_from_str},
-    transaction::{self, TransactionValidation, TxKind, request::TransactionRequestAndSender},
+    signature::{public_key_to_address, secret_key_from_str, SignatureWithYParity},
+    transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
     trie::KECCAK_NULL_RLP,
+    Address, Bytes, HashMap, B256, U160, U256,
 };
 use edr_evm::Block as _;
 use edr_rpc_eth::TransactionRequest;
@@ -18,11 +18,12 @@ use k256::SecretKey;
 use tokio::runtime;
 
 use crate::{
-    AccountOverride, ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig,
-    ProviderData, ProviderRequest, ProviderSpec, SyncProviderSpec, config,
+    config,
     error::ProviderErrorForChainSpec,
     observability,
     time::{CurrentTime, TimeSinceEpoch},
+    AccountOverride, ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderConfig,
+    ProviderData, ProviderRequest, ProviderSpec, SyncProviderSpec,
 };
 
 pub const TEST_SECRET_KEY: &str =
@@ -104,13 +105,13 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
 /// Retrieves the pending base fee per gas from the provider data.
 pub fn pending_base_fee<
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,

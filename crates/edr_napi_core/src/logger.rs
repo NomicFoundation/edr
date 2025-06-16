@@ -3,16 +3,16 @@ use std::{fmt::Display, marker::PhantomData, sync::Arc};
 
 use ansi_term::{Color, Style};
 use derive_where::derive_where;
-use edr_eth::{B256, Bytes, U256, result::ExecutionResult, transaction::ExecutableTransaction};
+use edr_eth::{result::ExecutionResult, transaction::ExecutableTransaction, Bytes, B256, U256};
 use edr_evm::{
-    Block as _,
     blockchain::BlockchainErrorForChainSpec,
     precompile::{self, Precompiles},
     trace::{AfterMessage, Trace, TraceMessage},
+    Block as _,
 };
 use edr_provider::{
-    CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec, EstimateGasFailure,
-    ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure, time::CurrentTime,
+    time::CurrentTime, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
+    EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
 use edr_solidity::contract_decoder::{ContractAndFunctionName, ContractDecoder};
 use itertools::izip;

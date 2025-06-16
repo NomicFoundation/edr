@@ -1,6 +1,6 @@
 mod collector;
 
-use edr_eth::{Address, address};
+use edr_eth::{address, Address};
 
 pub use self::collector::CoverageHitCollector;
 

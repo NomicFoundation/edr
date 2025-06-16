@@ -2,11 +2,11 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    Address, B256, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, U256,
     account::{Account, AccountStatus},
-    block::{LargestSafeBlockNumberArgs, largest_safe_block_number, safe_block_depth},
+    block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     l1,
     log::FilterLog,
+    Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
@@ -16,30 +16,30 @@ use parking_lot::Mutex;
 use tokio::runtime;
 
 use super::{
-    BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec, BlockchainMut,
     compute_state_at_block,
     remote::RemoteBlockchain,
     storage::{
         self, ReservableSparseBlockchainStorage, ReservableSparseBlockchainStorageForChainSpec,
     },
-    validate_next_block,
+    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
+    BlockchainMut,
 };
 use crate::{
-    Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
-    RandomHashGenerator, RemoteBlock,
     block::EthRpcBlock,
     eips::{
         eip2935::{
-            HISTORY_STORAGE_ADDRESS, add_history_storage_contract_to_state_diff,
-            history_storage_contract,
+            add_history_storage_contract_to_state_diff, history_storage_contract,
+            HISTORY_STORAGE_ADDRESS,
         },
         eip4788::{
-            BEACON_ROOTS_ADDRESS, add_beacon_roots_contract_to_state_diff, beacon_roots_contract,
+            add_beacon_roots_contract_to_state_diff, beacon_roots_contract, BEACON_ROOTS_ADDRESS,
         },
     },
     hardfork::{self, ChainOverride},
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
+    Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
+    RandomHashGenerator, RemoteBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].

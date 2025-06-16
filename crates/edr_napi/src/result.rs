@@ -1,7 +1,7 @@
 use edr_evm::trace::AfterMessage;
 use napi::{
-    Either,
     bindgen_prelude::{BigInt, Either3, Uint8Array},
+    Either,
 };
 use napi_derive::napi;
 

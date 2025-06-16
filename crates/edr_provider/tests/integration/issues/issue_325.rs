@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    Address, B256, PreEip1898BlockSpec,
     l1::{self, L1ChainSpec},
+    Address, PreEip1898BlockSpec, B256,
 };
 use edr_provider::{
-    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
+    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;

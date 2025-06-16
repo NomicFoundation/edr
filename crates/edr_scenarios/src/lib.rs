@@ -8,7 +8,7 @@ pub mod old;
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use chrono::{DateTime, Utc};
-use edr_eth::{Address, B256, ChainId, HashMap, block::BlobGas};
+use edr_eth::{block::BlobGas, Address, ChainId, HashMap, B256};
 use edr_evm::hardfork::ChainOverride;
 use edr_napi_core::provider::Config as ProviderConfig;
 use edr_provider::{AccountOverride, ForkConfig, MiningConfig};

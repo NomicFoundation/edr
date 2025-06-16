@@ -1,4 +1,4 @@
-use edr_eth::{B256, Bytes};
+use edr_eth::{Bytes, B256};
 use edr_evm::spec::RuntimeSpec;
 use sha3::{Digest, Keccak256};
 
@@ -12,8 +12,8 @@ pub fn client_version() -> String {
     )
 }
 
-pub fn handle_web3_client_version_request<ChainSpecT: RuntimeSpec>()
--> Result<String, ProviderErrorForChainSpec<ChainSpecT>> {
+pub fn handle_web3_client_version_request<ChainSpecT: RuntimeSpec>(
+) -> Result<String, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(client_version())
 }
 

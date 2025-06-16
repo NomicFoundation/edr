@@ -8,32 +8,32 @@ use edr_eth::{
     spec::{ChainSpec, EthHeaderConstants},
 };
 use edr_evm::{
-    BlockReceipts, RemoteBlock, RemoteBlockConversionError, SyncBlock,
     evm::{Evm, EvmData},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::PrecompileProvider,
     spec::{ContextForChainSpec, RuntimeSpec},
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec, TransactionValidation},
+    BlockReceipts, RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
 use edr_napi_core::{
     napi,
-    spec::{Response, SyncNapiSpec, marshal_response_data},
+    spec::{marshal_response_data, Response, SyncNapiSpec},
 };
-use edr_provider::{ProviderSpec, TransactionFailureReason, time::TimeSinceEpoch};
+use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
 use edr_solidity::contract_decoder::ContractDecoder;
-use op_revm::{L1BlockInfo, OpEvm, precompiles::OpPrecompiles};
-use serde::{Serialize, de::DeserializeOwned};
+use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    OpHaltReason, OpSpecId,
     block::{self, LocalBlock},
     eip2718::TypedEnvelope,
     hardfork,
     receipt::{self, BlockReceiptFactory},
     rpc,
     transaction::{self, InvalidTransaction},
+    OpHaltReason, OpSpecId,
 };
 
 /// Chain specification for the Ethereum JSON-RPC API.
@@ -62,10 +62,10 @@ impl ChainSpec for OpChainSpec {
 
 impl RuntimeSpec for OpChainSpec {
     type Block = dyn SyncBlock<
-            Arc<Self::BlockReceipt>,
-            Self::SignedTransaction,
-            Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
-        >;
+        Arc<Self::BlockReceipt>,
+        Self::SignedTransaction,
+        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
+    >;
 
     type BlockBuilder<
         'blockchain,

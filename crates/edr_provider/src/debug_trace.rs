@@ -1,7 +1,6 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use edr_eth::{
-    Address, B256, Bytes, U256,
     block::Block as _,
     bytecode::opcode::{self, OpCode},
     hex, l1,
@@ -9,6 +8,7 @@ use edr_eth::{
     spec::{ChainSpec, HaltReasonTrait},
     transaction::{ExecutableTransaction as _, TransactionValidation},
     utils::u256_to_padded_hex,
+    Address, Bytes, B256, U256,
 };
 use edr_evm::{
     blockchain::SyncBlockchain,
@@ -47,12 +47,10 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
 >
 where
     ChainSpecT: RuntimeSpec<
-            BlockEnv: Clone,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction>,
-            >,
-        >,
+        BlockEnv: Clone,
+        SignedTransaction: Default
+                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+    >,
     BlockchainErrorT: Send + std::error::Error,
     StateErrorT: Send + std::error::Error,
 {

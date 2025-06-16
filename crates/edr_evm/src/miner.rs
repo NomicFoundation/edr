@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt::Debug};
 
 use edr_eth::{
-    block::{BlockOptions, calculate_next_base_fee_per_blob_gas},
+    block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
     l1,
     result::ExecutionResult,
     signature::SignatureError,
@@ -12,7 +12,6 @@ use revm::Inspector;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Block as _, BlockBuilder, BlockTransactionError, MemPool,
     block::BlockBuilderCreationError,
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -20,6 +19,7 @@ use crate::{
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
+    Block as _, BlockBuilder, BlockTransactionError, MemPool,
 };
 
 /// The result of mining a block, including the state. This result needs to be
@@ -444,11 +444,11 @@ fn priority_comparator<SignedTransactionT: ExecutableTransaction>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{Address, U256, account::AccountInfo};
+    use edr_eth::{account::AccountInfo, Address, U256};
 
     use super::*;
     use crate::test_utils::{
-        MemPoolTestFixture, dummy_eip155_transaction_with_price, dummy_eip1559_transaction,
+        dummy_eip1559_transaction, dummy_eip155_transaction_with_price, MemPoolTestFixture,
     };
 
     #[test]

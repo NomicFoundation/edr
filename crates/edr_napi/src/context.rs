@@ -4,11 +4,11 @@ use edr_eth::HashMap;
 use edr_napi_core::provider::{self, SyncProviderFactory};
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
-    Env, JsObject,
     tokio::{runtime, sync::Mutex as AsyncMutex},
+    Env, JsObject,
 };
 use napi_derive::napi;
-use tracing_subscriber::{EnvFilter, Registry, prelude::*};
+use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
     config::{ProviderConfig, TracingConfigWithBuffers},
@@ -69,8 +69,8 @@ impl EdrContext {
                 .map_err(|error| napi::Error::from_reason(error.to_string()))
         );
 
-        let contract_decoder =
-            try_or_reject_promise!(ContractDecoder::new(&build_info_config).map_or_else(
+        let contract_decoder = try_or_reject_promise!(ContractDecoder::new(&build_info_config)
+            .map_or_else(
                 |error| Err(napi::Error::from_reason(error.to_string())),
                 |contract_decoder| Ok(Arc::new(contract_decoder))
             ));

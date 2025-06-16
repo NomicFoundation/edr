@@ -2,15 +2,15 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    B256, HashSet, U256, receipt::ReceiptTrait as _, transaction::ExecutableTransaction as _,
+    receipt::ReceiptTrait as _, transaction::ExecutableTransaction as _, HashSet, B256, U256,
 };
 use edr_evm::{
-    Block as _, BlockAndTotalDifficulty, BlockReceipts,
     blockchain::{
         BlockHash, Blockchain, BlockchainErrorForChainSpec, BlockchainMut, SyncBlockchain,
     },
     spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState},
+    Block as _, BlockAndTotalDifficulty, BlockReceipts,
 };
 
 /// A blockchain with a pending block.
@@ -25,7 +25,11 @@ use edr_evm::{
 /// <https://github.com/NomicFoundation/edr/issues/284>
 #[derive_where(Debug)]
 pub(crate) struct BlockchainWithPending<'blockchain, ChainSpecT: SyncRuntimeSpec> {
-    blockchain: &'blockchain dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+    blockchain: &'blockchain dyn SyncBlockchain<
+        ChainSpecT,
+        BlockchainErrorForChainSpec<ChainSpecT>,
+        StateError,
+    >,
     pending_block: Arc<ChainSpecT::LocalBlock>,
     pending_state_diff: StateDiff,
 }

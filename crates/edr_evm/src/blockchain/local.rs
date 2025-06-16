@@ -8,25 +8,25 @@ use std::{
 
 use derive_where::derive_where;
 use edr_eth::{
-    Address, B256, Bytes, HashSet, U256,
     block::{BlobGas, BlockOptions, PartialHeader},
     l1,
     log::FilterLog,
+    Address, Bytes, HashSet, B256, U256,
 };
 
 use super::{
-    BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec, BlockchainMut,
     compute_state_at_block,
     storage::{ReservableSparseBlockchainStorage, ReservableSparseBlockchainStorageForChainSpec},
-    validate_next_block,
+    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
+    BlockchainMut,
 };
 use crate::{
-    Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
     block::EmptyBlock as _,
     spec::SyncRuntimeSpec,
     state::{
         StateCommit as _, StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState,
     },
+    Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
@@ -201,9 +201,9 @@ where
 impl<ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT::LocalBlock: BlockReceipts<
-            Arc<ChainSpecT::BlockReceipt>,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
+        Arc<ChainSpecT::BlockReceipt>,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >,
 {
     type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
 
@@ -324,9 +324,9 @@ where
 impl<ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT::LocalBlock: BlockReceipts<
-            Arc<ChainSpecT::BlockReceipt>,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
+        Arc<ChainSpecT::BlockReceipt>,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >,
 {
     type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
@@ -409,9 +409,9 @@ impl<ChainSpecT: SyncRuntimeSpec> BlockHash for LocalBlockchain<ChainSpecT> {
 #[cfg(test)]
 mod tests {
     use edr_eth::{
-        HashMap,
         account::{Account, AccountInfo, AccountStatus},
         l1::L1ChainSpec,
+        HashMap,
     };
 
     use super::*;

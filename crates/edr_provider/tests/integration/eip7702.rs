@@ -11,18 +11,19 @@ mod zeroed_chain_id;
 use std::sync::Arc;
 
 use edr_eth::{
-    Address, B256, Bytes, U256, address,
+    address,
     eips::eip7702,
     l1::{self, L1ChainSpec},
     signature::public_key_to_address,
     transaction::{self, ExecutableTransaction as _},
+    Address, Bytes, B256, U256,
 };
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
     test_utils::{
         create_test_config, one_ether, set_genesis_state_with_owned_accounts, sign_authorization,
     },
     time::CurrentTime,
+    MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
 };
 use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;

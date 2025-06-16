@@ -1,10 +1,10 @@
 use alloy_rlp::Encodable;
 use edr_eth::{
-    Address, B256, Bytes, U256,
     eips::{eip2930, eip7702},
     keccak256,
     transaction::{ExecutableTransaction, TxKind},
     utils::enveloped,
+    Address, Bytes, B256, U256,
 };
 
 use super::Deposit;
@@ -118,8 +118,9 @@ mod tests {
     use std::{str::FromStr as _, sync::OnceLock};
 
     use edr_eth::{
-        Bytes, U256, address, b256,
+        address, b256,
         transaction::{ExecutableTransaction as _, TxKind},
+        Bytes, U256,
     };
 
     use super::*;
