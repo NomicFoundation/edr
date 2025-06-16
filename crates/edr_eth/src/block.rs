@@ -674,7 +674,10 @@ mod tests {
             extra_data: hex::decode("42").unwrap().into(),
             gas_limit: 0x7fffffffffffffffu64,
             gas_used: 0x0143a8u64,
-            mix_hash: B256::from_str("0x0000000000000000000000000000000000000000000000000000000000020000").unwrap(),
+            mix_hash: B256::from_str(
+                "0x0000000000000000000000000000000000000000000000000000000000020000",
+            )
+            .unwrap(),
             nonce: B64::ZERO,
             number: 0x01u64,
             parent_beacon_block_root: Some(B256::ZERO),
