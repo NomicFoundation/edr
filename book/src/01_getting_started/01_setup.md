@@ -12,10 +12,6 @@ If you would like to develop outside a container, you can use the automated setu
 
 Run the `scripts/setup.sh` script. This script is intended to be reused by the devcontainer and CI.
 
-### MacOS
-
-If you're using the [Homebrew](https://brew.sh/) package manager, run `brew bundle` from the repo root. This command will install the dependencies listed in the [`Brewfile`](../../../Brewfile).
-
 ## Manual
 
 If you would like to set up the environment manually, you will need to install the following dependencies:
