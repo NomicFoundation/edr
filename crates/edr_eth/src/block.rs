@@ -653,4 +653,60 @@ mod tests {
         assert_eq!(encoded, expected_encoding);
         assert_eq!(header.hash(), expected_hash);
     }
+
+    // Test vector from https://github.com/ethereum/tests/blob/c67e485ff8b5be9abc8ad15345ec21aa22e290d9/BlockchainTests/ValidBlocks/bcExample/basefeeExample.json#L164
+    #[test]
+    fn block_header_rlp_encoding_prague() {
+        let expected_encoding = hex::decode("f90264a088867a8da7be57bcf8c17c2f19ddcd741aaca7236e21514efd3fce07f0e59c7da01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347942adc25665018aa1fe0e6bc666dac8fc2697ff9baa028b2411b8b56e872f6190379dcfcdcb73f835f67b0493e57b5587c53d3eeea50a091b7a6c2330ca44ce3895fd67915587a8900f8e807abec5ff5e299909d689162a0ccd78acb4b8076325dc580c8c1204c9361e2386a9aaaee95bb0acaa1c099fad0b90100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008001887fffffffffffffff830143a882079e42a000000000000000000000000000000000000000000000000000000000000200008800000000000000008403a699d0a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b4218080a00000000000000000000000000000000000000000000000000000000000000000a0e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855").unwrap();
+        let expected_hash =
+            B256::from_str("0xedaa151aff70c6ade40b90453841da58be2ca16a1c908874510601f8236e1c47")
+                .unwrap();
+
+        let header = Header {
+            base_fee_per_gas: Some(0x03a699d0),
+            blob_gas: Some(BlobGas {
+                gas_used: 0x00u64,
+                excess_gas: 0x00u64,
+            }),
+            logs_bloom: Bloom::ZERO,
+            beneficiary: Address::from_str("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba").unwrap(),
+            difficulty: U256::ZERO,
+            extra_data: hex::decode("42").unwrap().into(),
+            gas_limit: 0x7fffffffffffffffu64,
+            gas_used: 0x0143a8u64,
+            mix_hash: B256::from_str("0x0000000000000000000000000000000000000000000000000000000000020000").unwrap(),
+            nonce: B64::ZERO,
+            number: 0x01u64,
+            parent_beacon_block_root: Some(B256::ZERO),
+            parent_hash: B256::from_str(
+                "0x88867a8da7be57bcf8c17c2f19ddcd741aaca7236e21514efd3fce07f0e59c7d",
+            )
+            .unwrap(),
+            receipts_root: B256::from_str(
+                "0xccd78acb4b8076325dc580c8c1204c9361e2386a9aaaee95bb0acaa1c099fad0",
+            )
+            .unwrap(),
+            requests_hash: Some(
+                B256::from_str(
+                    "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                )
+                .unwrap(),
+            ),
+            state_root: B256::from_str(
+                "0x28b2411b8b56e872f6190379dcfcdcb73f835f67b0493e57b5587c53d3eeea50",
+            )
+            .unwrap(),
+            timestamp: 0x079eu64,
+            transactions_root: B256::from_str(
+                "0x91b7a6c2330ca44ce3895fd67915587a8900f8e807abec5ff5e299909d689162",
+            )
+            .unwrap(),
+            ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
+            withdrawals_root: Some(KECCAK_NULL_RLP),
+        };
+
+        let encoded = alloy_rlp::encode(&header);
+        assert_eq!(encoded, expected_encoding);
+        assert_eq!(header.hash(), expected_hash);
+    }
 }
