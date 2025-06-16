@@ -23,9 +23,9 @@ use crate::{
         expectCallMinGas_0Call, expectCallMinGas_1Call, expectCall_0Call, expectCall_1Call,
         expectCall_2Call, expectCall_3Call, expectCall_4Call, expectCall_5Call, expectEmit_0Call,
         expectEmit_1Call, expectEmit_2Call, expectEmit_3Call, expectEmit_4Call,
-        expectEmit_5Call, expectEmit_6Call, expectEmit_7Call, expectRevert_0Call,
-        expectRevert_1Call, expectRevert_2Call, expectSafeMemoryCall, expectSafeMemoryCallCall,
-        stopExpectSafeMemoryCall,
+        expectEmit_5Call, expectEmit_6Call, expectEmit_7Call, expectPartialRevertCall,
+        expectRevert_0Call, expectRevert_1Call, expectRevert_2Call, expectSafeMemoryCall,
+        expectSafeMemoryCallCall, stopExpectSafeMemoryCall,
     },
 };
 
@@ -96,12 +96,14 @@ pub enum ExpectedRevertKind {
 
 #[derive(Clone, Debug)]
 pub struct ExpectedRevert {
-    /// The expected data returned by the revert, None being any
+    /// The expected data returned by the revert, None being any.
     pub reason: Option<Vec<u8>>,
-    /// The depth at which the revert is expected
+    /// The depth at which the revert is expected.
     pub depth: u64,
     /// The type of expected revert.
     pub kind: ExpectedRevertKind,
+    /// If true then only the first 4 bytes of expected data returned by the revert are checked.
+    pub partial_match: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -679,6 +681,7 @@ impl Cheatcode for expectRevert_0Call {
             None,
             ccx.ecx.journaled_state.depth() as u64,
             false,
+            false,
         )
     }
 }
@@ -710,6 +713,7 @@ impl Cheatcode for expectRevert_1Call {
             ccx.state,
             Some(revertData.as_ref()),
             ccx.ecx.journaled_state.depth() as u64,
+            false,
             false,
         )
     }
@@ -743,6 +747,40 @@ impl Cheatcode for expectRevert_2Call {
             Some(revertData),
             ccx.ecx.journaled_state.depth() as u64,
             false,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectPartialRevertCall);
+impl Cheatcode for expectPartialRevertCall {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { revertData } = self;
+        expect_revert(
+            ccx.state,
+            Some(revertData.as_ref()),
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            true,
         )
     }
 }
@@ -774,6 +812,7 @@ impl Cheatcode for _expectCheatcodeRevert_0Call {
             None,
             ccx.ecx.journaled_state.depth() as u64,
             true,
+            false,
         )
     }
 }
@@ -806,6 +845,7 @@ impl Cheatcode for _expectCheatcodeRevert_1Call {
             Some(revertData.as_ref()),
             ccx.ecx.journaled_state.depth() as u64,
             true,
+            false,
         )
     }
 }
@@ -838,6 +878,7 @@ impl Cheatcode for _expectCheatcodeRevert_2Call {
             Some(revertData),
             ccx.ecx.journaled_state.depth() as u64,
             true,
+            false,
         )
     }
 }
@@ -1282,6 +1323,7 @@ fn expect_revert<
     reason: Option<&[u8]>,
     depth: u64,
     cheatcode: bool,
+    partial_match: bool,
 ) -> Result {
     ensure!(
         state.expected_revert.is_none(),
@@ -1297,6 +1339,7 @@ fn expect_revert<
         } else {
             ExpectedRevertKind::Default
         },
+        partial_match,
     });
     Ok(Vec::default())
 }
@@ -1304,6 +1347,7 @@ fn expect_revert<
 pub(crate) fn handle_expect_revert(
     is_create: bool,
     expected_revert: Option<&[u8]>,
+    partial_match: bool,
     status: InstructionResult,
     retdata: Bytes,
 ) -> Result<(Option<Address>, Bytes)> {
@@ -1320,7 +1364,7 @@ pub(crate) fn handle_expect_revert(
         "call did not revert as expected"
     );
 
-    // If None, accept any revert
+    // If None, accept any revert.
     let Some(expected_revert) = expected_revert else {
         return Ok(success_return());
     };
@@ -1331,7 +1375,12 @@ pub(crate) fn handle_expect_revert(
 
     let mut actual_revert: Vec<u8> = retdata.into();
 
-    // Try decoding as known errors
+    // Compare only the first 4 bytes if partial match.
+    if partial_match && actual_revert.get(..4) == expected_revert.get(..4) {
+        return Ok(success_return())
+    }
+
+    // Try decoding as known errors.
     if matches!(
         actual_revert.get(..4).map(|s| s.try_into().unwrap()),
         Some(Vm::CheatcodeError::SELECTOR | alloy_sol_types::Revert::SELECTOR)
