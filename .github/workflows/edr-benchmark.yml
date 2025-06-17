@@ -3,9 +3,7 @@ name: EDR Benchmarks
 on:
   push:
     branches:
-      # TODO: change to `main` when we merging to main
-      # https://github.com/NomicFoundation/edr/issues/685
-      - "feat/solidity-tests"
+      - "main"
   pull_request:
     branches:
       - "**"
@@ -18,9 +16,7 @@ defaults:
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   # Don't cancel in progress jobs in main
-  # TODO: change to `main` when we merging to main
-  # https://github.com/NomicFoundation/edr/issues/685
-  cancel-in-progress: ${{ github.ref != 'refs/heads/feat/solidity-tests' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   benchmarks-test:
@@ -28,9 +24,7 @@ jobs:
     environment: github-action-benchmark
     runs-on: self-hosted
     # Only run for trusted collaborators since third-parties could run malicious code on the self-hosted benchmark runner.
-    # TODO: change ref comparison to `main` when we merging to main
-    # https://github.com/NomicFoundation/edr/issues/685
-    if: github.ref == 'refs/heads/feat/solidity-tests' || github.repository == github.event.pull_request.head.repo.full_name
+    if: github.ref == 'refs/heads/main' || github.repository == github.event.pull_request.head.repo.full_name
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node
@@ -141,9 +135,7 @@ jobs:
           benchmark-data-dir-path: soltests
           github-token: ${{ secrets.BENCHMARK_GITHUB_TOKEN }}
           # Only save the data for main branch pushes. For PRs we only compare
-          # TODO: change to `main` when we merging to main
-          # https://github.com/NomicFoundation/edr/issues/685
-          auto-push: ${{ github.ref == 'refs/heads/feat/solidity-tests' && github.event_name != 'pull_request' }}
+          auto-push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
           alert-threshold: "110%"
           # Only fail on pull requests, don't break CI in main
           fail-on-alert: ${{ github.event_name == 'pull_request' }}
