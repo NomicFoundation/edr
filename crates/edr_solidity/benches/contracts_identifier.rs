@@ -15,7 +15,7 @@
 //!    3.2. `cargo bench contracts_identifier`
 use std::{fs, path::PathBuf, time::Duration};
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use edr_solidity::{
     artifacts::{BuildInfoConfig, BuildInfoWithOutput},
     contract_decoder::ContractDecoder,

@@ -2,16 +2,16 @@ use core::num::NonZeroU64;
 use std::{str::FromStr, time::SystemTime};
 
 use edr_eth::{
-    Address, B256, ChainId, HashMap,
     block::BlobGas,
     l1::{self, hardfork::UnknownHardfork},
     signature::SecretKey,
+    Address, ChainId, HashMap, B256,
 };
 use edr_evm::{
     hardfork::{self, ChainOverride},
     precompile::PrecompileFn,
 };
-use edr_provider::{AccountOverride, ForkConfig, config};
+use edr_provider::{config, AccountOverride, ForkConfig};
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]

@@ -1,15 +1,15 @@
 use edr_eth::{
-    Address, B256, Blob, BlockSpec, BlockTag, Bytes, MAX_INITCODE_SIZE, PreEip1898BlockSpec,
     eips::{eip2930, eip7702},
     l1,
-    transaction::{ExecutableTransaction, pooled::PooledTransaction},
+    transaction::{pooled::PooledTransaction, ExecutableTransaction},
+    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
 };
 use edr_evm::{spec::RuntimeSpec, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
-    ProviderError, SyncProviderSpec, data::ProviderData, error::ProviderErrorForChainSpec,
-    spec::HardforkValidationData, time::TimeSinceEpoch,
+    data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
+    time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
 };
 
 impl HardforkValidationData for TransactionRequest {
@@ -402,7 +402,7 @@ pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{U256, l1::L1ChainSpec};
+    use edr_eth::{l1::L1ChainSpec, U256};
 
     use super::*;
 

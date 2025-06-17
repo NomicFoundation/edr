@@ -1,11 +1,11 @@
 use std::str::FromStr;
 
 use edr_eth::{
-    U8,
     transaction::{IsEip4844, ParseError},
+    U8,
 };
 
-use super::{Type, signed};
+use super::{signed, Type};
 
 impl From<Type> for u8 {
     fn from(t: Type) -> u8 {

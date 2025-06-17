@@ -16,17 +16,18 @@ use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{
     options::BlockOptions,
     reorg::{
-        IsSafeBlockNumberArgs, LargestSafeBlockNumberArgs, block_time, is_safe_block_number,
-        largest_safe_block_number, safe_block_depth,
+        block_time, is_safe_block_number, largest_safe_block_number, safe_block_depth,
+        IsSafeBlockNumberArgs, LargestSafeBlockNumberArgs,
     },
     reward::miner_reward,
 };
 use crate::{
-    Address, B64, B256, Bloom, Bytes, U256, b256,
+    b256,
     eips::{eip4844, eip7691},
     keccak256, l1,
     spec::EthHeaderConstants,
     trie::KECCAK_NULL_RLP,
+    Address, Bloom, Bytes, B256, B64, U256,
 };
 
 /// ethereum block header

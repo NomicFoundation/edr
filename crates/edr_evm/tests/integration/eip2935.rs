@@ -1,17 +1,17 @@
 use std::collections::BTreeMap;
 
 use edr_eth::{
-    Bytecode,
     l1::{self, L1ChainSpec},
+    Bytecode,
 };
 use edr_evm::{
-    RandomHashGenerator,
     blockchain::{Blockchain, GenesisBlockOptions, LocalBlockchain, LocalCreationError},
     eips::eip2935::{
-        HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
-        add_history_storage_contract_to_state_diff,
+        add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
+        HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
     },
     state::StateDiff,
+    RandomHashGenerator,
 };
 
 fn local_blockchain(
@@ -72,7 +72,7 @@ fn local_blockchain_with_history() -> anyhow::Result<()> {
 mod remote {
     use std::sync::Arc;
 
-    use edr_eth::{Bytes, HashMap, bytes};
+    use edr_eth::{bytes, Bytes, HashMap};
     use edr_evm::{
         blockchain::{ForkedBlockchain, ForkedCreationError},
         state::IrregularState,

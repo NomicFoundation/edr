@@ -5,7 +5,7 @@ use napi_derive::napi;
 
 use crate::{
     cast::TryCast,
-    trace::{RawTrace, solidity_stack_trace::SolidityStackTrace},
+    trace::{solidity_stack_trace::SolidityStackTrace, RawTrace},
 };
 
 #[napi]

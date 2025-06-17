@@ -4,11 +4,11 @@ use alloy_rlp::RlpEncodable;
 use revm_primitives::keccak256;
 
 use crate::{
-    Address, B256, Bytes, U256,
     eips::{eip2930, eip7702},
-    signature::{self, SecretKey, SignatureError, SignatureWithYParity, public_key_to_address},
+    signature::{self, public_key_to_address, SecretKey, SignatureError, SignatureWithYParity},
     transaction::{self, ComputeTransactionHash},
     utils::envelop_bytes,
+    Address, Bytes, B256, U256,
 };
 
 /// An [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) transaction.

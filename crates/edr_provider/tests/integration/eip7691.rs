@@ -3,19 +3,19 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    B256, PreEip1898BlockSpec,
     eips::eip4844::GAS_PER_BLOB,
     l1::{self, L1ChainSpec},
     transaction::ExecutableTransaction as _,
+    PreEip1898BlockSpec, B256,
 };
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, test_utils::create_test_config,
-    time::CurrentTime,
+    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
+    ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
-use crate::common::blob::{BlobTransactionBuilder, fake_raw_transaction, fake_transaction};
+use crate::common::blob::{fake_raw_transaction, fake_transaction, BlobTransactionBuilder};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn block_header() -> anyhow::Result<()> {

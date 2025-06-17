@@ -1,6 +1,6 @@
 use std::mem::take;
 
-use crate::{Address, B256, Bytes, block_spec::BlockSpec, log::FilterLog};
+use crate::{block_spec::BlockSpec, log::FilterLog, Address, Bytes, B256};
 
 /// A type that can be used to pass either one or many objects to a JSON-RPC
 /// request

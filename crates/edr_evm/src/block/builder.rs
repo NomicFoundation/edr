@@ -3,21 +3,21 @@ mod l1;
 use std::fmt::Debug;
 
 use edr_eth::{
-    Address,
     block::{BlockOptions, PartialHeader},
     spec::ChainSpec,
     transaction::TransactionValidation,
+    Address,
 };
 use revm::Inspector;
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
-    MineBlockResultAndStateForChainSpec,
     blockchain::SyncBlockchain,
     config::CfgEnv,
     spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponentError, DatabaseComponents, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
+    MineBlockResultAndStateForChainSpec,
 };
 
 /// An error caused during construction of a block builder.
@@ -87,7 +87,11 @@ where
 
     /// Creates a new block builder.
     fn new_block_builder(
-        blockchain: &'builder dyn SyncBlockchain<ChainSpecT, Self::BlockchainError, Self::StateError>,
+        blockchain: &'builder dyn SyncBlockchain<
+            ChainSpecT,
+            Self::BlockchainError,
+            Self::StateError,
+        >,
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,

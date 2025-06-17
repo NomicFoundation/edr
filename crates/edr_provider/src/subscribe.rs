@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_eth::{B256, U256, filter::LogOutput};
-use edr_evm::{BlockAndTotalDifficulty, spec::RuntimeSpec};
+use edr_eth::{filter::LogOutput, B256, U256};
+use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty};
 
 /// Subscription event.
 #[derive_where(Clone, Debug)]

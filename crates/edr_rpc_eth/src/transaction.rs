@@ -3,11 +3,12 @@ mod request;
 use std::{ops::Deref, sync::OnceLock};
 
 use edr_eth::{
-    Address, B256, Bytes, U256, block,
+    block,
     eips::{eip2930, eip7702},
     l1,
     signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
     transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
+    Address, Bytes, B256, U256,
 };
 
 pub use self::request::TransactionRequest;

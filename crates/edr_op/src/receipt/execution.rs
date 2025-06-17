@@ -2,17 +2,17 @@ mod deposit;
 
 pub use edr_eth::receipt::execution::{Eip658, Legacy};
 use edr_eth::{
-    Bloom,
     log::ExecutionLog,
     receipt::{ExecutionReceipt, MapReceiptLogs, RootOrStatus},
     result::ExecutionResult,
     transaction::{Transaction as _, TransactionType as _},
+    Bloom,
 };
 use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
 
 use self::deposit::Eip658OrDeposit;
 use super::Execution;
-use crate::{OpHaltReason, OpSpecId, eip2718::TypedEnvelope, transaction};
+use crate::{eip2718::TypedEnvelope, transaction, OpHaltReason, OpSpecId};
 
 /// Receipt for an OP deposit transaction with deposit nonce (since
 /// Regolith) and optionally deposit receipt version (since Canyon).
@@ -198,7 +198,7 @@ impl<LogT> ExecutionReceipt for Execution<LogT> {
 #[cfg(test)]
 mod tests {
     use alloy_rlp::Decodable as _;
-    use edr_eth::{Address, B256, Bytes, log::ExecutionLog};
+    use edr_eth::{log::ExecutionLog, Address, Bytes, B256};
 
     use super::*;
     use crate::eip2718::TypedEnvelope;

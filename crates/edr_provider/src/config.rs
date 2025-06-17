@@ -1,7 +1,7 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
-use edr_eth::{Address, B256, Bytecode, ChainId, HashMap, U256, block::BlobGas};
-use edr_evm::{MineOrdering, hardfork::ChainOverride, precompile::PrecompileFn, state::EvmStorage};
+use edr_eth::{block::BlobGas, Address, Bytecode, ChainId, HashMap, B256, U256};
+use edr_evm::{hardfork::ChainOverride, precompile::PrecompileFn, state::EvmStorage, MineOrdering};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 

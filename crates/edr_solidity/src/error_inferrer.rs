@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashSet, mem};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
-use edr_eth::{U256, bytecode::opcode::OpCode, hex, spec::HaltReasonTrait};
+use edr_eth::{bytecode::opcode::OpCode, hex, spec::HaltReasonTrait, U256};
 use semver::{Version, VersionReq};
 
 use crate::{
@@ -14,8 +14,8 @@ use crate::{
     },
     return_data::ReturnData,
     solidity_stack_trace::{
-        CONSTRUCTOR_FUNCTION_NAME, FALLBACK_FUNCTION_NAME, RECEIVE_FUNCTION_NAME, SourceReference,
-        StackTraceEntry,
+        SourceReference, StackTraceEntry, CONSTRUCTOR_FUNCTION_NAME, FALLBACK_FUNCTION_NAME,
+        RECEIVE_FUNCTION_NAME,
     },
 };
 

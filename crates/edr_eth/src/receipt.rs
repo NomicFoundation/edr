@@ -15,7 +15,7 @@ mod transaction;
 use auto_impl::auto_impl;
 
 pub use self::{block::BlockReceipt, factory::ReceiptFactory, transaction::TransactionReceipt};
-use crate::{Address, B256, Bloom};
+use crate::{Address, Bloom, B256};
 
 /// Log generated after execution of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -4,12 +4,13 @@ use core::str::FromStr as _;
 use std::sync::Arc;
 
 use edr_eth::{
-    Bytes, address,
+    address,
     l1::{self, L1ChainSpec},
+    Bytes,
 };
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, test_utils::create_test_config,
-    time::CurrentTime,
+    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
+    ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;

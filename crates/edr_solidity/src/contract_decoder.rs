@@ -1,7 +1,7 @@
 //! Enriches the [`NestedTrace`] with the resolved [`ContractMetadata`].
 use std::sync::Arc;
 
-use edr_eth::{Bytes, spec::HaltReasonTrait};
+use edr_eth::{spec::HaltReasonTrait, Bytes};
 use parking_lot::RwLock;
 
 use super::{

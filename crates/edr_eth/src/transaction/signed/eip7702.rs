@@ -3,11 +3,11 @@ use std::sync::OnceLock;
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 
 use crate::{
-    Address, B256, Bytes, U256,
     eips::{eip2930, eip7702},
     keccak256, signature,
-    transaction::{self, ComputeTransactionHash as _, ExecutableTransaction, TxKind, request},
+    transaction::{self, request, ComputeTransactionHash as _, ExecutableTransaction, TxKind},
     utils::enveloped,
+    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
@@ -210,7 +210,7 @@ mod tests {
         use core::str::FromStr as _;
 
         use edr_defaults::SECRET_KEYS;
-        use edr_test_utils::secret_key::{SecretKey, SignatureError, secret_key_from_str};
+        use edr_test_utils::secret_key::{secret_key_from_str, SecretKey, SignatureError};
         use hex::FromHexError;
 
         use super::*;

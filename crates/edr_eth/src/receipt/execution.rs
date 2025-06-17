@@ -4,7 +4,7 @@ mod legacy;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 
 use super::{Execution, ExecutionReceipt, MapReceiptLogs};
-use crate::{B256, Bloom};
+use crate::{Bloom, B256};
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpDecodable, RlpEncodable)]
 #[cfg_attr(
@@ -158,7 +158,7 @@ mod tests {
     use alloy_rlp::Decodable as _;
 
     use super::*;
-    use crate::{Address, Bytes, eips::eip2718::TypedEnvelope, log::ExecutionLog};
+    use crate::{eips::eip2718::TypedEnvelope, log::ExecutionLog, Address, Bytes};
 
     macro_rules! impl_execution_receipt_tests {
         ($(

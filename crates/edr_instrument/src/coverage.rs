@@ -264,11 +264,9 @@ mod tests {
         let result = instrument_code(FIXTURE, "instrumentation.sol", version, LIBRARY_PATH)
             .expect("Failed to instrument");
 
-        assert!(
-            result
-                .source
-                .contains(&format!("import \"{LIBRARY_PATH}\";"))
-        );
+        assert!(result
+            .source
+            .contains(&format!("import \"{LIBRARY_PATH}\";")));
     }
 
     #[test]

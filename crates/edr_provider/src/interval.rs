@@ -4,14 +4,14 @@ use edr_eth::{l1, transaction::TransactionValidation};
 use edr_evm::spec::RuntimeSpec;
 use tokio::{
     runtime,
-    sync::{Mutex, oneshot},
+    sync::{oneshot, Mutex},
     task::JoinHandle,
     time::Instant,
 };
 
 use crate::{
-    IntervalConfig, data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
-    time::TimeSinceEpoch,
+    data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
+    time::TimeSinceEpoch, IntervalConfig,
 };
 
 /// Type for interval mining on a separate thread.
@@ -29,7 +29,7 @@ struct Inner<ChainSpecT: RuntimeSpec> {
 }
 
 impl<
-    ChainSpecT: SyncProviderSpec<
+        ChainSpecT: SyncProviderSpec<
             TimerT,
             BlockEnv: Default,
             SignedTransaction: Default
@@ -37,8 +37,8 @@ impl<
                 ValidationError: From<l1::InvalidTransaction> + PartialEq,
             >,
         >,
-    TimerT: Clone + TimeSinceEpoch,
-> IntervalMiner<ChainSpecT, TimerT>
+        TimerT: Clone + TimeSinceEpoch,
+    > IntervalMiner<ChainSpecT, TimerT>
 {
     pub fn new(
         runtime: runtime::Handle,
@@ -63,13 +63,13 @@ impl<
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 async fn interval_mining_loop<
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     config: IntervalConfig,

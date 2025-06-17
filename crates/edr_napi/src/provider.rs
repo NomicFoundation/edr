@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
 use edr_solidity::contract_decoder::ContractDecoder;
-use napi::{Env, JsFunction, JsObject, Status, tokio::runtime};
+use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 
 pub use self::factory::ProviderFactory;

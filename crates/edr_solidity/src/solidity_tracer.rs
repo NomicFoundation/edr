@@ -7,7 +7,7 @@ use crate::{
     error_inferrer,
     error_inferrer::{InferrerError, SubmessageData},
     mapped_inline_internal_functions_heuristics::{
-        HeuristicsError, adjust_stack_trace, stack_trace_may_require_adjustments,
+        adjust_stack_trace, stack_trace_may_require_adjustments, HeuristicsError,
     },
     nested_trace::{
         CallMessage, CreateMessage, CreateOrCallMessage, CreateOrCallMessageRef, EvmStep,

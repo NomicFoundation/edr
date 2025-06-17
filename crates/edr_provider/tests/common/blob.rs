@@ -1,10 +1,10 @@
 use std::str::FromStr as _;
 
 use edr_eth::{
-    Address, B256, Blob, Bytes, Bytes48,
     eips::eip4844::ethereum_kzg_settings,
     rlp::{self, Decodable as _},
     transaction::{self, pooled::PooledTransaction},
+    Address, Blob, Bytes, Bytes48, B256,
 };
 use edr_test_utils::secret_key::secret_key_from_str;
 

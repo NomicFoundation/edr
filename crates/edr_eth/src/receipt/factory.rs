@@ -1,9 +1,9 @@
 use auto_impl::auto_impl;
 
 use crate::{
-    B256,
     log::FilterLog,
     receipt::{ExecutionReceipt, ReceiptTrait, TransactionReceipt},
+    B256,
 };
 
 /// Trait for constructing a receipt from a transaction receipt and the block it

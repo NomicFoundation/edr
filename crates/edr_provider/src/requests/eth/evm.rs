@@ -1,13 +1,13 @@
 use std::num::NonZeroU64;
 
-use edr_eth::{U64, block::BlockOptions, l1, transaction::TransactionValidation};
+use edr_eth::{block::BlockOptions, l1, transaction::TransactionValidation, U64};
 
 use crate::{
-    ProviderError, ProviderResultWithTraces, Timestamp,
     data::ProviderData,
     error::ProviderErrorForChainSpec,
     spec::{ProviderSpec, SyncProviderSpec},
     time::TimeSinceEpoch,
+    ProviderError, ProviderResultWithTraces, Timestamp,
 };
 
 pub fn handle_increase_time_request<
@@ -25,13 +25,13 @@ pub fn handle_increase_time_request<
 
 pub fn handle_mine_request<
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,

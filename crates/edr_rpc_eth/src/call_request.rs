@@ -1,6 +1,6 @@
 use edr_eth::{
-    Address, B256, Blob, Bytes, U256,
     eips::{eip2930, eip7702},
+    Address, Blob, Bytes, B256, U256,
 };
 
 /// For specifying input to methods requiring a transaction object, like

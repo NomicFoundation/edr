@@ -4,9 +4,9 @@
 
 use std::sync::Arc;
 
-use edr_eth::{HashMap, l1::L1ChainSpec};
+use edr_eth::{l1::L1ChainSpec, HashMap};
 use edr_provider::{
-    ForkConfig, NoopLogger, Provider, test_utils::create_test_config_with_fork, time::MockTime,
+    test_utils::create_test_config_with_fork, time::MockTime, ForkConfig, NoopLogger, Provider,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;

@@ -4,8 +4,8 @@ use edr_eth::{Address, Bytes, HashMap, HashSet};
 pub use revm_handler::{EthPrecompiles, PrecompileProvider};
 use revm_interpreter::{Gas, InstructionResult, InterpreterResult};
 pub use revm_precompile::{
-    PrecompileError, PrecompileFn, PrecompileSpecId, PrecompileWithAddress, Precompiles, secp256r1,
-    u64_to_address,
+    secp256r1, u64_to_address, PrecompileError, PrecompileFn, PrecompileSpecId,
+    PrecompileWithAddress, Precompiles,
 };
 
 use crate::{config::Cfg, interpreter::InputsImpl, spec::ContextTrait};
@@ -26,9 +26,9 @@ pub struct OverriddenPrecompileProvider<
 }
 
 impl<
-    BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
-    ContextT: ContextTrait,
-> OverriddenPrecompileProvider<BaseProviderT, ContextT>
+        BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
+        ContextT: ContextTrait,
+    > OverriddenPrecompileProvider<BaseProviderT, ContextT>
 {
     /// Creates a new custom precompile provider.
     pub fn new(base: BaseProviderT) -> Self {
@@ -62,9 +62,9 @@ impl<
 }
 
 impl<
-    BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
-    ContextT: ContextTrait,
-> PrecompileProvider<ContextT> for OverriddenPrecompileProvider<BaseProviderT, ContextT>
+        BaseProviderT: PrecompileProvider<ContextT, Output = InterpreterResult>,
+        ContextT: ContextTrait,
+    > PrecompileProvider<ContextT> for OverriddenPrecompileProvider<BaseProviderT, ContextT>
 {
     type Output = InterpreterResult;
 

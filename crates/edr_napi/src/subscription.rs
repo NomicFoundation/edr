@@ -1,4 +1,4 @@
-use napi::{JsFunction, bindgen_prelude::BigInt};
+use napi::{bindgen_prelude::BigInt, JsFunction};
 use napi_derive::napi;
 
 /// Configuration for subscriptions.

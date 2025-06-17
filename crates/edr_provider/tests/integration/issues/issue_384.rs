@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use edr_eth::{HashMap, l1::L1ChainSpec};
+use edr_eth::{l1::L1ChainSpec, HashMap};
 use edr_provider::{
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
-    test_utils::create_test_config_with_fork, time::CurrentTime,
+    test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
+    NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_infura_url;

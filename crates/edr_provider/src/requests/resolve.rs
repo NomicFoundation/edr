@@ -1,18 +1,19 @@
 use edr_eth::{
-    Bytes, U256,
     l1::{self, L1ChainSpec},
     transaction::TxKind,
+    Bytes, U256,
 };
 use edr_evm::transaction;
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use super::validation::validate_call_request;
 use crate::{
-    ProviderError, calculate_eip1559_fee_parameters,
+    calculate_eip1559_fee_parameters,
     error::ProviderErrorForChainSpec,
     requests::validation::validate_send_transaction_request,
     spec::{CallContext, FromRpcType, TransactionContext},
     time::TimeSinceEpoch,
+    ProviderError,
 };
 
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transaction::Request {
@@ -234,12 +235,12 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{Address, BlockSpec, eips::eip7702};
+    use edr_eth::{eips::eip7702, Address, BlockSpec};
     use edr_evm::state::StateOverrides;
     use edr_rpc_eth::CallRequest;
 
     use super::*;
-    use crate::test_utils::{ProviderTestFixture, pending_base_fee};
+    use crate::test_utils::{pending_base_fee, ProviderTestFixture};
 
     #[test]
     fn resolve_call_request_with_gas_price() -> anyhow::Result<()> {

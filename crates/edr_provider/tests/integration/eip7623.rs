@@ -6,13 +6,13 @@ mod send_data_to_eoa;
 use std::sync::Arc;
 
 use edr_eth::{
-    B256, U64,
     l1::{self, L1ChainSpec},
+    B256, U64,
 };
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
     test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
     time::CurrentTime,
+    MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
