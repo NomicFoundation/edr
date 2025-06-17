@@ -73,7 +73,7 @@ impl InvariantConfig {
                 failure_persist_dir.join("failures").join(
                     contract_name
                         .split(':')
-                        .last()
+                        .next_back()
                         .expect("contract name should have solc version suffix"),
                 )
             })

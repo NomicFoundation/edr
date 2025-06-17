@@ -875,7 +875,7 @@ impl<
                             entry.abi.functions.extend(abi.functions.clone());
                         })
                         // Otherwise insert it into the map.
-                        .or_insert_with(|| TargetedContract::new(identifier.to_string(), abi));
+                        .or_insert_with(|| TargetedContract::new(identifier.clone(), abi));
                 }
             }
         }

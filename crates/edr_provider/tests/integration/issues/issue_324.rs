@@ -2,12 +2,9 @@ use std::{str::FromStr, sync::Arc};
 
 use edr_eth::{
     l1::{self, L1ChainSpec},
-    Address, Bytes, U256,
+    Address, Bytes, HashMap, U256,
 };
 use edr_provider::{
-    hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
-    Address, Bytes, HashMap, U256,
     test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
 };

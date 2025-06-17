@@ -108,7 +108,7 @@ impl GasReport {
 
         let decoded = || decoder.decode_function(&node.trace);
 
-        let contract_info = self.contracts.entry(name.to_string()).or_default();
+        let contract_info = self.contracts.entry(name.clone()).or_default();
         if trace.kind.is_any_create() {
             trace!(contract_name, "adding create gas info");
             contract_info.gas = trace.gas_used;
