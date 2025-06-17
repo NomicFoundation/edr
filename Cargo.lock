@@ -1465,9 +1465,9 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chrono"
-version = "0.4.40"
+version = "0.4.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
+checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -2276,6 +2276,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_coverage"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "edr_defaults",
+ "edr_eth",
+ "edr_evm",
+ "edr_test_utils",
+]
+
+[[package]]
 name = "edr_defaults"
 version = "0.3.8"
 dependencies = [
@@ -2358,6 +2369,7 @@ dependencies = [
  "revm-database-interface",
  "revm-handler",
  "revm-interpreter",
+ "revm-precompile",
  "rpds",
  "serde",
  "serde_json",
@@ -2370,7 +2382,7 @@ dependencies = [
 
 [[package]]
 name = "edr_generic"
-version = "0.3.5"
+version = "0.3.8"
 dependencies = [
  "alloy-rlp",
  "alloy-serde",
@@ -2395,6 +2407,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_instrument"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "edr_eth",
+ "semver 1.0.26",
+ "serde",
+ "serde_json",
+ "sha3",
+ "slang_solidity",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "edr_macros"
 version = "0.3.8"
 dependencies = [
@@ -2413,9 +2439,11 @@ dependencies = [
  "alloy-sol-types",
  "derive-where",
  "edr_common",
+ "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_generic",
+ "edr_instrument",
  "edr_napi_core",
  "edr_op",
  "edr_provider",
@@ -2446,11 +2474,10 @@ dependencies = [
 
 [[package]]
 name = "edr_napi_core"
-version = "0.3.5"
+version = "0.3.8"
 dependencies = [
  "ansi_term",
  "derive-where",
- "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_generic",
@@ -2466,7 +2493,7 @@ dependencies = [
 
 [[package]]
 name = "edr_op"
-version = "0.3.5"
+version = "0.3.8"
 dependencies = [
  "alloy-rlp",
  "alloy-serde",
@@ -2504,6 +2531,7 @@ dependencies = [
  "cargo_toml",
  "derive-where",
  "dyn-clone",
+ "edr_coverage",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
@@ -2535,7 +2563,7 @@ dependencies = [
 
 [[package]]
 name = "edr_rpc_client"
-version = "0.3.5"
+version = "0.3.8"
 dependencies = [
  "anyhow",
  "edr_eth",
@@ -2564,7 +2592,7 @@ dependencies = [
 
 [[package]]
 name = "edr_rpc_eth"
-version = "0.3.5"
+version = "0.3.8"
 dependencies = [
  "alloy-eips",
  "alloy-serde",
@@ -2592,9 +2620,12 @@ dependencies = [
 
 [[package]]
 name = "edr_scenarios"
-version = "0.3.5"
+version = "0.3.8"
 dependencies = [
  "alloy-serde",
+ "anyhow",
+ "chrono",
+ "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_napi_core",
@@ -2688,7 +2719,7 @@ dependencies = [
 
 [[package]]
 name = "edr_utils"
-version = "0.3.5"
+version = "0.3.8"
 
 [[package]]
 name = "educe"
@@ -4437,6 +4468,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
+name = "metaslang_cst"
+version = "1.1.0"
+source = "git+https://github.com/NomicFoundation/slang?rev=699de7e#699de7e9c93c71dc82393c37e7898172de447524"
+dependencies = [
+ "nom",
+ "serde",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "mimalloc"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4460,6 +4501,12 @@ dependencies = [
  "mime",
  "unicase",
 ]
+
+[[package]]
+name = "minimal-lexical"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
@@ -4580,6 +4627,16 @@ dependencies = [
  "security-framework 2.11.1",
  "security-framework-sys",
  "tempfile",
+]
+
+[[package]]
+name = "nom"
+version = "7.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
+dependencies = [
+ "memchr",
+ "minimal-lexical",
 ]
 
 [[package]]
@@ -6623,6 +6680,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "slang_solidity"
+version = "1.1.0"
+source = "git+https://github.com/NomicFoundation/slang?rev=699de7e#699de7e9c93c71dc82393c37e7898172de447524"
+dependencies = [
+ "metaslang_cst",
+ "semver 1.0.26",
+ "serde",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7322,7 +7392,7 @@ dependencies = [
 
 [[package]]
 name = "tools"
-version = "0.1.0"
+version = "0.3.8"
 dependencies = [
  "anyhow",
  "cfg-if",

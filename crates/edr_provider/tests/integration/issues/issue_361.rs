@@ -1,15 +1,14 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    account::AccountInfo,
     filter::LogFilterOptions,
     l1::{self, L1ChainSpec},
-    Address, BlockSpec, KECCAK_EMPTY,
+    Address, BlockSpec,
 };
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -26,13 +25,10 @@ async fn issue_361() -> anyhow::Result<()> {
     let impersonated_account = Address::random();
     config.genesis_state.insert(
         impersonated_account,
-        AccountInfo {
-            balance: one_ether(),
-            nonce: 0,
-            code: None,
-            code_hash: KECCAK_EMPTY,
-        }
-        .into(),
+        AccountOverride {
+            balance: Some(one_ether()),
+            ..AccountOverride::default()
+        },
     );
 
     let provider = Provider::new(
@@ -44,19 +40,19 @@ async fn issue_361() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-        TransactionRequest {
+    provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
             ..TransactionRequest::default()
-        },
-    )))?;
+        }),
+    ))?;
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::GetLogs(
+    provider.handle_request(ProviderRequest::with_single(MethodInvocation::GetLogs(
         LogFilterOptions {
             from_block: Some(BlockSpec::Number(0)),
             to_block: Some(BlockSpec::latest()),

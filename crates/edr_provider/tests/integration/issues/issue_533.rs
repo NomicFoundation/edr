@@ -1,9 +1,9 @@
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_eth::{l1::L1ChainSpec, B256};
+use edr_eth::{l1::L1ChainSpec, HashMap, B256};
 use edr_provider::{
-    hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
+    NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
@@ -16,9 +16,11 @@ async fn issue_533() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url(),
         block_number: Some(20_384_300),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
+        url: get_alchemy_url(),
     }));
 
     // The default chain id set by Hardhat
@@ -36,7 +38,7 @@ async fn issue_533() -> anyhow::Result<()> {
     let transaction_hash =
         B256::from_str("0x0537316f37627655b7fe5e50e23f71cd835b377d1cde4226443c94723d036e32")?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DebugTraceTransaction(transaction_hash, None),
     ))?;
 

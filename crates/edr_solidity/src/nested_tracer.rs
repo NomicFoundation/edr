@@ -358,7 +358,7 @@ enum InternalNestedTraceStep<HaltReasonT: HaltReasonTrait> {
 }
 
 enum InternalNestedTraceStepWithoutRefCell<HaltReasonT: HaltReasonTrait> {
-    Message(NestedTrace<HaltReasonT>),
+    Message(Box<NestedTrace<HaltReasonT>>),
     Evm(EvmStep),
 }
 
@@ -441,7 +441,9 @@ fn convert_to_external_step<HaltReasonT: HaltReasonTrait>(
 ) -> NestedTraceStep<HaltReasonT> {
     match value {
         InternalNestedTraceStep::Message(message) => {
-            InternalNestedTraceStepWithoutRefCell::Message(convert_to_external_trace(message))
+            InternalNestedTraceStepWithoutRefCell::Message(Box::new(convert_to_external_trace(
+                message,
+            )))
         }
         InternalNestedTraceStep::Evm(evm_step) => {
             InternalNestedTraceStepWithoutRefCell::Evm(evm_step)
@@ -456,7 +458,7 @@ impl<HaltReasonT: HaltReasonTrait> From<InternalNestedTraceStepWithoutRefCell<Ha
 {
     fn from(step: InternalNestedTraceStepWithoutRefCell<HaltReasonT>) -> Self {
         match step {
-            InternalNestedTraceStepWithoutRefCell::Message(trace) => match trace {
+            InternalNestedTraceStepWithoutRefCell::Message(trace) => match *trace {
                 NestedTrace::Create(create_trace) => NestedTraceStep::Create(create_trace),
                 NestedTrace::Call(call_trace) => NestedTraceStep::Call(call_trace),
                 NestedTrace::Precompile(precompile_trace) => {

@@ -7,6 +7,7 @@
     "@nomicfoundation/hardhat-utils": "3.0.0-next.0"
   },
   "devDependencies": {
+    "@ethereumjs/util": "^9.1.0",
     "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
     "@types/argparse": "^2.0.16",

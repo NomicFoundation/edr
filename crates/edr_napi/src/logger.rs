@@ -10,29 +10,11 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::cast::TryCast;
-
-#[napi(object)]
-pub struct ContractAndFunctionName {
-    /// The contract name.
-    pub contract_name: String,
-    /// The function name. Only present for calls.
-    pub function_name: Option<String>,
-}
-
-impl TryCast<(String, Option<String>)> for ContractAndFunctionName {
-    type Error = napi::Error;
-
-    fn try_cast(self) -> std::result::Result<(String, Option<String>), Self::Error> {
-        Ok((self.contract_name, self.function_name))
-    }
-}
-
 #[napi(object)]
 pub struct LoggerConfig {
     /// Whether to enable the logger.
     pub enable: bool,
-    #[napi(ts_type = "(inputs: Buffer[]) => string[]")]
+    #[napi(ts_type = "(inputs: ArrayBuffer[]) => string[]")]
     pub decode_console_log_inputs_callback: JsFunction,
     #[napi(ts_type = "(message: string, replace: boolean) => void")]
     pub print_line_callback: JsFunction,
@@ -48,9 +30,11 @@ impl LoggerConfig {
                     let inputs = ctx.env.create_array_with_length(ctx.value.len()).and_then(
                         |mut inputs| {
                             for (idx, input) in ctx.value.into_iter().enumerate() {
-                                ctx.env.create_buffer_with_data(input.to_vec()).and_then(
-                                    |input| inputs.set_element(idx as u32, input.into_raw()),
-                                )?;
+                                ctx.env
+                                    .create_arraybuffer_with_data(input.to_vec())
+                                    .and_then(|input| {
+                                        inputs.set_element(idx as u32, input.into_raw())
+                                    })?;
                             }
 
                             Ok(inputs)
@@ -60,8 +44,8 @@ impl LoggerConfig {
                     Ok(vec![inputs])
                 })?;
 
-        // Maintain a weak reference to the function to avoid the event loop from
-        // exiting.
+        // Maintain a weak reference to the function to avoid blocking the event loop
+        // from exiting.
         decode_console_log_inputs_callback.unref(env)?;
 
         let decode_console_log_inputs_fn = Arc::new(move |console_log_inputs| {
@@ -96,13 +80,27 @@ impl LoggerConfig {
                 Ok(vec![message.into_unknown(), replace.into_unknown()])
             })?;
 
-        // Maintain a weak reference to the function to avoid the event loop from
-        // exiting.
+        // Maintain a weak reference to the function to avoid blocking the event loop
+        // from exiting.
         print_line_callback.unref(env)?;
 
         let print_line_fn = Arc::new(move |message, replace| {
-            let status =
-                print_line_callback.call((message, replace), ThreadsafeFunctionCallMode::Blocking);
+            let (sender, receiver) = channel();
+
+            let status = print_line_callback.call_with_return_value(
+                (message, replace),
+                ThreadsafeFunctionCallMode::Blocking,
+                move |()| {
+                    sender.send(()).map_err(|_error| {
+                        napi::Error::new(
+                            Status::GenericFailure,
+                            "Failed to send result from decode_console_log_inputs",
+                        )
+                    })
+                },
+            );
+
+            let () = receiver.recv().unwrap();
 
             if status == napi::Status::Ok {
                 Ok(())

@@ -70,7 +70,7 @@ impl<T: UIfmt> UIfmt for [T] {
 
 impl UIfmt for String {
     fn pretty(&self) -> String {
-        self.to_string()
+        self.clone()
     }
 }
 

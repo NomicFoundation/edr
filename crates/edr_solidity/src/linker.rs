@@ -147,7 +147,7 @@ impl<'a> Linker<'a> {
         if matching_artifacts.len() < 2 {
             // If there's only one matching artifact, return that. Return `None` if there
             // are no matching artifacts.
-            matching_artifacts.into_iter().last()
+            matching_artifacts.into_iter().next_back()
         } else {
             // If there's more than one, use the one that has the same version as the
             // contract being linked. If there isn't, use the latest one.
@@ -188,8 +188,8 @@ impl<'a> Linker<'a> {
                     .ok_or_else(|| LinkerError::MissingLibraryArtifact {
                         contract_file_path: target.source.to_string_lossy().to_string(),
                         contract_name: target.name.clone(),
-                        library_file_path: file_path.to_string(),
-                        library_name: contract.to_string(),
+                        library_file_path: file_path.clone(),
+                        library_name: contract.clone(),
                     })?;
                 if deps.insert(id) {
                     self.collect_dependencies(id, deps)?;

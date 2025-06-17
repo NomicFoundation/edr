@@ -42,8 +42,8 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> Callback<ChainSpecT> {
             },
         )?;
 
-        // Maintain a weak reference to the function to avoid the event loop from
-        // exiting.
+        // Maintain a weak reference to the function to avoid blocking the event loop
+        // from exiting.
         callback.unref(env)?;
 
         Ok(Self { inner: callback })

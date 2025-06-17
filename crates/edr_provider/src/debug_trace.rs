@@ -10,26 +10,23 @@ use edr_eth::{
     utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
 };
-use revm::Inspector;
-use revm_context_interface::JournalTr as JournalTrait;
-use revm_interpreter::{
-    interpreter::EthInterpreter,
-    interpreter_types::{InputsTr as _, Jumps, LoopControl as _},
-    CallInputs, CallOutcome, CreateInputs, CreateOutcome,
-};
-
-use crate::{
+use edr_evm::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
-    inspector::DualInspector,
-    interpreter::{Interpreter, InterpreterResult},
-    journal::{JournalEntry, JournalExt},
+    inspector::{DualInspector, Inspector},
+    interpreter::{
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, EthInterpreter,
+        InputsTr as _, Interpreter, InterpreterResult, Jumps as _, LoopControl as _,
+    },
+    journal::{JournalEntry, JournalExt, JournalTrait as _},
     runtime::{dry_run_with_inspector, run},
     spec::{ContextTrait, RuntimeSpec},
     state::SyncState,
     trace::{Trace, TraceCollector},
     transaction::TransactionError,
 };
+
+use crate::observability::{self, RuntimeObserver};
 
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -43,7 +40,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     block: ChainSpecT::BlockEnv,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
-    verbose_tracing: bool,
+    observability: observability::Config,
 ) -> Result<
     DebugTraceResultWithTraces<ChainSpecT::HaltReason>,
     DebugTraceErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
@@ -69,7 +66,7 @@ where
     for transaction in transactions {
         if transaction.transaction_hash() == transaction_hash {
             let mut eip3155_tracer = TracerEip3155::new(trace_config);
-            let mut raw_tracer = TraceCollector::new(verbose_tracing);
+            let mut runtime_observer = RuntimeObserver::new(observability);
 
             let ExecutionResultAndState { result, .. } =
                 dry_run_with_inspector::<_, ChainSpecT, _, _>(
@@ -79,12 +76,23 @@ where
                     transaction,
                     block,
                     &edr_eth::HashMap::new(),
-                    &mut DualInspector::new(&mut eip3155_tracer, &mut raw_tracer),
+                    &mut DualInspector::new(&mut eip3155_tracer, &mut runtime_observer),
                 )?;
+
+            let RuntimeObserver {
+                code_coverage,
+                console_logger: _console_logger,
+                mocker: _mocker,
+                trace_collector,
+            } = runtime_observer;
+
+            if let Some(code_coverage) = code_coverage {
+                code_coverage.report();
+            }
 
             return Ok(execution_result_to_debug_result(
                 result,
-                raw_tracer,
+                trace_collector,
                 eip3155_tracer,
             ));
         } else {
@@ -307,7 +315,7 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
     fn eofcreate_end(
         &mut self,
         _context: &mut ContextT,
-        _inputs: &revm_interpreter::EOFCreateInputs,
+        _inputs: &EOFCreateInputs,
         outcome: &mut CreateOutcome,
     ) {
         self.on_inner_frame_result(&outcome.result);

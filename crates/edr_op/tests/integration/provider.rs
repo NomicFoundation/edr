@@ -2,13 +2,12 @@
 
 use std::sync::Arc;
 
-use edr_eth::{address, bytes, Address, BlockSpec, U64};
+use edr_eth::{address, bytes, Address, BlockSpec, HashMap, U64};
 use edr_op::OpChainSpec;
 use edr_provider::{
-    hardhat_rpc_types::ForkConfig,
     test_utils::{create_test_config_with_fork, ProviderTestFixture},
     time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -25,9 +24,11 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: op::sepolia_url(),
         block_number: None,
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
+        url: op::sepolia_url(),
     }));
 
     // Set a different chain ID than the forked chain ID
@@ -43,8 +44,9 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     )?;
 
     let last_block_number = {
-        let response =
-            provider.handle_request(ProviderRequest::Single(MethodInvocation::BlockNumber(())))?;
+        let response = provider.handle_request(ProviderRequest::with_single(
+            MethodInvocation::BlockNumber(()),
+        ))?;
 
         serde_json::from_value::<U64>(response.result)?.to::<u64>()
     };
@@ -52,16 +54,17 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let data = bytes!(
         "de26c4a10000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002c02ea827a6981c4843b9aca00843b9c24e382520994f39fd6e51aad88f6f4ce6ab8827279cfffb922660180c00000000000000000000000000000000000000000"
     );
-    let _response = provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
-        CallRequest {
-            from: Some(address!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266")),
-            to: Some(GAS_PRICE_ORACLE_L1_BLOCK_ADDRESS),
-            data: Some(data),
-            ..CallRequest::default()
-        },
-        Some(BlockSpec::Number(last_block_number)),
-        None,
-    )))?;
+    let _response =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+            CallRequest {
+                from: Some(address!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266")),
+                to: Some(GAS_PRICE_ORACLE_L1_BLOCK_ADDRESS),
+                data: Some(data),
+                ..CallRequest::default()
+            },
+            Some(BlockSpec::Number(last_block_number)),
+            None,
+        )))?;
 
     Ok(())
 }

@@ -71,19 +71,25 @@ impl Provider {
         &self,
         env: Env,
         #[napi(
-            ts_arg_type = "(contract_address: Buffer, data: Buffer) => Promise<CallOverrideResult | undefined>"
+            ts_arg_type = "(contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>"
         )]
         call_override_callback: JsFunction,
     ) -> napi::Result<JsObject> {
+        let (deferred, promise) = env.create_deferred()?;
+
         let call_override_callback =
-            CallOverrideCallback::new(&env, call_override_callback, self.runtime.clone())?;
+            match CallOverrideCallback::new(&env, call_override_callback, self.runtime.clone()) {
+                Ok(callback) => callback,
+                Err(error) => {
+                    deferred.reject(error);
+                    return Ok(promise);
+                }
+            };
 
         let call_override_callback =
             Arc::new(move |address, data| call_override_callback.call_override(address, data));
 
         let provider = self.provider.clone();
-
-        let (deferred, promise) = env.create_deferred()?;
         self.runtime.spawn_blocking(move || {
             provider.set_call_override_callback(call_override_callback);
 

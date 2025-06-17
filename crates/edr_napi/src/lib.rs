@@ -18,10 +18,14 @@ pub mod config;
 /// Types related to an EDR N-API context.
 pub mod context;
 mod debug_trace;
+/// Types and functions related to code coverage instrumentation.
+pub mod instrument;
 /// Types for EVM execution logs.
 pub mod log;
 /// Types for an RPC request logger.
 pub mod logger;
+/// Types for precompiles.
+pub mod precompile;
 /// Types for Ethereum RPC providers.
 pub mod provider;
 /// Types for EVM execution results.

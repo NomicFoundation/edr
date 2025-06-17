@@ -1,6 +1,6 @@
 use edr_eth::{l1::L1ChainSpec, Address, Bytes, B256, U128, U160, U256};
 use edr_provider::{
-    hardhat_rpc_types::{ForkConfig, ResetProviderConfig},
+    hardhat_rpc_types::{ResetForkConfig, ResetProviderConfig},
     MethodInvocation,
 };
 use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
@@ -88,7 +88,7 @@ fn serde_hardhat_mine() {
 fn serde_hardhat_reset() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::Reset(Some(
         ResetProviderConfig {
-            forking: Some(ForkConfig {
+            forking: Some(ResetForkConfig {
                 json_rpc_url: String::from("http://whatever.com/whatever"),
                 block_number: Some(123456),
                 http_headers: None,

@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-anyhow = { version = "1.0.75", default-features = false }
+anyhow.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-json-abi.workspace = true
 alloy-primitives.workspace = true
@@ -16,11 +16,11 @@ foundry-compilers.workspace = true
 indexmap = { version = "2", features = ["serde"] }
 log = { version = "0.4.17", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false }
-serde = { version = "1.0.158", default-features = false, features = ["std"] }
-serde_json = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
 strum = { version = "0.26.0", features = ["derive"] }
-semver = "1.0.23"
-thiserror = "1.0.58"
+semver = { workspace = true, features = ["std"] }
+thiserror.workspace = true
 itertools = "0.10.5"
 
 [dev-dependencies]

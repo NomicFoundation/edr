@@ -9,10 +9,7 @@ use std::sync::Arc;
 
 use edr_eth::{bytecode::opcode::OpCode, l1};
 use edr_evm::trace::BeforeMessage;
-use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3},
-    Env, JsBuffer, JsBufferValue,
-};
+use napi::bindgen_prelude::{BigInt, Either3, Uint8Array};
 use napi_derive::napi;
 
 use crate::result::ExecutionResult;
@@ -29,11 +26,11 @@ pub mod solidity_stack_trace;
 pub struct TracingMessage {
     /// Sender address
     #[napi(readonly)]
-    pub caller: Buffer,
+    pub caller: Uint8Array,
 
     /// Recipient address. None if it is a Create message.
     #[napi(readonly)]
-    pub to: Option<Buffer>,
+    pub to: Option<Uint8Array>,
 
     /// Whether it's a static call
     #[napi(readonly)]
@@ -49,7 +46,7 @@ pub struct TracingMessage {
 
     /// Input data of the message
     #[napi(readonly)]
-    pub data: JsBuffer,
+    pub data: Uint8Array,
 
     /// Value sent in the message
     #[napi(readonly)]
@@ -58,41 +55,37 @@ pub struct TracingMessage {
     /// Address of the code that is being executed. Can be different from `to`
     /// if a delegate call is being done.
     #[napi(readonly)]
-    pub code_address: Option<Buffer>,
+    pub code_address: Option<Uint8Array>,
 
     /// Code of the contract that is being executed.
     #[napi(readonly)]
-    pub code: Option<JsBuffer>,
+    pub code: Option<Uint8Array>,
 }
 
-impl TracingMessage {
-    pub fn new(env: &Env, message: &BeforeMessage) -> napi::Result<Self> {
+impl From<&BeforeMessage> for TracingMessage {
+    fn from(value: &BeforeMessage) -> Self {
         // Deconstruct to make sure all fields are handled
         let BeforeMessage {
             depth,
             caller,
-            to: _,
+            to,
             is_static_call,
             gas_limit,
             data,
             value,
             code_address,
             code,
-        } = message;
+        } = value;
 
-        let data = env
-            .create_buffer_with_data(data.to_vec())
-            .map(JsBufferValue::into_raw)?;
+        let data = Uint8Array::with_data_copied(data);
 
-        let code = code.as_ref().map_or(Ok(None), |code| {
-            env.create_buffer_with_data(code.original_bytes().to_vec())
-                .map(JsBufferValue::into_raw)
-                .map(Some)
-        })?;
+        let code = code
+            .as_ref()
+            .map(|code| Uint8Array::with_data_copied(code.original_bytes()));
 
-        Ok(TracingMessage {
-            caller: Buffer::from(caller.as_slice()),
-            to: message.to.map(|to| Buffer::from(to.as_slice())),
+        TracingMessage {
+            caller: Uint8Array::with_data_copied(caller),
+            to: to.as_ref().map(Uint8Array::with_data_copied),
             gas_limit: BigInt::from(*gas_limit),
             is_static_call: *is_static_call,
             depth: *depth as u8,
@@ -101,9 +94,9 @@ impl TracingMessage {
                 sign_bit: false,
                 words: value.into_limbs().to_vec(),
             },
-            code_address: code_address.map(|address| Buffer::from(address.to_vec())),
+            code_address: code_address.as_ref().map(Uint8Array::with_data_copied),
             code,
-        })
+        }
     }
 }
 
@@ -125,7 +118,7 @@ pub struct TracingStep {
     pub stack: Vec<BigInt>,
     /// The memory at the step. None if verbose tracing is disabled.
     #[napi(readonly)]
-    pub memory: Option<Buffer>,
+    pub memory: Option<Uint8Array>,
 }
 
 impl TracingStep {
@@ -139,7 +132,7 @@ impl TracingStep {
             },
             |stack| stack.iter().map(u256_to_bigint).collect(),
         );
-        let memory = step.memory.as_ref().cloned().map(Buffer::from);
+        let memory = step.memory.as_ref().map(Uint8Array::with_data_copied);
 
         Self {
             depth: step.depth as u8,
@@ -179,23 +172,21 @@ impl From<Arc<edr_evm::trace::Trace<l1::HaltReason>>> for RawTrace {
 
 #[napi]
 impl RawTrace {
-    #[napi]
-    pub fn trace(
-        &self,
-        env: Env,
-    ) -> napi::Result<Vec<Either3<TracingMessage, TracingStep, TracingMessageResult>>> {
+    #[napi(getter)]
+    pub fn trace(&self) -> Vec<Either3<TracingMessage, TracingStep, TracingMessageResult>> {
         self.inner
             .messages
             .iter()
             .map(|message| match message {
                 edr_evm::trace::TraceMessage::Before(message) => {
-                    TracingMessage::new(&env, message).map(Either3::A)
+                    Either3::A(TracingMessage::from(message))
                 }
-                edr_evm::trace::TraceMessage::Step(step) => Ok(Either3::B(TracingStep::new(step))),
-                edr_evm::trace::TraceMessage::After(message) => ExecutionResult::new(&env, message)
-                    .map(|execution_result| Either3::C(TracingMessageResult { execution_result })),
+                edr_evm::trace::TraceMessage::Step(step) => Either3::B(TracingStep::new(step)),
+                edr_evm::trace::TraceMessage::After(message) => Either3::C(TracingMessageResult {
+                    execution_result: ExecutionResult::from(message),
+                }),
             })
-            .collect::<napi::Result<_>>()
+            .collect()
     }
 }
 

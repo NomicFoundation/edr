@@ -16,7 +16,6 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{BlockchainError, ForkedCreationError, LocalCreationError},
-    debug_trace::DebugTraceError,
     spec::RuntimeSpec,
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
@@ -27,7 +26,10 @@ use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;
 
-use crate::{config::IntervalConfigConversionError, time::TimeSinceEpoch, ProviderSpec};
+use crate::{
+    config::IntervalConfigConversionError, debug_trace::DebugTraceError, time::TimeSinceEpoch,
+    ProviderSpec,
+};
 
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
@@ -152,7 +154,7 @@ pub enum ProviderError<
     Eip7702TransactionWithoutAuthorizations,
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
-    EstimateGasTransactionFailure(#[from] EstimateGasFailure<HaltReasonT>),
+    EstimateGasTransactionFailure(#[from] Box<EstimateGasFailure<HaltReasonT>>),
     #[error("{0}")]
     InvalidArgument(String),
     /// Block number or hash doesn't exist in blockchain
@@ -301,7 +303,7 @@ pub enum ProviderError<
     /// `eth_sendTransaction` failed and
     /// [`crate::config::Provider::bail_on_call_failure`] was enabled
     #[error(transparent)]
-    TransactionFailed(#[from] TransactionFailureWithTraces<HaltReasonT>),
+    TransactionFailed(Box<TransactionFailureWithTraces<HaltReasonT>>),
     /// Failed to convert an integer type
     #[error("Could not convert the integer argument, due to: {0}")]
     TryFromIntError(#[from] TryFromIntError),
@@ -361,6 +363,33 @@ pub enum ProviderError<
     },
     #[error("{method_name} - Method not supported")]
     UnsupportedMethod { method_name: String },
+}
+
+impl<
+        BlockConversionErrorT,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Debug,
+        ReceiptConversionErrorT,
+        TransactionValidationErrorT,
+    >
+    ProviderError<
+        BlockConversionErrorT,
+        HaltReasonT,
+        HardforkT,
+        ReceiptConversionErrorT,
+        TransactionValidationErrorT,
+    >
+{
+    /// Returns the transaction failure if the error contains one.
+    pub fn as_transaction_failure(&self) -> Option<&TransactionFailureWithTraces<HaltReasonT>> {
+        match self {
+            ProviderError::EstimateGasTransactionFailure(transaction_failure) => {
+                Some(&transaction_failure.transaction_failure)
+            }
+            ProviderError::TransactionFailed(transaction_failure) => Some(transaction_failure),
+            _ => None,
+        }
+    }
 }
 
 impl<
@@ -461,17 +490,9 @@ impl<
             ProviderError::UnsupportedTransactionTypeForDebugTrace { .. } => INVALID_INPUT,
         };
 
-        let data = match &value {
-            ProviderError::EstimateGasTransactionFailure(EstimateGasFailure {
-                transaction_failure,
-                ..
-            })
-            | ProviderError::TransactionFailed(transaction_failure) => Some(
-                serde_json::to_value(&transaction_failure.failure)
-                    .expect("transaction_failure to json"),
-            ),
-            _ => None,
-        };
+        let data = value.as_transaction_failure().map(|transaction_failure| {
+            serde_json::to_value(&transaction_failure.failure).expect("transaction_failure to json")
+        });
 
         let message = value.to_string();
 
