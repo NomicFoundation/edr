@@ -15,11 +15,82 @@ use edr_provider::{time::CurrentTime, Logger, ProviderErrorForChainSpec, Provide
 use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
 use edr_solidity::contract_decoder::ContractDecoder;
-use flate2::bufread::GzDecoder;
+use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
 use indicatif::ProgressBar;
-use tokio::{runtime, task};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt as _},
+    runtime, task,
+};
 #[cfg(feature = "tracing")]
 use tracing_subscriber::{prelude::*, Registry};
+
+fn convert_gzipped_json(path: PathBuf) -> anyhow::Result<()> {
+    use std::{
+        fs::File,
+        io::{BufRead as _, BufReader, Write as _},
+    };
+
+    let reader = BufReader::new(File::open(path.clone())?);
+    let decoder = BufReader::new(GzDecoder::new(reader));
+    let mut lines = decoder.lines();
+
+    let first_line = lines
+        .next()
+        .context("Scenario file is empty")?
+        .context("Invalid gzip")?;
+    let config: edr_scenarios::old::ScenarioConfig = serde_json::from_str(&first_line)?;
+
+    // Convert
+    let new_config = ScenarioConfig::from(config);
+
+    // Overwrite first line, keep the rest of the file
+    let mut new_lines = vec![serde_json::to_string(&new_config)?];
+    for gzipped_line in lines {
+        new_lines.push(gzipped_line.context("Invalid gzip")?);
+    }
+
+    // Write to file
+    let file = File::create(path)?;
+    let mut encoder = GzEncoder::new(file, Compression::default());
+
+    encoder.write_all(new_lines.join("\n").as_bytes())?;
+
+    Ok(())
+}
+
+async fn convert_json(path: PathBuf) -> anyhow::Result<()> {
+    let reader = tokio::io::BufReader::new(tokio::fs::File::open(path.clone()).await?);
+
+    let mut lines = reader.lines();
+
+    let first_line = lines.next_line().await?.context("Scenario file is empty")?;
+    let config: edr_scenarios::old::ScenarioConfig = serde_json::from_str(&first_line)?;
+
+    // Convert
+    let new_config = ScenarioConfig::from(config);
+
+    // Overwrite first line, keep the rest of the file
+    let mut new_lines = vec![serde_json::to_string(&new_config)?];
+    while let Some(line) = lines.next_line().await? {
+        new_lines.push(line);
+    }
+
+    // Write to file
+    let mut file = tokio::fs::File::create(path).await?;
+    file.write_all(new_lines.join("\n").as_bytes()).await?;
+
+    Ok(())
+}
+
+pub async fn convert(path: PathBuf) -> anyhow::Result<()> {
+    match convert_gzipped_json(path.clone()) {
+        Ok(lines) => lines,
+        Err(err) if err.to_string().contains("gzip") => convert_json(path.clone()).await?,
+        err => err?,
+    };
+
+    Ok(())
+}
 
 pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::Result<()> {
     let (config, requests) = load_requests(scenario_path).await?;

@@ -2,9 +2,11 @@
 members = [
     # EDR
     "crates/edr_common",
+    "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
     "crates/edr_evm",
+    "crates/edr_instrument",
     "crates/edr_macros",
     "crates/edr_napi",
     "crates/edr_op",
@@ -168,6 +170,7 @@ alloy-rlp = "0.3.3"
 alloy-trie = "0.7.0"
 
 ## misc
+anyhow = { version = "1.0.89", default-features = false }
 arrayvec = "0.7"
 dunce = "1"
 base64 = "0.22"
@@ -184,14 +187,18 @@ itertools = "0.12"
 jsonpath_lib = "0.3"
 k256 = "0.13"
 paste = { version = "1.0.14", default-features = false }
+semver = { version = "1.0.26", default-features = false }
+sha2 = { version = "0.10.8", default-features = false }
+sha3 = { version = "0.10.8", default-features = false }
 similar-asserts = "1.5"
 rand = "0.8"
 rustc-hash = "1.1"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "std"] }
 # Arbitrary precision is needed by the `parseJson` cheatcode and preserve order is needed by `edr_solidity`.
 # The features are listed here instead of in the Cargo.toml of those packages to avoid surprises from feature unification.
-serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order"] }
+serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order", "std"] }
 strum = "0.26"
+thiserror = { version = "1.0.58", default-features = false }
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = "0.3"

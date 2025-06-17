@@ -1,3 +1,5 @@
+#![cfg(feature = "test-utils")]
+
 mod deploy_contract;
 mod send_data_to_eoa;
 
@@ -8,8 +10,7 @@ use edr_eth::{
     B256, U64,
 };
 use edr_provider::{
-    config::OwnedAccount,
-    test_utils::{create_test_config, one_ether},
+    test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
@@ -33,7 +34,7 @@ fn assert_transaction_gas_usage(
 
 fn estimate_gas(provider: &Provider<L1ChainSpec>, request: CallRequest) -> u64 {
     let response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::EstimateGas(
+        .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
             request, None,
         )))
         .expect("eth_estimateGas should succeed");
@@ -45,7 +46,7 @@ fn estimate_gas(provider: &Provider<L1ChainSpec>, request: CallRequest) -> u64 {
 
 fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
     let response = provider
-        .handle_request(ProviderRequest::Single(
+        .handle_request(ProviderRequest::with_single(
             MethodInvocation::GetTransactionReceipt(transaction_hash),
         ))
         .expect("eth_getTransactionReceipt should succeed");
@@ -65,10 +66,7 @@ fn new_provider(hardfork: l1::SpecId) -> anyhow::Result<Provider<L1ChainSpec>> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config();
-    config.accounts = vec![OwnedAccount {
-        secret_key,
-        balance: one_ether(),
-    }];
+    set_genesis_state_with_owned_accounts(&mut config, vec![secret_key], one_ether());
     config.chain_id = CHAIN_ID;
     config.hardfork = hardfork;
 
@@ -89,9 +87,9 @@ fn send_transaction(
     request: TransactionRequest,
 ) -> anyhow::Result<B256> {
     let response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            request,
-        )))
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(request),
+        ))
         .expect("eth_sendTransaction should succeed");
 
     let transaction_hash: B256 = serde_json::from_value(response.result)?;

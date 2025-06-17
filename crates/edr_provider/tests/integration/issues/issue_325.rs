@@ -1,14 +1,13 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    account::AccountInfo,
     l1::{self, L1ChainSpec},
-    Address, PreEip1898BlockSpec, B256, KECCAK_EMPTY,
+    Address, PreEip1898BlockSpec, B256,
 };
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
-    MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
+    AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -29,13 +28,10 @@ async fn issue_325() -> anyhow::Result<()> {
     let impersonated_account = Address::random();
     config.genesis_state.insert(
         impersonated_account,
-        AccountInfo {
-            balance: one_ether(),
-            nonce: 0,
-            code: None,
-            code_hash: KECCAK_EMPTY,
-        }
-        .into(),
+        AccountOverride {
+            balance: Some(one_ether()),
+            ..AccountOverride::default()
+        },
     );
 
     let provider = Provider::new(
@@ -47,11 +43,11 @@ async fn issue_325() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    provider.handle_request(ProviderRequest::Single(
+    provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::ImpersonateAccount(impersonated_account.into()),
     ))?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendTransaction(TransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
@@ -61,7 +57,7 @@ async fn issue_325() -> anyhow::Result<()> {
 
     let transaction_hash: B256 = serde_json::from_value(result.result)?;
 
-    let result = provider.handle_request(ProviderRequest::Single(
+    let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DropTransaction(transaction_hash),
     ))?;
 
@@ -69,10 +65,9 @@ async fn issue_325() -> anyhow::Result<()> {
 
     assert!(dropped);
 
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::GetBlockByNumber(
-        PreEip1898BlockSpec::pending(),
-        false,
-    )))?;
+    provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::pending(), false),
+    ))?;
 
     Ok(())
 }

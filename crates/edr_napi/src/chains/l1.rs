@@ -15,7 +15,7 @@ use edr_solidity::contract_decoder::ContractDecoder;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
-use crate::{account::Account, provider::ProviderFactory};
+use crate::{account::AccountOverride, provider::ProviderFactory};
 
 pub struct L1ProviderFactory;
 
@@ -49,22 +49,24 @@ impl SyncProviderFactory for L1ProviderFactory {
 pub const L1_CHAIN_TYPE: &str = L1ChainSpec::CHAIN_TYPE;
 
 #[napi]
-pub fn l1_genesis_state(hardfork: SpecId) -> Vec<Account> {
+pub fn l1_genesis_state(hardfork: SpecId) -> Vec<AccountOverride> {
     // Use closures for lazy execution
-    let beacon_roots_account_constructor = || Account {
-        address: Uint8Array::from(BEACON_ROOTS_ADDRESS.as_slice()),
-        balance: BigInt::from(0u64),
-        nonce: BigInt::from(0u64),
-        code: Some(Uint8Array::from(BEACON_ROOTS_BYTECODE)),
-        storage: Vec::new(),
+    let beacon_roots_account_constructor = || AccountOverride {
+        address: Uint8Array::with_data_copied(BEACON_ROOTS_ADDRESS),
+        balance: Some(BigInt::from(0u64)),
+        nonce: Some(BigInt::from(0u64)),
+        code: Some(Uint8Array::with_data_copied(&BEACON_ROOTS_BYTECODE)),
+        storage: Some(Vec::new()),
     };
 
-    let history_storage_account_constructor = || Account {
-        address: Uint8Array::from(HISTORY_STORAGE_ADDRESS.as_slice()),
-        balance: BigInt::from(0u64),
-        nonce: BigInt::from(0u64),
-        code: Some(Uint8Array::from(HISTORY_STORAGE_UNSUPPORTED_BYTECODE)),
-        storage: Vec::new(),
+    let history_storage_account_constructor = || AccountOverride {
+        address: Uint8Array::with_data_copied(HISTORY_STORAGE_ADDRESS),
+        balance: Some(BigInt::from(0u64)),
+        nonce: Some(BigInt::from(0u64)),
+        code: Some(Uint8Array::with_data_copied(
+            &HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
+        )),
+        storage: Some(Vec::new()),
     };
 
     if hardfork < SpecId::Cancun {

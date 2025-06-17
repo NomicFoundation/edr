@@ -5,11 +5,7 @@ use edr_eth::{
     signature::public_key_to_address,
     Address, Bytes, U256,
 };
-use edr_provider::{
-    config::OwnedAccount,
-    test_utils::{create_test_config, one_ether},
-    MethodInvocation, Provider, ProviderRequest,
-};
+use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
@@ -20,14 +16,10 @@ static EXPECTED_CODE2: Bytes = bytes!("ef010011112222333344445555666677778888999
 
 fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<L1ChainSpec>> {
     let mut config = create_test_config();
-    config.accounts = vec![OwnedAccount {
-        secret_key: sender_secret_key,
-        balance: one_ether(),
-    }];
     config.chain_id = CHAIN_ID;
     config.hardfork = l1::SpecId::PRAGUE;
 
-    super::new_provider(config)
+    super::new_provider(config, vec![sender_secret_key])
 }
 
 fn signed_authorization(
@@ -71,7 +63,7 @@ async fn call() -> anyhow::Result<()> {
     let provider = new_provider(secret_key3)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::Call(
+        .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
             call_request,
             None,
             None,
@@ -97,7 +89,7 @@ async fn send_raw_transaction() -> anyhow::Result<()> {
 
     let provider = new_provider(secret_key3)?;
     let _response = provider
-        .handle_request(ProviderRequest::Single(
+        .handle_request(ProviderRequest::with_single(
             MethodInvocation::SendRawTransaction(RAW_TRANSACTION.clone()),
         ))
         .expect("eth_sendRawTransaction should succeed");
@@ -140,9 +132,9 @@ async fn send_transaction() -> anyhow::Result<()> {
     let provider = new_provider(secret_key3)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::SendTransaction(
-            transaction_request,
-        )))
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::SendTransaction(transaction_request),
+        ))
         .expect("eth_sendTransaction should succeed");
 
     assert_code_at(&provider, authorized_address1, &EXPECTED_CODE1);
@@ -178,11 +170,9 @@ async fn trace_call() -> anyhow::Result<()> {
     let provider = new_provider(secret_key3)?;
 
     let _response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::DebugTraceCall(
-            call_request,
-            None,
-            None,
-        )))
+        .handle_request(ProviderRequest::with_single(
+            MethodInvocation::DebugTraceCall(call_request, None, None),
+        ))
         .expect("debug_traceCall should succeed");
 
     Ok(())

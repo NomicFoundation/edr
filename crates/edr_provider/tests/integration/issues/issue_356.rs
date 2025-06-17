@@ -3,11 +3,11 @@ use std::{str::FromStr, sync::Arc};
 use anyhow::Context;
 use edr_eth::{
     l1::{self, L1ChainSpec},
-    Address, Bytes,
+    Address, Bytes, HashMap,
 };
 use edr_provider::{
-    hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
+    NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -29,10 +29,12 @@ async fn issue_356() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url().replace("mainnet", "sepolia"),
         // Pre-cancun Sepolia block
         block_number: Some(4243456),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
+        url: get_alchemy_url().replace("mainnet", "sepolia"),
     }));
     config.hardfork = l1::SpecId::CANCUN;
 
@@ -51,15 +53,16 @@ async fn issue_356() -> anyhow::Result<()> {
             .as_slice()[..4],
     );
 
-    let response = provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
-        CallRequest {
-            to: Some(contract_address),
-            data: Some(selector),
-            ..CallRequest::default()
-        },
-        None,
-        None,
-    )))?;
+    let response =
+        provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+            CallRequest {
+                to: Some(contract_address),
+                data: Some(selector),
+                ..CallRequest::default()
+            },
+            None,
+            None,
+        )))?;
 
     assert_eq!(
         response.result,

@@ -8,7 +8,7 @@ use edr_rpc_eth::StateOverrideOptions;
 
 use crate::{
     data::ProviderData,
-    error::ProviderErrorForChainSpec,
+    error::{ProviderErrorForChainSpec, TransactionFailureWithTraces},
     spec::{CallContext, FromRpcType, MaybeSender as _, SyncProviderSpec},
     time::TimeSinceEpoch,
     ProviderError, TransactionFailure,
@@ -50,12 +50,12 @@ pub fn handle_call_request<
             None,
             &result.trace,
         ) {
-            return Err(ProviderError::TransactionFailed(
-                crate::error::TransactionFailureWithTraces {
+            return Err(ProviderError::TransactionFailed(Box::new(
+                TransactionFailureWithTraces {
                     failure,
                     traces: vec![result.trace],
                 },
-            ));
+            )));
         }
     }
 

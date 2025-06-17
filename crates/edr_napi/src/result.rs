@@ -1,7 +1,7 @@
 use edr_evm::trace::AfterMessage;
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3},
-    Either, Env, JsBuffer, JsBufferValue,
+    bindgen_prelude::{BigInt, Either3, Uint8Array},
+    Either,
 };
 use napi_derive::napi;
 
@@ -44,15 +44,15 @@ impl From<SuccessReason> for edr_eth::result::SuccessReason {
 #[napi(object)]
 pub struct CallOutput {
     /// Return value
-    pub return_value: JsBuffer,
+    pub return_value: Uint8Array,
 }
 
 #[napi(object)]
 pub struct CreateOutput {
     /// Return value
-    pub return_value: JsBuffer,
+    pub return_value: Uint8Array,
     /// Optionally, a 160-bit address
-    pub address: Option<Buffer>,
+    pub address: Option<Uint8Array>,
 }
 
 /// The result when the EVM terminates successfully.
@@ -76,7 +76,7 @@ pub struct RevertResult {
     /// The amount of gas used
     pub gas_used: BigInt,
     /// The transaction output
-    pub output: JsBuffer,
+    pub output: Uint8Array,
 }
 
 /// Indicates that the EVM has experienced an exceptional halt. This causes
@@ -191,15 +191,15 @@ pub struct ExecutionResult {
     /// The transaction result
     pub result: Either3<SuccessResult, RevertResult, HaltResult>,
     /// Optional contract address if the transaction created a new contract.
-    pub contract_address: Option<Buffer>,
+    pub contract_address: Option<Uint8Array>,
 }
 
-impl ExecutionResult {
-    pub fn new(env: &Env, message: &AfterMessage<edr_eth::l1::HaltReason>) -> napi::Result<Self> {
+impl From<&AfterMessage<edr_eth::l1::HaltReason>> for ExecutionResult {
+    fn from(value: &AfterMessage<edr_eth::l1::HaltReason>) -> Self {
         let AfterMessage {
             execution_result,
             contract_address,
-        } = message;
+        } = value;
 
         let result = match execution_result {
             edr_eth::result::ExecutionResult::Success {
@@ -209,10 +209,7 @@ impl ExecutionResult {
                 logs,
                 output,
             } => {
-                let logs = logs
-                    .iter()
-                    .map(|log| ExecutionLog::new(env, log))
-                    .collect::<napi::Result<_>>()?;
+                let logs = logs.iter().map(ExecutionLog::from).collect();
 
                 Either3::A(SuccessResult {
                     reason: SuccessReason::from(*reason),
@@ -221,29 +218,23 @@ impl ExecutionResult {
                     logs,
                     output: match output {
                         edr_eth::result::Output::Call(return_value) => {
-                            let return_value = env
-                                .create_buffer_with_data(return_value.to_vec())
-                                .map(JsBufferValue::into_raw)?;
+                            let return_value = Uint8Array::with_data_copied(return_value);
 
                             Either::A(CallOutput { return_value })
                         }
                         edr_eth::result::Output::Create(return_value, address) => {
-                            let return_value = env
-                                .create_buffer_with_data(return_value.to_vec())
-                                .map(JsBufferValue::into_raw)?;
+                            let return_value = Uint8Array::with_data_copied(return_value);
 
                             Either::B(CreateOutput {
                                 return_value,
-                                address: address.map(|address| Buffer::from(address.as_slice())),
+                                address: address.as_ref().map(Uint8Array::with_data_copied),
                             })
                         }
                     },
                 })
             }
             edr_eth::result::ExecutionResult::Revert { gas_used, output } => {
-                let output = env
-                    .create_buffer_with_data(output.to_vec())
-                    .map(JsBufferValue::into_raw)?;
+                let output = Uint8Array::with_data_copied(output);
 
                 Either3::B(RevertResult {
                     gas_used: BigInt::from(*gas_used),
@@ -256,11 +247,11 @@ impl ExecutionResult {
             }),
         };
 
-        let contract_address = contract_address.map(|address| Buffer::from(address.as_slice()));
+        let contract_address = contract_address.as_ref().map(Uint8Array::with_data_copied);
 
-        Ok(Self {
+        Self {
             result,
             contract_address,
-        })
+        }
     }
 }

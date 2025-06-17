@@ -1,14 +1,18 @@
 /// Types for configuring the provider.
 pub mod config;
 mod console_log;
+/// Types for code coverage.
+pub mod coverage;
 mod data;
 mod debug_mine;
+mod debug_trace;
 mod error;
 mod filter;
 mod interval;
 mod logger;
 mod mock;
-mod observability;
+/// Types for runtime observability.
+pub mod observability;
 mod pending;
 mod provider;
 /// Type for RPC requests.
@@ -36,7 +40,7 @@ use lazy_static::lazy_static;
 
 pub use self::{
     config::{
-        Account as AccountConfig, Interval as IntervalConfig, MemPool as MemPoolConfig,
+        AccountOverride, Fork as ForkConfig, Interval as IntervalConfig, MemPool as MemPoolConfig,
         Mining as MiningConfig, Provider as ProviderConfig,
     },
     data::{CallResult, ProviderData},

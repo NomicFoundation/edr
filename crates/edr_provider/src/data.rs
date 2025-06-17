@@ -1,4 +1,3 @@
-mod account;
 mod call;
 mod gas;
 
@@ -13,7 +12,7 @@ use std::{
 
 use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
-    account::{Account, AccountInfo},
+    account::{Account, AccountInfo, AccountStatus},
     block::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         BlockOptions,
@@ -45,10 +44,6 @@ use edr_evm::{
         ForkedCreationError, GenesisBlockOptions, LocalBlockchain, SyncBlockchain,
     },
     config::CfgEnv,
-    debug_trace::{
-        debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
-        DebugTraceResultWithTraces, TracerEip3155,
-    },
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
@@ -56,7 +51,7 @@ use edr_evm::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
         StateOverrides, StateRefOverrider, SyncState,
     },
-    trace::{Trace, TraceCollector},
+    trace::Trace,
     transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, MemPool,
     MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
@@ -66,15 +61,17 @@ use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
 use lru::LruCache;
-use revm_precompile::{secp256r1, PrecompileFn};
 use rpds::HashTrieMapSync;
 use tokio::runtime;
 
-use self::account::{create_accounts, InitialAccounts};
 use crate::{
     data::gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
     debug_mine::{
         DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
+    },
+    debug_trace::{
+        debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
+        DebugTraceResultWithTraces, TracerEip3155,
     },
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
@@ -82,10 +79,10 @@ use crate::{
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
-    mock::{Mocker, SyncCallOverride},
-    observability::RuntimeObserver,
+    mock::SyncCallOverride,
+    observability::{self, RuntimeObserver},
     pending::BlockchainWithPending,
-    requests::hardhat::rpc_types::{ForkConfig, ForkMetadata},
+    requests::hardhat::rpc_types::{ForkMetadata, ResetForkConfig},
     snapshot::Snapshot,
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
@@ -187,8 +184,8 @@ pub struct ProviderData<
         Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
+    observability: observability::Config,
     beneficiary: Address,
-    custom_precompiles: HashMap<Address, PrecompileFn>,
     min_gas_price: u128,
     parent_beacon_block_root_generator: RandomHashGenerator,
     prev_randao_generator: RandomHashGenerator,
@@ -205,7 +202,6 @@ pub struct ProviderData<
     snapshots: BTreeMap<u64, Snapshot<ChainSpecT::SignedTransaction>>,
     allow_blocks_with_same_timestamp: bool,
     allow_unlimited_contract_size: bool,
-    verbose_tracing: bool,
     // Skip unsupported transaction types in `debugTraceTransaction` instead of throwing an error
     skip_unsupported_transaction_types: bool,
     // IndexMap to preserve account order for logging.
@@ -217,7 +213,6 @@ pub struct ProviderData<
     impersonated_accounts: HashSet<Address>,
     subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
     timer: TimerT,
-    call_override: Option<Arc<dyn SyncCallOverride>>,
     // We need the Arc to let us avoid returning references to the cache entries which need &mut
     // self to get.
     block_state_cache: LruCache<StateId, Arc<Box<dyn SyncState<StateError>>>>,
@@ -358,7 +353,7 @@ where
     }
 
     pub fn set_call_override_callback(&mut self, call_override: Option<Arc<dyn SyncCallOverride>>) {
-        self.call_override = call_override;
+        self.observability.call_override = call_override;
     }
 
     /// Sets the coinbase.
@@ -367,7 +362,7 @@ where
     }
 
     pub fn set_verbose_tracing(&mut self, verbose_tracing: bool) {
-        self.verbose_tracing = verbose_tracing;
+        self.observability.verbose_raw_tracing = verbose_tracing;
     }
 
     pub fn stop_impersonating_account(&mut self, address: Address) -> bool {
@@ -585,16 +580,10 @@ where
             dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
         >,
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
-        call_override: Option<Arc<dyn SyncCallOverride>>,
         config: ProviderConfig<ChainSpecT::Hardfork>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
-        let InitialAccounts {
-            local_accounts,
-            genesis_state,
-        } = create_accounts(&config);
-
         let BlockchainAndState {
             blockchain,
             fork_metadata,
@@ -604,7 +593,7 @@ where
             prev_randao_generator,
             block_time_offset_seconds,
             next_block_base_fee_per_gas,
-        } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer, genesis_state)?;
+        } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer)?;
 
         let max_cached_states = get_max_cached_states_from_env::<ChainSpecT>()?;
         let mut block_state_cache = LruCache::new(max_cached_states);
@@ -621,6 +610,18 @@ where
         let is_auto_mining = config.mining.auto_mine;
         let min_gas_price = config.min_gas_price;
 
+        let local_accounts = config
+            .owned_accounts
+            .iter()
+            .map(|secret_key| {
+                let address = edr_eth::signature::public_key_to_address(secret_key.public_key());
+
+                (address, secret_key.clone())
+            })
+            .collect();
+
+        let observability = config.observability.clone();
+
         let skip_unsupported_transaction_types = get_skip_unsupported_transaction_types_from_env();
 
         let parent_beacon_block_root_generator = if let Some(initial_parent_beacon_block_root) =
@@ -631,25 +632,14 @@ where
             RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
         };
 
-        let custom_precompiles = {
-            let mut precompiles = HashMap::new();
-
-            if config.enable_rip_7212 {
-                // EIP-7212: secp256r1 P256verify
-                precompiles.insert(secp256r1::P256VERIFY.0, secp256r1::P256VERIFY.1);
-            }
-
-            precompiles
-        };
-
         Ok(Self {
             runtime_handle,
             initial_config: config,
             blockchain,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit),
+            observability,
             beneficiary,
-            custom_precompiles,
             min_gas_price,
             parent_beacon_block_root_generator,
             prev_randao_generator,
@@ -665,7 +655,6 @@ where
             snapshots: BTreeMap::new(),
             allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size,
-            verbose_tracing: false,
             skip_unsupported_transaction_types,
             local_accounts,
             filters: HashMap::default(),
@@ -674,7 +663,6 @@ where
             impersonated_accounts: HashSet::new(),
             subscriber_callback,
             timer,
-            call_override,
             block_state_cache,
             current_state_id,
             block_number_to_state_id,
@@ -847,19 +835,25 @@ where
     }
 
     /// Resets the provider to its initial state, with a modified
-    /// [`ForkConfig`].
+    /// [`ResetForkConfig`].
     pub fn reset(
         &mut self,
-        fork_config: Option<ForkConfig>,
+        fork_config: Option<ResetForkConfig>,
     ) -> Result<(), CreationErrorForChainSpec<ChainSpecT>> {
         let mut config = self.initial_config.clone();
-        config.fork = fork_config;
+        config.fork = fork_config.map(|fork_config| {
+            let (cache_dir, chain_overrides) = config
+                .fork
+                .map(|fork_config| (fork_config.cache_dir, fork_config.chain_overrides))
+                .unzip();
+
+            fork_config.resolve(cache_dir, chain_overrides.unwrap_or_default())
+        });
 
         let mut reset_instance = Self::new(
             self.runtime_handle.clone(),
             self.logger.clone(),
             self.subscriber_callback.clone(),
-            self.call_override.clone(),
             config,
             // `hardhat_reset` doesn't discard contract metadata added with
             // `hardhat_addCompilationResult`
@@ -1415,18 +1409,20 @@ where
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut debugger = RuntimeObserver::with_mocker(
-            Mocker::new(self.call_override.clone()),
-            self.verbose_tracing,
-        );
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
-        let result = mine_fn(self, &evm_config, options, &mut debugger)?;
+        let result = mine_fn(self, &evm_config, options, &mut runtime_observer)?;
 
         let RuntimeObserver {
+            code_coverage,
             console_logger,
+            mocker: _mocker,
             trace_collector,
-            ..
-        } = debugger;
+        } = runtime_observer;
+
+        if let Some(code_coverage) = code_coverage {
+            code_coverage.report();
+        }
 
         let traces = trace_collector.into_traces();
 
@@ -1735,12 +1731,16 @@ where
     > {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
+        let mut runtime_observer = RuntimeObserver::new(observability::Config {
+            call_override: None,
+            ..self.observability.clone()
+        });
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
-        let mut raw_tracer = TraceCollector::new(self.verbose_tracing);
-        let custom_precompiles = self.custom_precompiles.clone();
+
+        let custom_precompiles = self.initial_config.precompile_overrides.clone();
 
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
-            let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut raw_tracer);
+            let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut runtime_observer);
 
             let result = call::run_call::<_, ChainSpecT, _, _>(
                 blockchain,
@@ -1752,7 +1752,19 @@ where
                 &mut inspector,
             )?;
 
-            let debug_result = execution_result_to_debug_result(result, raw_tracer, eip3155_tracer);
+            let RuntimeObserver {
+                code_coverage,
+                console_logger: _console_logger,
+                mocker: _mocker,
+                trace_collector,
+            } = runtime_observer;
+
+            if let Some(code_coverage) = code_coverage {
+                code_coverage.report();
+            }
+
+            let debug_result =
+                execution_result_to_debug_result(result, trace_collector, eip3155_tracer);
 
             Ok(debug_result)
         })?
@@ -2143,11 +2155,8 @@ where
     ) -> Result<CallResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let custom_precompiles = self.custom_precompiles.clone();
-        let mut observer = RuntimeObserver::with_mocker(
-            Mocker::new(self.call_override.clone()),
-            self.verbose_tracing,
-        );
+        let custom_precompiles = self.initial_config.precompile_overrides.clone();
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
@@ -2159,14 +2168,19 @@ where
                 cfg_env,
                 transaction,
                 &custom_precompiles,
-                &mut observer,
+                &mut runtime_observer,
             )?;
 
             let RuntimeObserver {
+                code_coverage,
                 console_logger,
+                mocker: _mocker,
                 trace_collector,
-                ..
-            } = observer;
+            } = runtime_observer;
+
+            if let Some(code_coverage) = code_coverage {
+                code_coverage.report();
+            }
 
             let mut traces = trace_collector.into_traces();
             // Should only have a single raw trace
@@ -2221,7 +2235,7 @@ where
         &mut self,
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
-        observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
+        runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2238,7 +2252,7 @@ where
             self.min_gas_price,
             self.initial_config.mining.mem_pool.order,
             reward,
-            Some(observer),
+            Some(runtime_observer),
         )?;
 
         Ok(result)
@@ -2250,7 +2264,7 @@ where
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: BlockOptions,
         transaction: ChainSpecT::SignedTransaction,
-        observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
+        runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -2266,7 +2280,7 @@ where
             options,
             self.min_gas_price,
             reward,
-            Some(observer),
+            Some(runtime_observer),
         )?;
 
         Ok(result)
@@ -2303,12 +2317,12 @@ where
             self.notify_subscribers_about_pending_transaction(&transaction_hash);
 
             let result = self.mine_and_commit_block_impl(
-                move |provider, config, options, debugger| {
+                move |provider, config, options, runtime_observer| {
                     provider.mine_block_with_single_transaction(
                         config,
                         options,
                         transaction,
-                        debugger,
+                        runtime_observer,
                     )
                 },
                 BlockOptions::default(),
@@ -2415,7 +2429,10 @@ where
 
         let prev_block_number = block.header().number - 1;
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
-        let verbose_tracing = self.verbose_tracing;
+        let observability = observability::Config {
+            call_override: None,
+            ..self.observability.clone()
+        };
 
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
@@ -2430,7 +2447,7 @@ where
                     block_env,
                     transactions,
                     transaction_hash,
-                    verbose_tracing,
+                    observability,
                 )
                 .map_err(ProviderError::DebugTrace)
             },
@@ -2498,11 +2515,8 @@ where
             transaction::calculate_initial_tx_gas_for_tx(&transaction, self.evm_spec_id())
                 .initial_gas;
 
-        let custom_precompiles = self.custom_precompiles.clone();
-        let mut observer = RuntimeObserver::with_mocker(
-            Mocker::new(self.call_override.clone()),
-            self.verbose_tracing,
-        );
+        let custom_precompiles = self.initial_config.precompile_overrides.clone();
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
@@ -2517,14 +2531,19 @@ where
                 cfg_env.clone(),
                 transaction.clone(),
                 &custom_precompiles,
-                &mut observer,
+                &mut runtime_observer,
             )?;
 
             let RuntimeObserver {
+                code_coverage,
                 console_logger,
+                mocker: _mocker,
                 mut trace_collector,
-                ..
-            } = observer;
+            } = runtime_observer;
+
+            if let Some(code_coverage) = code_coverage {
+                code_coverage.report();
+            }
 
             let mut initial_estimation = match result {
                 ExecutionResult::Success { gas_used, .. } => Ok(gas_used),
@@ -2547,12 +2566,14 @@ where
                         .clone(),
                 )),
             }
-            .map_err(|failure| EstimateGasFailure {
-                console_log_inputs: console_logger.into_encoded_messages(),
-                transaction_failure: TransactionFailureWithTraces {
-                    traces: vec![failure.solidity_trace.clone()],
-                    failure,
-                },
+            .map_err(|failure| {
+                Box::new(EstimateGasFailure {
+                    console_log_inputs: console_logger.into_encoded_messages(),
+                    transaction_failure: TransactionFailureWithTraces {
+                        traces: vec![failure.solidity_trace.clone()],
+                        failure,
+                    },
+                })
             })?;
 
             // Ensure that the initial estimation is at least the minimum cost + 1.
@@ -2652,7 +2673,6 @@ fn create_blockchain_and_state<
     runtime: runtime::Handle,
     config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &impl TimeSinceEpoch,
-    mut genesis_state: HashMap<Address, Account>,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
@@ -2668,8 +2688,8 @@ fn create_blockchain_and_state<
             .transpose()?;
 
         let rpc_client = Arc::new(EthRpcClient::<ChainSpecT>::new(
-            &fork_config.json_rpc_url,
-            config.cache_dir.clone(),
+            &fork_config.url,
+            fork_config.cache_dir.clone(),
             http_headers.clone(),
         )?);
 
@@ -2684,7 +2704,7 @@ fn create_blockchain_and_state<
                     fork_config.block_number,
                     &mut irregular_state,
                     state_root_generator.clone(),
-                    &config.chains,
+                    &fork_config.chain_overrides,
                 ))?;
 
                 Ok((blockchain, irregular_state))
@@ -2693,8 +2713,8 @@ fn create_blockchain_and_state<
 
         let fork_block_number = blockchain.last_block_number();
 
-        if !genesis_state.is_empty() {
-            let genesis_addresses = genesis_state.keys().cloned().collect::<Vec<_>>();
+        if !config.genesis_state.is_empty() {
+            let genesis_addresses = config.genesis_state.keys().cloned().collect::<Vec<_>>();
             let genesis_account_infos = tokio::task::block_in_place(|| {
                 runtime.block_on(rpc_client.get_account_infos(
                     &genesis_addresses,
@@ -2702,23 +2722,43 @@ fn create_blockchain_and_state<
                 ))
             })?;
 
-            // Make sure that the nonce and the code of genesis accounts matches the fork
-            // state as we only want to overwrite the balance.
-            for (address, account_info) in genesis_addresses.into_iter().zip(genesis_account_infos)
-            {
-                genesis_state.entry(address).and_modify(|account| {
-                    let AccountInfo {
-                        balance: _,
-                        nonce,
-                        code,
-                        code_hash,
-                    } = &mut account.info;
+            let genesis_state: HashMap<Address, Account> = config
+                .genesis_state
+                .iter()
+                .zip(genesis_account_infos)
+                .map(|((address, account_override), remote_account)| {
+                    let (code, code_hash) = account_override.code.as_ref().map_or(
+                        (remote_account.code, remote_account.code_hash),
+                        |code| {
+                            let code_hash = code.hash_slow();
+                            (Some(code.clone()), code_hash)
+                        },
+                    );
 
-                    *nonce = account_info.nonce;
-                    *code = account_info.code;
-                    *code_hash = account_info.code_hash;
-                });
-            }
+                    let info = AccountInfo {
+                        balance: account_override.balance.unwrap_or(remote_account.balance),
+                        nonce: account_override.nonce.unwrap_or(remote_account.nonce),
+                        code_hash,
+                        code,
+                    };
+
+                    // TODO: Add support for overriding the storage
+                    // TODO: https://github.com/NomicFoundation/edr/issues/911
+                    if account_override.storage.is_some() {
+                        return Err(ForkedCreationError::StorageOverridesUnsupported);
+                    }
+
+                    let account = Account {
+                        info,
+                        // TODO: Add support for overriding the storage
+                        // TODO: https://github.com/NomicFoundation/edr/issues/911
+                        storage: HashMap::new(),
+                        status: AccountStatus::Created | AccountStatus::Touched,
+                    };
+
+                    Ok((*address, account))
+                })
+                .collect::<Result<_, _>>()?;
 
             irregular_state
                 .state_override_at_block_number(fork_block_number)
@@ -2805,6 +2845,32 @@ fn create_blockchain_and_state<
         } else {
             None
         };
+
+        let genesis_state: HashMap<Address, Account> = config
+            .genesis_state
+            .iter()
+            .map(|(address, account_override)| {
+                let code_hash = account_override
+                    .code
+                    .as_ref()
+                    .map_or(KECCAK_EMPTY, Bytecode::hash_slow);
+
+                let info = AccountInfo {
+                    balance: account_override.balance.unwrap_or(U256::ZERO),
+                    nonce: account_override.nonce.unwrap_or(0),
+                    code_hash,
+                    code: account_override.code.clone(),
+                };
+
+                let account = Account {
+                    info,
+                    storage: account_override.storage.clone().unwrap_or(HashMap::new()),
+                    status: AccountStatus::Created | AccountStatus::Touched,
+                };
+
+                (*address, account)
+            })
+            .collect();
 
         let blockchain = LocalBlockchain::new(
             StateDiff::from(genesis_state),
@@ -3841,13 +3907,13 @@ mod tests {
         use edr_test_utils::env::get_alchemy_url;
 
         use super::*;
-        use crate::test_utils::FORK_BLOCK_NUMBER;
+        use crate::{test_utils::FORK_BLOCK_NUMBER, ForkConfig};
 
         #[test]
         fn reset_local_to_forking() -> anyhow::Result<()> {
             let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
 
-            let fork_config = Some(ForkConfig {
+            let fork_config = Some(ResetForkConfig {
                 json_rpc_url: get_alchemy_url(),
                 // Random recent block for better cache consistency
                 block_number: Some(FORK_BLOCK_NUMBER),
@@ -3943,9 +4009,11 @@ mod tests {
                 .build()?;
 
             let default_config = create_test_config_with_fork(Some(ForkConfig {
-                json_rpc_url: get_alchemy_url(),
                 block_number: Some(EIP_1559_ACTIVATION_BLOCK),
+                cache_dir: edr_defaults::CACHE_DIR.into(),
+                chain_overrides: HashMap::new(),
                 http_headers: None,
+                url: get_alchemy_url(),
             }));
 
             let config = ProviderConfig {

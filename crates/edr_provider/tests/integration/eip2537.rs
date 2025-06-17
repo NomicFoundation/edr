@@ -1,3 +1,5 @@
+#![cfg(feature = "test-utils")]
+
 use core::str::FromStr as _;
 use std::sync::Arc;
 
@@ -36,7 +38,7 @@ fn new_provider(hardfork: l1::SpecId) -> anyhow::Result<Provider<L1ChainSpec>> {
 
 fn send_call(provider: &Provider<L1ChainSpec>, call_request: CallRequest) -> anyhow::Result<Bytes> {
     let response = provider
-        .handle_request(ProviderRequest::Single(MethodInvocation::Call(
+        .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
             call_request,
             None,
             None,

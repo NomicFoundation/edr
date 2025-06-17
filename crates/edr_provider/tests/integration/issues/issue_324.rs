@@ -7,6 +7,9 @@ use edr_eth::{
 use edr_provider::{
     hardhat_rpc_types::ForkConfig, test_utils::create_test_config_with_fork, time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    Address, Bytes, HashMap, U256,
+    test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
+    NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -28,9 +31,11 @@ async fn issue_324() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(Some(ForkConfig {
-        json_rpc_url: get_alchemy_url().replace("mainnet", "sepolia"),
         block_number: Some(DEPLOYMENT_BLOCK_NUMBER),
+        cache_dir: edr_defaults::CACHE_DIR.into(),
+        chain_overrides: HashMap::new(),
         http_headers: None,
+        url: get_alchemy_url().replace("mainnet", "sepolia"),
     }));
     config.hardfork = l1::SpecId::CANCUN;
 
@@ -43,7 +48,7 @@ async fn issue_324() -> anyhow::Result<()> {
         CurrentTime,
     )?;
 
-    let x = provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
+    let x = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
         CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0x0c55699c").unwrap()), // x()
@@ -58,7 +63,7 @@ async fn issue_324() -> anyhow::Result<()> {
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
 
-    let y = provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
+    let y = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
         CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0xa56dfe4a").unwrap()), // y()
@@ -75,19 +80,21 @@ async fn issue_324() -> anyhow::Result<()> {
 
     let x_storage_index = U256::ZERO;
     let expected_x = "0x0000000000000000000000000000000000000000000000000000000000000002";
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::SetStorageAt(
-        contract_address,
-        x_storage_index,
-        U256::from_str(expected_x).unwrap(),
-    )))?;
+    provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::SetStorageAt(
+            contract_address,
+            x_storage_index,
+            U256::from_str(expected_x).unwrap(),
+        ),
+    ))?;
 
-    let new_x = provider.handle_request(ProviderRequest::Single(
+    let new_x = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetStorageAt(contract_address, x_storage_index, None),
     ))?;
 
     assert_eq!(new_x.result, expected_x);
 
-    let new_x = provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
+    let new_x = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
         CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0x0c55699c").unwrap()), // x()
@@ -101,19 +108,21 @@ async fn issue_324() -> anyhow::Result<()> {
 
     let y_storage_index = U256::from(1u64);
     let expected_y = "0x0000000000000000000000000000000000000000000000000000000000000003";
-    provider.handle_request(ProviderRequest::Single(MethodInvocation::SetStorageAt(
-        contract_address,
-        y_storage_index,
-        U256::from_str(expected_y).unwrap(),
-    )))?;
+    provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::SetStorageAt(
+            contract_address,
+            y_storage_index,
+            U256::from_str(expected_y).unwrap(),
+        ),
+    ))?;
 
-    let new_y = provider.handle_request(ProviderRequest::Single(
+    let new_y = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetStorageAt(contract_address, y_storage_index, None),
     ))?;
 
     assert_eq!(new_y.result, expected_y);
 
-    let new_y = provider.handle_request(ProviderRequest::Single(MethodInvocation::Call(
+    let new_y = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
         CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0xa56dfe4a").unwrap()), // y()

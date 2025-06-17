@@ -1,30 +1,28 @@
-use napi::{bindgen_prelude::Buffer, Env, JsBuffer, JsBufferValue};
+use napi::bindgen_prelude::Uint8Array;
 use napi_derive::napi;
 
 /// Ethereum execution log.
 #[napi(object)]
 pub struct ExecutionLog {
-    pub address: Buffer,
-    pub topics: Vec<Buffer>,
-    pub data: JsBuffer,
+    pub address: Uint8Array,
+    pub topics: Vec<Uint8Array>,
+    pub data: Uint8Array,
 }
 
-impl ExecutionLog {
-    pub fn new(env: &Env, log: &edr_eth::log::ExecutionLog) -> napi::Result<Self> {
-        let topics = log
+impl From<&edr_eth::log::ExecutionLog> for ExecutionLog {
+    fn from(value: &edr_eth::log::ExecutionLog) -> Self {
+        let topics = value
             .topics()
             .iter()
-            .map(|topic| Buffer::from(topic.as_slice()))
+            .map(Uint8Array::with_data_copied)
             .collect();
 
-        let data = env
-            .create_buffer_with_data(log.data.data.to_vec())
-            .map(JsBufferValue::into_raw)?;
+        let data = Uint8Array::with_data_copied(&value.data.data);
 
-        Ok(Self {
-            address: Buffer::from(log.address.as_slice()),
+        Self {
+            address: Uint8Array::with_data_copied(value.address),
             topics,
             data,
-        })
+        }
     }
 }

@@ -64,7 +64,7 @@ pub enum InferrerError<HaltReasonT: HaltReasonTrait> {
     /// Invalid input or logic error: The call trace has no functionJumpdest but
     /// has already jumped into a function.
     #[error("call trace has no functionJumpdest but has already jumped into a function")]
-    MissingFunctionJumpDest(CallMessage<HaltReasonT>),
+    MissingFunctionJumpDest(Box<CallMessage<HaltReasonT>>),
     /// Invalid input or logic error: Missing source reference.
     #[error("Missing source reference")]
     MissingSourceReference,
@@ -1136,7 +1136,9 @@ fn get_entry_before_failure_in_modifier<HaltReasonT: HaltReasonTrait>(
     // call traces, so there should always be at least a function jumpdest.
     let trace = match trace {
         CreateOrCallMessageRef::Call(call) => {
-            return Err(InferrerError::MissingFunctionJumpDest(call.clone()));
+            return Err(InferrerError::MissingFunctionJumpDest(Box::new(
+                call.clone(),
+            )));
         }
         CreateOrCallMessageRef::Create(create) => create,
     };
@@ -1468,7 +1470,7 @@ fn is_call_failed_error<HaltReasonT: HaltReasonTrait>(
 fn is_constructor_invalid_arguments_error<HaltReasonT: HaltReasonTrait>(
     trace: &CreateMessage<HaltReasonT>,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
-    if trace.return_data.len() > 0 {
+    if !trace.return_data.is_empty() {
         return Ok(false);
     }
 
@@ -1576,7 +1578,7 @@ fn is_contract_call_run_out_of_gas_error<HaltReasonT: HaltReasonTrait>(
     let return_data = trace.return_data();
     let exit_code = trace.exit_code();
 
-    if return_data.len() > 0 {
+    if !return_data.is_empty() {
         return Ok(false);
     }
 
@@ -1688,7 +1690,7 @@ fn is_missing_function_and_fallback_error<HaltReasonT: HaltReasonTrait>(
     called_function: Option<&ContractFunction>,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
     // This error doesn't return data
-    if trace.return_data.len() > 0 {
+    if !trace.return_data.is_empty() {
         return Ok(false);
     }
 
@@ -1704,7 +1706,7 @@ fn is_missing_function_and_fallback_error<HaltReasonT: HaltReasonTrait>(
     let contract = contract_meta.contract.read();
 
     // there's a receive function and no calldata
-    if trace.calldata.len() == 0 && contract.receive.is_some() {
+    if trace.calldata.is_empty() && contract.receive.is_some() {
         return Ok(false);
     }
 
@@ -1818,7 +1820,7 @@ fn is_subtrace_error_propagated<HaltReasonT: HaltReasonTrait>(
 
     // If the return data is not empty, and it's still the same, we assume it
     // is being propagated
-    if return_data.len() > 0 {
+    if !return_data.is_empty() {
         return Ok(true);
     }
 
@@ -1887,7 +1889,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function<HaltReasonT: Hal
             source_reference: None,
             ..
         }) => {
-            if contract.receive.is_none() || trace.calldata.len() > 0 {
+            if contract.receive.is_none() || !trace.calldata.is_empty() {
                 // Failed within the fallback
                 if let Some(fallback) = &contract.fallback {
                     let location = &fallback.location;

@@ -1,12 +1,10 @@
 use edr_eth::{l1, transaction::TransactionValidation, BlockSpec, B256};
-use edr_evm::{
-    debug_trace::{DebugTraceResult, DebugTraceResultWithTraces},
-    state::StateOverrides,
-};
+use edr_evm::state::StateOverrides;
 use serde::{Deserialize, Deserializer};
 
 use crate::{
     data::ProviderData,
+    debug_trace::{DebugTraceResult, DebugTraceResultWithTraces},
     requests::eth::{resolve_block_spec_for_call_request, resolve_call_request},
     spec::SyncProviderSpec,
     time::TimeSinceEpoch,
@@ -122,7 +120,7 @@ where
     }
 }
 
-impl From<DebugTraceConfig> for edr_evm::debug_trace::DebugTraceConfig {
+impl From<DebugTraceConfig> for crate::debug_trace::DebugTraceConfig {
     fn from(value: DebugTraceConfig) -> Self {
         let DebugTraceConfig {
             disable_storage,

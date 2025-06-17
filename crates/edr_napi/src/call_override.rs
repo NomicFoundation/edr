@@ -2,7 +2,7 @@ use std::sync::mpsc::channel;
 
 use edr_eth::{Address, Bytes};
 use napi::{
-    bindgen_prelude::{Buffer, Promise},
+    bindgen_prelude::{Promise, Uint8Array},
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
@@ -16,7 +16,7 @@ use crate::cast::TryCast;
 /// The result of executing a call override.
 #[napi(object)]
 pub struct CallOverrideResult {
-    pub result: Buffer,
+    pub result: Uint8Array,
     pub should_revert: bool,
 }
 
@@ -27,7 +27,7 @@ impl TryCast<Option<edr_provider::CallOverrideResult>> for Option<CallOverrideRe
         match self {
             None => Ok(None),
             Some(result) => Ok(Some(edr_provider::CallOverrideResult {
-                output: result.result.try_cast()?,
+                output: Bytes::copy_from_slice(&result.result),
                 should_revert: result.should_revert,
             })),
         }
@@ -56,20 +56,20 @@ impl CallOverrideCallback {
             |ctx: ThreadSafeCallContext<CallOverrideCall>| {
                 let address = ctx
                     .env
-                    .create_buffer_with_data(ctx.value.contract_address.to_vec())?
+                    .create_arraybuffer_with_data(ctx.value.contract_address.to_vec())?
                     .into_raw();
 
                 let data = ctx
                     .env
-                    .create_buffer_with_data(ctx.value.data.to_vec())?
+                    .create_arraybuffer_with_data(ctx.value.data.to_vec())?
                     .into_raw();
 
                 Ok(vec![address, data])
             },
         )?;
 
-        // Maintain a weak reference to the function to avoid the event loop from
-        // exiting.
+        // Maintain a weak reference to the function to avoid blocking the event loop
+        // from exiting.
         call_override_callback_fn.unref(env)?;
 
         Ok(Self {

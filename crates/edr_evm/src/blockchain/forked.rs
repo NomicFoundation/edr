@@ -35,7 +35,7 @@ use crate::{
             add_beacon_roots_contract_to_state_diff, beacon_roots_contract, BEACON_ROOTS_ADDRESS,
         },
     },
-    hardfork::Activations,
+    hardfork::{self, ChainOverride},
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
@@ -70,6 +70,11 @@ pub enum CreationError<HardforkT> {
         /// Detected hardfork
         hardfork: HardforkT,
     },
+    /// Unsupported storage overrides
+    #[error(
+        "Storage overrides are not supported for forked blocks yet. See https://github.com/NomicFoundation/edr/issues/911"
+    )]
+    StorageOverridesUnsupported,
 }
 
 /// Helper type for a chain-specific [`ForkedBlockchainError`].
@@ -122,7 +127,7 @@ where
     remote_chain_id: u64,
     network_id: u64,
     hardfork: ChainSpecT::Hardfork,
-    hardfork_activations: Option<Activations<ChainSpecT::Hardfork>>,
+    hardfork_activations: Option<hardfork::Activations<ChainSpecT::Hardfork>>,
 }
 
 impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
@@ -137,7 +142,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
         fork_block_number: Option<u64>,
         irregular_state: &mut IrregularState,
         state_root_generator: Arc<Mutex<RandomHashGenerator>>,
-        hardfork_activation_overrides: &HashMap<ChainId, Activations<ChainSpecT::Hardfork>>,
+        chain_overrides: &HashMap<ChainId, ChainOverride<ChainSpecT::Hardfork>>,
     ) -> Result<Self, CreationError<ChainSpecT::Hardfork>> {
         let ForkMetadata {
             chain_id: remote_chain_id,
@@ -178,8 +183,9 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
         let fork_timestamp_future =
             rpc_client.get_block_by_number(PreEip1898BlockSpec::Number(fork_block_number));
 
-        let hardfork_activations = hardfork_activation_overrides
+        let hardfork_activations = chain_overrides
             .get(&remote_chain_id)
+            .and_then(|chain_override| chain_override.hardfork_activation_overrides.as_ref())
             .or_else(|| ChainSpecT::chain_hardfork_activations(remote_chain_id))
             .and_then(|hardfork_activations| {
                 // Ignore empty hardfork activations

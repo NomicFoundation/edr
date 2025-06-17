@@ -9,6 +9,7 @@
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
+    "@ethereumjs/util": "^9.1.0",
     "@types/argparse": "^2.0.16",
     "@types/lodash": "^4.14.123",
     "@types/node": "^20.0.0",

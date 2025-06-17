@@ -13,13 +13,13 @@ use edr_eth::{
 use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
+    precompile::PrecompileFn,
     spec::SyncRuntimeSpec,
     state::{StateError, SyncState},
     trace::TraceCollector,
     Block as _, BlockReceipts,
 };
 use itertools::Itertools;
-use revm_precompile::PrecompileFn;
 
 use crate::{data::call, error::ProviderErrorForChainSpec};
 
