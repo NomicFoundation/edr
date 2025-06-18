@@ -1,9 +1,12 @@
 //! Forge test runner for multiple contracts.
 
-use std::{collections::BTreeMap, fmt::Debug, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    collections::BTreeMap, fmt::Debug, marker::PhantomData, path::PathBuf, sync::Arc, time::Instant,
+};
 
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
+use edr_eth::spec::HaltReasonTrait;
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_evm::{
@@ -21,7 +24,7 @@ use futures::StreamExt;
 use crate::{
     result::SuiteResult,
     revm::{
-        context::{result::HaltReason, BlockEnv, TxEnv},
+        context::{BlockEnv, TxEnv},
         primitives::hardfork::SpecId,
     },
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
@@ -43,7 +46,7 @@ pub type TestContracts = BTreeMap<ArtifactId, TestContract>;
 /// A multi contract runner receives a set of contracts deployed in an EVM
 /// instance and proceeds to run all test functions in these contracts.
 #[derive(Clone, Debug)]
-pub struct MultiContractRunner<NestedTraceDecoderT> {
+pub struct MultiContractRunner<HaltReasonT, NestedTraceDecoderT> {
     /// The project root directory.
     project_root: PathBuf,
     /// Test contracts to deploy
@@ -75,10 +78,13 @@ pub struct MultiContractRunner<NestedTraceDecoderT> {
     solidity_fuzz_fixtures: bool,
     /// Settings related to fuzz and/or invariant tests
     test_options: TestOptions,
+    _phantom: PhantomData<HaltReasonT>,
 }
 
-impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
-    MultiContractRunner<NestedTraceDecoderT>
+impl<
+        HaltReasonT: HaltReasonTrait + Send + Sync + 'static,
+        NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+    > MultiContractRunner<HaltReasonT, NestedTraceDecoderT>
 {
     /// Creates a new multi contract runner.
     pub async fn new(
@@ -88,7 +94,8 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         libs_to_deploy: Vec<Bytes>,
         contract_decoder: NestedTraceDecoderT,
         revert_decoder: RevertDecoder,
-    ) -> Result<MultiContractRunner<NestedTraceDecoderT>, SolidityTestRunnerConfigError> {
+    ) -> Result<MultiContractRunner<HaltReasonT, NestedTraceDecoderT>, SolidityTestRunnerConfigError>
+    {
         let env = config
             .evm_opts
             .evm_env()
@@ -136,6 +143,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
             test_fail,
             solidity_fuzz_fixtures,
             test_options,
+            _phantom: PhantomData,
         })
     }
 
@@ -153,9 +161,9 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
     pub async fn test_collect(
         self,
         filter: impl TestFilter + 'static,
-    ) -> BTreeMap<String, SuiteResult> {
+    ) -> BTreeMap<String, SuiteResult<HaltReasonT>> {
         let (tx_results, mut rx_results) =
-            tokio::sync::mpsc::unbounded_channel::<(ArtifactId, SuiteResult)>();
+            tokio::sync::mpsc::unbounded_channel::<(ArtifactId, SuiteResult<HaltReasonT>)>();
 
         self.test(Arc::new(filter), tx_results);
 
@@ -181,7 +189,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
     pub fn test(
         mut self,
         filter: Arc<impl TestFilter + 'static>,
-        tx: tokio::sync::mpsc::UnboundedSender<(ArtifactId, SuiteResult)>,
+        tx: tokio::sync::mpsc::UnboundedSender<(ArtifactId, SuiteResult<HaltReasonT>)>,
     ) {
         trace!("running all tests");
 
@@ -243,7 +251,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
         fork: Option<CreateFork<BlockEnv, TxEnv, SpecId>>,
         filter: &dyn TestFilter,
         handle: &tokio::runtime::Handle,
-    ) -> SuiteResult {
+    ) -> SuiteResult<HaltReasonT> {
         let identifier = artifact_id.identifier();
         let mut span_name = identifier.as_str();
 
@@ -284,6 +292,7 @@ impl<NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReason>>
                 known_contracts: &self.known_contracts,
                 libs_to_deploy: &self.libs_to_deploy,
                 contract_decoder: Arc::clone(&self.contract_decoder),
+                _phantom: PhantomData,
             },
             ContractRunnerOptions {
                 initial_balance: self.evm_opts.initial_balance,

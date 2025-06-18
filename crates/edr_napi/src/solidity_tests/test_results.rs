@@ -44,7 +44,7 @@ pub struct SuiteResult {
 impl SuiteResult {
     pub fn new(
         id: edr_solidity::artifacts::ArtifactId,
-        suite_result: edr_solidity_tests::result::SuiteResult,
+        suite_result: edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
         include_traces: IncludeTraces,
     ) -> Self {
         Self {
@@ -86,7 +86,7 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    stack_trace_result: Option<Arc<StackTraceResult>>,
+    stack_trace_result: Option<Arc<StackTraceResult<edr_eth::l1::HaltReason>>>,
     call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
 }
 
@@ -206,7 +206,7 @@ impl TestResult {
 impl TestResult {
     fn new(
         name: String,
-        test_result: edr_solidity_tests::result::TestResult,
+        test_result: edr_solidity_tests::result::TestResult<edr_eth::l1::HaltReason>,
         include_traces: IncludeTraces,
     ) -> Self {
         let include_trace = include_traces == IncludeTraces::All

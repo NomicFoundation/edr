@@ -1,7 +1,8 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::Log;
+use derive_where::derive_where;
 use edr_solidity::contract_decoder::NestedTraceDecoder;
 use eyre::Result;
 use foundry_evm_core::{
@@ -17,7 +18,7 @@ use foundry_evm_fuzz::{
 use foundry_evm_traces::{load_contracts, TraceKind, Traces};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
-use revm::primitives::U256;
+use revm::{context::result::HaltReasonTr, primitives::U256};
 
 use super::{
     call_after_invariant_function, call_invariant_function, error::FailedInvariantCaseData,
@@ -31,9 +32,10 @@ use crate::executors::{
 /// Arguments to `replay_run`.
 pub struct ReplayRunArgs<
     'a,
-    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
+    NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
 > {
@@ -52,13 +54,15 @@ pub struct ReplayRunArgs<
     pub revert_decoder: &'a RevertDecoder,
     pub fail_on_revert: bool,
     pub show_solidity: bool,
+    pub _phantom: PhantomData<HaltReasonT>,
 }
 
 /// Results of a replay
-#[derive(Debug, Default)]
-pub struct ReplayResult {
+#[derive(Debug)]
+#[derive_where(Default)]
+pub struct ReplayResult<HaltReasonT: HaltReasonTr> {
     pub counterexample_sequence: Vec<BaseCounterExample>,
-    pub stack_trace_result: Option<StackTraceResult>,
+    pub stack_trace_result: Option<StackTraceResult<HaltReasonT>>,
     pub revert_reason: Option<String>,
 }
 
@@ -66,14 +70,23 @@ pub struct ReplayResult {
 /// Returns counterexample to be used when the call sequence is a failed
 /// scenario.
 pub fn replay_run<
-    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
+    NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
 >(
-    args: ReplayRunArgs<'_, NestedTraceDecoderT, BlockT, TxT, HardforkT, ChainContextT>,
-) -> Result<ReplayResult> {
+    args: ReplayRunArgs<
+        '_,
+        NestedTraceDecoderT,
+        BlockT,
+        TxT,
+        HaltReasonT,
+        HardforkT,
+        ChainContextT,
+    >,
+) -> Result<ReplayResult<HaltReasonT>> {
     let ReplayRunArgs {
         mut executor,
         invariant_contract,
@@ -89,6 +102,7 @@ pub fn replay_run<
         revert_decoder,
         fail_on_revert,
         show_solidity,
+        _phantom,
     } = args;
 
     // We want traces for a failed case.
@@ -196,7 +210,7 @@ pub fn replay_run<
         logs.extend(after_invariant_result.logs);
     }
 
-    let stack_trace_result: Option<StackTraceResult> =
+    let stack_trace_result: Option<StackTraceResult<HaltReasonT>> =
         if let Some(indeterminism_reasons) = cow_backend.backend.indeterminism_reasons() {
             Some(indeterminism_reasons.into())
         } else {
@@ -245,14 +259,15 @@ pub struct ReplayErrorArgs<
 /// Replays the error case, shrinks the failing sequence and collects all
 /// necessary traces.
 pub fn replay_error<
-    NestedTraceDecoderT: NestedTraceDecoder<revm::context::result::HaltReason>,
+    NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
 >(
     args: ReplayErrorArgs<'_, NestedTraceDecoderT, BlockT, TxT, HardforkT, ChainContextT>,
-) -> Result<ReplayResult> {
+) -> Result<ReplayResult<HaltReasonT>> {
     let ReplayErrorArgs {
         mut executor,
         failed_case,
@@ -285,7 +300,7 @@ pub fn replay_error<
 
             // Replay calls to get the counterexample and to collect logs, traces and
             // coverage.
-            replay_run::<NestedTraceDecoderT, _, _, _, _>(ReplayRunArgs {
+            replay_run::<NestedTraceDecoderT, _, _, _, _, _>(ReplayRunArgs {
                 invariant_contract,
                 executor,
                 known_contracts,
@@ -300,6 +315,7 @@ pub fn replay_error<
                 fail_on_revert: failed_case.fail_on_revert,
                 revert_decoder,
                 show_solidity,
+                _phantom: PhantomData,
             })
         }
     }
