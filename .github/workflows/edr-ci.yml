@@ -58,7 +58,9 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1
+          key: edr-rs-rpc-cache-v1-${{ hashFiles('**/edr-cache/**/*') }}
+          restore-keys: edr-rs-rpc-cache-v1
+          enableCrossOsArchive: true
 
       - name: Run cargo tests (with coverage)
         env:
@@ -115,7 +117,9 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-ts-rpc-cache-v1
+          key: edr-ts-rpc-cache-v1-${{ hashFiles('**/edr-cache/**/*') }}
+          restore-keys: edr-ts-rpc-cache-v1
+          enableCrossOsArchive: true
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
