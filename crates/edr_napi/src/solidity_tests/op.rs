@@ -31,30 +31,32 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
     ) -> napi::Result<Box<dyn SyncTestRunner>> {
         let contract_decoder = LazyContractDecoder::new(tracing_config);
 
-        let runner = runtime
-            .block_on(MultiContractRunner::<
-                edr_eth::l1::BlockEnv,
-                _,
-                OpEvmBuilder,
-                edr_op::OpHaltReason,
-                edr_op::OpSpecId,
-                _,
-                edr_op::transaction::InvalidTransaction,
-                edr_op::transaction::OpTxEnv<edr_eth::l1::TxEnv>,
-            >::new(
-                config.into(),
-                contracts,
-                known_contracts,
-                libs_to_deploy,
-                contract_decoder,
-                revert_decoder,
-            ))
-            .map_err(|err| {
-                napi::Error::new(
-                    napi::Status::GenericFailure,
-                    format!("Failed to create multi contract runner: {err}"),
-                )
-            })?;
+        let runner = tokio::task::block_in_place(|| {
+            runtime
+                .block_on(MultiContractRunner::<
+                    edr_eth::l1::BlockEnv,
+                    _,
+                    OpEvmBuilder,
+                    edr_op::OpHaltReason,
+                    edr_op::OpSpecId,
+                    _,
+                    edr_op::transaction::InvalidTransaction,
+                    edr_op::transaction::OpTxEnv<edr_eth::l1::TxEnv>,
+                >::new(
+                    config.into(),
+                    contracts,
+                    known_contracts,
+                    libs_to_deploy,
+                    contract_decoder,
+                    revert_decoder,
+                ))
+                .map_err(|err| {
+                    napi::Error::new(
+                        napi::Status::GenericFailure,
+                        format!("Failed to create multi contract runner: {err}"),
+                    )
+                })
+        })?;
 
         Ok(Box::new(runner))
     }

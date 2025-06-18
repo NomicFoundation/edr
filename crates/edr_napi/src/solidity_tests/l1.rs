@@ -30,30 +30,32 @@ impl SyncTestRunnerFactory for L1TestRunnerFactory {
     ) -> napi::Result<Box<dyn SyncTestRunner>> {
         let contract_decoder = LazyContractDecoder::new(tracing_config);
 
-        let runner = runtime
-            .block_on(MultiContractRunner::<
-                edr_eth::l1::BlockEnv,
-                (),
-                L1EvmBuilder,
-                edr_eth::l1::HaltReason,
-                edr_eth::l1::SpecId,
-                _,
-                edr_eth::l1::InvalidTransaction,
-                TxEnv,
-            >::new(
-                config.into(),
-                contracts,
-                known_contracts,
-                libs_to_deploy,
-                contract_decoder,
-                revert_decoder,
-            ))
-            .map_err(|err| {
-                napi::Error::new(
-                    napi::Status::GenericFailure,
-                    format!("Failed to create multi contract runner: {err}"),
-                )
-            })?;
+        let runner = tokio::task::block_in_place(|| {
+            runtime
+                .block_on(MultiContractRunner::<
+                    edr_eth::l1::BlockEnv,
+                    (),
+                    L1EvmBuilder,
+                    edr_eth::l1::HaltReason,
+                    edr_eth::l1::SpecId,
+                    _,
+                    edr_eth::l1::InvalidTransaction,
+                    TxEnv,
+                >::new(
+                    config.into(),
+                    contracts,
+                    known_contracts,
+                    libs_to_deploy,
+                    contract_decoder,
+                    revert_decoder,
+                ))
+                .map_err(|err| {
+                    napi::Error::new(
+                        napi::Status::GenericFailure,
+                        format!("Failed to create multi contract runner: {err}"),
+                    )
+                })
+        })?;
 
         Ok(Box::new(runner))
     }
