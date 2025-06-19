@@ -92,7 +92,7 @@ impl ForgeTestProfile {
             .expect("Failed to build project")
     }
 
-    fn evm_opts<HardforkT: HardforkTr>() -> EvmOpts<HardforkT> {
+    fn evm_opts<HardforkT: HardforkTr>(hardfork: HardforkT) -> EvmOpts<HardforkT> {
         EvmOpts {
             env: Env {
                 gas_limit: u64::MAX,
@@ -106,15 +106,17 @@ impl ForgeTestProfile {
             initial_balance: U256::MAX,
             ffi: true,
             memory_limit: 1 << 26,
-            spec: HardforkT::default(),
+            spec: hardfork,
             ..EvmOpts::default()
         }
     }
 
-    fn runner_config<HardforkT: HardforkTr>() -> SolidityTestRunnerConfig<HardforkT> {
+    fn runner_config<HardforkT: HardforkTr>(
+        hardfork: HardforkT,
+    ) -> SolidityTestRunnerConfig<HardforkT> {
         SolidityTestRunnerConfig {
             include_traces: IncludeTraces::All,
-            evm_opts: Self::evm_opts(),
+            evm_opts: Self::evm_opts(hardfork),
             project_root: PROJECT_ROOT.clone(),
             cheats_config_options: CheatsConfigOptions {
                 execution_context: ExecutionContextConfig::Test,
@@ -334,10 +336,10 @@ impl<
     /// Builds [`ForgeTestData`] for the given [`ForgeTestProfile`].
     ///
     /// Uses [`get_compiled`] to lazily compile the project.
-    pub fn new(profile: ForgeTestProfile) -> eyre::Result<Self> {
+    pub fn new(profile: ForgeTestProfile, hardfork: HardforkT) -> eyre::Result<Self> {
         let project = profile.project();
         let output = get_compiled(&project);
-        let runner_config = ForgeTestProfile::runner_config();
+        let runner_config = ForgeTestProfile::runner_config(hardfork);
 
         let root = project.root();
         let contracts = output
@@ -644,16 +646,19 @@ fn get_compiled(project: &Project) -> ProjectCompileOutput {
 }
 
 /// Default data for the tests group.
-pub static TEST_DATA_DEFAULT: Lazy<L1ForgeTestData> =
-    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Default).expect("linking ok"));
+pub static TEST_DATA_DEFAULT: Lazy<L1ForgeTestData> = Lazy::new(|| {
+    ForgeTestData::new(ForgeTestProfile::Default, l1::SpecId::CANCUN).expect("linking ok")
+});
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
-pub static TEST_DATA_CANCUN: Lazy<L1ForgeTestData> =
-    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::Cancun).expect("linking ok"));
+pub static TEST_DATA_CANCUN: Lazy<L1ForgeTestData> = Lazy::new(|| {
+    ForgeTestData::new(ForgeTestProfile::Cancun, l1::SpecId::CANCUN).expect("linking ok")
+});
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
-pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> =
-    Lazy::new(|| ForgeTestData::new(ForgeTestProfile::MultiVersion).expect("linking ok"));
+pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
+    ForgeTestData::new(ForgeTestProfile::MultiVersion, l1::SpecId::CANCUN).expect("linking ok")
+});
 
 fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
