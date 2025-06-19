@@ -311,7 +311,7 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
-    runner_config: SolidityTestRunnerConfig<HardforkT>,
+    hardfork: HardforkT,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<
         fn() -> (
@@ -339,7 +339,6 @@ impl<
     pub fn new(profile: ForgeTestProfile, hardfork: HardforkT) -> eyre::Result<Self> {
         let project = profile.project();
         let output = get_compiled(&project);
-        let runner_config = ForgeTestProfile::runner_config(hardfork);
 
         let root = project.root();
         let contracts = output
@@ -424,7 +423,7 @@ impl<
             known_contracts,
             libs_to_deploy,
             revert_decoder,
-            runner_config,
+            hardfork,
             _phantom: PhantomData,
         })
     }
@@ -432,7 +431,8 @@ impl<
     /// Builds a base runner config
     pub fn base_runner_config(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
-        self.runner_config.clone()
+        // Construct a new one to create new failure persistance directory for each test
+        ForgeTestProfile::runner_config(self.hardfork)
     }
 
     /// Builds a non-tracing runner

@@ -1,6 +1,5 @@
 //! Forge tests for cheatcodes.
 use foundry_cheatcodes::{FsPermissions, PathPermission};
-use serial_test::serial;
 
 use crate::helpers::{
     L1ForgeTestData, SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_CANCUN,
@@ -43,13 +42,11 @@ async fn test_cheats_local_isolated(test_data: &L1ForgeTestData) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[serial]
 async fn test_cheats_local_default() {
     test_cheats_local(&TEST_DATA_DEFAULT).await;
 }
 
 // Need custom fuzz config to speed it up
-#[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_sleep_test() {
     let filter = SolidityTestFilter::new(".*", "Sleep", &format!(".*cheats{RE_PATH_SEPARATOR}*"));
@@ -62,19 +59,16 @@ async fn test_cheats_sleep_test() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[serial]
 async fn test_cheats_local_default_isolated() {
     test_cheats_local_isolated(&TEST_DATA_DEFAULT).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[serial]
 async fn test_cheats_local_multi_version() {
     test_cheats_local(&TEST_DATA_MULTI_VERSION).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[serial]
 async fn test_cheats_local_cancun() {
     test_cheats_local(&TEST_DATA_CANCUN).await;
 }
