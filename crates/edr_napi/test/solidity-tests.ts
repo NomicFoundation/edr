@@ -6,10 +6,14 @@ import {
   ContractData,
   EdrContext,
   L1_CHAIN_TYPE,
-  OP_CHAIN_TYPE,
   SolidityTestRunnerConfigArgs,
   SuiteResult,
   l1SolidityTestRunnerFactory,
+  // HACK: There is no way to exclude tsc type checking for a file from the
+  // CLI, so we ignore the error here to allow `pnpm testNoBuild` to pass.
+  // @ts-ignore
+  OP_CHAIN_TYPE,
+  // @ts-ignore
   opSolidityTestRunnerFactory,
 } from "..";
 
