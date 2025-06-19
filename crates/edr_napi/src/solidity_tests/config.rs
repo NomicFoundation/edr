@@ -169,7 +169,7 @@ impl Debug for SolidityTestRunnerConfigArgs {
     }
 }
 
-impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig {
+impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth::l1::SpecId> {
     type Error = napi::Error;
 
     fn try_from(value: SolidityTestRunnerConfigArgs) -> Result<Self, Self::Error> {

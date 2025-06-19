@@ -6,10 +6,11 @@ use std::{
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Log, U256};
+use derive_where::derive_where;
 use foundry_evm_core::{
     constants::{MAGIC_ASSUME, TEST_TIMEOUT},
     decode::{RevertDecoder, SkipReason},
-    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::{
@@ -19,6 +20,7 @@ use foundry_evm_fuzz::{
 };
 use foundry_evm_traces::SparsedTraceArena;
 use proptest::test_runner::{TestCaseError, TestError, TestRunner};
+use revm::{context::result::HaltReasonTr, interpreter::InstructionResult};
 
 use crate::executors::{Executor, FuzzTestTimer};
 
@@ -28,14 +30,22 @@ pub use types::{CaseOutcome, CounterExampleOutcome, FuzzOutcome};
 use crate::executors::fuzz::types::CounterExampleData;
 
 /// Contains data collected during fuzz test runs.
-#[derive(Default)]
-pub struct FuzzTestData<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> {
+#[derive_where(Default; BlockT, HardforkT, TxT)]
+pub struct FuzzTestData<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+> {
     // Stores the first fuzz case.
     pub first_case: Option<FuzzCase>,
     // Stored gas usage per fuzz case.
     pub gas_by_case: Vec<(u64, u64)>,
     // Stores the result and calldata of the last failed call, if any.
-    pub counterexample: CounterExampleData<BlockT, TxT, HardforkT>,
+    pub counterexample:
+        CounterExampleData<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     // Stores up to `max_traces_to_collect` traces.
     pub traces: Vec<SparsedTraceArena>,
     // Stores coverage information for all fuzz cases.
@@ -58,11 +68,13 @@ pub struct FuzzTestData<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: Ha
 pub struct FuzzedExecutor<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
 > {
     /// The EVM executor
-    executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
+    executor: Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     /// The fuzzer
     runner: TestRunner,
     /// The account that calls tests
@@ -74,13 +86,15 @@ pub struct FuzzedExecutor<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-    > FuzzedExecutor<BlockT, TxT, HardforkT, ChainContextT>
+    > FuzzedExecutor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
 {
     /// Instantiates a fuzzed executor given a testrunner
     pub fn new(
-        executor: Executor<BlockT, TxT, HardforkT, ChainContextT>,
+        executor: Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
         runner: TestRunner,
         sender: Address,
         config: FuzzConfig,
@@ -93,6 +107,29 @@ impl<
         }
     }
 
+    /// Stores fuzz state for use with [`fuzz_calldata_from_state`]
+    pub fn build_fuzz_state(&self, deployed_libs: &[Address]) -> EvmFuzzState {
+        if let Some(fork_db) = self.executor.backend.active_fork_db() {
+            EvmFuzzState::new(fork_db, self.config.dictionary, deployed_libs)
+        } else {
+            EvmFuzzState::new(
+                self.executor.backend.mem_db(),
+                self.config.dictionary,
+                deployed_libs,
+            )
+        }
+    }
+}
+
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: 'static + HaltReasonTr + Into<InstructionResult>,
+        HardforkT: HardforkTr,
+        ChainContextT: 'static + ChainContextTr,
+    > FuzzedExecutor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+{
     /// Fuzzes the provided function, assuming it is available at the contract
     /// at `address` If `should_fail` is set to `true`, then it will stop
     /// only when there's a success test case.
@@ -263,7 +300,10 @@ impl<
         address: Address,
         should_fail: bool,
         calldata: alloy_primitives::Bytes,
-    ) -> Result<FuzzOutcome<BlockT, TxT, HardforkT>, TestCaseError> {
+    ) -> Result<
+        FuzzOutcome<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        TestCaseError,
+    > {
         let (mut call, cow_backend) = self
             .executor
             .call_raw(self.sender, address, calldata.clone(), U256::ZERO)
@@ -303,19 +343,6 @@ impl<
                     indeterminism_reasons: cow_backend.backend.indeterminism_reasons(),
                 },
             }))
-        }
-    }
-
-    /// Stores fuzz state for use with [`fuzz_calldata_from_state`]
-    pub fn build_fuzz_state(&self, deployed_libs: &[Address]) -> EvmFuzzState {
-        if let Some(fork_db) = self.executor.backend.active_fork_db() {
-            EvmFuzzState::new(fork_db, self.config.dictionary, deployed_libs)
-        } else {
-            EvmFuzzState::new(
-                self.executor.backend.mem_db(),
-                self.config.dictionary,
-                deployed_libs,
-            )
         }
     }
 }

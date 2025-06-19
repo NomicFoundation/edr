@@ -5,7 +5,7 @@ use foundry_evm_core::{
         fmt::{ConsoleFmt, FormatSpec},
         patch_hh_console_selector, Console, HardhatConsole,
     },
-    backend::CheatcodeBackend,
+    backend::DatabaseError,
     constants::HARDHAT_CONSOLE_ADDRESS,
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
@@ -14,7 +14,7 @@ use revm::{
     interpreter::{
         CallInputs, CallOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
-    Inspector, Journal,
+    Database, Inspector, Journal,
 };
 
 use crate::inspectors::error_ext::ErrorExt;
@@ -52,7 +52,7 @@ impl<
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: Database<Error = DatabaseError>,
     >
     Inspector<
         EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
