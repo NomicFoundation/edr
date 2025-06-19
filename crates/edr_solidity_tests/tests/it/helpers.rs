@@ -292,7 +292,6 @@ pub struct ForgeTestData<HaltReasonT: HaltReasonTrait> {
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
-    runner_config: SolidityTestRunnerConfig,
     _phantom: PhantomData<HaltReasonT>,
 }
 
@@ -303,7 +302,6 @@ impl<HaltReasonT: HaltReasonTrait + Send + Sync + 'static> ForgeTestData<HaltRea
     pub fn new(profile: ForgeTestProfile) -> eyre::Result<Self> {
         let project = profile.project();
         let output = get_compiled(&project);
-        let runner_config = ForgeTestProfile::runner_config();
 
         let root = project.root();
         let contracts = output
@@ -388,7 +386,6 @@ impl<HaltReasonT: HaltReasonTrait + Send + Sync + 'static> ForgeTestData<HaltRea
             known_contracts,
             libs_to_deploy,
             revert_decoder,
-            runner_config,
             _phantom: PhantomData,
         })
     }
@@ -396,7 +393,8 @@ impl<HaltReasonT: HaltReasonTrait + Send + Sync + 'static> ForgeTestData<HaltRea
     /// Builds a base runner config
     pub fn base_runner_config(&self) -> SolidityTestRunnerConfig {
         init_tracing_for_solidity_tests();
-        self.runner_config.clone()
+        // Construct a new one to create new failure persistance directory for each test
+        ForgeTestProfile::runner_config()
     }
 
     /// Builds a non-tracing runner
