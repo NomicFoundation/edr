@@ -407,8 +407,12 @@ impl Debug for BaseCounterExample {
 impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
     fn from(value: edr_solidity_tests::fuzz::BaseCounterExample) -> Self {
         Self {
-            sender: value.sender.map(|sender| Uint8Array::from(sender.as_slice())),
-            address: value.addr.map(|address| Uint8Array::from(address.as_slice())),
+            sender: value
+                .sender
+                .map(|sender| Uint8Array::from(sender.as_slice())),
+            address: value
+                .addr
+                .map(|address| Uint8Array::from(address.as_slice())),
             calldata: Uint8Array::from(value.calldata.as_ref()),
             contract_name: value.contract_name,
             signature: value.signature,

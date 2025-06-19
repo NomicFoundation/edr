@@ -2,7 +2,7 @@ use edr_eth::hex;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use serde::Serializer;
 
-/// Serialize a Uint8Array as a 0x-prefixed hex string
+/// Serialize a `Uint8Array` as a 0x-prefixed hex string
 pub fn serialize_uint8array_as_hex<S>(buffer: &Uint8Array, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,

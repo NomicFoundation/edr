@@ -17,8 +17,8 @@ use napi_derive::napi;
 use crate::{
     cast::TryCast,
     serde::{
-        serialize_uint8array_as_hex, serialize_optional_bigint_as_struct,
-        serialize_optional_uint8array_as_hex,
+        serialize_optional_bigint_as_struct, serialize_optional_uint8array_as_hex,
+        serialize_uint8array_as_hex,
     },
 };
 
