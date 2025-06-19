@@ -2,14 +2,14 @@ use std::ptr::NonNull;
 
 use alloy_primitives::B256;
 use foundry_evm_core::{
-    backend::CheatcodeBackend,
+    backend::DatabaseError,
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
 use revm::{
     bytecode::Bytecode,
     context::{CfgEnv, Context as EvmContext},
     interpreter::{interpreter_types::Jumps, Interpreter},
-    Inspector, Journal,
+    Database, Inspector, Journal,
 };
 
 use crate::{HitMap, HitMaps};
@@ -45,7 +45,7 @@ impl<
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: Database<Error = DatabaseError>,
     >
     Inspector<
         EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,

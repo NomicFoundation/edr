@@ -1,8 +1,11 @@
 use foundry_evm_core::{
     backend::Backend,
-    evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr, TransactionEnvTr,
+    },
     fork::CreateFork,
 };
+use revm::context::result::HaltReasonTr;
 
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
 
@@ -24,7 +27,7 @@ where
     ChainContextT: ChainContextTr,
 {
     /// The configuration used to build an [`InspectorStack`].
-    stack: InspectorStackBuilder<BlockT, TxT, HardforkT, ChainContextT>,
+    stack: InspectorStackBuilder<HardforkT, ChainContextT>,
     /// The gas limit.
     gas_limit: Option<u64>,
     /// The spec ID.
@@ -76,8 +79,8 @@ where
     pub fn inspectors(
         mut self,
         f: impl FnOnce(
-            InspectorStackBuilder<BlockT, TxT, HardforkT, ChainContextT>,
-        ) -> InspectorStackBuilder<BlockT, TxT, HardforkT, ChainContextT>,
+            InspectorStackBuilder<HardforkT, ChainContextT>,
+        ) -> InspectorStackBuilder<HardforkT, ChainContextT>,
     ) -> Self {
         self.stack = f(self.stack);
         self
@@ -122,7 +125,12 @@ where
     }
 
     /// Builds the executor as configured.
-    pub fn build(self) -> Executor<BlockT, TxT, HardforkT, ChainContextT> {
+    pub fn build<
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+    >(
+        self,
+    ) -> Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT> {
         let Self {
             mut stack,
             gas_limit,

@@ -12,15 +12,15 @@ use derive_where::derive_where;
 use edr_eth::spec::HaltReasonTrait;
 use foundry_evm::{
     coverage::HitMaps,
+    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
     executors::{stack_trace::StackTraceResult, EvmError},
     fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
 };
-use revm::context::{BlockEnv, TxEnv};
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
 
-use crate::{gas_report::GasReport, revm, revm::primitives::hardfork::SpecId};
+use crate::gas_report::GasReport;
 
 /// The aggregated result of a test run.
 #[derive(Clone, Debug)]
@@ -575,8 +575,15 @@ pub struct TestSetup {
 }
 
 impl TestSetup {
-    pub fn from_evm_error_with(
-        error: EvmError<BlockEnv, TxEnv, SpecId>,
+    pub fn from_evm_error_with<
+        BlockT: BlockEnvTr,
+        ChainContextT: 'static + ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: HardforkTr,
+        TransactionT: TransactionEnvTr,
+    >(
+        error: EvmError<BlockT, TransactionT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
         mut logs: Vec<Log>,
         mut traces: Traces,
         mut labeled_addresses: AddressHashMap<String>,

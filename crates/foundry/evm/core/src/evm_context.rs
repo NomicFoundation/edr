@@ -1,9 +1,17 @@
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
+use foundry_fork_db::DatabaseError;
+use op_revm::OpEvm;
 use revm::{
-    context::{transaction::SignedAuthorization, BlockEnv, CfgEnv, JournalInner, TxEnv},
+    context::{
+        result::{EVMError, HaltReasonTr, ResultAndState},
+        transaction::SignedAuthorization,
+        BlockEnv, CfgEnv, Evm, JournalInner, TxEnv,
+    },
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
+    handler::{instructions::EthInstructions, EthPrecompiles, PrecompileProvider},
+    interpreter::{interpreter::EthInterpreter, InterpreterResult},
     primitives::hardfork::SpecId,
-    Database, Journal, JournalEntry,
+    Database, InspectEvm, Inspector, Journal, JournalEntry,
 };
 
 use crate::{
@@ -53,6 +61,171 @@ impl<T> BlockEnvTr for T where
         + Sync
         + Unpin
 {
+}
+
+// Type alias to simplify the context type used in the EVM.
+pub type EthInstructionsContext<BlockT, TxT, HardforkT, DatabaseT, ChainContextT> =
+    revm::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>;
+
+pub trait EvmBuilderTrait<
+    BlockT: BlockEnvTr,
+    ChainContextT,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionT: TransactionEnvTr,
+>
+{
+    /// Type of the EVM being built.
+    type Evm<
+        DatabaseT: Database,
+        InspectorT: Inspector<
+            EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
+            EthInterpreter,
+        >,
+    >: InspectEvm<Block = BlockT, Inspector = InspectorT, Tx = TransactionT, Output = Result<
+        ResultAndState<HaltReasonT>, EVMError<DatabaseT::Error>
+    >> + IntoEvmContext<
+        BlockT,
+        ChainContextT,
+        DatabaseT,
+        HardforkT,
+        TransactionT
+    >;
+
+    /// Type of the precompile provider used in the EVM.
+    type PrecompileProvider<DatabaseT: Database>: Default
+        + PrecompileProvider<
+            EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
+            Output = InterpreterResult,
+        >;
+
+    fn evm_with_inspector<
+        DatabaseT: Database,
+        InspectorT: Inspector<
+            EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
+            EthInterpreter,
+        >,
+    >(
+        db: DatabaseT,
+        env: EvmEnvWithChainContext<BlockT, TransactionT, HardforkT, ChainContextT>,
+        inspector: InspectorT,
+    ) -> Self::Evm<DatabaseT, InspectorT>;
+}
+
+pub struct L1EvmBuilder;
+
+impl EvmBuilderTrait<BlockEnv, (), revm::context::result::HaltReason, SpecId, TxEnv>
+    for L1EvmBuilder
+{
+    type Evm<
+        DatabaseT: Database,
+        InspectorT: Inspector<EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>, EthInterpreter>,
+    > = revm::context::Evm<
+        EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>,
+        InspectorT,
+        EthInstructions<
+            EthInterpreter,
+            EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>,
+        >,
+        Self::PrecompileProvider<DatabaseT>,
+    >;
+
+    type PrecompileProvider<DatabaseT: Database> = EthPrecompiles;
+
+    fn evm_with_inspector<
+        DatabaseT: Database,
+        InspectorT: Inspector<EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>, EthInterpreter>,
+    >(
+        db: DatabaseT,
+        env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>,
+        inspector: InspectorT,
+    ) -> Self::Evm<DatabaseT, InspectorT> {
+        let mut journaled_state = Journal::<_, JournalEntry>::new(db);
+        journaled_state.set_spec_id(env.cfg.spec);
+
+        let context = revm::Context {
+            tx: env.tx,
+            block: env.block,
+            cfg: env.cfg,
+            journaled_state,
+            chain: env.chain_context,
+            error: Ok(()),
+        };
+
+        Evm::new_with_inspector(
+            context,
+            inspector,
+            EthInstructions::default(),
+            EthPrecompiles::default(),
+        )
+    }
+}
+
+/// Trait to convert an instance into its inner EVM context type.
+pub trait IntoEvmContext<
+    BlockT: BlockEnvTr,
+    ChainContextT,
+    DatabaseT: Database,
+    HardforkT: HardforkTr,
+    TransactionT: TransactionEnvTr,
+>
+{
+    /// Converts the instance into its inner EVM context type.
+    fn into_evm_context(
+        self,
+    ) -> EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>;
+}
+
+impl<
+        BlockT: BlockEnvTr,
+        ChainContextT,
+        DatabaseT: Database,
+        HardforkT: HardforkTr,
+        InspectorT,
+        PrecompileProviderT,
+        TransactionT: TransactionEnvTr,
+    > IntoEvmContext<BlockT, ChainContextT, DatabaseT, HardforkT, TransactionT>
+    for Evm<
+        EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
+        InspectorT,
+        EthInstructions<
+            EthInterpreter,
+            EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
+        >,
+        PrecompileProviderT,
+    >
+{
+    fn into_evm_context(
+        self,
+    ) -> EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT> {
+        self.data.ctx
+    }
+}
+
+impl<
+        BlockT: BlockEnvTr,
+        ChainContextT,
+        DatabaseT: Database,
+        HardforkT: HardforkTr,
+        InspectorT,
+        PrecompileProviderT,
+        TransactionT: TransactionEnvTr,
+    > IntoEvmContext<BlockT, ChainContextT, DatabaseT, HardforkT, TransactionT>
+    for OpEvm<
+        EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
+        InspectorT,
+        EthInstructions<
+            EthInterpreter,
+            EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
+        >,
+        PrecompileProviderT,
+    >
+{
+    fn into_evm_context(
+        self,
+    ) -> EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT> {
+        self.0.data.ctx
+    }
 }
 
 pub trait TransactionEnvTr:
@@ -204,7 +377,7 @@ impl BlockEnvMut for BlockEnv {
 
 /// Split the database from EVM execution context so that a mutable method can
 /// be called on the database with arguments from the execution context.
-pub fn split_context<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>(
+pub fn split_context<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, DatabaseT, ChainContextT>(
     context: &mut revm::context::Context<
         BlockT,
         TxT,
@@ -220,9 +393,11 @@ pub fn split_context<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>(
 where
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
 {
     let evm_context = EvmContext {
         block: &mut context.block,
@@ -259,7 +434,7 @@ where
     TxT: TransactionEnvTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+    DatabaseT: Database<Error = DatabaseError>,
 {
     fn from(
         value: &'a mut revm::context::Context<
@@ -395,5 +570,24 @@ impl<BlockT, TxT, HardforkT, ChainContextT>
             tx: value.tx,
             cfg: value.cfg,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use revm::{database_interface::EmptyDB, inspector::NoOpInspector, ExecuteEvm};
+
+    use super::*;
+
+    #[test]
+    fn build_evm() {
+        let env = EvmEnvWithChainContext::default_mainnet_with_spec_id(SpecId::default());
+        let mut db = EmptyDB::default();
+
+        let mut inspector = NoOpInspector;
+
+        let mut evm = L1EvmBuilder::evm_with_inspector(&mut db, env, &mut inspector);
+        let result = evm.transact(revm::context::TxEnv::default()).unwrap();
+        assert!(result.result.is_success());
     }
 }

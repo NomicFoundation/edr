@@ -29,7 +29,7 @@ pub struct CreateFork<BlockT, TxT, HardforkT> {
     /// for the fork
     pub env: EvmEnv<BlockT, TxT, HardforkT>,
     /// All env settings as configured by the user
-    pub evm_opts: EvmOpts<BlockT, TxT, HardforkT>,
+    pub evm_opts: EvmOpts<HardforkT>,
 }
 
 impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>

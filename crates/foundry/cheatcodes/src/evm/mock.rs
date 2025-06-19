@@ -1,8 +1,14 @@
 use std::{cmp::Ordering, collections::HashMap};
 
 use alloy_primitives::{Address, Bytes, U256};
-use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
-use revm::{bytecode::Bytecode, context::JournalTr, interpreter::InstructionResult};
+use foundry_evm_core::evm_context::{
+    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+};
+use revm::{
+    bytecode::Bytecode,
+    context::{result::HaltReasonTr, JournalTr},
+    interpreter::InstructionResult,
+};
 
 use crate::{
     impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Result,
@@ -52,9 +58,16 @@ impl Ord for MockCallDataContext {
 
 impl_is_pure_true!(clearMockedCallsCall);
 impl Cheatcode for clearMockedCallsCall {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self {} = self;
         state.mocked_calls = HashMap::default();
@@ -67,12 +80,22 @@ impl Cheatcode for mockCall_0Call {
     fn apply_full<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self {
             callee,
@@ -107,12 +130,22 @@ impl Cheatcode for mockCall_1Call {
     fn apply_full<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>,
+        DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self {
             callee,
@@ -135,9 +168,16 @@ impl Cheatcode for mockCall_1Call {
 
 impl_is_pure_true!(mockCallRevert_0Call);
 impl Cheatcode for mockCallRevert_0Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self {
             callee,
@@ -158,9 +198,16 @@ impl Cheatcode for mockCallRevert_0Call {
 
 impl_is_pure_true!(mockCallRevert_1Call);
 impl Cheatcode for mockCallRevert_1Call {
-    fn apply<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+    >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     ) -> Result {
         let Self {
             callee,
@@ -181,8 +228,15 @@ impl Cheatcode for mockCallRevert_1Call {
 }
 
 #[allow(clippy::ptr_arg)] // Not public API, doesn't matter
-fn mock_call<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
-    state: &mut Cheatcodes<BlockT, TxT, HardforkT>,
+fn mock_call<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+>(
+    state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
     callee: &Address,
     cdata: &Bytes,
     value: Option<&U256>,

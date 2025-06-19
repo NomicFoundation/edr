@@ -13,7 +13,7 @@ use edr_solidity::{
 use foundry_evm_core::{
     backend::IndeterminismReasons,
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
-    evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
+    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
 };
 use foundry_evm_traces::{SparsedTraceArena, TraceKind};
 use revm::{
@@ -42,12 +42,17 @@ pub enum StackTraceError<HaltReasonT: HaltReasonTr> {
 // `EvmError` is not `Clone`
 impl<
         BlockT: BlockEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
         HaltReasonT: HaltReasonTr,
         TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
-    > From<EvmError<BlockT, TxT, HardforkT>> for StackTraceError<HaltReasonT>
+    > From<EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>>
+    for StackTraceError<HaltReasonT>
 {
-    fn from(value: EvmError<BlockT, TxT, HardforkT>) -> Self {
+    fn from(
+        value: EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+    ) -> Self {
         Self::Evm(value.to_string())
     }
 }

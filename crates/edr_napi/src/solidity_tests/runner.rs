@@ -11,7 +11,9 @@ use edr_solidity_tests::{
     constants::LIBRARY_DEPLOYER,
     contracts::ContractsByArtifact,
     decode::RevertDecoder,
+    evm_context::L1EvmBuilder,
     multi_runner::{TestContract, TestContracts},
+    revm::context::TxEnv,
     MultiContractRunner, SolidityTestRunnerConfig,
 };
 use foundry_compilers::artifacts::Libraries;
@@ -29,8 +31,18 @@ pub(super) async fn build_runner(
     test_suites: Vec<JsArtifactId>,
     config_args: SolidityTestRunnerConfigArgs,
     tracing_config: TracingConfigWithBuffers,
-) -> napi::Result<MultiContractRunner<edr_eth::l1::HaltReason, LazyContractDecoder>> {
-    let config: SolidityTestRunnerConfig = config_args.try_into()?;
+) -> napi::Result<
+    MultiContractRunner<
+        edr_eth::l1::BlockEnv,
+        (),
+        L1EvmBuilder,
+        edr_eth::l1::HaltReason,
+        edr_eth::l1::SpecId,
+        LazyContractDecoder,
+        TxEnv,
+    >,
+> {
+    let config = SolidityTestRunnerConfig::try_from(config_args)?;
 
     let artifact_contracts = artifacts
         .into_iter()

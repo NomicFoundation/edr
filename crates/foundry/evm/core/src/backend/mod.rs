@@ -11,11 +11,12 @@ use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
 use alloy_primitives::{address, b256, keccak256, map::Entry, Address, TxKind, B256, U256};
 use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction};
+use derive_where::derive_where;
 use eyre::WrapErr;
 pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
     bytecode::Bytecode,
-    context::{Cfg, CfgEnv, JournalInner},
+    context::{result::HaltReasonTr, Cfg, CfgEnv, JournalInner},
     context_interface::{result::ResultAndState, Transaction},
     database::{CacheDB, DatabaseRef},
     inspector::NoOpInspector,
@@ -28,6 +29,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     constants::{CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, TEST_CONTRACT_ADDRESS},
+    evm_context::{EvmBuilderTrait, IntoEvmContext as _},
     fork::{CreateFork, ForkId, MultiFork},
     state_snapshot::StateSnapshots,
     utils::configure_tx_env,
@@ -137,6 +139,8 @@ where
 pub trait CheatcodeBackend<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
 >: Database<Error = DatabaseError>
@@ -288,7 +292,7 @@ pub trait CheatcodeBackend<
             BlockT,
             TxT,
             HardforkT,
-            Backend<BlockT, TxT, HardforkT, ChainContextT>,
+            Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
             ChainContextT,
         >,
         Self: Sized;
@@ -434,9 +438,21 @@ pub trait CheatcodeBackend<
 struct _ObjectSafe<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
->(dyn CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT, Error = DatabaseError>);
+>(
+    dyn CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        ChainContextT,
+        Error = DatabaseError,
+    >,
+);
 
 /// Provides the underlying `revm::Database` implementation.
 ///
@@ -495,8 +511,8 @@ struct _ObjectSafe<
 /// **Note:** State snapshots work across fork-swaps, e.g. if fork `A` is
 /// currently active, then a snapshot is created before fork `B` is selected,
 /// then fork `A` will be the active fork again after reverting the snapshot.
-#[derive(Clone, Debug)]
-pub struct Backend<BlockT, TxT, HardforkT, ChainContextT> {
+#[derive_where(Clone, Debug; BlockT, HardforkT, TxT)]
+pub struct Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT> {
     /// The access point for managing forks
     forks: MultiFork<BlockT, TxT, HardforkT>,
     // The default in memory db
@@ -527,7 +543,8 @@ pub struct Backend<BlockT, TxT, HardforkT, ChainContextT> {
     /// holds additional Backend data
     inner: BackendInner<BlockT, TxT, HardforkT>,
 
-    _phantom: PhantomData<ChainContextT>,
+    #[allow(clippy::type_complexity)]
+    _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT)>,
 }
 
 // === impl Backend ===
@@ -535,9 +552,11 @@ pub struct Backend<BlockT, TxT, HardforkT, ChainContextT> {
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-    > Backend<BlockT, TxT, HardforkT, ChainContextT>
+    > Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
 {
     /// Creates a new Backend with a spawned multi fork thread.
     pub fn spawn(fork: Option<CreateFork<BlockT, TxT, HardforkT>>) -> Self {
@@ -997,19 +1016,19 @@ impl<
         env: &mut EvmEnv<BlockT, TxT, HardforkT>,
         chain_context: ChainContextT,
         inspector: InspectorT,
-    ) -> eyre::Result<ResultAndState>
+    ) -> eyre::Result<ResultAndState<HaltReasonT>>
     where
         InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'a mut Self, ChainContextT>,
     {
         self.initialize(env);
         let env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
-        let mut evm = crate::utils::new_evm_with_inspector(self, env_with_chain, inspector);
+        let mut evm = EvmBuilderT::evm_with_inspector(self, env_with_chain, inspector);
 
         let res = evm
             .inspect_replay()
             .wrap_err("backend: failed while inspecting")?;
 
-        *env = EvmEnv::from(evm.data.ctx);
+        *env = EvmEnv::from(evm.into_evm_context());
 
         Ok(res)
     }
@@ -1138,7 +1157,7 @@ impl<
             }
             trace!(tx=?tx.tx_hash(), "committing transaction");
 
-            commit_transaction(
+            commit_transaction::<_, _, EvmBuilderT, _, _, _, _>(
                 &tx.inner,
                 env.clone(),
                 journaled_state,
@@ -1156,10 +1175,12 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-    > CheatcodeBackend<BlockT, TxT, HardforkT, ChainContextT>
-    for Backend<BlockT, TxT, HardforkT, ChainContextT>
+    > CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
+    for Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
 {
     fn snapshot_state(
         &mut self,
@@ -1511,7 +1532,7 @@ impl<
             BlockT,
             TxT,
             HardforkT,
-            Backend<BlockT, TxT, HardforkT, ChainContextT>,
+            Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
             ChainContextT,
         >,
     {
@@ -1713,9 +1734,11 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-    > DatabaseRef for Backend<BlockT, TxT, HardforkT, ChainContextT>
+    > DatabaseRef for Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
 {
     type Error = DatabaseError;
 
@@ -1755,9 +1778,11 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-    > DatabaseCommit for Backend<BlockT, TxT, HardforkT, ChainContextT>
+    > DatabaseCommit for Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
 {
     fn commit(&mut self, changes: Map<Address, Account>) {
         if let Some(db) = self.active_fork_db_mut() {
@@ -1771,9 +1796,11 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         ChainContextT: ChainContextTr,
-    > Database for Backend<BlockT, TxT, HardforkT, ChainContextT>
+    > Database for Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>
 {
     type Error = DatabaseError;
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -2262,6 +2289,8 @@ fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBl
 fn commit_transaction<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     ChainContextT: ChainContextTr,
     InspectorT,
@@ -2279,7 +2308,7 @@ where
         BlockT,
         TxT,
         HardforkT,
-        Backend<BlockT, TxT, HardforkT, ChainContextT>,
+        Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
         ChainContextT,
     >,
 {
@@ -2291,7 +2320,7 @@ where
         let journaled_state = journaled_state.clone();
         let db = Backend::new_with_fork(fork_id, fork, journaled_state);
 
-        crate::utils::new_evm_with_inspector(db, env, inspector)
+        EvmBuilderT::evm_with_inspector(db, env, inspector)
             .inspect_replay()
             .wrap_err("backend: failed committing transaction")?
     };
@@ -2368,7 +2397,7 @@ mod tests {
     use edr_test_utils::env::get_alchemy_url;
     use foundry_fork_db::cache::{BlockchainDb, BlockchainDbMeta};
     use revm::{
-        context::{BlockEnv, TxEnv},
+        context::{result::HaltReason, BlockEnv, TxEnv},
         primitives::hardfork::SpecId,
         DatabaseRef,
     };
@@ -2376,6 +2405,7 @@ mod tests {
 
     use crate::{
         backend::Backend,
+        evm_context::L1EvmBuilder,
         fork::{provider::get_http_provider, CreateFork},
         opts::EvmOpts,
     };
@@ -2389,7 +2419,7 @@ mod tests {
 
         let block_num = provider.get_block_number().await.unwrap();
 
-        let evm_opts = EvmOpts::<BlockEnv, TxEnv, SpecId> {
+        let evm_opts = EvmOpts::<SpecId> {
             fork_block_number: Some(block_num),
             ..EvmOpts::default()
         };
@@ -2403,7 +2433,9 @@ mod tests {
             evm_opts,
         };
 
-        let backend = Backend::<BlockEnv, TxEnv, SpecId, ()>::spawn(Some(fork.clone()));
+        let backend = Backend::<BlockEnv, TxEnv, L1EvmBuilder, HaltReason, SpecId, ()>::spawn(
+            Some(fork.clone()),
+        );
 
         // some rng contract from etherscan
         let address: Address = "63091244180ae240c87d1f528f5f269134cb07b3".parse().unwrap();
