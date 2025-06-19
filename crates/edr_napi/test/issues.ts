@@ -78,6 +78,14 @@ describe("Provider", () => {
       this.skip();
     }
 
+    // GitHub Actions time out for this task on Ubuntu and MacOS.
+    if (
+      isCI() &&
+      (process.platform === "linux" || process.platform === "darwin")
+    ) {
+      this.skip();
+    }
+
     // This test is slow because the debug_traceTransaction is performed on a large transaction.
     this.timeout(1_800_000);
 
