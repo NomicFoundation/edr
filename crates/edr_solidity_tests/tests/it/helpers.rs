@@ -432,7 +432,7 @@ impl<
     pub fn base_runner_config(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
         // Construct a new one to create new failure persistance directory for each test
-        ForgeTestProfile::runner_config(self.hardfork.clone())
+        ForgeTestProfile::runner_config(self.hardfork)
     }
 
     /// Builds a non-tracing runner
