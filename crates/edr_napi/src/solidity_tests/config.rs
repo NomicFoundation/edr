@@ -9,7 +9,7 @@ use edr_solidity_tests::{
 };
 use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
 use napi::{
-    bindgen_prelude::{BigInt, Buffer},
+    bindgen_prelude::{BigInt, Uint8Array},
     Either, Status,
 };
 use napi_derive::napi;
@@ -17,8 +17,8 @@ use napi_derive::napi;
 use crate::{
     cast::TryCast,
     serde::{
-        serialize_buffer_as_hex, serialize_optional_bigint_as_struct,
-        serialize_optional_buffer_as_hex,
+        serialize_uint8array_as_hex, serialize_optional_bigint_as_struct,
+        serialize_optional_uint8array_as_hex,
     },
 };
 
@@ -49,12 +49,12 @@ pub struct SolidityTestRunnerConfigArgs {
     pub ffi: Option<bool>,
     /// The value of `msg.sender` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
-    #[serde(serialize_with = "serialize_optional_buffer_as_hex")]
-    pub sender: Option<Buffer>,
+    #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
+    pub sender: Option<Uint8Array>,
     /// The value of `tx.origin` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
-    #[serde(serialize_with = "serialize_optional_buffer_as_hex")]
-    pub tx_origin: Option<Buffer>,
+    #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
+    pub tx_origin: Option<Uint8Array>,
     /// The initial balance of the sender in tests.
     /// Defaults to `0xffffffffffffffffffffffff`.
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
@@ -81,8 +81,8 @@ pub struct SolidityTestRunnerConfigArgs {
     pub block_base_fee_per_gas: Option<BigInt>,
     /// The value of `block.coinbase` in tests.
     /// Defaults to `0x0000000000000000000000000000000000000000`.
-    #[serde(serialize_with = "serialize_optional_buffer_as_hex")]
-    pub block_coinbase: Option<Buffer>,
+    #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
+    pub block_coinbase: Option<Uint8Array>,
     /// The value of `block.timestamp` in tests.
     /// Defaults to 1.
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
@@ -707,8 +707,8 @@ impl From<FsAccessPermission> for foundry_cheatcodes::FsAccessPermission {
 #[derive(Clone, serde::Serialize)]
 pub struct AddressLabel {
     /// The address to label
-    #[serde(serialize_with = "serialize_buffer_as_hex")]
-    pub address: Buffer,
+    #[serde(serialize_with = "serialize_uint8array_as_hex")]
+    pub address: Uint8Array,
     /// The label to assign to the address
     pub label: String,
 }

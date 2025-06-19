@@ -11,7 +11,7 @@ use edr_solidity_tests::{
     traces::{self, CallTraceArena, SparsedTraceArena},
 };
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3, Either4, Uint8Array},
+    bindgen_prelude::{BigInt, Either3, Either4, Uint8Array},
     Either,
 };
 use napi_derive::napi;
@@ -326,7 +326,7 @@ pub struct FuzzTestKind {
 pub struct FuzzCase {
     /// The calldata used for this fuzz test
     #[napi(readonly)]
-    pub calldata: Buffer,
+    pub calldata: Uint8Array,
     /// Consumed gas
     #[napi(readonly)]
     pub gas: BigInt,
@@ -376,13 +376,13 @@ pub struct CounterExampleSequence {
 pub struct BaseCounterExample {
     /// See [edr_solidity_tests::fuzz::BaseCounterExample::sender]
     #[napi(readonly)]
-    pub sender: Option<Buffer>,
+    pub sender: Option<Uint8Array>,
     /// See [edr_solidity_tests::fuzz::BaseCounterExample::addr]
     #[napi(readonly)]
-    pub address: Option<Buffer>,
+    pub address: Option<Uint8Array>,
     /// See [edr_solidity_tests::fuzz::BaseCounterExample::calldata]
     #[napi(readonly)]
-    pub calldata: Buffer,
+    pub calldata: Uint8Array,
     /// See [edr_solidity_tests::fuzz::BaseCounterExample::contract_name]
     #[napi(readonly)]
     pub contract_name: Option<String>,
@@ -407,9 +407,9 @@ impl Debug for BaseCounterExample {
 impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
     fn from(value: edr_solidity_tests::fuzz::BaseCounterExample) -> Self {
         Self {
-            sender: value.sender.map(|sender| Buffer::from(sender.as_slice())),
-            address: value.addr.map(|address| Buffer::from(address.as_slice())),
-            calldata: Buffer::from(value.calldata.as_ref()),
+            sender: value.sender.map(|sender| Uint8Array::from(sender.as_slice())),
+            address: value.addr.map(|address| Uint8Array::from(address.as_slice())),
+            calldata: Uint8Array::from(value.calldata.as_ref()),
             contract_name: value.contract_name,
             signature: value.signature,
             args: value.args,

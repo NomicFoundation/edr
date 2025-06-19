@@ -1,6 +1,6 @@
 use edr_eth::{Address, Bytecode, Bytes, B256, B64, U256};
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Uint8Array},
+    bindgen_prelude::{BigInt, Uint8Array},
     Status,
 };
 
@@ -13,20 +13,6 @@ pub trait TryCast<T>: Sized {
 
     /// Performs the conversion.
     fn try_cast(self) -> Result<T, Self::Error>;
-}
-
-impl TryCast<Address> for Buffer {
-    type Error = napi::Error;
-
-    fn try_cast(self) -> std::result::Result<Address, Self::Error> {
-        if self.len() != 20 {
-            return Err(napi::Error::new(
-                Status::InvalidArg,
-                "Buffer was expected to be 20 bytes.".to_string(),
-            ));
-        }
-        Ok(Address::from_slice(&self))
-    }
 }
 
 impl TryCast<Address> for Uint8Array {
