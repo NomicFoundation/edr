@@ -20,11 +20,6 @@ describe("Fuzz and invariant testing", function () {
   let testContext: TestContext;
 
   before(async function () {
-    await testContext.edrContext.registerSolidityTestRunnerFactory(
-      L1_CHAIN_TYPE,
-      l1SolidityTestRunnerFactory()
-    );
-
     testContext = await TestContext.setup();
   });
 

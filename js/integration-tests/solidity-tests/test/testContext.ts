@@ -5,6 +5,7 @@ import {
   EdrContext,
   HeuristicFailed,
   L1_CHAIN_TYPE,
+  l1SolidityTestRunnerFactory,
   type SolidityTestRunnerConfigArgs,
   StackTrace,
   TracingConfigWithBuffers,
@@ -48,11 +49,18 @@ export class TestContext {
 
   static async setup(): Promise<TestContext> {
     const results = await buildSolidityTestsInput(hre);
-    return new TestContext(
+    const context = new TestContext(
       results.artifacts,
       results.testSuiteIds,
       results.tracingConfig
     );
+
+    await context.edrContext.registerSolidityTestRunnerFactory(
+      L1_CHAIN_TYPE,
+      l1SolidityTestRunnerFactory()
+    );
+
+    return context;
   }
 
   defaultConfig(): SolidityTestRunnerConfigArgs {
