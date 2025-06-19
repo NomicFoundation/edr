@@ -53,12 +53,12 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
-      - name: Cache EDR RPC cache
-        uses: actions/cache@v4
+      - name: Restore EDR RPC cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1
+          key: edr-rs-rpc-cache-v1-${{ matrix.os }}
 
       - name: Run cargo tests (with coverage)
         env:
@@ -76,6 +76,13 @@ jobs:
 
       - name: Doctests
         run: cargo test --doc --workspace --features tracing
+
+      - name: Save EDR RPC cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            **/edr-cache
+          key: edr-rs-rpc-cache-v1-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
 
       # disable until:
       # 1) https://github.com/napi-rs/napi-rs/issues/1405 is resolved (Windows-only)
@@ -110,12 +117,12 @@ jobs:
 
       - uses: ./.github/actions/setup-rust
 
-      - name: Cache EDR RPC cache
-        uses: actions/cache@v4
+      - name: Restore EDR RPC cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             **/edr-cache
-          key: edr-ts-rpc-cache-v1
+          key: edr-ts-rpc-cache-v1-${{ matrix.os }}
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -124,6 +131,13 @@ jobs:
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
         run: cd crates/edr_napi && pnpm test
+
+      - name: Save EDR RPC cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            **/edr-cache
+          key: edr-ts-rpc-cache-v1-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
 
   edr-style:
     name: Check EDR Style
