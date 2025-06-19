@@ -7,13 +7,24 @@ import {
 } from "./testContext.js";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { FuzzTestKind, InvariantTestKind } from "@nomicfoundation/edr";
+import {
+  EdrContext,
+  FuzzTestKind,
+  InvariantTestKind,
+  L1_CHAIN_TYPE,
+  l1SolidityTestRunnerFactory,
+} from "@nomicfoundation/edr";
 import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
 describe("Fuzz and invariant testing", function () {
   let testContext: TestContext;
 
   before(async function () {
+    await testContext.edrContext.registerSolidityTestRunnerFactory(
+      L1_CHAIN_TYPE,
+      l1SolidityTestRunnerFactory()
+    );
+
     testContext = await TestContext.setup();
   });
 
@@ -130,6 +141,8 @@ describe("Fuzz and invariant testing", function () {
     assert.ok(!existsSync(failureDir));
 
     const results2 = await runAllSolidityTests(
+      testContext.edrContext,
+      L1_CHAIN_TYPE,
       testContext.artifacts,
       testContext.matchingTest("FailingInvariantTest"),
       testContext.tracingConfig,
@@ -165,6 +178,8 @@ describe("Fuzz and invariant testing", function () {
     assert.ok(existsSync(failureDir));
 
     const results3 = await runAllSolidityTests(
+      testContext.edrContext,
+      L1_CHAIN_TYPE,
       testContext.artifacts,
       testContext.matchingTest("FailingInvariantTest"),
       testContext.tracingConfig,

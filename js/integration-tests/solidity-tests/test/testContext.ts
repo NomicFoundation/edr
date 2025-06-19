@@ -2,7 +2,9 @@ import {
   Artifact,
   ArtifactId,
   CallTrace,
+  EdrContext,
   HeuristicFailed,
+  L1_CHAIN_TYPE,
   type SolidityTestRunnerConfigArgs,
   StackTrace,
   TracingConfigWithBuffers,
@@ -25,6 +27,7 @@ type StackTraceResult =
   | undefined;
 
 export class TestContext {
+  readonly edrContext: EdrContext = new EdrContext();
   readonly rpcUrl = process.env.ALCHEMY_URL;
   readonly rpcCachePath: string = "./edr-cache";
   readonly fuzzFailuresPersistDir: string = "./edr-cache/fuzz";
@@ -72,6 +75,8 @@ export class TestContext {
     }
 
     const suiteResults = await runAllSolidityTests(
+      this.edrContext,
+      L1_CHAIN_TYPE,
       this.artifacts,
       testContracts,
       this.tracingConfig,

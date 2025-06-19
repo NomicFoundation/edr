@@ -13,6 +13,11 @@ import zlib from "zlib";
 import { dirName } from "@nomicfoundation/edr-helpers";
 
 import { runForgeStdTests, runSolidityTests } from "./solidity-tests.js";
+import {
+  EdrContext,
+  L1_CHAIN_TYPE,
+  l1SolidityTestRunnerFactory,
+} from "@nomicfoundation/edr";
 
 const {
   createHardhatNetworkProvider,
@@ -107,10 +112,19 @@ async function main() {
     await report(benchmarkOutputPath);
     await flushStdout();
   } else if (args.command === "solidity-tests") {
+    // Only construct an EdrContext for solidity tests, because the JSON-RPC
+    // benchmarks still depend on a singleton Hardhat network provider that
+    // is created in the `createHardhatNetworkProvider` function.
+    const context = new EdrContext();
+    await context.registerSolidityTestRunnerFactory(
+      L1_CHAIN_TYPE,
+      l1SolidityTestRunnerFactory()
+    );
+
     if (args.repo !== undefined) {
-      await runSolidityTests(args.repo, args.grep);
+      await runSolidityTests(context, L1_CHAIN_TYPE, args.repo, args.grep);
     } else {
-      await runForgeStdTests(benchmarkOutputPath);
+      await runForgeStdTests(context, L1_CHAIN_TYPE, benchmarkOutputPath);
     }
   } else {
     const _exhaustiveCheck: never = args.command;
