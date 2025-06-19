@@ -6,7 +6,8 @@ import "cheats/Vm.sol";
 
 contract AssertionsTest is DSTest {
     string constant errorMessage = "User provided message";
-    uint256 constant maxDecimals = 77;
+    // For i256
+    uint256 constant maxDecimals = 76;
 
     Vm constant vm = Vm(HEVM_ADDRESS);
 
