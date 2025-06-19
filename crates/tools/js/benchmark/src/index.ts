@@ -3,6 +3,11 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
 import { bytesToHex, privateToAddress, toBytes } from "@ethereumjs/util";
+import {
+  EdrContext,
+  L1_CHAIN_TYPE,
+  l1SolidityTestRunnerFactory,
+} from "@nomicfoundation/edr";
 import { ArgumentParser } from "argparse";
 import child_process, { SpawnSyncReturns } from "child_process";
 import fs from "fs";
@@ -13,11 +18,6 @@ import zlib from "zlib";
 import { dirName } from "@nomicfoundation/edr-helpers";
 
 import { runForgeStdTests, runSolidityTests } from "./solidity-tests.js";
-import {
-  EdrContext,
-  L1_CHAIN_TYPE,
-  l1SolidityTestRunnerFactory,
-} from "@nomicfoundation/edr";
 
 const {
   createHardhatNetworkProvider,
