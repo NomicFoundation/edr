@@ -336,12 +336,10 @@ impl From<TxEnvOpts> for OpTransaction<TxEnv> {
 
         OpTransaction {
             base,
-            // We don't know enough information to determine whether the transaction is enveloped,
-            // but all transactions except deposits require this parameter, while the
-            // deposit transaction ignores it. As such, we're always setting this to a default
-            // value.
-            // TODO: https://github.com/NomicFoundation/edr/issues/934
-            // TODO: Properly calculate `enveloped_tx` to ensure correct gas calculation.
+            // For Solidity tests we don't know enough information to construct an enveloped
+            // transaction. Instead, we use a default value that is compatible with the
+            // OpTransaction structure.
+            // This means that gas estimation and balance checks won't be accurate.
             enveloped_tx: Some(vec![0x00].into()),
             deposit: DepositTransactionParts::default(),
         }
