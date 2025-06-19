@@ -23,7 +23,7 @@ use crate::{
 };
 
 /// Solidity test runner configuration arguments exposed through the ffi.
-/// Docs based on https://book.getfoundry.sh/reference/config/testing
+/// Docs based on <https://book.getfoundry.sh/reference/config/testing>.
 #[napi(object)]
 #[derive(Clone, serde::Serialize)]
 pub struct SolidityTestRunnerConfigArgs {

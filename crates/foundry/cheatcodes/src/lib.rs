@@ -71,7 +71,15 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
         TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let _ = state;
         unimplemented!("{}", Self::CHEATCODE.func.id)
@@ -267,8 +275,15 @@ pub(crate) struct CheatsCtxt<
     >,
 > {
     /// The cheatcodes inspector state.
-    pub(crate) state:
-        &'cheats mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+    pub(crate) state: &'cheats mut Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
     /// The EVM data.
     pub(crate) ecx: &'evm mut EvmContext<
         BlockT,
