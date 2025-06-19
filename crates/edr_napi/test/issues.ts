@@ -79,6 +79,7 @@ describe("Provider", () => {
     }
 
     // GitHub Actions time out for this task on Ubuntu and MacOS.
+    // TODO https://github.com/NomicFoundation/edr/issues/952
     if (
       isCI() &&
       (process.platform === "linux" || process.platform === "darwin")
