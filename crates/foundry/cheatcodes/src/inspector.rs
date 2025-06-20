@@ -2,6 +2,7 @@
 
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
+    cmp::max,
     fmt::Debug,
     fs::File,
     io::BufReader,
@@ -44,9 +45,12 @@ use crate::{
         prank::Prank,
         DealRecord, RecordAccess,
     },
-    test::expect::{
-        self, ExpectedCallData, ExpectedCallTracker, ExpectedCallType, ExpectedEmit,
-        ExpectedRevert, ExpectedRevertKind,
+    test::{
+        expect::{
+            self, ExpectedCallData, ExpectedCallTracker, ExpectedCallType, ExpectedEmit,
+            ExpectedRevert, ExpectedRevertKind,
+        },
+        revert_handlers,
     },
     CheatsConfig, CheatsCtxt, DynCheatcode, Error, Result, Vm,
     Vm::AccountAccess,
@@ -421,6 +425,11 @@ impl<
         }
         if let Some(gas_price) = self.gas_price.take() {
             ecx.tx.set_gas_price(gas_price);
+        }
+
+        // `expectRevert`: track the max call depth during `expectRevert`
+        if let Some(expected) = &mut self.expected_revert {
+            expected.max_depth = max(ecx.journaled_state.depth() as u64, expected.max_depth);
         }
     }
 
@@ -1119,10 +1128,23 @@ impl<
             }
         }
 
-        // Handle expected reverts
-        if let Some(expected_revert) = &self.expected_revert {
+        // Handle expected reverts.
+        if let Some(expected_revert) = &mut self.expected_revert {
+            // Record current reverter address and call scheme before processing the expect revert
+            // if call reverted.
+            if outcome.result.is_revert() {
+                // Record current reverter address if expect revert is set with expected reverter
+                // address and no actual reverter was set yet or if we're expecting more than one
+                // revert.
+                if expected_revert.reverter.is_some() &&
+                    (expected_revert.reverted_by.is_none() || expected_revert.count > 1)
+                {
+                    expected_revert.reverted_by = Some(call.target_address);
+                }
+            }
+
             if curr_depth <= expected_revert.depth {
-                let needs_processing: bool = match expected_revert.kind {
+                let needs_processing = match expected_revert.kind {
                     ExpectedRevertKind::Default => !cheatcode_call,
                     // `pending_processing` == true means that we're in the `call_end` hook for
                     // `vm.expectCheatcodeRevert` and shouldn't expect revert here
@@ -1132,12 +1154,15 @@ impl<
                 };
 
                 if needs_processing {
-                    let expected_revert = std::mem::take(&mut self.expected_revert).unwrap();
-                    return match expect::handle_expect_revert(
+                    let mut expected_revert = std::mem::take(&mut self.expected_revert).unwrap();
+                    return match revert_handlers::handle_expect_revert(
+                        cheatcode_call,
                         false,
-                        expected_revert.reason.as_deref(),
+                        expected_revert.allow_internal,
+                        &expected_revert,
                         outcome.result.result,
                         outcome.result.output.clone(),
+                        Some(&self.config.available_artifacts),
                     ) {
                         Err(error) => {
                             trace!(expected=?expected_revert, ?error, status=?outcome.result.result, "Expected revert mismatch");
@@ -1145,20 +1170,22 @@ impl<
                             outcome.result.output = error.abi_encode().into();
                         }
                         Ok((_, retdata)) => {
+                            expected_revert.actual_count += 1;
+                            if expected_revert.actual_count < expected_revert.count {
+                                self.expected_revert = Some(expected_revert.clone());
+                            }
                             outcome.result.result = InstructionResult::Return;
                             outcome.result.output = retdata;
                         }
                     };
                 }
 
-                // Flip `pending_processing` flag for cheatcode revert expectations, marking
-                // that we've exited the `expectCheatcodeRevert` call scope
+                // Flip `pending_processing` flag for cheatcode revert expectations, marking that
+                // we've exited the `expectCheatcodeRevert` call scope
                 if let ExpectedRevertKind::Cheatcode { pending_processing } =
                     &mut self.expected_revert.as_mut().unwrap().kind
                 {
-                    if *pending_processing {
-                        *pending_processing = false;
-                    }
+                    *pending_processing = false;
                 }
             }
         }
@@ -1469,17 +1496,25 @@ impl<
 
         // Handle expected reverts
         if let Some(expected_revert) = &self.expected_revert {
-            if curr_depth <= expected_revert.depth
-                && matches!(expected_revert.kind, ExpectedRevertKind::Default)
+            if curr_depth <= expected_revert.depth &&
+                matches!(expected_revert.kind, ExpectedRevertKind::Default)
             {
-                let expected_revert = std::mem::take(&mut self.expected_revert).unwrap();
-                return match expect::handle_expect_revert(
+                let mut expected_revert = std::mem::take(&mut self.expected_revert).unwrap();
+                return match revert_handlers::handle_expect_revert(
+                    false,
                     true,
-                    expected_revert.reason.as_deref(),
+                    false,
+                    &expected_revert,
                     outcome.result.result,
                     outcome.result.output.clone(),
+                    Some(&self.config.available_artifacts),
                 ) {
                     Ok((address, retdata)) => {
+                        expected_revert.actual_count += 1;
+                        if expected_revert.actual_count < expected_revert.count {
+                            self.expected_revert = Some(expected_revert.clone());
+                        }
+
                         outcome.result.result = InstructionResult::Return;
                         outcome.result.output = retdata;
                         outcome.address = address;

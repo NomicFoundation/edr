@@ -14,6 +14,7 @@ use crate::{
 
 pub(crate) mod assert;
 pub(crate) mod expect;
+pub(crate) mod revert_handlers;
 
 use crate::impl_is_pure_true;
 
