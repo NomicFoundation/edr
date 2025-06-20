@@ -137,6 +137,7 @@ export async function compileFiles(
       longVersion: compilerOptions.solidityVersion,
     };
   } else {
+    await downloadCompiler(compilerOptions.solidityVersion);
     compiler = await getCompilerForVersion(compilerOptions.solidityVersion);
   }
 
