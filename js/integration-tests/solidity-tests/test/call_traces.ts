@@ -6,7 +6,7 @@ import {
   CallKind,
   LogKind,
   CallTrace,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr-optimism";
 
 describe("Call traces - IncludeTraces.All", () => {
   let testCallTraces: Map<string, CallTrace[]>;

@@ -1,10 +1,10 @@
 {
-  "name": "@nomicfoundation/edr-linux-arm64-gnu",
+  "name": "@ignored/edr-optimism-linux-arm64-gnu",
   "repository": {
     "url": "https://github.com/NomicFoundation/edr.git",
     "type": "git"
   },
-  "version": "0.10.0-alpha.6",
+  "version": "0.13.0-alpha.5",
   "main": "edr.linux-arm64-gnu.node",
   "files": [
     "edr.linux-arm64-gnu.node"

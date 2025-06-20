@@ -12,7 +12,7 @@ test("uses the workspace version of EDR", function () {
   const require = createRequire(import.meta.url);
   const hardhatPath = require.resolve("hardhat");
 
-  const edrPath = require.resolve("@nomicfoundation/edr", {
+  const edrPath = require.resolve("@ignored/edr-optimism", {
     paths: [hardhatPath],
   });
 

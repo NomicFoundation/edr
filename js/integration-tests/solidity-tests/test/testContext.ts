@@ -11,7 +11,7 @@ import {
   TracingConfigWithBuffers,
   UnexpectedError,
   UnsafeToReplay,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr-optimism";
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,
