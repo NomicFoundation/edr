@@ -44,7 +44,7 @@ pub struct SuiteResult {
 impl SuiteResult {
     pub fn new(
         id: edr_solidity::artifacts::ArtifactId,
-        suite_result: edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
+        suite_result: edr_solidity_tests::result::SuiteResult<String>,
         include_traces: IncludeTraces,
     ) -> Self {
         Self {
@@ -86,7 +86,7 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    stack_trace_result: Option<Arc<StackTraceResult<edr_eth::l1::HaltReason>>>,
+    stack_trace_result: Option<Arc<StackTraceResult<String>>>,
     call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
 }
 
@@ -189,7 +189,7 @@ impl TestResult {
 
     /// Constructs the execution traces for the test. Returns an empty array if
     /// traces for this test were not requested according to
-    /// [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+    /// [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
     /// an array of the root calls of the trace, which always includes the test
     /// call itself and may also include the setup call if there is one
     /// (identified by the function name `setUp`).
@@ -206,7 +206,7 @@ impl TestResult {
 impl TestResult {
     fn new(
         name: String,
-        test_result: edr_solidity_tests::result::TestResult<edr_eth::l1::HaltReason>,
+        test_result: edr_solidity_tests::result::TestResult<String>,
         include_traces: IncludeTraces,
     ) -> Self {
         let include_trace = include_traces == IncludeTraces::All
@@ -264,7 +264,7 @@ impl TestResult {
                 }),
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
-            stack_trace_result: test_result.stack_trace_result,
+            stack_trace_result: test_result.stack_trace_result.map(Arc::new),
             call_trace_arenas: if include_trace {
                 test_result.traces
             } else {

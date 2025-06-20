@@ -3,10 +3,10 @@ import { fileURLToPath } from "node:url";
 import { getAllFilesMatching } from "@nomicfoundation/hardhat-utils/fs";
 import { MultiProcessMutex } from "@nomicfoundation/hardhat-utils/synchronization";
 import {
-  ArtifactId,
-  SuiteResult,
-  runSolidityTests,
   Artifact,
+  ArtifactId,
+  EdrContext,
+  SuiteResult,
   SolidityTestRunnerConfigArgs,
   TestResult,
   TracingConfigWithBuffers,
@@ -27,6 +27,8 @@ let BUILD_MUTEX: MultiProcessMutex | undefined;
  * Run all the given solidity tests and returns the whole results after finishing.
  */
 export async function runAllSolidityTests(
+  context: EdrContext,
+  chainType: string,
   artifacts: Artifact[],
   testSuites: ArtifactId[],
   tracingConfig: TracingConfigWithBuffers,
@@ -39,23 +41,25 @@ export async function runAllSolidityTests(
   return new Promise((resolve, reject) => {
     const resultsFromCallback: SuiteResult[] = [];
 
-    runSolidityTests(
-      artifacts,
-      testSuites,
-      configArgs,
-      tracingConfig,
-      (suiteResult: SuiteResult) => {
-        for (const testResult of suiteResult.testResults) {
-          testResultCallback(suiteResult, testResult);
-        }
+    context
+      .runSolidityTests(
+        chainType,
+        artifacts,
+        testSuites,
+        configArgs,
+        tracingConfig,
+        (suiteResult: SuiteResult) => {
+          for (const testResult of suiteResult.testResults) {
+            testResultCallback(suiteResult, testResult);
+          }
 
-        resultsFromCallback.push(suiteResult);
-        if (resultsFromCallback.length === testSuites.length) {
-          resolve(resultsFromCallback);
+          resultsFromCallback.push(suiteResult);
+          if (resultsFromCallback.length === testSuites.length) {
+            resolve(resultsFromCallback);
+          }
         }
-      },
-      reject
-    );
+      )
+      .catch(reject);
   });
 }
 

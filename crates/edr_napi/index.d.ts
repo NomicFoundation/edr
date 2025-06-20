@@ -491,7 +491,7 @@ export interface LinkReference {
 }
 /**
  * Solidity test runner configuration arguments exposed through the ffi.
- * Docs based on https://book.getfoundry.sh/reference/config/testing
+ * Docs based on <https://book.getfoundry.sh/reference/config/testing>.
  */
 export interface SolidityTestRunnerConfigArgs {
   /**
@@ -788,6 +788,7 @@ export enum IncludeTraces {
   /** Traces will be included in all test results. */
   All = 2
 }
+export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -984,16 +985,6 @@ export interface DecodedTraceParameters {
    */
   arguments: Array<string>
 }
-/**
- * Executes Solidity tests.
- *
- * The function will return as soon as test execution is started.
- * The progress callback will be called with the results of each test suite.
- * It is up to the caller to track how many times the callback is called to
- * know when all tests are done.
- * The error callback is called if an invalid configuration value is provided.
- */
-export declare function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, progressCallback: (result: SuiteResult) => void, errorCallback: (error: Error) => void): void
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
   /** Callback to be called when a new event is received. */
@@ -1254,6 +1245,16 @@ export declare class EdrContext {
   createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: TracingConfigWithBuffers): Promise<Provider>
   /**Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
+  registerSolidityTestRunnerFactory(chainType: string, factory: SolidityTestRunnerFactory): Promise<void>
+  /**
+   *Executes Solidity tests.
+   *
+   *The function will return as soon as test execution is started.
+   *The progress callback will be called with the results of each test
+   *suite. It is up to the caller to track how many times the callback
+   *is called to know when all tests are done.
+   */
+  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */
@@ -1281,6 +1282,7 @@ export declare class Provider {
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
 }
+export declare class SolidityTestRunnerFactory { }
 /** See [edr_solidity_tests::result::SuiteResult] */
 export declare class SuiteResult {
   /**
@@ -1322,7 +1324,7 @@ export declare class TestResult {
   /**
    * Constructs the execution traces for the test. Returns an empty array if
    * traces for this test were not requested according to
-   * [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
    * an array of the root calls of the trace, which always includes the test
    * call itself and may also include the setup call if there is one
    * (identified by the function name `setUp`).

@@ -6,6 +6,7 @@ use alloy_sol_types::SolValue;
 use edr_common::fs;
 use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
 };
 use revm::context::result::HaltReasonTr;
 use serde_json::Value;
@@ -32,12 +33,21 @@ impl Cheatcode for keyExistsCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         check_json_key_exists(json, key)
@@ -50,12 +60,21 @@ impl Cheatcode for keyExistsJsonCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         check_json_key_exists(json, key)
@@ -68,12 +87,21 @@ impl Cheatcode for parseJson_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json } = self;
         parse_json(json, "$")
@@ -86,12 +114,21 @@ impl Cheatcode for parseJson_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json(json, key)
@@ -104,12 +141,21 @@ impl Cheatcode for parseJsonUintCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Uint(256))
@@ -122,12 +168,21 @@ impl Cheatcode for parseJsonUintArrayCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Uint(256))
@@ -140,12 +195,21 @@ impl Cheatcode for parseJsonIntCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Int(256))
@@ -158,12 +222,21 @@ impl Cheatcode for parseJsonIntArrayCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Int(256))
@@ -176,12 +249,21 @@ impl Cheatcode for parseJsonBoolCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Bool)
@@ -194,12 +276,21 @@ impl Cheatcode for parseJsonBoolArrayCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Bool)
@@ -212,12 +303,21 @@ impl Cheatcode for parseJsonAddressCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Address)
@@ -230,12 +330,21 @@ impl Cheatcode for parseJsonAddressArrayCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Address)
@@ -248,12 +357,21 @@ impl Cheatcode for parseJsonStringCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::String)
@@ -266,12 +384,21 @@ impl Cheatcode for parseJsonStringArrayCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::String)
@@ -284,12 +411,21 @@ impl Cheatcode for parseJsonBytesCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Bytes)
@@ -302,12 +438,21 @@ impl Cheatcode for parseJsonBytesArrayCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::Bytes)
@@ -320,12 +465,21 @@ impl Cheatcode for parseJsonBytes32Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::FixedBytes(32))
@@ -338,12 +492,21 @@ impl Cheatcode for parseJsonBytes32ArrayCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_coerce(json, key, &DynSolType::FixedBytes(32))
@@ -356,12 +519,21 @@ impl Cheatcode for parseJsonKeysCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, key } = self;
         parse_json_keys(json, key)
@@ -374,12 +546,21 @@ impl Cheatcode for serializeJsonCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { objectKey, value } = self;
         serialize_json(state, objectKey, None, value)
@@ -392,12 +573,21 @@ impl Cheatcode for serializeBool_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -414,12 +604,21 @@ impl Cheatcode for serializeUint_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -436,12 +635,21 @@ impl Cheatcode for serializeInt_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -458,12 +666,21 @@ impl Cheatcode for serializeAddress_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -480,12 +697,21 @@ impl Cheatcode for serializeBytes32_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -502,12 +728,21 @@ impl Cheatcode for serializeString_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -524,12 +759,21 @@ impl Cheatcode for serializeBytes_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -551,12 +795,21 @@ impl Cheatcode for serializeBool_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -573,12 +826,21 @@ impl Cheatcode for serializeUint_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -595,12 +857,21 @@ impl Cheatcode for serializeInt_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -617,12 +888,21 @@ impl Cheatcode for serializeAddress_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -639,12 +919,21 @@ impl Cheatcode for serializeBytes32_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -661,12 +950,21 @@ impl Cheatcode for serializeString_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -683,12 +981,21 @@ impl Cheatcode for serializeBytes_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -706,12 +1013,21 @@ impl Cheatcode for serializeUintToHexCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             objectKey,
@@ -729,12 +1045,21 @@ impl Cheatcode for writeJson_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { json, path } = self;
         let json = serde_json::from_str(json).unwrap_or_else(|_err| Value::String(json.to_owned()));
@@ -749,12 +1074,21 @@ impl Cheatcode for writeJson_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             json,
@@ -970,11 +1304,20 @@ fn serialize_json<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     ChainContextT: ChainContextTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
 >(
-    state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+    state: &mut Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
     object_key: &str,
     value_key: Option<&str>,
     value: &str,

@@ -3,8 +3,7 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 
 use derive_where::derive_where;
-use edr_eth::spec::HaltReasonTrait;
-use edr_evm::interpreter::InstructionResult;
+use edr_eth::{l1, spec::HaltReasonTrait};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::NestedTrace,
@@ -15,7 +14,10 @@ use edr_solidity_tests::{
 };
 use foundry_evm::{
     decode::decode_console_logs,
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
     traces::{decode_trace_arena, render_trace_arena, CallTraceDecoderBuilder},
 };
 use futures::future::join_all;
@@ -27,9 +29,18 @@ use crate::helpers::{tracing::init_tracing_for_solidity_tests, SolidityTestFilte
 pub struct TestConfig<
     BlockT: BlockEnvTr,
     ChainContextT: 'static + ChainContextTr + Send + Sync,
-    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
-    HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+    EvmBuilderT: 'static
+        + EvmBuilderTrait<
+            BlockT,
+            ChainContextT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TransactionT,
+        >,
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 > {
     pub runner: MultiContractRunner<
@@ -39,6 +50,7 @@ pub struct TestConfig<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     >,
     pub should_fail: bool,
@@ -48,11 +60,29 @@ pub struct TestConfig<
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr + Send + Sync,
-        EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
-        HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<
+                BlockT,
+                ChainContextT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                TransactionT,
+            >,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
-    > TestConfig<BlockT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionT>
+    >
+    TestConfig<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        TransactionT,
+    >
 {
     pub fn new(
         runner: MultiContractRunner<
@@ -62,6 +92,7 @@ impl<
             HaltReasonT,
             HardforkT,
             NoOpContractDecoder<HaltReasonT>,
+            TransactionErrorT,
             TransactionT,
         >,
     ) -> Self {
@@ -76,6 +107,7 @@ impl<
             HaltReasonT,
             HardforkT,
             NoOpContractDecoder<HaltReasonT>,
+            TransactionErrorT,
             TransactionT,
         >,
         filter: SolidityTestFilter,

@@ -6,7 +6,10 @@ use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
 use foundry_evm_core::{
     constants::DEFAULT_CREATE2_DEPLOYER,
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use k256::{ecdsa::SigningKey, elliptic_curve::Curve, Secp256k1};
 use p256::ecdsa::{signature::hazmat::PrehashSigner, Signature, SigningKey as P256SigningKey};
@@ -26,12 +29,21 @@ impl Cheatcode for labelCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { account, newLabel } = self;
         state.labels.insert(*account, newLabel.clone());
@@ -45,12 +57,21 @@ impl Cheatcode for getLabelCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { account } = self;
         Ok(match state.labels.get(account) {
@@ -66,12 +87,21 @@ impl Cheatcode for computeCreateAddressCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { nonce, deployer } = self;
         ensure!(
@@ -88,12 +118,21 @@ impl Cheatcode for computeCreate2Address_0Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self {
             salt,
@@ -110,12 +149,21 @@ impl Cheatcode for computeCreate2Address_1Call {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { salt, initCodeHash } = self;
         Ok(DEFAULT_CREATE2_DEPLOYER
@@ -130,12 +178,21 @@ impl Cheatcode for ensNamehashCall {
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
-        _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Result {
         let Self { name } = self;
         Ok(namehash(name).abi_encode())
