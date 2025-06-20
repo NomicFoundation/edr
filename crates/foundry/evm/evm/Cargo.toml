@@ -1,0 +1,35 @@
+[package]
+name = "foundry-evm"
+description = "Main Foundry EVM backend abstractions"
+
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_solidity.workspace = true
+foundry-cheatcodes.workspace = true
+foundry-evm-core.workspace = true
+foundry-evm-coverage.workspace = true
+foundry-evm-fuzz.workspace = true
+foundry-evm-traces.workspace = true
+
+alloy-dyn-abi = { workspace = true, features = ["arbitrary", "eip712"] }
+alloy-json-abi.workspace = true
+alloy-primitives = { workspace = true, features = ["serde", "getrandom", "arbitrary", "rlp"] }
+alloy-sol-types.workspace = true
+derive-where.workspace = true
+revm.workspace = true
+revm-inspectors.workspace = true
+
+eyre = "0.6"
+hex.workspace = true
+parking_lot = "0.12"
+proptest = "1"
+serde.workspace = true
+serde_json.workspace = true
+thiserror = "1"
+tracing = "0.1"
+tokio = "1.43.0"
+
+[lints]
+workspace = true

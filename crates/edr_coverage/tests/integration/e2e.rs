@@ -2,11 +2,12 @@ use std::{collections::BTreeMap, str::FromStr};
 
 use edr_coverage::CoverageHitCollector;
 use edr_eth::{
-    Address, B256, Bytes, HashMap, HashSet, U256, bytes,
+    bytes,
     l1::{self, L1ChainSpec},
     result::{ExecutionResult, Output},
     signature::public_key_to_address,
     transaction::{self, TxKind},
+    Address, Bytes, HashMap, HashSet, B256, U256,
 };
 use edr_evm::{
     blockchain::{Blockchain, GenesisBlockOptions, LocalBlockchain},

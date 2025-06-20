@@ -3,7 +3,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use edr_eth::{
-    Address, B256, Bytes, HashSet, U256,
     block::PartialHeader,
     eips::eip2718::TypedEnvelope,
     l1::{self, L1ChainSpec},
@@ -11,10 +10,9 @@ use edr_eth::{
     receipt::{BlockReceipt, ExecutionReceipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
     transaction::ExecutableTransaction as _,
+    Address, Bytes, HashSet, B256, U256,
 };
 use edr_evm::{
-    EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
-    RemoteBlockConversionError,
     blockchain::{
         BlockchainError, BlockchainErrorForChainSpec, GenesisBlockOptions, LocalBlockchain,
         SyncBlockchain,
@@ -23,7 +21,8 @@ use edr_evm::{
     spec::{ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
-    transaction,
+    transaction, EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
+    RemoteBlockConversionError,
 };
 use edr_rpc_eth::TransactionConversionError;
 use serial_test::serial;
@@ -47,8 +46,8 @@ const REMOTE_BLOCK_LAST_TRANSACTION_HASH: &str =
 async fn create_forked_dummy_blockchain(
     fork_block_number: Option<u64>,
 ) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>> {
-    use edr_eth::{HashMap, l1};
-    use edr_evm::{RandomHashGenerator, blockchain::ForkedBlockchain, state::IrregularState};
+    use edr_eth::{l1, HashMap};
+    use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use parking_lot::Mutex;
@@ -78,8 +77,9 @@ async fn create_forked_dummy_blockchain(
 
 // The cache directory is only used when the `test-remote` feature is enabled
 #[allow(unused_variables)]
-async fn create_dummy_blockchains()
--> Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>>> {
+async fn create_dummy_blockchains(
+) -> Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>>>
+{
     const DEFAULT_GAS_LIMIT: u64 = 0xffffffffffffff;
     const DEFAULT_INITIAL_BASE_FEE: u128 = 1000000000;
 
@@ -104,7 +104,11 @@ async fn create_dummy_blockchains()
 }
 
 fn create_dummy_block(
-    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>,
+    blockchain: &dyn SyncBlockchain<
+        L1ChainSpec,
+        BlockchainErrorForChainSpec<L1ChainSpec>,
+        StateError,
+    >,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     let block_number = blockchain.last_block_number() + 1;
 
@@ -112,7 +116,11 @@ fn create_dummy_block(
 }
 
 fn create_dummy_block_with_number(
-    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>,
+    blockchain: &dyn SyncBlockchain<
+        L1ChainSpec,
+        BlockchainErrorForChainSpec<L1ChainSpec>,
+        StateError,
+    >,
     number: u64,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     let parent_hash = *blockchain
@@ -124,7 +132,11 @@ fn create_dummy_block_with_number(
 }
 
 fn create_dummy_block_with_difficulty(
-    blockchain: &dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>,
+    blockchain: &dyn SyncBlockchain<
+        L1ChainSpec,
+        BlockchainErrorForChainSpec<L1ChainSpec>,
+        StateError,
+    >,
     number: u64,
     difficulty: u64,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
@@ -175,7 +187,11 @@ struct DummyBlockAndTransaction {
 
 /// Returns the transaction's hash.
 fn insert_dummy_block_with_transaction(
-    blockchain: &mut dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>,
+    blockchain: &mut dyn SyncBlockchain<
+        L1ChainSpec,
+        BlockchainErrorForChainSpec<L1ChainSpec>,
+        StateError,
+    >,
 ) -> anyhow::Result<DummyBlockAndTransaction> {
     const GAS_USED: u64 = 100;
 
@@ -394,12 +410,10 @@ async fn block_by_number_none() {
 
     for blockchain in blockchains {
         let next_block_number = blockchain.last_block_number() + 1;
-        assert!(
-            blockchain
-                .block_by_number(next_block_number)
-                .unwrap()
-                .is_none()
-        );
+        assert!(blockchain
+            .block_by_number(next_block_number)
+            .unwrap()
+            .is_none());
     }
 }
 
@@ -606,7 +620,7 @@ async fn logs_local() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// See results at https://api.etherscan.io/api?module=logs&action=getLogs&fromBlock=10496585&toBlock=10496585&address=0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2
+/// See results at <https://api.etherscan.io/api?module=logs&action=getLogs&fromBlock=10496585&toBlock=10496585&address=0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2>
 #[cfg(feature = "test-remote")]
 #[tokio::test(flavor = "multi_thread")]
 #[serial]
@@ -683,17 +697,13 @@ async fn revert_to_block_local() -> anyhow::Result<()> {
         );
 
         // Blocks 1 and 2 are gone
-        assert!(
-            blockchain
-                .block_by_number(one.block.header().number)?
-                .is_none()
-        );
+        assert!(blockchain
+            .block_by_number(one.block.header().number)?
+            .is_none());
 
-        assert!(
-            blockchain
-                .block_by_number(two.block.header().number)?
-                .is_none()
-        );
+        assert!(blockchain
+            .block_by_number(two.block.header().number)?
+            .is_none());
 
         assert!(blockchain.block_by_hash(one.block.block_hash())?.is_none());
         assert!(blockchain.block_by_hash(two.block.block_hash())?.is_none());
@@ -808,12 +818,10 @@ async fn block_total_difficulty_by_hash() {
         );
 
         // Block 2 no longer stores a total difficulty
-        assert!(
-            blockchain
-                .total_difficulty_by_hash(two.block.block_hash())
-                .unwrap()
-                .is_none()
-        );
+        assert!(blockchain
+            .total_difficulty_by_hash(two.block.block_hash())
+            .unwrap()
+            .is_none());
     }
 }
 

@@ -7,7 +7,7 @@ use crate::{
     error_inferrer,
     error_inferrer::{InferrerError, SubmessageData},
     mapped_inline_internal_functions_heuristics::{
-        HeuristicsError, adjust_stack_trace, stack_trace_may_require_adjustments,
+        adjust_stack_trace, stack_trace_may_require_adjustments, HeuristicsError,
     },
     nested_trace::{
         CallMessage, CreateMessage, CreateOrCallMessage, CreateOrCallMessageRef, EvmStep,
@@ -17,8 +17,8 @@ use crate::{
 };
 
 /// Errors that can occur during the generation of the stack trace.
-#[derive(Debug, thiserror::Error)]
-pub enum SolidityTracerError<HaltReasonT: HaltReasonTrait> {
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum SolidityTracerError<HaltReasonT> {
     /// Errors that can occur when decoding the contract metadata.
     #[error(transparent)]
     ContractMetadata(#[from] ContractMetadataError),
@@ -28,6 +28,27 @@ pub enum SolidityTracerError<HaltReasonT: HaltReasonTrait> {
     /// Errors that can occur during the heuristics.
     #[error(transparent)]
     Heuristics(#[from] HeuristicsError),
+}
+
+impl<HaltReasonT> SolidityTracerError<HaltReasonT> {
+    /// Converts the type of the halt reason of the instance.
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> SolidityTracerError<NewHaltReasonT> {
+        match self {
+            SolidityTracerError::ContractMetadata(err) => {
+                SolidityTracerError::ContractMetadata(err)
+            }
+            SolidityTracerError::ErrorInferrer(err) => {
+                SolidityTracerError::ErrorInferrer(err.map_halt_reason(conversion_fn))
+            }
+            SolidityTracerError::Heuristics(err) => SolidityTracerError::Heuristics(err),
+        }
+    }
 }
 
 /// Generates a stack trace for the provided nested trace.

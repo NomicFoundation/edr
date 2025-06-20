@@ -2,12 +2,12 @@ use std::sync::mpsc::channel;
 
 use edr_eth::{Address, Bytes};
 use napi::{
-    Env, JsFunction, Status,
     bindgen_prelude::{Promise, Uint8Array},
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
     tokio::runtime,
+    Env, JsFunction, Status,
 };
 use napi_derive::napi;
 

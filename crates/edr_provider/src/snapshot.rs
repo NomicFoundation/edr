@@ -1,7 +1,7 @@
 use std::time::Instant;
 
-use edr_eth::{Address, transaction::ExecutableTransaction};
-use edr_evm::{MemPool, RandomHashGenerator, state::IrregularState};
+use edr_eth::{transaction::ExecutableTransaction, Address};
+use edr_evm::{state::IrregularState, MemPool, RandomHashGenerator};
 use rpds::HashTrieMapSync;
 
 use crate::data::StateId;

@@ -17,6 +17,7 @@
   - [Using pnpm link](02_development/05_pnpm_link.md)
   - [Style Guide](02_development/06_style_guide.md)
   - [`pnpm patch` a dependency](02_development/07_pnpm_patch.md)
+  - [Solidity test cheatcodes](02_development/08_cheatcodes)
 
 - [Release](./03_release.md)
 

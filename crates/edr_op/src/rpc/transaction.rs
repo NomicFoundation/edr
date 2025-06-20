@@ -1,9 +1,9 @@
 use std::sync::OnceLock;
 
-use edr_eth::{B256, signature::Signature, transaction::MaybeSignedTransaction};
+use edr_eth::{signature::Signature, transaction::MaybeSignedTransaction, B256};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
-    transaction::{TxKind, remote::EthRpcTransaction},
+    transaction::{remote::EthRpcTransaction, TxKind},
 };
 use edr_rpc_eth::{
     RpcTypeFrom, TransactionConversionError as L1ConversionError, TransactionWithSignature,
@@ -11,8 +11,8 @@ use edr_rpc_eth::{
 
 use super::Transaction;
 use crate::{
-    OpChainSpec, OpSpecId,
     transaction::{self, OpTxTrait as _},
+    OpChainSpec, OpSpecId,
 };
 
 impl EthRpcTransaction for Transaction {

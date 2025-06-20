@@ -1,7 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_eth::{
-    B256,
     block::{self, BlobGas, PartialHeader},
     eips::eip4844,
     l1::{self, BlockEnv, L1ChainSpec},
@@ -9,18 +8,16 @@ use edr_eth::{
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ResultAndState,
     spec::{ChainSpec, EthHeaderConstants},
+    B256,
 };
-use edr_rpc_eth::{RpcTypeFrom, TransactionConversionError, spec::RpcSpec};
+use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
-use revm::{ExecuteEvm, InspectEvm, Inspector, inspector::NoOpInspector};
+use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector};
 pub use revm_context_interface::ContextTr as ContextTrait;
-use revm_handler::{PrecompileProvider, instructions::EthInstructions};
-use revm_interpreter::{InterpreterResult, interpreter::EthInterpreter};
+use revm_handler::{instructions::EthInstructions, PrecompileProvider};
+use revm_interpreter::{interpreter::EthInterpreter, InterpreterResult};
 
 use crate::{
-    Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
-    EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock,
-    RemoteBlockConversionError, SyncBlock,
     block::transaction::TransactionAndBlockForChainSpec,
     config::CfgEnv,
     evm::{Evm, EvmData},
@@ -31,9 +28,12 @@ use crate::{
     result::EVMErrorForChain,
     state::{Database, DatabaseComponentError},
     transaction::{
-        ExecutableTransaction, TransactionError, TransactionErrorForChainSpec, TransactionType,
-        TransactionValidation, remote::EthRpcTransaction,
+        remote::EthRpcTransaction, ExecutableTransaction, TransactionError,
+        TransactionErrorForChainSpec, TransactionType, TransactionValidation,
     },
+    Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
+    EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock,
+    RemoteBlockConversionError, SyncBlock,
 };
 
 /// Helper type for a chain-specific [`revm::Context`].
@@ -358,10 +358,10 @@ impl<ChainSpecT> SyncRuntimeSpec for ChainSpecT where
 
 impl RuntimeSpec for L1ChainSpec {
     type Block = dyn SyncBlock<
-            Arc<Self::BlockReceipt>,
-            Self::SignedTransaction,
-            Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
-        >;
+        Arc<Self::BlockReceipt>,
+        Self::SignedTransaction,
+        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
+    >;
 
     type BlockBuilder<
         'blockchain,

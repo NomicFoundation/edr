@@ -18,5 +18,6 @@ edr-cache
 /.nyc_output
 CHANGELOG.md
 !.eslintrc.js
+!.eslintrc.cjs
 /integration/**/artifacts
 /integration/**/cache

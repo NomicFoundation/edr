@@ -1,11 +1,11 @@
 use alloy_dyn_abi::eip712::TypedData;
 use derive_where::derive_where;
 use edr_eth::{
-    Address, B256, BlockSpec, Bytes, PreEip1898BlockSpec, U64, U128, U256,
     filter::{LogFilterOptions, SubscriptionType},
     serde::{optional_single_to_sequence, sequence_to_optional_single},
+    Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U128, U256, U64,
 };
-use edr_rpc_eth::{StateOverrideOptions, spec::RpcSpec};
+use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
 use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
 use serde::{Deserialize, Serialize};
 

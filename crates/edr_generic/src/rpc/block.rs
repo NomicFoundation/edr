@@ -1,11 +1,11 @@
 use derive_where::derive_where;
 use edr_eth::{
-    Address, B64, B256, Bloom, Bytes, U256,
     block::{BlobGas, Header},
     transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
+    Address, Bloom, Bytes, B256, B64, U256,
 };
-use edr_evm::{BlockAndTotalDifficulty, EthBlockData, EthRpcBlock, spec::RuntimeSpec};
+use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
 use edr_rpc_eth::spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 
@@ -143,9 +143,9 @@ pub enum ConversionError<ChainSpecT: RuntimeSpec> {
 impl<TransactionT> TryFrom<Block<TransactionT>> for EthBlockData<GenericChainSpec>
 where
     TransactionT: TryInto<
-            crate::transaction::SignedWithFallbackToPostEip155,
-            Error = crate::rpc::transaction::ConversionError,
-        >,
+        crate::transaction::SignedWithFallbackToPostEip155,
+        Error = crate::rpc::transaction::ConversionError,
+    >,
 {
     type Error = ConversionError<GenericChainSpec>;
 
@@ -255,7 +255,7 @@ mod tests {
     use edr_rpc_client::jsonrpc;
     use edr_rpc_eth::client::EthRpcClient;
 
-    use crate::{GenericChainSpec, rpc::transaction::TransactionWithSignature};
+    use crate::{rpc::transaction::TransactionWithSignature, GenericChainSpec};
 
     #[tokio::test(flavor = "current_thread")]
     async fn test_allow_missing_nonce_or_mix_hash() {

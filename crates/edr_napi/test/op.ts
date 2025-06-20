@@ -26,8 +26,15 @@ import {
   opLatestHardfork,
   // @ts-ignore
   opProviderFactory,
+  // @ts-ignore
+  opSolidityTestRunnerFactory,
 } from "..";
-import { ALCHEMY_URL, toBuffer } from "./helpers";
+import {
+  ALCHEMY_URL,
+  loadContract,
+  runAllSolidityTests,
+  toBuffer,
+} from "./helpers";
 
 chai.use(chaiAsPromised);
 
@@ -37,6 +44,11 @@ describe("Multi-chain", () => {
   before(async () => {
     await context.registerProviderFactory(L1_CHAIN_TYPE, l1ProviderFactory());
     await context.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
+
+    await context.registerSolidityTestRunnerFactory(
+      OP_CHAIN_TYPE,
+      opSolidityTestRunnerFactory()
+    );
   });
 
   const genesisState: AccountOverride[] = [
@@ -295,6 +307,43 @@ describe("Multi-chain", () => {
           // Error("Predeploy L2ToL1MessagePasser is not supported.")
           "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002f5072656465706c6f79204c32546f4c314d657373616765506173736572206973206e6f7420737570706f727465642e0000000000000000000000000000000000"
         );
+      });
+    });
+
+    describe("Solidity Tests", () => {
+      it("executes tests for OP chain", async function () {
+        const artifacts = [
+          loadContract("./artifacts/SetupConsistencyCheck.json"),
+          loadContract("./artifacts/PaymentFailureTest.json"),
+        ];
+        // All artifacts are test suites.
+        const testSuites = artifacts.map((artifact) => artifact.id);
+        const config = {
+          projectRoot: __dirname,
+        };
+
+        const results = await runAllSolidityTests(
+          context,
+          OP_CHAIN_TYPE,
+          artifacts,
+          testSuites,
+          config
+        );
+
+        assert.equal(results.length, artifacts.length);
+
+        for (const res of results) {
+          if (res.id.name.includes("SetupConsistencyCheck")) {
+            assert.equal(res.testResults.length, 2);
+            assert.equal(res.testResults[0].status, "Success");
+            assert.equal(res.testResults[1].status, "Success");
+          } else if (res.id.name.includes("PaymentFailureTest")) {
+            assert.equal(res.testResults.length, 1);
+            assert.equal(res.testResults[0].status, "Failure");
+          } else {
+            assert.fail("Unexpected test suite name: " + res.id.name);
+          }
+        }
       });
     });
   });

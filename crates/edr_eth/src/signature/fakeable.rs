@@ -178,7 +178,11 @@ impl<SignatureT: Recoverable + Signature> Signature for Fakeable<SignatureT> {
             FakeableData::Fake { recovery_id } => {
                 // We add the +27 magic number that originates from Bitcoin as the
                 // `Signature::new` function adds it as well.
-                if *recovery_id == 28 { Some(true) } else { None }
+                if *recovery_id == 28 {
+                    Some(true)
+                } else {
+                    None
+                }
             }
             FakeableData::Recoverable { signature } => signature.y_parity(),
         }

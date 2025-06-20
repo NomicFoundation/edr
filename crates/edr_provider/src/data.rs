@@ -12,12 +12,10 @@ use std::{
 
 use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
-    Address, B256, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet,
-    KECCAK_EMPTY, U256,
     account::{Account, AccountInfo, AccountStatus},
     block::{
-        BlockOptions, calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas,
-        miner_reward,
+        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
+        BlockOptions,
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -29,15 +27,15 @@ use edr_eth::{
     signature::{self, RecoveryMessage},
     spec::{ChainSpec, HaltReasonTrait},
     transaction::{
-        ExecutableTransaction, IsEip4844, IsSupported as _, TransactionMut, TransactionType,
-        TransactionValidation,
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
+        ExecutableTransaction, IsEip4844, IsSupported as _, TransactionMut, TransactionType,
+        TransactionValidation,
     },
+    Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet, B256,
+    KECCAK_EMPTY, U256,
 };
 use edr_evm::{
-    Block, BlockAndTotalDifficulty, BlockReceipts as _, MemPool, MineBlockResultAndState,
-    OrderedTransaction, RandomHashGenerator,
     block::transaction::{
         BlockDataForTransaction, TransactionAndBlock, TransactionAndBlockForChainSpec,
     },
@@ -54,7 +52,8 @@ use edr_evm::{
         StateOverrides, StateRefOverrider, SyncState,
     },
     trace::Trace,
-    transaction,
+    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, MemPool,
+    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -66,21 +65,19 @@ use rpds::HashTrieMapSync;
 use tokio::runtime;
 
 use crate::{
-    MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
-    SyncSubscriberCallback,
-    data::gas::{BinarySearchEstimationArgs, CheckGasLimitArgs, compute_rewards},
+    data::gas::{compute_rewards, BinarySearchEstimationArgs, CheckGasLimitArgs},
     debug_mine::{
         DebugMineBlockResult, DebugMineBlockResultAndState, DebugMineBlockResultForChainSpec,
     },
     debug_trace::{
-        DebugTraceConfig, DebugTraceResultWithTraces, TracerEip3155, debug_trace_transaction,
-        execution_result_to_debug_result,
+        debug_trace_transaction, execution_result_to_debug_result, DebugTraceConfig,
+        DebugTraceResultWithTraces, TracerEip3155,
     },
     error::{
         CreationError, CreationErrorForChainSpec, EstimateGasFailure, ProviderErrorForChainSpec,
         TransactionFailure, TransactionFailureWithTraces,
     },
-    filter::{Filter, FilterData, LogFilter, bloom_contains_log_filter, filter_logs},
+    filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
     logger::SyncLogger,
     mock::SyncCallOverride,
     observability::{self, RuntimeObserver},
@@ -89,6 +86,8 @@ use crate::{
     snapshot::Snapshot,
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
+    MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
+    SyncSubscriberCallback,
 };
 
 const DEFAULT_INITIAL_BASE_FEE_PER_GAS: u128 = 1_000_000_000;
@@ -126,10 +125,10 @@ pub struct SendTransactionResult<BlockT, HaltReasonT: HaltReasonTrait, SignedTra
 }
 
 impl<
-    BlockT: Block<SignedTransactionT>,
-    HaltReasonT: HaltReasonTrait,
-    SignedTransactionT: ExecutableTransaction,
-> SendTransactionResult<BlockT, HaltReasonT, SignedTransactionT>
+        BlockT: Block<SignedTransactionT>,
+        HaltReasonT: HaltReasonTrait,
+        SignedTransactionT: ExecutableTransaction,
+    > SendTransactionResult<BlockT, HaltReasonT, SignedTransactionT>
 {
     /// Present if the transaction was auto-mined.
     pub fn transaction_result_and_trace(&self) -> Option<ExecutionResultAndTrace<'_, HaltReasonT>> {
@@ -1694,13 +1693,13 @@ where
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 {
     /// Returns the balance of the account corresponding to the provided address
@@ -2291,14 +2290,14 @@ where
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionType<Type: IsEip4844>
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionType<Type: IsEip4844>
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 {
     pub fn send_transaction(
@@ -2398,13 +2397,13 @@ where
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Clone + Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Clone + Default,
+        SignedTransaction: Default
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 {
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
@@ -2492,14 +2491,14 @@ where
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
     ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionMut
-                                   + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
-            >,
+        TimerT,
+        BlockEnv: Default,
+        SignedTransaction: Default
+                               + TransactionMut
+                               + TransactionValidation<
+            ValidationError: From<l1::InvalidTransaction> + PartialEq,
         >,
+    >,
     TimerT: Clone + TimeSinceEpoch,
 {
     /// Estimate the gas cost of a transaction. Matches Hardhat behavior.
@@ -2917,8 +2916,8 @@ fn get_skip_unsupported_transaction_types_from_env() -> bool {
         .map_or(DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES, |s| s == "true")
 }
 
-fn get_max_cached_states_from_env<ChainSpecT: RuntimeSpec>()
--> Result<NonZeroUsize, CreationErrorForChainSpec<ChainSpecT>> {
+fn get_max_cached_states_from_env<ChainSpecT: RuntimeSpec>(
+) -> Result<NonZeroUsize, CreationErrorForChainSpec<ChainSpecT>> {
     std::env::var(EDR_MAX_CACHED_STATES_ENV_VAR).map_or_else(
         |err| match err {
             std::env::VarError::NotPresent => {
@@ -2942,9 +2941,9 @@ mod tests {
 
     use super::*;
     use crate::{
+        console_log::tests::{deploy_console_log_contract, ConsoleLogTransaction},
+        test_utils::{create_test_config, one_ether, ProviderTestFixture},
         MemPoolConfig, MiningConfig, ProviderConfig,
-        console_log::tests::{ConsoleLogTransaction, deploy_console_log_contract},
-        test_utils::{ProviderTestFixture, create_test_config, one_ether},
     };
 
     #[test]
@@ -2997,12 +2996,10 @@ mod tests {
         let transaction = fixture.signed_dummy_transaction(0, None)?;
         let recovered_address = transaction.caller();
 
-        assert!(
-            fixture
-                .provider_data
-                .local_accounts
-                .contains_key(recovered_address)
-        );
+        assert!(fixture
+            .provider_data
+            .local_accounts
+            .contains_key(recovered_address));
 
         Ok(())
     }
@@ -3028,13 +3025,11 @@ mod tests {
 
         let transaction_hash = fixture.provider_data.add_pending_transaction(transaction)?;
 
-        assert!(
-            fixture
-                .provider_data
-                .mem_pool
-                .transaction_by_hash(&transaction_hash)
-                .is_some()
-        );
+        assert!(fixture
+            .provider_data
+            .mem_pool
+            .transaction_by_hash(&transaction_hash)
+            .is_some());
 
         match fixture
             .provider_data
@@ -3465,18 +3460,14 @@ mod tests {
 
         // Check that only the first and third transactions were mined
         assert_eq!(result.block.transactions().len(), 2);
-        assert!(
-            fixture
-                .provider_data
-                .transaction_receipt(transaction1.transaction_hash())?
-                .is_some()
-        );
-        assert!(
-            fixture
-                .provider_data
-                .transaction_receipt(transaction3.transaction_hash())?
-                .is_some()
-        );
+        assert!(fixture
+            .provider_data
+            .transaction_receipt(transaction1.transaction_hash())?
+            .is_some());
+        assert!(fixture
+            .provider_data
+            .transaction_receipt(transaction3.transaction_hash())?
+            .is_some());
 
         // Check that the second transaction is still pending
         let pending_transactions = fixture
@@ -3763,25 +3754,21 @@ mod tests {
         let transaction = fixture.impersonated_dummy_transaction()?;
         let transaction_hash = fixture.provider_data.add_pending_transaction(transaction)?;
 
-        assert!(
-            fixture
-                .provider_data
-                .mem_pool
-                .transaction_by_hash(&transaction_hash)
-                .is_some()
-        );
+        assert!(fixture
+            .provider_data
+            .mem_pool
+            .transaction_by_hash(&transaction_hash)
+            .is_some());
 
         fixture
             .provider_data
             .set_balance(fixture.impersonated_account, U256::from(100))?;
 
-        assert!(
-            fixture
-                .provider_data
-                .mem_pool
-                .transaction_by_hash(&transaction_hash)
-                .is_none()
-        );
+        assert!(fixture
+            .provider_data
+            .mem_pool
+            .transaction_by_hash(&transaction_hash)
+            .is_none());
 
         Ok(())
     }
@@ -3833,13 +3820,11 @@ mod tests {
             .mine_and_commit_block(BlockOptions::default())?;
 
         // Make sure transaction was mined successfully.
-        assert!(
-            results
-                .transaction_results
-                .first()
-                .context("failed to mine transaction")?
-                .is_success()
-        );
+        assert!(results
+            .transaction_results
+            .first()
+            .context("failed to mine transaction")?
+            .is_success());
         // Sanity check that the mempool is empty.
         assert_eq!(fixture.provider_data.mem_pool.transactions().count(), 0);
 
@@ -3922,7 +3907,7 @@ mod tests {
         use edr_test_utils::env::get_alchemy_url;
 
         use super::*;
-        use crate::{ForkConfig, test_utils::FORK_BLOCK_NUMBER};
+        use crate::{test_utils::FORK_BLOCK_NUMBER, ForkConfig};
 
         #[test]
         fn reset_local_to_forking() -> anyhow::Result<()> {
@@ -3944,12 +3929,10 @@ mod tests {
             // We're fetching a specific block instead of the last block number for the
             // forked blockchain, because the last block number query cannot be
             // cached.
-            assert!(
-                fixture
-                    .provider_data
-                    .block_by_block_spec(&block_spec)?
-                    .is_some()
-            );
+            assert!(fixture
+                .provider_data
+                .block_by_block_spec(&block_spec)?
+                .is_some());
 
             Ok(())
         }
@@ -3961,12 +3944,10 @@ mod tests {
             // We're fetching a specific block instead of the last block number for the
             // forked blockchain, because the last block number query cannot be
             // cached.
-            assert!(
-                fixture
-                    .provider_data
-                    .block_by_block_spec(&BlockSpec::Number(FORK_BLOCK_NUMBER))?
-                    .is_some()
-            );
+            assert!(fixture
+                .provider_data
+                .block_by_block_spec(&BlockSpec::Number(FORK_BLOCK_NUMBER))?
+                .is_some());
 
             fixture.provider_data.reset(None)?;
 
@@ -3977,7 +3958,7 @@ mod tests {
 
         #[test]
         fn run_call_in_hardfork_context() -> anyhow::Result<()> {
-            use alloy_sol_types::{SolCall, sol};
+            use alloy_sol_types::{sol, SolCall};
             use edr_evm::transaction::TransactionError;
             use edr_rpc_eth::CallRequest;
 

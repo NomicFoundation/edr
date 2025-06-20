@@ -4,9 +4,10 @@ use alloy_rlp::RlpEncodable;
 use k256::SecretKey;
 
 use crate::{
-    Address, B256, Bytes, U256, keccak256,
-    signature::{self, Fakeable, SignatureError, public_key_to_address},
+    keccak256,
+    signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
+    Address, Bytes, B256, U256,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]

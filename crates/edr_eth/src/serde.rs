@@ -1,7 +1,7 @@
 //! Helper utilities for serde
 
 use serde::{
-    Deserialize, Deserializer, Serialize, Serializer, de::DeserializeOwned, ser::SerializeSeq,
+    de::DeserializeOwned, ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer,
 };
 
 /// for use with serde's `serialize_with` on an optional single value that
@@ -31,6 +31,23 @@ where
     } else {
         Ok(Some(s[0].clone()))
     }
+}
+
+/// Deserialize a float vector. Needed to work around <https://github.com/serde-rs/json/issues/721.>
+/// More context: <https://github.com/NomicFoundation/edr/pull/484>
+pub fn deserialize_float_vec<'de, DeserializerT>(
+    d: DeserializerT,
+) -> Result<Vec<f64>, DeserializerT::Error>
+where
+    DeserializerT: Deserializer<'de>,
+{
+    Vec::<serde_json::Number>::deserialize(d)?
+        .into_iter()
+        .map(|n| {
+            n.as_f64()
+                .ok_or_else(|| serde::de::Error::custom("expected a finite float"))
+        })
+        .collect()
 }
 
 /// Helper module for optionally (de)serializing `[]` into `()`.

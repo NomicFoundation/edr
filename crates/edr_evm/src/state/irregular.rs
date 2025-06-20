@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, btree_map},
+    collections::{btree_map, BTreeMap},
     fmt::Debug,
 };
 

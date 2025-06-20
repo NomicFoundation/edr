@@ -2,12 +2,12 @@
 
 use std::sync::Arc;
 
-use edr_eth::{Address, BlockSpec, HashMap, U64, address, bytes};
+use edr_eth::{address, bytes, Address, BlockSpec, HashMap, U64};
 use edr_op::OpChainSpec;
 use edr_provider::{
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
-    test_utils::{ProviderTestFixture, create_test_config_with_fork},
+    test_utils::{create_test_config_with_fork, ProviderTestFixture},
     time::CurrentTime,
+    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;

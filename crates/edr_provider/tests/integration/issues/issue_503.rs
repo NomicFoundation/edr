@@ -1,12 +1,12 @@
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_eth::{
-    Address, HashMap, U256,
     l1::{self, L1ChainSpec},
+    Address, HashMap, U256,
 };
 use edr_provider::{
-    ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
-    test_utils::create_test_config_with_fork, time::CurrentTime,
+    test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
+    NoopLogger, Provider, ProviderRequest,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;

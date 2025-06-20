@@ -4,12 +4,16 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+edr_common.workspace = true
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["rand", "serde"] }
+fd-lock = "4.0.0"
+foundry-compilers = { workspace = true, features = ["project-util"] }
 hex = "0.4.3"
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", ] }
-serde = { workspace = true, features = ["derive"] }
+once_cell = "1"
+rand.workspace = true
+serde.workspace = true
 serde_json.workspace = true
-
 
 [lints]
 workspace = true

@@ -2,11 +2,11 @@ use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use edr_eth::{
-    Address, B256, HashMap, HashSet, U256,
     hash_map::OccupiedError,
-    log::{FilterLog, matches_address_filter, matches_topics_filter},
+    log::{matches_address_filter, matches_topics_filter, FilterLog},
     receipt::{ExecutionReceipt, ReceiptTrait},
     transaction::ExecutableTransaction,
+    Address, HashMap, HashSet, B256, U256,
 };
 
 use super::InsertError;
@@ -25,10 +25,10 @@ pub struct SparseBlockchainStorage<BlockReceiptT: ReceiptTrait, BlockT, SignedTr
 }
 
 impl<
-    BlockReceiptT: ReceiptTrait,
-    BlockT: Block<SignedTransactionT> + Clone,
-    SignedTransactionT: ExecutableTransaction,
-> SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>
+        BlockReceiptT: ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + Clone,
+        SignedTransactionT: ExecutableTransaction,
+    > SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]

@@ -1,6 +1,11 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import {
+  Artifact,
+  ArtifactId,
+  ContractData,
   EdrContext,
+  SolidityTestRunnerConfigArgs,
+  SuiteResult,
   TracingMessage,
   TracingMessageResult,
   TracingStep,
@@ -23,13 +28,13 @@ export function isCI(): boolean {
   return getEnv("CI") === "true";
 }
 
-let context: EdrContext | undefined;
+let globalContext: EdrContext | undefined;
 
 export function getContext(): EdrContext {
-  if (context === undefined) {
-    context = new EdrContext();
+  if (globalContext === undefined) {
+    globalContext = new EdrContext();
   }
-  return context;
+  return globalContext;
 }
 
 /**
@@ -54,4 +59,53 @@ export function collectMessages(
 
 export function toBuffer(x: Parameters<typeof toBytes>[0]) {
   return Buffer.from(toBytes(x));
+}
+
+// Load a contract built with Hardhat into a test suite
+export function loadContract(artifactPath: string): Artifact {
+  const compiledContract = require(artifactPath);
+
+  const id: ArtifactId = {
+    name: compiledContract.contractName,
+    solcVersion: "0.8.18",
+    source: compiledContract.sourceName,
+  };
+
+  const contract: ContractData = {
+    abi: JSON.stringify(compiledContract.abi),
+    bytecode: compiledContract.bytecode,
+  };
+
+  return {
+    id,
+    contract,
+  };
+}
+
+export async function runAllSolidityTests(
+  context: EdrContext,
+  chainType: string,
+  artifacts: Artifact[],
+  testSuites: ArtifactId[],
+  configArgs: SolidityTestRunnerConfigArgs
+): Promise<SuiteResult[]> {
+  return new Promise((resolve, reject) => {
+    const resultsFromCallback: SuiteResult[] = [];
+
+    context
+      .runSolidityTests(
+        chainType,
+        artifacts,
+        testSuites,
+        configArgs,
+        {}, // Empty tracing config
+        (suiteResult: SuiteResult) => {
+          resultsFromCallback.push(suiteResult);
+          if (resultsFromCallback.length === artifacts.length) {
+            resolve(resultsFromCallback);
+          }
+        }
+      )
+      .catch(reject);
+  });
 }

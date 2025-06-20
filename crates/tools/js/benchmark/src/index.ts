@@ -1,27 +1,38 @@
-// Trigger change
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
 
 import { bytesToHex, privateToAddress, toBytes } from "@ethereumjs/util";
+import {
+  EdrContext,
+  L1_CHAIN_TYPE,
+  l1SolidityTestRunnerFactory,
+} from "@ignored/edr-optimism";
 import { ArgumentParser } from "argparse";
 import child_process, { SpawnSyncReturns } from "child_process";
 import fs from "fs";
-import { HttpProvider } from "hardhat/internal/core/providers/http";
-import { createHardhatNetworkProvider } from "hardhat/internal/hardhat-network/provider/provider";
 import _ from "lodash";
 import path from "path";
 import readline from "readline";
 import zlib from "zlib";
+import { dirName } from "@nomicfoundation/edr-helpers";
+
+import { runForgeStdTests, runSolidityTests } from "./solidity-tests.js";
+
+const {
+  createHardhatNetworkProvider,
+} = require("hardhat2/internal/hardhat-network/provider/provider.js");
 
 const SCENARIOS_DIR = "../../../scenarios/";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
 const NEPTUNE_MAX_MIN_FAILURES = 1.05;
-const ANVIL_HOST = "http://127.0.0.1:8545";
 
 interface ParsedArguments {
-  command: "benchmark" | "verify" | "report";
+  command: "benchmark" | "verify" | "report" | "solidity-tests";
   grep?: string;
+  repo?: string;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   benchmark_output: string;
-  anvil: boolean;
 }
 
 interface BenchmarkScenarioResult {
@@ -55,21 +66,21 @@ async function main() {
     description: "Scenario benchmark runner",
   });
   parser.add_argument("command", {
-    choices: ["benchmark", "verify", "report"],
+    choices: ["benchmark", "verify", "report", "solidity-tests"],
     help: "Whether to run a benchmark, verify that there are no regressions or create a report for `github-action-benchmark`",
   });
   parser.add_argument("-g", "--grep", {
     type: "str",
-    help: "Only execute the scenarios that contain the given string",
+    help: "Only execute the scenarios or Solidity test paths that contain the given string",
   });
   parser.add_argument("-o", "--benchmark-output", {
     type: "str",
     default: "./benchmark-output.json",
     help: "Where to save the benchmark output file",
   });
-  parser.add_argument("--anvil", {
-    action: "store_true",
-    help: "Run benchmarks on Anvil node",
+  parser.add_argument("-r", "--repo", {
+    type: "str",
+    help: "Path to a repo to execute for Solidity tests. Defaults to `forge-std` that is checked out automatically.",
   });
   const args: ParsedArguments = parser.parse_args();
 
@@ -87,11 +98,11 @@ async function main() {
         if (scenarioFileName.includes(args.grep)) {
           // We store the results to avoid GC
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          results = await benchmarkScenario(scenarioFileName, args.anvil);
+          results = await benchmarkScenario(scenarioFileName);
         }
       }
     } else {
-      await benchmarkAllScenarios(benchmarkOutputPath, args.anvil);
+      await benchmarkAllScenarios(benchmarkOutputPath);
     }
     await flushStdout();
   } else if (args.command === "verify") {
@@ -100,12 +111,29 @@ async function main() {
   } else if (args.command === "report") {
     await report(benchmarkOutputPath);
     await flushStdout();
+  } else if (args.command === "solidity-tests") {
+    // Only construct an EdrContext for solidity tests, because the JSON-RPC
+    // benchmarks still depend on a singleton Hardhat network provider that
+    // is created in the `createHardhatNetworkProvider` function.
+    const context = new EdrContext();
+    await context.registerSolidityTestRunnerFactory(
+      L1_CHAIN_TYPE,
+      l1SolidityTestRunnerFactory()
+    );
+
+    if (args.repo !== undefined) {
+      await runSolidityTests(context, L1_CHAIN_TYPE, args.repo, args.grep);
+    } else {
+      await runForgeStdTests(context, L1_CHAIN_TYPE, benchmarkOutputPath);
+    }
+  } else {
+    const _exhaustiveCheck: never = args.command;
   }
 }
 
 async function report(benchmarkResultPath: string) {
-  const benchmarkResult: Record<string, BenchmarkResult> = require(
-    benchmarkResultPath
+  const benchmarkResult: Record<string, BenchmarkResult> = JSON.parse(
+    fs.readFileSync(benchmarkResultPath, "utf-8")
   );
 
   let totalTime = 0;
@@ -131,9 +159,14 @@ async function report(benchmarkResultPath: string) {
 
 async function verify(benchmarkResultPath: string) {
   let success = true;
-  const benchmarkResult = require(benchmarkResultPath);
-  const snapshotResult = require(
-    path.join(getScenariosDir(), SCENARIO_SNAPSHOT_NAME)
+  const benchmarkResult = JSON.parse(
+    fs.readFileSync(benchmarkResultPath, "utf-8")
+  );
+  const snapshotResult = JSON.parse(
+    fs.readFileSync(
+      path.join(getScenariosDir(), SCENARIO_SNAPSHOT_NAME),
+      "utf-8"
+    )
   );
 
   for (const scenarioName of Object.keys(snapshotResult)) {
@@ -198,7 +231,7 @@ function setDifference<T>(a: Set<T>, b: Set<T>): Set<T> {
   return new Set(Array.from(a).filter((item) => !b.has(item)));
 }
 
-async function benchmarkAllScenarios(outPath: string, useAnvil: boolean) {
+async function benchmarkAllScenarios(outPath: string) {
   const result: any = {};
   let totalTime = 0;
   let totalFailures = 0;
@@ -214,9 +247,6 @@ async function benchmarkAllScenarios(outPath: string, useAnvil: boolean) {
       "-g",
       scenarioFileName,
     ];
-    if (useAnvil) {
-      args.push("--anvil");
-    }
 
     let processResult: SpawnSyncReturns<string> | undefined;
     try {
@@ -292,8 +322,7 @@ function medianOfResults(results: BenchmarkScenarioResult[]) {
 }
 
 async function benchmarkScenario(
-  scenarioFileName: string,
-  useAnvil: boolean
+  scenarioFileName: string
 ): Promise<BenchmarkScenarioRpcCalls> {
   const { config, requests } = await loadScenario(scenarioFileName);
   const name = path.basename(scenarioFileName).split(".")[0];
@@ -301,14 +330,9 @@ async function benchmarkScenario(
 
   const start = performance.now();
 
-  let provider;
-  if (useAnvil) {
-    provider = new HttpProvider(ANVIL_HOST, "anvil");
-  } else {
-    provider = await createHardhatNetworkProvider(config.providerConfig, {
-      enabled: config.loggerEnabled,
-    });
-  }
+  const provider = await createHardhatNetworkProvider(config.providerConfig, {
+    enabled: config.loggerEnabled,
+  });
 
   const failures = [];
   const rpcCallResults = [];
@@ -470,11 +494,11 @@ function readFile(pathToRead: string) {
 }
 
 function getScenariosDir() {
-  return path.join(__dirname, SCENARIOS_DIR);
+  return path.join(dirName(import.meta.url), SCENARIOS_DIR);
 }
 
 function getScenarioFileNames(): string[] {
-  const scenariosDir = path.join(__dirname, SCENARIOS_DIR);
+  const scenariosDir = path.join(dirName(import.meta.url), SCENARIOS_DIR);
   const scenarioFiles = fs.readdirSync(scenariosDir);
   scenarioFiles.sort();
   return scenarioFiles.filter((fileName) => fileName.endsWith(".jsonl.gz"));

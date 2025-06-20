@@ -27,7 +27,7 @@ use crate::{
 
 const FIRST_SOLC_VERSION_WITH_MAPPED_SMALL_INTERNAL_FUNCTIONS: Version = Version::new(0, 6, 9);
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum HeuristicsError {
     #[error(transparent)]
     BytecodeError(#[from] ContractMetadataError),

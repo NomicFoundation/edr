@@ -4,13 +4,42 @@ use edr_eth::{l1, spec::HaltReasonTrait};
 
 /// Represents the exit code of the EVM.
 #[derive(Clone, Debug)]
-pub enum ExitCode<HaltReasonT: HaltReasonTrait> {
+pub enum ExitCode<HaltReasonT> {
     /// Execution was successful.
     Success,
     /// Execution was reverted.
     Revert,
     /// Indicates that the EVM has experienced an exceptional halt.
     Halt(HaltReasonT),
+    /// A fatal external error that cannot be recovered from.
+    FatalExternalError,
+    /// An internal signal to continue execution.
+    InternalContinue,
+    /// Internal instruction that signals call or create.
+    InternalCallOrCreate,
+    /// Internal CREATE/CREATE starts with 0xEF00
+    CreateInitCodeStartingEF00,
+    /// Internal to `ExtDelegateCall`
+    InvalidExtDelegateCallTarget,
+}
+
+impl<HaltReasonT> ExitCode<HaltReasonT> {
+    /// Converts the type of the halt reason of the instance.
+    pub fn map_halt_reason<ConversionFnT: Fn(HaltReasonT) -> NewHaltReasonT, NewHaltReasonT>(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> ExitCode<NewHaltReasonT> {
+        match self {
+            ExitCode::Success => ExitCode::Success,
+            ExitCode::Revert => ExitCode::Revert,
+            ExitCode::Halt(reason) => ExitCode::Halt(conversion_fn(reason)),
+            ExitCode::FatalExternalError => ExitCode::FatalExternalError,
+            ExitCode::InternalContinue => ExitCode::InternalContinue,
+            ExitCode::InternalCallOrCreate => ExitCode::InternalCallOrCreate,
+            ExitCode::CreateInitCodeStartingEF00 => ExitCode::CreateInitCodeStartingEF00,
+            ExitCode::InvalidExtDelegateCallTarget => ExitCode::InvalidExtDelegateCallTarget,
+        }
+    }
 }
 
 impl<HaltReasonT: HaltReasonTrait> ExitCode<HaltReasonT> {

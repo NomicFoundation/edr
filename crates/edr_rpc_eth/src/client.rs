@@ -2,15 +2,15 @@ use std::{fmt::Debug, path::PathBuf};
 
 use derive_where::derive_where;
 use edr_eth::{
-    Address, B256, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, U64, U256,
     account::{AccountInfo, KECCAK_EMPTY},
     fee_history::FeeHistoryResult,
     filter::{LogFilterOptions, OneOrMore},
     log::FilterLog,
     reward_percentile::RewardPercentile,
+    Address, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_rpc_client::RpcClient;
-pub use edr_rpc_client::{HeaderMap, RpcClientError, header};
+pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
 use futures::StreamExt;
 
 use crate::{
@@ -393,7 +393,7 @@ mod tests {
     mod alchemy {
         use std::{fs::File, path::PathBuf};
 
-        use edr_eth::{Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256, filter::OneOrMore};
+        use edr_eth::{filter::OneOrMore, Address, BlockSpec, Bytes, PreEip1898BlockSpec, U256};
         use edr_test_utils::env::get_alchemy_url;
         use walkdir::WalkDir;
 
@@ -998,6 +998,20 @@ mod tests {
                     dai_address,
                     U256::from(1),
                     Some(BlockSpec::Number(16220843)),
+                )
+                .await
+                .expect("should have succeeded");
+        }
+
+        #[tokio::test]
+        async fn fee_history() {
+            let alchemy_url = get_alchemy_url();
+
+            let _fee_history = TestRpcClient::new(&alchemy_url)
+                .fee_history(
+                    /* block count */ 1,
+                    BlockSpec::latest(),
+                    /* reward percentiles */ None,
                 )
                 .await
                 .expect("should have succeeded");

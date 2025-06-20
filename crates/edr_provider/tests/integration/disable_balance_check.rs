@@ -2,10 +2,10 @@
 
 use std::sync::Arc;
 
-use edr_eth::{U256, address, bytes, l1::L1ChainSpec, signature::public_key_to_address};
+use edr_eth::{address, bytes, l1::L1ChainSpec, signature::public_key_to_address, U256};
 use edr_provider::{
-    MethodInvocation, NoopLogger, Provider, ProviderRequest, test_utils::create_test_config,
-    time::CurrentTime,
+    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
+    ProviderRequest,
 };
 use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;

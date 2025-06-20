@@ -33,6 +33,9 @@ pub mod result;
 /// Types relating to benchmark scenarios.
 #[cfg(feature = "scenarios")]
 pub mod scenarios;
+mod serde;
+/// Solidity test runner.
+pub mod solidity_tests;
 /// Types for subscribing to events.
 pub mod subscription;
 /// Types for EVM traces.

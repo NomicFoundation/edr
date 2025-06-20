@@ -11,18 +11,18 @@ use edr_eth::l1;
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
 use edr_generic::GenericChainSpec;
 use edr_napi_core::spec::SyncNapiSpec;
-use edr_provider::{Logger, ProviderErrorForChainSpec, ProviderRequest, time::CurrentTime};
+use edr_provider::{time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest};
 use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
 use edr_solidity::contract_decoder::ContractDecoder;
-use flate2::{Compression, bufread::GzDecoder, write::GzEncoder};
+use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
 use indicatif::ProgressBar;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt as _},
     runtime, task,
 };
 #[cfg(feature = "tracing")]
-use tracing_subscriber::{Registry, prelude::*};
+use tracing_subscriber::{prelude::*, Registry};
 
 fn convert_gzipped_json(path: PathBuf) -> anyhow::Result<()> {
     use std::{

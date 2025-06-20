@@ -1,10 +1,13 @@
 [workspace]
 members = [
+    # EDR
+    "crates/edr_common",
     "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
     "crates/edr_evm",
     "crates/edr_instrument",
+    "crates/edr_macros",
     "crates/edr_napi",
     "crates/edr_op",
     "crates/edr_provider",
@@ -12,33 +15,222 @@ members = [
     "crates/edr_rpc_eth",
     "crates/edr_scenarios",
     "crates/edr_solidity",
+    "crates/edr_solidity_tests",
     "crates/edr_test_utils",
-    "crates/edr_utils",
     "crates/tools",
+    # Foundry
+    "crates/foundry/cheatcodes",
+    "crates/foundry/cheatcodes/spec",
+    "crates/foundry/evm/core",
+    "crates/foundry/evm/coverage",
+    "crates/foundry/evm/evm",
+    "crates/foundry/evm/fuzz",
+    "crates/foundry/evm/traces",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.3.5"
-edition = "2024"
+version = "0.3.8"
+edition = "2021"
 
 [profile.dev]
 rpath = true
+# Speed up compilation time for dev builds by reducing emitted debug info.
+# NOTE: Debuggers may provide less useful information with this setting.
+# Uncomment this section if you're using a debugger.
+debug = 1
 
 [profile.release]
+# Optimized profile for released packages.
+[profile.napi-publish]
+inherits = "release"
 rpath = true
+opt-level = 3
+lto = "fat"
+panic = "abort"
+codegen-units = 1
+
+# Speed up tests and dev build.
+[profile.dev.package]
+# Solc and artifacts
+foundry-compilers.opt-level = 3
+serde_json.opt-level = 3
+
+# EVM
+alloy-dyn-abi.opt-level = 3
+alloy-json-abi.opt-level = 3
+alloy-primitives.opt-level = 3
+alloy-sol-type-parser.opt-level = 3
+alloy-sol-types.opt-level = 3
+hashbrown.opt-level = 3
+keccak.opt-level = 3
+revm-interpreter.opt-level = 3
+revm-precompile.opt-level = 3
+revm-primitives.opt-level = 3
+revm.opt-level = 3
+ruint.opt-level = 3
+sha2.opt-level = 3
+sha3.opt-level = 3
+tiny-keccak.opt-level = 3
+bitvec.opt-level = 3
+
+# fuzzing
+proptest.opt-level = 3
+foundry-evm-fuzz.opt-level = 3
+
+# keystores
+scrypt.opt-level = 3
+
 
 [workspace.dependencies]
+edr_common = { path = "crates/edr_common" }
+edr_defaults = { path = "crates/edr_defaults" }
+edr_eth = { path = "crates/edr_eth" }
+edr_evm = { path = "crates/edr_evm" }
+edr_macros = { path = "crates/edr_macros" }
+edr_solidity = { path = "crates/edr_solidity" }
+edr_solidity_tests = { path = "crates/edr_solidity_tests" }
+edr_test_utils = { path = "crates/edr_test_utils" }
+
+foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
+foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }
+foundry-evm = { path = "crates/foundry/evm/evm" }
+foundry-evm-core = { path = "crates/foundry/evm/core" }
+foundry-evm-coverage = { path = "crates/foundry/evm/coverage" }
+foundry-evm-fuzz = { path = "crates/foundry/evm/fuzz" }
+foundry-evm-traces = { path = "crates/foundry/evm/traces" }
+
+# solc & compilation utilities
+foundry-block-explorers = { version = "=0.11.0", default-features = false }
+foundry-compilers = { version = "=0.14.1", features = ["full"] }
+
+## revm
+op-revm = { version = "2.0.0", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
+revm = { version = "21.0.0", default-features = false, features = [
+    "arbitrary",
+    "blst",
+    "c-kzg",
+    "dev",
+    "memory_limit",
+    "optional_block_gas_limit",
+    "optional_eip3607",
+    "optional_no_base_fee",
+    "serde",
+    "std",
+] }
+revm-bytecode = { version = "2.0.0", default-features = false }
+revm-context = { version = "2.0.0", default-features = false }
+revm-context-interface = { version = "2.0.0", default-features = false }
+revm-database-interface = { version = "2.0.0", default-features = false }
+revm-handler = { version = "2.0.0", default-features = false }
+revm-interpreter = { version = "17.0.0", default-features = false }
+revm-precompile = { version = "18.0.0", default-features = false, features = ["blst", "c-kzg", "secp256r1", "std"] }
+revm-primitives = { version = "17.0.0", default-features = false, features = ["hashbrown", "rand"] }
+revm-state = { version = "2.0.0", default-features = false }
+c-kzg = { version = "2.1.0", default-features = false, features = ["ethereum_kzg_settings"] }
+
+revm-inspectors = { version = "0.18.1", features = ["serde"] }
+foundry-fork-db = { git = "https://github.com/foundry-rs/foundry-fork-db", rev = "811a61a" }
+
+## ethers
+ethers-contract-abigen = { version = "2.0.14", default-features = false }
+
+## alloy
+alloy-consensus = { version = "0.13.0", default-features = false }
+alloy-contract = { version = "0.13.0", default-features = false }
 alloy-eips = { version = "0.13.0", default-features = false }
+alloy-genesis = { version = "0.13.0", default-features = false }
+alloy-json-rpc = { version = "0.13.0", default-features = false }
+alloy-network = { version = "0.13.0", default-features = false }
+alloy-node-bindings = { version = "0.13.0", default-features = false }
+alloy-provider = { version = "0.13.0", default-features = false }
+alloy-pubsub = { version = "0.13.0", default-features = false }
+alloy-rpc-client = { version = "0.13.0", default-features = false }
+alloy-rpc-types = { version = "0.13.0", default-features = false }
 alloy-serde = { version = "0.13.0", default-features = false }
+alloy-signer = { version = "0.13.0", default-features = false }
+alloy-signer-aws = { version = "0.13.0", default-features = false }
+alloy-signer-gcp = { version = "0.13.0", default-features = false }
+alloy-signer-ledger = { version = "0.13.0", default-features = false }
+alloy-signer-local = { version = "0.13.0", default-features = false }
+alloy-signer-trezor = { version = "0.13.0", default-features = false }
+alloy-transport = { version = "0.13.0", default-features = false }
+alloy-transport-http = { version = "0.13.0", default-features = false }
+alloy-transport-ipc = { version = "0.13.0", default-features = false }
+alloy-transport-ws = { version = "0.13.0", default-features = false }
+
+alloy-dyn-abi = { version = "=0.8.25", features = ["eip712"] }
+alloy-json-abi = "=0.8.25"
+alloy-primitives = { version = "=0.8.25", features = ["getrandom", "rand", "map-fxhash", "map-foldhash", "map-hashbrown", "map-indexmap"] }
+alloy-sol-macro-expander = "=0.8.25"
+alloy-sol-macro-input = "=0.8.25"
+alloy-sol-types = "=0.8.25"
+syn-solidity = "=0.8.25"
+
+alloy-chains = "0.1"
+alloy-rlp = "0.3.3"
+alloy-trie = "0.7.0"
+
+## misc
 anyhow = { version = "1.0.89", default-features = false }
+arrayvec = "0.7"
+dunce = "1"
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = [
+    "clock",
+    "std",
+] }
+color-eyre = "0.6"
+derive_more = "0.99"
+derive-where = { version = "1.2.7", default-features = false }
+evm-disassembler = "0.5"
+eyre = "0.6"
+hex = { package = "const-hex", version = "1.6", features = ["hex"] }
+itertools = "0.12"
+jsonpath_lib = "0.3"
+k256 = "0.13"
 paste = { version = "1.0.14", default-features = false }
-serde = { version = "1.0.209", default-features = false }
-serde_json = { version = "1.0.127", default-features = false }
+semver = { version = "1.0.26", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
-semver = { version = "1.0.26", default-features = false }
+similar-asserts = "1.5"
+rand = "0.8"
+rustc-hash = "1.1"
+serde = { version = "1.0", features = ["derive", "std"] }
+# Arbitrary precision is needed by the `parseJson` cheatcode and preserve order is needed by `edr_solidity`.
+# The features are listed here instead of in the Cargo.toml of those packages to avoid surprises from feature unification.
+serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order", "std"] }
+strum = "0.26"
 thiserror = { version = "1.0.58", default-features = false }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+vergen = { version = "8", default-features = false }
+indexmap = "2.2"
+tikv-jemallocator = "0.5.4"
+num-format = "0.4.4"
+yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
+tempfile = "3.10"
+tokio = "1"
+
+hyper = "1.0"
+reqwest = { version = "0.12", default-features = false }
+tower = "0.4"
+tower-http = "0.5"
+
+[patch.crates-io]
+## revm
+revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-bytecode = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-context = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-context-interface = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-database-interface = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-handler = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-interpreter = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-precompile = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-primitives = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-state = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+op-revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
 
 [workspace.lints.rust]
 future_incompatible = "warn"
@@ -68,7 +260,6 @@ flat_map_option = "warn"
 float_cmp_const = "warn"
 fn_params_excessive_bools = "warn"
 from_iter_instead_of_collect = "warn"
-if-not-else = "warn"
 implicit_clone = "warn"
 imprecise_flops = "warn"
 inconsistent_struct_constructor = "warn"

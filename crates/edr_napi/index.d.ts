@@ -487,6 +487,542 @@ export interface ExecutionResult {
   /** Optional contract address if the transaction created a new contract. */
   contractAddress?: Uint8Array
 }
+/** A compilation artifact. */
+export interface Artifact {
+  /** The identifier of the artifact. */
+  id: ArtifactId
+  /** The test contract. */
+  contract: ContractData
+}
+/** The identifier of a Solidity contract. */
+export interface ArtifactId {
+  /** The name of the contract. */
+  name: string
+  /** Original source file path. */
+  source: string
+  /** The solc semver string. */
+  solcVersion: string
+}
+/** A test contract to execute. */
+export interface ContractData {
+  /** Contract ABI as json string. */
+  abi: string
+  /**
+   * Contract creation code as hex string. It can be missing if the contract
+   * is ABI only.
+   */
+  bytecode?: string
+  /** The link references of the deployment bytecode. */
+  linkReferences?: Record<string, Record<string, Array<LinkReference>>>
+  /**
+   * Contract runtime code as hex string. It can be missing if the contract
+   * is ABI only.
+   */
+  deployedBytecode?: string
+  /** The link references of the deployed bytecode. */
+  deployedLinkReferences?: Record<string, Record<string, Array<LinkReference>>>
+}
+export interface LinkReference {
+  start: number
+  length: number
+}
+/**
+ * Solidity test runner configuration arguments exposed through the ffi.
+ * Docs based on <https://book.getfoundry.sh/reference/config/testing>.
+ */
+export interface SolidityTestRunnerConfigArgs {
+  /**
+   * The absolute path to the project root directory.
+   * Relative paths in cheat codes are resolved against this path.
+   */
+  projectRoot: string
+  /** Configures the permissions of cheat codes that access the file system. */
+  fsPermissions?: Array<PathPermission>
+  /** Whether to support the `testFail` prefix. Defaults to false. */
+  testFail?: boolean
+  /** Address labels for traces. Defaults to none. */
+  labels?: Array<AddressLabel>
+  /**
+   * Whether to enable isolation of calls. In isolation mode all top-level
+   * calls are executed as a separate transaction in a separate EVM
+   * context, enabling more precise gas accounting and transaction state
+   * changes.
+   * Defaults to false.
+   */
+  isolate?: boolean
+  /**
+   * Whether or not to enable the ffi cheatcode.
+   * Warning: Enabling this cheatcode has security implications, as it allows
+   * tests to execute arbitrary programs on your computer.
+   * Defaults to false.
+   */
+  ffi?: boolean
+  /**
+   * The value of `msg.sender` in tests as hex string.
+   * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
+   */
+  sender?: Uint8Array
+  /**
+   * The value of `tx.origin` in tests as hex string.
+   * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
+   */
+  txOrigin?: Uint8Array
+  /**
+   * The initial balance of the sender in tests.
+   * Defaults to `0xffffffffffffffffffffffff`.
+   */
+  initialBalance?: bigint
+  /**
+   * The value of `block.number` in tests.
+   * Defaults to `1`.
+   */
+  blockNumber?: bigint
+  /**
+   * The value of the `chainid` opcode in tests.
+   * Defaults to `31337`.
+   */
+  chainId?: bigint
+  /**
+   * The gas limit for each test case.
+   * Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
+   */
+  gasLimit?: bigint
+  /**
+   * The price of gas (in wei) in tests.
+   * Defaults to `0`.
+   */
+  gasPrice?: bigint
+  /**
+   * The base fee per gas (in wei) in tests.
+   * Defaults to `0`.
+   */
+  blockBaseFeePerGas?: bigint
+  /**
+   * The value of `block.coinbase` in tests.
+   * Defaults to `0x0000000000000000000000000000000000000000`.
+   */
+  blockCoinbase?: Uint8Array
+  /**
+   * The value of `block.timestamp` in tests.
+   * Defaults to 1.
+   */
+  blockTimestamp?: bigint
+  /**
+   * The value of `block.difficulty` in tests.
+   * Defaults to 0.
+   */
+  blockDifficulty?: bigint
+  /**
+   * The `block.gaslimit` value during EVM execution.
+   * Defaults to none.
+   */
+  blockGasLimit?: bigint
+  /**
+   * Whether to disable the block gas limit.
+   * Defaults to false.
+   */
+  disableBlockGasLimit?: boolean
+  /**
+   * The memory limit of the EVM in bytes.
+   * Defaults to 33_554_432 (2^25 = 32MiB).
+   */
+  memoryLimit?: bigint
+  /**
+   * If set, all tests are run in fork mode using this url or remote name.
+   * Defaults to none.
+   */
+  ethRpcUrl?: string
+  /** Pins the block number for the global state fork. */
+  forkBlockNumber?: bigint
+  /**
+   * Map of RPC endpoints from chain name to RPC urls for fork cheat codes,
+   * e.g. `{ "optimism": "https://optimism.alchemyapi.io/v2/..." }`
+   */
+  rpcEndpoints?: Record<string, string>
+  /**
+   * Optional RPC cache path. If this is none, then no RPC calls will be
+   * cached, otherwise data is cached to `<rpc_cache_path>/<chain
+   * id>/<block number>`. Caching can be disabled for specific chains
+   * with `rpc_storage_caching`.
+   */
+  rpcCachePath?: string
+  /** What RPC endpoints are cached. Defaults to all. */
+  rpcStorageCaching?: StorageCachingConfig
+  /**
+   * The number of seconds to wait before `vm.prompt` reverts with a timeout.
+   * Defaults to 120.
+   */
+  promptTimeout?: number
+  /** Fuzz testing configuration. */
+  fuzz?: FuzzConfigArgs
+  /**
+   * Invariant testing configuration.
+   * If an invariant config setting is not set, but a corresponding fuzz
+   * config value is set, then the fuzz config value will be used.
+   */
+  invariant?: InvariantConfigArgs
+  /**
+   * Controls which test results should include execution traces. Defaults to
+   * None.
+   */
+  includeTraces?: IncludeTraces
+  /**
+   * A regex pattern to filter tests. If provided, only test methods that
+   * match the pattern will be executed and reported as a test result.
+   */
+  testPattern?: string
+}
+/** Fuzz testing configuration */
+export interface FuzzConfigArgs {
+  /** Path where fuzz failures are recorded and replayed if set. */
+  failurePersistDir?: string
+  /** Name of the file to record fuzz failures, defaults to `failures`. */
+  failurePersistFile?: string
+  /**
+   * The amount of fuzz runs to perform for each fuzz test case. Higher
+   * values gives more confidence in results at the cost of testing
+   * speed.
+   * Defaults to 256.
+   */
+  runs?: number
+  /**
+   * The maximum number of combined inputs that may be rejected before the
+   * test as a whole aborts. “Global” filters apply to the whole test
+   * case. If the test case is rejected, the whole thing is regenerated.
+   * Defaults to 65536.
+   */
+  maxTestRejects?: number
+  /**
+   * Hexadecimal string.
+   * Optional seed for the fuzzing RNG algorithm.
+   * Defaults to None.
+   */
+  seed?: string
+  /**
+   * Integer between 0 and 100.
+   * The weight of the dictionary. A higher dictionary weight will bias the
+   * fuzz inputs towards “interesting” values, e.g. boundary values like
+   * type(uint256).max or contract addresses from your environment.
+   * Defaults to 40.
+   */
+  dictionaryWeight?: number
+  /**
+   * The flag indicating whether to include values from storage.
+   * Defaults to true.
+   */
+  includeStorage?: boolean
+  /**
+   * The flag indicating whether to include push bytes values.
+   * Defaults to true.
+   */
+  includePushBytes?: boolean
+}
+/** Invariant testing configuration. */
+export interface InvariantConfigArgs {
+  /** Path where invariant failures are recorded and replayed if set. */
+  failurePersistDir?: string
+  /**
+   * The number of runs that must execute for each invariant test group.
+   * Defaults to 256.
+   */
+  runs?: number
+  /**
+   * The number of calls executed to attempt to break invariants in one run.
+   * Defaults to 500.
+   */
+  depth?: number
+  /**
+   * Fails the invariant fuzzing if a revert occurs.
+   * Defaults to false.
+   */
+  failOnRevert?: boolean
+  /**
+   * Overrides unsafe external calls when running invariant tests, useful for
+   * e.g. performing reentrancy checks.
+   * Defaults to false.
+   */
+  callOverride?: boolean
+  /**
+   * Integer between 0 and 100.
+   * The weight of the dictionary. A higher dictionary weight will bias the
+   * fuzz inputs towards “interesting” values, e.g. boundary values like
+   * type(uint256).max or contract addresses from your environment.
+   * Defaults to 40.
+   */
+  dictionaryWeight?: number
+  /**
+   * The flag indicating whether to include values from storage.
+   * Defaults to true.
+   */
+  includeStorage?: boolean
+  /**
+   * The flag indicating whether to include push bytes values.
+   * Defaults to true.
+   */
+  includePushBytes?: boolean
+  /**
+   * The maximum number of attempts to shrink a failed the sequence. Shrink
+   * process is disabled if set to 0.
+   * Defaults to 5000.
+   */
+  shrinkRunLimit?: number
+}
+/** Settings to configure caching of remote RPC endpoints. */
+export interface StorageCachingConfig {
+  /**
+   * Chains to cache. Either all or none or a list of chain names, e.g.
+   * ["optimism", "mainnet"].
+   */
+  chains: CachedChains | Array<string>
+  /** Endpoints to cache. Either all or remote or a regex. */
+  endpoints: CachedEndpoints | string
+}
+/** What chains to cache */
+export enum CachedChains {
+  /** Cache all chains */
+  All = 0,
+  /** Don't cache anything */
+  None = 1
+}
+/** What endpoints to enable caching for */
+export enum CachedEndpoints {
+  /** Cache all endpoints */
+  All = 0,
+  /** Only cache non-local host endpoints */
+  Remote = 1
+}
+/** Represents an access permission to a single path */
+export interface PathPermission {
+  /** Permission level to access the `path` */
+  access: FsAccessPermission
+  /** The targeted path guarded by the permission */
+  path: string
+}
+/** Determines the status of file system access */
+export enum FsAccessPermission {
+  /** FS access is allowed with `read` + `write` permission */
+  ReadWrite = 0,
+  /** Only reading is allowed */
+  Read = 1,
+  /** Only writing is allowed */
+  Write = 2
+}
+export interface AddressLabel {
+  /** The address to label */
+  address: Uint8Array
+  /** The label to assign to the address */
+  label: string
+}
+/**
+ * Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
+ * controls execution trace decoding and inclusion in test results.
+ */
+export enum IncludeTraces {
+  /** No traces will be included in any test result. */
+  None = 0,
+  /** Traces will be included only on the results of failed tests. */
+  Failing = 1,
+  /** Traces will be included in all test results. */
+  All = 2
+}
+export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
+export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory
+/** The stack trace result */
+export interface StackTrace {
+  /** Enum tag for JS. */
+  kind: "StackTrace"
+  /** The stack trace entries */
+  entries: Array<SolidityStackTraceEntry>
+}
+/** We couldn't generate stack traces, because an unexpected error occurred. */
+export interface UnexpectedError {
+  /** Enum tag for JS. */
+  kind: "UnexpectedError"
+  /** The error message from the unexpected error. */
+  errorMessage: string
+}
+/**
+ * We couldn't generate stack traces, because the stack trace generation
+ * heuristics failed due to an unknown reason.
+ */
+export interface HeuristicFailed {
+  /** Enum tag for JS. */
+  kind: "HeuristicFailed"
+}
+/**
+ * We couldn't generate stack traces, because the test execution is unsafe to
+ * replay due to indeterminism. This can be caused by either specifying a fork
+ * url without a fork block number in the test runner config or using impure
+ * cheatcodes.
+ */
+export interface UnsafeToReplay {
+  /** Enum tag for JS. */
+  kind: "UnsafeToReplay"
+  /**
+   * Indeterminism due to specifying a fork url without a fork block number
+   * in the test runner config.
+   */
+  globalForkLatest: boolean
+  /**
+   * The list of executed impure cheatcode signatures. We collect function
+   * signatures instead of function names as whether a cheatcode is impure
+   * can depend on the arguments it takes (e.g. `createFork` without a second
+   * argument means implicitly fork from “latest”). Example signature:
+   * `function createSelectFork(string calldata urlOrAlias) external returns
+   * (uint256 forkId);`.
+   */
+  impureCheatcodes: Array<string>
+}
+/**The result of a test execution. */
+export enum TestStatus {
+  /**Test success */
+  Success = 'Success',
+  /**Test failure */
+  Failure = 'Failure',
+  /**Test skipped */
+  Skipped = 'Skipped'
+}
+/** See [edr_solidity_tests::result::TestKind::Standard] */
+export interface StandardTestKind {
+  /** The gas consumed by the test. */
+  readonly consumedGas: bigint
+}
+/** See [edr_solidity_tests::result::TestKind::Fuzz] */
+export interface FuzzTestKind {
+  /** See [edr_solidity_tests::result::TestKind::Fuzz] */
+  readonly runs: bigint
+  /** See [edr_solidity_tests::result::TestKind::Fuzz] */
+  readonly meanGas: bigint
+  /** See [edr_solidity_tests::result::TestKind::Fuzz] */
+  readonly medianGas: bigint
+}
+/** See [edr_solidity_tests::fuzz::FuzzCase] */
+export interface FuzzCase {
+  /** The calldata used for this fuzz test */
+  readonly calldata: Uint8Array
+  /** Consumed gas */
+  readonly gas: bigint
+  /** The initial gas stipend for the transaction */
+  readonly stipend: bigint
+}
+/** See [edr_solidity_tests::result::TestKind::Invariant] */
+export interface InvariantTestKind {
+  /** See [edr_solidity_tests::result::TestKind::Invariant] */
+  readonly runs: bigint
+  /** See [edr_solidity_tests::result::TestKind::Invariant] */
+  readonly calls: bigint
+  /** See [edr_solidity_tests::result::TestKind::Invariant] */
+  readonly reverts: bigint
+}
+/**
+ * Original sequence size and sequence of calls used as a counter example
+ * for invariant tests.
+ */
+export interface CounterExampleSequence {
+  /** The original sequence size before shrinking. */
+  originalSequenceSize: bigint
+  /** The shrunk counterexample sequence. */
+  sequence: Array<BaseCounterExample>
+}
+/** See [edr_solidity_tests::fuzz::BaseCounterExample] */
+export interface BaseCounterExample {
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::sender] */
+  readonly sender?: Uint8Array
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::addr] */
+  readonly address?: Uint8Array
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::calldata] */
+  readonly calldata: Uint8Array
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::contract_name] */
+  readonly contractName?: string
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::signature] */
+  readonly signature?: string
+  /** See [edr_solidity_tests::fuzz::BaseCounterExample::args] */
+  readonly args?: string
+}
+/**
+ * Object representing a call in an execution trace, including contract
+ * creation.
+ */
+export interface CallTrace {
+  /** The kind of call or contract creation this represents. */
+  kind: CallKind
+  /** Whether the call succeeded or reverted. */
+  success: boolean
+  /** Whether the call is a cheatcode. */
+  isCheatcode: boolean
+  /** The amount of gas that was consumed. */
+  gasUsed: bigint
+  /** The amount of native token that was included with the call. */
+  value: bigint
+  /**
+   * The target of the call. Provided as a contract name if known, otherwise
+   * a checksum address.
+   */
+  contract: string
+  /**
+   * The input (calldata) to the call. If it encodes a known function call,
+   * it will be decoded into the function name and a list of arguments.
+   * For example, `{ name: "ownerOf", arguments: ["1"] }`. Note that the
+   * function name may also be any of the special `fallback` and `receive`
+   * functions. Otherwise, it will be provided as a raw byte array.
+   */
+  inputs: DecodedTraceParameters | Uint8Array
+  /**
+   * The output of the call. This will be a decoded human-readable
+   * representation of the value if the function is known, otherwise a
+   * raw byte array.
+   */
+  outputs: string | Uint8Array
+  /**
+   * Interleaved subcalls and event logs. Use `kind` to check if each member
+   * of the array is a call or log trace.
+   */
+  children: Array<CallTrace | LogTrace>
+}
+/** Object representing an event log in an execution trace. */
+export interface LogTrace {
+  /** A constant to help discriminate the union `CallTrace | LogTrace`. */
+  kind: LogKind
+  /**
+   * If the log is a known event (based on its first topic), it will be
+   * decoded into the event name and list of named parameters. For
+   * example, `{ name: "Log", arguments: ["value: 1"] }`. Otherwise, it
+   * will be provided as an array where all but the last element are the
+   * log topics, and the last element is the log data.
+   */
+  parameters: DecodedTraceParameters | Array<Uint8Array>
+}
+/** The various kinds of call frames possible in the EVM. */
+export enum CallKind {
+  /** Regular call that may change state. */
+  Call = 0,
+  /**
+   * Variant of `DelegateCall` that doesn't preserve sender or value in the
+   * frame.
+   */
+  CallCode = 1,
+  /** Call that executes the code of the target in the context of the caller. */
+  DelegateCall = 2,
+  /** Regular call that may not change state. */
+  StaticCall = 3,
+  /** Contract creation. */
+  Create = 4
+}
+/** Kind marker for log traces. */
+export enum LogKind {
+  /** Single kind of log. */
+  Log = 5
+}
+/** Decoded function call or event. */
+export interface DecodedTraceParameters {
+  /** The name of a function or an event. */
+  name: string
+  /**
+   * The arguments of the function call or the event, in their human-readable
+   * representations.
+   */
+  arguments: Array<string>
+}
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
   /** Callback to be called when a new event is received. */
@@ -747,6 +1283,16 @@ export declare class EdrContext {
   createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: TracingConfigWithBuffers): Promise<Provider>
   /**Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
+  registerSolidityTestRunnerFactory(chainType: string, factory: SolidityTestRunnerFactory): Promise<void>
+  /**
+   *Executes Solidity tests.
+   *
+   *The function will return as soon as test execution is started.
+   *The progress callback will be called with the results of each test
+   *suite. It is up to the caller to track how many times the callback
+   *is called to know when all tests are done.
+   */
+  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */
@@ -773,6 +1319,55 @@ export declare class Provider {
    * `false` to disable this.
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
+}
+export declare class SolidityTestRunnerFactory { }
+/** See [edr_solidity_tests::result::SuiteResult] */
+export declare class SuiteResult {
+  /**
+   * The artifact id can be used to match input to result in the progress
+   * callback
+   */
+  readonly id: ArtifactId
+  /** See [edr_solidity_tests::result::SuiteResult::duration] */
+  readonly durationMs: bigint
+  /** See [edr_solidity_tests::result::SuiteResult::test_results] */
+  readonly testResults: Array<TestResult>
+  /** See [edr_solidity_tests::result::SuiteResult::warnings] */
+  readonly warnings: Array<string>
+}
+/** See [edr_solidity_tests::result::TestResult] */
+export declare class TestResult {
+  /** The name of the test. */
+  readonly name: string
+  /** See [edr_solidity_tests::result::TestResult::status] */
+  readonly status: TestStatus
+  /** See [edr_solidity_tests::result::TestResult::reason] */
+  readonly reason?: string
+  /** See [edr_solidity_tests::result::TestResult::counterexample] */
+  readonly counterexample?: BaseCounterExample | CounterExampleSequence
+  /** See [edr_solidity_tests::result::TestResult::decoded_logs] */
+  readonly decodedLogs: Array<string>
+  /** See [edr_solidity_tests::result::TestResult::kind] */
+  readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
+  /** See [edr_solidity_tests::result::TestResult::duration] */
+  readonly durationMs: bigint
+  /**
+   * Compute the error stack trace.
+   * The result is either the stack trace or the reason why we couldn't
+   * generate the stack trace.
+   * Returns null if the test status is succeeded or skipped.
+   * Cannot throw.
+   */
+  stackTrace(): StackTrace | UnexpectedError | HeuristicFailed | UnsafeToReplay | null
+  /**
+   * Constructs the execution traces for the test. Returns an empty array if
+   * traces for this test were not requested according to
+   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+   * an array of the root calls of the trace, which always includes the test
+   * call itself and may also include the setup call if there is one
+   * (identified by the function name `setUp`).
+   */
+  callTraces(): Array<CallTrace>
 }
 export declare class Exit {
   get kind(): ExitCode

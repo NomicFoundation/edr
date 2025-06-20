@@ -2,17 +2,17 @@ use std::sync::Arc;
 
 use derive_where::derive_where;
 use edr_eth::{
-    Address, B256, Bytecode, HashMap, HashSet, U256,
     account::{Account, AccountInfo},
     trie::KECCAK_NULL_RLP,
+    Address, Bytecode, HashMap, HashSet, B256, U256,
 };
 use edr_rpc_eth::{client::EthRpcClient, spec::RpcSpec};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use tokio::runtime;
 
 use super::{
-    RemoteState, State, StateCommit, StateDebug, StateError, StateMut as _, TrieState,
-    remote::CachedRemoteState,
+    remote::CachedRemoteState, RemoteState, State, StateCommit, StateDebug, StateError,
+    StateMut as _, TrieState,
 };
 use crate::random::RandomHashGenerator;
 
@@ -230,7 +230,7 @@ mod tests {
         str::FromStr,
     };
 
-    use edr_eth::{PreEip1898BlockSpec, l1::L1ChainSpec};
+    use edr_eth::{l1::L1ChainSpec, PreEip1898BlockSpec};
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
