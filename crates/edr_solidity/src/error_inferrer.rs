@@ -1119,8 +1119,12 @@ fn get_entry_before_initial_modifier_callstack_entry<HaltReasonT: HaltReasonTrai
         .ok_or(InferrerError::MissingContract)?;
     let contract = contract_meta.contract.read();
 
-    let called_function =
-        contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
+    let called_function = if let Some(selector) = trace.calldata.get(..4) {
+        contract.get_function_from_selector(selector)
+    } else {
+        // If there is no selector, it must be a transfer.
+        contract.receive.as_ref()
+    };
 
     let source_reference = match called_function {
         Some(called_function) => get_function_start_source_reference(
