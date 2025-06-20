@@ -409,11 +409,11 @@ impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
         Self {
             sender: value
                 .sender
-                .map(|sender| Uint8Array::from(sender.as_slice())),
+                .map(|sender| Uint8Array::with_data_copied(sender.as_slice())),
             address: value
                 .addr
-                .map(|address| Uint8Array::from(address.as_slice())),
-            calldata: Uint8Array::from(value.calldata.as_ref()),
+                .map(|address| Uint8Array::with_data_copied(address.as_slice())),
+            calldata: Uint8Array::with_data_copied(value.calldata.as_ref()),
             contract_name: value.contract_name,
             signature: value.signature,
             args: value.args,
