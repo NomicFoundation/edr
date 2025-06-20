@@ -524,12 +524,12 @@ export interface SolidityTestRunnerConfigArgs {
    * The value of `msg.sender` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
    */
-  sender?: Buffer
+  sender?: Uint8Array
   /**
    * The value of `tx.origin` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
    */
-  txOrigin?: Buffer
+  txOrigin?: Uint8Array
   /**
    * The initial balance of the sender in tests.
    * Defaults to `0xffffffffffffffffffffffff`.
@@ -564,7 +564,7 @@ export interface SolidityTestRunnerConfigArgs {
    * The value of `block.coinbase` in tests.
    * Defaults to `0x0000000000000000000000000000000000000000`.
    */
-  blockCoinbase?: Buffer
+  blockCoinbase?: Uint8Array
   /**
    * The value of `block.timestamp` in tests.
    * Defaults to 1.
@@ -772,7 +772,7 @@ export enum FsAccessPermission {
 }
 export interface AddressLabel {
   /** The address to label */
-  address: Buffer
+  address: Uint8Array
   /** The label to assign to the address */
   label: string
 }
@@ -861,7 +861,7 @@ export interface FuzzTestKind {
 /** See [edr_solidity_tests::fuzz::FuzzCase] */
 export interface FuzzCase {
   /** The calldata used for this fuzz test */
-  readonly calldata: Buffer
+  readonly calldata: Uint8Array
   /** Consumed gas */
   readonly gas: bigint
   /** The initial gas stipend for the transaction */
@@ -889,11 +889,11 @@ export interface CounterExampleSequence {
 /** See [edr_solidity_tests::fuzz::BaseCounterExample] */
 export interface BaseCounterExample {
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::sender] */
-  readonly sender?: Buffer
+  readonly sender?: Uint8Array
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::addr] */
-  readonly address?: Buffer
+  readonly address?: Uint8Array
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::calldata] */
-  readonly calldata: Buffer
+  readonly calldata: Uint8Array
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::contract_name] */
   readonly contractName?: string
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::signature] */

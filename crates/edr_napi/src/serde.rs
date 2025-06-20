@@ -1,9 +1,9 @@
 use edr_eth::hex;
-use napi::bindgen_prelude::{BigInt, Buffer};
+use napi::bindgen_prelude::{BigInt, Uint8Array};
 use serde::Serializer;
 
-/// Serialize a Buffer as a 0x-prefixed hex string
-pub fn serialize_buffer_as_hex<S>(buffer: &Buffer, serializer: S) -> Result<S::Ok, S::Error>
+/// Serialize a `Uint8Array` as a 0x-prefixed hex string
+pub fn serialize_uint8array_as_hex<S>(buffer: &Uint8Array, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -11,9 +11,9 @@ where
     serializer.serialize_str(&hex_string)
 }
 
-/// Serialize an Option<Buffer> as a 0x-prefixed hex string or None
-pub fn serialize_optional_buffer_as_hex<S>(
-    buffer: &Option<Buffer>,
+/// Serialize an Option<Uint8Array> as a 0x-prefixed hex string or None
+pub fn serialize_optional_uint8array_as_hex<S>(
+    buffer: &Option<Uint8Array>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
