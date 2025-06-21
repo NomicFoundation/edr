@@ -1,41 +1,27 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use alloy_primitives::{address, Address, Bytes, LogData as RawLog, U256};
-use alloy_sol_types::{SolError, SolValue};
+use alloy_primitives::{Address, Bytes, LogData as RawLog, U256};
 use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
     TransactionErrorTrait,
 };
-use revm::{
-    context::result::HaltReasonTr,
-    context_interface::JournalTr,
-    interpreter::{return_ok, InstructionResult},
-};
-use spec::Vm;
+use revm::{context::result::HaltReasonTr, context_interface::JournalTr};
 
+use super::revert_handlers::RevertParameters;
 use crate::{
     impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Result,
     Vm::{
         _expectCheatcodeRevert_0Call, _expectCheatcodeRevert_1Call, _expectCheatcodeRevert_2Call,
-        expectCallMinGas_0Call, expectCallMinGas_1Call, expectCall_0Call, expectCall_1Call,
-        expectCall_2Call, expectCall_3Call, expectCall_4Call, expectCall_5Call, expectEmit_0Call,
-        expectEmit_1Call, expectEmit_2Call, expectEmit_3Call, expectRevert_0Call,
-        expectRevert_1Call, expectRevert_2Call, expectSafeMemoryCall, expectSafeMemoryCallCall,
-        stopExpectSafeMemoryCall,
+        _expectInternalRevertCall, expectCallMinGas_0Call, expectCallMinGas_1Call,
+        expectCall_0Call, expectCall_1Call, expectCall_2Call, expectCall_3Call, expectCall_4Call,
+        expectCall_5Call, expectEmit_0Call, expectEmit_1Call, expectEmit_2Call, expectEmit_3Call,
+        expectPartialRevert_0Call, expectPartialRevert_1Call, expectRevert_0Call,
+        expectRevert_10Call, expectRevert_11Call, expectRevert_1Call, expectRevert_2Call,
+        expectRevert_3Call, expectRevert_4Call, expectRevert_5Call, expectRevert_6Call,
+        expectRevert_7Call, expectRevert_8Call, expectRevert_9Call, expectSafeMemoryCall,
+        expectSafeMemoryCallCall, stopExpectSafeMemoryCall,
     },
 };
-
-/// For some cheatcodes we may internally change the status of the call, i.e. in
-/// `expectRevert`. Solidity will see a successful call and attempt to decode
-/// the return data. Therefore, we need to populate the return with dummy bytes
-/// so the decode doesn't fail.
-///
-/// 8192 bytes was arbitrarily chosen because it is long enough for return
-/// values up to 256 words in size.
-static DUMMY_CALL_OUTPUT: Bytes = Bytes::from_static(&[0u8; 8192]);
-
-/// Same reasoning as [`DUMMY_CALL_OUTPUT`], but for creates.
-const DUMMY_CREATE_ADDRESS: Address = address!("0000000000000000000000000000000000000001");
 
 /// Tracks the expected calls per address.
 ///
@@ -92,12 +78,27 @@ pub enum ExpectedRevertKind {
 
 #[derive(Clone, Debug)]
 pub struct ExpectedRevert {
-    /// The expected data returned by the revert, None being any
+    /// The expected data returned by the revert, None being any.
     pub reason: Option<Vec<u8>>,
-    /// The depth at which the revert is expected
+    /// The depth at which the revert is expected.
     pub depth: u64,
     /// The type of expected revert.
     pub kind: ExpectedRevertKind,
+    /// If true then only the first 4 bytes of expected data returned by the
+    /// revert are checked.
+    pub partial_match: bool,
+    /// Contract expected to revert next call.
+    pub reverter: Option<Address>,
+    /// Address that reverted the call.
+    pub reverted_by: Option<Address>,
+    /// Max call depth reached during next call execution.
+    pub max_depth: u64,
+    /// Number of times this revert is expected.
+    pub count: u64,
+    /// Actual number of times this revert has been seen.
+    pub actual_count: u64,
+    /// Whether to accept reverts in internal calls.
+    pub allow_internal: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -621,6 +622,52 @@ impl Cheatcode for expectEmit_3Call {
     }
 }
 
+impl_is_pure_true!(_expectInternalRevertCall);
+impl Cheatcode for _expectInternalRevertCall {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {} = self;
+        expect_revert(
+            ccx.state,
+            None,
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            None,
+            1,
+            true,
+        )
+    }
+}
+
 impl_is_pure_true!(expectRevert_0Call);
 impl Cheatcode for expectRevert_0Call {
     fn apply_full<
@@ -658,6 +705,10 @@ impl Cheatcode for expectRevert_0Call {
             ccx.state,
             None,
             ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            None,
+            1,
             false,
         )
     }
@@ -701,6 +752,10 @@ impl Cheatcode for expectRevert_1Call {
             Some(revertData.as_ref()),
             ccx.ecx.journaled_state.depth() as u64,
             false,
+            false,
+            None,
+            1,
+            false,
         )
     }
 }
@@ -743,6 +798,533 @@ impl Cheatcode for expectRevert_2Call {
             Some(revertData),
             ccx.ecx.journaled_state.depth() as u64,
             false,
+            false,
+            None,
+            1,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectRevert_3Call);
+impl Cheatcode for expectRevert_3Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { reverter } = self;
+        expect_revert(
+            ccx.state,
+            None,
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            Some(*reverter),
+            1,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectRevert_4Call);
+impl Cheatcode for expectRevert_4Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            revertData,
+            reverter,
+        } = self;
+        expect_revert(
+            ccx.state,
+            Some(revertData.as_ref()),
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            Some(*reverter),
+            1,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectRevert_5Call);
+impl Cheatcode for expectRevert_5Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            revertData,
+            reverter,
+        } = self;
+        expect_revert(
+            ccx.state,
+            Some(revertData),
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            Some(*reverter),
+            1,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectRevert_6Call);
+impl Cheatcode for expectRevert_6Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { count } = self;
+        expect_revert(
+            ccx.state,
+            None,
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            None,
+            *count,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectRevert_7Call);
+impl Cheatcode for expectRevert_7Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { revertData, count } = self;
+        expect_revert(
+            ccx.state,
+            Some(revertData.as_ref()),
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            None,
+            *count,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectRevert_8Call);
+impl Cheatcode for expectRevert_8Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { revertData, count } = self;
+        expect_revert(
+            ccx.state,
+            Some(revertData),
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            None,
+            *count,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectRevert_9Call);
+impl Cheatcode for expectRevert_9Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { reverter, count } = self;
+        expect_revert(
+            ccx.state,
+            None,
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            Some(*reverter),
+            *count,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectRevert_10Call);
+impl Cheatcode for expectRevert_10Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            revertData,
+            reverter,
+            count,
+        } = self;
+        expect_revert(
+            ccx.state,
+            Some(revertData.as_ref()),
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            Some(*reverter),
+            *count,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectRevert_11Call);
+impl Cheatcode for expectRevert_11Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            revertData,
+            reverter,
+            count,
+        } = self;
+        expect_revert(
+            ccx.state,
+            Some(revertData),
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            Some(*reverter),
+            *count,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectPartialRevert_0Call);
+impl Cheatcode for expectPartialRevert_0Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { revertData } = self;
+        expect_revert(
+            ccx.state,
+            Some(revertData.as_ref()),
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            true,
+            None,
+            1,
+            false,
+        )
+    }
+}
+
+impl_is_pure_true!(expectPartialRevert_1Call);
+impl Cheatcode for expectPartialRevert_1Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            revertData,
+            reverter,
+        } = self;
+        expect_revert(
+            ccx.state,
+            Some(revertData.as_ref()),
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            true,
+            Some(*reverter),
+            1,
+            false,
         )
     }
 }
@@ -784,6 +1366,10 @@ impl Cheatcode for _expectCheatcodeRevert_0Call {
             None,
             ccx.ecx.journaled_state.depth() as u64,
             true,
+            false,
+            None,
+            1,
+            false,
         )
     }
 }
@@ -826,6 +1412,10 @@ impl Cheatcode for _expectCheatcodeRevert_1Call {
             Some(revertData.as_ref()),
             ccx.ecx.journaled_state.depth() as u64,
             true,
+            false,
+            None,
+            1,
+            false,
         )
     }
 }
@@ -868,6 +1458,10 @@ impl Cheatcode for _expectCheatcodeRevert_2Call {
             Some(revertData),
             ccx.ecx.journaled_state.depth() as u64,
             true,
+            false,
+            None,
+            1,
+            false,
         )
     }
 }
@@ -988,6 +1582,20 @@ impl Cheatcode for expectSafeMemoryCallCall {
             max,
             ccx.ecx.journaled_state.depth() as u64 + 1,
         )
+    }
+}
+
+impl RevertParameters for ExpectedRevert {
+    fn reverter(&self) -> Option<Address> {
+        self.reverter
+    }
+
+    fn reason(&self) -> Option<&[u8]> {
+        self.reason.as_deref()
+    }
+
+    fn partial_match(&self) -> bool {
+        self.partial_match
     }
 }
 
@@ -1261,6 +1869,10 @@ fn expect_revert<
     reason: Option<&[u8]>,
     depth: u64,
     cheatcode: bool,
+    partial_match: bool,
+    reverter: Option<Address>,
+    count: u64,
+    allow_internal: bool,
 ) -> Result {
     ensure!(
         state.expected_revert.is_none(),
@@ -1276,65 +1888,15 @@ fn expect_revert<
         } else {
             ExpectedRevertKind::Default
         },
+        partial_match,
+        reverter,
+        reverted_by: None,
+        max_depth: depth,
+        count,
+        actual_count: 0,
+        allow_internal,
     });
-    Ok(Vec::default())
-}
-
-pub(crate) fn handle_expect_revert(
-    is_create: bool,
-    expected_revert: Option<&[u8]>,
-    status: InstructionResult,
-    retdata: Bytes,
-) -> Result<(Option<Address>, Bytes)> {
-    let success_return = || {
-        if is_create {
-            (Some(DUMMY_CREATE_ADDRESS), Bytes::new())
-        } else {
-            (None, DUMMY_CALL_OUTPUT.clone())
-        }
-    };
-
-    ensure!(
-        !matches!(status, return_ok!()),
-        "call did not revert as expected"
-    );
-
-    // If None, accept any revert
-    let Some(expected_revert) = expected_revert else {
-        return Ok(success_return());
-    };
-
-    if !expected_revert.is_empty() && retdata.is_empty() {
-        bail!("call reverted as expected, but without data");
-    }
-
-    let mut actual_revert: Vec<u8> = retdata.into();
-
-    // Try decoding as known errors
-    if matches!(
-        actual_revert.get(..4).map(|s| s.try_into().unwrap()),
-        Some(Vm::CheatcodeError::SELECTOR | alloy_sol_types::Revert::SELECTOR)
-    ) {
-        if let Ok(decoded) = Vec::<u8>::abi_decode(&actual_revert[4..], false) {
-            actual_revert = decoded;
-        }
-    }
-
-    if actual_revert == expected_revert {
-        Ok(success_return())
-    } else {
-        let stringify = |data: &[u8]| {
-            String::abi_decode(data, false)
-                .ok()
-                .or_else(|| std::str::from_utf8(data).ok().map(ToOwned::to_owned))
-                .unwrap_or_else(|| hex::encode_prefixed(data))
-        };
-        Err(fmt_err!(
-            "Error != expected error: {} != {}",
-            stringify(&actual_revert),
-            stringify(expected_revert),
-        ))
-    }
+    Ok(Default::default())
 }
 
 fn expect_safe_memory<

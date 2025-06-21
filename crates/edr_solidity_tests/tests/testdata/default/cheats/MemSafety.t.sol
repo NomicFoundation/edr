@@ -416,7 +416,7 @@ contract MemSafetyTest is DSTest {
     function testExpectSafeMemory_MLOAD_REVERT() public {
         vm.expectSafeMemory(0x80, 0x100);
 
-        vm.expectRevert();
+        vm._expectInternalRevert();
 
         // This should revert. Ugly hack to make sure the mload isn't optimized
         // out.
@@ -506,7 +506,7 @@ contract MemSafetyTest is DSTest {
     ///      will cause the test to fail while using the `LOG0` opcode.
     function testExpectSafeMemory_LOG0_REVERT() public {
         vm.expectSafeMemory(0x80, 0x100);
-        vm.expectRevert();
+        vm._expectInternalRevert();
         // This should revert.
         assembly {
             log0(0x100, 0x20)
