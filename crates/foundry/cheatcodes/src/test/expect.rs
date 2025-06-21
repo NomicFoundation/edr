@@ -5,28 +5,23 @@ use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
     TransactionErrorTrait,
 };
-use revm::{
-    context::result::HaltReasonTr,
-    context_interface::JournalTr,
-};
+use revm::{context::result::HaltReasonTr, context_interface::JournalTr};
 
+use super::revert_handlers::RevertParameters;
 use crate::{
     impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Result,
     Vm::{
         _expectCheatcodeRevert_0Call, _expectCheatcodeRevert_1Call, _expectCheatcodeRevert_2Call,
-        _expectInternalRevertCall,
-        expectCallMinGas_0Call, expectCallMinGas_1Call, expectCall_0Call, expectCall_1Call,
-        expectCall_2Call, expectCall_3Call, expectCall_4Call, expectCall_5Call, expectEmit_0Call,
-        expectEmit_1Call, expectEmit_2Call, expectEmit_3Call,
+        _expectInternalRevertCall, expectCallMinGas_0Call, expectCallMinGas_1Call,
+        expectCall_0Call, expectCall_1Call, expectCall_2Call, expectCall_3Call, expectCall_4Call,
+        expectCall_5Call, expectEmit_0Call, expectEmit_1Call, expectEmit_2Call, expectEmit_3Call,
         expectPartialRevert_0Call, expectPartialRevert_1Call, expectRevert_0Call,
-        expectRevert_1Call, expectRevert_2Call, expectRevert_3Call, expectRevert_4Call,
-        expectRevert_5Call, expectRevert_6Call, expectRevert_7Call, expectRevert_8Call,
-        expectRevert_9Call, expectRevert_10Call, expectRevert_11Call, expectSafeMemoryCall,
+        expectRevert_10Call, expectRevert_11Call, expectRevert_1Call, expectRevert_2Call,
+        expectRevert_3Call, expectRevert_4Call, expectRevert_5Call, expectRevert_6Call,
+        expectRevert_7Call, expectRevert_8Call, expectRevert_9Call, expectSafeMemoryCall,
         expectSafeMemoryCallCall, stopExpectSafeMemoryCall,
     },
 };
-
-use super::revert_handlers::RevertParameters;
 
 /// Tracks the expected calls per address.
 ///
@@ -79,7 +74,6 @@ pub enum ExpectedRevertKind {
     /// We have to track it to avoid expecting `expectCheatcodeRevert` call to
     /// revert itself.
     Cheatcode { pending_processing: bool },
-
 }
 
 #[derive(Clone, Debug)]
@@ -90,7 +84,8 @@ pub struct ExpectedRevert {
     pub depth: u64,
     /// The type of expected revert.
     pub kind: ExpectedRevertKind,
-    /// If true then only the first 4 bytes of expected data returned by the revert are checked.
+    /// If true then only the first 4 bytes of expected data returned by the
+    /// revert are checked.
     pub partial_match: bool,
     /// Contract expected to revert next call.
     pub reverter: Option<Address>,
@@ -639,10 +634,27 @@ impl Cheatcode for _expectInternalRevertCall {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self {} = self;
-        expect_revert(ccx.state, None, ccx.ecx.journaled_state.depth() as u64, false, false, None, 1, true)
+        expect_revert(
+            ccx.state,
+            None,
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            None,
+            1,
+            true,
+        )
     }
 }
 
@@ -667,10 +679,27 @@ impl Cheatcode for expectRevert_0Call {
         >,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self {} = self;
-        expect_revert(ccx.state, None, ccx.ecx.journaled_state.depth() as u64, false, false, None, 1, false)
+        expect_revert(
+            ccx.state,
+            None,
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            None,
+            1,
+            false,
+        )
     }
 }
 
@@ -695,7 +724,15 @@ impl Cheatcode for expectRevert_1Call {
         >,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { revertData } = self;
         expect_revert(
@@ -732,7 +769,15 @@ impl Cheatcode for expectRevert_2Call {
         >,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { revertData } = self;
         expect_revert(
@@ -760,7 +805,15 @@ impl Cheatcode for expectRevert_3Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { reverter } = self;
         expect_revert(
@@ -788,9 +841,20 @@ impl Cheatcode for expectRevert_4Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
-        let Self { revertData, reverter } = self;
+        let Self {
+            revertData,
+            reverter,
+        } = self;
         expect_revert(
             ccx.state,
             Some(revertData.as_ref()),
@@ -816,9 +880,20 @@ impl Cheatcode for expectRevert_5Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
-        let Self { revertData, reverter } = self;
+        let Self {
+            revertData,
+            reverter,
+        } = self;
         expect_revert(
             ccx.state,
             Some(revertData),
@@ -844,10 +919,27 @@ impl Cheatcode for expectRevert_6Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { count } = self;
-        expect_revert(ccx.state, None, ccx.ecx.journaled_state.depth() as u64, false, false, None, *count, false)
+        expect_revert(
+            ccx.state,
+            None,
+            ccx.ecx.journaled_state.depth() as u64,
+            false,
+            false,
+            None,
+            *count,
+            false,
+        )
     }
 }
 
@@ -863,7 +955,15 @@ impl Cheatcode for expectRevert_7Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { revertData, count } = self;
         expect_revert(
@@ -891,7 +991,15 @@ impl Cheatcode for expectRevert_8Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { revertData, count } = self;
         expect_revert(
@@ -919,7 +1027,15 @@ impl Cheatcode for expectRevert_9Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { reverter, count } = self;
         expect_revert(
@@ -947,9 +1063,21 @@ impl Cheatcode for expectRevert_10Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
-        let Self { revertData, reverter, count } = self;
+        let Self {
+            revertData,
+            reverter,
+            count,
+        } = self;
         expect_revert(
             ccx.state,
             Some(revertData.as_ref()),
@@ -975,9 +1103,21 @@ impl Cheatcode for expectRevert_11Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
-        let Self { revertData, reverter, count } = self;
+        let Self {
+            revertData,
+            reverter,
+            count,
+        } = self;
         expect_revert(
             ccx.state,
             Some(revertData),
@@ -1003,7 +1143,15 @@ impl Cheatcode for expectPartialRevert_0Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { revertData } = self;
         expect_revert(
@@ -1031,9 +1179,20 @@ impl Cheatcode for expectPartialRevert_1Call {
         DatabaseT: CheatcodeBackend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT>,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
-        let Self { revertData, reverter } = self;
+        let Self {
+            revertData,
+            reverter,
+        } = self;
         expect_revert(
             ccx.state,
             Some(revertData.as_ref()),
@@ -1068,9 +1227,26 @@ impl Cheatcode for _expectCheatcodeRevert_0Call {
         >,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
-        expect_revert(ccx.state, None, ccx.ecx.journaled_state.depth() as u64, true, false, None, 1, false)
+        expect_revert(
+            ccx.state,
+            None,
+            ccx.ecx.journaled_state.depth() as u64,
+            true,
+            false,
+            None,
+            1,
+            false,
+        )
     }
 }
 
@@ -1095,7 +1271,15 @@ impl Cheatcode for _expectCheatcodeRevert_1Call {
         >,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { revertData } = self;
         expect_revert(
@@ -1132,7 +1316,15 @@ impl Cheatcode for _expectCheatcodeRevert_2Call {
         >,
     >(
         &self,
-        ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, ChainContextT, DatabaseT>,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         let Self { revertData } = self;
         expect_revert(
@@ -1564,7 +1756,9 @@ fn expect_revert<
         reason: reason.map(<[_]>::to_vec),
         depth,
         kind: if cheatcode {
-            ExpectedRevertKind::Cheatcode { pending_processing: true }
+            ExpectedRevertKind::Cheatcode {
+                pending_processing: true,
+            }
         } else {
             ExpectedRevertKind::Default
         },

@@ -1,4 +1,3 @@
-use crate::{Error, Result};
 use alloy_primitives::{address, hex, Address, Bytes};
 use alloy_sol_types::{SolError, SolValue};
 use foundry_evm_core::{contracts::ContractsByArtifact, decode::RevertDecoder};
@@ -6,13 +5,15 @@ use revm::interpreter::{return_ok, InstructionResult};
 use spec::Vm;
 
 use super::expect::ExpectedRevert;
+use crate::{Error, Result};
 
-/// For some cheatcodes we may internally change the status of the call, i.e. in `expectRevert`.
-/// Solidity will see a successful call and attempt to decode the return data. Therefore, we need
-/// to populate the return with dummy bytes so the decode doesn't fail.
+/// For some cheatcodes we may internally change the status of the call, i.e. in
+/// `expectRevert`. Solidity will see a successful call and attempt to decode
+/// the return data. Therefore, we need to populate the return with dummy bytes
+/// so the decode doesn't fail.
 ///
-/// 8192 bytes was arbitrarily chosen because it is long enough for return values up to 256 words in
-/// size.
+/// 8192 bytes was arbitrarily chosen because it is long enough for return
+/// values up to 256 words in size.
 static DUMMY_CALL_OUTPUT: Bytes = Bytes::from_static(&[0u8; 8192]);
 
 /// Same reasoning as [DUMMY_CALL_OUTPUT], but for creates.
@@ -35,7 +36,8 @@ pub(crate) trait RevertParameters {
     fn partial_match(&self) -> bool;
 }
 
-/// Core logic for handling reverts that may or may not be expected (or assumed).
+/// Core logic for handling reverts that may or may not be expected (or
+/// assumed).
 fn handle_revert(
     is_cheatcode: bool,
     revert_params: &impl RevertParameters,
@@ -44,7 +46,8 @@ fn handle_revert(
     known_contracts: Option<&ContractsByArtifact>,
     reverter: Option<&Address>,
 ) -> Result<(), Error> {
-    // If expected reverter address is set then check it matches the actual reverter.
+    // If expected reverter address is set then check it matches the actual
+    // reverter.
     if let (Some(expected_reverter), Some(&actual_reverter)) = (revert_params.reverter(), reverter)
     {
         if expected_reverter != actual_reverter {
@@ -76,8 +79,8 @@ fn handle_revert(
     // Try decoding as known errors.
     actual_revert = decode_revert(actual_revert);
 
-    if actual_revert == expected_reason ||
-        (is_cheatcode && memchr::memmem::find(&actual_revert, expected_reason).is_some())
+    if actual_revert == expected_reason
+        || (is_cheatcode && memchr::memmem::find(&actual_revert, expected_reason).is_some())
     {
         Ok(())
     } else {
@@ -95,7 +98,11 @@ fn handle_revert(
             return Ok(());
         }
 
-        Err(fmt_err!("Error != expected error: {} != {}", actual, expected))
+        Err(fmt_err!(
+            "Error != expected error: {} != {}",
+            actual,
+            expected
+        ))
     }
 }
 
@@ -116,7 +123,8 @@ pub(crate) fn handle_expect_revert(
         }
     };
 
-    // Check depths if it's not an expect cheatcode call and if internal expect reverts not enabled.
+    // Check depths if it's not an expect cheatcode call and if internal expect
+    // reverts not enabled.
     if !is_cheatcode && !internal_expect_revert {
         ensure!(
             expected_revert.max_depth > expected_revert.depth,
@@ -174,7 +182,10 @@ pub(crate) fn handle_expect_revert(
             _ => Ok(success_return()),
         }
     } else {
-        ensure!(!matches!(status, return_ok!()), "next call did not revert as expected");
+        ensure!(
+            !matches!(status, return_ok!()),
+            "next call did not revert as expected"
+        );
 
         handle_revert(
             is_cheatcode,

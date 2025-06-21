@@ -1,8 +1,8 @@
 //! Cheatcode EVM [Inspector].
 
 use std::{
-    collections::{BTreeMap, HashMap, VecDeque},
     cmp::max,
+    collections::{BTreeMap, HashMap, VecDeque},
     fmt::Debug,
     fs::File,
     io::BufReader,
@@ -1187,14 +1187,14 @@ impl<
 
         // Handle expected reverts.
         if let Some(expected_revert) = &mut self.expected_revert {
-            // Record current reverter address and call scheme before processing the expect revert
-            // if call reverted.
+            // Record current reverter address and call scheme before processing the expect
+            // revert if call reverted.
             if outcome.result.is_revert() {
-                // Record current reverter address if expect revert is set with expected reverter
-                // address and no actual reverter was set yet or if we're expecting more than one
-                // revert.
-                if expected_revert.reverter.is_some() &&
-                    (expected_revert.reverted_by.is_none() || expected_revert.count > 1)
+                // Record current reverter address if expect revert is set with expected
+                // reverter address and no actual reverter was set yet or if
+                // we're expecting more than one revert.
+                if expected_revert.reverter.is_some()
+                    && (expected_revert.reverted_by.is_none() || expected_revert.count > 1)
                 {
                     expected_revert.reverted_by = Some(call.target_address);
                 }
@@ -1237,8 +1237,8 @@ impl<
                     };
                 }
 
-                // Flip `pending_processing` flag for cheatcode revert expectations, marking that
-                // we've exited the `expectCheatcodeRevert` call scope
+                // Flip `pending_processing` flag for cheatcode revert expectations, marking
+                // that we've exited the `expectCheatcodeRevert` call scope
                 if let ExpectedRevertKind::Cheatcode { pending_processing } =
                     &mut self.expected_revert.as_mut().unwrap().kind
                 {
@@ -1553,8 +1553,8 @@ impl<
 
         // Handle expected reverts
         if let Some(expected_revert) = &self.expected_revert {
-            if curr_depth <= expected_revert.depth &&
-                matches!(expected_revert.kind, ExpectedRevertKind::Default)
+            if curr_depth <= expected_revert.depth
+                && matches!(expected_revert.kind, ExpectedRevertKind::Default)
             {
                 let mut expected_revert = std::mem::take(&mut self.expected_revert).unwrap();
                 return match revert_handlers::handle_expect_revert(
