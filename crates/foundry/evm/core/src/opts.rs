@@ -3,6 +3,7 @@ use alloy_network::AnyRpcBlock;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::Provider;
 use eyre::WrapErr;
+use op_revm::{transaction::deposit::DepositTransactionParts, OpTransaction};
 use revm::context::{BlockEnv, CfgEnv, TxEnv};
 use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
@@ -325,6 +326,22 @@ impl From<TxEnvOpts> for TxEnv {
             chain_id,
             caller,
             ..Self::default()
+        }
+    }
+}
+
+impl From<TxEnvOpts> for OpTransaction<TxEnv> {
+    fn from(value: TxEnvOpts) -> Self {
+        let base = TxEnv::from(value);
+
+        OpTransaction {
+            base,
+            // For Solidity tests we don't know enough information to construct an enveloped
+            // transaction. Instead, we use a default value that is compatible with the
+            // OpTransaction structure.
+            // This means that gas estimation and balance checks won't be accurate.
+            enveloped_tx: Some(vec![0x00].into()),
+            deposit: DepositTransactionParts::default(),
         }
     }
 }

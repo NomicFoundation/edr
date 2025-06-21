@@ -13,7 +13,10 @@ use edr_solidity::{
 use foundry_evm_core::{
     backend::IndeterminismReasons,
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use foundry_evm_traces::{SparsedTraceArena, TraceKind};
 use revm::{
@@ -25,8 +28,8 @@ use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 use crate::executors::EvmError;
 
 /// Stack trace generation error during re-execution.
-#[derive(Debug, thiserror::Error)]
-pub enum StackTraceError<HaltReasonT: HaltReasonTr> {
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum StackTraceError<HaltReasonT> {
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
     #[error("Unexpected EVM execution error: {0}")]
@@ -39,19 +42,58 @@ pub enum StackTraceError<HaltReasonT: HaltReasonTr> {
     Tracer(#[from] SolidityTracerError<HaltReasonT>),
 }
 
+impl<HaltReasonT> StackTraceError<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> StackTraceError<NewHaltReasonT> {
+        match self {
+            StackTraceError::ContractDecoder(err) => StackTraceError::ContractDecoder(err),
+            StackTraceError::Evm(err) => StackTraceError::Evm(err),
+            StackTraceError::FailingSetup(reason) => StackTraceError::FailingSetup(reason),
+            StackTraceError::InvalidRootNode => StackTraceError::InvalidRootNode,
+            StackTraceError::Tracer(err) => {
+                StackTraceError::Tracer(err.map_halt_reason(conversion_fn))
+            }
+        }
+    }
+}
+
 // `EvmError` is not `Clone`
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TxT>,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
-        TxT: TransactionEnvTr,
         HardforkT: HardforkTr,
-    > From<EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>>
-    for StackTraceError<HaltReasonT>
+        TransactionErrorT: TransactionErrorTrait,
+        TxT: TransactionEnvTr,
+    >
+    From<
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > for StackTraceError<HaltReasonT>
 {
     fn from(
-        value: EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT>,
+        value: EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     ) -> Self {
         Self::Evm(value.to_string())
     }
@@ -242,8 +284,8 @@ fn is_calllike_op(step: &CallTraceStep) -> bool {
 }
 
 /// The possible outcomes from computing stack traces.
-#[derive(Debug)]
-pub enum StackTraceResult<HaltReasonT: HaltReasonTr> {
+#[derive(Clone, Debug)]
+pub enum StackTraceResult<HaltReasonT> {
     /// The stack trace result
     Success(Vec<StackTraceEntry>),
     /// We couldn't generate stack traces, because an unexpected error occurred.
@@ -265,6 +307,31 @@ pub enum StackTraceResult<HaltReasonT: HaltReasonTr> {
         /// urlOrAlias) external returns (uint256 forkId);`.
         impure_cheatcodes: Vec<Cow<'static, str>>,
     },
+}
+
+impl<HaltReasonT> StackTraceResult<HaltReasonT> {
+    pub fn map_halt_reason<
+        ConversionFnT: Copy + Fn(HaltReasonT) -> NewHaltReasonT,
+        NewHaltReasonT,
+    >(
+        self,
+        conversion_fn: ConversionFnT,
+    ) -> StackTraceResult<NewHaltReasonT> {
+        match self {
+            StackTraceResult::Success(stack_trace) => StackTraceResult::Success(stack_trace),
+            StackTraceResult::Error(error) => {
+                StackTraceResult::Error(error.map_halt_reason(conversion_fn))
+            }
+            StackTraceResult::HeuristicFailed => StackTraceResult::HeuristicFailed,
+            StackTraceResult::UnsafeToReplay {
+                global_fork_latest,
+                impure_cheatcodes,
+            } => StackTraceResult::UnsafeToReplay {
+                global_fork_latest,
+                impure_cheatcodes,
+            },
+        }
+    }
 }
 
 impl<HaltReasonT: HaltReasonTr> From<Result<Vec<StackTraceEntry>, StackTraceError<HaltReasonT>>>

@@ -11,7 +11,7 @@ use edr_solidity_tests::{
     traces::{self, CallTraceArena, SparsedTraceArena},
 };
 use napi::{
-    bindgen_prelude::{BigInt, Buffer, Either3, Either4, Uint8Array},
+    bindgen_prelude::{BigInt, Either3, Either4, Uint8Array},
     Either,
 };
 use napi_derive::napi;
@@ -44,7 +44,7 @@ pub struct SuiteResult {
 impl SuiteResult {
     pub fn new(
         id: edr_solidity::artifacts::ArtifactId,
-        suite_result: edr_solidity_tests::result::SuiteResult<edr_eth::l1::HaltReason>,
+        suite_result: edr_solidity_tests::result::SuiteResult<String>,
         include_traces: IncludeTraces,
     ) -> Self {
         Self {
@@ -86,7 +86,7 @@ pub struct TestResult {
     #[napi(readonly)]
     pub duration_ms: BigInt,
 
-    stack_trace_result: Option<Arc<StackTraceResult<edr_eth::l1::HaltReason>>>,
+    stack_trace_result: Option<Arc<StackTraceResult<String>>>,
     call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
 }
 
@@ -189,7 +189,7 @@ impl TestResult {
 
     /// Constructs the execution traces for the test. Returns an empty array if
     /// traces for this test were not requested according to
-    /// [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+    /// [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
     /// an array of the root calls of the trace, which always includes the test
     /// call itself and may also include the setup call if there is one
     /// (identified by the function name `setUp`).
@@ -206,7 +206,7 @@ impl TestResult {
 impl TestResult {
     fn new(
         name: String,
-        test_result: edr_solidity_tests::result::TestResult<edr_eth::l1::HaltReason>,
+        test_result: edr_solidity_tests::result::TestResult<String>,
         include_traces: IncludeTraces,
     ) -> Self {
         let include_trace = include_traces == IncludeTraces::All
@@ -264,7 +264,7 @@ impl TestResult {
                 }),
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
-            stack_trace_result: test_result.stack_trace_result,
+            stack_trace_result: test_result.stack_trace_result.map(Arc::new),
             call_trace_arenas: if include_trace {
                 test_result.traces
             } else {
@@ -326,7 +326,7 @@ pub struct FuzzTestKind {
 pub struct FuzzCase {
     /// The calldata used for this fuzz test
     #[napi(readonly)]
-    pub calldata: Buffer,
+    pub calldata: Uint8Array,
     /// Consumed gas
     #[napi(readonly)]
     pub gas: BigInt,
@@ -376,13 +376,13 @@ pub struct CounterExampleSequence {
 pub struct BaseCounterExample {
     /// See [edr_solidity_tests::fuzz::BaseCounterExample::sender]
     #[napi(readonly)]
-    pub sender: Option<Buffer>,
+    pub sender: Option<Uint8Array>,
     /// See [edr_solidity_tests::fuzz::BaseCounterExample::addr]
     #[napi(readonly)]
-    pub address: Option<Buffer>,
+    pub address: Option<Uint8Array>,
     /// See [edr_solidity_tests::fuzz::BaseCounterExample::calldata]
     #[napi(readonly)]
-    pub calldata: Buffer,
+    pub calldata: Uint8Array,
     /// See [edr_solidity_tests::fuzz::BaseCounterExample::contract_name]
     #[napi(readonly)]
     pub contract_name: Option<String>,
@@ -407,9 +407,9 @@ impl Debug for BaseCounterExample {
 impl From<edr_solidity_tests::fuzz::BaseCounterExample> for BaseCounterExample {
     fn from(value: edr_solidity_tests::fuzz::BaseCounterExample) -> Self {
         Self {
-            sender: value.sender.map(|sender| Buffer::from(sender.as_slice())),
-            address: value.addr.map(|address| Buffer::from(address.as_slice())),
-            calldata: Buffer::from(value.calldata.as_ref()),
+            sender: value.sender.map(Uint8Array::with_data_copied),
+            address: value.addr.map(Uint8Array::with_data_copied),
+            calldata: Uint8Array::with_data_copied(value.calldata),
             contract_name: value.contract_name,
             signature: value.signature,
             args: value.args,

@@ -5,11 +5,11 @@ use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
     inspectors::cheatcodes::{CheatsConfigOptions, ExecutionContextConfig},
-    SolidityTestRunnerConfig, TestFilterConfig,
+    TestFilterConfig,
 };
 use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
 use napi::{
-    bindgen_prelude::{BigInt, Buffer},
+    bindgen_prelude::{BigInt, Uint8Array},
     Either, Status,
 };
 use napi_derive::napi;
@@ -17,13 +17,13 @@ use napi_derive::napi;
 use crate::{
     cast::TryCast,
     serde::{
-        serialize_buffer_as_hex, serialize_optional_bigint_as_struct,
-        serialize_optional_buffer_as_hex,
+        serialize_optional_bigint_as_struct, serialize_optional_uint8array_as_hex,
+        serialize_uint8array_as_hex,
     },
 };
 
 /// Solidity test runner configuration arguments exposed through the ffi.
-/// Docs based on https://book.getfoundry.sh/reference/config/testing
+/// Docs based on <https://book.getfoundry.sh/reference/config/testing>.
 #[napi(object)]
 #[derive(Clone, serde::Serialize)]
 pub struct SolidityTestRunnerConfigArgs {
@@ -49,12 +49,12 @@ pub struct SolidityTestRunnerConfigArgs {
     pub ffi: Option<bool>,
     /// The value of `msg.sender` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
-    #[serde(serialize_with = "serialize_optional_buffer_as_hex")]
-    pub sender: Option<Buffer>,
+    #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
+    pub sender: Option<Uint8Array>,
     /// The value of `tx.origin` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
-    #[serde(serialize_with = "serialize_optional_buffer_as_hex")]
-    pub tx_origin: Option<Buffer>,
+    #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
+    pub tx_origin: Option<Uint8Array>,
     /// The initial balance of the sender in tests.
     /// Defaults to `0xffffffffffffffffffffffff`.
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
@@ -81,8 +81,8 @@ pub struct SolidityTestRunnerConfigArgs {
     pub block_base_fee_per_gas: Option<BigInt>,
     /// The value of `block.coinbase` in tests.
     /// Defaults to `0x0000000000000000000000000000000000000000`.
-    #[serde(serialize_with = "serialize_optional_buffer_as_hex")]
-    pub block_coinbase: Option<Buffer>,
+    #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
+    pub block_coinbase: Option<Uint8Array>,
     /// The value of `block.timestamp` in tests.
     /// Defaults to 1.
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
@@ -169,7 +169,7 @@ impl Debug for SolidityTestRunnerConfigArgs {
     }
 }
 
-impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth::l1::SpecId> {
+impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::TestRunnerConfig {
     type Error = napi::Error;
 
     fn try_from(value: SolidityTestRunnerConfigArgs) -> Result<Self, Self::Error> {
@@ -203,8 +203,18 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth:
             fuzz,
             invariant,
             include_traces,
-            test_pattern: _,
+            test_pattern,
         } = value;
+
+        let test_pattern = TestFilterConfig {
+            test_pattern: test_pattern
+                .as_ref()
+                .map(|p| {
+                    p.parse()
+                        .map_err(|error| napi::Error::new(Status::InvalidArg, error))
+                })
+                .transpose()?,
+        };
 
         let invariant: InvariantConfig = fuzz
             .as_ref()
@@ -216,7 +226,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth:
 
         let fuzz: FuzzConfig = fuzz.map(TryFrom::try_from).transpose()?.unwrap_or_default();
 
-        let cheats_config_options = CheatsConfigOptions {
+        let cheatcode = CheatsConfigOptions {
             // TODO https://github.com/NomicFoundation/edr/issues/657
             // If gas reporting or coverage is supported, take that into account here.
             execution_context: ExecutionContextConfig::Test,
@@ -248,83 +258,35 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for SolidityTestRunnerConfig<edr_eth:
                 .collect::<Result<_, napi::Error>>()?,
         };
 
-        let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
-
-        if let Some(gas_limit) = gas_limit {
-            evm_opts.env.gas_limit = gas_limit.try_cast()?;
-        }
-
-        evm_opts.env.chain_id = chain_id.map(TryCast::try_cast).transpose()?;
-
-        evm_opts.env.gas_price = gas_price.map(TryCast::try_cast).transpose()?;
-
-        if let Some(block_base_fee_per_gas) = block_base_fee_per_gas {
-            evm_opts.env.block_base_fee_per_gas = block_base_fee_per_gas.try_cast()?;
-        }
-
-        if let Some(tx_origin) = tx_origin {
-            evm_opts.env.tx_origin = tx_origin.try_cast()?;
-        }
-
-        if let Some(block_number) = block_number {
-            evm_opts.env.block_number = block_number.try_cast()?;
-        }
-
-        if let Some(block_difficulty) = block_difficulty {
-            evm_opts.env.block_difficulty = block_difficulty.try_cast()?;
-        }
-
-        evm_opts.env.block_gas_limit = block_gas_limit.map(TryCast::try_cast).transpose()?;
-
-        if let Some(block_timestamp) = block_timestamp {
-            evm_opts.env.block_timestamp = block_timestamp.try_cast()?;
-        }
-
-        if let Some(block_coinbase) = block_coinbase {
-            evm_opts.env.block_coinbase = block_coinbase.try_cast()?;
-        }
-
-        evm_opts.fork_url = eth_rpc_url;
-
-        evm_opts.fork_block_number = fork_block_number.map(TryCast::try_cast).transpose()?;
-
-        if let Some(isolate) = isolate {
-            evm_opts.isolate = isolate;
-        }
-
-        if let Some(ffi) = ffi {
-            evm_opts.ffi = ffi;
-        }
-
-        if let Some(sender) = sender {
-            evm_opts.sender = sender.try_cast()?;
-        }
-
-        if let Some(initial_balance) = initial_balance {
-            evm_opts.initial_balance = initial_balance.try_cast()?;
-        }
-
-        if let Some(memory_limit) = memory_limit {
-            evm_opts.memory_limit = memory_limit.try_cast()?;
-        }
-
-        if let Some(disable_block_gas_limit) = disable_block_gas_limit {
-            evm_opts.disable_block_gas_limit = disable_block_gas_limit;
-        }
-
-        Ok(SolidityTestRunnerConfig {
+        let config = Self {
             project_root: project_root.into(),
             include_traces: include_traces.unwrap_or_default().into(),
-            // TODO
-            coverage: false,
             test_fail: test_fail.unwrap_or_default(),
-            cheats_config_options,
-            evm_opts,
+            isolate,
+            ffi,
+            sender: sender.map(TryCast::try_cast).transpose()?,
+            tx_origin: tx_origin.map(TryCast::try_cast).transpose()?,
+            initial_balance: initial_balance.map(TryCast::try_cast).transpose()?,
+            block_number: block_number.map(TryCast::try_cast).transpose()?,
+            chain_id: chain_id.map(TryCast::try_cast).transpose()?,
+            gas_limit: gas_limit.map(TryCast::try_cast).transpose()?,
+            gas_price: gas_price.map(TryCast::try_cast).transpose()?,
+            block_base_fee_per_gas: block_base_fee_per_gas.map(TryCast::try_cast).transpose()?,
+            block_coinbase: block_coinbase.map(TryCast::try_cast).transpose()?,
+            block_timestamp: block_timestamp.map(TryCast::try_cast).transpose()?,
+            block_difficulty: block_difficulty.map(TryCast::try_cast).transpose()?,
+            block_gas_limit: block_gas_limit.map(TryCast::try_cast).transpose()?,
+            disable_block_gas_limit,
+            memory_limit: memory_limit.map(TryCast::try_cast).transpose()?,
+            fork_url: eth_rpc_url,
+            fork_block_number: fork_block_number.map(TryCast::try_cast).transpose()?,
+            cheatcode,
             fuzz,
             invariant,
-            // Solidity fuzz fixtures are not supported by the JS backend
-            solidity_fuzz_fixtures: false,
-        })
+            test_pattern,
+        };
+
+        Ok(config)
     }
 }
 
@@ -707,8 +669,8 @@ impl From<FsAccessPermission> for foundry_cheatcodes::FsAccessPermission {
 #[derive(Clone, serde::Serialize)]
 pub struct AddressLabel {
     /// The address to label
-    #[serde(serialize_with = "serialize_buffer_as_hex")]
-    pub address: Buffer,
+    #[serde(serialize_with = "serialize_uint8array_as_hex")]
+    pub address: Uint8Array,
     /// The label to assign to the address
     pub label: String,
 }
@@ -742,6 +704,16 @@ impl From<IncludeTraces> for edr_solidity_tests::IncludeTraces {
             IncludeTraces::None => edr_solidity_tests::IncludeTraces::None,
             IncludeTraces::Failing => edr_solidity_tests::IncludeTraces::Failing,
             IncludeTraces::All => edr_solidity_tests::IncludeTraces::All,
+        }
+    }
+}
+
+impl From<edr_solidity_tests::IncludeTraces> for IncludeTraces {
+    fn from(value: edr_solidity_tests::IncludeTraces) -> Self {
+        match value {
+            edr_solidity_tests::IncludeTraces::None => IncludeTraces::None,
+            edr_solidity_tests::IncludeTraces::Failing => IncludeTraces::Failing,
+            edr_solidity_tests::IncludeTraces::All => IncludeTraces::All,
         }
     }
 }

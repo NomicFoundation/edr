@@ -491,7 +491,7 @@ export interface LinkReference {
 }
 /**
  * Solidity test runner configuration arguments exposed through the ffi.
- * Docs based on https://book.getfoundry.sh/reference/config/testing
+ * Docs based on <https://book.getfoundry.sh/reference/config/testing>.
  */
 export interface SolidityTestRunnerConfigArgs {
   /**
@@ -524,12 +524,12 @@ export interface SolidityTestRunnerConfigArgs {
    * The value of `msg.sender` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
    */
-  sender?: Buffer
+  sender?: Uint8Array
   /**
    * The value of `tx.origin` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
    */
-  txOrigin?: Buffer
+  txOrigin?: Uint8Array
   /**
    * The initial balance of the sender in tests.
    * Defaults to `0xffffffffffffffffffffffff`.
@@ -564,7 +564,7 @@ export interface SolidityTestRunnerConfigArgs {
    * The value of `block.coinbase` in tests.
    * Defaults to `0x0000000000000000000000000000000000000000`.
    */
-  blockCoinbase?: Buffer
+  blockCoinbase?: Uint8Array
   /**
    * The value of `block.timestamp` in tests.
    * Defaults to 1.
@@ -772,7 +772,7 @@ export enum FsAccessPermission {
 }
 export interface AddressLabel {
   /** The address to label */
-  address: Buffer
+  address: Uint8Array
   /** The label to assign to the address */
   label: string
 }
@@ -788,6 +788,7 @@ export enum IncludeTraces {
   /** Traces will be included in all test results. */
   All = 2
 }
+export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -860,7 +861,7 @@ export interface FuzzTestKind {
 /** See [edr_solidity_tests::fuzz::FuzzCase] */
 export interface FuzzCase {
   /** The calldata used for this fuzz test */
-  readonly calldata: Buffer
+  readonly calldata: Uint8Array
   /** Consumed gas */
   readonly gas: bigint
   /** The initial gas stipend for the transaction */
@@ -888,11 +889,11 @@ export interface CounterExampleSequence {
 /** See [edr_solidity_tests::fuzz::BaseCounterExample] */
 export interface BaseCounterExample {
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::sender] */
-  readonly sender?: Buffer
+  readonly sender?: Uint8Array
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::addr] */
-  readonly address?: Buffer
+  readonly address?: Uint8Array
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::calldata] */
-  readonly calldata: Buffer
+  readonly calldata: Uint8Array
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::contract_name] */
   readonly contractName?: string
   /** See [edr_solidity_tests::fuzz::BaseCounterExample::signature] */
@@ -984,16 +985,6 @@ export interface DecodedTraceParameters {
    */
   arguments: Array<string>
 }
-/**
- * Executes Solidity tests.
- *
- * The function will return as soon as test execution is started.
- * The progress callback will be called with the results of each test suite.
- * It is up to the caller to track how many times the callback is called to
- * know when all tests are done.
- * The error callback is called if an invalid configuration value is provided.
- */
-export declare function runSolidityTests(artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, progressCallback: (result: SuiteResult) => void, errorCallback: (error: Error) => void): void
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
   /** Callback to be called when a new event is received. */
@@ -1254,6 +1245,16 @@ export declare class EdrContext {
   createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: TracingConfigWithBuffers): Promise<Provider>
   /**Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
+  registerSolidityTestRunnerFactory(chainType: string, factory: SolidityTestRunnerFactory): Promise<void>
+  /**
+   *Executes Solidity tests.
+   *
+   *The function will return as soon as test execution is started.
+   *The progress callback will be called with the results of each test
+   *suite. It is up to the caller to track how many times the callback
+   *is called to know when all tests are done.
+   */
+  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */
@@ -1281,6 +1282,7 @@ export declare class Provider {
    */
   setVerboseTracing(verboseTracing: boolean): Promise<void>
 }
+export declare class SolidityTestRunnerFactory { }
 /** See [edr_solidity_tests::result::SuiteResult] */
 export declare class SuiteResult {
   /**
@@ -1322,7 +1324,7 @@ export declare class TestResult {
   /**
    * Constructs the execution traces for the test. Returns an empty array if
    * traces for this test were not requested according to
-   * [`SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
+   * [`crate::solidity_tests::config::SolidityTestRunnerConfigArgs::include_traces`]. Otherwise, returns
    * an array of the root calls of the trace, which always includes the test
    * call itself and may also include the setup call if there is one
    * (identified by the function name `setUp`).

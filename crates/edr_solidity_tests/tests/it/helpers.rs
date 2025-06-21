@@ -9,7 +9,6 @@ use edr_eth::{
     l1::{self, BlockEnv},
     spec::HaltReasonTrait,
 };
-use edr_evm::interpreter::InstructionResult;
 pub use solidity_test_filter::SolidityTestFilter;
 mod tracing;
 
@@ -42,6 +41,7 @@ use foundry_evm::{
     decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, L1EvmBuilder, TransactionEnvTr,
+        TransactionErrorTrait,
     },
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
@@ -294,16 +294,24 @@ impl From<TestFuzzDictionaryConfig> for FuzzDictionaryConfig {
 }
 
 /// Type alias for [`ForgeTestData`] targetting L1.
-pub type L1ForgeTestData =
-    ForgeTestData<BlockEnv, (), L1EvmBuilder, l1::HaltReason, l1::SpecId, TxEnv>;
+pub type L1ForgeTestData = ForgeTestData<
+    BlockEnv,
+    (),
+    L1EvmBuilder,
+    l1::HaltReason,
+    l1::SpecId,
+    l1::InvalidTransaction,
+    TxEnv,
+>;
 
 /// Container for test data for a specific test profile.
 pub struct ForgeTestData<
     BlockT: BlockEnvTr,
     ChainContextT: ChainContextTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TransactionT>,
     HaltReasonT: HaltReasonTrait,
     HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
 > {
     project: Project,
@@ -311,7 +319,7 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
-    runner_config: SolidityTestRunnerConfig<HardforkT>,
+    hardfork: HardforkT,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<
         fn() -> (
@@ -319,6 +327,7 @@ pub struct ForgeTestData<
             ChainContextT,
             EvmBuilderT,
             HaltReasonT,
+            TransactionErrorT,
             TransactionT,
         ),
     >,
@@ -327,11 +336,28 @@ pub struct ForgeTestData<
 impl<
         BlockT: BlockEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionT>,
-        HaltReasonT: 'static + HaltReasonTrait + Into<InstructionResult> + Send + Sync,
+        EvmBuilderT: EvmBuilderTrait<
+            BlockT,
+            ChainContextT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TransactionT,
+        >,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
         HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
-    > ForgeTestData<BlockT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionT>
+    >
+    ForgeTestData<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        TransactionT,
+    >
 {
     /// Builds [`ForgeTestData`] for the given [`ForgeTestProfile`].
     ///
@@ -339,7 +365,6 @@ impl<
     pub fn new(profile: ForgeTestProfile, hardfork: HardforkT) -> eyre::Result<Self> {
         let project = profile.project();
         let output = get_compiled(&project);
-        let runner_config = ForgeTestProfile::runner_config(hardfork);
 
         let root = project.root();
         let contracts = output
@@ -424,7 +449,7 @@ impl<
             known_contracts,
             libs_to_deploy,
             revert_decoder,
-            runner_config,
+            hardfork,
             _phantom: PhantomData,
         })
     }
@@ -432,7 +457,8 @@ impl<
     /// Builds a base runner config
     pub fn base_runner_config(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
-        self.runner_config.clone()
+        // Construct a new one to create new failure persistance directory for each test
+        ForgeTestProfile::runner_config(self.hardfork)
     }
 
     /// Builds a non-tracing runner
@@ -445,6 +471,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     > {
         let config = self.base_runner_config();
@@ -462,6 +489,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     > {
         config.cheats_config_options.rpc_endpoints = rpc_endpoints();
@@ -486,6 +514,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     > {
         let mut config = self.base_runner_config();
@@ -504,6 +533,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     > {
         let mut config = self.base_runner_config();
@@ -522,6 +552,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     > {
         let mut config = self.base_runner_config();
@@ -542,6 +573,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     > {
         let mut config = self.base_runner_config();
@@ -560,6 +592,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     > {
         let mut config = self.base_runner_config();
@@ -578,6 +611,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     > {
         let mut config = self.base_runner_config();
@@ -597,6 +631,7 @@ impl<
         HaltReasonT,
         HardforkT,
         NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
         TransactionT,
     > {
         MultiContractRunner::<
@@ -606,6 +641,7 @@ impl<
             HaltReasonT,
             HardforkT,
             NoOpContractDecoder<HaltReasonT>,
+            TransactionErrorT,
             TransactionT,
         >::new(
             config,

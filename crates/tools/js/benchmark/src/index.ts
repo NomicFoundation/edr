@@ -3,6 +3,11 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
 import { bytesToHex, privateToAddress, toBytes } from "@ethereumjs/util";
+import {
+  EdrContext,
+  L1_CHAIN_TYPE,
+  l1SolidityTestRunnerFactory,
+} from "@nomicfoundation/edr";
 import { ArgumentParser } from "argparse";
 import child_process, { SpawnSyncReturns } from "child_process";
 import fs from "fs";
@@ -107,10 +112,19 @@ async function main() {
     await report(benchmarkOutputPath);
     await flushStdout();
   } else if (args.command === "solidity-tests") {
+    // Only construct an EdrContext for solidity tests, because the JSON-RPC
+    // benchmarks still depend on a singleton Hardhat network provider that
+    // is created in the `createHardhatNetworkProvider` function.
+    const context = new EdrContext();
+    await context.registerSolidityTestRunnerFactory(
+      L1_CHAIN_TYPE,
+      l1SolidityTestRunnerFactory()
+    );
+
     if (args.repo !== undefined) {
-      await runSolidityTests(args.repo, args.grep);
+      await runSolidityTests(context, L1_CHAIN_TYPE, args.repo, args.grep);
     } else {
-      await runForgeStdTests(benchmarkOutputPath);
+      await runForgeStdTests(context, L1_CHAIN_TYPE, benchmarkOutputPath);
     }
   } else {
     const _exhaustiveCheck: never = args.command;

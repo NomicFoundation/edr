@@ -130,7 +130,7 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
 
 /// Configuration for [`SolidityTestRunnerConfig::include_traces`] that
 /// controls execution trace decoding and inclusion in test results.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum IncludeTraces {
     /// No traces will be included in any test result.
     None,

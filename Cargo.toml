@@ -220,17 +220,17 @@ tower-http = "0.5"
 
 [patch.crates-io]
 ## revm
-revm = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-revm-bytecode = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-revm-context = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-revm-context-interface = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-revm-database-interface = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-revm-handler = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-revm-interpreter = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-revm-precompile = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-revm-primitives = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-revm-state = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
-op-revm = { git = "https://github.com/bluealloy/revm.git", rev = "2401c2c3" }
+revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-bytecode = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-context = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-context-interface = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-database-interface = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-handler = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-interpreter = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-precompile = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-primitives = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+revm-state = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
+op-revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "8718223" }
 
 [workspace.lints.rust]
 future_incompatible = "warn"

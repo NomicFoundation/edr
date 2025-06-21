@@ -32,6 +32,7 @@ import {
   type CachedChains,
   type CachedEndpoints,
   SuiteResult,
+  EdrContext,
 } from "@nomicfoundation/edr";
 import { hexStringToBytes } from "@nomicfoundation/hardhat-utils/hex";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
@@ -60,8 +61,13 @@ const REPO_DIR = "forge-std";
 const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
 const BRANCH_NAME = "js-benchmark-config-hh-v3";
 
-/// Run Solidity tests in a Hardhat v3 project. Optinally filter paths with grep
-export async function runSolidityTests(repoPath: string, grep?: string) {
+/// Run Solidity tests in a Hardhat v3 project. Optionally filter paths with grep
+export async function runSolidityTests(
+  context: EdrContext,
+  chainType: string,
+  repoPath: string,
+  grep?: string
+) {
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath);
 
@@ -75,6 +81,8 @@ export async function runSolidityTests(repoPath: string, grep?: string) {
 
   const start = performance.now();
   const results = await runAllSolidityTests(
+    context,
+    chainType,
     artifacts,
     ids,
     tracingConfig,
@@ -101,7 +109,11 @@ export async function runSolidityTests(repoPath: string, grep?: string) {
 }
 
 /// Run Solidity test benchmarks in the `forge-std` at v3 repo
-export async function runForgeStdTests(resultsPath: string) {
+export async function runForgeStdTests(
+  context: EdrContext,
+  chainType: string,
+  resultsPath: string
+) {
   const repoPath = await setupForgeStdRepo();
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath);
@@ -118,6 +130,8 @@ export async function runForgeStdTests(resultsPath: string) {
       }
       const start = performance.now();
       const results = await runAllSolidityTests(
+        context,
+        chainType,
         artifacts,
         ids,
         tracingConfig,

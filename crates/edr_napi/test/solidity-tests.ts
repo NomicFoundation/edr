@@ -1,15 +1,18 @@
 import { assert } from "chai";
 
-import {
-  ArtifactId,
-  ContractData,
-  Artifact,
-  runSolidityTests,
-  SolidityTestRunnerConfigArgs,
-  SuiteResult,
-} from "..";
+import { EdrContext, L1_CHAIN_TYPE, l1SolidityTestRunnerFactory } from "..";
+import { loadContract, runAllSolidityTests } from "./helpers";
 
 describe("Solidity Tests", () => {
+  const context = new EdrContext();
+
+  before(async () => {
+    await context.registerSolidityTestRunnerFactory(
+      L1_CHAIN_TYPE,
+      l1SolidityTestRunnerFactory()
+    );
+  });
+
   it("executes basic tests", async function () {
     const artifacts = [
       loadContract("./artifacts/SetupConsistencyCheck.json"),
@@ -21,7 +24,13 @@ describe("Solidity Tests", () => {
       projectRoot: __dirname,
     };
 
-    const results = await runAllSolidityTests(artifacts, testSuites, config);
+    const results = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      config
+    );
 
     assert.equal(results.length, artifacts.length);
 
@@ -53,7 +62,13 @@ describe("Solidity Tests", () => {
     };
 
     await assert.isRejected(
-      runAllSolidityTests(artifacts, testSuites, config),
+      runAllSolidityTests(
+        context,
+        L1_CHAIN_TYPE,
+        artifacts,
+        testSuites,
+        config
+      ),
       Error
     );
   });
@@ -72,7 +87,13 @@ describe("Solidity Tests", () => {
     artifacts[0].contract.bytecode = "invalid bytecode";
 
     await assert.isRejected(
-      runAllSolidityTests(artifacts, testSuites, config),
+      runAllSolidityTests(
+        context,
+        L1_CHAIN_TYPE,
+        artifacts,
+        testSuites,
+        config
+      ),
       new RegExp("Hex decoding error")
     );
   });
@@ -82,10 +103,16 @@ describe("Solidity Tests", () => {
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
 
-    const results = await runAllSolidityTests(artifacts, testSuites, {
-      projectRoot: __dirname,
-      testPattern: "Multiply",
-    });
+    const results = await runAllSolidityTests(
+      context,
+      L1_CHAIN_TYPE,
+      artifacts,
+      testSuites,
+      {
+        projectRoot: __dirname,
+        testPattern: "Multiply",
+      }
+    );
 
     assert.equal(results.length, artifacts.length);
 
@@ -99,48 +126,3 @@ describe("Solidity Tests", () => {
     }
   });
 });
-
-// Load a contract built with Hardhat into a test suite
-function loadContract(artifactPath: string): Artifact {
-  const compiledContract = require(artifactPath);
-
-  const id: ArtifactId = {
-    name: compiledContract.contractName,
-    solcVersion: "0.8.18",
-    source: compiledContract.sourceName,
-  };
-
-  const contract: ContractData = {
-    abi: JSON.stringify(compiledContract.abi),
-    bytecode: compiledContract.bytecode,
-  };
-
-  return {
-    id,
-    contract,
-  };
-}
-
-async function runAllSolidityTests(
-  artifacts: Artifact[],
-  testSuites: ArtifactId[],
-  configArgs: SolidityTestRunnerConfigArgs
-): Promise<SuiteResult[]> {
-  return new Promise((resolve, reject) => {
-    const resultsFromCallback: SuiteResult[] = [];
-
-    runSolidityTests(
-      artifacts,
-      testSuites,
-      configArgs,
-      {}, // Empty tracing config
-      (suiteResult: SuiteResult) => {
-        resultsFromCallback.push(suiteResult);
-        if (resultsFromCallback.length === artifacts.length) {
-          resolve(resultsFromCallback);
-        }
-      },
-      reject
-    );
-  });
-}
