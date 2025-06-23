@@ -8,7 +8,7 @@ use std::{
     ffi::OsString,
     fmt::Debug,
     num::{NonZeroU64, NonZeroUsize},
-    sync::{Arc, LazyLock},
+    sync::Arc,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -34,7 +34,7 @@ use edr_evm::{
     },
     chain_spec::{ChainSpec, L1ChainSpec},
     db::StateRef,
-    debug_trace_transaction, execution_result_to_debug_result, hex, mempool, mine_block,
+    debug_trace_transaction, execution_result_to_debug_result, mempool, mine_block,
     mine_block_with_single_transaction, register_eip_3155_and_raw_tracers_handles,
     state::{
         AccountModifierFn, IrregularState, StateDiff, StateError, StateOverride, StateOverrides,
@@ -88,41 +88,6 @@ const DEFAULT_MAX_CACHED_STATES: usize = 100_000;
 const EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES: &str =
     "__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES";
 const DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES: bool = false;
-
-// Common test accounts that have had their private keys leaked.
-static LEAKED_ADDRESSES: LazyLock<HashSet<Address>> = LazyLock::new(|| {
-    [
-        // edr_defaults::SECRET_KEYS
-        hex!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
-        hex!("70997970c51812dc3a010c7d01b50e0d17dc79c8"),
-        hex!("3c44cdddb6a900fa2b585dd299e03d12fa4293bc"),
-        hex!("90f79bf6eb2c4f870365e785982e1f101e93b906"),
-        hex!("15d34aaf54267db7d7c367839aaf71a00a2c6a65"),
-        hex!("9965507d1a55bcc2695c58ba16fb37d819b0a4dc"),
-        hex!("976ea74026e726554db657fa54763abd0c3a0aa9"),
-        hex!("14dc79964da2c08b23698b3d3cc7ca32193d9955"),
-        hex!("23618e81e3f5cdf7f54c3d65f7fbc0abf5b21e8f"),
-        hex!("a0ee7a142d267c1f36714e4a8f75612f20a79720"),
-        hex!("bcd4042de499d14e55001ccbb24a551f3b954096"),
-        hex!("71be63f3384f5fb98995898a86b02fb2426c5788"),
-        hex!("fabb0ac9d68b0b445fb7357272ff202c5651694a"),
-        hex!("1cbd3b2770909d4e10f157cabc84c7264073c9ec"),
-        hex!("df3e18d64bc6a983f673ab319ccae4f1a57c7097"),
-        hex!("cd3b766ccdd6ae721141f452c550ca635964ce71"),
-        hex!("2546bcd3c84621e976d8185a91a922ae77ecec30"),
-        hex!("bda5747bfd65f08deb54cb465eb87d40e51b197e"),
-        hex!("dd2fd4581271e230360230f9337d5c0430bf44c0"),
-        hex!("8626f6940e2eb28930efb4cef49b2d1f2c9c1199"),
-        // hardhat-tests/test/internal/hardhat-network/helpers/providers.ts
-        hex!("0xbe862ad9abfe6f22bcb087716c7d89a26051f74c"),
-        hex!("0x94a48723b9b46b19c72e3091838d0522618b9363"),
-        hex!("0xce9efd622e568b3a21b19532c77fc76c93c34bd4"),
-        hex!("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
-    ]
-    .into_iter()
-    .map(|a| Address::from_slice(&a))
-    .collect()
-});
 
 /// The result of executing an `eth_call`.
 #[derive(Clone, Debug)]
@@ -2700,19 +2665,14 @@ fn create_blockchain_and_state(
                     let AccountInfo {
                         balance: _,
                         nonce,
-                        code,
-                        code_hash,
+
+                        // We purposely avoid copying the code from these addresses, including
+                        // EIP-7702 delegations.
+                        code: _,
+                        code_hash: _,
                     } = &mut account.info;
 
                     *nonce = account_info.nonce;
-
-                    // We avoid copying code from addresses that are known to have had their
-                    // private keys leaked. These tend to be delegated to sweepers that interfere
-                    // with tests.
-                    if !LEAKED_ADDRESSES.contains(&address) {
-                        *code = account_info.code;
-                        *code_hash = account_info.code_hash;
-                    }
                 });
             }
 
@@ -4029,20 +3989,6 @@ mod tests {
         assert_eq!(hex::decode(expected_signature)?, signature.to_vec(),);
 
         Ok(())
-    }
-
-    #[test]
-    fn leaked_addresses_include_default_keys() {
-        use edr_test_utils::secret_key::secret_key_to_address;
-
-        for (i, secret_key) in edr_defaults::SECRET_KEYS.iter().enumerate() {
-            let address = secret_key_to_address(secret_key).expect("invalid private key");
-
-            assert!(
-                LEAKED_ADDRESSES.contains(&address),
-                "{address:?} derived from secret key #{i} not in LEAKED_ADDRESSES"
-            );
-        }
     }
 
     #[cfg(feature = "test-remote")]
