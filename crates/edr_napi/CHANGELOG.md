@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.11.2
+
+### Patch Changes
+
+- 56a4266: Removed copying of account code for provider accounts in forked networks. Code was previously ignored for default accounts only, now also for user accounts.
+
 ## 0.11.1
 
 ### Patch Changes
