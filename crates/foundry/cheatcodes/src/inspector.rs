@@ -1341,14 +1341,12 @@ impl<
                         Some(emitter) => match count_map.get(&emitter) {
                             Some(log_count) => expected
                                 .log
-                                .as_ref()
-                                .map(|l| log_count.count(l))
-                                .unwrap_or_else(|| log_count.count_unchecked()),
+                                .as_ref().map_or_else(|| log_count.count_unchecked(), |l| log_count.count(l)),
                             None => 0,
                         },
                         None => match &expected.log {
                             Some(log) => count_map.values().map(|logs| logs.count(log)).sum(),
-                            None => count_map.values().map(|logs| logs.count_unchecked()).sum(),
+                            None => count_map.values().map(super::test::expect::LogCountMap::count_unchecked).sum(),
                         },
                     };
 
@@ -1389,7 +1387,7 @@ impl<
             // All emits were found, we're good.
             // Clear the queue, as we expect the user to declare more events for the next
             // call if they wanna match further events.
-            self.expected_emits.clear()
+            self.expected_emits.clear();
         }
 
         // this will ensure we don't have false positives when trying to diagnose

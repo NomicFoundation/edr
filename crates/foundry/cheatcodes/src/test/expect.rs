@@ -2247,7 +2247,7 @@ fn expect_call<
         }
     }
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn expect_emit<
@@ -2288,15 +2288,15 @@ fn expect_emit<
         // hence push any new emit before first found emit.
         state
             .expected_emits
-            .insert(found_emit_pos, (expected_emit, Default::default()));
+            .insert(found_emit_pos, (expected_emit, HashMap::default()));
     } else {
         // If no expected emits then push new one at the back of queue.
         state
             .expected_emits
-            .push_back((expected_emit, Default::default()));
+            .push_back((expected_emit, HashMap::default()));
     }
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 pub(crate) fn handle_expect_emit<
@@ -2471,7 +2471,7 @@ impl LogCountMap {
                 .log
                 .clone()
                 .expect("log should be filled here"),
-            map: Default::default(),
+            map: HashMap::default(),
         }
     }
 
@@ -2542,13 +2542,13 @@ fn expect_create<
     create_scheme: CreateScheme,
 ) -> Result {
     let expected_create = ExpectedCreate {
-        bytecode,
         deployer,
+        bytecode,
         create_scheme,
     };
     state.expected_creates.push(expected_create);
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 #[allow(clippy::too_many_arguments)]
