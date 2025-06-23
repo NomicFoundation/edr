@@ -16,7 +16,7 @@ use crate::{Error, Result};
 /// values up to 256 words in size.
 static DUMMY_CALL_OUTPUT: Bytes = Bytes::from_static(&[0u8; 8192]);
 
-/// Same reasoning as [DUMMY_CALL_OUTPUT], but for creates.
+/// Same reasoning as [`DUMMY_CALL_OUTPUT`], but for creates.
 const DUMMY_CREATE_ADDRESS: Address = address!("0x0000000000000000000000000000000000000001");
 
 fn stringify(data: &[u8]) -> String {

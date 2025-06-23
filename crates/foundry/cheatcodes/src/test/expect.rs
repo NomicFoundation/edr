@@ -1848,6 +1848,7 @@ pub(crate) fn handle_expect_emit<
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn expect_revert<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
