@@ -1339,14 +1339,18 @@ impl<
                 .filter_map(|(expected, count_map)| {
                     let count = match expected.address {
                         Some(emitter) => match count_map.get(&emitter) {
-                            Some(log_count) => expected
-                                .log
-                                .as_ref().map_or_else(|| log_count.count_unchecked(), |l| log_count.count(l)),
+                            Some(log_count) => expected.log.as_ref().map_or_else(
+                                || log_count.count_unchecked(),
+                                |l| log_count.count(l),
+                            ),
                             None => 0,
                         },
                         None => match &expected.log {
                             Some(log) => count_map.values().map(|logs| logs.count(log)).sum(),
-                            None => count_map.values().map(super::test::expect::LogCountMap::count_unchecked).sum(),
+                            None => count_map
+                                .values()
+                                .map(super::test::expect::LogCountMap::count_unchecked)
+                                .sum(),
                         },
                     };
 
