@@ -50,8 +50,8 @@ use crate::{
     },
     test::{
         expect::{
-            self, ExpectedCallData, ExpectedCallTracker, ExpectedCallType, ExpectedEmit,
-            ExpectedRevert, ExpectedRevertKind,
+            self, ExpectedCallData, ExpectedCallTracker, ExpectedCallType, ExpectedCreate,
+            ExpectedEmitTracker, ExpectedRevert, ExpectedRevertKind,
         },
         revert_handlers,
     },
@@ -188,7 +188,9 @@ pub struct Cheatcodes<
     /// Expected calls
     pub expected_calls: ExpectedCallTracker,
     /// Expected emits
-    pub expected_emits: VecDeque<ExpectedEmit>,
+    pub expected_emits: ExpectedEmitTracker,
+    /// Expected creates
+    pub expected_creates: Vec<ExpectedCreate>,
 
     /// Map of context depths to memory offset ranges that may be written to
     /// within the call depth.
@@ -925,8 +927,8 @@ impl<
 
     fn log(
         &mut self,
-        _interpreter: &mut Interpreter,
-        _context: &mut EvmContext<
+        interpreter: &mut Interpreter,
+        _ecx: &mut revm::Context<
             BlockT,
             TxT,
             CfgEnv<HardforkT>,
@@ -937,10 +939,10 @@ impl<
         log: Log,
     ) {
         if !self.expected_emits.is_empty() {
-            expect::handle_expect_emit(self, &log);
+            expect::handle_expect_emit(self, &log, interpreter);
         }
 
-        // Stores this log if `recordLogs` has been called
+        // `recordLogs`
         if let Some(storage_recorded_logs) = &mut self.recorded_logs {
             storage_recorded_logs.push(Vm::Log {
                 topics: log.data.topics().to_vec(),
@@ -1018,7 +1020,7 @@ impl<
         // Handle expected calls
 
         // Grab the different calldatas expected.
-        if let Some(expected_calls_for_target) = self.expected_calls.get_mut(&(call.target_address))
+        if let Some(expected_calls_for_target) = self.expected_calls.get_mut(&call.bytecode_address)
         {
             // Match every partial/full calldata
             for (calldata, (expected, actual_count)) in expected_calls_for_target {
@@ -1324,25 +1326,70 @@ impl<
         let should_check_emits = self
             .expected_emits
             .iter()
-            .any(|expected| {
-                let curr_depth =
-                    ecx.journaled_state.depth() as u64;
+            .any(|(expected, _)| {
+                let curr_depth = ecx.journaled_state.depth();
                 expected.depth == curr_depth
             }) &&
             // Ignore staticcalls
             !call.is_static;
         if should_check_emits {
-            // Not all emits were matched.
-            if self.expected_emits.iter().any(|expected| !expected.found) {
+            let expected_counts = self
+                .expected_emits
+                .iter()
+                .filter_map(|(expected, count_map)| {
+                    let count = match expected.address {
+                        Some(emitter) => match count_map.get(&emitter) {
+                            Some(log_count) => expected
+                                .log
+                                .as_ref()
+                                .map(|l| log_count.count(l))
+                                .unwrap_or_else(|| log_count.count_unchecked()),
+                            None => 0,
+                        },
+                        None => match &expected.log {
+                            Some(log) => count_map.values().map(|logs| logs.count(log)).sum(),
+                            None => count_map.values().map(|logs| logs.count_unchecked()).sum(),
+                        },
+                    };
+
+                    if count != expected.count {
+                        Some((expected, count))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            // Revert if not all emits expected were matched.
+            if self
+                .expected_emits
+                .iter()
+                .any(|(expected, _)| !expected.found && expected.count > 0)
+            {
                 outcome.result.result = InstructionResult::Revert;
                 outcome.result.output = "log != expected log".abi_encode().into();
                 return;
-            } else {
-                // All emits were found, we're good.
-                // Clear the queue, as we expect the user to declare more events for the next
-                // call if they wanna match further events.
-                self.expected_emits.clear();
             }
+
+            if !expected_counts.is_empty() {
+                let msg = if outcome.result.is_ok() {
+                    let (expected, count) = expected_counts.first().unwrap();
+                    format!("log emitted {count} times, expected {}", expected.count)
+                } else {
+                    "expected an emit, but the call reverted instead. \
+                     ensure you're testing the happy path when using `expectEmit`"
+                        .to_string()
+                };
+
+                outcome.result.result = InstructionResult::Revert;
+                outcome.result.output = Error::encode(msg);
+                return;
+            }
+
+            // All emits were found, we're good.
+            // Clear the queue, as we expect the user to declare more events for the next
+            // call if they wanna match further events.
+            self.expected_emits.clear()
         }
 
         // this will ensure we don't have false positives when trying to diagnose
@@ -1385,7 +1432,9 @@ impl<
             }
 
             // If there's not a revert, we can continue on to run the last logic for expect*
-            // cheatcodes. Match expected calls
+            // cheatcodes.
+
+            // Match expected calls
             for (address, calldatas) in &self.expected_calls {
                 // Loop over each address, and for each address, loop over each calldata it
                 // expects.
@@ -1444,7 +1493,8 @@ impl<
             // Check if we have any leftover expected emits
             // First, if any emits were found at the root call, then we its ok and we remove
             // them.
-            self.expected_emits.retain(|expected| !expected.found);
+            self.expected_emits
+                .retain(|(expected, _)| expected.count > 0 && !expected.found);
             // If not empty, we got mismatched emits
             if !self.expected_emits.is_empty() {
                 let msg = if outcome.result.is_ok() {
@@ -1454,6 +1504,19 @@ impl<
                     "expected an emit, but the call reverted instead. \
                      ensure you're testing the happy path when using `expectEmit`"
                 };
+                outcome.result.result = InstructionResult::Revert;
+                outcome.result.output = Error::encode(msg);
+                return;
+            }
+
+            // Check for leftover expected creates
+            if let Some(expected_create) = self.expected_creates.first() {
+                let msg = format!(
+                    "expected {} call by address {} for bytecode {} but not found",
+                    expected_create.create_scheme,
+                    hex::encode_prefixed(expected_create.deployer),
+                    hex::encode_prefixed(&expected_create.bytecode),
+                );
                 outcome.result.result = InstructionResult::Revert;
                 outcome.result.output = Error::encode(msg);
             }
@@ -1534,7 +1597,7 @@ impl<
             Journal<DatabaseT>,
             ChainContextT,
         >,
-        _call: &CreateInputs,
+        call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
         let curr_depth = ecx.journaled_state.depth() as u64;
@@ -1633,6 +1696,31 @@ impl<
                     last.append(&mut last_depth);
                 } else {
                     recorded_account_diffs_stack.push(last_depth);
+                }
+            }
+        }
+
+        // Match the create against expected_creates
+        if !self.expected_creates.is_empty() {
+            if let (Some(address), call) = (outcome.address, call) {
+                if let Ok(created_acc) = ecx.journaled_state.load_account(address) {
+                    let bytecode = created_acc
+                        .info
+                        .code
+                        .clone()
+                        .unwrap_or_default()
+                        .original_bytes();
+                    if let Some((index, _)) =
+                        self.expected_creates
+                            .iter()
+                            .find_position(|expected_create| {
+                                expected_create.deployer == call.caller
+                                    && expected_create.create_scheme.eq(call.scheme.into())
+                                    && expected_create.bytecode == bytecode
+                            })
+                    {
+                        self.expected_creates.swap_remove(index);
+                    }
                 }
             }
         }
