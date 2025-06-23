@@ -1897,7 +1897,7 @@ fn expect_revert<
         actual_count: 0,
         allow_internal,
     });
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn expect_safe_memory<
