@@ -1,6 +1,5 @@
 use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 
-use edr_eth::hex;
 use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
@@ -14,19 +13,11 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::{
-    account::AccountOverride,
-    cast::TryCast,
-    serde::{
-        serialize_optional_bigint_as_struct, serialize_optional_uint8array_as_hex,
-        serialize_uint8array_as_hex,
-    },
-};
+use crate::{account::AccountOverride, cast::TryCast};
 
 /// Solidity test runner configuration arguments exposed through the ffi.
 /// Docs based on <https://book.getfoundry.sh/reference/config/testing>.
 #[napi(object)]
-#[derive(Clone, serde::Serialize)]
 pub struct SolidityTestRunnerConfigArgs {
     /// The absolute path to the project root directory.
     /// Relative paths in cheat codes are resolved against this path.
@@ -50,58 +41,45 @@ pub struct SolidityTestRunnerConfigArgs {
     pub ffi: Option<bool>,
     /// The value of `msg.sender` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
-    #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
     pub sender: Option<Uint8Array>,
     /// The value of `tx.origin` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
-    #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
     pub tx_origin: Option<Uint8Array>,
     /// The initial balance of the sender in tests.
     /// Defaults to `0xffffffffffffffffffffffff`.
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub initial_balance: Option<BigInt>,
     /// The value of `block.number` in tests.
     /// Defaults to `1`.
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_number: Option<BigInt>,
     /// The value of the `chainid` opcode in tests.
     /// Defaults to `31337`.
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub chain_id: Option<BigInt>,
     /// The gas limit for each test case.
     /// Defaults to `9_223_372_036_854_775_807` (`i64::MAX`).
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub gas_limit: Option<BigInt>,
     /// The price of gas (in wei) in tests.
     /// Defaults to `0`.
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub gas_price: Option<BigInt>,
     /// The base fee per gas (in wei) in tests.
     /// Defaults to `0`.
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_base_fee_per_gas: Option<BigInt>,
     /// The value of `block.coinbase` in tests.
     /// Defaults to `0x0000000000000000000000000000000000000000`.
-    #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
     pub block_coinbase: Option<Uint8Array>,
     /// The value of `block.timestamp` in tests.
     /// Defaults to 1.
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_timestamp: Option<BigInt>,
     /// The value of `block.difficulty` in tests.
     /// Defaults to 0.
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_difficulty: Option<BigInt>,
     /// The `block.gaslimit` value during EVM execution.
     /// Defaults to none.
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub block_gas_limit: Option<BigInt>,
     /// Whether to disable the block gas limit.
     /// Defaults to false.
     pub disable_block_gas_limit: Option<bool>,
     /// The memory limit of the EVM in bytes.
     /// Defaults to 33_554_432 (2^25 = 32MiB).
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub memory_limit: Option<BigInt>,
     /// The predeploys applied in local mode. Defaults to no predeploys.
     /// These should match the predeploys of the network in fork mode, so they
@@ -111,7 +89,6 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Defaults to none.
     pub eth_rpc_url: Option<String>,
     /// Pins the block number for the global state fork.
-    #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub fork_block_number: Option<BigInt>,
     /// Map of RPC endpoints from chain name to RPC urls for fork cheat codes,
     /// e.g. `{ "optimism": "https://optimism.alchemyapi.io/v2/..." }`
@@ -138,40 +115,6 @@ pub struct SolidityTestRunnerConfigArgs {
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
-}
-
-impl Debug for SolidityTestRunnerConfigArgs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SolidityTestRunnerConfigArgs")
-            .field("project_root", &self.project_root)
-            .field("fs_permissions", &self.fs_permissions)
-            .field("ffi", &self.ffi)
-            .field("sender", &self.sender.as_ref().map(hex::encode))
-            .field("tx_origin", &self.tx_origin.as_ref().map(hex::encode))
-            .field("initial_balance", &self.initial_balance)
-            .field("block_number", &self.block_number)
-            .field("chain_id", &self.chain_id)
-            .field("gas_limit", &self.gas_limit)
-            .field("gas_price", &self.gas_price)
-            .field("block_base_fee_per_gas", &self.block_base_fee_per_gas)
-            .field(
-                "block_coinbase",
-                &self.block_coinbase.as_ref().map(hex::encode),
-            )
-            .field("block_timestamp", &self.block_timestamp)
-            .field("block_difficulty", &self.block_difficulty)
-            .field("block_gas_limit", &self.block_gas_limit)
-            .field("memory_limit", &self.memory_limit)
-            .field("eth_rpc_url", &self.eth_rpc_url)
-            .field("rpc_cache_path", &self.rpc_cache_path)
-            .field("rpc_endpoints", &self.rpc_endpoints)
-            .field("rpc_storage_caching", &self.rpc_storage_caching)
-            .field("prompt_timeout", &self.prompt_timeout)
-            .field("fuzz", &self.fuzz)
-            .field("invariant", &self.invariant)
-            .field("test_pattern", &self.test_pattern)
-            .finish()
-    }
 }
 
 impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::TestRunnerConfig {
@@ -682,22 +625,12 @@ impl From<FsAccessPermission> for foundry_cheatcodes::FsAccessPermission {
 }
 
 #[napi(object)]
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone)]
 pub struct AddressLabel {
     /// The address to label
-    #[serde(serialize_with = "serialize_uint8array_as_hex")]
     pub address: Uint8Array,
     /// The label to assign to the address
     pub label: String,
-}
-
-impl Debug for AddressLabel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AddressLabel")
-            .field("address", &hex::encode(&self.address))
-            .field("label", &self.label)
-            .finish()
-    }
 }
 
 /// Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
