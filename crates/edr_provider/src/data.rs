@@ -2387,9 +2387,11 @@ where
                         }
                     }
 
-                    // Mine all remaining pending transactions, if any. This can happen if the mine
-                    // ordering is "priority" and the sent transaction has a higher miner's tip
-                    // than other pending transactions.
+                    // Mine all remaining pending transactions, if any. E.g. this can happen if:
+                    // - the account corresponding to the sent transaction had future transactions
+                    //   that became pending
+                    // - the mine ordering is "priority" and the sent transaction has a higher
+                    //   miner's tip than other pending transactions.
                     while self.mem_pool.has_pending_transactions() {
                         let result = self
                             .mine_and_commit_block(BlockOptions::default())
