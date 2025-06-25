@@ -1,5 +1,5 @@
 use foundry_evm_core::{
-    backend::Backend,
+    backend::{Backend, Predeploy},
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
@@ -39,6 +39,8 @@ where
     env: EvmEnv<BlockT, TxT, HardforkT>,
     /// The chain context
     chain_context: ChainContextT,
+    /// The predeploys for the chain
+    local_predeploys: Vec<Predeploy>,
 }
 
 impl<BlockT, TxT, HardforkT, ChainContextT> Default
@@ -58,6 +60,7 @@ where
             fork: None,
             env: EvmEnv::default(),
             chain_context: ChainContextT::default(),
+            local_predeploys: Vec::default(),
         }
     }
 }
@@ -118,6 +121,15 @@ where
         self
     }
 
+    /// The predeploys applied in local mode.
+    /// These should match the predeploys of the network in fork mode, so they
+    /// aren't set in fork mode.
+    #[inline]
+    pub fn local_predeploys(mut self, local_predeploys: Vec<Predeploy>) -> Self {
+        self.local_predeploys = local_predeploys;
+        self
+    }
+
     /// Sets the EVM spec to use
     #[inline]
     pub fn spec(mut self, spec: HardforkT) -> Self {
@@ -141,6 +153,7 @@ where
             fork,
             mut env,
             chain_context,
+            local_predeploys,
         } = self;
 
         stack.block = Some(env.block.clone().into());
@@ -151,7 +164,7 @@ where
         let gas_limit = gas_limit.unwrap_or(env.block.gas_limit());
 
         Executor::new(
-            Backend::spawn(fork),
+            Backend::spawn(fork, local_predeploys),
             env,
             chain_context,
             stack.build(),

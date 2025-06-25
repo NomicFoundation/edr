@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use edr_eth::{Address, U256};
 use edr_solidity_tests::{
+    backend::Predeploy,
     evm_context::HardforkTr,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
@@ -144,6 +145,10 @@ pub struct TestRunnerConfig {
     /// The memory limit of the EVM in bytes.
     /// Defaults to `33_554_432` (2^25 = 32MiB).
     pub memory_limit: Option<u64>,
+    /// The predeploys applied in local mode. Defaults to no predeploys.
+    /// These should match the predeploys of the network in fork mode, so they
+    /// aren't set in fork mode.
+    pub local_predeploys: Option<Vec<Predeploy>>,
     /// If set, all tests are run in fork mode using this url or remote name.
     /// Defaults to none.
     pub fork_url: Option<String>,
@@ -165,8 +170,10 @@ pub struct TestRunnerConfig {
     pub test_pattern: TestFilterConfig,
 }
 
-impl<HardforkT: HardforkTr> From<TestRunnerConfig> for SolidityTestRunnerConfig<HardforkT> {
-    fn from(value: TestRunnerConfig) -> Self {
+impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConfig<HardforkT> {
+    type Error = napi::Error;
+
+    fn try_from(value: TestRunnerConfig) -> Result<Self, Self::Error> {
         let TestRunnerConfig {
             project_root,
             test_fail,
@@ -186,6 +193,7 @@ impl<HardforkT: HardforkTr> From<TestRunnerConfig> for SolidityTestRunnerConfig<
             block_gas_limit,
             disable_block_gas_limit,
             memory_limit,
+            local_predeploys,
             fork_url,
             fork_block_number,
             cheatcode: cheats_config_options,
@@ -259,7 +267,9 @@ impl<HardforkT: HardforkTr> From<TestRunnerConfig> for SolidityTestRunnerConfig<
             evm_opts.disable_block_gas_limit = disable_block_gas_limit;
         }
 
-        SolidityTestRunnerConfig {
+        let local_predeploys = local_predeploys.unwrap_or_default();
+
+        Ok(SolidityTestRunnerConfig {
             project_root,
             include_traces,
             test_fail,
@@ -267,10 +277,11 @@ impl<HardforkT: HardforkTr> From<TestRunnerConfig> for SolidityTestRunnerConfig<
             coverage: false,
             cheats_config_options,
             evm_opts,
+            local_predeploys,
             fuzz,
             invariant,
             // Solidity fuzz fixtures are not supported by the JS backend
             solidity_fuzz_fixtures: false,
-        }
+        })
     }
 }
