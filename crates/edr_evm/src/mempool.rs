@@ -200,8 +200,8 @@ pub struct MemPool<SignedTransactionT: ExecutableTransaction> {
     pending_transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     /// Mapping of transaction hashes to transaction
     hash_to_transaction: HashMap<B256, OrderedTransaction<SignedTransactionT>>,
-    /// Transactions that can be executed in the future, once the nonce is high
-    /// enough
+    /// Transactions that can be executed in the future, once the account's next
+    /// (pending) nonce is high enough
     future_transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     next_order_id: usize,
 }
