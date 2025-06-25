@@ -2350,6 +2350,26 @@ where
                 }
             })?;
 
+        // If automining, we mine all minable transactions + the newly sent
+        // transaction. We need to mine other transactions,
+        // because it's possible that the user enabled automining after
+        // transactions were added to the mempool.
+        //
+        // The mempool has a concept of pending and future transactions. Pending
+        // transactions can be mined immediately while future transactions can
+        // be mined once the nonce becomes high enough. It is possible that a previously
+        // future transaction becomes pending after we mined the automined transaction.
+        //
+        // It can happen that not all transactions fit into a block, because of the gas
+        // limit. In this case we end up mining multiple blocks.
+        //
+        // If we're mining
+        // multiple blocks, it's possible that we don't mine the newly sent transaction
+        // in the last block. This can have two reasons:
+        // 1. The newly sent transaction has a lower nonce for an account than future
+        //    transactions in the mempool for the same account.
+        // 2. If the mine ordering is "priority", and the newly sent transaction has a
+        //    higher miner's tip than other pending transactions.
         let mut mining_results = Vec::new();
         snapshot_id
             .map(
@@ -2365,11 +2385,17 @@ where
 
                         mining_results.push(result);
 
+                        // An automined transaction is rejected if the nonce is too low or too high,
+                        // so it's guaranteed that we eventually mine the transaction and we can't
+                        // get into an infinite loop.
                         if mined_transaction {
                             break;
                         }
                     }
 
+                    // It's possible that a previously future transaction became pending after we
+                    // mined the automined transaction, so we mine
+                    // those as well.
                     while self.mem_pool.has_pending_transactions() {
                         let result = self
                             .mine_and_commit_block(BlockOptions::default())
