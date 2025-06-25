@@ -4146,48 +4146,58 @@ mod tests {
             mainnet_byzantium => L1ChainSpec {
                 block_number: 4_370_001,
                 url: get_alchemy_url(),
+                should_calculate_base_fee: true,
             },
             mainnet_constantinople => L1ChainSpec {
                 block_number: 7_280_001,
                 url: get_alchemy_url(),
+                should_calculate_base_fee: true,
             },
             mainnet_istanbul => L1ChainSpec {
                 block_number: 9_069_001,
                 url: get_alchemy_url(),
+                should_calculate_base_fee: true,
             },
             mainnet_muir_glacier => L1ChainSpec {
                 block_number: 9_300_077,
                 url: get_alchemy_url(),
+                should_calculate_base_fee: true,
             },
             mainnet_shanghai => L1ChainSpec {
                 block_number: 17_050_001,
                 url: get_alchemy_url(),
+                should_calculate_base_fee: true,
             },
             // This block contains a sequence of transaction that first raise
             // an empty account's balance and then decrease it
             mainnet_19318016 => L1ChainSpec {
                 block_number: 19_318_016,
                 url: get_alchemy_url(),
+                should_calculate_base_fee: true,
             },
             // This block has both EIP-2930 and EIP-1559 transactions
             sepolia_eip_1559_2930 => L1ChainSpec {
                 block_number: 5_632_795,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
+                should_calculate_base_fee: true,
             },
             sepolia_shanghai => L1ChainSpec {
                 block_number: 3_095_000,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
+                should_calculate_base_fee: true,
             },
             // This block has an EIP-4844 transaction
             mainnet_cancun => L1ChainSpec {
                 block_number: 19_529_021,
                 url: get_alchemy_url(),
+                should_calculate_base_fee: true,
             },
             // This block contains a transaction that uses the KZG point evaluation
             // precompile, introduced in Cancun
             mainnet_cancun2 => L1ChainSpec {
                 block_number: 19_562_047,
                 url: get_alchemy_url(),
+                should_calculate_base_fee: true,
             },
         }
     }

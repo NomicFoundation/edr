@@ -175,6 +175,7 @@ pub async fn run_full_block<
 >(
     url: String,
     block_number: u64,
+    should_calculate_base_fee: bool,
 ) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Handle::current();
 
@@ -237,6 +238,11 @@ pub async fn run_full_block<
             state_root: Some(replay_header.state_root),
             timestamp: Some(replay_header.timestamp),
             withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
+            base_fee: if should_calculate_base_fee {
+                None
+            } else {
+                replay_header.base_fee_per_gas
+            },
             ..BlockOptions::default()
         },
     )?;
@@ -371,6 +377,7 @@ pub async fn run_full_block<
 ///     mainnet_byzantium => L1ChainSpec {
 ///         block_number: 4_370_001,
 ///         url: get_alchemy_url(),
+///         should_calculate_base_fee: true,
 ///     },
 /// }
 /// ```
@@ -380,6 +387,7 @@ macro_rules! impl_full_block_tests {
         $name:ident => $chain_spec:ident {
             block_number: $block_number:expr,
             url: $url:expr,
+            should_calculate_base_fee: $should_calculate_base_fee:expr,
         },
     )+) => {
         $(
@@ -389,7 +397,7 @@ macro_rules! impl_full_block_tests {
                 async fn [<full_block_ $name>]() -> anyhow::Result<()> {
                     let url = $url;
 
-                    $crate::test_utils::run_full_block::<$chain_spec>(url, $block_number).await
+                    $crate::test_utils::run_full_block::<$chain_spec>(url, $block_number, $should_calculate_base_fee).await
                 }
             }
         )+
