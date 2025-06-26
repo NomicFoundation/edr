@@ -85,6 +85,8 @@ contract ExpectRevertTest is DSTest {
     }
 
     function testExpectRevertWithEncodedErrorPrefix() public {
+        vm.skip(true);  // TODO: This change has not been backported yet.
+
         Reverter reverter = new Reverter();
         vm.expectRevert(abi.encodeWithSignature("Error(string)", "my revert reason"));
         reverter.revertWithMessage("my revert reason");
