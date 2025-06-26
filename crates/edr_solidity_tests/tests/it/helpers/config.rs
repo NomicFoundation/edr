@@ -134,8 +134,6 @@ impl<
         self.runner.test_collect(self.filter).await
     }
 
-    /// This function panics on test failure and is only intended for tests.
-    #[cfg(test)]
     pub async fn run(self) {
         self.try_run().await.unwrap();
     }
