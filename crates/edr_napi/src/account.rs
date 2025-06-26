@@ -1,3 +1,4 @@
+use edr_eth::{HashMap, U256};
 use edr_solidity_tests::{backend::Predeploy, revm::state::AccountInfo};
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
@@ -77,27 +78,14 @@ impl TryFrom<AccountOverride> for Predeploy {
     fn try_from(value: AccountOverride) -> Result<Self, Self::Error> {
         let (address, account_override) = value.try_into()?;
 
-        macro_rules! predeploy_error {
-            ($field:expr) => {
-                || {
-                    napi::Error::from_reason(format!(
-                        "Predeploy with address '{address}' must have {field}",
-                        field = $field
-                    ))
-                }
-            };
-        }
-
-        let storage = account_override
-            .storage
-            .ok_or_else(predeploy_error!("storage"))?;
-        let balance = account_override
-            .balance
-            .ok_or_else(predeploy_error!("balance"))?;
-        let nonce = account_override
-            .nonce
-            .ok_or_else(predeploy_error!("nonce"))?;
-        let code = account_override.code.ok_or_else(predeploy_error!("code"))?;
+        let storage = account_override.storage.unwrap_or_else(HashMap::new);
+        let balance = account_override.balance.unwrap_or(U256::ZERO);
+        let nonce = account_override.nonce.unwrap_or(0);
+        let code = account_override.code.ok_or_else(|| {
+            napi::Error::from_reason(format!(
+                "Predeploy with address '{address}' must have storage"
+            ))
+        })?;
 
         if code.is_empty() {
             return Err(napi::Error::from_reason(

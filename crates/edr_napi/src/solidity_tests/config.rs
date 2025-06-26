@@ -106,6 +106,8 @@ pub struct SolidityTestRunnerConfigArgs {
     /// The predeploys applied in local mode. Defaults to no predeploys.
     /// These should match the predeploys of the network in fork mode, so they
     /// aren't set in fork mode.
+    /// The code must be set and non-empty. The nonce and the balance default to
+    /// zero and storage defaults to empty.
     pub local_predeploys: Option<Vec<AccountOverride>>,
     /// If set, all tests are run in fork mode using this url or remote name.
     /// Defaults to none.
