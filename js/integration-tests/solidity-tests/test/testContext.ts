@@ -5,6 +5,7 @@ import {
   EdrContext,
   HeuristicFailed,
   L1_CHAIN_TYPE,
+  l1ProviderFactory,
   l1SolidityTestRunnerFactory,
   type SolidityTestRunnerConfigArgs,
   StackTrace,
@@ -53,6 +54,10 @@ export class TestContext {
       results.artifacts,
       results.testSuiteIds,
       results.tracingConfig
+    );
+    await context.edrContext.registerProviderFactory(
+      L1_CHAIN_TYPE,
+      l1ProviderFactory()
     );
 
     await context.edrContext.registerSolidityTestRunnerFactory(

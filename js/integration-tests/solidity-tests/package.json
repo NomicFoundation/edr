@@ -6,8 +6,10 @@
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
+    "@nomicfoundation/ethereumjs-util": "^9.0.4",
     "@tsconfig/node20": "^20.1.4",
     "@types/node": "^20.0.0",
+    "ethers": "^6.1.0",
     "forge-std": "github:foundry-rs/forge-std#v1.9.5",
     "hardhat": "3.0.0-next.4",
     "prettier": "^3.2.5",
@@ -23,7 +25,7 @@
     "build:dev": "tsc --build --incremental .",
     "prespecificTest": "cd ../../.. && pnpm build:dev",
     "pretest": "cd ../../.. && pnpm build:dev",
-    "specificTest": "node --test-concurrency=1 --import tsx/esm --test-name-pattern=\"Latest global fork stack trace\" test/unit.ts",
+    "specificTest": "node --test-concurrency=1 --import tsx/esm --test-name-pattern=\"Counter\" test/provider.ts",
     "test": "node --import tsx/esm --test \"test/*.ts\""
   },
   "type": "module"
