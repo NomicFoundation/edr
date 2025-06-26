@@ -86,6 +86,7 @@ impl<'a> From<&'a TracingConfigWithBuffers>
 
 /// Solidity test runner configuration arguments exposed through the ffi.
 /// Docs based on <https://book.getfoundry.sh/reference/config/testing>
+#[derive(Debug)]
 pub struct TestRunnerConfig {
     /// The absolute path to the project root directory.
     /// Relative paths in cheat codes are resolved against this path.
