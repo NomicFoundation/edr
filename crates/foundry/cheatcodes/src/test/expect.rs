@@ -191,7 +191,6 @@ impl CreateScheme {
 }
 
 impl_is_pure_true!(expectCall_0Call);
-
 impl Cheatcode for expectCall_0Call {
     fn apply<
         BlockT: BlockEnvTr,
@@ -228,7 +227,6 @@ impl Cheatcode for expectCall_0Call {
 }
 
 impl_is_pure_true!(expectCall_1Call);
-
 impl Cheatcode for expectCall_1Call {
     fn apply<
         BlockT: BlockEnvTr,
@@ -269,7 +267,6 @@ impl Cheatcode for expectCall_1Call {
 }
 
 impl_is_pure_true!(expectCall_2Call);
-
 impl Cheatcode for expectCall_2Call {
     fn apply<
         BlockT: BlockEnvTr,
@@ -310,7 +307,6 @@ impl Cheatcode for expectCall_2Call {
 }
 
 impl_is_pure_true!(expectCall_3Call);
-
 impl Cheatcode for expectCall_3Call {
     fn apply<
         BlockT: BlockEnvTr,
@@ -352,7 +348,6 @@ impl Cheatcode for expectCall_3Call {
 }
 
 impl_is_pure_true!(expectCall_4Call);
-
 impl Cheatcode for expectCall_4Call {
     fn apply<
         BlockT: BlockEnvTr,
@@ -394,7 +389,6 @@ impl Cheatcode for expectCall_4Call {
 }
 
 impl_is_pure_true!(expectCall_5Call);
-
 impl Cheatcode for expectCall_5Call {
     fn apply<
         BlockT: BlockEnvTr,
@@ -437,7 +431,6 @@ impl Cheatcode for expectCall_5Call {
 }
 
 impl_is_pure_true!(expectCallMinGas_0Call);
-
 impl Cheatcode for expectCallMinGas_0Call {
     fn apply<
         BlockT: BlockEnvTr,
@@ -479,7 +472,6 @@ impl Cheatcode for expectCallMinGas_0Call {
 }
 
 impl_is_pure_true!(expectCallMinGas_1Call);
-
 impl Cheatcode for expectCallMinGas_1Call {
     fn apply<
         BlockT: BlockEnvTr,
@@ -1099,7 +1091,6 @@ impl Cheatcode for expectEmitAnonymous_3Call {
 }
 
 impl_is_pure_true!(expectCreateCall);
-
 impl Cheatcode for expectCreateCall {
     fn apply<
         BlockT: BlockEnvTr,
@@ -1127,7 +1118,6 @@ impl Cheatcode for expectCreateCall {
 }
 
 impl_is_pure_true!(expectCreate2Call);
-
 impl Cheatcode for expectCreate2Call {
     fn apply<
         BlockT: BlockEnvTr,
