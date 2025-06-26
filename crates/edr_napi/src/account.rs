@@ -82,9 +82,7 @@ impl TryFrom<AccountOverride> for Predeploy {
         let balance = account_override.balance.unwrap_or(U256::ZERO);
         let nonce = account_override.nonce.unwrap_or(0);
         let code = account_override.code.ok_or_else(|| {
-            napi::Error::from_reason(format!(
-                "Predeploy with address '{address}' must have storage"
-            ))
+            napi::Error::from_reason(format!("Predeploy with address '{address}' must have code"))
         })?;
 
         if code.is_empty() {
