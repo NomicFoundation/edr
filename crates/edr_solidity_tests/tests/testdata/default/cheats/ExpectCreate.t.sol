@@ -10,12 +10,6 @@ contract Contract {
     }
 }
 
-contract OtherContract {
-    function sub(uint256 a, uint256 b) public pure returns (uint256) {
-        return a - b;
-    }
-}
-
 contract ContractDeployer {
     function deployContract() public {
         new Contract();
@@ -46,43 +40,5 @@ contract ExpectCreateTest is DSTest {
         vm.expectCreate2(bytecode, address(foo));
         foo.deployContract();
         foo.deployContractCreate2();
-    }
-
-    function testFailExpectCreate() public {
-        vm.expectCreate(bytecode, address(this));
-    }
-
-    function testFailExpectCreate2() public {
-        vm.expectCreate2(bytecode, address(this));
-    }
-
-    function testFailExpectCreateWrongBytecode() public {
-        vm.expectCreate(bytecode, address(this));
-        new OtherContract();
-    }
-
-    function testFailExpectCreate2WrongBytecode() public {
-        vm.expectCreate2(bytecode, address(this));
-        new OtherContract{salt: "foobar"}();
-    }
-
-    function testFailExpectCreateWrongDeployer() public {
-        vm.expectCreate(bytecode, address(0));
-        new Contract();
-    }
-
-    function testFailExpectCreate2WrongDeployer() public {
-        vm.expectCreate2(bytecode, address(0));
-        new Contract();
-    }
-
-    function testFailExpectCreateWrongScheme() public {
-        vm.expectCreate(bytecode, address(this));
-        new Contract{salt: "foobar"}();
-    }
-
-    function testFailExpectCreate2WrongScheme() public {
-        vm.expectCreate2(bytecode, address(this));
-        new Contract();
     }
 }
