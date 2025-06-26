@@ -4,6 +4,7 @@ import {
   CallTrace,
   EdrContext,
   HeuristicFailed,
+  l1ProviderFactory,
   L1_CHAIN_TYPE,
   l1SolidityTestRunnerFactory,
   type SolidityTestRunnerConfigArgs,
@@ -53,6 +54,11 @@ export class TestContext {
       results.artifacts,
       results.testSuiteIds,
       results.tracingConfig
+    );
+
+    await context.edrContext.registerProviderFactory(
+      L1_CHAIN_TYPE,
+      l1ProviderFactory()
     );
 
     await context.edrContext.registerSolidityTestRunnerFactory(

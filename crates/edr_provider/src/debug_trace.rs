@@ -102,6 +102,7 @@ where
                 evm_config.clone(),
                 transaction,
                 block.clone(),
+                &edr_eth::HashMap::new(),
             )?;
         }
     }

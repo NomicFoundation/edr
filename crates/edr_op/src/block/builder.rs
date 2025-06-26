@@ -1,8 +1,9 @@
-use edr_eth::{block::PartialHeader, Address};
+use edr_eth::{block::PartialHeader, Address, HashMap};
 use edr_evm::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     inspector::Inspector,
+    precompile::PrecompileFn,
     spec::ContextForChainSpec,
     state::{DatabaseComponents, SyncState, WrapDatabaseRef},
     BlockBuilder, BlockTransactionErrorForChainSpec, EthBlockBuilder, MineBlockResultAndState,
@@ -67,17 +68,19 @@ where
     fn add_transaction(
         &mut self,
         transaction: transaction::Signed,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, OpChainSpec, Self::StateError>,
     > {
-        self.eth.add_transaction(transaction)
+        self.eth.add_transaction(transaction, custom_precompiles)
     }
 
     fn add_transaction_with_inspector<InspectorT>(
         &mut self,
         transaction: transaction::Signed,
         inspector: &mut InspectorT,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, OpChainSpec, Self::StateError>,
@@ -100,7 +103,7 @@ where
         >,
     {
         self.eth
-            .add_transaction_with_inspector(transaction, inspector)
+            .add_transaction_with_inspector(transaction, inspector, custom_precompiles)
     }
 
     fn finalize(
