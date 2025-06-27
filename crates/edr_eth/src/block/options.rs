@@ -1,5 +1,7 @@
 use super::BlobGas;
-use crate::{withdrawal::Withdrawal, Address, Bytes, B256, B64, U256};
+use crate::{
+    eips::eip1559::ConstantBaseFeeParams, withdrawal::Withdrawal, Address, Bytes, B256, B64, U256,
+};
 
 /// Data of a block header
 #[derive(Debug, Default)]
@@ -26,6 +28,8 @@ pub struct BlockOptions {
     pub nonce: Option<B64>,
     /// The block's base gas fee
     pub base_fee: Option<u128>,
+    /// The parameters for calculating the base fee, used in EIP-1559
+    pub base_fee_params: Option<ConstantBaseFeeParams>,
     /// The block's withdrawals
     pub withdrawals: Option<Vec<Withdrawal>>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.

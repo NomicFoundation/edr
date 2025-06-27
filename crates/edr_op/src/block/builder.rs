@@ -1,4 +1,4 @@
-use edr_eth::{block::PartialHeader, Address, HashMap};
+use edr_eth::{block::PartialHeader, spec::EthHeaderConstants, Address, Bytes, HashMap};
 use edr_evm::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -35,11 +35,32 @@ where
         >,
         state: Box<dyn edr_evm::state::SyncState<Self::StateError>>,
         cfg: CfgEnv<OpSpecId>,
-        options: edr_eth::block::BlockOptions,
+        mut options: edr_eth::block::BlockOptions,
     ) -> Result<
         Self,
         edr_evm::BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>,
     > {
+        if cfg.spec >= OpSpecId::HOLOCENE {
+            const DYNAMIC_BASE_FEE_PARAM_VERSION: u8 = 0x0;
+
+            options.extra_data = Some(options.extra_data.unwrap_or_else(|| {
+                // Ensure that the same base fee parameters are used in the EthBlockBuilder
+                // and in the extra data.
+                let base_fee_params = options.base_fee_params.get_or_insert_with(|| {
+                    *OpChainSpec::BASE_FEE_PARAMS
+                        .at_hardfork(cfg.spec)
+                        .expect("Chain spec must have base fee params for post-London hardforks")
+                });
+
+                let mut bytes = Vec::with_capacity(9);
+                bytes.push(DYNAMIC_BASE_FEE_PARAM_VERSION);
+                bytes.extend_from_slice(&base_fee_params.max_change_denominator.to_be_bytes());
+                bytes.extend_from_slice(&base_fee_params.elasticity_multiplier.to_be_bytes());
+
+                Bytes::from(bytes)
+            }));
+        }
+
         let eth = EthBlockBuilder::new(blockchain, state, cfg, options)?;
 
         let l1_block_info = {

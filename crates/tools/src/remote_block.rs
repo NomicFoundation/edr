@@ -69,5 +69,5 @@ where
     };
 
     println!("Testing block {block_number} for chain type {chain_type}");
-    run_full_block::<ChainSpecT>(url, block_number).await
+    run_full_block::<ChainSpecT>(url, block_number, true).await
 }

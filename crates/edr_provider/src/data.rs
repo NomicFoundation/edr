@@ -14,8 +14,8 @@ use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
     account::{Account, AccountInfo, AccountStatus},
     block::{
-        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
-        BlockOptions,
+        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas_for_chain_spec,
+        miner_reward, BlockOptions,
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -1638,10 +1638,12 @@ where
                 || {
                     let last_block = self.last_block()?;
 
-                    Ok(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        self.blockchain.hardfork(),
-                        last_block.header(),
-                    ))
+                    Ok(
+                        calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
+                            self.blockchain.hardfork(),
+                            last_block.header(),
+                        ),
+                    )
                 },
                 Ok,
             )
@@ -1917,10 +1919,12 @@ where
                 let block = pending_block.as_ref().expect("We mined the pending block");
                 result
                     .base_fee_per_gas
-                    .push(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        self.blockchain.hardfork(),
-                        block.header(),
-                    ));
+                    .push(
+                        calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
+                            self.blockchain.hardfork(),
+                            block.header(),
+                        ),
+                    );
             }
         }
 

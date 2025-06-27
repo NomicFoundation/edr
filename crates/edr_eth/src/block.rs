@@ -23,7 +23,7 @@ pub use self::{
 };
 use crate::{
     b256,
-    eips::{eip4844, eip7691},
+    eips::{eip1559::ConstantBaseFeeParams, eip4844, eip7691},
     keccak256, l1,
     spec::EthHeaderConstants,
     trie::KECCAK_NULL_RLP,
@@ -268,7 +268,13 @@ impl PartialHeader {
             base_fee: options.base_fee.or_else(|| {
                 if hardfork.into() >= l1::SpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        calculate_next_base_fee_per_gas::<ChainSpecT>(hardfork, parent)
+                        if let Some(base_fee_params) = &options.base_fee_params {
+                            calculate_next_base_fee_per_gas(parent, base_fee_params)
+                        } else {
+                            calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
+                                hardfork, parent,
+                            )
+                        }
                     } else {
                         u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
                     })
@@ -384,13 +390,14 @@ impl From<Header> for PartialHeader {
     }
 }
 
-/// Calculates the next base fee for a post-London block, given the parent's
-/// header.
+/// Calculates the next base fee per gas for a post-London block, given the
+/// parent's header and the base fee parameters provided by
+/// [`EthHeaderConstants`].
 ///
 /// # Panics
 ///
 /// Panics if the parent header does not contain a base fee.
-pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
+pub fn calculate_next_base_fee_per_gas_for_chain_spec<ChainSpecT: EthHeaderConstants>(
     hardfork: ChainSpecT::Hardfork,
     parent: &Header,
 ) -> u128 {
@@ -398,6 +405,19 @@ pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
         .at_hardfork(hardfork)
         .expect("Chain spec must have base fee params for post-London hardforks");
 
+    calculate_next_base_fee_per_gas(parent, base_fee_params)
+}
+
+/// Calculates the next base fee for a post-London block, given the parent's
+/// header.
+///
+/// # Panics
+///
+/// Panics if the parent header does not contain a base fee.
+pub fn calculate_next_base_fee_per_gas(
+    parent: &Header,
+    base_fee_params: &ConstantBaseFeeParams,
+) -> u128 {
     // Adapted from https://github.com/alloy-rs/alloy/blob/main/crates/eips/src/eip1559/helpers.rs#L41
     // modifying it to support `u128`.
     // TODO: Remove once https://github.com/alloy-rs/alloy/issues/2181 has been addressed.
