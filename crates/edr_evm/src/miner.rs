@@ -4,9 +4,9 @@ use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
     signature::SignatureError,
     transaction::{self, SignedTransaction as _, Transaction},
-    U256,
+    Address, HashMap, U256,
 };
-use revm::primitives::{CfgEnvWithHandlerCfg, ExecutionResult, InvalidTransaction};
+use revm::primitives::{CfgEnvWithHandlerCfg, ExecutionResult, InvalidTransaction, Precompile};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -103,6 +103,7 @@ pub fn mine_block<'blockchain, 'evm, BlockchainErrorT, DebugDataT, StateErrorT>(
     mine_ordering: MineOrdering,
     reward: U256,
     dao_hardfork_activation_block: Option<u64>,
+    custom_precompiles: &HashMap<Address, Precompile>,
     mut debug_context: Option<
         DebugContext<
             'evm,
@@ -159,7 +160,13 @@ where
         let ExecutionResultWithContext {
             result,
             evm_context,
-        } = block_builder.add_transaction(blockchain, state, transaction, debug_context);
+        } = block_builder.add_transaction(
+            blockchain,
+            state,
+            transaction,
+            custom_precompiles,
+            debug_context,
+        );
 
         match result {
             Err(
@@ -294,6 +301,7 @@ pub fn mine_block_with_single_transaction<
     min_gas_price: U256,
     reward: U256,
     dao_hardfork_activation_block: Option<u64>,
+    custom_precompiles: &HashMap<Address, Precompile>,
     debug_context: Option<
         DebugContext<
             'evm,
@@ -389,7 +397,13 @@ where
     let ExecutionResultWithContext {
         result,
         evm_context,
-    } = block_builder.add_transaction(blockchain, state, transaction, debug_context);
+    } = block_builder.add_transaction(
+        blockchain,
+        state,
+        transaction,
+        custom_precompiles,
+        debug_context,
+    );
 
     let result = result?;
     let mut state = evm_context.state;

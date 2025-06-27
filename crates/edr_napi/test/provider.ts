@@ -1,5 +1,7 @@
 import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
+import { ethers } from "ethers";
+import fs from "fs";
 
 import {
   ContractAndFunctionName,
@@ -405,6 +407,98 @@ describe("Provider", () => {
       const rawTraces = traceCallResponse.traces;
       assert.lengthOf(rawTraces, 1);
     });
+  });
+
+  async function deployAndTestCustomPrecompile(enabled: boolean) {
+    // Contract code in edr/data/contracts/CustomPrecompile.sol
+    const contractJson = JSON.parse(
+      fs.readFileSync("./test/artifacts/CustomPrecompile.json", "utf8")
+    );
+    const contractInterface = new ethers.Interface(contractJson.abi);
+
+    const provider = await Provider.withConfig(
+      context,
+      {
+        ...providerConfig,
+        enableRip7212: enabled ? true : false,
+      },
+      loggerConfig,
+      {},
+      (_event: SubscriptionEvent) => {}
+    );
+
+    const sender = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
+
+    const deploymentTransactionResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: sender,
+            data: contractJson.bytecode,
+          },
+        ],
+      })
+    );
+
+    const deploymentTransactionHash = JSON.parse(
+      deploymentTransactionResponse.data
+    ).result;
+
+    const deploymentTransactionReceiptResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_getTransactionReceipt",
+        params: [deploymentTransactionHash],
+      })
+    );
+
+    const deployedAddress = JSON.parse(
+      deploymentTransactionReceiptResponse.data
+    ).result.contractAddress;
+
+    const precompileTransactionResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: sender,
+            to: deployedAddress,
+            data: contractInterface.encodeFunctionData("rip7212Precompile"),
+          },
+        ],
+      })
+    );
+
+    const precompileTransactionHash = JSON.parse(
+      precompileTransactionResponse.data
+    ).result;
+
+    const precompileTransactionReceiptResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_getTransactionReceipt",
+        params: [precompileTransactionHash],
+      })
+    );
+
+    return JSON.parse(precompileTransactionReceiptResponse.data).result;
+  }
+
+  it("custom precompile enabled", async function () {
+    const precompileReceipt = await deployAndTestCustomPrecompile(true);
+    assert.strictEqual(precompileReceipt.status, "0x1");
+  });
+
+  it("custom precompile disabled", async function () {
+    const precompileReceipt = await deployAndTestCustomPrecompile(false);
+    assert.strictEqual(precompileReceipt.status, "0x0");
   });
 });
 
