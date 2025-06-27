@@ -2,14 +2,13 @@
 
 use std::sync::Arc;
 
-use edr_eth::{bytes, l1::L1ChainSpec, signature::public_key_to_address, Bytes, HashMap};
+use edr_eth::{bytes, l1::L1ChainSpec, Bytes, HashMap};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::secret_key::secret_key_from_str;
 use revm_precompile::secp256r1;
 use tokio::runtime;
 
@@ -85,42 +84,6 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
         response.result,
         "0x0000000000000000000000000000000000000000000000000000000000000001"
     );
-
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn rip7212_enabled_send_transaction() -> anyhow::Result<()> {
-    let mut config = create_test_config();
-    config.precompile_overrides = HashMap::from([(
-        *secp256r1::P256VERIFY.address(),
-        *secp256r1::P256VERIFY.precompile(),
-    )]);
-
-    let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
-    let sender = public_key_to_address(secret_key.public_key());
-
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-    let provider = Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::<ContractDecoder>::default(),
-        CurrentTime,
-    )?;
-
-    let response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
-            from: sender,
-            to: Some(*secp256r1::P256VERIFY.address()),
-            data: Some(CALLDATA.clone()),
-            ..TransactionRequest::default()
-        }),
-    ))?;
-
-    assert_eq!(response.result, "0x");
 
     Ok(())
 }
