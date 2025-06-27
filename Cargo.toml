@@ -22,7 +22,7 @@ rpath = true
 
 [workspace.dependencies]
 alloy-eips = { version = "0.11.1", default-features = false }
-alloy-serde = { version = "0.11.1", default-features = false}
+alloy-serde = { version = "0.11.1", default-features = false }
 
 [workspace.lints.rust]
 future_incompatible = "warn"
