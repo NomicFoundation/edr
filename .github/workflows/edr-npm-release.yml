@@ -17,6 +17,7 @@ on:
       - prerelease
       - hh2
       - feat/solidity-tests
+      - release/optimism
     tags-ignore:
       - "**"
     paths-ignore:

@@ -13,7 +13,7 @@ import {
   InvariantTestKind,
   L1_CHAIN_TYPE,
   l1SolidityTestRunnerFactory,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr-optimism";
 import { runAllSolidityTests } from "@nomicfoundation/edr-helpers";
 
 describe("Fuzz and invariant testing", function () {

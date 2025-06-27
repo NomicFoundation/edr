@@ -11,7 +11,7 @@ function checkHardhatEdrVersion(hardhatPackageName: string) {
   const require = createRequire(import.meta.url);
   const hardhatPath = require.resolve(hardhatPackageName);
 
-  const edrPath = require.resolve("@nomicfoundation/edr", {
+  const edrPath = require.resolve("@ignored/edr-optimism", {
     paths: [hardhatPath],
   });
 
@@ -34,10 +34,4 @@ function checkHardhatEdrVersion(hardhatPackageName: string) {
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 test("Hardhat 2 uses the workspace version of EDR", function () {
   checkHardhatEdrVersion("hardhat2");
-});
-
-// False positive
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
-test("Hardhat 3 uses the workspace version of EDR", function () {
-  checkHardhatEdrVersion("hardhat");
 });

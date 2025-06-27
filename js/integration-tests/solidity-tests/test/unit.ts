@@ -5,7 +5,7 @@ import {
   assertStackTraces,
   TestContext,
 } from "./testContext.js";
-import { L1_CHAIN_TYPE, OP_CHAIN_TYPE } from "@nomicfoundation/edr";
+import { L1_CHAIN_TYPE, OP_CHAIN_TYPE } from "@ignored/edr-optimism";
 
 describe("Unit tests", () => {
   let testContext: TestContext;

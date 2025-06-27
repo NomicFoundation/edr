@@ -17,7 +17,8 @@ import {
   UnexpectedError,
   UnsafeToReplay,
   opSolidityTestRunnerFactory,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr-optimism";
+
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,
