@@ -36,12 +36,13 @@ jobs:
 
       - name: Notify failures
         if: failure()
-        uses: slackapi/slack-github-action@v1.18.0
+        uses: slackapi/slack-github-action@v2.1.0
         with:
+          webhook: ${{ secrets.GH_ACTION_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
+          webhook-type: webhook-trigger
+          errors: true
           payload: |
             {
               "workflow_name": "${{ github.workflow }} (${{ matrix.network }})",
               "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.GH_ACTION_NOTIFICATIONS_SLACK_WEBHOOK_URL }}

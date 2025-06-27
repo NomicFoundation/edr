@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use edr_eth::{Address, B256, U256};
 use foundry_evm::{
+    backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
@@ -43,6 +44,10 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub cheats_config_options: CheatsConfigOptions,
     /// EVM options
     pub evm_opts: EvmOpts<HardforkT>,
+    /// The predeploys applied in local mode.
+    /// These should match the predeploys of the network in fork mode, so they
+    /// aren't set in fork mode.
+    pub local_predeploys: Vec<Predeploy>,
     /// Configuration for fuzz testing
     pub fuzz: FuzzConfig,
     /// Configuration for invariant testing

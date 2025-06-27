@@ -43,7 +43,7 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
                     edr_op::transaction::InvalidTransaction,
                     edr_op::transaction::OpTxEnv<edr_eth::l1::TxEnv>,
                 >::new(
-                    config.into(),
+                    config.try_into()?,
                     contracts,
                     known_contracts,
                     libs_to_deploy,

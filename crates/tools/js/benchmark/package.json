@@ -40,7 +40,7 @@
     "help": "tsx src/index.ts -h",
     "lint": "pnpm run prettier && pnpm run eslint",
     "lint:fix": "pnpm run prettier --write",
-    "prebenchmark": "cd ../../../.. && pnpm build",
+    "prebenchmark": "cd ../../../../crates/edr_napi && pnpm build && cd ../../js/helpers && pnpm build",
     "presoltests": "pnpm run prebenchmark",
     "pretest": "cd ../../.. && pnpm build:dev",
     "prettier": "prettier --check \"**/*.{js,ts}\"",

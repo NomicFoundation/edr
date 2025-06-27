@@ -15,6 +15,7 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
+    account::AccountOverride,
     cast::TryCast,
     serde::{
         serialize_optional_bigint_as_struct, serialize_optional_uint8array_as_hex,
@@ -102,6 +103,12 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Defaults to 33_554_432 (2^25 = 32MiB).
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub memory_limit: Option<BigInt>,
+    /// The predeploys applied in local mode. Defaults to no predeploys.
+    /// These should match the predeploys of the network in fork mode, so they
+    /// aren't set in fork mode.
+    /// The code must be set and non-empty. The nonce and the balance default to
+    /// zero and storage defaults to empty.
+    pub local_predeploys: Option<Vec<AccountOverride>>,
     /// If set, all tests are run in fork mode using this url or remote name.
     /// Defaults to none.
     pub eth_rpc_url: Option<String>,
@@ -194,6 +201,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::
             block_gas_limit,
             disable_block_gas_limit,
             memory_limit,
+            local_predeploys,
             eth_rpc_url,
             rpc_cache_path,
             fork_block_number,
@@ -215,6 +223,15 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::
                 })
                 .transpose()?,
         };
+
+        let local_predeploys = local_predeploys
+            .map(|local_predeploys| {
+                local_predeploys
+                    .into_iter()
+                    .map(TryInto::try_into)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?;
 
         let invariant: InvariantConfig = fuzz
             .as_ref()
@@ -278,6 +295,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::
             block_gas_limit: block_gas_limit.map(TryCast::try_cast).transpose()?,
             disable_block_gas_limit,
             memory_limit: memory_limit.map(TryCast::try_cast).transpose()?,
+            local_predeploys,
             fork_url: eth_rpc_url,
             fork_block_number: fork_block_number.map(TryCast::try_cast).transpose()?,
             cheatcode,

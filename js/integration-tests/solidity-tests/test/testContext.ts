@@ -5,13 +5,20 @@ import {
   EdrContext,
   HeuristicFailed,
   L1_CHAIN_TYPE,
+  l1GenesisState,
+  l1HardforkLatest,
   l1SolidityTestRunnerFactory,
+  opGenesisState,
+  opLatestHardfork,
+  OP_CHAIN_TYPE,
   type SolidityTestRunnerConfigArgs,
   StackTrace,
   TracingConfigWithBuffers,
   UnexpectedError,
   UnsafeToReplay,
+  opSolidityTestRunnerFactory,
 } from "@ignored/edr-optimism";
+
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,
@@ -59,20 +66,35 @@ export class TestContext {
       L1_CHAIN_TYPE,
       l1SolidityTestRunnerFactory()
     );
+    await context.edrContext.registerSolidityTestRunnerFactory(
+      OP_CHAIN_TYPE,
+      opSolidityTestRunnerFactory()
+    );
 
     return context;
   }
 
-  defaultConfig(): SolidityTestRunnerConfigArgs {
+  defaultConfig(
+    chainType: string = L1_CHAIN_TYPE
+  ): SolidityTestRunnerConfigArgs {
+    let localPredeploys = undefined;
+    if (chainType === L1_CHAIN_TYPE) {
+      localPredeploys = l1GenesisState(l1HardforkLatest());
+    } else if (chainType === OP_CHAIN_TYPE) {
+      localPredeploys = opGenesisState(opLatestHardfork());
+    }
+
     return {
       projectRoot: hre.config.paths.root,
       rpcCachePath: this.rpcCachePath,
+      localPredeploys: localPredeploys,
     };
   }
 
   async runTestsWithStats(
     contractName: string,
-    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot">
+    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot">,
+    chainType: string = L1_CHAIN_TYPE
   ): Promise<SolidityTestsRunResult> {
     let totalTests = 0;
     let failedTests = 0;
@@ -84,12 +106,12 @@ export class TestContext {
 
     const suiteResults = await runAllSolidityTests(
       this.edrContext,
-      L1_CHAIN_TYPE,
+      chainType,
       this.artifacts,
       testContracts,
       this.tracingConfig,
       {
-        ...this.defaultConfig(),
+        ...this.defaultConfig(chainType),
         ...config,
       }
     );

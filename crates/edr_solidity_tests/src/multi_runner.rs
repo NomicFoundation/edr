@@ -11,6 +11,7 @@ use edr_eth::{l1, spec::HaltReasonTrait};
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_evm::{
+    backend::Predeploy,
     contracts::ContractsByArtifact,
     decode::RevertDecoder,
     evm_context::{
@@ -87,6 +88,8 @@ pub struct MultiContractRunner<
     evm_opts: EvmOpts<HardforkT>,
     /// The configured evm
     env: EvmEnv<BlockT, TransactionT, HardforkT>,
+    /// The local predeploys
+    local_predeploys: Vec<Predeploy>,
     /// Revert decoder. Contains all known errors and their selectors.
     revert_decoder: RevertDecoder,
     /// The fork to use at launch
@@ -161,6 +164,7 @@ impl<
             fuzz,
             invariant,
             solidity_fuzz_fixtures,
+            local_predeploys,
         } = config;
 
         // Do canonicalization in blocking context.
@@ -183,6 +187,7 @@ impl<
             cheats_config_options: Arc::new(cheats_config_options),
             evm_opts,
             env,
+            local_predeploys,
             revert_decoder,
             fork,
             coverage,
@@ -270,7 +275,8 @@ impl<
                         .coverage(self.coverage)
                         .enable_isolation(self.evm_opts.isolate)
                 })
-                .spec(self.evm_opts.spec);
+                .spec(self.evm_opts.spec)
+                .local_predeploys(self.local_predeploys.clone());
 
         if !enabled!(tracing::Level::TRACE) {
             span_name = &artifact_id.name;
