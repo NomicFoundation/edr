@@ -479,7 +479,8 @@ describe("Provider", () => {
     });
   });
 
-  it("custom precompile enabled", async function () {
+  async function deployAndTestCustomPrecompile(enabled: boolean) {
+    // Contract code in edr/data/contracts/CustomPrecompile.sol
     const contractArtifact = loadContract("./artifacts/CustomPrecompile.json");
     const contractInterface = new Interface(contractArtifact.contract.abi);
 
@@ -490,7 +491,7 @@ describe("Provider", () => {
         genesisState: providerConfig.genesisState.concat(
           l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
         ),
-        precompileOverrides: [precompileP256Verify()],
+        ...(enabled ? { precompileOverrides: [precompileP256Verify()] } : {}),
       },
       loggerConfig,
       {
@@ -560,95 +561,16 @@ describe("Provider", () => {
       })
     );
 
-    const precompileReceipt = JSON.parse(
-      precompileTransactionReceiptResponse.data
-    ).result;
+    return JSON.parse(precompileTransactionReceiptResponse.data).result;
+  }
+
+  it("custom precompile enabled", async function () {
+    const precompileReceipt = await deployAndTestCustomPrecompile(true);
     assert.strictEqual(precompileReceipt.status, "0x1");
   });
 
   it("custom precompile disabled", async function () {
-    const contractArtifact = loadContract("./artifacts/CustomPrecompile.json");
-    const contractInterface = new Interface(contractArtifact.contract.abi);
-
-    const provider = await context.createProvider(
-      GENERIC_CHAIN_TYPE,
-      {
-        ...providerConfig,
-        genesisState: providerConfig.genesisState.concat(
-          l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
-        ), // no precompiles
-      },
-      loggerConfig,
-      {
-        subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
-      {}
-    );
-
-    const sender = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
-
-    const deploymentTransactionResponse = await provider.handleRequest(
-      JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: sender,
-            data: contractArtifact.contract.bytecode,
-          },
-        ],
-      })
-    );
-
-    const deploymentTransactionHash = JSON.parse(
-      deploymentTransactionResponse.data
-    ).result;
-
-    const deploymentTransactionReceiptResponse = await provider.handleRequest(
-      JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_getTransactionReceipt",
-        params: [deploymentTransactionHash],
-      })
-    );
-
-    const deployedAddress = JSON.parse(
-      deploymentTransactionReceiptResponse.data
-    ).result.contractAddress;
-
-    const precompileTransactionResponse = await provider.handleRequest(
-      JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from: sender,
-            to: deployedAddress,
-            data: contractInterface.encodeFunctionData("rip7212Precompile"),
-          },
-        ],
-      })
-    );
-
-    const precompileTransactionHash = JSON.parse(
-      precompileTransactionResponse.data
-    ).result;
-
-    const precompileTransactionReceiptResponse = await provider.handleRequest(
-      JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_getTransactionReceipt",
-        params: [precompileTransactionHash],
-      })
-    );
-
-    const precompileReceipt = JSON.parse(
-      precompileTransactionReceiptResponse.data
-    ).result;
+    const precompileReceipt = await deployAndTestCustomPrecompile(false);
     assert.strictEqual(precompileReceipt.status, "0x0");
   });
 });
