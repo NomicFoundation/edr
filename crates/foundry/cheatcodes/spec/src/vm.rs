@@ -754,17 +754,111 @@ interface Vm {
     #[cheatcode(group = Testing, safety = Unsafe)]
     function expectEmit(address emitter) external;
 
+    /// Expect a given number of logs with the provided topics.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, uint64 count) external;
+
+    /// Expect a given number of logs from a specific emitter with the provided topics.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, address emitter, uint64 count)
+        external;
+
+    /// Expect a given number of logs with all topic and data checks enabled.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectEmit(uint64 count) external;
+
+    /// Expect a given number of logs from a specific emitter with all topic and data checks enabled.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectEmit(address emitter, uint64 count) external;
+
+    /// Prepare an expected anonymous log with (bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData.).
+    /// Call this function, then emit an anonymous event, then call a function. Internally after the call, we check if
+    /// logs were emitted in the expected order with the expected topics and data (as specified by the booleans).
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectEmitAnonymous(bool checkTopic0, bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;
+
+    /// Same as the previous method, but also checks supplied address against emitting contract.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectEmitAnonymous(bool checkTopic0, bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, address emitter)
+        external;
+
+    /// Prepare an expected anonymous log with all topic and data checks enabled.
+    /// Call this function, then emit an anonymous event, then call a function. Internally after the call, we check if
+    /// logs were emitted in the expected order with the expected topics and data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectEmitAnonymous() external;
+
+    /// Same as the previous method, but also checks supplied address against emitting contract.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectEmitAnonymous(address emitter) external;
+
+    /// Expects the deployment of the specified bytecode by the specified address using the CREATE opcode
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectCreate(bytes calldata bytecode, address deployer) external;
+
+    /// Expects the deployment of the specified bytecode by the specified address using the CREATE2 opcode
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectCreate2(bytes calldata bytecode, address deployer) external;
+
     /// Expects an error on next call with any revert data.
     #[cheatcode(group = Testing, safety = Unsafe)]
     function expectRevert() external;
 
-    /// Expects an error on next call that starts with the revert data.
+    /// Expects an error on next call that exactly matches the revert data.
     #[cheatcode(group = Testing, safety = Unsafe)]
     function expectRevert(bytes4 revertData) external;
 
     /// Expects an error on next call that exactly matches the revert data.
     #[cheatcode(group = Testing, safety = Unsafe)]
     function expectRevert(bytes calldata revertData) external;
+
+    /// Expects an error with any revert data on next call to reverter address.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectRevert(address reverter) external;
+
+    /// Expects an error from reverter address on next call, with any revert data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectRevert(bytes4 revertData, address reverter) external;
+
+    /// Expects an error from reverter address on next call, that exactly matches the revert data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectRevert(bytes calldata revertData, address reverter) external;
+
+    /// Expects a `count` number of reverts from the upcoming calls with any revert data or reverter.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectRevert(uint64 count) external;
+
+    /// Expects a `count` number of reverts from the upcoming calls that match the revert data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectRevert(bytes4 revertData, uint64 count) external;
+
+    /// Expects a `count` number of reverts from the upcoming calls that exactly match the revert data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectRevert(bytes calldata revertData, uint64 count) external;
+
+    /// Expects a `count` number of reverts from the upcoming calls from the reverter address.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectRevert(address reverter, uint64 count) external;
+
+    /// Expects a `count` number of reverts from the upcoming calls from the reverter address that match the revert data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectRevert(bytes4 revertData, address reverter, uint64 count) external;
+
+    /// Expects a `count` number of reverts from the upcoming calls from the reverter address that exactly match the revert data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectRevert(bytes calldata revertData, address reverter, uint64 count) external;
+
+    /// Expects a `count` number of reverts from the upcoming calls from the reverter address that exactly match the revert data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function _expectInternalRevert() external;
+
+    /// Expects an error on next call that starts with the revert data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectPartialRevert(bytes4 revertData) external;
+
+    /// Expects an error on next call to reverter address, that starts with the revert data.
+    #[cheatcode(group = Testing, safety = Unsafe)]
+    function expectPartialRevert(bytes4 revertData, address reverter) external;
 
     /// Expects an error on next cheatcode call with any revert data.
     #[cheatcode(group = Testing, safety = Unsafe, status = Internal)]

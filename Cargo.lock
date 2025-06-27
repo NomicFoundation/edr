@@ -3012,6 +3012,7 @@ dependencies = [
  "itertools 0.12.1",
  "jsonpath_lib",
  "k256",
+ "memchr",
  "p256",
  "regex",
  "revm",
