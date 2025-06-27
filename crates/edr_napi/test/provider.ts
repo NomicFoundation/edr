@@ -81,7 +81,7 @@ describe("Provider", () => {
     decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
       return [];
     },
-    printLineCallback: (_message: string, _replace: boolean) => { },
+    printLineCallback: (_message: string, _replace: boolean) => {},
   };
 
   it("initialize local generic provider", async function () {
@@ -95,7 +95,7 @@ describe("Provider", () => {
       },
       loggerConfig,
       {
-        subscriptionCallback: (_event: SubscriptionEvent) => { },
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
       {}
     );
@@ -119,7 +119,7 @@ describe("Provider", () => {
       },
       loggerConfig,
       {
-        subscriptionCallback: (_event: SubscriptionEvent) => { },
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
       {}
     );
@@ -139,7 +139,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => { },
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         {}
       );
@@ -187,7 +187,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => { },
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         {}
       );
@@ -240,7 +240,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => { },
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         {}
       );
@@ -287,7 +287,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => { },
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         {}
       );
@@ -341,7 +341,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => { },
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         {}
       );
@@ -388,7 +388,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => { },
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         {}
       );
@@ -448,7 +448,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => { },
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
         {}
       );
@@ -494,7 +494,7 @@ describe("Provider", () => {
       },
       loggerConfig,
       {
-        subscriptionCallback: (_event: SubscriptionEvent) => { },
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
       {}
     );
@@ -580,7 +580,7 @@ describe("Provider", () => {
       },
       loggerConfig,
       {
-        subscriptionCallback: (_event: SubscriptionEvent) => { },
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
       {}
     );
