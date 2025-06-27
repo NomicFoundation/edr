@@ -6,9 +6,9 @@ use edr_eth::{
     block::{BlockOptions, PartialHeader},
     spec::ChainSpec,
     transaction::TransactionValidation,
-    Address,
+    Address, HashMap,
 };
-use revm::Inspector;
+use revm::{precompile::PrecompileFn, Inspector};
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
@@ -110,6 +110,7 @@ where
     fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
@@ -120,6 +121,7 @@ where
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         inspector: &mut InspectorT,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,

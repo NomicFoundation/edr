@@ -14,7 +14,7 @@ use edr_eth::{
     withdrawal::Withdrawal,
     Address, Bloom, HashMap, B256, U256,
 };
-use revm::Inspector;
+use revm::{precompile::PrecompileFn, Inspector};
 
 use super::{BlockBuilder, BlockTransactionError, BlockTransactionErrorForChainSpec};
 use crate::{
@@ -174,6 +174,7 @@ where
     pub fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<(), BlockTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>>
     {
         self.validate_transaction(&transaction)?;
@@ -190,6 +191,7 @@ where
             self.cfg.clone(),
             transaction.clone(),
             block,
+            custom_precompiles,
         )?;
 
         self.add_transaction_result(receipt_builder, transaction, transaction_result);
@@ -202,6 +204,7 @@ where
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         extension: &mut InspectorT,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<(), BlockTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>>
     where
         InspectorT: for<'inspector> Inspector<
@@ -230,7 +233,7 @@ where
             self.cfg.clone(),
             transaction.clone(),
             block,
-            &HashMap::new(),
+            custom_precompiles,
             extension,
         )
         .map_err(BlockTransactionError::from)?;
@@ -414,17 +417,19 @@ where
     fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
     > {
-        self.add_transaction(transaction)
+        self.add_transaction(transaction, custom_precompiles)
     }
 
     fn add_transaction_with_inspector<InspectorT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         inspector: &mut InspectorT,
+        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
@@ -446,7 +451,7 @@ where
             >,
         >,
     {
-        self.add_transaction_with_inspector(transaction, inspector)
+        self.add_transaction_with_inspector(transaction, inspector, custom_precompiles)
     }
 
     fn finalize(

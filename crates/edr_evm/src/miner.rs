@@ -7,8 +7,9 @@ use edr_eth::{
     signature::SignatureError,
     spec::{ChainSpec, HaltReasonTrait},
     transaction::{ExecutableTransaction, TransactionValidation},
+    Address, HashMap,
 };
-use revm::Inspector;
+use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -100,6 +101,7 @@ pub fn mine_block<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
     mine_ordering: MineOrdering,
     reward: u128,
     mut inspector: Option<&mut InspectorT>,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
@@ -153,9 +155,13 @@ where
 
         {
             let result = if let Some(inspector) = inspector.as_mut() {
-                block_builder.add_transaction_with_inspector(transaction, inspector)
+                block_builder.add_transaction_with_inspector(
+                    transaction,
+                    inspector,
+                    custom_precompiles,
+                )
             } else {
-                block_builder.add_transaction(transaction)
+                block_builder.add_transaction(transaction, custom_precompiles)
             };
 
             if let Err(error) = result {
@@ -296,6 +302,7 @@ pub fn mine_block_with_single_transaction<BlockchainErrorT, ChainSpecT, Inspecto
     min_gas_price: u128,
     reward: u128,
     inspector: Option<&mut InspectorT>,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
@@ -394,9 +401,9 @@ where
     let rewards = vec![(beneficiary, reward)];
 
     if let Some(inspector) = inspector {
-        block_builder.add_transaction_with_inspector(transaction, inspector)?;
+        block_builder.add_transaction_with_inspector(transaction, inspector, custom_precompiles)?;
     } else {
-        block_builder.add_transaction(transaction)?;
+        block_builder.add_transaction(transaction, custom_precompiles)?;
     }
 
     block_builder
