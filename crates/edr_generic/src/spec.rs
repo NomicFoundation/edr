@@ -120,21 +120,14 @@ impl RuntimeSpec for GenericChainSpec {
     fn evm<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
     >(
         context: ContextForChainSpec<Self, DatabaseT>,
-    ) -> Self::Evm<
-        BlockchainErrorT,
-        DatabaseT,
-        NoOpInspector,
-        Self::PrecompileProvider<BlockchainErrorT, DatabaseT, StateErrorT>,
-        StateErrorT,
-    > {
-        Self::evm_with_inspector(
-            context,
-            NoOpInspector {},
-            Self::PrecompileProvider::<BlockchainErrorT, DatabaseT, StateErrorT>::default(),
-        )
+        precompile_provider: PrecompileProviderT,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, NoOpInspector, PrecompileProviderT, StateErrorT>
+    {
+        Self::evm_with_inspector(context, NoOpInspector {}, precompile_provider)
     }
 
     fn evm_with_inspector<

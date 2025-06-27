@@ -244,7 +244,7 @@ pub async fn run_full_block<
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);
 
     for transaction in replay_block.transactions() {
-        builder.add_transaction(transaction.clone())?;
+        builder.add_transaction(transaction.clone(), &HashMap::new())?;
     }
 
     let rewards = vec![(

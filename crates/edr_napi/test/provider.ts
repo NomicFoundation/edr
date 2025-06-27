@@ -1,6 +1,7 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
+import { Interface } from "ethers";
 
 import {
   AccountOverride,
@@ -12,12 +13,14 @@ import {
   l1HardforkToString,
   MineOrdering,
   SubscriptionEvent,
+  precompileP256Verify,
 } from "..";
 import {
   collectMessages,
   collectSteps,
   ALCHEMY_URL,
   getContext,
+  loadContract,
 } from "./helpers";
 
 chai.use(chaiAsPromised);
@@ -78,7 +81,7 @@ describe("Provider", () => {
     decodeConsoleLogInputsCallback: (_inputs: ArrayBuffer[]): string[] => {
       return [];
     },
-    printLineCallback: (_message: string, _replace: boolean) => {},
+    printLineCallback: (_message: string, _replace: boolean) => { },
   };
 
   it("initialize local generic provider", async function () {
@@ -92,7 +95,7 @@ describe("Provider", () => {
       },
       loggerConfig,
       {
-        subscriptionCallback: (_event: SubscriptionEvent) => {},
+        subscriptionCallback: (_event: SubscriptionEvent) => { },
       },
       {}
     );
@@ -116,7 +119,7 @@ describe("Provider", () => {
       },
       loggerConfig,
       {
-        subscriptionCallback: (_event: SubscriptionEvent) => {},
+        subscriptionCallback: (_event: SubscriptionEvent) => { },
       },
       {}
     );
@@ -136,7 +139,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
+          subscriptionCallback: (_event: SubscriptionEvent) => { },
         },
         {}
       );
@@ -184,7 +187,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
+          subscriptionCallback: (_event: SubscriptionEvent) => { },
         },
         {}
       );
@@ -237,7 +240,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
+          subscriptionCallback: (_event: SubscriptionEvent) => { },
         },
         {}
       );
@@ -284,7 +287,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
+          subscriptionCallback: (_event: SubscriptionEvent) => { },
         },
         {}
       );
@@ -338,7 +341,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
+          subscriptionCallback: (_event: SubscriptionEvent) => { },
         },
         {}
       );
@@ -385,7 +388,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
+          subscriptionCallback: (_event: SubscriptionEvent) => { },
         },
         {}
       );
@@ -445,7 +448,7 @@ describe("Provider", () => {
         },
         loggerConfig,
         {
-          subscriptionCallback: (_event: SubscriptionEvent) => {},
+          subscriptionCallback: (_event: SubscriptionEvent) => { },
         },
         {}
       );
@@ -474,6 +477,179 @@ describe("Provider", () => {
       const rawTraces = traceCallResponse.traces;
       assert.lengthOf(rawTraces, 1);
     });
+  });
+
+  it("custom precompile enabled", async function () {
+    const contractArtifact = loadContract("./artifacts/CustomPrecompile.json");
+    const contractInterface = new Interface(contractArtifact.contract.abi);
+
+    const provider = await context.createProvider(
+      GENERIC_CHAIN_TYPE,
+      {
+        ...providerConfig,
+        genesisState: providerConfig.genesisState.concat(
+          l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+        ),
+        precompileOverrides: [precompileP256Verify()],
+      },
+      loggerConfig,
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => { },
+      },
+      {}
+    );
+
+    const sender = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
+
+    const deploymentTransactionResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: sender,
+            data: contractArtifact.contract.bytecode,
+          },
+        ],
+      })
+    );
+
+    const deploymentTransactionHash = JSON.parse(
+      deploymentTransactionResponse.data
+    ).result;
+
+    const deploymentTransactionReceiptResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_getTransactionReceipt",
+        params: [deploymentTransactionHash],
+      })
+    );
+
+    const deployedAddress = JSON.parse(
+      deploymentTransactionReceiptResponse.data
+    ).result.contractAddress;
+
+    const precompileTransactionResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: sender,
+            to: deployedAddress,
+            data: contractInterface.encodeFunctionData("rip7212Precompile"),
+          },
+        ],
+      })
+    );
+
+    const precompileTransactionHash = JSON.parse(
+      precompileTransactionResponse.data
+    ).result;
+
+    const precompileTransactionReceiptResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_getTransactionReceipt",
+        params: [precompileTransactionHash],
+      })
+    );
+
+    const precompileReceipt = JSON.parse(
+      precompileTransactionReceiptResponse.data
+    ).result;
+    assert.strictEqual(precompileReceipt.status, "0x1");
+  });
+
+  it("custom precompile disabled", async function () {
+    const contractArtifact = loadContract("./artifacts/CustomPrecompile.json");
+    const contractInterface = new Interface(contractArtifact.contract.abi);
+
+    const provider = await context.createProvider(
+      GENERIC_CHAIN_TYPE,
+      {
+        ...providerConfig,
+        genesisState: providerConfig.genesisState.concat(
+          l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+        ), // no precompiles
+      },
+      loggerConfig,
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => { },
+      },
+      {}
+    );
+
+    const sender = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
+
+    const deploymentTransactionResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: sender,
+            data: contractArtifact.contract.bytecode,
+          },
+        ],
+      })
+    );
+
+    const deploymentTransactionHash = JSON.parse(
+      deploymentTransactionResponse.data
+    ).result;
+
+    const deploymentTransactionReceiptResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_getTransactionReceipt",
+        params: [deploymentTransactionHash],
+      })
+    );
+
+    const deployedAddress = JSON.parse(
+      deploymentTransactionReceiptResponse.data
+    ).result.contractAddress;
+
+    const precompileTransactionResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: sender,
+            to: deployedAddress,
+            data: contractInterface.encodeFunctionData("rip7212Precompile"),
+          },
+        ],
+      })
+    );
+
+    const precompileTransactionHash = JSON.parse(
+      precompileTransactionResponse.data
+    ).result;
+
+    const precompileTransactionReceiptResponse = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_getTransactionReceipt",
+        params: [precompileTransactionHash],
+      })
+    );
+
+    const precompileReceipt = JSON.parse(
+      precompileTransactionReceiptResponse.data
+    ).result;
+    assert.strictEqual(precompileReceipt.status, "0x0");
   });
 });
 
