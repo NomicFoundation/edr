@@ -127,6 +127,7 @@ impl ForgeTestProfile {
             coverage: false,
             test_fail: true,
             solidity_fuzz_fixtures: true,
+            local_predeploys: Vec::default(),
         }
     }
 

@@ -5,6 +5,7 @@ import {
   assertStackTraces,
   TestContext,
 } from "./testContext.js";
+import { L1_CHAIN_TYPE, OP_CHAIN_TYPE } from "@nomicfoundation/edr";
 
 describe("Unit tests", () => {
   let testContext: TestContext;
@@ -254,5 +255,28 @@ describe("Unit tests", () => {
     );
     assert.equal(failedTests, 1);
     assert.equal(totalTests, 1);
+  });
+
+  it("L1Chain", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats(
+        "L1ChainTest",
+        undefined,
+        L1_CHAIN_TYPE
+      );
+
+    assert.equal(totalTests, 1);
+    assert.equal(failedTests, 0);
+  });
+
+  it("OpChain", async function () {
+    const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      "OpChainTest",
+      undefined,
+      OP_CHAIN_TYPE
+    );
+
+    assert.equal(totalTests, 1);
+    assert.equal(failedTests, 0);
   });
 });

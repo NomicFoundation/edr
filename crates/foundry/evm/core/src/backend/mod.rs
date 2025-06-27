@@ -47,12 +47,18 @@ pub use cow::CowBackend;
 mod in_memory_db;
 pub use in_memory_db::{EmptyDBWrapper, FoundryEvmInMemoryDB, MemDb};
 
+mod predeploy;
+pub use predeploy::Predeploy;
+
 mod snapshot;
 pub use snapshot::{BackendStateSnapshot, RevertStateSnapshotAction, StateSnapshot};
 
-use crate::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, EvmEnvWithChainContext, HardforkTr,
-    TransactionEnvMut, TransactionEnvTr,
+use crate::{
+    backend::predeploy::insert_predeploys,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, EvmEnvWithChainContext, HardforkTr,
+        TransactionEnvMut, TransactionEnvTr,
+    },
 };
 
 // A `revm::Database` that is used in forking mode
@@ -579,17 +585,21 @@ impl<
     > Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
 {
     /// Creates a new Backend with a spawned multi fork thread.
-    pub fn spawn(fork: Option<CreateFork<BlockT, TxT, HardforkT>>) -> Self {
-        Self::new(MultiFork::spawn(), fork)
+    pub fn spawn(
+        fork: Option<CreateFork<BlockT, TxT, HardforkT>>,
+        local_predeploys: impl IntoIterator<Item = Predeploy>,
+    ) -> Self {
+        Self::new(MultiFork::spawn(), fork, local_predeploys)
     }
 
     /// Creates a new instance of `Backend`
     ///
-    /// if `fork` is `Some` this will launch with a `fork` database, otherwise
-    /// with an in-memory database
+    /// If `fork` is `Some` this will launch with a `fork` database, otherwise
+    /// with an in-memory database.
     pub fn new(
         forks: MultiFork<BlockT, TxT, HardforkT>,
         fork: Option<CreateFork<BlockT, TxT, HardforkT>>,
+        local_predeploys: impl IntoIterator<Item = Predeploy>,
     ) -> Self {
         trace!(target: "backend", forking_mode=?fork.is_some(), "creating executor backend");
         // Note: this will take of registering the `fork`
@@ -598,9 +608,12 @@ impl<
             ..Default::default()
         };
 
+        let mut db = CacheDB::new(EmptyDBWrapper::default());
+        insert_predeploys(&mut db, local_predeploys);
+
         let mut backend = Self {
             forks,
-            mem_db: CacheDB::new(EmptyDBWrapper::default()),
+            mem_db: db,
             fork_init_journaled_state: inner.new_journaled_state(),
             active_fork_ids: None,
             inner,
@@ -641,7 +654,8 @@ impl<
         fork: Fork,
         journaled_state: JournalInner<JournalEntry>,
     ) -> Self {
-        let mut backend = Self::spawn(None);
+        // No predeploys in fork mode.
+        let mut backend = Self::spawn(None, Vec::default());
         let fork_block_number = fork.fork_block_number;
         let fork_ids =
             backend
@@ -2489,7 +2503,7 @@ mod tests {
             SpecId,
             InvalidTransaction,
             (),
-        >::spawn(Some(fork.clone()));
+        >::spawn(Some(fork.clone()), Vec::default());
 
         // some rng contract from etherscan
         let address: Address = "63091244180ae240c87d1f528f5f269134cb07b3".parse().unwrap();

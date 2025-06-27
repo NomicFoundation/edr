@@ -7,7 +7,7 @@ use std::{
 
 use edr_eth::{
     signature::{secret_key_from_str, SecretKey},
-    Bytes, HashSet,
+    Bytes, HashMap, HashSet,
 };
 use edr_provider::coverage::SyncOnCollectedCoverageCallback;
 use napi::{
@@ -19,12 +19,7 @@ use napi::{
 };
 use napi_derive::napi;
 
-use crate::{
-    account::{AccountOverride, StorageSlot},
-    block::BlobGas,
-    cast::TryCast,
-    precompile::Precompile,
-};
+use crate::{account::AccountOverride, block::BlobGas, cast::TryCast, precompile::Precompile};
 
 /// Specification of a chain with possible overrides.
 #[napi(object)]
@@ -437,42 +432,8 @@ impl ProviderConfig {
         let genesis_state = self
             .genesis_state
             .into_iter()
-            .map(
-                |AccountOverride {
-                     address,
-                     balance,
-                     nonce,
-                     code,
-                     storage,
-                 }| {
-                    let storage = storage
-                        .map(|storage| {
-                            storage
-                                .into_iter()
-                                .map(|StorageSlot { index, value }| {
-                                    let value = value.try_cast()?;
-                                    let slot = edr_evm::state::EvmStorageSlot::new(value);
-
-                                    let index: edr_eth::U256 = index.try_cast()?;
-                                    Ok((index, slot))
-                                })
-                                .collect::<napi::Result<_>>()
-                        })
-                        .transpose()?;
-
-                    let account_override = edr_provider::AccountOverride {
-                        balance: balance.map(TryCast::try_cast).transpose()?,
-                        nonce: nonce.map(TryCast::try_cast).transpose()?,
-                        code: code.map(TryCast::try_cast).transpose()?,
-                        storage,
-                    };
-
-                    let address: edr_eth::Address = address.try_cast()?;
-
-                    Ok((address, account_override))
-                },
-            )
-            .collect::<napi::Result<_>>()?;
+            .map(TryInto::try_into)
+            .collect::<napi::Result<HashMap<edr_eth::Address, edr_provider::AccountOverride>>>()?;
 
         let precompile_overrides = self
             .precompile_overrides

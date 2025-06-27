@@ -42,7 +42,7 @@ impl SyncTestRunnerFactory for L1TestRunnerFactory {
                     edr_eth::l1::InvalidTransaction,
                     TxEnv,
                 >::new(
-                    config.into(),
+                    config.try_into()?,
                     contracts,
                     known_contracts,
                     libs_to_deploy,

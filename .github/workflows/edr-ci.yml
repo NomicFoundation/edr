@@ -200,7 +200,7 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build edr_napi
-        run: cd crates/edr_napi && pnpm build:dev
+        run: cd crates/edr_napi && pnpm build:typingFile
 
       - name: Check that there are no uncommitted changes
         run: git diff --exit-code
