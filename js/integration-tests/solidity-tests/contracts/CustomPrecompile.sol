@@ -14,7 +14,7 @@ contract CustomPrecompile {
     bytes32 y =
         0xc7787964eaac00e5921fb1498a60f4606766b3d9685001558d1a974e7341513e;
 
-    function rip2712Precompile() public view {
+    function rip7212Precompile() public view {
         bytes
             memory expected = hex"0000000000000000000000000000000000000000000000000000000000000001";
         (bool success, bytes memory returndata) = address(0x100).staticcall(

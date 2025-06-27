@@ -136,7 +136,7 @@ describe("Provider tests", () => {
                     {
                         from: sender,
                         to: deployedAddress,
-                        data: counterInterface.encodeFunctionData("rip2712Precompile"),
+                        data: counterInterface.encodeFunctionData("rip7212Precompile"),
                     },
                 ],
             })
@@ -276,7 +276,7 @@ describe("Provider tests", () => {
                     {
                         from: sender,
                         to: deployedAddress,
-                        data: counterInterface.encodeFunctionData("rip2712Precompile"),
+                        data: counterInterface.encodeFunctionData("rip7212Precompile"),
                     },
                 ],
             })
