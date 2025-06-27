@@ -431,8 +431,8 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.code, -32602);
                 assert_eq!(error.message, "Unknown block number");
+                assert_eq!(error.code, -32602);
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
@@ -660,11 +660,11 @@ mod tests {
                 }
                 Err(error) => {
                     if let RpcClientError::JsonRpcError { error, .. } = error {
-                        assert_eq!(error.code, -32000);
                         assert_eq!(
                             error.message,
                             "One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found."
                         );
+                        assert_eq!(error.code, -32000);
                         assert!(error.data.is_none());
                     } else {
                         unreachable!("Invalid error: {error}");
@@ -806,8 +806,8 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.code, -32602);
                 assert_eq!(error.message, "Unknown block number");
+                assert_eq!(error.code, -32602);
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
