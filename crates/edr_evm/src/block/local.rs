@@ -5,7 +5,7 @@ use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_eth::{
     block::{self, Header, PartialHeader},
-    keccak256, l1,
+    l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     receipt::{MapReceiptLogs, ReceiptTrait, TransactionReceipt},
     spec::ChainSpec,
@@ -102,20 +102,10 @@ impl<
         withdrawals: Option<Vec<Withdrawal>>,
     ) -> Self {
         let ommer_hashes = ommers.iter().map(Header::hash).collect::<Vec<_>>();
-        let ommers_hash = keccak256(alloy_rlp::encode(&ommers));
         let transactions_root =
             trie::ordered_trie_root(transactions.iter().map(ExecutableTransaction::rlp_encoding));
 
-        let withdrawals_root = withdrawals
-            .as_ref()
-            .map(|w| trie::ordered_trie_root(w.iter().map(alloy_rlp::encode)));
-
-        let header = Header::new(
-            partial_header,
-            ommers_hash,
-            transactions_root,
-            withdrawals_root,
-        );
+        let header = Header::new(partial_header, transactions_root);
 
         let hash = header.hash();
         let transaction_receipts =
@@ -281,14 +271,13 @@ impl<
     >
 {
     fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self {
-        let (withdrawals, withdrawals_root) = if hardfork.into() >= l1::SpecId::SHANGHAI {
-            Some((Vec::new(), KECCAK_EMPTY))
+        let withdrawals = if hardfork.into() >= l1::SpecId::SHANGHAI {
+            Some(Vec::new())
         } else {
             None
-        }
-        .unzip();
+        };
 
-        let header = Header::new(partial_header, KECCAK_EMPTY, KECCAK_EMPTY, withdrawals_root);
+        let header = Header::new(partial_header, KECCAK_EMPTY);
         let hash = header.hash();
 
         Self {

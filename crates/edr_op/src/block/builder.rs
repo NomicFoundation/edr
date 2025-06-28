@@ -1,4 +1,7 @@
-use edr_eth::{block::PartialHeader, Address, HashMap};
+use edr_eth::{
+    block::PartialHeader, spec::EthHeaderConstants, trie::KECCAK_NULL_RLP, withdrawal::Withdrawal,
+    Address, Bytes, HashMap,
+};
 use edr_evm::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -6,11 +9,15 @@ use edr_evm::{
     precompile::PrecompileFn,
     spec::ContextForChainSpec,
     state::{DatabaseComponents, SyncState, WrapDatabaseRef},
-    BlockBuilder, BlockTransactionErrorForChainSpec, EthBlockBuilder, MineBlockResultAndState,
+    BlockBuilder, BlockBuilderCreationError, BlockTransactionErrorForChainSpec, EthBlockBuilder,
+    MineBlockResultAndState,
 };
 use op_revm::{L1BlockInfo, OpHaltReason};
 
-use crate::{block::LocalBlock, receipt::BlockReceiptFactory, transaction, OpChainSpec, OpSpecId};
+use crate::{
+    block::LocalBlock, predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS, receipt::BlockReceiptFactory,
+    transaction, OpChainSpec, OpSpecId,
+};
 
 /// Block builder for OP.
 pub struct Builder<'blockchain, BlockchainErrorT, StateErrorT> {
@@ -35,12 +42,49 @@ where
         >,
         state: Box<dyn edr_evm::state::SyncState<Self::StateError>>,
         cfg: CfgEnv<OpSpecId>,
-        options: edr_eth::block::BlockOptions,
-    ) -> Result<
-        Self,
-        edr_evm::BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>,
-    > {
-        let eth = EthBlockBuilder::new(blockchain, state, cfg, options)?;
+        withdrawals: Option<Vec<Withdrawal>>,
+        mut overrides: edr_eth::block::HeaderOverrides,
+    ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>>
+    {
+        if cfg.spec >= OpSpecId::ISTHMUS {
+            let withdrawals_root = overrides
+                .withdrawals_root
+                .map_or_else(
+                    || {
+                        let storage_root =
+                            state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?;
+
+                        Ok(storage_root.unwrap_or(KECCAK_NULL_RLP))
+                    },
+                    Ok,
+                )
+                .map_err(BlockBuilderCreationError::State)?;
+
+            overrides.withdrawals_root = Some(withdrawals_root);
+        }
+
+        if cfg.spec >= OpSpecId::HOLOCENE {
+            const DYNAMIC_BASE_FEE_PARAM_VERSION: u8 = 0x0;
+
+            overrides.extra_data = Some(overrides.extra_data.unwrap_or_else(|| {
+                // Ensure that the same base fee parameters are used in the EthBlockBuilder
+                // and in the extra data.
+                let base_fee_params = overrides.base_fee_params.get_or_insert_with(|| {
+                    *OpChainSpec::BASE_FEE_PARAMS
+                        .at_hardfork(cfg.spec)
+                        .expect("Chain spec must have base fee params for post-London hardforks")
+                });
+
+                let mut bytes = Vec::with_capacity(9);
+                bytes.push(DYNAMIC_BASE_FEE_PARAM_VERSION);
+                bytes.extend_from_slice(&base_fee_params.max_change_denominator.to_be_bytes());
+                bytes.extend_from_slice(&base_fee_params.elasticity_multiplier.to_be_bytes());
+
+                Bytes::from(bytes)
+            }));
+        }
+
+        let eth = EthBlockBuilder::new(blockchain, state, cfg, Vec::new(), withdrawals, overrides)?;
 
         let l1_block_info = {
             let mut db = WrapDatabaseRef(DatabaseComponents {
