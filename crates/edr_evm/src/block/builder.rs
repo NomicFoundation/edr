@@ -3,9 +3,10 @@ mod l1;
 use std::fmt::Debug;
 
 use edr_eth::{
-    block::{BlockOptions, PartialHeader},
+    block::{HeaderOverrides, PartialHeader},
     spec::ChainSpec,
     transaction::TransactionValidation,
+    withdrawal::Withdrawal,
     Address, HashMap,
 };
 use revm::{precompile::PrecompileFn, Inspector};
@@ -94,7 +95,8 @@ where
         >,
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
-        options: BlockOptions,
+        withdrawals: Option<Vec<Withdrawal>>,
+        overrides: HeaderOverrides,
     ) -> Result<
         Self,
         BlockBuilderCreationErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,

@@ -14,7 +14,7 @@ pub use revm_context_interface::Block;
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{
-    options::BlockOptions,
+    options::HeaderOverrides,
     reorg::{
         block_time, is_safe_block_number, largest_safe_block_number, safe_block_depth,
         IsSafeBlockNumberArgs, LargestSafeBlockNumberArgs,
@@ -26,7 +26,8 @@ use crate::{
     eips::{eip1559::ConstantBaseFeeParams, eip4844, eip7691},
     keccak256, l1,
     spec::EthHeaderConstants,
-    trie::KECCAK_NULL_RLP,
+    trie::{self, KECCAK_NULL_RLP, KECCAK_RLP_EMPTY_ARRAY},
+    withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
 };
 
@@ -126,17 +127,12 @@ impl alloy_rlp::Encodable for BlobGas {
 }
 
 impl Header {
-    /// Constructs a header from the provided [`PartialHeader`], ommers' root
-    /// hash, transactions' root hash, and withdrawals' root hash.
-    pub fn new(
-        partial_header: PartialHeader,
-        ommers_hash: B256,
-        transactions_root: B256,
-        withdrawals_root: Option<B256>,
-    ) -> Self {
+    /// Constructs a header from the provided [`PartialHeader`] and hashtree
+    /// root of the transactions.
+    pub fn new(partial_header: PartialHeader, transactions_root: B256) -> Self {
         Self {
             parent_hash: partial_header.parent_hash,
-            ommers_hash,
+            ommers_hash: partial_header.ommers_hash,
             beneficiary: partial_header.beneficiary,
             state_root: partial_header.state_root,
             transactions_root,
@@ -151,7 +147,7 @@ impl Header {
             mix_hash: partial_header.mix_hash,
             nonce: partial_header.nonce,
             base_fee_per_gas: partial_header.base_fee,
-            withdrawals_root,
+            withdrawals_root: partial_header.withdrawals_root,
             blob_gas: partial_header.blob_gas,
             parent_beacon_block_root: partial_header.parent_beacon_block_root,
             requests_hash: partial_header.requests_hash,
@@ -170,6 +166,8 @@ impl Header {
 pub struct PartialHeader {
     /// The parent block's hash
     pub parent_hash: B256,
+    /// The ommers' root hash
+    pub ommers_hash: B256,
     /// The block's beneficiary address
     pub beneficiary: Address,
     /// The state's root hash
@@ -196,6 +194,9 @@ pub struct PartialHeader {
     pub nonce: B64,
     /// `BaseFee` was added by EIP-1559 and is ignored in legacy headers.
     pub base_fee: Option<u128>,
+    /// `WithdrawalsHash` was added by EIP-4895 and is ignored in legacy
+    /// headers.
+    pub withdrawals_root: Option<B256>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.
     pub blob_gas: Option<BlobGas>,
     /// The hash tree root of the parent beacon block for the given execution
@@ -212,8 +213,10 @@ impl PartialHeader {
     /// parent [`Header`] for the given [`l1::SpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
-        options: BlockOptions,
+        options: HeaderOverrides,
         parent: Option<&Header>,
+        ommers: &Vec<Header>,
+        withdrawals: Option<&Vec<Withdrawal>>,
     ) -> Self {
         let timestamp = options.timestamp.unwrap_or_default();
         let number = options.number.unwrap_or({
@@ -234,6 +237,7 @@ impl PartialHeader {
 
         Self {
             parent_hash,
+            ommers_hash: keccak256(alloy_rlp::encode(ommers)),
             beneficiary: options.beneficiary.unwrap_or_default(),
             state_root: options.state_root.unwrap_or(KECCAK_NULL_RLP),
             receipts_root: KECCAK_NULL_RLP,
@@ -278,6 +282,17 @@ impl PartialHeader {
                     } else {
                         u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
                     })
+                } else {
+                    None
+                }
+            }),
+            withdrawals_root: options.withdrawals_root.or_else(|| {
+                if hardfork.into() >= l1::SpecId::SHANGHAI {
+                    let withdrawals_root = withdrawals.map_or(KECCAK_NULL_RLP, |withdrawals| {
+                        trie::ordered_trie_root(withdrawals.iter().map(alloy_rlp::encode))
+                    });
+
+                    Some(withdrawals_root)
                 } else {
                     None
                 }
@@ -346,6 +361,7 @@ impl Default for PartialHeader {
 
         Self {
             parent_hash: B256::default(),
+            ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
             beneficiary: Address::default(),
             state_root: B256::default(),
             receipts_root: KECCAK_NULL_RLP,
@@ -359,6 +375,7 @@ impl Default for PartialHeader {
             mix_hash: B256::default(),
             nonce: B64::default(),
             base_fee: None,
+            withdrawals_root: None,
             blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: None,
@@ -370,6 +387,7 @@ impl From<Header> for PartialHeader {
     fn from(header: Header) -> PartialHeader {
         Self {
             parent_hash: header.parent_hash,
+            ommers_hash: header.ommers_hash,
             beneficiary: header.beneficiary,
             state_root: header.state_root,
             receipts_root: header.receipts_root,
@@ -383,6 +401,7 @@ impl From<Header> for PartialHeader {
             mix_hash: header.mix_hash,
             nonce: header.nonce,
             base_fee: header.base_fee_per_gas,
+            withdrawals_root: header.withdrawals_root,
             blob_gas: header.blob_gas,
             parent_beacon_block_root: header.parent_beacon_block_root,
             requests_hash: header.requests_hash,

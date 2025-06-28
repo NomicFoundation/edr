@@ -1,6 +1,6 @@
 use std::num::NonZeroU64;
 
-use edr_eth::{block::BlockOptions, l1, transaction::TransactionValidation, U64};
+use edr_eth::{block::HeaderOverrides, l1, transaction::TransactionValidation, U64};
 
 use crate::{
     data::ProviderData,
@@ -37,9 +37,9 @@ pub fn handle_mine_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     timestamp: Option<Timestamp>,
 ) -> ProviderResultWithTraces<String, ChainSpecT> {
-    let mine_block_result = data.mine_and_commit_block(BlockOptions {
+    let mine_block_result = data.mine_and_commit_block(HeaderOverrides {
         timestamp: timestamp.map(Into::into),
-        ..BlockOptions::default()
+        ..HeaderOverrides::default()
     })?;
 
     let traces = mine_block_result.transaction_traces.clone();

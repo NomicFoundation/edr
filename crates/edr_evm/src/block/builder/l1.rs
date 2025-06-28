@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use derive_where::derive_where;
 use edr_eth::{
-    block::{BlobGas, BlockOptions, PartialHeader},
+    block::{BlobGas, Header, HeaderOverrides, PartialHeader},
     eips::{eip4844, eip7691},
     l1,
     log::{ExecutionLog, FilterLog},
@@ -125,7 +125,9 @@ where
         blockchain: &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
         state: Box<dyn SyncState<StateErrorT>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
-        mut options: BlockOptions,
+        ommers: Vec<Header>,
+        withdrawals: Option<Vec<Withdrawal>>,
+        mut overrides: HeaderOverrides,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
     {
         let parent_block = blockchain
@@ -138,13 +140,13 @@ where
         }
 
         let parent_header = parent_block.header();
-        let parent_gas_limit = if options.gas_limit.is_none() {
+        let parent_gas_limit = if overrides.gas_limit.is_none() {
             Some(parent_header.gas_limit)
         } else {
             None
         };
 
-        let withdrawals = std::mem::take(&mut options.withdrawals).or_else(|| {
+        let withdrawals = withdrawals.or_else(|| {
             if eth_hardfork >= l1::SpecId::SHANGHAI {
                 Some(Vec::new())
             } else {
@@ -152,8 +154,14 @@ where
             }
         });
 
-        options.parent_hash = Some(*parent_block.block_hash());
-        let header = PartialHeader::new::<ChainSpecT>(cfg.spec, options, Some(parent_header));
+        overrides.parent_hash = Some(*parent_block.block_hash());
+        let header = PartialHeader::new::<ChainSpecT>(
+            cfg.spec,
+            overrides,
+            Some(parent_header),
+            &ommers,
+            withdrawals.as_ref(),
+        );
 
         Ok(Self {
             blockchain,
@@ -398,12 +406,13 @@ where
         >,
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
-        options: BlockOptions,
+        withdrawals: Option<Vec<Withdrawal>>,
+        options: HeaderOverrides,
     ) -> Result<
         Self,
         BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,
     > {
-        Self::new(blockchain, state, cfg, options)
+        Self::new(blockchain, state, cfg, Vec::new(), withdrawals, options)
     }
 
     fn block_receipt_factory(&self) -> ChainSpecT::BlockReceiptFactory {
