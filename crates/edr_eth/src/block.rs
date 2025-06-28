@@ -5,7 +5,7 @@
 // For the original context see: https://github.com/foundry-rs/foundry/blob/01b16238ff87dc7ca8ee3f5f13e389888c2a2ee4/anvil/core/src/eth/block.rs
 
 mod difficulty;
-mod options;
+mod overrides;
 mod reorg;
 mod reward;
 
@@ -14,7 +14,7 @@ pub use revm_context_interface::Block;
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{
-    options::HeaderOverrides,
+    overrides::HeaderOverrides,
     reorg::{
         block_time, is_safe_block_number, largest_safe_block_number, safe_block_depth,
         IsSafeBlockNumberArgs, LargestSafeBlockNumberArgs,
@@ -213,13 +213,13 @@ impl PartialHeader {
     /// parent [`Header`] for the given [`l1::SpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
-        options: HeaderOverrides,
+        overrides: HeaderOverrides,
         parent: Option<&Header>,
         ommers: &Vec<Header>,
         withdrawals: Option<&Vec<Withdrawal>>,
     ) -> Self {
-        let timestamp = options.timestamp.unwrap_or_default();
-        let number = options.number.unwrap_or({
+        let timestamp = overrides.timestamp.unwrap_or_default();
+        let number = overrides.number.unwrap_or({
             if let Some(parent) = &parent {
                 parent.number + 1
             } else {
@@ -227,7 +227,7 @@ impl PartialHeader {
             }
         });
 
-        let parent_hash = options.parent_hash.unwrap_or_else(|| {
+        let parent_hash = overrides.parent_hash.unwrap_or_else(|| {
             if let Some(parent) = parent {
                 parent.hash()
             } else {
@@ -238,11 +238,11 @@ impl PartialHeader {
         Self {
             parent_hash,
             ommers_hash: keccak256(alloy_rlp::encode(ommers)),
-            beneficiary: options.beneficiary.unwrap_or_default(),
-            state_root: options.state_root.unwrap_or(KECCAK_NULL_RLP),
+            beneficiary: overrides.beneficiary.unwrap_or_default(),
+            state_root: overrides.state_root.unwrap_or(KECCAK_NULL_RLP),
             receipts_root: KECCAK_NULL_RLP,
             logs_bloom: Bloom::default(),
-            difficulty: options.difficulty.unwrap_or_else(|| {
+            difficulty: overrides.difficulty.unwrap_or_else(|| {
                 if hardfork.into() >= l1::SpecId::MERGE {
                     U256::ZERO
                 } else if let Some(parent) = parent {
@@ -257,22 +257,22 @@ impl PartialHeader {
                 }
             }),
             number,
-            gas_limit: options.gas_limit.unwrap_or(1_000_000),
+            gas_limit: overrides.gas_limit.unwrap_or(1_000_000),
             gas_used: 0,
             timestamp,
-            extra_data: options.extra_data.unwrap_or_default(),
-            mix_hash: options.mix_hash.unwrap_or_default(),
-            nonce: options.nonce.unwrap_or_else(|| {
+            extra_data: overrides.extra_data.unwrap_or_default(),
+            mix_hash: overrides.mix_hash.unwrap_or_default(),
+            nonce: overrides.nonce.unwrap_or_else(|| {
                 if hardfork.into() >= l1::SpecId::MERGE {
                     B64::ZERO
                 } else {
                     B64::from(66u64)
                 }
             }),
-            base_fee: options.base_fee.or_else(|| {
+            base_fee: overrides.base_fee.or_else(|| {
                 if hardfork.into() >= l1::SpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        if let Some(base_fee_params) = &options.base_fee_params {
+                        if let Some(base_fee_params) = &overrides.base_fee_params {
                             calculate_next_base_fee_per_gas(parent, base_fee_params)
                         } else {
                             calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
@@ -286,7 +286,7 @@ impl PartialHeader {
                     None
                 }
             }),
-            withdrawals_root: options.withdrawals_root.or_else(|| {
+            withdrawals_root: overrides.withdrawals_root.or_else(|| {
                 if hardfork.into() >= l1::SpecId::SHANGHAI {
                     let withdrawals_root = withdrawals.map_or(KECCAK_NULL_RLP, |withdrawals| {
                         trie::ordered_trie_root(withdrawals.iter().map(alloy_rlp::encode))
@@ -297,7 +297,7 @@ impl PartialHeader {
                     None
                 }
             }),
-            blob_gas: options.blob_gas.or_else(|| {
+            blob_gas: overrides.blob_gas.or_else(|| {
                 if hardfork.into() >= l1::SpecId::CANCUN {
                     let excess_gas = parent.and_then(|parent| parent.blob_gas.as_ref()).map_or(
                         // For the first (post-fork) block, both parent.blob_gas_used and
@@ -333,7 +333,7 @@ impl PartialHeader {
                     None
                 }
             }),
-            parent_beacon_block_root: options.parent_beacon_block_root.or_else(|| {
+            parent_beacon_block_root: overrides.parent_beacon_block_root.or_else(|| {
                 if hardfork.into() >= l1::SpecId::CANCUN {
                     // Initial value from https://eips.ethereum.org/EIPS/eip-4788
                     Some(B256::ZERO)
@@ -341,7 +341,7 @@ impl PartialHeader {
                     None
                 }
             }),
-            requests_hash: options.requests_hash.or_else(|| {
+            requests_hash: overrides.requests_hash.or_else(|| {
                 if hardfork.into() >= l1::SpecId::PRAGUE {
                     // sha("") for an empty list of requests
                     Some(b256!(
