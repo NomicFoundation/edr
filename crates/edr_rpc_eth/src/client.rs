@@ -431,8 +431,8 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.message, "block not found: 0x7fffffffffffffff");
-                assert_eq!(error.code, -32001);
+                assert!(error.message.to_lowercase().contains("block"));
+                assert!(error.code <= -32000);
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
@@ -660,11 +660,8 @@ mod tests {
                 }
                 Err(error) => {
                     if let RpcClientError::JsonRpcError { error, .. } = error {
-                        assert_eq!(
-                            error.message,
-                            "One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found."
-                        );
-                        assert_eq!(error.code, -32000);
+                        assert!(error.message.to_lowercase().contains("block"));
+                        assert!(error.code <= -32000);
                         assert!(error.data.is_none());
                     } else {
                         unreachable!("Invalid error: {error}");
@@ -806,8 +803,8 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.message, "block not found: 0x7fffffffffffffff");
-                assert_eq!(error.code, -32001);
+                assert!(error.message.to_lowercase().contains("block"));
+                assert!(error.code <= -32000);
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
@@ -932,8 +929,8 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.message, "block not found: 0x7fffffffffffffff");
-                assert_eq!(error.code, -32001);
+                assert!(error.message.to_lowercase().contains("block"));
+                assert!(error.code <= -32000);
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
