@@ -7,7 +7,7 @@ import { setCWD } from "../helpers/cwd";
 import { INTERVAL_MINING_PROVIDERS } from "../helpers/providers";
 import { sleep } from "../helpers/sleep";
 
-describe.only("Interval mining provider", function () {
+describe("Interval mining provider", function () {
   INTERVAL_MINING_PROVIDERS.forEach(({ name, useProvider, isFork }) => {
     workaroundWindowsCiFailures.call(this, { isFork });
 
