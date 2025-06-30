@@ -431,8 +431,8 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.message, "Unknown block number");
-                assert_eq!(error.code, -32602);
+                assert_eq!(error.message, "block not found: 0x7fffffffffffffff");
+                assert_eq!(error.code, -32001);
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
@@ -806,8 +806,8 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.message, "Unknown block number");
-                assert_eq!(error.code, -32602);
+                assert_eq!(error.message, "block not found: 0x7fffffffffffffff");
+                assert_eq!(error.code, -32001);
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
@@ -922,16 +922,22 @@ mod tests {
             let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
                 .expect("failed to parse address");
 
-            let storage_slot = TestRpcClient::new(&alchemy_url)
+            let error = TestRpcClient::new(&alchemy_url)
                 .get_storage_at(
                     dai_address,
                     U256::from(1),
                     Some(BlockSpec::Number(MAX_BLOCK_NUMBER)),
                 )
                 .await
-                .expect("should have succeeded");
+                .expect_err("should have failed");
 
-            assert!(storage_slot.is_none());
+            if let RpcClientError::JsonRpcError { error, .. } = error {
+                assert_eq!(error.message, "block not found: 0x7fffffffffffffff");
+                assert_eq!(error.code, -32001);
+                assert!(error.data.is_none());
+            } else {
+                unreachable!("Invalid error: {error}");
+            }
         }
 
         #[tokio::test]
