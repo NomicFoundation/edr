@@ -33,7 +33,7 @@ describe("Interval mining provider", function () {
           await sleep(blockTime * 0.1);
         }
 
-        throw new Error('Timed out waiting for block');
+        throw new Error("Timed out waiting for block");
       };
 
       afterEach(async function () {
