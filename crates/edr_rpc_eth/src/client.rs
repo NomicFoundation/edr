@@ -431,8 +431,16 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert!(error.message.to_lowercase().contains("block"));
-                assert!(error.code <= -32000);
+                assert!(
+                    error.message.to_lowercase().contains("block"),
+                    "unexpected error: {}",
+                    error.message
+                );
+                assert!(
+                    error.code <= -32000,
+                    "unexpected error code: {}",
+                    error.code
+                );
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
@@ -660,8 +668,16 @@ mod tests {
                 }
                 Err(error) => {
                     if let RpcClientError::JsonRpcError { error, .. } = error {
-                        assert!(error.message.to_lowercase().contains("block"));
-                        assert!(error.code <= -32000);
+                        assert!(
+                            error.message.to_lowercase().contains("block"),
+                            "unexpected error: {}",
+                            error.message
+                        );
+                        assert!(
+                            error.code <= -32000,
+                            "unexpected error code: {}",
+                            error.code
+                        );
                         assert!(error.data.is_none());
                     } else {
                         unreachable!("Invalid error: {error}");
@@ -803,8 +819,16 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert!(error.message.to_lowercase().contains("block"));
-                assert!(error.code <= -32000);
+                assert!(
+                    error.message.to_lowercase().contains("block"),
+                    "unexpected error: {}",
+                    error.message
+                );
+                assert!(
+                    error.code <= -32000,
+                    "unexpected error code: {}",
+                    error.code
+                );
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
@@ -929,8 +953,16 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert!(error.message.to_lowercase().contains("block"));
-                assert!(error.code <= -32000);
+                assert!(
+                    error.message.to_lowercase().contains("block"),
+                    "unexpected error: {}",
+                    error.message
+                );
+                assert!(
+                    error.code <= -32000,
+                    "unexpected error code: {}",
+                    error.code
+                );
                 assert!(error.data.is_none());
             } else {
                 unreachable!("Invalid error: {error}");
