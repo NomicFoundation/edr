@@ -11,16 +11,16 @@ use edr_eth::{
     transaction::{self, SignedTransaction as _, Transaction as _, TransactionType},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
-    Address, Bloom, U256,
+    Address, Bloom, HashMap, U256,
 };
 use revm::{
     db::{DatabaseComponentError, DatabaseComponents, StateRef},
     primitives::{
         BlobExcessGasAndPrice, BlockEnv, CfgEnvWithHandlerCfg, EVMError, EnvWithHandlerCfg,
-        ExecutionResult, InvalidHeader, InvalidTransaction, Output, ResultAndState, SpecId,
-        GAS_PER_BLOB,
+        ExecutionResult, InvalidHeader, InvalidTransaction, Output, Precompile, ResultAndState,
+        SpecId, GAS_PER_BLOB,
     },
-    Context, DatabaseCommit, Evm, InnerEvmContext,
+    Context, ContextPrecompile, DatabaseCommit, Evm, InnerEvmContext,
 };
 
 use super::local::LocalBlock;
@@ -28,6 +28,7 @@ use crate::{
     blockchain::SyncBlockchain,
     chain_spec::{ChainSpec, L1ChainSpec},
     debug::{DebugContext, EvmContext},
+    precompiles::register_precompiles_handles,
     state::{AccountModifierFn, StateDebug, StateDiff, SyncState},
     SyncBlock,
 };
@@ -226,6 +227,7 @@ impl BlockBuilder {
         blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
         state: StateT,
         transaction: transaction::Signed,
+        custom_precompiles: &HashMap<Address, Precompile>,
         debug_context: Option<
             DebugContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>,
         >,
@@ -304,6 +306,11 @@ impl BlockBuilder {
             block_hash: blockchain,
         };
 
+        let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
+            .iter()
+            .map(|(address, precompile)| (*address, ContextPrecompile::from(precompile.clone())))
+            .collect();
+
         let (
             mut evm_context,
             ResultAndState {
@@ -317,6 +324,9 @@ impl BlockBuilder {
                     .with_external_context(debug_context.data)
                     .with_env_with_handler_cfg(env)
                     .append_handler_register(debug_context.register_handles_fn)
+                    .append_handler_register_box(Box::new(move |handler| {
+                        register_precompiles_handles(handler, precompiles.clone());
+                    }))
                     .build();
 
                 let result = evm.transact();
@@ -350,6 +360,9 @@ impl BlockBuilder {
                 let mut evm = Evm::builder()
                     .with_ref_db(db)
                     .with_env_with_handler_cfg(env)
+                    .append_handler_register_box(Box::new(move |handler| {
+                        register_precompiles_handles(handler, precompiles.clone());
+                    }))
                     .build();
 
                 let result = evm.transact();

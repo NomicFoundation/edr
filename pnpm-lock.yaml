@@ -70,6 +70,9 @@ importers:
       eslint-plugin-prettier:
         specifier: 5.2.1
         version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
+      ethers:
+        specifier: ^6.1.0
+        version: 6.12.0
       json-stream-stringify:
         specifier: ^3.1.4
         version: 3.1.4
@@ -5966,7 +5969,7 @@ snapshots:
 
   rxjs@7.8.1:
     dependencies:
-      tslib: 2.4.0
+      tslib: 2.6.3
 
   safe-array-concat@1.1.2:
     dependencies:
