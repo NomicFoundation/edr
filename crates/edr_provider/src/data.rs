@@ -2226,7 +2226,6 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         debugger: &mut Debugger,
     ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
-        let custom_precompiles = self.custom_precompiles.clone();
         let result = mine_block(
             self.blockchain.as_ref(),
             state_to_be_modified,
@@ -2237,7 +2236,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.initial_config.mining.mem_pool.order,
             miner_reward(config.handler_cfg.spec_id).unwrap_or(U256::ZERO),
             self.dao_activation_block,
-            &custom_precompiles,
+            &self.custom_precompiles,
             Some(DebugContext {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
@@ -2255,7 +2254,6 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
         debugger: &mut Debugger,
     ) -> Result<MineBlockResultAndState<L1ChainSpec, StateError>, ProviderError<LoggerErrorT>> {
         let state_to_be_modified = (*self.current_state()?).clone();
-        let custom_precompiles = self.custom_precompiles.clone();
         let result = mine_block_with_single_transaction(
             self.blockchain.as_ref(),
             state_to_be_modified,
@@ -2265,7 +2263,7 @@ impl<LoggerErrorT: Debug, TimerT: Clone + TimeSinceEpoch> ProviderData<LoggerErr
             self.min_gas_price,
             miner_reward(config.handler_cfg.spec_id).unwrap_or(U256::ZERO),
             self.dao_activation_block,
-            &custom_precompiles,
+            &self.custom_precompiles,
             Some(DebugContext {
                 data: debugger,
                 register_handles_fn: register_debugger_handles,
