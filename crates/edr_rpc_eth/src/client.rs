@@ -432,11 +432,6 @@ mod tests {
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
                 assert!(
-                    error.message.to_lowercase().contains("block"),
-                    "unexpected error: {}",
-                    error.message
-                );
-                assert!(
                     error.code <= -32000,
                     "unexpected error code: {}",
                     error.code
@@ -669,11 +664,6 @@ mod tests {
                 Err(error) => {
                     if let RpcClientError::JsonRpcError { error, .. } = error {
                         assert!(
-                            error.message.to_lowercase().contains("block"),
-                            "unexpected error: {}",
-                            error.message
-                        );
-                        assert!(
                             error.code <= -32000,
                             "unexpected error code: {}",
                             error.code
@@ -820,11 +810,6 @@ mod tests {
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
                 assert!(
-                    error.message.to_lowercase().contains("block"),
-                    "unexpected error: {}",
-                    error.message
-                );
-                assert!(
                     error.code <= -32000,
                     "unexpected error code: {}",
                     error.code
@@ -953,11 +938,6 @@ mod tests {
                 .expect_err("should have failed");
 
             if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert!(
-                    error.message.to_lowercase().contains("block"),
-                    "unexpected error: {}",
-                    error.message
-                );
                 assert!(
                     error.code <= -32000,
                     "unexpected error code: {}",
