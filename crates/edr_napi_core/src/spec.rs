@@ -134,6 +134,12 @@ impl SyncNapiSpec for GenericChainSpec {
         mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
         contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Response<l1::HaltReason>> {
+        std::fs::write(
+            "./response.json",
+            serde_json::to_string(&response.as_ref().expect("success response").result)
+                .expect("invalid json"),
+        )
+        .expect("failed to write json file");
         // We can take the solidity trace as it won't be used for anything else
         let solidity_trace: Option<Arc<Trace<l1::HaltReason>>> =
             response.as_mut().err().and_then(|error| {
