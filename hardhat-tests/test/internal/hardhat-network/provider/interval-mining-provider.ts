@@ -7,14 +7,14 @@ import { setCWD } from "../helpers/cwd";
 import { INTERVAL_MINING_PROVIDERS } from "../helpers/providers";
 import { sleep } from "../helpers/sleep";
 
-describe("Interval mining provider", function () {
+describe.only("Interval mining provider", function () {
   INTERVAL_MINING_PROVIDERS.forEach(({ name, useProvider, isFork }) => {
     workaroundWindowsCiFailures.call(this, { isFork });
 
     describe(`${name} provider`, function () {
       const safeBlockInThePast = 11_200_000;
       const blockTime = 100;
-      const blockWaitTime = blockTime + 10;
+      const blockWaitTime = blockTime + 50;
 
       const getBlockNumber = async () => {
         return rpcQuantityToNumber(
