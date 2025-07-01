@@ -14,12 +14,26 @@ describe("Interval mining provider", function () {
     describe(`${name} provider`, function () {
       const safeBlockInThePast = 11_200_000;
       const blockTime = 100;
-      const blockWaitTime = blockTime + 10;
 
       const getBlockNumber = async () => {
         return rpcQuantityToNumber(
           await this.ctx.provider.send("eth_blockNumber")
         );
+      };
+
+      const waitForNextBlock = async () => {
+        const startTime = Date.now();
+        const startBlock = await getBlockNumber();
+
+        await sleep(blockTime * 0.5);
+
+        while (Date.now() - startTime < blockTime * 2) {
+          const block = await getBlockNumber();
+          if (block > startBlock) return;
+          await sleep(blockTime * 0.1);
+        }
+
+        throw new Error("Timed out waiting for block");
       };
 
       afterEach(async function () {
@@ -33,10 +47,10 @@ describe("Interval mining provider", function () {
         it("starts interval mining automatically", async function () {
           const firstBlock = await getBlockNumber(); // this triggers provider initialization
 
-          await sleep(blockWaitTime);
+          await waitForNextBlock();
           const secondBlock = await getBlockNumber();
 
-          await sleep(blockWaitTime);
+          await waitForNextBlock();
           const thirdBlock = await getBlockNumber();
 
           assert.equal(secondBlock, firstBlock + 1);
@@ -55,7 +69,7 @@ describe("Interval mining provider", function () {
           it("starts interval mining", async function () {
             const firstBlock = await getBlockNumber();
 
-            await sleep(blockWaitTime);
+            await waitForNextBlock();
             const secondBlockBeforeReset = await getBlockNumber();
 
             await this.provider.send("hardhat_reset", [
@@ -67,10 +81,10 @@ describe("Interval mining provider", function () {
               },
             ]);
 
-            await sleep(blockWaitTime);
+            await waitForNextBlock();
             const secondBlockAfterReset = await getBlockNumber();
 
-            await sleep(blockWaitTime);
+            await waitForNextBlock();
             const thirdBlock = await getBlockNumber();
 
             assert.equal(secondBlockBeforeReset, firstBlock + 1);
@@ -83,15 +97,15 @@ describe("Interval mining provider", function () {
           it("starts interval mining", async function () {
             const firstBlock = await getBlockNumber();
 
-            await sleep(blockWaitTime);
+            await waitForNextBlock();
             const secondBlockBeforeReset = await getBlockNumber();
 
             await this.provider.send("hardhat_reset");
 
-            await sleep(blockWaitTime);
+            await waitForNextBlock();
             const secondBlockAfterReset = await getBlockNumber();
 
-            await sleep(blockWaitTime);
+            await waitForNextBlock();
             const thirdBlock = await getBlockNumber();
 
             assert.equal(secondBlockBeforeReset, firstBlock + 1);
