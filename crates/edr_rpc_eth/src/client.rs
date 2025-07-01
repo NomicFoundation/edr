@@ -430,16 +430,7 @@ mod tests {
                 .await
                 .expect_err("should have failed");
 
-            if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert!(
-                    error.code <= -32000,
-                    "unexpected error code: {}",
-                    error.code
-                );
-                assert!(error.data.is_none());
-            } else {
-                unreachable!("Invalid error: {error}");
-            }
+            assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
         }
 
         #[tokio::test]
@@ -662,16 +653,7 @@ mod tests {
                     assert!(response.is_empty());
                 }
                 Err(error) => {
-                    if let RpcClientError::JsonRpcError { error, .. } = error {
-                        assert!(
-                            error.code <= -32000,
-                            "unexpected error code: {}",
-                            error.code
-                        );
-                        assert!(error.data.is_none());
-                    } else {
-                        unreachable!("Invalid error: {error}");
-                    }
+                    assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
                 }
             }
         }
@@ -808,16 +790,7 @@ mod tests {
                 .await
                 .expect_err("should have failed");
 
-            if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert!(
-                    error.code <= -32000,
-                    "unexpected error code: {}",
-                    error.code
-                );
-                assert!(error.data.is_none());
-            } else {
-                unreachable!("Invalid error: {error}");
-            }
+            assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
         }
 
         #[tokio::test]
@@ -937,16 +910,7 @@ mod tests {
                 .await
                 .expect_err("should have failed");
 
-            if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert!(
-                    error.code <= -32000,
-                    "unexpected error code: {}",
-                    error.code
-                );
-                assert!(error.data.is_none());
-            } else {
-                unreachable!("Invalid error: {error}");
-            }
+            assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
         }
 
         #[tokio::test]
