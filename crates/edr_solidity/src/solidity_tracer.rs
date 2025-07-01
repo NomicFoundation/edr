@@ -28,6 +28,9 @@ pub enum SolidityTracerError<HaltReasonT> {
     /// Errors that can occur during the heuristics.
     #[error(transparent)]
     Heuristics(#[from] HeuristicsError),
+    /// Invalid input: step after jump into function.
+    #[error("Missing step after jump into function")]
+    MissingStepAfterJumpIntoFunction,
 }
 
 impl<HaltReasonT> SolidityTracerError<HaltReasonT> {
@@ -47,6 +50,9 @@ impl<HaltReasonT> SolidityTracerError<HaltReasonT> {
                 SolidityTracerError::ErrorInferrer(err.map_halt_reason(conversion_fn))
             }
             SolidityTracerError::Heuristics(err) => SolidityTracerError::Heuristics(err),
+            SolidityTracerError::MissingStepAfterJumpIntoFunction => {
+                SolidityTracerError::MissingStepAfterJumpIntoFunction
+            }
         }
     }
 }
@@ -230,7 +236,9 @@ fn raw_trace_evm_execution<HaltReasonT: HaltReasonTrait>(
             let inst = contract_meta.get_instruction(*pc)?;
 
             if inst.jump_type == JumpType::IntoFunction && iter.peek().is_some() {
-                let (_, next_step) = iter.peek().unwrap();
+                let (_, next_step) = iter
+                    .peek()
+                    .ok_or(SolidityTracerError::<HaltReasonT>::MissingStepAfterJumpIntoFunction)?;
                 let NestedTraceStep::Evm(next_evm_step) = next_step else {
                     return Err(InferrerError::ExpectedEvmStep.into());
                 };

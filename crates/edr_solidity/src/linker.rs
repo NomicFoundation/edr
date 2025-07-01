@@ -24,6 +24,20 @@ pub type ArtifactContracts<'a> = BTreeMap<ArtifactId, CompactContractBytecodeCow
 /// Errors that can occur during linking.
 #[derive(Debug, thiserror::Error)]
 pub enum LinkerError {
+    /// Error that occurs when bytecode cannot be extracted as bytes.
+    #[error("failed to extract bytecode as bytes for artifact '{artifact_name}'")]
+    BytecodeExtractionFailed {
+        /// The name of the artifact.
+        artifact_name: String,
+    },
+
+    /// Error that occurs when an artifact is missing its bytecode.
+    #[error("artifact '{artifact_name}' is missing bytecode")]
+    MissingBytecode {
+        /// The name of the artifact missing bytecode.
+        artifact_name: String,
+    },
+
     /// Error that occurs when a library artifact cannot be found at the
     /// specified file path with the given name.
     #[error("wasn't able to find artifact for library '{library_name}' at '{library_file_path}' when linking '{contract_name}' at '{contract_file_path}'")]
@@ -115,7 +129,11 @@ impl<'a> Linker<'a> {
             .strip_prefix(self.root.as_path())
             .unwrap_or(&id.source);
         // name is either {LibName} or {LibName}.{version}
-        let name = id.name.split('.').next().unwrap();
+        let name = id
+            .name
+            .split('.')
+            .next()
+            .expect("split never returns empty iterator");
 
         (path.to_path_buf(), name.to_owned())
     }
@@ -271,11 +289,13 @@ impl<'a> Linker<'a> {
         let libs_to_deploy = libs_to_deploy
             .into_iter()
             .map(|(id, _address)| {
-                Ok(self
-                    .link(id, &libraries)?
-                    .get_bytecode_bytes()
-                    .expect("bytecode is now `BytecodeObject::Bytecode`")
-                    .into_owned())
+                let linked_contract = self.link(id, &libraries)?;
+                let bytecode_bytes = linked_contract.get_bytecode_bytes().ok_or_else(|| {
+                    LinkerError::BytecodeExtractionFailed {
+                        artifact_name: id.name.clone(),
+                    }
+                })?;
+                Ok(bytecode_bytes.into_owned())
             })
             .collect::<Result<Vec<_>, LinkerError>>()?;
 
@@ -329,10 +349,16 @@ impl<'a> Linker<'a> {
             .map(|id| {
                 // Link library with provided libs and extract bytecode object (possibly
                 // unlinked).
-                let bytecode = self.link(id, &libraries).unwrap().bytecode.unwrap();
-                (id, bytecode)
+                let linked_contract = self.link(id, &libraries)?;
+                let bytecode =
+                    linked_contract
+                        .bytecode
+                        .ok_or_else(|| LinkerError::MissingBytecode {
+                            artifact_name: id.name.clone(),
+                        })?;
+                Ok((id, bytecode))
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, LinkerError>>()?;
 
         let mut libs_to_deploy = Vec::new();
 
@@ -351,7 +377,11 @@ impl<'a> Linker<'a> {
                 return Err(LinkerError::CyclicDependency);
             };
             let (_, bytecode) = needed_libraries.swap_remove(index);
-            let code = bytecode.bytes().unwrap();
+            let code = bytecode
+                .bytes()
+                .ok_or_else(|| LinkerError::BytecodeExtractionFailed {
+                    artifact_name: id.name.clone(),
+                })?;
             let address = sender.create2_from_code(salt, code);
             libs_to_deploy.push(code.clone());
 
