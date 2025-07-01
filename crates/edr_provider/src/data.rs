@@ -2244,7 +2244,6 @@ where
     > {
         let reward = miner_reward(config.spec.into()).unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
-        let custom_precompiles = self.initial_config.precompile_overrides.clone();
 
         let result = mine_block(
             self.blockchain.as_ref(),
@@ -2256,7 +2255,7 @@ where
             self.initial_config.mining.mem_pool.order,
             reward,
             Some(runtime_observer),
-            &custom_precompiles,
+            &self.initial_config.precompile_overrides,
         )?;
 
         Ok(result)
@@ -2275,7 +2274,6 @@ where
     > {
         let reward = miner_reward(config.spec.into()).unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
-        let custom_precompiles = self.initial_config.precompile_overrides.clone();
 
         let result = mine_block_with_single_transaction(
             self.blockchain.as_ref(),
@@ -2286,7 +2284,7 @@ where
             self.min_gas_price,
             reward,
             Some(runtime_observer),
-            &custom_precompiles,
+            &self.initial_config.precompile_overrides,
         )?;
 
         Ok(result)
