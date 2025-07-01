@@ -537,6 +537,26 @@
     },
     {
       "func": {
+        "id": "_expectInternalRevert",
+        "description": "Expects a `count` number of reverts from the upcoming calls from the reverter address that exactly match the revert data.",
+        "declaration": "function _expectInternalRevert() external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "_expectInternalRevert()",
+        "selector": "0x2ae06891",
+        "selectorBytes": [
+          42,
+          224,
+          104,
+          145
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
         "id": "accesses",
         "description": "Gets all accessed reads and write slot from a `vm.record` session, for a given address.",
         "declaration": "function accesses(address target) external returns (bytes32[] memory readSlots, bytes32[] memory writeSlots);",
@@ -4281,6 +4301,126 @@
     },
     {
       "func": {
+        "id": "expectCreate",
+        "description": "Expects the deployment of the specified bytecode by the specified address using the CREATE opcode",
+        "declaration": "function expectCreate(bytes calldata bytecode, address deployer) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectCreate(bytes,address)",
+        "selector": "0x73cdce36",
+        "selectorBytes": [
+          115,
+          205,
+          206,
+          54
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectCreate2",
+        "description": "Expects the deployment of the specified bytecode by the specified address using the CREATE2 opcode",
+        "declaration": "function expectCreate2(bytes calldata bytecode, address deployer) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectCreate2(bytes,address)",
+        "selector": "0xea54a472",
+        "selectorBytes": [
+          234,
+          84,
+          164,
+          114
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectEmitAnonymous_0",
+        "description": "Prepare an expected anonymous log with (bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData.).\nCall this function, then emit an anonymous event, then call a function. Internally after the call, we check if\nlogs were emitted in the expected order with the expected topics and data (as specified by the booleans).",
+        "declaration": "function expectEmitAnonymous(bool checkTopic0, bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectEmitAnonymous(bool,bool,bool,bool,bool)",
+        "selector": "0xc948db5e",
+        "selectorBytes": [
+          201,
+          72,
+          219,
+          94
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectEmitAnonymous_1",
+        "description": "Same as the previous method, but also checks supplied address against emitting contract.",
+        "declaration": "function expectEmitAnonymous(bool checkTopic0, bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, address emitter) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectEmitAnonymous(bool,bool,bool,bool,bool,address)",
+        "selector": "0x71c95899",
+        "selectorBytes": [
+          113,
+          201,
+          88,
+          153
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectEmitAnonymous_2",
+        "description": "Prepare an expected anonymous log with all topic and data checks enabled.\nCall this function, then emit an anonymous event, then call a function. Internally after the call, we check if\nlogs were emitted in the expected order with the expected topics and data.",
+        "declaration": "function expectEmitAnonymous() external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectEmitAnonymous()",
+        "selector": "0x2e5f270c",
+        "selectorBytes": [
+          46,
+          95,
+          39,
+          12
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectEmitAnonymous_3",
+        "description": "Same as the previous method, but also checks supplied address against emitting contract.",
+        "declaration": "function expectEmitAnonymous(address emitter) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectEmitAnonymous(address)",
+        "selector": "0x6fc68705",
+        "selectorBytes": [
+          111,
+          198,
+          135,
+          5
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
         "id": "expectEmit_0",
         "description": "Prepare an expected log with (bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData.).\nCall this function, then emit an event, then call a function. Internally after the call, we check if\nlogs were emitted in the expected order with the expected topics and data (as specified by the booleans).",
         "declaration": "function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;",
@@ -4361,6 +4501,126 @@
     },
     {
       "func": {
+        "id": "expectEmit_4",
+        "description": "Expect a given number of logs with the provided topics.",
+        "declaration": "function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectEmit(bool,bool,bool,bool,uint64)",
+        "selector": "0x5e1d1c33",
+        "selectorBytes": [
+          94,
+          29,
+          28,
+          51
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectEmit_5",
+        "description": "Expect a given number of logs from a specific emitter with the provided topics.",
+        "declaration": "function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, address emitter, uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectEmit(bool,bool,bool,bool,address,uint64)",
+        "selector": "0xc339d02c",
+        "selectorBytes": [
+          195,
+          57,
+          208,
+          44
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectEmit_6",
+        "description": "Expect a given number of logs with all topic and data checks enabled.",
+        "declaration": "function expectEmit(uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectEmit(uint64)",
+        "selector": "0x4c74a335",
+        "selectorBytes": [
+          76,
+          116,
+          163,
+          53
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectEmit_7",
+        "description": "Expect a given number of logs from a specific emitter with all topic and data checks enabled.",
+        "declaration": "function expectEmit(address emitter, uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectEmit(address,uint64)",
+        "selector": "0xb43aece3",
+        "selectorBytes": [
+          180,
+          58,
+          236,
+          227
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectPartialRevert_0",
+        "description": "Expects an error on next call that starts with the revert data.",
+        "declaration": "function expectPartialRevert(bytes4 revertData) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectPartialRevert(bytes4)",
+        "selector": "0x11fb5b9c",
+        "selectorBytes": [
+          17,
+          251,
+          91,
+          156
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectPartialRevert_1",
+        "description": "Expects an error on next call to reverter address, that starts with the revert data.",
+        "declaration": "function expectPartialRevert(bytes4 revertData, address reverter) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectPartialRevert(bytes4,address)",
+        "selector": "0x51aa008a",
+        "selectorBytes": [
+          81,
+          170,
+          0,
+          138
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
         "id": "expectRevert_0",
         "description": "Expects an error on next call with any revert data.",
         "declaration": "function expectRevert() external;",
@@ -4382,7 +4642,7 @@
     {
       "func": {
         "id": "expectRevert_1",
-        "description": "Expects an error on next call that starts with the revert data.",
+        "description": "Expects an error on next call that exactly matches the revert data.",
         "declaration": "function expectRevert(bytes4 revertData) external;",
         "visibility": "external",
         "mutability": "",
@@ -4393,6 +4653,46 @@
           30,
           176,
           224
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectRevert_10",
+        "description": "Expects a `count` number of reverts from the upcoming calls from the reverter address that match the revert data.",
+        "declaration": "function expectRevert(bytes4 revertData, address reverter, uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectRevert(bytes4,address,uint64)",
+        "selector": "0xb0762d73",
+        "selectorBytes": [
+          176,
+          118,
+          45,
+          115
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectRevert_11",
+        "description": "Expects a `count` number of reverts from the upcoming calls from the reverter address that exactly match the revert data.",
+        "declaration": "function expectRevert(bytes calldata revertData, address reverter, uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectRevert(bytes,address,uint64)",
+        "selector": "0xd345fb1f",
+        "selectorBytes": [
+          211,
+          69,
+          251,
+          31
         ]
       },
       "group": "testing",
@@ -4413,6 +4713,146 @@
           141,
           206,
           179
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectRevert_3",
+        "description": "Expects an error with any revert data on next call to reverter address.",
+        "declaration": "function expectRevert(address reverter) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectRevert(address)",
+        "selector": "0xd814f38a",
+        "selectorBytes": [
+          216,
+          20,
+          243,
+          138
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectRevert_4",
+        "description": "Expects an error from reverter address on next call, with any revert data.",
+        "declaration": "function expectRevert(bytes4 revertData, address reverter) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectRevert(bytes4,address)",
+        "selector": "0x260bc5de",
+        "selectorBytes": [
+          38,
+          11,
+          197,
+          222
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectRevert_5",
+        "description": "Expects an error from reverter address on next call, that exactly matches the revert data.",
+        "declaration": "function expectRevert(bytes calldata revertData, address reverter) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectRevert(bytes,address)",
+        "selector": "0x61ebcf12",
+        "selectorBytes": [
+          97,
+          235,
+          207,
+          18
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectRevert_6",
+        "description": "Expects a `count` number of reverts from the upcoming calls with any revert data or reverter.",
+        "declaration": "function expectRevert(uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectRevert(uint64)",
+        "selector": "0x4ee38244",
+        "selectorBytes": [
+          78,
+          227,
+          130,
+          68
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectRevert_7",
+        "description": "Expects a `count` number of reverts from the upcoming calls that match the revert data.",
+        "declaration": "function expectRevert(bytes4 revertData, uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectRevert(bytes4,uint64)",
+        "selector": "0xe45ca72d",
+        "selectorBytes": [
+          228,
+          92,
+          167,
+          45
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectRevert_8",
+        "description": "Expects a `count` number of reverts from the upcoming calls that exactly match the revert data.",
+        "declaration": "function expectRevert(bytes calldata revertData, uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectRevert(bytes,uint64)",
+        "selector": "0x4994c273",
+        "selectorBytes": [
+          73,
+          148,
+          194,
+          115
+        ]
+      },
+      "group": "testing",
+      "status": "stable",
+      "safety": "unsafe"
+    },
+    {
+      "func": {
+        "id": "expectRevert_9",
+        "description": "Expects a `count` number of reverts from the upcoming calls from the reverter address.",
+        "declaration": "function expectRevert(address reverter, uint64 count) external;",
+        "visibility": "external",
+        "mutability": "",
+        "signature": "expectRevert(address,uint64)",
+        "selector": "0x1ff5f952",
+        "selectorBytes": [
+          31,
+          245,
+          249,
+          82
         ]
       },
       "group": "testing",
