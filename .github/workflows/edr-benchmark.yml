@@ -3,7 +3,7 @@ name: EDR Benchmark
 on:
   push:
     branches:
-      - main
+      - hh2
   pull_request:
     branches:
       - "**"
@@ -16,7 +16,7 @@ defaults:
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   # Don't cancel in progress jobs in main
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/hh2' }}
 
 jobs:
   js-benchmark:
@@ -24,7 +24,7 @@ jobs:
     environment: github-action-benchmark
     runs-on: self-hosted
     # Only run for trusted collaborators since third-parties could run malicious code on the self-hosted benchmark runner.
-    if: github.ref == 'refs/heads/main' || github.repository == github.event.pull_request.head.repo.full_name
+    if: github.ref == 'refs/heads/hh2' || github.repository == github.event.pull_request.head.repo.full_name
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node
@@ -51,13 +51,13 @@ jobs:
           tool: customSmallerIsBetter
           output-file-path: crates/tools/js/benchmark/report.json
           gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
-          gh-pages-branch: main
+          gh-pages-branch: hh2
           benchmark-data-dir-path: bench
           github-token: ${{ secrets.BENCHMARK_GITHUB_TOKEN }}
-          # Only save the data for main branch pushes. For PRs we only compare
-          auto-push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+          # Only save the data for hh2 branch pushes. For PRs we only compare
+          auto-push: ${{ github.ref == 'refs/heads/hh2' && github.event_name != 'pull_request' }}
           alert-threshold: "110%"
-          # Only fail on pull requests, don't break CI in main
+          # Only fail on pull requests, don't break CI in hh2
           fail-on-alert: ${{ github.event_name == 'pull_request' }}
           # Enable Job Summary for PRs
           summary-always: true
