@@ -31,6 +31,8 @@ const FIRST_SOLC_VERSION_WITH_MAPPED_SMALL_INTERNAL_FUNCTIONS: Version = Version
 pub enum HeuristicsError {
     #[error(transparent)]
     BytecodeError(#[from] ContractMetadataError),
+    #[error("Invariant violation: {0}")]
+    InvariantViolation(String),
     #[error("Missing contract")]
     MissingContract,
 }
@@ -72,9 +74,7 @@ pub fn adjust_stack_trace<HaltReasonT: HaltReasonTrait>(
         source_reference, ..
     }) = stacktrace.last()
     else {
-        unreachable!(
-            "This should be only used immediately after we check with `stack_trace_may_require_adjustments` that the last frame is a revert frame"
-        );
+        return Err(HeuristicsError::InvariantViolation("This should be only used immediately after we check with `stack_trace_may_require_adjustments` that the last frame is a revert frame".to_string()));
     };
 
     // Replace the last revert frame with an adjusted frame if needed

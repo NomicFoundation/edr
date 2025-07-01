@@ -58,8 +58,7 @@ pub enum InferrerError<HaltReasonT> {
     /// Serde JSON error while parsing [`ContractFunction`].
     #[error("Failed to parse function: {0}")]
     InvalidFunction(Arc<serde_json::Error>),
-    /// An invariant assumed by the code was violated. Used in `edr_solidity` in
-    /// place of panics as the logic is fragile.
+    /// An invariant assumed by the code was violated.
     #[error("Invariant violation: {0}")]
     InvariantViolation(String),
     /// Invalid input or logic error: Missing contract metadata.
