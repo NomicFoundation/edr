@@ -184,7 +184,7 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
     /// Fill the split node from the node with the node
     /// and the new key as children. If the new key is shorter than the
     /// node's prefix, the new split node will be a match for the new
-    /// key. Panics if `split_index > new_key.key().len()`
+    /// key. Panics if `self.prefix.range_end > new_key.key().len()`
     fn fill_split_node(&mut self, node_to_split: BytecodeTrie<T>, new_item: T) {
         // We use the descendants to keep track of insertion order, so it's
         // important to preserve that order here
@@ -214,8 +214,12 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
             }
             Ordering::Greater => {
                 // If the split index is greater than the length of the key, this function was
-                // called with the wrong arguments due to a bug.
-                panic!("split index is greater than new key length")
+                // called with the wrong arguments due to a bug. Such a bug would be local to
+                // the bytecode trie insertion logic, so while in other parts of `edr_solidity`
+                // we prefer to propagate an error in case of invariant violations due to
+                // possibly unforeseen dependencies between components, we panic
+                // here.
+                unreachable!("split index is greater than new key length")
             }
         }
     }

@@ -5,6 +5,21 @@ use edr_evm::interpreter::OpCode;
 
 use crate::build_model::{BuildModel, Instruction, JumpType, SourceLocation};
 
+/// Errors that can occur during source map decoding.
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum SourceMapError {
+    /// Failed to parse a numeric value in the source map.
+    #[error("Failed to parse {field} at index {index}: `{value}`")]
+    ParseError {
+        field: String,
+        index: usize,
+        value: String,
+    },
+    /// Found an invalid opcode.
+    #[error("Invalid opcode at index {index}: `{value}`")]
+    InvalidOpcode { index: usize, value: String },
+}
+
 /// Source mapping used by the Solidity compiler as part of its AST output.
 ///
 /// See <https://docs.soliditylang.org/en/latest/internals/source_mappings.html>.
@@ -35,7 +50,7 @@ fn jump_letter_to_jump_type(letter: &str) -> JumpType {
     }
 }
 
-fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
+fn uncompress_sourcemaps(compressed: &str) -> Result<Vec<SourceMap>, SourceMapError> {
     let mut mappings = Vec::new();
 
     let compressed_mappings = compressed.split(';');
@@ -67,23 +82,35 @@ fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
         mappings.push(SourceMap {
             location: SourceMapLocation {
                 offset: if has_parts0 {
-                    parts[0].parse().unwrap_or_else(|_| {
-                        panic!("Failed to parse offset at index {i}: `{}`", parts[0])
-                    })
+                    parts[0]
+                        .parse()
+                        .map_err(|_err| SourceMapError::ParseError {
+                            field: "offset".to_string(),
+                            index: i,
+                            value: parts[0].to_string(),
+                        })?
                 } else {
                     mappings[i - 1].location.offset
                 },
                 length: if has_parts1 {
-                    parts[1].parse().unwrap_or_else(|_| {
-                        panic!("Failed to parse length at index {i}: `{}`", parts[1])
-                    })
+                    parts[1]
+                        .parse()
+                        .map_err(|_err| SourceMapError::ParseError {
+                            field: "length".to_string(),
+                            index: i,
+                            value: parts[1].to_string(),
+                        })?
                 } else {
                     mappings[i - 1].location.length
                 },
                 file: if has_parts2 {
-                    parts[2].parse().unwrap_or_else(|_| {
-                        panic!("Failed to parse file at index {i}: `{}`", parts[2])
-                    })
+                    parts[2]
+                        .parse()
+                        .map_err(|_err| SourceMapError::ParseError {
+                            field: "file".to_string(),
+                            index: i,
+                            value: parts[2].to_string(),
+                        })?
                 } else {
                     mappings[i - 1].location.file
                 },
@@ -96,10 +123,13 @@ fn uncompress_sourcemaps(compressed: &str) -> Vec<SourceMap> {
         });
     }
 
-    mappings
+    Ok(mappings)
 }
 
-fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8]) {
+fn add_unmapped_instructions(
+    instructions: &mut Vec<Instruction>,
+    bytecode: &[u8],
+) -> Result<(), SourceMapError> {
     let mut bytes_index = instructions.last().map_or(0, |instr| {
         // On the odd chance that the last instruction is a PUSH, we make sure
         // to include any immediate data that might be present.
@@ -107,7 +137,11 @@ fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8
     });
 
     while bytecode.get(bytes_index) != Some(OpCode::INVALID.get()).as_ref() {
-        let opcode = OpCode::new(bytecode[bytes_index]).expect("Invalid opcode");
+        let opcode =
+            OpCode::new(bytecode[bytes_index]).ok_or_else(|| SourceMapError::InvalidOpcode {
+                index: bytes_index,
+                value: format!("{:02x}", bytecode[bytes_index]),
+            })?;
 
         let push_data = if opcode.is_push() {
             let push_data = &bytecode[bytes_index..][..1 + opcode.info().immediate_size() as usize];
@@ -135,21 +169,19 @@ fn add_unmapped_instructions(instructions: &mut Vec<Instruction>, bytecode: &[u8
 
         bytes_index += 1 + opcode.info().immediate_size() as usize;
     }
+
+    Ok(())
 }
 
 /// Given the raw bytecode and the compressed source maps, decode the
 /// instructions.
-///
-/// # Panics
-///
-/// This function panics if the bytecode is invalid.
 pub fn decode_instructions(
     bytecode: &[u8],
     compressed_sourcemaps: &str,
     build_model: &Arc<BuildModel>,
     is_deployment: bool,
-) -> Vec<Instruction> {
-    let source_maps = uncompress_sourcemaps(compressed_sourcemaps);
+) -> Result<Vec<Instruction>, SourceMapError> {
+    let source_maps = uncompress_sourcemaps(compressed_sourcemaps)?;
 
     let mut instructions = Vec::new();
 
@@ -167,7 +199,7 @@ pub fn decode_instructions(
             // We assume this happens because the source maps point to the metadata region
             // of the bytecode. That means that the actual instructions have
             // already been decoded and we can stop here.
-            return instructions;
+            return Ok(instructions);
         };
 
         let push_data = if opcode.is_push() {
@@ -213,10 +245,10 @@ pub fn decode_instructions(
     }
 
     if is_deployment {
-        add_unmapped_instructions(&mut instructions, bytecode);
+        add_unmapped_instructions(&mut instructions, bytecode)?;
     }
 
-    instructions
+    Ok(instructions)
 }
 
 #[cfg(test)]
@@ -239,7 +271,7 @@ mod tests {
 
         // Make sure we start decoding from opcode::STOP rather than from inside
         // the push data.
-        add_unmapped_instructions(&mut instructions, bytecode);
+        add_unmapped_instructions(&mut instructions, bytecode).unwrap();
 
         assert!(matches!(
             instructions.last(),

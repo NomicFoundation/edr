@@ -19,6 +19,9 @@ use crate::{
 /// Errors that can occur during the generation of the nested trace.
 #[derive(Debug, thiserror::Error)]
 pub enum NestedTracerError {
+    /// Invalid precompile address
+    #[error("Invalid precompile address: {0}")]
+    InvalidPrecompileAddress(U160),
     /// Invalid input: The created address should be defined in the successful
     #[error("Created address should be defined in successful create trace")]
     MissingAddressInExecutionResult,
@@ -114,7 +117,7 @@ impl NestedTracer {
             if to_as_u160 <= U160::from(MAX_PRECOMPILE_NUMBER) {
                 let precompile: u32 = to_as_u160
                     .try_into()
-                    .expect("MAX_PRECOMPILE_NUMBER is of type u16 so it fits");
+                    .map_err(|_err| NestedTracerError::InvalidPrecompileAddress(to_as_u160))?;
 
                 let precompile_trace = PrecompileMessage {
                     value: message.value,

@@ -132,27 +132,33 @@ impl SourceLocation {
     }
 
     /// Returns the file that contains the given source location.
-    /// # Panics
-    /// This function panics if the source location is dangling, i.e. source
-    /// files mapping has been dropped (currently only owned by the
-    /// [`ContractMetadata`]).
-    pub fn file(&self) -> Arc<RwLock<SourceFile>> {
+    /// # Errors
+    /// This function returns an error if the source location is dangling, i.e.
+    /// source files mapping has been dropped (currently only owned by the
+    /// [`ContractMetadata`]), or if the source file is not found for the given
+    /// file ID.
+    pub fn file(&self) -> Result<Arc<RwLock<SourceFile>>, ContractMetadataError> {
         match self.sources.upgrade() {
-            Some(ref sources) => sources.get(&self.file_id).unwrap().clone(),
-            None => panic!("dangling SourceLocation; did you drop the owning Bytecode?"),
+            Some(ref sources) => sources
+                .get(&self.file_id)
+                .ok_or(ContractMetadataError::SourceFileNotFound {
+                    file_id: self.file_id,
+                })
+                .cloned(),
+            None => Err(ContractMetadataError::DanglingSourceLocation),
         }
     }
 
     /// Returns the 1-based line number of the source location.
-    pub fn get_starting_line_number(&self) -> u32 {
+    pub fn get_starting_line_number(&self) -> Result<u32, ContractMetadataError> {
         if let Some(line) = self.line.get() {
-            return *line;
+            return Ok(*line);
         }
 
-        let file = self.file();
+        let file = self.file()?;
         let contents = &file.read().content;
 
-        *self.line.get_or_init(move || {
+        Ok(*self.line.get_or_init(move || {
             let mut line = 1;
 
             for c in contents.chars().take(self.offset as usize) {
@@ -162,14 +168,16 @@ impl SourceLocation {
             }
 
             line
-        })
+        }))
     }
 
     /// Returns the [`ContractFunction`] that contains the source location.
-    pub fn get_containing_function(&self) -> Option<Arc<ContractFunction>> {
-        let file = self.file();
+    pub fn get_containing_function(
+        &self,
+    ) -> Result<Option<Arc<ContractFunction>>, ContractMetadataError> {
+        let file = self.file()?;
         let file = file.read();
-        file.get_containing_function(self).cloned()
+        Ok(file.get_containing_function(self).cloned())
     }
 
     /// Returns whether the source location is contained within the other source
@@ -274,13 +282,16 @@ impl CustomError {
     pub fn from_abi(entry: ContractAbiEntry) -> Result<CustomError, Box<str>> {
         // FIXME(#636): This is wasteful; to fix that we'd have to implement
         // tighter deserialization for the contract ABI entries.
-        let json = serde_json::to_value(&entry).expect("ContractAbiEntry to be round-trippable");
+        let json = serde_json::to_value(&entry)
+            .map_err(|e| format!("Failed to serialize ContractAbiEntry: {e}").into_boxed_str())?;
 
         let selector = crate::utils::json_abi_error_selector(&json)?;
 
         Ok(CustomError {
             selector,
-            name: entry.name.expect("ABI errors to always have names"),
+            name: entry
+                .name
+                .ok_or_else(|| "ABI errors must have names".to_string().into_boxed_str())?,
             param_types: entry.inputs.unwrap_or_default(),
             def: serde_json::from_value(json).map_err(|e| e.to_string().into_boxed_str())?,
         })
@@ -332,6 +343,21 @@ pub enum ContractMetadataError {
         /// The program counter (PC) of the instruction.
         pc: u32,
     },
+    /// A function is missing its selector.
+    #[error("Function '{function_name}' is missing its selector")]
+    MissingFunctionSelector {
+        /// The name of the function missing its selector.
+        function_name: String,
+    },
+    /// Source file not found for the given file ID.
+    #[error("Source file not found for file ID {file_id}")]
+    SourceFileNotFound {
+        /// The file ID that was not found.
+        file_id: u32,
+    },
+    /// Dangling source location reference.
+    #[error("Dangling SourceLocation. The owning Bytecode has been dropped")]
+    DanglingSourceLocation,
 }
 
 /// A resolved bytecode.
@@ -467,7 +493,10 @@ impl Contract {
     /// Adds a local function to the contract.
     /// # Note
     /// Should only be called when resolving the source model.
-    pub fn add_local_function(&mut self, func: Arc<ContractFunction>) {
+    pub fn add_local_function(
+        &mut self,
+        func: Arc<ContractFunction>,
+    ) -> Result<(), ContractMetadataError> {
         if matches!(
             func.visibility,
             Some(ContractFunctionVisibility::Public | ContractFunctionVisibility::External)
@@ -475,10 +504,12 @@ impl Contract {
             match func.r#type {
                 ContractFunctionType::Function | ContractFunctionType::Getter => {
                     let selector = func.selector.read();
-                    // The original code unwrapped here
-                    let selector = selector.as_ref().unwrap();
+                    let Some(selector) = selector.as_ref() else {
+                        return Err(ContractMetadataError::MissingFunctionSelector {
+                            function_name: func.name.clone(),
+                        });
+                    };
                     let selector = hex::encode(selector);
-
                     self.selector_hex_to_function.insert(selector, func.clone());
                 }
                 ContractFunctionType::Constructor => {
@@ -495,6 +526,7 @@ impl Contract {
         }
 
         self.local_functions.push(func);
+        Ok(())
     }
 
     /// Adds a custom error to the contract.
@@ -508,7 +540,10 @@ impl Contract {
     /// overwriting the functions of the contract.
     /// # Note
     /// Should only be called when resolving the source model.
-    pub fn add_next_linearized_base_contract(&mut self, base_contract: &Contract) {
+    pub fn add_next_linearized_base_contract(
+        &mut self,
+        base_contract: &Contract,
+    ) -> Result<(), ContractMetadataError> {
         if self.fallback.is_none() && base_contract.fallback.is_some() {
             self.fallback.clone_from(&base_contract.fallback);
         }
@@ -531,17 +566,19 @@ impl Contract {
                 continue;
             }
 
-            let selector = base_contract_function
-                .selector
-                .read()
-                .clone()
-                .expect("selector exists");
+            let selector = base_contract_function.selector.read().clone();
+            let Some(selector) = selector else {
+                return Err(ContractMetadataError::MissingFunctionSelector {
+                    function_name: base_contract_function.name.clone(),
+                });
+            };
             let selector_hex = hex::encode(&*selector);
 
             self.selector_hex_to_function
                 .entry(selector_hex)
                 .or_insert(base_contract_function_clone);
         }
+        Ok(())
     }
 
     /// Looks up the local [`ContractFunction`] with the provided selector.
