@@ -1,5 +1,13 @@
 # @nomicfoundation/edr
 
+## 0.11.3
+
+### Patch Changes
+
+- 1ac9b2e4: Fixed custom precompiles not being applied in `eth_sendTransaction`. This enables RIP-7212 support in transactions.
+- 7e12f64: Fixed panic on stack trace generation for receive function with modifier that calls another method. https://github.com/NomicFoundation/edr/issues/894
+- 5861ad6: Turned panics during stack trace generation due to invalid assumptions into errors.
+
 ## 0.11.2
 
 ### Patch Changes
