@@ -126,7 +126,8 @@ where
     >,
     StateErrorT: std::error::Error + Send,
 {
-    // TODO: Add support for withdrawals
+    // TODO: https://github.com/NomicFoundation/edr/issues/990
+    // Add support for withdrawals
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
         blockchain,
         state,
@@ -400,7 +401,8 @@ where
         }
     }
 
-    // TODO: Add support for withdrawals
+    // TODO: https://github.com/NomicFoundation/edr/issues/990
+    // Add support for withdrawals
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
         blockchain,
         state,
