@@ -11,7 +11,7 @@ pub trait JournalExt {
     type Entry;
 
     /// Retrieves the journal entries of state changes, one for each frame.
-    fn entries(&self) -> &[Vec<Self::Entry>];
+    fn entries(&self) -> &Vec<Self::Entry>;
 
     /// Retrieves the emitted logs.
     fn logs(&self) -> &[ExecutionLog];
@@ -23,7 +23,7 @@ pub trait JournalExt {
 impl<DatabaseT: Database> JournalExt for Journal<DatabaseT> {
     type Entry = JournalEntry;
 
-    fn entries(&self) -> &[Vec<Self::Entry>] {
+    fn entries(&self) -> &Vec<Self::Entry> {
         &self.journal
     }
 

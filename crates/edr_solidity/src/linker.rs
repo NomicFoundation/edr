@@ -301,7 +301,7 @@ impl<'a> Linker<'a> {
 
         Ok(LinkOutput {
             libraries,
-            libs_to_deploy,
+            libs_to_deploy: libs_to_deploy,
         })
     }
 

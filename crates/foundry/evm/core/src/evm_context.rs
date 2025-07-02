@@ -3,9 +3,7 @@ use foundry_fork_db::DatabaseError;
 use op_revm::{OpEvm, OpTransaction};
 use revm::{
     context::{
-        result::{EVMError, HaltReasonTr, InvalidTransaction, ResultAndState},
-        transaction::SignedAuthorization,
-        BlockEnv, CfgEnv, Evm, JournalInner, TxEnv,
+        either::Either, result::{EVMError, HaltReasonTr, InvalidTransaction, ResultAndState}, transaction::SignedAuthorization, BlockEnv, CfgEnv, Evm, JournalInner, LocalContext, TxEnv
     },
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
     handler::{instructions::EthInstructions, EthPrecompiles, PrecompileProvider},
@@ -157,6 +155,7 @@ impl
             cfg: env.cfg,
             journaled_state,
             chain: env.chain_context,
+            local: LocalContext::default(),
             error: Ok(()),
         };
 
@@ -206,7 +205,7 @@ impl<
     fn into_evm_context(
         self,
     ) -> EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT> {
-        self.data.ctx
+        self.ctx
     }
 }
 
@@ -232,7 +231,7 @@ impl<
     fn into_evm_context(
         self,
     ) -> EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT> {
-        self.0.data.ctx
+        self.0.ctx
     }
 }
 
@@ -300,7 +299,7 @@ impl TransactionEnvMut for TxEnv {
     }
 
     fn set_authorization_list(&mut self, authorization_list: Vec<SignedAuthorization>) {
-        self.authorization_list = authorization_list;
+        self.authorization_list = authorization_list.into_iter().map(Either::Left).collect();
     }
 
     fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {
@@ -354,7 +353,7 @@ impl TransactionEnvMut for OpTransaction<TxEnv> {
     }
 
     fn set_authorization_list(&mut self, authorization_list: Vec<SignedAuthorization>) {
-        self.base.authorization_list = authorization_list;
+        self.base.authorization_list = authorization_list.into_iter().map(Either::Left).collect();
     }
 
     fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {

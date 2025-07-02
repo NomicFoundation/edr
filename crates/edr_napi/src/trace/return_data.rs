@@ -57,19 +57,19 @@ impl ReturnData {
             return Ok(String::new());
         }
 
-        let result = Error::abi_decode(&self.value[..], false).map_err(|_err| {
+        let result = Error::abi_decode(&self.value[..]).map_err(|_err| {
             napi::Error::new(
                 napi::Status::InvalidArg,
                 "Expected return data to be a Error(string) and contain a valid string",
             )
         })?;
 
-        Ok(result._0)
+        Ok(result.0)
     }
 
     #[napi]
     pub fn decode_panic(&self) -> napi::Result<BigInt> {
-        let result = Panic::abi_decode(&self.value[..], false).map_err(|_err| {
+        let result = Panic::abi_decode(&self.value[..]).map_err(|_err| {
             napi::Error::new(
                 napi::Status::InvalidArg,
                 "Expected return data to be a Error(string) and contain a valid string",
@@ -78,7 +78,7 @@ impl ReturnData {
 
         Ok(BigInt {
             sign_bit: false,
-            words: result._0.as_limbs().to_vec(),
+            words: result.0.as_limbs().to_vec(),
         })
     }
 }

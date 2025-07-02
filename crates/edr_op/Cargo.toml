@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-rlp = { version = "0.3.11", default-features = false, features = ["derive"] }
+alloy-rlp = { version = "0.3.12", default-features = false, features = ["derive"] }
 alloy-serde = { workspace = true, features = ["std"] }
 edr_eth = { path = "../edr_eth", features = ["serde", "std"] }
 edr_evm = { path = "../edr_evm" }
@@ -15,7 +15,7 @@ edr_rpc_eth = { path = "../edr_rpc_eth" }
 edr_solidity = { path = "../edr_solidity" }
 edr_solidity_tests.workspace = true
 log = { version = "0.4.17", default-features = false }
-op-alloy-rpc-types = { version = "0.12.0", default-features = false }
+op-alloy-rpc-types = { version = "0.17.2", default-features = false }
 op-revm.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }
 thiserror.workspace = true

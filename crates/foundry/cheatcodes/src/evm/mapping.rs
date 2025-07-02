@@ -10,7 +10,7 @@ use revm::{
     bytecode::opcode,
     context::result::HaltReasonTr,
     interpreter::{
-        interpreter_types::{Jumps, MemoryTr},
+        interpreter_types::Jumps,
         Interpreter,
     },
 };

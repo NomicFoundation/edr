@@ -35,7 +35,7 @@ impl LogCollector {
         patch_hh_console_selector(&mut input);
 
         // Decode the call
-        let decoded = match HardhatConsole::HardhatConsoleCalls::abi_decode(&input, false) {
+        let decoded = match HardhatConsole::HardhatConsoleCalls::abi_decode(&input) {
             Ok(inner) => inner,
             Err(err) => return (InstructionResult::Revert, err.abi_encode_revert()),
         };
@@ -77,7 +77,7 @@ impl<
     #[inline]
     fn call(
         &mut self,
-        _context: &mut EvmContext<
+        context: &mut EvmContext<
             BlockT,
             TxT,
             CfgEnv<HardforkT>,
@@ -88,7 +88,7 @@ impl<
         inputs: &mut CallInputs,
     ) -> Option<CallOutcome> {
         if inputs.target_address == HARDHAT_CONSOLE_ADDRESS {
-            let (res, out) = self.hardhat_log(inputs.input.to_vec());
+            let (res, out) = self.hardhat_log(inputs.input.bytes(context).to_vec());
             if res != InstructionResult::Continue {
                 return Some(CallOutcome {
                     result: InterpreterResult {

@@ -589,7 +589,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
             .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
 
         let is_valid_calldata = match &called_function.param_types {
-            Some(_) => abi.abi_decode_input(calldata, true).is_ok(),
+            Some(_) => abi.abi_decode_input(calldata).is_ok(),
             // if we don't know the param types, we just assume that the call is valid
             None => true,
         };

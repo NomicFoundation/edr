@@ -9,7 +9,7 @@ use edr_eth::{
     transaction::TransactionValidation,
 };
 use edr_evm::{
-    evm::{Evm, EvmData},
+    evm::Evm,
     hardfork::Activations,
     inspector::{Inspector, NoOpInspector},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
@@ -142,10 +142,8 @@ impl RuntimeSpec for GenericChainSpec {
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
         Evm {
-            data: EvmData {
-                ctx: context,
-                inspector,
-            },
+            ctx: context,
+            inspector,
             instruction: EthInstructions::default(),
             precompiles: precompile_provider,
         }

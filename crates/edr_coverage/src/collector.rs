@@ -1,5 +1,5 @@
 use edr_eth::{Bytes, HashSet};
-use edr_evm::{inspector::Inspector, interpreter::InterpreterTypes};
+use edr_evm::{inspector::Inspector, interpreter::InterpreterTypes, spec::ContextTrait};
 
 use crate::COVERAGE_ADDRESS;
 
@@ -19,16 +19,16 @@ impl CoverageHitCollector {
     }
 }
 
-impl<ContextT, InterpreterT: InterpreterTypes> Inspector<ContextT, InterpreterT>
+impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT, InterpreterT>
     for CoverageHitCollector
 {
     fn call(
         &mut self,
-        _context: &mut ContextT,
+        context: &mut ContextT,
         inputs: &mut edr_evm::interpreter::CallInputs,
     ) -> Option<edr_evm::interpreter::CallOutcome> {
         if inputs.bytecode_address == COVERAGE_ADDRESS {
-            self.record_hit(inputs.input.clone());
+            self.record_hit(inputs.input.bytes(context));
         }
 
         None

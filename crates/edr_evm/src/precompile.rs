@@ -102,7 +102,9 @@ impl<
             output: Bytes::new(),
         };
 
-        match (*precompile)(&inputs.input, gas_limit) {
+        let input_data = &inputs.input.bytes(context);
+
+        match (*precompile)(input_data, gas_limit) {
             Ok(output) => {
                 let underflow = result.gas.record_cost(output.gas_used);
                 assert!(underflow, "Gas underflow is not possible");
