@@ -307,11 +307,12 @@ fn process_function_definition_ast_node(
     };
 
     // function can be overloaded, match the abi by the selector
-    let matching_function_abi = function_abis.as_ref().and_then(|function_abis| {
-        function_abis.iter().find(|function_abi| {
+    let matching_function_abi = if let Some(function_abis) = function_abis.as_ref() {
+        let mut result = None;
+        for function_abi in function_abis.iter() {
             let name = match function_abi.name {
                 Some(ref name) => name,
-                None => return false,
+                None => continue,
             };
 
             let input_types = function_abi
@@ -320,21 +321,34 @@ fn process_function_definition_ast_node(
                 .map(|inputs| {
                     inputs
                         .iter()
-                        .filter_map(|input| input["type"].as_str())
-                        .collect::<Vec<_>>()
+                        .map(|input| {
+                            input["type"]
+                                .as_str()
+                                .with_context(|| "Expected input type to be a string")
+                        })
+                        .collect::<Result<Vec<_>, _>>()
                 })
+                .transpose()?
                 .unwrap_or_default();
 
             let function_abi_selector = abi_method_id(name, input_types);
 
-            match (selector.as_ref(), function_abi_selector) {
+            let matches = match (selector.as_ref(), function_abi_selector) {
                 (Some(selector), function_abi_selector) if !function_abi_selector.is_empty() => {
                     *selector == function_abi_selector
                 }
                 _ => false,
+            };
+
+            if matches {
+                result = Some(function_abi);
+                break;
             }
-        })
-    });
+        }
+        result
+    } else {
+        None
+    };
 
     let param_types = matching_function_abi
         .as_ref()
