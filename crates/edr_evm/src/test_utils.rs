@@ -325,12 +325,12 @@ pub async fn run_full_block<
                     "{:?}",
                     replay_block.transactions()[expected.transaction_index as usize]
                 );
-                // debug_assert_eq!(
-                //     expected.inner.data.data,
-                //     actual.inner.data.data,
-                //     "{:?}",
-                //     replay_block.transactions()[expected.transaction_index as
-                // usize] );
+                debug_assert_eq!(
+                    expected.inner.data.data,
+                    actual.inner.data.data,
+                    "{:?}",
+                    replay_block.transactions()[expected.transaction_index as usize]
+                );
             }
         }
         debug_assert_eq!(
@@ -339,12 +339,12 @@ pub async fn run_full_block<
             "{:?}",
             replay_block.transactions()[expected.transaction_index() as usize]
         );
-        // debug_assert_eq!(
-        //     expected.as_execution_receipt(),
-        //     actual.as_execution_receipt(),
-        //     "{:?}",
-        //     replay_block.transactions()[expected.transaction_index() as
-        // usize] );
+        debug_assert_eq!(
+            expected.as_execution_receipt(),
+            actual.as_execution_receipt(),
+            "{:?}",
+            replay_block.transactions()[expected.transaction_index() as usize]
+        );
     }
 
     assert_eq!(replay_header, mined_header);
