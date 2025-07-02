@@ -71,50 +71,22 @@ fn create_sources_model_from_ast(
     for (source_name, source) in &compiler_output.sources {
         let file = &sources[&source.id];
 
-        for node in source.ast["nodes"].as_array().unwrap() {
-            match node["nodeType"].as_str().unwrap() {
-                "ContractDefinition" => {
-                    let Some(contract_type) = node["contractKind"]
-                        .as_str()
-                        .and_then(|k| ContractKind::from_str(k).ok())
-                    else {
-                        continue;
-                    };
-
-                    let contract_abi =
-                        compiler_output
-                            .contracts
-                            .get(source_name)
-                            .and_then(|contracts| {
-                                contracts
-                                    .get(node["name"].as_str().unwrap())
-                                    .map(|contract| &contract.abi)
-                            });
-
-                    let (contract_id, contract) = process_contract_ast_node(
-                        file,
-                        node,
-                        contract_type,
-                        &sources,
-                        &mut contract_id_to_linearized_base_contract_ids,
-                        contract_abi.map(Vec::as_slice),
-                    )?;
-
-                    contract_id_to_contract.insert(contract_id, contract);
-                }
-                // top-level functions
-                "FunctionDefinition" => {
-                    process_function_definition_ast_node(node, &sources, None, file, None)?;
-                }
-                _ => {}
-            }
-        }
+        process_ast_nodes(
+            source_name,
+            &source.ast,
+            file,
+            &sources,
+            compiler_output,
+            &mut contract_id_to_linearized_base_contract_ids,
+            &mut contract_id_to_contract,
+        )
+        .with_context(|| format!("Failed to process AST for {source_name}"))?;
     }
 
     apply_contracts_inheritance(
         &contract_id_to_contract,
         &contract_id_to_linearized_base_contract_ids,
-    );
+    )?;
 
     Ok(BuildModel {
         file_id_to_source_file: sources,
@@ -122,10 +94,72 @@ fn create_sources_model_from_ast(
     })
 }
 
+fn process_ast_nodes(
+    source_name: &str,
+    ast: &serde_json::Value,
+    file: &RwLock<SourceFile>,
+    sources: &Arc<BuildModelSources>,
+    compiler_output: &CompilerOutput,
+    contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
+    contract_id_to_contract: &mut IndexMap<u32, Arc<RwLock<Contract>>>,
+) -> anyhow::Result<()> {
+    let nodes = ast["nodes"]
+        .as_array()
+        .with_context(|| "Expected nodes array in AST")?;
+
+    for node in nodes {
+        match node["nodeType"]
+            .as_str()
+            .with_context(|| "Expected nodeType to be a string")?
+        {
+            "ContractDefinition" => {
+                let Some(contract_type) = node["contractKind"]
+                    .as_str()
+                    .and_then(|k| ContractKind::from_str(k).ok())
+                else {
+                    continue;
+                };
+
+                let contract_abi =
+                    compiler_output
+                        .contracts
+                        .get(source_name)
+                        .and_then(|contracts| {
+                            contracts
+                                .get(
+                                    node["name"]
+                                        .as_str()
+                                        .with_context(|| "Expected contract name to be a string")
+                                        .ok()?,
+                                )
+                                .map(|contract| &contract.abi)
+                        });
+
+                let (contract_id, contract) = process_contract_ast_node(
+                    file,
+                    node,
+                    contract_type,
+                    sources,
+                    contract_id_to_linearized_base_contract_ids,
+                    contract_abi.map(Vec::as_slice),
+                )?;
+
+                contract_id_to_contract.insert(contract_id, contract);
+            }
+            // top-level functions
+            "FunctionDefinition" => {
+                process_function_definition_ast_node(node, sources, None, file, None)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 fn apply_contracts_inheritance(
     contract_id_to_contract: &IndexMap<u32, Arc<RwLock<Contract>>>,
     contract_id_to_linearized_base_contract_ids: &HashMap<u32, Vec<u32>>,
-) {
+) -> anyhow::Result<()> {
     for (cid, contract) in contract_id_to_contract {
         let mut contract = contract.write();
 
@@ -142,10 +176,11 @@ fn apply_contracts_inheritance(
 
             if cid != base_id {
                 let base_contract = &base_contract.read();
-                contract.add_next_linearized_base_contract(base_contract);
+                contract.add_next_linearized_base_contract(base_contract)?;
             }
         }
     }
+    Ok(())
 }
 
 fn process_contract_ast_node(
@@ -156,31 +191,50 @@ fn process_contract_ast_node(
     contract_id_to_linearized_base_contract_ids: &mut HashMap<u32, Vec<u32>>,
     contract_abi: Option<&[ContractAbiEntry]>,
 ) -> anyhow::Result<(u32, Arc<RwLock<Contract>>)> {
-    let contract_location =
-        ast_src_to_source_location(contract_node["src"].as_str().unwrap(), sources)?
-            .expect("The original JS code always asserts that");
+    let contract_location = ast_src_to_source_location(
+        contract_node["src"]
+            .as_str()
+            .with_context(|| "Expected contract src to be a string")?,
+        sources,
+    )?
+    .with_context(|| "The original JS code always asserts that".to_string())?;
 
     let contract = Contract::new(
-        contract_node["name"].as_str().unwrap().to_string(),
+        contract_node["name"]
+            .as_str()
+            .with_context(|| "Expected contract name to be a string")?
+            .to_string(),
         contract_type,
         contract_location,
     );
     let contract = Arc::new(RwLock::new(contract));
 
-    let contract_id = contract_node["id"].as_u64().unwrap() as u32;
+    let contract_id = contract_node["id"]
+        .as_u64()
+        .with_context(|| "Expected contract id to be a number")? as u32;
 
     contract_id_to_linearized_base_contract_ids.insert(
         contract_id,
         contract_node["linearizedBaseContracts"]
             .as_array()
-            .unwrap()
+            .with_context(|| "Expected linearizedBaseContracts to be an array")?
             .iter()
-            .map(|x| x.as_u64().unwrap() as u32)
-            .collect(),
+            .map(|x| {
+                x.as_u64()
+                    .with_context(|| "Expected linearizedBaseContract id to be a number")
+                    .map(|id| id as u32)
+            })
+            .collect::<Result<Vec<_>, _>>()?,
     );
 
-    for node in contract_node["nodes"].as_array().unwrap() {
-        match node["nodeType"].as_str().unwrap() {
+    for node in contract_node["nodes"]
+        .as_array()
+        .with_context(|| "Expected contract nodes to be an array")?
+    {
+        match node["nodeType"]
+            .as_str()
+            .with_context(|| "Expected nodeType to be a string")?
+        {
             "FunctionDefinition" => {
                 let function_abis = contract_abi.map(|contract_abi| {
                     contract_abi
@@ -229,10 +283,19 @@ fn process_function_definition_ast_node(
 
     let function_type = function_definition_kind_to_function_type(node["kind"].as_str());
 
-    let function_location = ast_src_to_source_location(node["src"].as_str().unwrap(), sources)?
-        .expect("The original JS code always asserts that");
+    let function_location = ast_src_to_source_location(
+        node["src"]
+            .as_str()
+            .with_context(|| "Expected function src to be a string")?,
+        sources,
+    )?
+    .with_context(|| "The original JS code always asserts that".to_string())?;
 
-    let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
+    let visibility = ast_visibility_to_visibility(
+        node["visibility"]
+            .as_str()
+            .with_context(|| "Expected function visibility to be a string")?,
+    );
 
     let selector = if function_type == ContractFunctionType::Function
         && (visibility == ContractFunctionVisibility::External
@@ -244,35 +307,48 @@ fn process_function_definition_ast_node(
     };
 
     // function can be overloaded, match the abi by the selector
-    let matching_function_abi = function_abis.as_ref().and_then(|function_abis| {
-        function_abis.iter().find(|function_abi| {
+    let matching_function_abi = if let Some(function_abis) = function_abis.as_ref() {
+        let mut result = None;
+        for function_abi in function_abis.iter() {
             let name = match function_abi.name {
                 Some(ref name) => name,
-                None => return false,
+                None => continue,
             };
 
-            let function_abi_selector = abi_method_id(
-                name,
-                function_abi
-                    .inputs
-                    .as_ref()
-                    .map(|inputs| {
-                        inputs
-                            .iter()
-                            .map(|input| input["type"].as_str().unwrap())
-                            .collect::<Vec<_>>()
-                    })
-                    .unwrap_or_default(),
-            );
+            let input_types = function_abi
+                .inputs
+                .as_ref()
+                .map(|inputs| {
+                    inputs
+                        .iter()
+                        .map(|input| {
+                            input["type"]
+                                .as_str()
+                                .with_context(|| "Expected input type to be a string")
+                        })
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()?
+                .unwrap_or_default();
 
-            match (selector.as_ref(), function_abi_selector) {
+            let function_abi_selector = abi_method_id(name, input_types);
+
+            let matches = match (selector.as_ref(), function_abi_selector) {
                 (Some(selector), function_abi_selector) if !function_abi_selector.is_empty() => {
                     selector.as_ref() == function_abi_selector
                 }
                 _ => false,
+            };
+
+            if matches {
+                result = Some(function_abi);
+                break;
             }
-        })
-    });
+        }
+        result
+    } else {
+        None
+    };
 
     let param_types = matching_function_abi
         .as_ref()
@@ -280,12 +356,20 @@ fn process_function_definition_ast_node(
         .cloned();
 
     let contract_func = ContractFunction {
-        name: node["name"].as_str().unwrap().to_string(),
+        name: node["name"]
+            .as_str()
+            .with_context(|| "Expected function name to be a string")?
+            .to_string(),
         r#type: function_type,
         location: function_location,
         contract_name: contract.as_ref().map(|c| c.read()).map(|c| c.name.clone()),
         visibility: Some(visibility),
-        is_payable: Some(node["stateMutability"].as_str().unwrap() == "payable"),
+        is_payable: Some(
+            node["stateMutability"]
+                .as_str()
+                .with_context(|| "Expected stateMutability to be a string")?
+                == "payable",
+        ),
         selector: RwLock::new(selector),
         param_types,
     };
@@ -293,7 +377,7 @@ fn process_function_definition_ast_node(
 
     file.write().add_function(contract_func.clone());
     if let Some(contract) = contract {
-        contract.write().add_local_function(contract_func);
+        contract.write().add_local_function(contract_func)?;
     }
 
     Ok(())
@@ -305,11 +389,19 @@ fn process_modifier_definition_ast_node(
     contract: &RwLock<Contract>,
     file: &RwLock<SourceFile>,
 ) -> anyhow::Result<()> {
-    let function_location = ast_src_to_source_location(node["src"].as_str().unwrap(), sources)?
-        .expect("The original JS code always asserts that");
+    let function_location = ast_src_to_source_location(
+        node["src"]
+            .as_str()
+            .with_context(|| "Expected modifier src to be a string")?,
+        sources,
+    )?
+    .with_context(|| "The original JS code always asserts that".to_string())?;
 
     let contract_func = ContractFunction {
-        name: node["name"].as_str().unwrap().to_string(),
+        name: node["name"]
+            .as_str()
+            .with_context(|| "Expected modifier name to be a string")?
+            .to_string(),
         r#type: ContractFunctionType::Modifier,
         location: function_location,
         contract_name: Some(contract.read().name.clone()),
@@ -322,7 +414,7 @@ fn process_modifier_definition_ast_node(
     let contract_func = Arc::new(contract_func);
 
     file.write().add_function(contract_func.clone());
-    contract.write().add_local_function(contract_func);
+    contract.write().add_local_function(contract_func)?;
 
     Ok(())
 }
@@ -334,15 +426,24 @@ fn process_variable_declaration_ast_node(
     file: &RwLock<SourceFile>,
     getter_abi: Option<&ContractAbiEntry>,
 ) -> anyhow::Result<()> {
-    let visibility = ast_visibility_to_visibility(node["visibility"].as_str().unwrap());
+    let visibility = ast_visibility_to_visibility(
+        node["visibility"]
+            .as_str()
+            .with_context(|| "Expected variable visibility to be a string")?,
+    );
 
     // Variables can't be external
     if visibility != ContractFunctionVisibility::Public {
         return Ok(());
     }
 
-    let function_location = ast_src_to_source_location(node["src"].as_str().unwrap(), sources)?
-        .expect("The original JS code always asserts that");
+    let function_location = ast_src_to_source_location(
+        node["src"]
+            .as_str()
+            .with_context(|| "Expected variable src to be a string")?,
+        sources,
+    )?
+    .with_context(|| "The original JS code always asserts that".to_string())?;
 
     let param_types = getter_abi
         .as_ref()
@@ -350,7 +451,10 @@ fn process_variable_declaration_ast_node(
         .cloned();
 
     let contract_func = ContractFunction {
-        name: node["name"].as_str().unwrap().to_string(),
+        name: node["name"]
+            .as_str()
+            .with_context(|| "Expected variable name to be a string")?
+            .to_string(),
         r#type: ContractFunctionType::Getter,
         location: function_location,
         contract_name: Some(contract.read().name.clone()),
@@ -364,7 +468,7 @@ fn process_variable_declaration_ast_node(
     let contract_func = Arc::new(contract_func);
 
     file.write().add_function(contract_func.clone());
-    contract.write().add_local_function(contract_func);
+    contract.write().add_local_function(contract_func)?;
 
     Ok(())
 }
@@ -388,7 +492,7 @@ fn get_public_variable_selector_from_declaration_ast_node(
         if next_type["nodeType"] == "Mapping" {
             let canonical_type =
                 canonical_abi_type_for_elementary_or_user_defined_types(&next_type["keyType"])
-                    .expect("Original code asserted that");
+                    .with_context(|| "Original code asserted that".to_string())?;
 
             param_types.push(canonical_type);
 
@@ -402,7 +506,12 @@ fn get_public_variable_selector_from_declaration_ast_node(
         }
     }
 
-    let method_id = abi_method_id(variable_declaration["name"].as_str().unwrap(), param_types);
+    let method_id = abi_method_id(
+        variable_declaration["name"]
+            .as_str()
+            .with_context(|| "Expected variable name to be a string")?,
+        param_types,
+    );
 
     Ok(method_id)
 }
@@ -419,7 +528,7 @@ fn ast_function_definition_to_selector(
 
     for param in function_definition["parameters"]["parameters"]
         .as_array()
-        .unwrap()
+        .with_context(|| "Expected function parameters to be an array")?
     {
         if is_contract_type(param) {
             param_types.push("address".to_string());
@@ -454,17 +563,23 @@ fn ast_function_definition_to_selector(
             param_types.push(
                 typename["typeDescriptions"]["typeString"]
                     .as_str()
-                    .unwrap()
+                    .with_context(|| "Expected typeString to be a string")?
                     .to_string(),
             );
             continue;
         }
 
-        param_types.push(to_canonical_abi_type(typename["name"].as_str().unwrap()));
+        param_types.push(to_canonical_abi_type(
+            typename["name"]
+                .as_str()
+                .with_context(|| "Expected typename name to be a string")?,
+        ));
     }
 
     Ok(abi_method_id(
-        function_definition["name"].as_str().unwrap(),
+        function_definition["name"]
+            .as_str()
+            .with_context(|| "Expected function name to be a string")?,
         param_types,
     ))
 }
@@ -473,7 +588,7 @@ fn canonical_abi_type_for_elementary_or_user_defined_types(
     key_type: &serde_json::Value,
 ) -> Option<String> {
     if is_elementary_type(key_type) {
-        return Some(to_canonical_abi_type(key_type["name"].as_str().unwrap()));
+        return key_type["name"].as_str().map(to_canonical_abi_type);
     }
 
     if is_enum_type(key_type) {
@@ -603,7 +718,7 @@ fn correct_selectors(
         // Fetch the method identifiers for the contract from the compiler output
         let method_identifiers = match compiler_output
             .contracts
-            .get(&contract.location.file().read().source_name)
+            .get(&contract.location.file()?.read().source_name)
             .and_then(|file| file.get(&contract.name))
             .map(|contract| &contract.evm.method_identifiers)
         {
@@ -687,7 +802,7 @@ fn decode_evm_bytecode(
         &compiler_bytecode.source_map,
         build_model,
         is_deployment,
-    );
+    )?;
 
     Ok(ContractMetadata::new(
         Arc::clone(&build_model.file_id_to_source_file),
@@ -714,7 +829,7 @@ fn decode_bytecodes(
         let contract_evm_output = {
             let mut contract = contract.write();
 
-            let contract_file = &contract.location.file().read().source_name.clone();
+            let contract_file = &contract.location.file()?.read().source_name.clone();
             let contract_evm_output = &compiler_output.contracts[contract_file][&contract.name].evm;
             let contract_abi_output = &compiler_output.contracts[contract_file][&contract.name].abi;
 

@@ -28,6 +28,9 @@ pub enum SolidityTracerError {
     /// Errors that can occur during the heuristics.
     #[error(transparent)]
     Heuristics(#[from] HeuristicsError),
+    /// Invalid input: step after jump into function.
+    #[error("Missing step after jump into function")]
+    MissingStepAfterJumpIntoFunction,
 }
 
 /// Generates a stack trace for the provided nested trace.
@@ -205,7 +208,9 @@ fn raw_trace_evm_execution(
             let inst = contract_meta.get_instruction(*pc)?;
 
             if inst.jump_type == JumpType::IntoFunction && iter.peek().is_some() {
-                let (_, next_step) = iter.peek().unwrap();
+                let (_, next_step) = iter
+                    .peek()
+                    .ok_or(SolidityTracerError::MissingStepAfterJumpIntoFunction)?;
                 let NestedTraceStep::Evm(next_evm_step) = next_step else {
                     return Err(InferrerError::ExpectedEvmStep.into());
                 };
