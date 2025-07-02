@@ -648,7 +648,6 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
 
     let call_inst = contract_meta.get_instruction(call_step.pc)?;
     let call_stack_frame = instruction_to_callstack_stack_trace_entry(&contract_meta, call_inst)?;
-    // TODO: remove this expect
     let call_stack_frame_source_reference = call_stack_frame
         .source_reference()
         .cloned()
