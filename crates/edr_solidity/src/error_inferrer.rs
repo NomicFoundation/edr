@@ -1096,8 +1096,16 @@ fn get_entry_before_initial_modifier_callstack_entry(
         .ok_or(InferrerError::MissingContract)?;
     let contract = contract_meta.contract.read();
 
-    let called_function =
-        contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
+    let called_function = if trace.calldata.is_empty() {
+        // If there is no selector, it must be a transfer.
+        contract.receive.as_ref()
+    } else {
+        // TODO https://github.com/NomicFoundation/edr/issues/963
+        // Defaulting to shorter slice doesn't make much sense at first glance, but we
+        // keep it after fixing the receive fallback, as this pattern is consistently
+        // used in the codebase.
+        contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]))
+    };
 
     let source_reference = match called_function {
         Some(called_function) => get_function_start_source_reference(
