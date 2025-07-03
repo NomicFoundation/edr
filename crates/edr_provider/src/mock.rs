@@ -7,7 +7,8 @@ use edr_evm::{
     inspector::Inspector,
     interpreter::{
         CallInputs, CallOutcome, EthInterpreter, Gas, InstructionResult, InterpreterResult,
-    }, spec::ContextTrait,
+    },
+    spec::ContextTrait,
 };
 
 /// The result of executing a call override.
@@ -44,28 +45,27 @@ impl Mocker {
     }
 
     fn try_mocking_call(&mut self, inputs: &CallInputs, input_data: Bytes) -> Option<CallOutcome> {
-        self.override_call(inputs.bytecode_address, input_data)
-            .map(
-                |CallOverrideResult {
-                     output,
-                     should_revert,
-                 }| {
-                    let result = if should_revert {
-                        InstructionResult::Revert
-                    } else {
-                        InstructionResult::Return
-                    };
+        self.override_call(inputs.bytecode_address, input_data).map(
+            |CallOverrideResult {
+                 output,
+                 should_revert,
+             }| {
+                let result = if should_revert {
+                    InstructionResult::Revert
+                } else {
+                    InstructionResult::Return
+                };
 
-                    CallOutcome::new(
-                        InterpreterResult {
-                            result,
-                            output,
-                            gas: Gas::new(inputs.gas_limit),
-                        },
-                        inputs.return_memory_offset.clone(),
-                    )
-                },
-            )
+                CallOutcome::new(
+                    InterpreterResult {
+                        result,
+                        output,
+                        gas: Gas::new(inputs.gas_limit),
+                    },
+                    inputs.return_memory_offset.clone(),
+                )
+            },
+        )
     }
 }
 

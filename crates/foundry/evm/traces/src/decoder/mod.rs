@@ -415,9 +415,7 @@ impl CallTraceDecoder {
             }
 
             if args.is_none() {
-                if let Ok(v) =
-                    func.abi_decode_input(&trace.data[edr_defaults::SELECTOR_LEN..])
-                {
+                if let Ok(v) = func.abi_decode_input(&trace.data[edr_defaults::SELECTOR_LEN..]) {
                     args = Some(v.iter().map(|value| self.apply_label(value)).collect());
                 }
             }

@@ -3,7 +3,10 @@ use foundry_fork_db::DatabaseError;
 use op_revm::{OpEvm, OpTransaction};
 use revm::{
     context::{
-        either::Either, result::{EVMError, HaltReasonTr, InvalidTransaction, ResultAndState}, transaction::SignedAuthorization, BlockEnv, CfgEnv, Evm, JournalInner, LocalContext, TxEnv
+        either::Either,
+        result::{EVMError, HaltReasonTr, InvalidTransaction, ResultAndState},
+        transaction::SignedAuthorization,
+        BlockEnv, CfgEnv, Evm, JournalInner, LocalContext, TxEnv,
     },
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
     handler::{instructions::EthInstructions, EthPrecompiles, PrecompileProvider},

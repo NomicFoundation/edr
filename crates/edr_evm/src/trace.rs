@@ -438,12 +438,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 Stack::Top(interpreter.stack.data().last().cloned())
             };
             let memory = if self.verbose {
-                Some(
-                    interpreter
-                        .memory
-                        .context_memory()
-                        .to_vec(),
-                )
+                Some(interpreter.memory.context_memory().to_vec())
             } else {
                 None
             };

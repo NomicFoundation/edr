@@ -1,7 +1,8 @@
 use edr_eth::{address, Address, Bytes};
 use edr_evm::{
     inspector::Inspector,
-    interpreter::{CallInputs, CallOutcome, EthInterpreter}, spec::ContextTrait,
+    interpreter::{CallInputs, CallOutcome, EthInterpreter},
+    spec::ContextTrait,
 };
 
 const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6f67");
