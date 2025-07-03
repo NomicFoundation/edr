@@ -1,6 +1,7 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
 import { JsonStreamStringify } from "json-stream-stringify";
+import fs from "fs";
 
 import {
   AccountOverride,
@@ -12,7 +13,7 @@ import {
   MineOrdering,
   SubscriptionEvent,
 } from "..";
-import { ALCHEMY_URL, getContext, isCI } from "./helpers";
+import { getContext } from "./helpers";
 
 describe("Provider", () => {
   const context = getContext();
@@ -74,38 +75,31 @@ describe("Provider", () => {
   };
 
   it("issue 543", async function () {
-    if (ALCHEMY_URL === undefined || !isCI()) {
-      this.skip();
+    const fileContent = fs.readFileSync("test/files/issue-543.json", "utf-8");
+    var parsedJson = JSON.parse(fileContent);
+    var structLog = parsedJson.structLogs[0];
+
+    // This creates a JSON of length ~950 000 000 characters.
+    // JSON.stringify() crashes at ~500 000 000 characters.
+    for (let i = 1; i < 20000; i++) {
+      parsedJson.structLogs.push(structLog);
     }
 
-    // GitHub Actions time out for this task on Ubuntu and MacOS.
-    // TODO https://github.com/NomicFoundation/edr/issues/952
-    if (
-      isCI() &&
-      (process.platform === "linux" || process.platform === "darwin")
-    ) {
-      this.skip();
-    }
-
-    // This test is slow because the debug_traceTransaction is performed on a large transaction.
-    this.timeout(1_800_000);
+    this.timeout(500_000);
 
     const provider = await context.createProvider(
       GENERIC_CHAIN_TYPE,
-      {
-        ...providerConfig,
-        fork: {
-          url: ALCHEMY_URL,
-        },
-        initialBaseFeePerGas: 0n,
-      },
+      providerConfig,
       loggerConfig,
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
       {}
     );
+    provider.useMockProvider(parsedJson);
 
+    // This is a transaction that has a very large response.
+    // It won't be used, the provider will return the mocked response.
     const debugTraceTransaction = `{
         "jsonrpc": "2.0",
         "method": "debug_traceTransaction",
@@ -115,7 +109,7 @@ describe("Provider", () => {
 
     const response = await provider.handleRequest(debugTraceTransaction);
 
-    let responseData;
+    let responseData = response;
 
     if (typeof response.data === "string") {
       responseData = JSON.parse(response.data);

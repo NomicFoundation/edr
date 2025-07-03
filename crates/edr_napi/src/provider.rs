@@ -1,5 +1,7 @@
 /// Types related to provider factories.
 pub mod factory;
+#[cfg(feature = "test-mock")]
+pub mod mock;
 mod response;
 
 use std::sync::Arc;
@@ -111,5 +113,16 @@ impl Provider {
             })
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))
+    }
+
+    #[cfg(feature = "test-mock")]
+    #[doc = "Replaces the existing provider with mock one, which always returns the given response."]
+    #[doc = "For testing purposes only."]
+    #[napi]
+    pub fn use_mock_provider(&mut self, mocked_response: serde_json::Value) -> napi::Result<()> {
+        let mock_provider = mock::MockProvider::new(mocked_response);
+        self.provider = Arc::new(mock_provider);
+
+        Ok(())
     }
 }
