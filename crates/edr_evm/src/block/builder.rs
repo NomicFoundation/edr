@@ -3,7 +3,7 @@ mod l1;
 use std::fmt::Debug;
 
 use edr_eth::{
-    block::{HeaderOverrides, PartialHeader},
+    block::{self, HeaderOverrides, PartialHeader},
     spec::ChainSpec,
     transaction::TransactionValidation,
     withdrawal::Withdrawal,
@@ -27,6 +27,12 @@ pub enum BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT> {
     /// Blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
+    /// Missing withdrawals. The chain expects withdrawals to be present
+    /// post-Shanghai hardfork.
+    #[error(
+        "Missing withdrawals. The chain expects withdrawals to be present post-Shanghai hardfork."
+    )]
+    MissingWithdrawals,
     /// State error
     #[error(transparent)]
     State(StateErrorT),
@@ -47,6 +53,33 @@ impl<BlockchainErrorT, HardforkT: Debug, StateErrorT>
         match value {
             DatabaseComponentError::Blockchain(error) => Self::Blockchain(error),
             DatabaseComponentError::State(error) => Self::State(error),
+        }
+    }
+}
+
+/// Chain-agnostic inputs for building a block.
+#[derive(Debug, Default)]
+pub struct BlockInputs {
+    /// The ommers of the block.
+    pub ommers: Vec<block::Header>,
+    /// The withdrawals of the block. Present post-Shanghai hardfork.
+    pub withdrawals: Option<Vec<Withdrawal>>,
+}
+
+impl BlockInputs {
+    // TODO: https://github.com/NomicFoundation/edr/issues/990
+    // Add support for specifying withdrawals
+    /// Constructs default block inputs for the provided hardfork.
+    pub fn new<HardforkT: Into<edr_eth::l1::SpecId>>(hardfork: HardforkT) -> Self {
+        let withdrawals = if hardfork.into() >= edr_eth::l1::SpecId::SHANGHAI {
+            Some(Vec::new())
+        } else {
+            None
+        };
+
+        Self {
+            ommers: Vec::new(),
+            withdrawals,
         }
     }
 }
@@ -95,7 +128,7 @@ where
         >,
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
-        withdrawals: Option<Vec<Withdrawal>>,
+        inputs: BlockInputs,
         overrides: HeaderOverrides,
     ) -> Result<
         Self,

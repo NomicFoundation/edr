@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use derive_where::derive_where;
 use edr_eth::{
-    block::{BlobGas, Header, HeaderOverrides, PartialHeader},
+    block::{BlobGas, HeaderOverrides, PartialHeader},
     eips::{eip4844, eip7691},
     l1,
     log::{ExecutionLog, FilterLog},
@@ -18,6 +18,7 @@ use revm::{precompile::PrecompileFn, Inspector};
 
 use super::{BlockBuilder, BlockTransactionError, BlockTransactionErrorForChainSpec};
 use crate::{
+    block::builder::BlockInputs,
     blockchain::SyncBlockchain,
     config::CfgEnv,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
@@ -125,8 +126,7 @@ where
         blockchain: &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
         state: Box<dyn SyncState<StateErrorT>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
-        ommers: Vec<Header>,
-        withdrawals: Option<Vec<Withdrawal>>,
+        inputs: BlockInputs,
         mut overrides: HeaderOverrides,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
     {
@@ -137,6 +137,8 @@ where
         let eth_hardfork = cfg.spec.into();
         if eth_hardfork < l1::SpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec));
+        } else if eth_hardfork >= l1::SpecId::SHANGHAI && inputs.withdrawals.is_none() {
+            return Err(BlockBuilderCreationError::MissingWithdrawals);
         }
 
         let parent_header = parent_block.header();
@@ -146,21 +148,13 @@ where
             None
         };
 
-        let withdrawals = withdrawals.or_else(|| {
-            if eth_hardfork >= l1::SpecId::SHANGHAI {
-                Some(Vec::new())
-            } else {
-                None
-            }
-        });
-
         overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new::<ChainSpecT>(
             cfg.spec,
             overrides,
             Some(parent_header),
-            &ommers,
-            withdrawals.as_ref(),
+            &inputs.ommers,
+            inputs.withdrawals.as_ref(),
         );
 
         Ok(Self {
@@ -173,7 +167,7 @@ where
             state_diff: StateDiff::default(),
             transactions: Vec::new(),
             transaction_results: Vec::new(),
-            withdrawals,
+            withdrawals: inputs.withdrawals,
         })
     }
 
@@ -406,13 +400,13 @@ where
         >,
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
-        withdrawals: Option<Vec<Withdrawal>>,
-        options: HeaderOverrides,
+        inputs: BlockInputs,
+        overrides: HeaderOverrides,
     ) -> Result<
         Self,
         BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,
     > {
-        Self::new(blockchain, state, cfg, Vec::new(), withdrawals, options)
+        Self::new(blockchain, state, cfg, inputs, overrides)
     }
 
     fn block_receipt_factory(&self) -> ChainSpecT::BlockReceiptFactory {

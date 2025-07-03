@@ -1,6 +1,5 @@
 use edr_eth::{
-    block::PartialHeader, spec::EthHeaderConstants, trie::KECCAK_NULL_RLP, withdrawal::Withdrawal,
-    Address, Bytes, HashMap,
+    block::PartialHeader, spec::EthHeaderConstants, trie::KECCAK_NULL_RLP, Address, Bytes, HashMap,
 };
 use edr_evm::{
     blockchain::SyncBlockchain,
@@ -9,8 +8,8 @@ use edr_evm::{
     precompile::PrecompileFn,
     spec::ContextForChainSpec,
     state::{DatabaseComponents, SyncState, WrapDatabaseRef},
-    BlockBuilder, BlockBuilderCreationError, BlockTransactionErrorForChainSpec, EthBlockBuilder,
-    MineBlockResultAndState,
+    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionErrorForChainSpec,
+    EthBlockBuilder, MineBlockResultAndState,
 };
 use op_revm::{L1BlockInfo, OpHaltReason};
 
@@ -42,10 +41,19 @@ where
         >,
         state: Box<dyn edr_evm::state::SyncState<Self::StateError>>,
         cfg: CfgEnv<OpSpecId>,
-        withdrawals: Option<Vec<Withdrawal>>,
+        mut inputs: BlockInputs,
         mut overrides: edr_eth::block::HeaderOverrides,
     ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>>
     {
+        // TODO: https://github.com/NomicFoundation/edr/issues/990
+        // Replace this once we can detect chain-specific block inputs in the provider
+        // and avoid passing them as input.
+        if cfg.spec >= OpSpecId::CANYON {
+            // `EthBlockBuilder` expects `inputs.withdrawals.is_some()` despite OP not
+            // supporting withdrawals.
+            inputs.withdrawals = Some(Vec::new());
+        }
+
         if cfg.spec >= OpSpecId::ISTHMUS {
             let withdrawals_root = overrides
                 .withdrawals_root
@@ -84,7 +92,7 @@ where
             }));
         }
 
-        let eth = EthBlockBuilder::new(blockchain, state, cfg, Vec::new(), withdrawals, overrides)?;
+        let eth = EthBlockBuilder::new(blockchain, state, cfg, inputs, overrides)?;
 
         let l1_block_info = {
             let mut db = WrapDatabaseRef(DatabaseComponents {

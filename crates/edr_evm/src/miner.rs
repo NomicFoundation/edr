@@ -20,7 +20,7 @@ use crate::{
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    Block as _, BlockBuilder, BlockTransactionError, MemPool,
+    Block as _, BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
 };
 
 /// The result of mining a block, including the state. This result needs to be
@@ -126,13 +126,11 @@ where
     >,
     StateErrorT: std::error::Error + Send,
 {
-    // TODO: https://github.com/NomicFoundation/edr/issues/990
-    // Add support for withdrawals
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
         blockchain,
         state,
         cfg.clone(),
-        None,
+        BlockInputs::new(cfg.spec),
         overrides,
     )?;
 
@@ -401,13 +399,11 @@ where
         }
     }
 
-    // TODO: https://github.com/NomicFoundation/edr/issues/990
-    // Add support for withdrawals
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
         blockchain,
         state,
         cfg.clone(),
-        None,
+        BlockInputs::new(cfg.spec),
         overrides,
     )?;
 
