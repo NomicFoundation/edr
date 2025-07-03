@@ -1,3 +1,5 @@
+#![allow(clippy::restriction)]
+
 use std::{
     collections::VecDeque,
     fmt::{self, Display},
