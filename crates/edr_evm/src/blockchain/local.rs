@@ -243,7 +243,7 @@ where
         &self,
         number: u64,
     ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
-        let local_block = self.storage.block_by_number(number)?;
+        let local_block = self.storage.block_by_number::<ChainSpecT>(number)?;
 
         Ok(local_block.map(ChainSpecT::cast_local_block))
     }
@@ -267,7 +267,7 @@ where
     fn last_block(&self) -> Result<Arc<ChainSpecT::Block>, Self::BlockchainError> {
         let local_block = self
             .storage
-            .block_by_number(self.storage.last_block_number())?
+            .block_by_number::<ChainSpecT>(self.storage.last_block_number())?
             .expect("Block must exist");
 
         Ok(ChainSpecT::cast_local_block(local_block))
@@ -417,7 +417,7 @@ impl<ChainSpecT: SyncRuntimeSpec> BlockHash for LocalBlockchain<ChainSpecT> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
         self.storage
-            .block_by_number(block_number)?
+            .block_by_number::<ChainSpecT>(block_number)?
             .map(|block| *block.block_hash())
             .ok_or(BlockchainError::UnknownBlockNumber)
     }

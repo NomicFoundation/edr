@@ -26,7 +26,7 @@ use crate::{
     eips::{eip1559::ConstantBaseFeeParams, eip4844, eip7691},
     keccak256, l1,
     spec::EthHeaderConstants,
-    trie::{self, KECCAK_NULL_RLP, KECCAK_RLP_EMPTY_ARRAY},
+    trie::{self, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
 };
@@ -351,34 +351,6 @@ impl PartialHeader {
                     None
                 }
             }),
-        }
-    }
-}
-
-impl Default for PartialHeader {
-    fn default() -> Self {
-        const DEFAULT_GAS: u64 = 0xffffffffffffff;
-
-        Self {
-            parent_hash: B256::default(),
-            ommers_hash: KECCAK_RLP_EMPTY_ARRAY,
-            beneficiary: Address::default(),
-            state_root: B256::default(),
-            receipts_root: KECCAK_NULL_RLP,
-            logs_bloom: Bloom::default(),
-            difficulty: U256::default(),
-            number: u64::default(),
-            gas_limit: DEFAULT_GAS,
-            gas_used: u64::default(),
-            timestamp: u64::default(),
-            extra_data: Bytes::default(),
-            mix_hash: B256::default(),
-            nonce: B64::default(),
-            base_fee: None,
-            withdrawals_root: None,
-            blob_gas: None,
-            parent_beacon_block_root: None,
-            requests_hash: None,
         }
     }
 }

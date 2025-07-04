@@ -31,12 +31,10 @@ pub struct HeaderOverrides {
     /// The parameters for calculating the base fee, used in EIP-1559.
     ///
     /// These only override the default base fee parameters if
-    /// [`BlockOptions::base_fee`] is not set.
+    /// [`HeaderOverrides::base_fee`] is not set.
     pub base_fee_params: Option<ConstantBaseFeeParams>,
     /// The block's withdrawals root, which is the hash tree root of the
     /// withdrawals trie.
-    ///
-    /// This will override the hash tree root of [`BlockOptions::withdrawals`].
     pub withdrawals_root: Option<B256>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.
     pub blob_gas: Option<BlobGas>,
