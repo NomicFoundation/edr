@@ -209,7 +209,7 @@ pub struct PartialHeader {
 }
 
 impl PartialHeader {
-    /// Constructs a new instance based on the provided [`BlockOptions`] and
+    /// Constructs a new instance based on the provided [`HeaderOverrides`] and
     /// parent [`Header`] for the given [`l1::SpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
@@ -414,9 +414,15 @@ pub fn calculate_next_base_fee_per_gas(
     // TODO: Remove once https://github.com/alloy-rs/alloy/issues/2181 has been addressed.
     let gas_used = u128::from(parent.gas_used);
     let gas_limit = u128::from(parent.gas_limit);
+
+    // In reality, [EIP-1559] specifies an initial base fee block number at which to
+    // use the initial base fee, but we always use it if the parent block is
+    // missing the base fee.
+    //
+    // [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     let base_fee = parent
         .base_fee_per_gas
-        .expect("Post-London headers must contain a baseFee");
+        .unwrap_or(u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE));
 
     // Calculate the target gas by dividing the gas limit by the elasticity
     // multiplier.
