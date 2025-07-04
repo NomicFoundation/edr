@@ -14,6 +14,8 @@ pub mod block;
 pub mod eip2718;
 /// OP harforks.
 pub mod hardfork;
+/// Types and constants for OP predeploys.
+pub mod predeploys;
 /// Types for OP receipts.
 pub mod receipt;
 mod spec;

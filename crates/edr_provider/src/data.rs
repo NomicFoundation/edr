@@ -14,8 +14,8 @@ use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
     account::{Account, AccountInfo, AccountStatus},
     block::{
-        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
-        BlockOptions,
+        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas_for_chain_spec,
+        miner_reward, HeaderOverrides,
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -1324,13 +1324,13 @@ where
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
             &CfgEnv<ChainSpecT::Hardfork>,
-            BlockOptions,
+            HeaderOverrides,
             &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
-        mut options: BlockOptions,
+        mut options: HeaderOverrides,
     ) -> Result<DebugMineBlockResultForChainSpec<ChainSpecT>, ProviderErrorForChainSpec<ChainSpecT>>
     {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
@@ -1382,13 +1382,13 @@ where
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
             &CfgEnv<ChainSpecT::Hardfork>,
-            BlockOptions,
+            HeaderOverrides,
             &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
-        mut options: BlockOptions,
+        mut options: HeaderOverrides,
     ) -> Result<
         DebugMineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
         ProviderErrorForChainSpec<ChainSpecT>,
@@ -1638,10 +1638,12 @@ where
                 || {
                     let last_block = self.last_block()?;
 
-                    Ok(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        self.blockchain.hardfork(),
-                        last_block.header(),
-                    ))
+                    Ok(
+                        calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
+                            self.blockchain.hardfork(),
+                            last_block.header(),
+                        ),
+                    )
                 },
                 Ok,
             )
@@ -1917,10 +1919,12 @@ where
                 let block = pending_block.as_ref().expect("We mined the pending block");
                 result
                     .base_fee_per_gas
-                    .push(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        self.blockchain.hardfork(),
-                        block.header(),
-                    ));
+                    .push(
+                        calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
+                            self.blockchain.hardfork(),
+                            block.header(),
+                        ),
+                    );
             }
         }
 
@@ -1983,7 +1987,7 @@ where
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn interval_mine(&mut self) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
-        let result = self.mine_and_commit_block(BlockOptions::default())?;
+        let result = self.mine_and_commit_block(HeaderOverrides::default())?;
 
         self.logger
             .log_interval_mined(self.hardfork(), &result)
@@ -1996,7 +2000,7 @@ where
     /// mempool, and commits it to the blockchain.
     pub fn mine_and_commit_block(
         &mut self,
-        options: BlockOptions,
+        options: HeaderOverrides,
     ) -> Result<DebugMineBlockResultForChainSpec<ChainSpecT>, ProviderErrorForChainSpec<ChainSpecT>>
     {
         self.mine_and_commit_block_impl(Self::mine_block_with_mem_pool, options)
@@ -2032,9 +2036,9 @@ where
                     .header()
                     .timestamp;
 
-                let options = BlockOptions {
+                let options = HeaderOverrides {
                     timestamp: Some(previous_timestamp + interval),
-                    ..BlockOptions::default()
+                    ..HeaderOverrides::default()
                 };
 
                 let mined_block = data.mine_and_commit_block(options)?;
@@ -2051,7 +2055,7 @@ where
         );
 
         // we always mine the first block, and we don't apply the interval for it
-        mined_blocks.push(self.mine_and_commit_block(BlockOptions::default())?);
+        mined_blocks.push(self.mine_and_commit_block(HeaderOverrides::default())?);
 
         while u64::try_from(mined_blocks.len()).expect("usize cannot be larger than u128")
             < number_of_blocks
@@ -2087,9 +2091,9 @@ where
             self.add_state_to_cache(current_state, self.last_block_number());
 
             let previous_timestamp = self.blockchain.last_block()?.header().timestamp;
-            let options = BlockOptions {
+            let options = HeaderOverrides {
                 timestamp: Some(previous_timestamp + interval),
-                ..BlockOptions::default()
+                ..HeaderOverrides::default()
             };
 
             let mined_block = self.mine_and_commit_block(options)?;
@@ -2113,9 +2117,9 @@ where
         // Mining a pending block shouldn't affect the mix hash.
         self.mine_block(
             Self::mine_block_with_mem_pool,
-            BlockOptions {
+            HeaderOverrides {
                 timestamp: Some(block_timestamp),
-                ..BlockOptions::default()
+                ..HeaderOverrides::default()
             },
         )
     }
@@ -2236,7 +2240,7 @@ where
     fn mine_block_with_mem_pool(
         &mut self,
         config: &CfgEnv<ChainSpecT::Hardfork>,
-        options: BlockOptions,
+        options: HeaderOverrides,
         runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
@@ -2265,7 +2269,7 @@ where
     fn mine_block_with_single_transaction(
         &mut self,
         config: &CfgEnv<ChainSpecT::Hardfork>,
-        options: BlockOptions,
+        options: HeaderOverrides,
         transaction: ChainSpecT::SignedTransaction,
         runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
@@ -2329,7 +2333,7 @@ where
                         runtime_observer,
                     )
                 },
-                BlockOptions::default(),
+                HeaderOverrides::default(),
             )?;
 
             return Ok(SendTransactionResult {
@@ -2375,7 +2379,7 @@ where
                     // multiple block due to the gas limit.
                     loop {
                         let result = self
-                            .mine_and_commit_block(BlockOptions::default())
+                            .mine_and_commit_block(HeaderOverrides::default())
                             .inspect_err(|_error| {
                                 self.revert_to_snapshot(snapshot_id);
                             })?;
@@ -2396,7 +2400,7 @@ where
                     //   miner's tip than other pending transactions.
                     while self.mem_pool.has_pending_transactions() {
                         let result = self
-                            .mine_and_commit_block(BlockOptions::default())
+                            .mine_and_commit_block(HeaderOverrides::default())
                             .inspect_err(|_error| {
                                 self.revert_to_snapshot(snapshot_id);
                             })?;
@@ -3110,7 +3114,7 @@ mod tests {
         // Mine a block to make sure we're not getting the genesis block
         fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
         let last_block_number = fixture.provider_data.last_block_number();
         // Sanity check
         assert!(last_block_number > 0);
@@ -3222,10 +3226,10 @@ mod tests {
         let prevrandao = fixture.provider_data.prev_randao_generator.next_value();
         let result = fixture.provider_data.mine_block(
             ProviderData::mine_block_with_mem_pool,
-            BlockOptions {
+            HeaderOverrides {
                 timestamp: Some(block_timestamp),
                 mix_hash: Some(prevrandao),
-                ..BlockOptions::default()
+                ..HeaderOverrides::default()
             },
         )?;
 
@@ -3269,7 +3273,7 @@ mod tests {
 
         let result = fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
         assert!(result.block.transactions().is_empty());
 
         let current_block_number = fixture.provider_data.last_block_number();
@@ -3327,7 +3331,7 @@ mod tests {
 
         let result = fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
 
         assert_eq!(result.block.transactions().len(), 1);
 
@@ -3364,7 +3368,7 @@ mod tests {
 
         let result = fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
 
         assert_eq!(result.block.transactions().len(), 2);
 
@@ -3401,7 +3405,7 @@ mod tests {
 
         let result = fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
 
         assert_eq!(result.block.transactions().len(), 2);
 
@@ -3429,7 +3433,7 @@ mod tests {
 
         let result = fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
 
         assert_eq!(result.block.transactions().len(), 1);
 
@@ -3480,7 +3484,7 @@ mod tests {
 
         let result = fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
 
         // Check that only the first and third transactions were mined
         assert_eq!(result.block.transactions().len(), 2);
@@ -3538,7 +3542,7 @@ mod tests {
 
         let result = fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
 
         assert_eq!(result.block.transactions().len(), 2);
 
@@ -3575,7 +3579,7 @@ mod tests {
 
         let result = fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
 
         let receipt1 = fixture
             .provider_data
@@ -3624,7 +3628,7 @@ mod tests {
 
         fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
 
         let miner_balance = fixture
             .provider_data
@@ -3841,7 +3845,7 @@ mod tests {
 
         let results = fixture
             .provider_data
-            .mine_and_commit_block(BlockOptions::default())?;
+            .mine_and_commit_block(HeaderOverrides::default())?;
 
         // Make sure transaction was mined successfully.
         assert!(results
@@ -3926,7 +3930,7 @@ mod tests {
 
     #[cfg(feature = "test-remote")]
     mod alchemy {
-        use edr_eth::l1;
+        use edr_eth::{block, l1};
         use edr_evm::impl_full_block_tests;
         use edr_test_utils::env::get_alchemy_url;
 
@@ -4140,52 +4144,76 @@ mod tests {
             Ok(())
         }
 
+        fn l1_header_overrides(replay_header: &block::Header) -> HeaderOverrides {
+            HeaderOverrides {
+                beneficiary: Some(replay_header.beneficiary),
+                gas_limit: Some(replay_header.gas_limit),
+                extra_data: Some(replay_header.extra_data.clone()),
+                mix_hash: Some(replay_header.mix_hash),
+                nonce: Some(replay_header.nonce),
+                parent_beacon_block_root: replay_header.parent_beacon_block_root,
+                state_root: Some(replay_header.state_root),
+                timestamp: Some(replay_header.timestamp),
+                ..HeaderOverrides::default()
+            }
+        }
+
         impl_full_block_tests! {
             mainnet_byzantium => L1ChainSpec {
                 block_number: 4_370_001,
                 url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
             },
             mainnet_constantinople => L1ChainSpec {
                 block_number: 7_280_001,
                 url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
             },
             mainnet_istanbul => L1ChainSpec {
                 block_number: 9_069_001,
                 url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
             },
             mainnet_muir_glacier => L1ChainSpec {
                 block_number: 9_300_077,
                 url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
             },
             mainnet_shanghai => L1ChainSpec {
                 block_number: 17_050_001,
                 url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
             },
             // This block contains a sequence of transaction that first raise
             // an empty account's balance and then decrease it
             mainnet_19318016 => L1ChainSpec {
                 block_number: 19_318_016,
                 url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
             },
             // This block has both EIP-2930 and EIP-1559 transactions
             sepolia_eip_1559_2930 => L1ChainSpec {
                 block_number: 5_632_795,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
+                header_overrides_constructor: l1_header_overrides,
             },
             sepolia_shanghai => L1ChainSpec {
                 block_number: 3_095_000,
                 url: get_alchemy_url().replace("mainnet", "sepolia"),
+                header_overrides_constructor: l1_header_overrides,
             },
             // This block has an EIP-4844 transaction
             mainnet_cancun => L1ChainSpec {
                 block_number: 19_529_021,
                 url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
             },
             // This block contains a transaction that uses the KZG point evaluation
             // precompile, introduced in Cancun
             mainnet_cancun2 => L1ChainSpec {
                 block_number: 19_562_047,
                 url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
             },
         }
     }

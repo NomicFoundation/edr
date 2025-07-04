@@ -350,7 +350,7 @@ where
 
             Ok(Some(ChainSpecT::cast_remote_block(remote_block)))
         } else {
-            let local_block = self.local_storage.block_by_number(number)?;
+            let local_block = self.local_storage.block_by_number::<ChainSpecT>(number)?;
 
             Ok(local_block.map(ChainSpecT::cast_local_block))
         }
@@ -399,7 +399,7 @@ where
         if self.fork_block_number < last_block_number {
             let local_block = self
                 .local_storage
-                .block_by_number(last_block_number)?
+                .block_by_number::<ChainSpecT>(last_block_number)?
                 .expect("Block must exist since block number is less than the last block number");
 
             Ok(ChainSpecT::cast_local_block(local_block))
@@ -682,7 +682,7 @@ impl<ChainSpecT: RuntimeSpec> BlockHash for ForkedBlockchain<ChainSpecT> {
             .map(|block| Ok(*block.block_hash()))?
         } else {
             self.local_storage
-                .block_by_number(block_number)?
+                .block_by_number::<ChainSpecT>(block_number)?
                 .map(|block| *block.block_hash())
                 .ok_or(BlockchainError::UnknownBlockNumber)
         }
