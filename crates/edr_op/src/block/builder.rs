@@ -83,10 +83,24 @@ where
                         .expect("Chain spec must have base fee params for post-London hardforks")
                 });
 
-                let mut bytes = Vec::with_capacity(9);
-                bytes.push(DYNAMIC_BASE_FEE_PARAM_VERSION);
-                bytes.extend_from_slice(&base_fee_params.max_change_denominator.to_be_bytes());
-                bytes.extend_from_slice(&base_fee_params.elasticity_multiplier.to_be_bytes());
+                let denominator: [u8; 4] = u32::try_from(base_fee_params.max_change_denominator)
+                    .expect("Base fee denominators can only be up to u32::MAX")
+                    .to_be_bytes();
+                let elasticity: [u8; 4] = u32::try_from(base_fee_params.elasticity_multiplier)
+                    .expect("Base fee elasticity can only be up to u32::MAX")
+                    .to_be_bytes();
+
+                let bytes: Box<[u8]> = Box::new([
+                    DYNAMIC_BASE_FEE_PARAM_VERSION,
+                    denominator[0],
+                    denominator[1],
+                    denominator[2],
+                    denominator[3],
+                    elasticity[0],
+                    elasticity[1],
+                    elasticity[2],
+                    elasticity[3],
+                ]);
 
                 Bytes::from(bytes)
             }));
