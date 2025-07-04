@@ -729,7 +729,7 @@ impl<
         if let Err(e) = update_state(&mut context.journaled_state.state, &mut *db, None) {
             let res = InterpreterResult {
                 result: InstructionResult::Revert,
-                output: Bytes::from(e.to_string()),
+                output: Bytes::from(e.to_string().into_bytes()),
                 gas,
             };
             return (res, None);
@@ -737,7 +737,7 @@ impl<
         if let Err(e) = update_state(&mut res.state, &mut *db, None) {
             let res = InterpreterResult {
                 result: InstructionResult::Revert,
-                output: Bytes::from(e.to_string()),
+                output: Bytes::from(e.to_string().into_bytes()),
                 gas,
             };
             return (res, None);
@@ -968,11 +968,12 @@ impl<
             && !self.in_inner_context
             && ecx.journaled_state.depth == 1
         {
+            let input = call.input.bytes(ecx);
             let (result, _) = self.transact_inner(
                 ecx,
                 TxKind::Call(call.target_address),
                 call.caller,
-                call.input.clone(),
+                input,
                 call.gas_limit,
                 call.value.get(),
             );

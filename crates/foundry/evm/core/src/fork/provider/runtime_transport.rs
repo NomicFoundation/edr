@@ -202,15 +202,15 @@ impl RuntimeTransport {
             .jwt
             .as_ref()
             .and_then(|jwt| build_auth(jwt.clone()).ok());
-        let ws = WsConnect {
-            url: self.url.to_string(),
-            auth,
-            config: None,
-        }
-        .into_service()
-        .await
-        .map_err(|e| RuntimeTransportError::TransportError(e, self.url.to_string()))?;
-        Ok(InnerTransport::Ws(ws))
+        let mut ws = WsConnect::new(self.url.to_string());
+        if let Some(auth) = auth {
+            ws = ws.with_auth(auth);
+        };
+        let service = ws
+            .into_service()
+            .await
+            .map_err(|e| RuntimeTransportError::TransportError(e, self.url.to_string()))?;
+        Ok(InnerTransport::Ws(service))
     }
 
     /// Connects to an IPC transport.

@@ -37,7 +37,7 @@ pub fn override_call_strat(
                 // run identified contracts. This can happen when contract is
                 // created in `setUp` call but is not included in
                 // targetContracts.
-                contracts.values().choose(&mut rand::thread_rng()).unwrap()
+                contracts.values().choose(&mut rand::rng()).unwrap()
             });
             let fuzzed_functions: Vec<_> = contract.abi_fuzzed_functions().cloned().collect();
             any::<prop::sample::Index>().prop_map(move |index| index.get(&fuzzed_functions).clone())

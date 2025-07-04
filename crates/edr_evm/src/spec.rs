@@ -20,7 +20,7 @@ use revm_interpreter::{interpreter::EthInterpreter, InterpreterResult};
 use crate::{
     block::transaction::TransactionAndBlockForChainSpec,
     config::CfgEnv,
-    evm::{Evm, EvmData},
+    evm::Evm,
     hardfork::{self, Activations},
     journal::Journal,
     precompile::EthPrecompiles,
@@ -449,10 +449,8 @@ impl RuntimeSpec for L1ChainSpec {
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
         Evm {
-            data: EvmData {
-                ctx: context,
-                inspector,
-            },
+            ctx: context,
+            inspector,
             instruction: EthInstructions::default(),
             precompiles: precompile_provider,
         }

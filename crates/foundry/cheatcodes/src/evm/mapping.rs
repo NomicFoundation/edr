@@ -9,10 +9,7 @@ use foundry_evm_core::evm_context::{
 use revm::{
     bytecode::opcode,
     context::result::HaltReasonTr,
-    interpreter::{
-        interpreter_types::{Jumps, MemoryTr},
-        Interpreter,
-    },
+    interpreter::{interpreter_types::Jumps, Interpreter},
 };
 
 use crate::{

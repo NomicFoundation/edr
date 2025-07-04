@@ -50,7 +50,7 @@ impl Interval {
     pub fn generate_interval(&self) -> u64 {
         match self {
             Interval::Fixed(interval) => interval.get(),
-            Interval::Range { min, max } => rand::thread_rng().gen_range(*min..=*max),
+            Interval::Range { min, max } => rand::rng().random_range(*min..=*max),
         }
     }
 }

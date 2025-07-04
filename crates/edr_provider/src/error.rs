@@ -646,7 +646,6 @@ fn revert_error(output: &Bytes) -> String {
 
     match alloy_sol_types::GenericContractError::abi_decode(
         output.as_ref(),
-        /* validate */ false,
     ) {
         Ok(contract_error) => match contract_error {
             ContractError::CustomError(custom_error) => {

@@ -8,7 +8,7 @@ use edr_evm::{
 };
 use edr_solidity_tests::{
     evm_context::{EthInstructionsContext, EvmBuilderTrait, EvmEnvWithChainContext},
-    revm::context::TxEnv,
+    revm::context::{LocalContext, TxEnv},
 };
 use op_revm::{
     precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpHaltReason, OpSpecId, OpTransaction,
@@ -90,6 +90,7 @@ impl
             cfg: env.cfg,
             journaled_state,
             chain: env.chain_context,
+            local: LocalContext::default(),
             error: Ok(()),
         };
 

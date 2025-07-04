@@ -385,7 +385,6 @@ impl IntegrationTestConfig {
             remappings: Vec::new(),
             // Set with `with_extra_output` below.
             output_selection: OutputSelection::default(),
-            eof_version: None,
         }
         .with_extra_output(self.configured_artifacts_handler().output_selection());
 

@@ -417,7 +417,7 @@ impl<
         let (mut raw, _cow_backend) = self.call_raw(from, to, calldata, value)?;
         raw = raw.into_result(rd)?;
         Ok(CallResult {
-            decoded_result: C::abi_decode_returns(&raw.result, false)?,
+            decoded_result: C::abi_decode_returns(&raw.result)?,
             raw,
         })
     }
@@ -791,7 +791,7 @@ impl<
             let call = executor.call_sol(CALLER, address, &ITest::failedCall {}, U256::ZERO, None);
             if let Ok(CallResult {
                 raw: _,
-                decoded_result: ITest::failedReturn { _0: failed },
+                decoded_result: failed,
             }) = call
             {
                 debug!(failed, "DSTest::failed()");
@@ -1493,7 +1493,7 @@ impl<
         >,
     > {
         self = self.into_result(rd)?;
-        let mut result = func.abi_decode_output(&self.result, false)?;
+        let mut result = func.abi_decode_output(&self.result)?;
         let decoded_result = if result.len() == 1 {
             result.pop().unwrap()
         } else {

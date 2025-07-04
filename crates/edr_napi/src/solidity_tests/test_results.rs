@@ -660,7 +660,7 @@ impl From<traces::CallKind> for CallKind {
             traces::CallKind::Create | traces::CallKind::Create2 => CallKind::Create,
 
             // We do not support these EVM features.
-            traces::CallKind::AuthCall | traces::CallKind::EOFCreate => {
+            traces::CallKind::AuthCall => {
                 unreachable!("Unsupported EVM features")
             }
         }

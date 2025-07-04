@@ -5,7 +5,7 @@ edition.workspace = true
 description = "A generic chain specification for Ethereum Layer 1 chains."
 
 [dependencies]
-alloy-rlp = { version = "0.3.11", default-features = false, features = ["derive"] }
+alloy-rlp = { version = "0.3.12", default-features = false, features = ["derive"] }
 alloy-serde = { workspace = true, features = ["std"] }
 derive-where.workspace = true
 edr_eth = { path = "../edr_eth" }

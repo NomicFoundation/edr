@@ -297,7 +297,7 @@ impl<
         call: &CallInputs,
     ) -> Result {
         // decode the cheatcode call
-        let decoded = Vm::VmCalls::abi_decode(&call.input, false).map_err(|e| {
+        let decoded = Vm::VmCalls::abi_decode(&call.input.bytes(ecx)).map_err(|e| {
             if let alloy_sol_types::Error::UnknownSelector { name: _, selector } = e {
                 let message = if let Some(unsupported_cheatcode) =
                     find_upstream_cheatcode_signature(selector)
@@ -1028,7 +1028,7 @@ impl<
                 // The calldata is at most, as big as this call's input, and
                 if calldata.len() <= call.input.len() &&
                     // Both calldata match, taking the length of the assumed smaller one (which will have at least the selector), and
-                    *calldata == call.input[..calldata.len()] &&
+                    *calldata == call.input.bytes(ecx)[..calldata.len()] &&
                     // The value matches, if provided
                     expected
                         .value.is_none_or(|value| Some(value) == call.transfer_value()) &&
@@ -1045,14 +1045,14 @@ impl<
         // Handle mocked calls
         if let Some(mocks) = self.mocked_calls.get(&call.target_address) {
             let ctx = MockCallDataContext {
-                calldata: call.input.clone(),
+                calldata: call.input.bytes(ecx),
                 value: call.transfer_value(),
             };
             if let Some(return_data) = mocks.get(&ctx).or_else(|| {
                 mocks
                     .iter()
                     .find(|(mock, _)| {
-                        call.input.get(..mock.calldata.len()) == Some(&mock.calldata[..])
+                        Some(&mock.calldata[..]) == call.input.bytes(ecx).get(..mock.calldata.len())
                             && mock
                                 .value
                                 .is_none_or(|value| Some(value) == call.transfer_value())
@@ -1140,7 +1140,7 @@ impl<
                 oldBalance: old_balance,
                 newBalance: U256::ZERO, // updated on call_end
                 value: call.call_value(),
-                data: call.input.clone(),
+                data: call.input.bytes(ecx),
                 reverted: false,
                 deployedCode: Bytes::new(),
                 storageAccesses: vec![], // updated on step

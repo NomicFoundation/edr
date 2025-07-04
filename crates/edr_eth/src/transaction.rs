@@ -274,8 +274,8 @@ pub trait ExecutableTransaction {
 macro_rules! impl_revm_transaction_trait {
     ($ty:ty) => {
         impl $crate::transaction::Transaction for $ty {
-            type AccessListItem = $crate::eips::eip2930::AccessListItem;
-            type Authorization = $crate::eips::eip7702::SignedAuthorization;
+            type AccessListItem<'a> = &'a $crate::eips::eip2930::AccessListItem;
+            type Authorization<'a> = &'a $crate::eips::eip7702::SignedAuthorization;
 
             fn tx_type(&self) -> u8 {
                 $crate::transaction::TransactionType::transaction_type(self).into()
@@ -312,7 +312,7 @@ macro_rules! impl_revm_transaction_trait {
                 $crate::transaction::ExecutableTransaction::gas_price(self).clone()
             }
 
-            fn access_list(&self) -> Option<impl Iterator<Item = &Self::AccessListItem>> {
+            fn access_list(&self) -> Option<impl Iterator<Item = Self::AccessListItem<'_>>> {
                 $crate::transaction::ExecutableTransaction::access_list(self)
                     .map(|list| list.iter())
             }
@@ -332,7 +332,7 @@ macro_rules! impl_revm_transaction_trait {
                     .map_or(0, |list| list.len())
             }
 
-            fn authorization_list(&self) -> impl Iterator<Item = &Self::Authorization> {
+            fn authorization_list(&self) -> impl Iterator<Item = Self::Authorization<'_>> {
                 $crate::transaction::ExecutableTransaction::authorization_list(self)
                     .unwrap_or(&[])
                     .iter()

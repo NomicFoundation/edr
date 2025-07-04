@@ -2,6 +2,7 @@ use edr_eth::{address, Address, Bytes};
 use edr_evm::{
     inspector::Inspector,
     interpreter::{CallInputs, CallOutcome, EthInterpreter},
+    spec::ContextTrait,
 };
 
 const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6f67");
@@ -22,10 +23,10 @@ impl ConsoleLogCollector {
     }
 }
 
-impl<ContextT> Inspector<ContextT, EthInterpreter> for ConsoleLogCollector {
-    fn call(&mut self, _context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
+impl<ContextT: ContextTrait> Inspector<ContextT, EthInterpreter> for ConsoleLogCollector {
+    fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
         if inputs.bytecode_address == CONSOLE_ADDRESS {
-            self.record_console_log(inputs.input.clone());
+            self.record_console_log(inputs.input.bytes(context));
         }
 
         None

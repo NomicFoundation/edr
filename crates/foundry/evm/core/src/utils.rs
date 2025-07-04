@@ -2,7 +2,7 @@ use alloy_chains::NamedChain;
 use alloy_consensus::{BlockHeader, Typed2718};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
-use alloy_primitives::{PrimitiveSignature, Selector, TxKind, B256, U256};
+use alloy_primitives::{Selector, Signature as PrimitiveSignature, TxKind, B256, U256};
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionRequest};
 use revm::primitives::hardfork::SpecId;
 pub use revm::state::EvmState as StateChangeset;
