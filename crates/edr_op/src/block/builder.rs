@@ -90,18 +90,12 @@ where
                     .expect("Base fee elasticity can only be up to u32::MAX")
                     .to_be_bytes();
 
-                let bytes: Box<[u8]> = Box::new([
-                    DYNAMIC_BASE_FEE_PARAM_VERSION,
-                    denominator[0],
-                    denominator[1],
-                    denominator[2],
-                    denominator[3],
-                    elasticity[0],
-                    elasticity[1],
-                    elasticity[2],
-                    elasticity[3],
-                ]);
+                let mut extra_data = [0u8; 9];
+                extra_data[0] = DYNAMIC_BASE_FEE_PARAM_VERSION;
+                extra_data[1..=4].copy_from_slice(&denominator);
+                extra_data[5..=8].copy_from_slice(&elasticity);
 
+                let bytes: Box<[u8]> = Box::new(extra_data);
                 Bytes::from(bytes)
             }));
         }
