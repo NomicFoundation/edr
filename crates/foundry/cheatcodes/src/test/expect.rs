@@ -1,4 +1,4 @@
-#![allow(clippy::restriction)]
+#![allow(clippy::restriction, clippy::pedantic)]
 
 use std::{
     collections::VecDeque,
