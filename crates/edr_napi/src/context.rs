@@ -1,3 +1,5 @@
+#[cfg(feature = "test-mock")]
+mod mock;
 use std::sync::Arc;
 
 use edr_eth::HashMap;
@@ -312,6 +314,28 @@ impl EdrContext {
         });
 
         Ok(promise)
+    }
+}
+
+#[cfg_attr(feature = "test-mock", napi)]
+#[cfg(feature = "test-mock")]
+impl EdrContext {
+    #[doc = "Creates a mock provider, which always returns the given response."]
+    #[doc = "For testing purposes."]
+    #[napi]
+    pub fn create_mock_provider(
+        &self,
+        mocked_response: serde_json::Value,
+    ) -> napi::Result<Provider> {
+        let provider = Provider::new(
+            Arc::new(mock::MockProvider::new(mocked_response)),
+            runtime::Handle::current(),
+            Arc::new(ContractDecoder::default()),
+            #[cfg(feature = "scenarios")]
+            None,
+        );
+
+        Ok(provider)
     }
 }
 
