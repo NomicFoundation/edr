@@ -69,7 +69,7 @@
     "pretest": "pnpm build:dev",
     "prettier": "prettier --check \"test/**.ts\"",
     "test": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
-    "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(op)}.ts\"",
+    "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(op|mock)}.ts\"",
     "universal": "napi universal",
     "version": "napi version"
   },

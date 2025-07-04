@@ -1,7 +1,5 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
-import { JsonStreamStringify } from "json-stream-stringify";
-import fs from "fs";
 
 import {
   AccountOverride,
@@ -73,53 +71,6 @@ describe("Provider", () => {
     },
     printLineCallback: (_message: string, _replace: boolean) => {},
   };
-
-  it("issue 543", async function () {
-    const fileContent = fs.readFileSync("test/files/issue-543.json", "utf-8");
-    var parsedJson = JSON.parse(fileContent);
-    var structLog = parsedJson.structLogs[0];
-
-    // This creates a JSON of length ~950 000 000 characters.
-    // JSON.stringify() crashes at ~500 000 000 characters.
-    for (let i = 1; i < 20000; i++) {
-      parsedJson.structLogs.push(structLog);
-    }
-
-    this.timeout(500_000);
-
-    const provider = await context.createProvider(
-      GENERIC_CHAIN_TYPE,
-      providerConfig,
-      loggerConfig,
-      {
-        subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
-      {}
-    );
-    provider.useMockProvider(parsedJson);
-
-    // This is a transaction that has a very large response.
-    // It won't be used, the provider will return the mocked response.
-    const debugTraceTransaction = `{
-        "jsonrpc": "2.0",
-        "method": "debug_traceTransaction",
-        "params": ["0x7e460f200343e5ab6653a8857cc5ef798e3f5bea6a517b156f90c77ef311a57c"],
-        "id": 1
-      }`;
-
-    const response = await provider.handleRequest(debugTraceTransaction);
-
-    let responseData = response;
-
-    if (typeof response.data === "string") {
-      responseData = JSON.parse(response.data);
-    } else {
-      responseData = response.data;
-    }
-
-    // Validate that we can query the response data without crashing.
-    const _json = new JsonStreamStringify(responseData);
-  });
 
   it("issue 771", async function () {
     const provider = await context.createProvider(
