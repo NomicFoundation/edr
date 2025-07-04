@@ -74,8 +74,8 @@ describe("Provider", () => {
 
   it("issue 543", async function () {
     const fileContent = fs.readFileSync("test/files/issue-543.json", "utf-8");
-    var parsedJson = JSON.parse(fileContent);
-    var structLog = parsedJson.structLogs[0];
+    const parsedJson = JSON.parse(fileContent);
+    const structLog = parsedJson.structLogs[0];
 
     // This creates a JSON of length ~950 000 000 characters.
     // JSON.stringify() crashes at ~500 000 000 characters.
