@@ -3996,9 +3996,9 @@ mod tests {
                 result: ExecutionResult<l1::HaltReason>,
             ) -> anyhow::Result<()> {
                 let output = result.into_output().expect("Call must have output");
-                let decoded = HelloCall::abi_decode_returns(output.as_ref(), false)?;
+                let decoded = HelloCall::abi_decode_returns(output.as_ref())?;
 
-                assert_eq!(decoded._0, "Hello World");
+                assert_eq!(decoded, "Hello World");
                 Ok(())
             }
 
