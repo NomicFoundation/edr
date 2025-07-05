@@ -3,6 +3,10 @@ use std::sync::Arc;
 use edr_napi_core::provider::SyncProvider;
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
+use napi::tokio::runtime;
+use napi_derive::napi;
+
+use crate::{context::EdrContext, provider::Provider};
 
 /// A mock provider that always returns the given mocked response.
 pub struct MockProvider {
@@ -40,4 +44,25 @@ impl SyncProvider for MockProvider {
     }
 
     fn set_verbose_tracing(&self, _enabled: bool) {}
+}
+
+#[napi]
+impl EdrContext {
+    #[doc = "Creates a mock provider, which always returns the given response."]
+    #[doc = "For testing purposes."]
+    #[napi]
+    pub fn create_mock_provider(
+        &self,
+        mocked_response: serde_json::Value,
+    ) -> napi::Result<Provider> {
+        let provider = Provider::new(
+            Arc::new(MockProvider::new(mocked_response)),
+            runtime::Handle::current(),
+            Arc::new(ContractDecoder::default()),
+            #[cfg(feature = "scenarios")]
+            None,
+        );
+
+        Ok(provider)
+    }
 }

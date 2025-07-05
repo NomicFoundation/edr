@@ -16,6 +16,8 @@ describe("Provider", () => {
       parsedJson.structLogs.push(structLog);
     }
 
+    // Increased timeout is needed to allow the large JSON to be processed.
+    // Local tests indicate <100.000ms timeout is enough, but CI may be slower.
     this.timeout(500_000);
 
     // Ignore this on testNoBuild
