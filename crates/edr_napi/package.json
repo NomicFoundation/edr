@@ -56,7 +56,7 @@
     "artifacts": "napi artifacts",
     "build": "pnpm run build:publish",
     "build:debug": "napi build --platform  --no-const-enum --features op",
-    "build:dev": "napi build --platform --release --no-const-enum --features op",
+    "build:dev": "napi build --platform --release --no-const-enum --features op,test-mock",
     "build:publish": "napi build --platform --profile napi-publish --no-const-enum ",
     "build:scenarios": "napi build --platform --release --no-const-enum --features scenarios",
     "build:tracing": "napi build --platform --release --no-const-enum --features tracing",
@@ -69,7 +69,7 @@
     "pretest": "pnpm build:dev",
     "prettier": "prettier --check \"test/**.ts\"",
     "test": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
-    "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(op)}.ts\"",
+    "testNoBuild": "pnpm tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(op|mock)}.ts\"",
     "universal": "napi universal",
     "version": "napi version"
   },

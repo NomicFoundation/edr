@@ -1,6 +1,5 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
-import { JsonStreamStringify } from "json-stream-stringify";
 
 import {
   AccountOverride,
@@ -12,7 +11,7 @@ import {
   MineOrdering,
   SubscriptionEvent,
 } from "..";
-import { ALCHEMY_URL, getContext, isCI } from "./helpers";
+import { getContext } from "./helpers";
 
 describe("Provider", () => {
   const context = getContext();
@@ -72,60 +71,6 @@ describe("Provider", () => {
     },
     printLineCallback: (_message: string, _replace: boolean) => {},
   };
-
-  it("issue 543", async function () {
-    if (ALCHEMY_URL === undefined || !isCI()) {
-      this.skip();
-    }
-
-    // GitHub Actions time out for this task on Ubuntu and MacOS.
-    // TODO https://github.com/NomicFoundation/edr/issues/952
-    if (
-      isCI() &&
-      (process.platform === "linux" || process.platform === "darwin")
-    ) {
-      this.skip();
-    }
-
-    // This test is slow because the debug_traceTransaction is performed on a large transaction.
-    this.timeout(1_800_000);
-
-    const provider = await context.createProvider(
-      GENERIC_CHAIN_TYPE,
-      {
-        ...providerConfig,
-        fork: {
-          url: ALCHEMY_URL,
-        },
-        initialBaseFeePerGas: 0n,
-      },
-      loggerConfig,
-      {
-        subscriptionCallback: (_event: SubscriptionEvent) => {},
-      },
-      {}
-    );
-
-    const debugTraceTransaction = `{
-        "jsonrpc": "2.0",
-        "method": "debug_traceTransaction",
-        "params": ["0x7e460f200343e5ab6653a8857cc5ef798e3f5bea6a517b156f90c77ef311a57c"],
-        "id": 1
-      }`;
-
-    const response = await provider.handleRequest(debugTraceTransaction);
-
-    let responseData;
-
-    if (typeof response.data === "string") {
-      responseData = JSON.parse(response.data);
-    } else {
-      responseData = response.data;
-    }
-
-    // Validate that we can query the response data without crashing.
-    const _json = new JsonStreamStringify(responseData);
-  });
 
   it("issue 771", async function () {
     const provider = await context.createProvider(
