@@ -76,6 +76,18 @@ impl_full_block_tests! {
         url: mainnet_url(),
         header_overrides_constructor: header_overrides,
     },
+    // The Isthmus hardfork modified the GasPriceOracle predeploy in this block
+    // but we don't support forked account overrides yet.
+    // mainnet_isthmus => OpChainSpec {
+    //     block_number: 135_603_812,
+    //     url: mainnet_url(),
+    //     header_overrides_constructor: isthmus_header_overrides,
+    // },
+    mainnet_isthmus_plus_one => OpChainSpec {
+        block_number: 135_603_813,
+        url: mainnet_url(),
+        header_overrides_constructor: isthmus_header_overrides,
+    },
     mainnet_137620147 => OpChainSpec {
         block_number: 137_620_147,
         url: mainnet_url(),
