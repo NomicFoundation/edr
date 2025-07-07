@@ -141,6 +141,7 @@ pub struct BlockBuilder {
     receipts: Vec<TransactionReceipt<Log>>,
     parent_gas_limit: Option<u64>,
     withdrawals: Option<Vec<Withdrawal>>,
+    custom_precompiles: HashMap<Address, Precompile>,
 }
 
 impl BlockBuilder {
@@ -151,6 +152,7 @@ impl BlockBuilder {
         parent: &dyn SyncBlock<L1ChainSpec, Error = BlockchainErrorT>,
         mut options: BlockOptions,
         dao_hardfork_activation_block: Option<u64>,
+        custom_precompiles: HashMap<Address, Precompile>,
     ) -> Result<Self, BlockBuilderCreationError> {
         if cfg.handler_cfg.spec_id < SpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(
@@ -197,6 +199,7 @@ impl BlockBuilder {
             receipts: Vec::new(),
             parent_gas_limit,
             withdrawals,
+            custom_precompiles,
         })
     }
 
@@ -227,7 +230,6 @@ impl BlockBuilder {
         blockchain: &'blockchain dyn SyncBlockchain<L1ChainSpec, BlockchainErrorT, StateErrorT>,
         state: StateT,
         transaction: transaction::Signed,
-        custom_precompiles: &HashMap<Address, Precompile>,
         debug_context: Option<
             DebugContext<'evm, L1ChainSpec, BlockchainErrorT, DebugDataT, StateT>,
         >,
@@ -306,7 +308,8 @@ impl BlockBuilder {
             block_hash: blockchain,
         };
 
-        let precompiles: HashMap<Address, ContextPrecompile<_>> = custom_precompiles
+        let precompiles: HashMap<Address, ContextPrecompile<_>> = self
+            .custom_precompiles
             .iter()
             .map(|(address, precompile)| (*address, ContextPrecompile::from(precompile.clone())))
             .collect();
@@ -571,11 +574,14 @@ mod tests {
             ..BlockOptions::default()
         };
 
+        let custom_precompiles = HashMap::new();
+
         let block_builder = BlockBuilder::new(
             cfg,
             &parent,
             block_options,
             Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),
+            custom_precompiles,
         );
         assert!(block_builder.is_ok());
     }
@@ -604,11 +610,14 @@ mod tests {
             ..BlockOptions::default()
         };
 
+        let custom_precompiles = HashMap::new();
+
         let block_builder = BlockBuilder::new(
             cfg,
             &parent,
             block_options,
             Some(DUMMY_DAO_HARDFORK_BLOCK_NUMBER),
+            custom_precompiles,
         );
         assert!(matches!(
             block_builder,
@@ -640,8 +649,15 @@ mod tests {
             ..BlockOptions::default()
         };
 
-        let block_builder =
-            BlockBuilder::new(cfg, &parent, block_options, Some(DAO_HARDFORK_BLOCK_NUMBER));
+        let custom_precompiles = HashMap::new();
+
+        let block_builder = BlockBuilder::new(
+            cfg,
+            &parent,
+            block_options,
+            Some(DAO_HARDFORK_BLOCK_NUMBER),
+            custom_precompiles,
+        );
         assert!(block_builder.is_ok());
     }
 }
