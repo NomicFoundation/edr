@@ -12,7 +12,7 @@ Whereas the bytecode of L1 predeploys has remained constant over time, OP predep
 4. If any changes occurred, copy the deployed bytecode.
 5. If any changes occurred, copy the state.
 
-For example, for the `GasPriceOracle predeploy of OP stack:
+For example, for the `GasPriceOracle` predeploy of OP stack:
 
 1. The address of the predeploy can be found in `crates/edr_op/src/predeploys.rs`: `0x420000000000000000000000000000000000000f`.
 2. The predeploy on Etherscan: <https://optimistic.etherscan.io/address/0x420000000000000000000000000000000000000f>.
