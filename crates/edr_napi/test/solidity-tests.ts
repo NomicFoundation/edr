@@ -22,6 +22,7 @@ describe("Solidity Tests", () => {
     const testSuites = artifacts.map((artifact) => artifact.id);
     const config = {
       projectRoot: __dirname,
+      observability: {},
     };
 
     const results = await runAllSolidityTests(
@@ -59,6 +60,7 @@ describe("Solidity Tests", () => {
       projectRoot: __dirname,
       // Memory limit is too large
       memoryLimit: 2n ** 65n,
+      observability: {},
     };
 
     await assert.isRejected(
@@ -82,6 +84,7 @@ describe("Solidity Tests", () => {
     const testSuites = artifacts.map((artifact) => artifact.id);
     const config = {
       projectRoot: __dirname,
+      observability: {},
     };
 
     artifacts[0].contract.bytecode = "invalid bytecode";
@@ -110,6 +113,7 @@ describe("Solidity Tests", () => {
       testSuites,
       {
         projectRoot: __dirname,
+        observability: {},
         testPattern: "Multiply",
       }
     );

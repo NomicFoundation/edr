@@ -6,6 +6,7 @@ edition.workspace = true
 
 [dependencies]
 edr_common.workspace = true
+edr_coverage.workspace = true
 edr_defaults.workspace = true
 edr_eth.workspace = true
 edr_evm.workspace = true

@@ -2295,6 +2295,7 @@ name = "edr_coverage"
 version = "0.3.8"
 dependencies = [
  "anyhow",
+ "dyn-clone",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
@@ -2453,6 +2454,7 @@ dependencies = [
  "alloy-sol-types",
  "derive-where",
  "edr_common",
+ "edr_coverage",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
@@ -2687,6 +2689,7 @@ dependencies = [
  "derive-where",
  "dunce",
  "edr_common",
+ "edr_coverage",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
@@ -3163,6 +3166,7 @@ dependencies = [
  "alloy-sol-types",
  "const-hex",
  "derive-where",
+ "edr_coverage",
  "edr_solidity",
  "eyre",
  "foundry-cheatcodes",

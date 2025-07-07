@@ -17,6 +17,7 @@ use napi_derive::napi;
 use crate::{
     account::AccountOverride,
     cast::TryCast,
+    config::ObservabilityConfig,
     serde::{
         serialize_optional_bigint_as_struct, serialize_optional_uint8array_as_hex,
         serialize_uint8array_as_hex,
@@ -26,7 +27,7 @@ use crate::{
 /// Solidity test runner configuration arguments exposed through the ffi.
 /// Docs based on <https://book.getfoundry.sh/reference/config/testing>.
 #[napi(object)]
-#[derive(Clone, serde::Serialize)]
+#[derive(serde::Serialize)]
 pub struct SolidityTestRunnerConfigArgs {
     /// The absolute path to the project root directory.
     /// Relative paths in cheat codes are resolved against this path.
@@ -137,6 +138,9 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Controls which test results should include execution traces. Defaults to
     /// None.
     pub include_traces: Option<IncludeTraces>,
+    /// The configuration for the Solidity test runner's observability
+    #[serde(skip)]
+    pub observability: ObservabilityConfig,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
@@ -176,10 +180,13 @@ impl Debug for SolidityTestRunnerConfigArgs {
     }
 }
 
-impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::TestRunnerConfig {
-    type Error = napi::Error;
-
-    fn try_from(value: SolidityTestRunnerConfigArgs) -> Result<Self, Self::Error> {
+impl SolidityTestRunnerConfigArgs {
+    /// Resolves the instance, converting it to a
+    /// [`edr_napi_core::solidity::config::TestRunnerConfig`].
+    pub fn resolve(
+        self,
+        env: &napi::Env,
+    ) -> napi::Result<edr_napi_core::solidity::config::TestRunnerConfig> {
         let SolidityTestRunnerConfigArgs {
             project_root,
             fs_permissions,
@@ -211,8 +218,9 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::
             fuzz,
             invariant,
             include_traces,
+            observability,
             test_pattern,
-        } = value;
+        } = self;
 
         let test_pattern = TestFilterConfig {
             test_pattern: test_pattern
@@ -275,7 +283,9 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::
                 .collect::<Result<_, napi::Error>>()?,
         };
 
-        let config = Self {
+        let on_collected_coverage_fn = observability.resolve(env)?.on_collected_coverage_fn;
+
+        let config = edr_napi_core::solidity::config::TestRunnerConfig {
             project_root: project_root.into(),
             include_traces: include_traces.unwrap_or_default().into(),
             test_fail: test_fail.unwrap_or_default(),
@@ -301,6 +311,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::
             cheatcode,
             fuzz,
             invariant,
+            on_collected_coverage_fn,
             test_pattern,
         };
 

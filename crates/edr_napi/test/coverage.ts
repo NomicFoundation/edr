@@ -7,6 +7,7 @@ import {
   AccountOverride,
   GENERIC_CHAIN_TYPE,
   genericChainProviderFactory,
+  L1_CHAIN_TYPE,
   l1GenesisState,
   l1HardforkFromString,
   l1HardforkLatest,
@@ -14,7 +15,7 @@ import {
   MineOrdering,
   SubscriptionEvent,
 } from "..";
-import { getContext } from "./helpers";
+import { getContext, loadContract, runAllSolidityTests } from "./helpers";
 
 chai.use(chaiAsPromised);
 
@@ -173,6 +174,38 @@ describe("Code coverage", () => {
           "hex"
         ),
       ]);
+    });
+  });
+
+  describe("Solidity test runner", function () {
+    it("should report code coverage hits", async function () {
+      // TODO: Add instrumented code
+      const artifacts = [
+        loadContract("./artifacts/SetupConsistencyCheck.json"),
+        loadContract("./artifacts/PaymentFailureTest.json"),
+      ];
+      // All artifacts are test suites.
+      const testSuites = artifacts.map((artifact) => artifact.id);
+      const config = {
+        projectRoot: __dirname,
+        observability: {
+          codeCoverage: {
+            onCollectedCoverageCallback: (coverage: Uint8Array[]) => {
+              coverageReporter.hits.push(...coverage);
+            },
+          },
+        },
+      };
+
+      await runAllSolidityTests(
+        context,
+        L1_CHAIN_TYPE,
+        artifacts,
+        testSuites,
+        config
+      );
+
+      assert(coverageReporter.hits.length > 0, "No coverage hits reported");
     });
   });
 });

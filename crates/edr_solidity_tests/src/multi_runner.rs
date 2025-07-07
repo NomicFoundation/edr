@@ -7,6 +7,7 @@ use std::{
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
 use derive_where::derive_where;
+use edr_coverage::CodeCoverageReporter;
 use edr_eth::{l1, spec::HaltReasonTrait};
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
@@ -105,6 +106,8 @@ pub struct MultiContractRunner<
     solidity_fuzz_fixtures: bool,
     /// Settings related to fuzz and/or invariant tests
     test_options: TestOptions,
+    /// Optionally, an EDR code coverage reporter.
+    code_coverage: Option<CodeCoverageReporter>,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
@@ -165,6 +168,7 @@ impl<
             invariant,
             solidity_fuzz_fixtures,
             local_predeploys,
+            on_collected_coverage_fn,
         } = config;
 
         // Do canonicalization in blocking context.
@@ -195,6 +199,7 @@ impl<
             test_fail,
             solidity_fuzz_fixtures,
             test_options,
+            code_coverage: on_collected_coverage_fn.map(CodeCoverageReporter::new),
             _phantom: PhantomData,
         })
     }
@@ -272,6 +277,7 @@ impl<
                     stack
                         .cheatcodes(Arc::new(cheats_config))
                         .trace(self.include_traces != IncludeTraces::None)
+                        .code_coverage(self.code_coverage.clone())
                         .coverage(self.coverage)
                         .enable_isolation(self.evm_opts.isolate)
                 })

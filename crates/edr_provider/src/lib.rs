@@ -1,8 +1,6 @@
 /// Types for configuring the provider.
 pub mod config;
 mod console_log;
-/// Types for code coverage.
-pub mod coverage;
 mod data;
 mod debug_mine;
 mod debug_trace;

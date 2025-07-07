@@ -7,6 +7,8 @@ pub mod op;
 pub mod runner;
 pub mod test_results;
 
+use std::path::Path;
+
 use edr_eth::Bytes;
 use edr_solidity::linker::{LinkOutput, Linker};
 use edr_solidity_tests::{constants::LIBRARY_DEPLOYER, contracts::ContractsByArtifact};
@@ -20,7 +22,7 @@ pub(crate) struct LinkingOutput {
 }
 
 impl LinkingOutput {
-    pub fn link(project_root: &str, artifacts: Vec<Artifact>) -> napi::Result<Self> {
+    pub fn link(project_root: &Path, artifacts: Vec<Artifact>) -> napi::Result<Self> {
         let artifact_contracts = artifacts
             .into_iter()
             .map(|artifact| Ok((artifact.id.try_into()?, artifact.contract.try_into()?)))
