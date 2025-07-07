@@ -43,6 +43,7 @@ where
         cfg: CfgEnv<OpSpecId>,
         mut inputs: BlockInputs,
         mut overrides: edr_eth::block::HeaderOverrides,
+        custom_precompiles: HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>>
     {
         // TODO: https://github.com/NomicFoundation/edr/issues/990
@@ -100,7 +101,14 @@ where
             }));
         }
 
-        let eth = EthBlockBuilder::new(blockchain, state, cfg, inputs, overrides)?;
+        let eth = EthBlockBuilder::new(
+            blockchain,
+            state,
+            cfg,
+            inputs,
+            overrides,
+            custom_precompiles,
+        )?;
 
         let l1_block_info = {
             let mut db = WrapDatabaseRef(DatabaseComponents {
@@ -128,19 +136,17 @@ where
     fn add_transaction(
         &mut self,
         transaction: transaction::Signed,
-        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, OpChainSpec, Self::StateError>,
     > {
-        self.eth.add_transaction(transaction, custom_precompiles)
+        self.eth.add_transaction(transaction)
     }
 
     fn add_transaction_with_inspector<InspectorT>(
         &mut self,
         transaction: transaction::Signed,
         inspector: &mut InspectorT,
-        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, OpChainSpec, Self::StateError>,
@@ -163,7 +169,7 @@ where
         >,
     {
         self.eth
-            .add_transaction_with_inspector(transaction, inspector, custom_precompiles)
+            .add_transaction_with_inspector(transaction, inspector)
     }
 
     fn finalize(

@@ -132,6 +132,7 @@ where
         cfg.clone(),
         BlockInputs::new(cfg.spec),
         overrides,
+        custom_precompiles.clone(),
     )?;
 
     let mut pending_transactions = {
@@ -160,13 +161,9 @@ where
 
         {
             let result = if let Some(inspector) = inspector.as_mut() {
-                block_builder.add_transaction_with_inspector(
-                    transaction,
-                    inspector,
-                    custom_precompiles,
-                )
+                block_builder.add_transaction_with_inspector(transaction, inspector)
             } else {
-                block_builder.add_transaction(transaction, custom_precompiles)
+                block_builder.add_transaction(transaction)
             };
 
             if let Err(error) = result {
@@ -405,15 +402,16 @@ where
         cfg.clone(),
         BlockInputs::new(cfg.spec),
         overrides,
+        custom_precompiles.clone(),
     )?;
 
     let beneficiary = block_builder.header().beneficiary;
     let rewards = vec![(beneficiary, reward)];
 
     if let Some(inspector) = inspector {
-        block_builder.add_transaction_with_inspector(transaction, inspector, custom_precompiles)?;
+        block_builder.add_transaction_with_inspector(transaction, inspector)?;
     } else {
-        block_builder.add_transaction(transaction, custom_precompiles)?;
+        block_builder.add_transaction(transaction)?;
     }
 
     block_builder
