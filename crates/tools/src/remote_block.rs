@@ -10,11 +10,8 @@ use edr_eth::{
     transaction::TransactionValidation,
 };
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block, BlockReceipts};
-use edr_op::{
-    test_utils::{header_overrides, isthmus_header_overrides},
-    OpChainSpec,
-};
-use edr_provider::spec::SyncRuntimeSpec;
+use edr_op::{test_utils::isthmus_header_overrides, OpChainSpec};
+use edr_provider::{spec::SyncRuntimeSpec, test_utils::header_overrides};
 use edr_rpc_eth::client::EthRpcClient;
 
 #[derive(Clone, ValueEnum)]

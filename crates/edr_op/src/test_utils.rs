@@ -1,17 +1,5 @@
 use edr_eth::block::{self, HeaderOverrides};
-
-/// Default header overrides for replaying OP blocks.
-pub fn header_overrides(replay_header: &block::Header) -> HeaderOverrides {
-    HeaderOverrides {
-        beneficiary: Some(replay_header.beneficiary),
-        gas_limit: Some(replay_header.gas_limit),
-        mix_hash: Some(replay_header.mix_hash),
-        parent_beacon_block_root: replay_header.parent_beacon_block_root,
-        state_root: Some(replay_header.state_root),
-        timestamp: Some(replay_header.timestamp),
-        ..HeaderOverrides::default()
-    }
-}
+use edr_provider::test_utils::header_overrides;
 
 /// Post-Holocene it's possible for the base fee parameters to be set
 /// dynamically using L1 parameters. As EDR doesn't support this yet, we
