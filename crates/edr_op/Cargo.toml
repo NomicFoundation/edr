@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-rlp = { version = "0.3.12", default-features = false, features = ["derive"] }
+alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
 edr_eth = { path = "../edr_eth", features = ["serde", "std"] }
 edr_evm = { path = "../edr_evm" }
