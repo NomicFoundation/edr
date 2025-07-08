@@ -221,17 +221,17 @@ tower-http = "0.5"
 
 [patch.crates-io]
 # revm
-revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-revm-bytecode = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-revm-context = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-revm-context-interface = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-revm-database-interface = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-revm-handler = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-revm-interpreter = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-revm-precompile = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-revm-primitives = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-revm-state = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
-op-revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "33a8bd1c2398" }
+revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+revm-bytecode = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+revm-context = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+revm-context-interface = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+revm-database-interface = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+revm-handler = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+revm-interpreter = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+revm-precompile = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+revm-primitives = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+revm-state = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
+op-revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
 
 [workspace.lints.rust]
 future_incompatible = "warn"
