@@ -3,7 +3,7 @@ use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 
 use anyhow::anyhow;
 use edr_eth::{
-    block::BlobGas,
+    block::{self, BlobGas},
     eips::eip7702,
     l1::{self, L1ChainSpec},
     signature::{public_key_to_address, secret_key_from_str, SignatureWithYParity},
@@ -38,6 +38,19 @@ pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 /// Constructs a test config with a single account with 1 ether
 pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
     create_test_config_with_fork(None)
+}
+
+/// Default header overrides for replaying L1 blocks.
+pub fn header_overrides(replay_header: &block::Header) -> block::HeaderOverrides {
+    block::HeaderOverrides {
+        beneficiary: Some(replay_header.beneficiary),
+        gas_limit: Some(replay_header.gas_limit),
+        mix_hash: Some(replay_header.mix_hash),
+        parent_beacon_block_root: replay_header.parent_beacon_block_root,
+        state_root: Some(replay_header.state_root),
+        timestamp: Some(replay_header.timestamp),
+        ..block::HeaderOverrides::default()
+    }
 }
 
 pub fn one_ether() -> U256 {
