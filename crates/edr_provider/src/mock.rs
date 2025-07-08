@@ -44,7 +44,8 @@ impl Mocker {
         self.call_override.as_ref().and_then(|f| f(contract, input))
     }
 
-    fn try_mocking_call(&mut self, inputs: &CallInputs, input_data: Bytes) -> Option<CallOutcome> {
+    fn try_mocking_call(&mut self, context: &mut impl ContextTrait, inputs: &mut CallInputs) -> Option<CallOutcome> {
+        let input_data = inputs.input.bytes(context);
         self.override_call(inputs.bytecode_address, input_data).map(
             |CallOverrideResult {
                  output,
@@ -71,6 +72,6 @@ impl Mocker {
 
 impl<ContextT: ContextTrait> Inspector<ContextT, EthInterpreter> for Mocker {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
-        self.try_mocking_call(inputs, inputs.input.bytes(context))
+        self.try_mocking_call(context, inputs)
     }
 }
