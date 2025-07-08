@@ -2306,7 +2306,6 @@ name = "edr_defaults"
 version = "0.3.8"
 dependencies = [
  "alloy-primitives",
- "ruint",
 ]
 
 [[package]]

@@ -1,5 +1,4 @@
-use alloy_primitives::{address, Address};
-use ruint::aliases::U256;
+use alloy_primitives::{address, ruint, ruint::aliases::U256, Address};
 
 /// The default secret keys from which the local accounts will be derived.
 pub const SECRET_KEYS: [&str; 20] = [
