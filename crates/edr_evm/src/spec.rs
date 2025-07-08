@@ -134,11 +134,11 @@ pub trait RuntimeSpec:
 
     /// Type representing a block builder.
     type BlockBuilder<
-        'blockchain,
-        BlockchainErrorT: 'blockchain + std::error::Error + Send,
-        StateErrorT: 'blockchain + std::error::Error + Send
+        'builder,
+        BlockchainErrorT: 'builder + std::error::Error + Send,
+        StateErrorT: 'builder + std::error::Error + Send
     >: BlockBuilder<
-        'blockchain,
+        'builder,
         Self,
         BlockchainError = BlockchainErrorT,
         StateError = StateErrorT>;
@@ -369,10 +369,10 @@ impl RuntimeSpec for L1ChainSpec {
     >;
 
     type BlockBuilder<
-        'blockchain,
-        BlockchainErrorT: 'blockchain + Send + std::error::Error,
-        StateErrorT: 'blockchain + Send + std::error::Error,
-    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, StateErrorT>;
+        'builder,
+        BlockchainErrorT: 'builder + Send + std::error::Error,
+        StateErrorT: 'builder + Send + std::error::Error,
+    > = EthBlockBuilder<'builder, BlockchainErrorT, Self, StateErrorT>;
 
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;

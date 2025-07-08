@@ -224,6 +224,8 @@ pub async fn run_full_block<
     let state =
         blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
 
+    let custom_precompiles = HashMap::new();
+
     let mut builder = ChainSpecT::BlockBuilder::new_block_builder(
         &blockchain,
         state,
@@ -233,14 +235,13 @@ pub async fn run_full_block<
             withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
         },
         header_overrides_constructor(replay_header),
+        &custom_precompiles,
     )?;
 
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);
 
-    let custom_precompiles = HashMap::new();
-
     for transaction in replay_block.transactions() {
-        builder.add_transaction(transaction.clone(), &custom_precompiles)?;
+        builder.add_transaction(transaction.clone())?;
     }
 
     let rewards = vec![(

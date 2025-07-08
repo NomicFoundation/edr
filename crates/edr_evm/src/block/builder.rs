@@ -130,6 +130,7 @@ where
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
         overrides: HeaderOverrides,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
         BlockBuilderCreationErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
@@ -145,7 +146,6 @@ where
     fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
@@ -156,7 +156,6 @@ where
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         inspector: &mut InspectorT,
-        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,

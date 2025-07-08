@@ -44,6 +44,7 @@ where
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
     withdrawals: Option<Vec<Withdrawal>>,
+    custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
 }
 
 impl<BlockchainErrorT, ChainSpecT, StateErrorT>
@@ -128,6 +129,7 @@ where
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
         mut overrides: HeaderOverrides,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
     {
         let parent_block = blockchain
@@ -168,6 +170,7 @@ where
             transactions: Vec::new(),
             transaction_results: Vec::new(),
             withdrawals: inputs.withdrawals,
+            custom_precompiles,
         })
     }
 
@@ -176,7 +179,6 @@ where
     pub fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<(), BlockTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>>
     {
         self.validate_transaction(&transaction)?;
@@ -193,7 +195,7 @@ where
             self.cfg.clone(),
             transaction.clone(),
             block,
-            custom_precompiles,
+            self.custom_precompiles,
         )?;
 
         self.add_transaction_result(receipt_builder, transaction, transaction_result);
@@ -206,7 +208,6 @@ where
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         extension: &mut InspectorT,
-        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<(), BlockTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>>
     where
         InspectorT: for<'inspector> Inspector<
@@ -235,7 +236,7 @@ where
             self.cfg.clone(),
             transaction.clone(),
             block,
-            custom_precompiles,
+            self.custom_precompiles,
             extension,
         )
         .map_err(BlockTransactionError::from)?;
@@ -402,11 +403,19 @@ where
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
         overrides: HeaderOverrides,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,
     > {
-        Self::new(blockchain, state, cfg, inputs, overrides)
+        Self::new(
+            blockchain,
+            state,
+            cfg,
+            inputs,
+            overrides,
+            custom_precompiles,
+        )
     }
 
     fn block_receipt_factory(&self) -> ChainSpecT::BlockReceiptFactory {
@@ -420,19 +429,17 @@ where
     fn add_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
-        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
     > {
-        self.add_transaction(transaction, custom_precompiles)
+        self.add_transaction(transaction)
     }
 
     fn add_transaction_with_inspector<InspectorT>(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
         inspector: &mut InspectorT,
-        custom_precompiles: &HashMap<Address, PrecompileFn>,
     ) -> Result<
         (),
         BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
@@ -454,7 +461,7 @@ where
             >,
         >,
     {
-        self.add_transaction_with_inspector(transaction, inspector, custom_precompiles)
+        self.add_transaction_with_inspector(transaction, inspector)
     }
 
     fn finalize(
