@@ -220,7 +220,9 @@ tower = "0.4"
 tower-http = "0.5"
 
 [patch.crates-io]
-# revm
+# revm v24
+# + https://github.com/bluealloy/revm/pull/2649
+# + https://github.com/bluealloy/revm/pull/2699
 revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
 revm-bytecode = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
 revm-context = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
