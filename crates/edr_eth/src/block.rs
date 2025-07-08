@@ -5,7 +5,7 @@
 // For the original context see: https://github.com/foundry-rs/foundry/blob/01b16238ff87dc7ca8ee3f5f13e389888c2a2ee4/anvil/core/src/eth/block.rs
 
 mod difficulty;
-mod options;
+mod overrides;
 mod reorg;
 mod reward;
 
@@ -14,7 +14,7 @@ pub use revm_context_interface::Block;
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{
-    options::BlockOptions,
+    overrides::HeaderOverrides,
     reorg::{
         block_time, is_safe_block_number, largest_safe_block_number, safe_block_depth,
         IsSafeBlockNumberArgs, LargestSafeBlockNumberArgs,
@@ -23,10 +23,11 @@ pub use self::{
 };
 use crate::{
     b256,
-    eips::{eip4844, eip7691},
+    eips::{eip1559::ConstantBaseFeeParams, eip4844, eip7691},
     keccak256, l1,
     spec::EthHeaderConstants,
-    trie::KECCAK_NULL_RLP,
+    trie::{self, KECCAK_NULL_RLP},
+    withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
 };
 
@@ -126,17 +127,12 @@ impl alloy_rlp::Encodable for BlobGas {
 }
 
 impl Header {
-    /// Constructs a header from the provided [`PartialHeader`], ommers' root
-    /// hash, transactions' root hash, and withdrawals' root hash.
-    pub fn new(
-        partial_header: PartialHeader,
-        ommers_hash: B256,
-        transactions_root: B256,
-        withdrawals_root: Option<B256>,
-    ) -> Self {
+    /// Constructs a header from the provided [`PartialHeader`] and hashtree
+    /// root of the transactions.
+    pub fn new(partial_header: PartialHeader, transactions_root: B256) -> Self {
         Self {
             parent_hash: partial_header.parent_hash,
-            ommers_hash,
+            ommers_hash: partial_header.ommers_hash,
             beneficiary: partial_header.beneficiary,
             state_root: partial_header.state_root,
             transactions_root,
@@ -151,7 +147,7 @@ impl Header {
             mix_hash: partial_header.mix_hash,
             nonce: partial_header.nonce,
             base_fee_per_gas: partial_header.base_fee,
-            withdrawals_root,
+            withdrawals_root: partial_header.withdrawals_root,
             blob_gas: partial_header.blob_gas,
             parent_beacon_block_root: partial_header.parent_beacon_block_root,
             requests_hash: partial_header.requests_hash,
@@ -170,6 +166,8 @@ impl Header {
 pub struct PartialHeader {
     /// The parent block's hash
     pub parent_hash: B256,
+    /// The ommers' root hash
+    pub ommers_hash: B256,
     /// The block's beneficiary address
     pub beneficiary: Address,
     /// The state's root hash
@@ -196,6 +194,9 @@ pub struct PartialHeader {
     pub nonce: B64,
     /// `BaseFee` was added by EIP-1559 and is ignored in legacy headers.
     pub base_fee: Option<u128>,
+    /// `WithdrawalsHash` was added by EIP-4895 and is ignored in legacy
+    /// headers.
+    pub withdrawals_root: Option<B256>,
     /// Blob gas was added by EIP-4844 and is ignored in older headers.
     pub blob_gas: Option<BlobGas>,
     /// The hash tree root of the parent beacon block for the given execution
@@ -208,15 +209,17 @@ pub struct PartialHeader {
 }
 
 impl PartialHeader {
-    /// Constructs a new instance based on the provided [`BlockOptions`] and
+    /// Constructs a new instance based on the provided [`HeaderOverrides`] and
     /// parent [`Header`] for the given [`l1::SpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
-        options: BlockOptions,
+        overrides: HeaderOverrides,
         parent: Option<&Header>,
+        ommers: &Vec<Header>,
+        withdrawals: Option<&Vec<Withdrawal>>,
     ) -> Self {
-        let timestamp = options.timestamp.unwrap_or_default();
-        let number = options.number.unwrap_or({
+        let timestamp = overrides.timestamp.unwrap_or_default();
+        let number = overrides.number.unwrap_or({
             if let Some(parent) = &parent {
                 parent.number + 1
             } else {
@@ -224,7 +227,7 @@ impl PartialHeader {
             }
         });
 
-        let parent_hash = options.parent_hash.unwrap_or_else(|| {
+        let parent_hash = overrides.parent_hash.unwrap_or_else(|| {
             if let Some(parent) = parent {
                 parent.hash()
             } else {
@@ -234,11 +237,12 @@ impl PartialHeader {
 
         Self {
             parent_hash,
-            beneficiary: options.beneficiary.unwrap_or_default(),
-            state_root: options.state_root.unwrap_or(KECCAK_NULL_RLP),
+            ommers_hash: keccak256(alloy_rlp::encode(ommers)),
+            beneficiary: overrides.beneficiary.unwrap_or_default(),
+            state_root: overrides.state_root.unwrap_or(KECCAK_NULL_RLP),
             receipts_root: KECCAK_NULL_RLP,
             logs_bloom: Bloom::default(),
-            difficulty: options.difficulty.unwrap_or_else(|| {
+            difficulty: overrides.difficulty.unwrap_or_else(|| {
                 if hardfork.into() >= l1::SpecId::MERGE {
                     U256::ZERO
                 } else if let Some(parent) = parent {
@@ -253,22 +257,28 @@ impl PartialHeader {
                 }
             }),
             number,
-            gas_limit: options.gas_limit.unwrap_or(1_000_000),
+            gas_limit: overrides.gas_limit.unwrap_or(1_000_000),
             gas_used: 0,
             timestamp,
-            extra_data: options.extra_data.unwrap_or_default(),
-            mix_hash: options.mix_hash.unwrap_or_default(),
-            nonce: options.nonce.unwrap_or_else(|| {
+            extra_data: overrides.extra_data.unwrap_or_default(),
+            mix_hash: overrides.mix_hash.unwrap_or_default(),
+            nonce: overrides.nonce.unwrap_or_else(|| {
                 if hardfork.into() >= l1::SpecId::MERGE {
                     B64::ZERO
                 } else {
                     B64::from(66u64)
                 }
             }),
-            base_fee: options.base_fee.or_else(|| {
+            base_fee: overrides.base_fee.or_else(|| {
                 if hardfork.into() >= l1::SpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        calculate_next_base_fee_per_gas::<ChainSpecT>(hardfork, parent)
+                        if let Some(base_fee_params) = &overrides.base_fee_params {
+                            calculate_next_base_fee_per_gas(parent, base_fee_params)
+                        } else {
+                            calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
+                                hardfork, parent,
+                            )
+                        }
                     } else {
                         u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
                     })
@@ -276,7 +286,18 @@ impl PartialHeader {
                     None
                 }
             }),
-            blob_gas: options.blob_gas.or_else(|| {
+            withdrawals_root: overrides.withdrawals_root.or_else(|| {
+                if hardfork.into() >= l1::SpecId::SHANGHAI {
+                    let withdrawals_root = withdrawals.map_or(KECCAK_NULL_RLP, |withdrawals| {
+                        trie::ordered_trie_root(withdrawals.iter().map(alloy_rlp::encode))
+                    });
+
+                    Some(withdrawals_root)
+                } else {
+                    None
+                }
+            }),
+            blob_gas: overrides.blob_gas.or_else(|| {
                 if hardfork.into() >= l1::SpecId::CANCUN {
                     let excess_gas = parent.and_then(|parent| parent.blob_gas.as_ref()).map_or(
                         // For the first (post-fork) block, both parent.blob_gas_used and
@@ -312,7 +333,7 @@ impl PartialHeader {
                     None
                 }
             }),
-            parent_beacon_block_root: options.parent_beacon_block_root.or_else(|| {
+            parent_beacon_block_root: overrides.parent_beacon_block_root.or_else(|| {
                 if hardfork.into() >= l1::SpecId::CANCUN {
                     // Initial value from https://eips.ethereum.org/EIPS/eip-4788
                     Some(B256::ZERO)
@@ -320,7 +341,7 @@ impl PartialHeader {
                     None
                 }
             }),
-            requests_hash: options.requests_hash.or_else(|| {
+            requests_hash: overrides.requests_hash.or_else(|| {
                 if hardfork.into() >= l1::SpecId::PRAGUE {
                     // sha("") for an empty list of requests
                     Some(b256!(
@@ -334,36 +355,11 @@ impl PartialHeader {
     }
 }
 
-impl Default for PartialHeader {
-    fn default() -> Self {
-        const DEFAULT_GAS: u64 = 0xffffffffffffff;
-
-        Self {
-            parent_hash: B256::default(),
-            beneficiary: Address::default(),
-            state_root: B256::default(),
-            receipts_root: KECCAK_NULL_RLP,
-            logs_bloom: Bloom::default(),
-            difficulty: U256::default(),
-            number: u64::default(),
-            gas_limit: DEFAULT_GAS,
-            gas_used: u64::default(),
-            timestamp: u64::default(),
-            extra_data: Bytes::default(),
-            mix_hash: B256::default(),
-            nonce: B64::default(),
-            base_fee: None,
-            blob_gas: None,
-            parent_beacon_block_root: None,
-            requests_hash: None,
-        }
-    }
-}
-
 impl From<Header> for PartialHeader {
     fn from(header: Header) -> PartialHeader {
         Self {
             parent_hash: header.parent_hash,
+            ommers_hash: header.ommers_hash,
             beneficiary: header.beneficiary,
             state_root: header.state_root,
             receipts_root: header.receipts_root,
@@ -377,11 +373,30 @@ impl From<Header> for PartialHeader {
             mix_hash: header.mix_hash,
             nonce: header.nonce,
             base_fee: header.base_fee_per_gas,
+            withdrawals_root: header.withdrawals_root,
             blob_gas: header.blob_gas,
             parent_beacon_block_root: header.parent_beacon_block_root,
             requests_hash: header.requests_hash,
         }
     }
+}
+
+/// Calculates the next base fee per gas for a post-London block, given the
+/// parent's header and the base fee parameters provided by
+/// [`EthHeaderConstants`].
+///
+/// # Panics
+///
+/// Panics if the parent header does not contain a base fee.
+pub fn calculate_next_base_fee_per_gas_for_chain_spec<ChainSpecT: EthHeaderConstants>(
+    hardfork: ChainSpecT::Hardfork,
+    parent: &Header,
+) -> u128 {
+    let base_fee_params = ChainSpecT::BASE_FEE_PARAMS
+        .at_hardfork(hardfork)
+        .expect("Chain spec must have base fee params for post-London hardforks");
+
+    calculate_next_base_fee_per_gas(parent, base_fee_params)
 }
 
 /// Calculates the next base fee for a post-London block, given the parent's
@@ -390,22 +405,24 @@ impl From<Header> for PartialHeader {
 /// # Panics
 ///
 /// Panics if the parent header does not contain a base fee.
-pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
-    hardfork: ChainSpecT::Hardfork,
+pub fn calculate_next_base_fee_per_gas(
     parent: &Header,
+    base_fee_params: &ConstantBaseFeeParams,
 ) -> u128 {
-    let base_fee_params = ChainSpecT::BASE_FEE_PARAMS
-        .at_hardfork(hardfork)
-        .expect("Chain spec must have base fee params for post-London hardforks");
-
     // Adapted from https://github.com/alloy-rs/alloy/blob/main/crates/eips/src/eip1559/helpers.rs#L41
     // modifying it to support `u128`.
     // TODO: Remove once https://github.com/alloy-rs/alloy/issues/2181 has been addressed.
     let gas_used = u128::from(parent.gas_used);
     let gas_limit = u128::from(parent.gas_limit);
+
+    // In reality, [EIP-1559] specifies an initial base fee block number at which to
+    // use the initial base fee, but we always use it if the parent block is
+    // missing the base fee.
+    //
+    // [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     let base_fee = parent
         .base_fee_per_gas
-        .expect("Post-London headers must contain a baseFee");
+        .unwrap_or(u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE));
 
     // Calculate the target gas by dividing the gas limit by the elasticity
     // multiplier.

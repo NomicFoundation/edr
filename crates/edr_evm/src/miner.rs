@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt::Debug};
 
 use edr_eth::{
-    block::{calculate_next_base_fee_per_blob_gas, BlockOptions},
+    block::{calculate_next_base_fee_per_blob_gas, HeaderOverrides},
     l1,
     result::ExecutionResult,
     signature::SignatureError,
@@ -20,7 +20,7 @@ use crate::{
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    Block as _, BlockBuilder, BlockTransactionError, MemPool,
+    Block as _, BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
 };
 
 /// The result of mining a block, including the state. This result needs to be
@@ -96,7 +96,7 @@ pub fn mine_block<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
     state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
     cfg: &CfgEnv<ChainSpecT::Hardfork>,
-    options: BlockOptions,
+    overrides: HeaderOverrides,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
     reward: u128,
@@ -126,8 +126,13 @@ where
     >,
     StateErrorT: std::error::Error + Send,
 {
-    let mut block_builder =
-        ChainSpecT::BlockBuilder::new_block_builder(blockchain, state, cfg.clone(), options)?;
+    let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
+        blockchain,
+        state,
+        cfg.clone(),
+        BlockInputs::new(cfg.spec),
+        overrides,
+    )?;
 
     let mut pending_transactions = {
         type MineOrderComparator<ChainSpecT> = dyn Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering
@@ -298,7 +303,7 @@ pub fn mine_block_with_single_transaction<BlockchainErrorT, ChainSpecT, Inspecto
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: ChainSpecT::SignedTransaction,
     cfg: &CfgEnv<ChainSpecT::Hardfork>,
-    options: BlockOptions,
+    overrides: HeaderOverrides,
     min_gas_price: u128,
     reward: u128,
     inspector: Option<&mut InspectorT>,
@@ -338,7 +343,7 @@ where
         });
     }
 
-    if let Some(base_fee_per_gas) = options.base_fee {
+    if let Some(base_fee_per_gas) = overrides.base_fee {
         if let Some(max_fee_per_gas) = transaction.max_fee_per_gas() {
             if *max_fee_per_gas < base_fee_per_gas {
                 return Err(MineTransactionError::MaxFeePerGasTooLow {
@@ -394,8 +399,13 @@ where
         }
     }
 
-    let mut block_builder =
-        ChainSpecT::BlockBuilder::new_block_builder(blockchain, state, cfg.clone(), options)?;
+    let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
+        blockchain,
+        state,
+        cfg.clone(),
+        BlockInputs::new(cfg.spec),
+        overrides,
+    )?;
 
     let beneficiary = block_builder.header().beneficiary;
     let rewards = vec![(beneficiary, reward)];

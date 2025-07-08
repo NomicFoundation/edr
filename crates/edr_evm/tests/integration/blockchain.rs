@@ -3,7 +3,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use edr_eth::{
-    block::PartialHeader,
+    block::{HeaderOverrides, PartialHeader},
     eips::eip2718::TypedEnvelope,
     l1::{self, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
@@ -147,27 +147,39 @@ fn create_dummy_block_with_difficulty(
 
     create_dummy_block_with_header(
         blockchain.hardfork(),
-        PartialHeader {
-            number,
-            parent_hash,
-            difficulty: U256::from(difficulty),
-            ..PartialHeader::default()
-        },
+        PartialHeader::new::<L1ChainSpec>(
+            blockchain.hardfork(),
+            HeaderOverrides {
+                parent_hash: Some(parent_hash),
+                number: Some(number),
+                difficulty: Some(U256::from(difficulty)),
+                ..HeaderOverrides::default()
+            },
+            None,
+            &Vec::new(),
+            None,
+        ),
     )
 }
 
 fn create_dummy_block_with_hash(
-    spec_id: l1::SpecId,
+    hardfork: l1::SpecId,
     number: u64,
     parent_hash: B256,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     create_dummy_block_with_header(
-        spec_id,
-        PartialHeader {
-            parent_hash,
-            number,
-            ..PartialHeader::default()
-        },
+        hardfork,
+        PartialHeader::new::<L1ChainSpec>(
+            hardfork,
+            HeaderOverrides {
+                parent_hash: Some(parent_hash),
+                number: Some(number),
+                ..HeaderOverrides::default()
+            },
+            None,
+            &Vec::new(),
+            None,
+        ),
     )
 }
 
@@ -199,12 +211,14 @@ fn insert_dummy_block_with_transaction(
     let transaction = dummy_eip155_transaction(caller, 0)?;
     let transaction_hash = *transaction.transaction_hash();
 
-    let header = PartialHeader {
-        number: blockchain.last_block_number() + 1,
-        parent_hash: *blockchain.last_block()?.block_hash(),
-        gas_used: GAS_USED,
-        ..PartialHeader::default()
-    };
+    let mut header = PartialHeader::new::<L1ChainSpec>(
+        blockchain.hardfork(),
+        HeaderOverrides::default(),
+        Some(blockchain.last_block()?.header()),
+        &Vec::new(),
+        None,
+    );
+    header.gas_used = GAS_USED;
 
     let state_overrides = BTreeMap::new();
     let state = blockchain.state_at_block_number(header.number - 1, &state_overrides)?;

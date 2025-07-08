@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use clap::ValueEnum;
 use edr_eth::{
+    block,
     l1::{self, L1ChainSpec},
     log::FilterLog,
     receipt::AsExecutionReceipt,
@@ -69,5 +70,19 @@ where
     };
 
     println!("Testing block {block_number} for chain type {chain_type}");
-    run_full_block::<ChainSpecT>(url, block_number).await
+    run_full_block::<ChainSpecT>(url, block_number, header_overrides).await
+}
+
+fn header_overrides(replay_header: &block::Header) -> block::HeaderOverrides {
+    block::HeaderOverrides {
+        beneficiary: Some(replay_header.beneficiary),
+        gas_limit: Some(replay_header.gas_limit),
+        extra_data: Some(replay_header.extra_data.clone()),
+        mix_hash: Some(replay_header.mix_hash),
+        nonce: Some(replay_header.nonce),
+        parent_beacon_block_root: replay_header.parent_beacon_block_root,
+        state_root: Some(replay_header.state_root),
+        timestamp: Some(replay_header.timestamp),
+        ..block::HeaderOverrides::default()
+    }
 }
