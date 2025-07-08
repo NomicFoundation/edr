@@ -45,10 +45,10 @@ impl RuntimeSpec for GenericChainSpec {
     >;
 
     type BlockBuilder<
-        'blockchain,
-        BlockchainErrorT: 'blockchain + std::error::Error + Send,
-        StateErrorT: 'blockchain + std::error::Error + Send,
-    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, StateErrorT>;
+        'builder,
+        BlockchainErrorT: 'builder + std::error::Error + Send,
+        StateErrorT: 'builder + std::error::Error + Send,
+    > = EthBlockBuilder<'builder, BlockchainErrorT, Self, StateErrorT>;
 
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
 

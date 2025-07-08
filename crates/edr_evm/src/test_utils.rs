@@ -235,7 +235,7 @@ pub async fn run_full_block<
             withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
         },
         header_overrides_constructor(replay_header),
-        custom_precompiles,
+        &custom_precompiles,
     )?;
 
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);

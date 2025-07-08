@@ -68,10 +68,10 @@ impl RuntimeSpec for OpChainSpec {
     >;
 
     type BlockBuilder<
-        'blockchain,
-        BlockchainErrorT: 'blockchain + Send + std::error::Error,
-        StateErrorT: 'blockchain + Send + std::error::Error,
-    > = block::Builder<'blockchain, BlockchainErrorT, StateErrorT>;
+        'builder,
+        BlockchainErrorT: 'builder + Send + std::error::Error,
+        StateErrorT: 'builder + Send + std::error::Error,
+    > = block::Builder<'builder, BlockchainErrorT, StateErrorT>;
 
     type BlockReceipt = receipt::Block;
     type BlockReceiptFactory = BlockReceiptFactory;

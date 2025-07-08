@@ -44,7 +44,7 @@ where
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
     withdrawals: Option<Vec<Withdrawal>>,
-    custom_precompiles: HashMap<Address, PrecompileFn>,
+    custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
 }
 
 impl<BlockchainErrorT, ChainSpecT, StateErrorT>
@@ -129,7 +129,7 @@ where
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
         mut overrides: HeaderOverrides,
-        custom_precompiles: HashMap<Address, PrecompileFn>,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
     {
         let parent_block = blockchain
@@ -195,7 +195,7 @@ where
             self.cfg.clone(),
             transaction.clone(),
             block,
-            &self.custom_precompiles,
+            self.custom_precompiles,
         )?;
 
         self.add_transaction_result(receipt_builder, transaction, transaction_result);
@@ -236,7 +236,7 @@ where
             self.cfg.clone(),
             transaction.clone(),
             block,
-            &self.custom_precompiles,
+            self.custom_precompiles,
             extension,
         )
         .map_err(BlockTransactionError::from)?;
@@ -403,7 +403,7 @@ where
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
         overrides: HeaderOverrides,
-        custom_precompiles: HashMap<Address, PrecompileFn>,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,

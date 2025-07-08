@@ -19,13 +19,13 @@ use crate::{
 };
 
 /// Block builder for OP.
-pub struct Builder<'blockchain, BlockchainErrorT, StateErrorT> {
-    eth: EthBlockBuilder<'blockchain, BlockchainErrorT, OpChainSpec, StateErrorT>,
+pub struct Builder<'builder, BlockchainErrorT, StateErrorT> {
+    eth: EthBlockBuilder<'builder, BlockchainErrorT, OpChainSpec, StateErrorT>,
     l1_block_info: L1BlockInfo,
 }
 
-impl<'blockchain, BlockchainErrorT, StateErrorT> BlockBuilder<'blockchain, OpChainSpec>
-    for Builder<'blockchain, BlockchainErrorT, StateErrorT>
+impl<'builder, BlockchainErrorT, StateErrorT> BlockBuilder<'builder, OpChainSpec>
+    for Builder<'builder, BlockchainErrorT, StateErrorT>
 where
     BlockchainErrorT: Send + std::error::Error,
     StateErrorT: Send + std::error::Error,
@@ -34,7 +34,7 @@ where
     type StateError = StateErrorT;
 
     fn new_block_builder(
-        blockchain: &'blockchain dyn edr_evm::blockchain::SyncBlockchain<
+        blockchain: &'builder dyn edr_evm::blockchain::SyncBlockchain<
             OpChainSpec,
             Self::BlockchainError,
             Self::StateError,
@@ -43,7 +43,7 @@ where
         cfg: CfgEnv<OpSpecId>,
         mut inputs: BlockInputs,
         mut overrides: edr_eth::block::HeaderOverrides,
-        custom_precompiles: HashMap<Address, PrecompileFn>,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>>
     {
         // TODO: https://github.com/NomicFoundation/edr/issues/990

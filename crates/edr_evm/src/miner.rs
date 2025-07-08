@@ -132,7 +132,7 @@ where
         cfg.clone(),
         BlockInputs::new(cfg.spec),
         overrides,
-        custom_precompiles.clone(),
+        custom_precompiles,
     )?;
 
     let mut pending_transactions = {
@@ -402,7 +402,7 @@ where
         cfg.clone(),
         BlockInputs::new(cfg.spec),
         overrides,
-        custom_precompiles.clone(),
+        custom_precompiles,
     )?;
 
     let beneficiary = block_builder.header().beneficiary;
