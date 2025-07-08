@@ -200,6 +200,8 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
     let parent = blockchain.last_block()?;
     let replay_header = replay_block.header();
 
+    let custom_precompiles = HashMap::new();
+
     let mut builder = BlockBuilder::new(
         cfg,
         &parent,
@@ -216,25 +218,18 @@ pub async fn run_full_block(url: String, block_number: u64, chain_id: u64) -> an
             ..BlockOptions::default()
         },
         None,
+        custom_precompiles,
     )?;
 
     let mut state =
         blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
-
-    let custom_precompiles = HashMap::new();
 
     for transaction in replay_block.transactions() {
         let debug_context: Option<DebugContext<'_, L1ChainSpec, _, (), _>> = None;
         let ExecutionResultWithContext {
             result,
             evm_context: _,
-        } = builder.add_transaction(
-            &blockchain,
-            &mut state,
-            transaction.clone(),
-            &custom_precompiles,
-            debug_context,
-        );
+        } = builder.add_transaction(&blockchain, &mut state, transaction.clone(), debug_context);
 
         result?;
     }

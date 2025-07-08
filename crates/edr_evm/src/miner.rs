@@ -131,6 +131,7 @@ where
         &parent_block,
         options,
         dao_hardfork_activation_block,
+        custom_precompiles.clone(),
     )?;
 
     let mut pending_transactions = {
@@ -160,13 +161,7 @@ where
         let ExecutionResultWithContext {
             result,
             evm_context,
-        } = block_builder.add_transaction(
-            blockchain,
-            state,
-            transaction,
-            custom_precompiles,
-            debug_context,
-        );
+        } = block_builder.add_transaction(blockchain, state, transaction, debug_context);
 
         match result {
             Err(
@@ -392,18 +387,13 @@ where
         parent_block.as_ref(),
         options,
         dao_hardfork_activation_block,
+        custom_precompiles.clone(),
     )?;
 
     let ExecutionResultWithContext {
         result,
         evm_context,
-    } = block_builder.add_transaction(
-        blockchain,
-        state,
-        transaction,
-        custom_precompiles,
-        debug_context,
-    );
+    } = block_builder.add_transaction(blockchain, state, transaction, debug_context);
 
     let result = result?;
     let mut state = evm_context.state;
