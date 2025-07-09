@@ -638,7 +638,7 @@ export interface SolidityTestRunnerConfigArgs {
    */
   includeTraces?: IncludeTraces
   /** The configuration for the Solidity test runner's observability */
-  observability: ObservabilityConfig
+  observability?: ObservabilityConfig
   /**
    * A regex pattern to filter tests. If provided, only test methods that
    * match the pattern will be executed and reported as a test result.

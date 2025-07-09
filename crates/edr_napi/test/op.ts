@@ -320,7 +320,6 @@ describe("Multi-chain", () => {
         const testSuites = artifacts.map((artifact) => artifact.id);
         const config = {
           projectRoot: __dirname,
-          observability: {},
         };
 
         const results = await runAllSolidityTests(

@@ -84,7 +84,6 @@ export class TestContext {
     }
 
     return {
-      observability: {},
       projectRoot: hre.config.paths.root,
       rpcCachePath: this.rpcCachePath,
       localPredeploys: localPredeploys,
@@ -93,7 +92,7 @@ export class TestContext {
 
   async runTestsWithStats(
     contractName: string,
-    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot" | "observability"> & { observability?: SolidityTestRunnerConfigArgs["observability"] },
+    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot">,
     chainType: string = L1_CHAIN_TYPE
   ): Promise<SolidityTestsRunResult> {
     let totalTests = 0;
@@ -113,7 +112,6 @@ export class TestContext {
       {
         ...this.defaultConfig(chainType),
         ...config,
-        observability: config?.observability ?? {},
       }
     );
 

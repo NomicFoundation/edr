@@ -140,7 +140,7 @@ pub struct SolidityTestRunnerConfigArgs {
     pub include_traces: Option<IncludeTraces>,
     /// The configuration for the Solidity test runner's observability
     #[serde(skip)]
-    pub observability: ObservabilityConfig,
+    pub observability: Option<ObservabilityConfig>,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
@@ -283,7 +283,14 @@ impl SolidityTestRunnerConfigArgs {
                 .collect::<Result<_, napi::Error>>()?,
         };
 
-        let on_collected_coverage_fn = observability.resolve(env)?.on_collected_coverage_fn;
+        let on_collected_coverage_fn = observability.map_or_else(
+            || Ok(None),
+            |observability| {
+                observability
+                    .resolve(env)
+                    .map(|config| config.on_collected_coverage_fn)
+            },
+        )?;
 
         let config = edr_napi_core::solidity::config::TestRunnerConfig {
             project_root: project_root.into(),
