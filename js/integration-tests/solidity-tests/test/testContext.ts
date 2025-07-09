@@ -84,6 +84,7 @@ export class TestContext {
     }
 
     return {
+      observability: {},
       projectRoot: hre.config.paths.root,
       rpcCachePath: this.rpcCachePath,
       localPredeploys: localPredeploys,

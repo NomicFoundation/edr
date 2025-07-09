@@ -52,6 +52,7 @@ describe("Fuzz and invariant testing", function () {
       fuzz: {
         failurePersistDir: failureDir,
       },
+      observability: {},
     });
     assert.equal(result2.failedTests, 1);
     assert.equal(result2.totalTests, 1);
@@ -89,6 +90,7 @@ describe("Fuzz and invariant testing", function () {
         includePushBytes: false,
         seed: "0x7bb9ee74aaa2abe5e2ca8a116382a9f2ed70b651e70b430e1052eff52a74ffe3",
       },
+      observability: {},
     });
     assert.equal(result.failedTests, 0);
     assert.equal(result.totalTests, 1);
@@ -122,6 +124,7 @@ describe("Fuzz and invariant testing", function () {
       "FailingInvariantTest",
       {
         invariant: invariantConfig,
+        observability: {},
       }
     );
     assert.equal(result1.failedTests, 1);
@@ -228,6 +231,7 @@ describe("Fuzz and invariant testing", function () {
 
     const result = await testContext.runTestsWithStats("BuggyInvariantTest", {
       invariant: invariantConfig,
+      observability: {},
     });
     assert.equal(result.failedTests, 1);
     assert.equal(result.totalTests, 1);
@@ -248,6 +252,7 @@ describe("Fuzz and invariant testing", function () {
 
     const result = await testContext.runTestsWithStats("ImpureInvariantTest", {
       invariant: invariantConfig,
+      observability: {},
     });
     assert.equal(result.failedTests, 1);
     assert.equal(result.totalTests, 1);

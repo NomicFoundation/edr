@@ -36,6 +36,7 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("SuccessAndFailureTest", {
         ethRpcUrl: testContext.rpcUrl,
+        observability: {},
       });
 
     assert.equal(failedTests, 1);
@@ -61,6 +62,7 @@ describe("Unit tests", () => {
         chainId: 12n,
         blockNumber: 23n,
         blockTimestamp: 45n,
+        observability: {},
       }
     );
 
@@ -74,6 +76,7 @@ describe("Unit tests", () => {
         "IsolateTest",
         {
           isolate: true,
+          observability: {},
         }
       );
 
@@ -95,6 +98,7 @@ describe("Unit tests", () => {
       const { totalTests, failedTests } = await testContext.runTestsWithStats(
         "TestFailTest",
         {
+          observability: {},
           testFail: true,
         }
       );
@@ -135,6 +139,7 @@ describe("Unit tests", () => {
       {
         ethRpcUrl: testContext.rpcUrl,
         forkBlockNumber: 20_000_000n,
+        observability: {},
       }
     );
 
@@ -150,6 +155,7 @@ describe("Unit tests", () => {
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
       "ForkCheatcodeTest",
       {
+        observability: {},
         rpcEndpoints: {
           alchemyMainnet: testContext.rpcUrl!,
         },
@@ -167,6 +173,7 @@ describe("Unit tests", () => {
 
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("LatestForkCheatcodeTest", {
+        observability: {},
         rpcEndpoints: {
           alchemyMainnet: testContext.rpcUrl!,
         },
