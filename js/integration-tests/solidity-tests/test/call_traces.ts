@@ -15,7 +15,6 @@ describe("Call traces - IncludeTraces.All", () => {
     const testContext = await TestContext.setup();
     const runResult = await testContext.runTestsWithStats("CallTraces", {
       includeTraces: IncludeTraces.All,
-      observability: {},
     });
     testCallTraces = runResult.callTraces;
   });
@@ -379,7 +378,7 @@ describe("Call traces - IncludeTraces.Failing", () => {
     const testContext = await TestContext.setup();
     const runResult = await testContext.runTestsWithStats(
       "CallTracesFailingOnly",
-      { includeTraces: IncludeTraces.Failing, observability: {} }
+      { includeTraces: IncludeTraces.Failing }
     );
     testCallTraces = runResult.callTraces;
   });
@@ -403,7 +402,6 @@ describe("Call traces - CallTracesSetup", () => {
     const testContext = await TestContext.setup();
     const runResult = await testContext.runTestsWithStats("CallTracesSetup", {
       includeTraces: IncludeTraces.All,
-      observability: {},
     });
     testCallTraces = runResult.callTraces;
   });

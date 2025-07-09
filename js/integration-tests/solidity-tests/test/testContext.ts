@@ -93,7 +93,7 @@ export class TestContext {
 
   async runTestsWithStats(
     contractName: string,
-    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot">,
+    config?: Omit<SolidityTestRunnerConfigArgs, "projectRoot" | "observability"> & { observability?: SolidityTestRunnerConfigArgs["observability"] },
     chainType: string = L1_CHAIN_TYPE
   ): Promise<SolidityTestsRunResult> {
     let totalTests = 0;
@@ -113,6 +113,7 @@ export class TestContext {
       {
         ...this.defaultConfig(chainType),
         ...config,
+        observability: config?.observability ?? {},
       }
     );
 
