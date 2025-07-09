@@ -12,6 +12,7 @@ import {
   l1HardforkFromString,
   l1HardforkLatest,
   l1HardforkToString,
+  l1SolidityTestRunnerFactory,
   MineOrdering,
   SubscriptionEvent,
 } from "..";
@@ -42,6 +43,11 @@ describe("Code coverage", () => {
     await context.registerProviderFactory(
       GENERIC_CHAIN_TYPE,
       genericChainProviderFactory()
+    );
+
+    await context.registerSolidityTestRunnerFactory(
+      L1_CHAIN_TYPE,
+      l1SolidityTestRunnerFactory()
     );
 
     // Reset the coverage reporter
@@ -179,10 +185,11 @@ describe("Code coverage", () => {
 
   describe("Solidity test runner", function () {
     it("should report code coverage hits", async function () {
-      // TODO: Add instrumented code
       const artifacts = [
-        loadContract("./artifacts/SetupConsistencyCheck.json"),
-        loadContract("./artifacts/PaymentFailureTest.json"),
+        loadContract(
+          "./data/artifacts/instrumented/SetupConsistencyCheck.json"
+        ),
+        loadContract("./data/artifacts/instrumented/PaymentFailureTest.json"),
       ];
       // All artifacts are test suites.
       const testSuites = artifacts.map((artifact) => artifact.id);
