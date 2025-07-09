@@ -25,7 +25,7 @@ members = [
     "crates/foundry/evm/coverage",
     "crates/foundry/evm/evm",
     "crates/foundry/evm/fuzz",
-    "crates/foundry/evm/traces",
+    "crates/foundry/evm/traces", "crates/edr_chain_l1",
 ]
 resolver = "2"
 
@@ -83,11 +83,14 @@ scrypt.opt-level = 3
 
 
 [workspace.dependencies]
+edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }
 edr_defaults = { path = "crates/edr_defaults" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/edr_evm" }
 edr_macros = { path = "crates/edr_macros" }
+edr_rpc_client = { path = "crates/edr_rpc_client" }
+edr_rpc_eth = { path = "crates/edr_rpc_eth" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_test_utils = { path = "crates/edr_test_utils" }

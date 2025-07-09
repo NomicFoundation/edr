@@ -6,7 +6,7 @@ use edr_eth::{
 /// Represents _all_ transaction requests received from RPC
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TransactionRequest {
+pub struct L1RpcTransactionRequest {
     /// from address
     pub from: Address,
     /// to address

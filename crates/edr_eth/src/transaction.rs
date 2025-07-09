@@ -13,7 +13,6 @@ pub mod request;
 pub mod signed;
 
 use core::fmt::Debug;
-use std::str::FromStr;
 
 pub use revm_context_interface::Transaction;
 pub use revm_primitives::alloy_primitives::TxKind;
@@ -22,7 +21,7 @@ use revm_primitives::{ruint, B256};
 use crate::{
     eips::{eip2930, eip7702},
     signature::Signature,
-    Address, Bytes, U256, U8,
+    Address, Bytes, U256,
 };
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
@@ -33,87 +32,6 @@ pub trait ComputeTransactionHash {
     fn compute_transaction_hash(&self) -> B256;
 }
 
-/// Container type for various Ethereum transaction requests
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Request {
-    /// A legacy transaction request
-    Legacy(request::Legacy),
-    /// An EIP-155 transaction request
-    Eip155(request::Eip155),
-    /// An EIP-2930 transaction request
-    Eip2930(request::Eip2930),
-    /// An EIP-1559 transaction request
-    Eip1559(request::Eip1559),
-    /// An EIP-4844 transaction request
-    Eip4844(request::Eip4844),
-    /// An EIP-7702 transaction request
-    Eip7702(request::Eip7702),
-}
-
-/// Container type for various signed Ethereum transactions.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub enum Signed {
-    /// Legacy transaction
-    PreEip155Legacy(signed::Legacy),
-    /// EIP-155 transaction
-    PostEip155Legacy(signed::Eip155),
-    /// EIP-2930 transaction
-    Eip2930(signed::Eip2930),
-    /// EIP-1559 transaction
-    Eip1559(signed::Eip1559),
-    /// EIP-4844 transaction
-    Eip4844(signed::Eip4844),
-    /// EIP-7702 transaction
-    Eip7702(signed::Eip7702),
-}
-
-/// The type of transaction.
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Type {
-    /// Legacy transaction
-    Legacy = signed::Legacy::TYPE,
-    /// EIP-2930 transaction
-    Eip2930 = signed::Eip2930::TYPE,
-    /// EIP-1559 transaction
-    Eip1559 = signed::Eip1559::TYPE,
-    /// EIP-4844 transaction
-    Eip4844 = signed::Eip4844::TYPE,
-    /// EIP-7702 transaction
-    Eip7702 = signed::Eip7702::TYPE,
-}
-
-impl From<Type> for u8 {
-    fn from(t: Type) -> u8 {
-        t as u8
-    }
-}
-
-impl IsEip4844 for Type {
-    fn is_eip4844(&self) -> bool {
-        matches!(self, Type::Eip4844)
-    }
-}
-
-impl IsLegacy for Type {
-    fn is_legacy(&self) -> bool {
-        matches!(self, Type::Legacy)
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ParseError {
-    #[error("{0}")]
-    BaseConvertError(ruint::BaseConvertError),
-    #[error("Invalid digit: {0}")]
-    InvalidDigit(char),
-    #[error("Invalid radix. Only hexadecimal is supported.")]
-    InvalidRadix,
-    #[error("Unknown transaction type: {0}")]
-    UnknownType(u8),
-}
-
 impl From<ruint::ParseError> for ParseError {
     fn from(error: ruint::ParseError) -> Self {
         match error {
@@ -121,61 +39,6 @@ impl From<ruint::ParseError> for ParseError {
             ruint::ParseError::InvalidRadix(_) => ParseError::InvalidRadix,
             ruint::ParseError::BaseConvertError(error) => ParseError::BaseConvertError(error),
         }
-    }
-}
-
-impl FromStr for Type {
-    type Err = ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.is_char_boundary(2) {
-            let (prefix, rest) = s.split_at(2);
-            if prefix == "0x" {
-                let value = U8::from_str_radix(rest, 16)?;
-
-                Type::try_from(value.to::<u8>()).map_err(ParseError::UnknownType)
-            } else {
-                Err(ParseError::InvalidRadix)
-            }
-        } else {
-            Err(ParseError::InvalidRadix)
-        }
-    }
-}
-
-impl TryFrom<u8> for Type {
-    type Error = u8;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            signed::Legacy::TYPE => Ok(Self::Legacy),
-            signed::Eip2930::TYPE => Ok(Self::Eip2930),
-            signed::Eip1559::TYPE => Ok(Self::Eip1559),
-            signed::Eip4844::TYPE => Ok(Self::Eip4844),
-            signed::Eip7702::TYPE => Ok(Self::Eip7702),
-            value => Err(value),
-        }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'deserializer> serde::Deserialize<'deserializer> for Type {
-    fn deserialize<D>(deserializer: D) -> Result<Type, D::Error>
-    where
-        D: serde::Deserializer<'deserializer>,
-    {
-        let value = U8::deserialize(deserializer)?;
-        Type::try_from(value.to::<u8>()).map_err(serde::de::Error::custom)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for Type {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        U8::serialize(&U8::from(u8::from(*self)), serializer)
     }
 }
 

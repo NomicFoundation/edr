@@ -35,6 +35,7 @@ triehash = { version = "0.8.4", default-features = false }
 [dev-dependencies]
 anyhow = "1.0.89"
 assert-json-diff = "2.0.2"
+edr_chain_l1.workspace = true
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }

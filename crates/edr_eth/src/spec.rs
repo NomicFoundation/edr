@@ -5,8 +5,8 @@ pub use revm_context_interface::result::HaltReasonTr as HaltReasonTrait;
 use crate::{
     block::Block,
     eips::eip1559::BaseFeeParams,
-    l1,
     transaction::{ExecutableTransaction, TransactionValidation},
+    EvmSpecId,
 };
 
 /// Trait for chain specifications.
@@ -18,7 +18,7 @@ pub trait ChainSpec {
     /// The chain's halt reason type.
     type HaltReason: HaltReasonTrait + 'static;
     /// The chain's hardfork type.
-    type Hardfork: Copy + Into<l1::SpecId>;
+    type Hardfork: Copy + Into<EvmSpecId>;
     /// The chain's signed transaction type.
     type SignedTransaction: ExecutableTransaction
         + revm_context_interface::Transaction

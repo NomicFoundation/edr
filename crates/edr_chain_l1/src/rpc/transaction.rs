@@ -5,18 +5,20 @@ use std::{ops::Deref, sync::OnceLock};
 use edr_eth::{
     block,
     eips::{eip2930, eip7702},
-    l1,
     signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
     transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
 
-pub use self::request::TransactionRequest;
+pub use self::request::L1RpcTransactionRequest;
+
+pub type Request = L1RpcTransactionRequest;
+pub type Transaction = L1RpcTransaction;
 
 /// RPC transaction
 #[derive(Clone, Debug, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Transaction {
+pub struct L1RpcTransaction {
     /// hash of the transaction
     pub hash: B256,
     /// the number of transactions made by the sender prior to this one
@@ -96,7 +98,7 @@ pub struct Transaction {
     pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
 }
 
-impl Transaction {
+impl L1RpcTransaction {
     pub fn new(
         transaction: &(impl ExecutableTransaction + TransactionType + IsEip4844 + IsLegacy),
         header: Option<&block::Header>,
@@ -177,13 +179,15 @@ impl Transaction {
     }
 }
 
+pub type TransactionWithSignature = L1RpcTransactionWithSignature;
+
 /// RPC transaction with signature.
 #[derive(Clone, Debug, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TransactionWithSignature {
+pub struct L1RpcTransactionWithSignature {
     /// Transaction
     #[serde(flatten)]
-    transaction: Transaction,
+    transaction: L1RpcTransaction,
     /// ECDSA recovery id
     #[serde(with = "alloy_serde::quantity")]
     pub v: u64,
@@ -202,18 +206,18 @@ pub struct TransactionWithSignature {
     pub s: U256,
 }
 
-impl Deref for TransactionWithSignature {
-    type Target = Transaction;
+impl Deref for L1RpcTransactionWithSignature {
+    type Target = L1RpcTransaction;
 
     fn deref(&self) -> &Self::Target {
         &self.transaction
     }
 }
 
-impl TransactionWithSignature {
+impl L1RpcTransactionWithSignature {
     /// Creates a new instance from an RPC transaction and signature.
     pub fn new(
-        transaction: Transaction,
+        transaction: L1RpcTransaction,
         r: U256,
         s: U256,
         v: u64,
@@ -240,8 +244,8 @@ impl TransactionWithSignature {
     }
 }
 
-impl From<TransactionWithSignature> for transaction::signed::Legacy {
-    fn from(value: TransactionWithSignature) -> Self {
+impl From<L1RpcTransactionWithSignature> for transaction::signed::Legacy {
+    fn from(value: L1RpcTransactionWithSignature) -> Self {
         Self {
             nonce: value.nonce,
             gas_price: value.gas_price,
@@ -271,8 +275,8 @@ impl From<TransactionWithSignature> for transaction::signed::Legacy {
     }
 }
 
-impl From<TransactionWithSignature> for transaction::signed::Eip155 {
-    fn from(value: TransactionWithSignature) -> Self {
+impl From<L1RpcTransactionWithSignature> for transaction::signed::Eip155 {
+    fn from(value: L1RpcTransactionWithSignature) -> Self {
         Self {
             nonce: value.nonce,
             gas_price: value.gas_price,
@@ -302,10 +306,10 @@ impl From<TransactionWithSignature> for transaction::signed::Eip155 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip2930 {
+impl TryFrom<L1RpcTransactionWithSignature> for transaction::signed::Eip2930 {
     type Error = ConversionError;
 
-    fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
+    fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction = Self {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
@@ -343,10 +347,10 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip2930 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip1559 {
+impl TryFrom<L1RpcTransactionWithSignature> for transaction::signed::Eip1559 {
     type Error = ConversionError;
 
-    fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
+    fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction = Self {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
@@ -387,10 +391,10 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip1559 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
+impl TryFrom<L1RpcTransactionWithSignature> for transaction::signed::Eip4844 {
     type Error = ConversionError;
 
-    fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
+    fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction = Self {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
@@ -434,10 +438,10 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip7702 {
+impl TryFrom<L1RpcTransactionWithSignature> for transaction::signed::Eip7702 {
     type Error = ConversionError;
 
-    fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
+    fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction = Self {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
@@ -478,10 +482,10 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip7702 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::Signed {
+impl TryFrom<L1RpcTransactionWithSignature> for transaction::Signed {
     type Error = ConversionError;
 
-    fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
+    fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction_type = match value
             .transaction_type
             .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)

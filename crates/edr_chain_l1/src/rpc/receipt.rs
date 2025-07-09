@@ -1,21 +1,23 @@
 use edr_eth::{
-    eips::{eip2718::TypedEnvelope, eip7702},
-    l1,
+    eips::eip7702,
     log::FilterLog,
     receipt::{
         self, AsExecutionReceipt as _, Execution, ExecutionReceipt as _, TransactionReceipt,
     },
-    transaction::{self, TransactionType as _},
+    transaction::TransactionType as _,
     Address, Bloom, B256,
 };
+use edr_rpc_eth::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
-use crate::RpcTypeFrom;
+use crate::{eip2718::TypedEnvelope, transaction::r#type::L1TransactionType, L1Hardfork};
 
-/// Transaction receipt
+pub type BlockReceipt = L1RpcBlockReceipt;
+
+/// Ethereum L1 JSON-RPC block receipt
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Block {
+pub struct L1RpcBlockReceipt {
     /// Hash of the block this transaction was included within.
     pub block_hash: B256,
     /// Number of the block this transaction was included within.
@@ -81,14 +83,16 @@ pub struct Block {
     pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
 }
 
-impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>> for Block {
-    type Hardfork = l1::SpecId;
+impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>>
+    for L1RpcBlockReceipt
+{
+    type Hardfork = L1Hardfork;
 
     fn rpc_type_from(
         value: &receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= l1::SpecId::BERLIN {
+        let transaction_type = if hardfork >= L1Hardfork::BERLIN {
             Some(u8::from(value.inner.transaction_type()))
         } else {
             None
@@ -122,15 +126,15 @@ impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLo
 }
 
 impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>>
-    for Block
+    for L1RpcBlockReceipt
 {
-    type Hardfork = l1::SpecId;
+    type Hardfork = L1Hardfork;
 
     fn rpc_type_from(
         value: &receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= l1::SpecId::BERLIN {
+        let transaction_type = if hardfork >= L1Hardfork::BERLIN {
             Some(u8::from(value.inner.transaction_type()))
         } else {
             None
@@ -167,16 +171,18 @@ pub enum ConversionError {
     UnknownType(u8),
 }
 
-impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>> {
+impl TryFrom<L1RpcBlockReceipt>
+    for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>
+{
     type Error = ConversionError;
 
-    fn try_from(value: Block) -> Result<Self, Self::Error> {
+    fn try_from(value: L1RpcBlockReceipt) -> Result<Self, Self::Error> {
         let transaction_type = value
             .transaction_type
-            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
+            .map_or(Ok(L1TransactionType::Legacy), L1TransactionType::try_from)
             .map_err(ConversionError::UnknownType)?;
 
-        let execution = if transaction_type == transaction::Type::Legacy {
+        let execution = if transaction_type == L1TransactionType::Legacy {
             if let Some(status) = value.status {
                 Execution::Eip658(receipt::execution::Eip658 {
                     status,
@@ -222,18 +228,18 @@ impl TryFrom<Block> for receipt::BlockReceipt<TypedEnvelope<receipt::Execution<F
     }
 }
 
-impl TryFrom<Block>
+impl TryFrom<L1RpcBlockReceipt>
     for receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>
 {
     type Error = ConversionError;
 
-    fn try_from(value: Block) -> Result<Self, Self::Error> {
+    fn try_from(value: L1RpcBlockReceipt) -> Result<Self, Self::Error> {
         let transaction_type = value
             .transaction_type
-            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
+            .map_or(Ok(L1TransactionType::Legacy), L1TransactionType::try_from)
             .map_err(ConversionError::UnknownType)?;
 
-        let execution = if transaction_type == transaction::Type::Legacy {
+        let execution = if transaction_type == L1TransactionType::Legacy {
             if let Some(status) = value.status {
                 receipt::execution::Eip658 {
                     status,
@@ -283,16 +289,13 @@ impl TryFrom<Block>
 #[cfg(test)]
 mod test {
     use assert_json_diff::assert_json_eq;
-    use edr_eth::{
-        eips::eip2718::TypedEnvelope,
-        l1::{self, L1ChainSpec},
-        log::ExecutionLog,
-        Bloom, Bytes,
-    };
+    use edr_eth::{log::ExecutionLog, receipt, Bloom, Bytes};
     use edr_evm::block::EthBlockReceiptFactory;
+    use edr_rpc_eth::impl_execution_receipt_tests;
     use serde_json::json;
 
-    use crate::{impl_execution_receipt_tests, receipt};
+    use super::*;
+    use crate::spec::L1ChainSpec;
 
     #[test]
     fn test_matches_hardhat_serialization() -> anyhow::Result<()> {
@@ -331,7 +334,7 @@ mod test {
           "effectiveGasPrice": "0x699e6346"
         });
 
-        let deserialized: receipt::Block = serde_json::from_value(receipt_from_hardhat.clone())?;
+        let deserialized: L1RpcBlockReceipt = serde_json::from_value(receipt_from_hardhat.clone())?;
 
         let serialized = serde_json::to_value(deserialized)?;
         assert_json_eq!(receipt_from_hardhat, serialized);
@@ -341,7 +344,7 @@ mod test {
 
     impl_execution_receipt_tests! {
         L1ChainSpec, EthBlockReceiptFactory::default() => {
-            legacy, l1::SpecId::default() => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
+            legacy, L1Hardfork::default() => TypedEnvelope::Legacy(edr_eth::receipt::Execution::Legacy(edr_eth::receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -350,7 +353,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip2930, l1::SpecId::default() => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
+            eip658_eip2930, L1Hardfork::default() => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -359,7 +362,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip1559, l1::SpecId::default() => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
+            eip658_eip1559, L1Hardfork::default() => TypedEnvelope::Eip2930(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -368,7 +371,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip4844, l1::SpecId::default() => TypedEnvelope::Eip4844(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
+            eip658_eip4844, L1Hardfork::default() => TypedEnvelope::Eip4844(edr_eth::receipt::Execution::Eip658(edr_eth::receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
