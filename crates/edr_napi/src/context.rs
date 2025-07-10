@@ -43,7 +43,7 @@ pub struct EdrContext {
 #[napi]
 impl EdrContext {
     #[doc = "Creates a new [`EdrContext`] instance. Should only be called once!"]
-    #[napi(constructor)]
+    #[napi(catch_unwind, constructor)]
     pub fn new() -> napi::Result<Self> {
         let context = Context::new()?;
 
@@ -53,7 +53,7 @@ impl EdrContext {
     }
 
     #[doc = "Constructs a new provider with the provided configuration."]
-    #[napi(ts_return_type = "Promise<Provider>")]
+    #[napi(catch_unwind, ts_return_type = "Promise<Provider>")]
     pub fn create_provider(
         &self,
         env: Env,
@@ -139,7 +139,7 @@ impl EdrContext {
     }
 
     #[doc = "Registers a new provider factory for the provided chain type."]
-    #[napi]
+    #[napi(catch_unwind)]
     pub async fn register_provider_factory(
         &self,
         chain_type: String,
@@ -150,7 +150,7 @@ impl EdrContext {
         Ok(())
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub async fn register_solidity_test_runner_factory(
         &self,
         chain_type: String,
@@ -168,7 +168,7 @@ impl EdrContext {
     #[doc = "suite. It is up to the caller to track how many times the callback"]
     #[doc = "is called to know when all tests are done."]
     #[allow(clippy::too_many_arguments)]
-    #[napi(ts_return_type = "Promise<void>")]
+    #[napi(catch_unwind, ts_return_type = "Promise<void>")]
     pub fn run_solidity_tests(
         &self,
         env: Env,

@@ -44,7 +44,7 @@ impl SyncProviderFactory for GenericChainProviderFactory {
 #[napi]
 pub const GENERIC_CHAIN_TYPE: &str = GenericChainSpec::CHAIN_TYPE;
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn generic_chain_provider_factory() -> ProviderFactory {
     let factory: Arc<dyn SyncProviderFactory> = Arc::new(GenericChainProviderFactory);
     factory.into()

@@ -71,17 +71,17 @@ impl From<edr_solidity::exit_code::ExitCode<edr_eth::l1::HaltReason>> for ExitCo
 
 #[napi]
 impl Exit {
-    #[napi(getter)]
+    #[napi(catch_unwind, getter)]
     pub fn kind(&self) -> ExitCode {
         self.0
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn is_error(&self) -> bool {
         !matches!(self.0, ExitCode::SUCCESS)
     }
 
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn get_reason(&self) -> String {
         self.0.to_string()
     }

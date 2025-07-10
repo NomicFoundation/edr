@@ -96,13 +96,13 @@ impl FromStr for OpHardfork {
 /// instance.
 ///
 /// Returns an error if the string does not match any known hardfork.
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_hardfork_from_string(hardfork: String) -> napi::Result<OpHardfork> {
     hardfork.parse()
 }
 
 /// Returns the string representation of the provided OP hardfork.
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
     match hardfork {
         OpHardfork::Bedrock => edr_op::hardfork::name::BEDROCK,
@@ -119,7 +119,7 @@ pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
 /// Returns the latest supported OP hardfork.
 ///
 /// The returned value will be updated after each network upgrade.
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_latest_hardfork() -> OpHardfork {
     OpHardfork::Holocene
 }
@@ -127,7 +127,7 @@ pub fn op_latest_hardfork() -> OpHardfork {
 #[napi]
 pub const OP_CHAIN_TYPE: &str = edr_op::CHAIN_TYPE;
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
     let l1_block_code = hex::decode(include_str!("../../data/op/predeploys/l1_block.txt"))
         .expect("The bytecode for the L1Block predeploy should be a valid hex string");
@@ -322,7 +322,7 @@ pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
     predeploys.into_iter().chain(stubbed_predeploys).collect()
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_provider_factory() -> ProviderFactory {
     let factory: Arc<dyn SyncProviderFactory> = Arc::new(OpProviderFactory);
     factory.into()

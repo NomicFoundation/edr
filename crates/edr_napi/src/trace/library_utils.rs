@@ -1,6 +1,6 @@
 use napi_derive::napi;
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn link_hex_string_bytecode(
     code: String,
     address: String,

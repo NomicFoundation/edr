@@ -46,7 +46,7 @@ impl Provider {
 #[napi]
 impl Provider {
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]
-    #[napi]
+    #[napi(catch_unwind)]
     pub async fn handle_request(&self, request: String) -> napi::Result<Response> {
         let provider = self.provider.clone();
 
@@ -64,7 +64,7 @@ impl Provider {
             .map(Response::from)
     }
 
-    #[napi(ts_return_type = "Promise<void>")]
+    #[napi(catch_unwind, ts_return_type = "Promise<void>")]
     pub fn set_call_override_callback(
         &self,
         env: Env,
@@ -101,7 +101,7 @@ impl Provider {
     /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
     /// `evm_mine`, `hardhat_mine` include the full stack and memory. Set to
     /// `false` to disable this.
-    #[napi]
+    #[napi(catch_unwind)]
     pub async fn set_verbose_tracing(&self, verbose_tracing: bool) -> napi::Result<()> {
         let provider = self.provider.clone();
 
