@@ -65,7 +65,7 @@ pub fn decode_console_logs(logs: &[Log]) -> Vec<String> {
 /// This function returns [None] if it is not a `DSTest` log or the result of a
 /// Hardhat `console.log`.
 pub fn decode_console_log(log: &Log) -> Option<String> {
-    Console::ConsoleEvents::decode_log(log, false)
+    Console::ConsoleEvents::decode_log(log)
         .ok()
         .map(|decoded| decoded.to_string())
 }
@@ -175,7 +175,7 @@ impl RevertDecoder {
         }
 
         // Solidity's `Error(string)` or `Panic(uint256)`
-        if let Ok(e) = alloy_sol_types::GenericContractError::abi_decode(err, false) {
+        if let Ok(e) = alloy_sol_types::GenericContractError::abi_decode(err) {
             return Some(e.to_string());
         }
 
@@ -185,17 +185,17 @@ impl RevertDecoder {
         match *selector {
             // `CheatcodeError(string)`
             Vm::CheatcodeError::SELECTOR => {
-                let e = Vm::CheatcodeError::abi_decode_raw(data, false).ok()?;
+                let e = Vm::CheatcodeError::abi_decode_raw(data).ok()?;
                 return Some(e.message);
             }
             // `expectRevert(bytes)`
             Vm::expectRevert_2Call::SELECTOR => {
-                let e = Vm::expectRevert_2Call::abi_decode_raw(data, false).ok()?;
+                let e = Vm::expectRevert_2Call::abi_decode_raw(data).ok()?;
                 return self.maybe_decode(&e.revertData[..], status);
             }
             // `expectRevert(bytes4)`
             Vm::expectRevert_1Call::SELECTOR => {
-                let e = Vm::expectRevert_1Call::abi_decode_raw(data, false).ok()?;
+                let e = Vm::expectRevert_1Call::abi_decode_raw(data).ok()?;
                 return self.maybe_decode(&e.revertData[..], status);
             }
             _ => {}
@@ -205,7 +205,7 @@ impl RevertDecoder {
         if let Some(errors) = self.errors.get(selector) {
             for error in errors {
                 // If we don't decode, don't return an error, try to decode as a string later.
-                if let Ok(decoded) = error.abi_decode_input(data, false) {
+                if let Ok(decoded) = error.abi_decode_input(data) {
                     return Some(format!(
                         "{}({})",
                         error.name,
@@ -219,7 +219,7 @@ impl RevertDecoder {
         }
 
         // ABI-encoded `string`.
-        if let Ok(s) = String::abi_decode(err, false) {
+        if let Ok(s) = String::abi_decode(err) {
             return Some(s);
         }
 

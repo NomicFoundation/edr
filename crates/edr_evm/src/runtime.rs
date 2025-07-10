@@ -5,7 +5,7 @@ use edr_eth::{
     Address, HashMap,
 };
 use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
-use revm_context::JournalTr as _;
+use revm_context::{JournalTr as _, LocalContext};
 
 use crate::{
     blockchain::BlockHash,
@@ -47,6 +47,7 @@ where
         journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
+        local: LocalContext::default(),
         error: Ok(()),
     };
 
@@ -99,6 +100,7 @@ where
         journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
+        local: LocalContext::default(),
         error: Ok(()),
     };
 

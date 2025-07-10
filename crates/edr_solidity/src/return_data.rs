@@ -45,6 +45,6 @@ impl ReturnData {
 
     /// Decodes the panic error code from the return data.
     pub fn decode_panic(&self) -> Result<U256, alloy_sol_types::Error> {
-        Panic::abi_decode(&self.value[..], false).map(|p| p._0)
+        Panic::abi_decode(&self.value[..]).map(|p| p.0)
     }
 }

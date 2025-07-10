@@ -199,7 +199,7 @@ impl Cheatcode for ensNamehashCall {
     }
 }
 
-fn encode_vrs(sig: alloy_primitives::PrimitiveSignature) -> Vec<u8> {
+fn encode_vrs(sig: alloy_primitives::Signature) -> Vec<u8> {
     // Retrieve v, r and s from signature.
     let v = U256::from(u64::from(sig.v()) + 27);
     let r = B256::from(sig.r());

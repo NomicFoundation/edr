@@ -7,14 +7,9 @@ edition.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-alloy-dyn-abi = { version = "0.8.22", default-features = false, features = [
-    "eip712",
-    "std",
-] }
-alloy-json-abi = { version = "0.8.22", default-features = false }
-alloy-sol-types = { version = "0.8.22", default-features = false, features = [
-    "std",
-] }
+alloy-dyn-abi.workspace = true
+alloy-json-abi.workspace = true
+alloy-sol-types.workspace = true
 derive-where.workspace = true
 edr_defaults = { path = "../edr_defaults" }
 edr_eth = { path = "../edr_eth" }

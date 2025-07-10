@@ -808,12 +808,10 @@ impl<
     ) -> Result<(SenderFilters, FuzzRunIdentifiedContracts)> {
         let targeted_senders = self
             .executor
-            .call_sol_default(to, &IInvariantTest::targetSendersCall {})
-            .targetedSenders;
+            .call_sol_default(to, &IInvariantTest::targetSendersCall {});
         let mut excluded_senders = self
             .executor
-            .call_sol_default(to, &IInvariantTest::excludeSendersCall {})
-            .excludedSenders;
+            .call_sol_default(to, &IInvariantTest::excludeSendersCall {});
         // Extend with default excluded addresses - https://github.com/foundry-rs/foundry/issues/4163
         excluded_senders.extend([
             CHEATCODE_ADDRESS,
@@ -826,12 +824,10 @@ impl<
 
         let selected = self
             .executor
-            .call_sol_default(to, &IInvariantTest::targetContractsCall {})
-            .targetedContracts;
+            .call_sol_default(to, &IInvariantTest::targetContractsCall {});
         let excluded = self
             .executor
-            .call_sol_default(to, &IInvariantTest::excludeContractsCall {})
-            .excludedContracts;
+            .call_sol_default(to, &IInvariantTest::excludeContractsCall {});
 
         let contracts = self
             .setup_contracts
@@ -887,7 +883,7 @@ impl<
         for IInvariantTest::FuzzArtifactSelector {
             artifact,
             selectors,
-        } in result.targetedArtifactSelectors
+        } in result
         {
             let identifier = self.validate_selected_contract(artifact, &selectors)?;
             self.artifact_filters
@@ -905,7 +901,7 @@ impl<
             .call_sol_default(invariant_address, &IInvariantTest::excludeArtifactsCall {});
 
         // Insert `excludeArtifacts` into the executor `excluded_abi`.
-        for contract in excluded.excludedArtifacts {
+        for contract in excluded {
             let identifier = self.validate_selected_contract(contract, &[])?;
 
             if !self.artifact_filters.excluded.contains(&identifier) {
@@ -938,7 +934,7 @@ impl<
 
         // Insert `targetArtifacts` into the executor `targeted_abi`, if they have not
         // been seen before.
-        for contract in selected.targetedArtifacts {
+        for contract in selected {
             let identifier = self.validate_selected_contract(contract, &[])?;
 
             if !self.artifact_filters.targeted.contains_key(&identifier)
@@ -967,7 +963,7 @@ impl<
         let selectors = self
             .executor
             .call_sol_default(address, &IInvariantTest::targetSelectorsCall {});
-        for IInvariantTest::FuzzSelector { addr, selectors } in selectors.targetedSelectors {
+        for IInvariantTest::FuzzSelector { addr, selectors } in selectors {
             self.add_address_with_functions(addr, &selectors, false, targeted_contracts)?;
         }
 
@@ -975,7 +971,7 @@ impl<
         let selectors = self
             .executor
             .call_sol_default(address, &IInvariantTest::excludeSelectorsCall {});
-        for IInvariantTest::FuzzSelector { addr, selectors } in selectors.excludedSelectors {
+        for IInvariantTest::FuzzSelector { addr, selectors } in selectors {
             self.add_address_with_functions(addr, &selectors, true, targeted_contracts)?;
         }
 
@@ -994,8 +990,7 @@ impl<
     ) -> Result<()> {
         let interfaces = self
             .executor
-            .call_sol_default(invariant_address, &IInvariantTest::targetInterfacesCall {})
-            .targetedInterfaces;
+            .call_sol_default(invariant_address, &IInvariantTest::targetInterfacesCall {});
 
         // Since `targetInterfaces` returns a tuple array there is no guarantee
         // that the addresses are unique this map is used to merge functions of
