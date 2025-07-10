@@ -23,7 +23,7 @@
     "build:dev": "tsc --build --incremental .",
     "prespecificTest": "cd ../../.. && pnpm build:dev",
     "pretest": "cd ../../.. && pnpm build:dev",
-    "specificTest": "node --test-concurrency=1 --import tsx/esm --test-name-pattern=\"L1Chain\" test/unit.ts",
+    "specificTest": "node --test-concurrency=1 --import tsx/esm --test-name-pattern=\"HelloWorld\" test/unit.ts",
     "test": "node --import tsx/esm --test \"test/*.ts\""
   },
   "type": "module"

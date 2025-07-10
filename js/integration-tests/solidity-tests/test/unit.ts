@@ -6,12 +6,17 @@ import {
   TestContext,
 } from "./testContext.js";
 import { L1_CHAIN_TYPE, OP_CHAIN_TYPE } from "@nomicfoundation/edr";
+import { getHelloWorld } from "@nomicfoundation/edr";
 
 describe("Unit tests", () => {
   let testContext: TestContext;
 
   before(async () => {
     testContext = await TestContext.setup();
+  });
+
+  it("HelloWorld", async function () {
+    assert.equal(getHelloWorld(), "Hello World");
   });
 
   it("SuccessAndFailure", async function () {
