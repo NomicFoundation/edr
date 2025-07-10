@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec, Address, HashSet, B256, U256,
+    log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec, Address, EvmSpecId, HashSet, B256, U256,
 };
 
 use self::storage::ReservableSparseBlockchainStorage;
@@ -309,7 +309,7 @@ fn validate_next_block<ChainSpecT: RuntimeSpec>(
         });
     }
 
-    if spec_id.into() >= l1::SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+    if spec_id.into() >= EvmSpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
         return Err(BlockchainError::MissingWithdrawals);
     }
 

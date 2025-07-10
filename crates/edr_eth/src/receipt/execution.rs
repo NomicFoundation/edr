@@ -156,9 +156,10 @@ impl<LogT> ExecutionReceipt for Execution<LogT> {
 #[cfg(test)]
 mod tests {
     use alloy_rlp::Decodable as _;
+    use edr_chain_l1::eip2718::TypedEnvelope;
 
     use super::*;
-    use crate::{eips::eip2718::TypedEnvelope, log::ExecutionLog, Address, Bytes};
+    use crate::{log::ExecutionLog, Address, Bytes};
 
     macro_rules! impl_execution_receipt_tests {
         ($(

@@ -11,9 +11,8 @@ mod remote {
                     #[tokio::test]
                     #[serial]
                     async fn [<remote_block_receipt_root_ $name>]() -> anyhow::Result<()> {
+                        use edr_chain_l1::{eip2718::TypedEnvelope, L1ChainSpec};
                         use edr_eth::{
-                            eips::eip2718::TypedEnvelope,
-                            l1::L1ChainSpec,
                             log::FilterLog,
                             receipt,
                             trie::ordered_trie_root,
@@ -68,9 +67,8 @@ mod remote {
                     #[tokio::test]
                     async fn [<receipt_rlp_encoding_ $name>]() -> anyhow::Result<()> {
                         use alloy_rlp::Decodable as _;
+                        use edr_chain_l1::{eip2718::TypedEnvelope, L1ChainSpec};
                         use edr_eth::{
-                            eips::eip2718::TypedEnvelope,
-                            l1::L1ChainSpec,
                             log::{ExecutionLog, FilterLog},
                             receipt::{self, MapReceiptLogs as _},
                             B256

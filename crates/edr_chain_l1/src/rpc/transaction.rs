@@ -6,13 +6,30 @@ use edr_eth::{
     block,
     eips::{eip2930, eip7702},
     signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
-    transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
+    transaction::SignedTransaction as _,
     Address, Bytes, B256, U256,
 };
+use edr_evm::{
+    block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
+    transaction::remote::EthRpcTransaction,
+};
+use edr_rpc_eth::RpcTypeFrom;
 
 pub use self::request::L1RpcTransactionRequest;
+use crate::{
+    spec::L1ChainSpec,
+    transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
+    Hardfork,
+};
 
+/// Convenience type alias for [`L1RpcTransactionRequest`].
+///
+/// This allows usage like `edr_chain_l1::rpc::Request`.
 pub type Request = L1RpcTransactionRequest;
+
+/// Convenience type alias for [`L1RpcTransaction`].
+///
+/// This allows usage like `edr_chain_l1::rpc::Transaction`.
 pub type Transaction = L1RpcTransaction;
 
 /// RPC transaction
@@ -99,12 +116,13 @@ pub struct L1RpcTransaction {
 }
 
 impl L1RpcTransaction {
+    /// Constructs a new instance.
     pub fn new(
         transaction: &(impl ExecutableTransaction + TransactionType + IsEip4844 + IsLegacy),
         header: Option<&block::Header>,
         transaction_index: Option<u64>,
         is_pending: bool,
-        hardfork: l1::SpecId,
+        hardfork: Hardfork,
     ) -> Self {
         let base_fee = header.and_then(|header| header.base_fee_per_gas);
         let gas_price = if let Some(base_fee) = base_fee {
@@ -127,7 +145,7 @@ impl L1RpcTransaction {
             }
         });
 
-        let show_transaction_type = hardfork >= l1::SpecId::BERLIN;
+        let show_transaction_type = hardfork >= Hardfork::BERLIN;
         let is_typed_transaction = !transaction.is_legacy();
         let transaction_type = if show_transaction_type || is_typed_transaction {
             Some(transaction.transaction_type())
@@ -179,6 +197,9 @@ impl L1RpcTransaction {
     }
 }
 
+/// Convenience type alias for [`L1RpcTransactionWithSignature`].
+///
+/// This allows usage like `edr_chain_l1::rpc::TransactionWithSignature`.
 pub type TransactionWithSignature = L1RpcTransactionWithSignature;
 
 /// RPC transaction with signature.
@@ -204,14 +225,6 @@ pub struct L1RpcTransactionWithSignature {
     pub r: U256,
     /// ECDSA signature s
     pub s: U256,
-}
-
-impl Deref for L1RpcTransactionWithSignature {
-    type Target = L1RpcTransaction;
-
-    fn deref(&self) -> &Self::Target {
-        &self.transaction
-    }
 }
 
 impl L1RpcTransactionWithSignature {
@@ -241,6 +254,20 @@ impl L1RpcTransactionWithSignature {
     /// Returns whether the transaction is a legacy transaction.
     pub fn is_legacy(&self) -> bool {
         matches!(self.transaction_type, None | Some(0)) && matches!(self.v, 27 | 28)
+    }
+}
+
+impl Deref for L1RpcTransactionWithSignature {
+    type Target = L1RpcTransaction;
+
+    fn deref(&self) -> &Self::Target {
+        &self.transaction
+    }
+}
+
+impl EthRpcTransaction for L1RpcTransactionWithSignature {
+    fn block_hash(&self) -> Option<&B256> {
+        self.block_hash.as_ref()
     }
 }
 
@@ -303,6 +330,43 @@ impl From<L1RpcTransactionWithSignature> for transaction::signed::Eip155 {
             hash: OnceLock::from(value.transaction.hash),
             rlp_encoding: OnceLock::new(),
         }
+    }
+}
+
+impl RpcTypeFrom<TransactionAndBlockForChainSpec<L1ChainSpec>> for L1RpcTransactionWithSignature {
+    type Hardfork = Hardfork;
+
+    fn rpc_type_from(
+        value: &TransactionAndBlockForChainSpec<L1ChainSpec>,
+        hardfork: Self::Hardfork,
+    ) -> Self {
+        let (header, transaction_index) = value
+            .block_data
+            .as_ref()
+            .map(
+                |BlockDataForTransaction {
+                     block,
+                     transaction_index,
+                 }| (block.header(), *transaction_index),
+            )
+            .unzip();
+
+        let transaction = L1RpcTransaction::new(
+            &value.transaction,
+            header,
+            transaction_index,
+            value.is_pending,
+            hardfork,
+        );
+        let signature = value.transaction.signature();
+
+        Self::new(
+            transaction,
+            signature.r(),
+            signature.s(),
+            signature.v(),
+            signature.y_parity(),
+        )
     }
 }
 

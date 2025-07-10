@@ -4,9 +4,8 @@ use derive_where::derive_where;
 use edr_eth::{
     account::{Account, AccountStatus},
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
-    l1,
     log::FilterLog,
-    Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
+    Address, BlockSpec, ChainId, EvmSpecId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
 };
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
@@ -208,7 +207,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                     hardfork_activations.hardfork_at_block(fork_block_number, fork_timestamp)
                 })
         {
-            if remote_hardfork.into() < l1::SpecId::SPURIOUS_DRAGON {
+            if remote_hardfork.into() < EvmSpecId::SPURIOUS_DRAGON {
                 return Err(CreationError::InvalidHardfork {
                     chain_name: ChainSpecT::chain_name(remote_chain_id)
                         .map_or_else(|| "unknown".to_string(), ToString::to_string),
@@ -217,8 +216,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                 });
             }
 
-            if remote_hardfork.into() < l1::SpecId::PRAGUE && hardfork.into() >= l1::SpecId::PRAGUE
-            {
+            if remote_hardfork.into() < EvmSpecId::PRAGUE && hardfork.into() >= EvmSpecId::PRAGUE {
                 let state_root = state_root_generator.lock().next_value();
 
                 irregular_state
@@ -254,8 +252,8 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                             state_root,
                         }
                     });
-            } else if remote_hardfork.into() < l1::SpecId::CANCUN
-                && hardfork.into() >= l1::SpecId::CANCUN
+            } else if remote_hardfork.into() < EvmSpecId::CANCUN
+                && hardfork.into() >= EvmSpecId::CANCUN
             {
                 let state_root = state_root_generator.lock().next_value();
 

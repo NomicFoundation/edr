@@ -158,17 +158,3 @@ pub trait EthRpcBlock {
     /// blocks. For pending blocks, returns `None`.
     fn total_difficulty(&self) -> Option<&U256>;
 }
-
-impl<TransactionT> EthRpcBlock for edr_rpc_eth::Block<TransactionT> {
-    fn state_root(&self) -> &B256 {
-        &self.state_root
-    }
-
-    fn timestamp(&self) -> u64 {
-        self.timestamp
-    }
-
-    fn total_difficulty(&self) -> Option<&U256> {
-        self.total_difficulty.as_ref()
-    }
-}

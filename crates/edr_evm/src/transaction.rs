@@ -6,12 +6,11 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{l1, spec::ChainSpec, U256};
-use revm_handler::validation::validate_initial_tx_gas;
+use edr_eth::{spec::ChainSpec, U256};
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 
 pub use self::detailed::*;
-use crate::state::DatabaseComponentError;
+use crate::{state::DatabaseComponentError, EvmInvalidHeader, EvmInvalidTransaction};
 
 /// Helper type for a chain-specific [`TransactionError`].
 pub type TransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = TransactionError<
@@ -31,7 +30,7 @@ pub enum TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationEr
     Custom(String),
     /// Invalid block header
     #[error(transparent)]
-    InvalidHeader(l1::InvalidHeader),
+    InvalidHeader(EvmInvalidHeader),
     /// Corrupt transaction data
     #[error(transparent)]
     InvalidTransaction(TransactionValidationErrorT),
@@ -63,20 +62,20 @@ impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
     }
 }
 
-impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> From<l1::InvalidHeader>
+impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> From<EvmInvalidHeader>
     for TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
 {
-    fn from(value: l1::InvalidHeader) -> Self {
+    fn from(value: EvmInvalidHeader) -> Self {
         Self::InvalidHeader(value)
     }
 }
 
-impl<BlockchainErrorT, StateErrorT> From<l1::InvalidTransaction>
-    for TransactionError<BlockchainErrorT, StateErrorT, l1::InvalidTransaction>
+impl<BlockchainErrorT, StateErrorT> From<EvmInvalidTransaction>
+    for TransactionError<BlockchainErrorT, StateErrorT, EvmInvalidTransaction>
 {
-    fn from(value: l1::InvalidTransaction) -> Self {
+    fn from(value: EvmInvalidTransaction) -> Self {
         match value {
-            l1::InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
+            EvmInvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
                 Self::LackOfFundForMaxFee { fee, balance }
             }
             remainder => Self::InvalidTransaction(remainder),
@@ -106,35 +105,6 @@ pub enum CreationError {
         /// The gas limit of the transaction
         gas_limit: u64,
     },
-}
-
-/// Validates the transaction.
-pub fn validate<TransactionT: revm_context_interface::Transaction>(
-    transaction: TransactionT,
-    spec_id: l1::SpecId,
-) -> Result<TransactionT, CreationError> {
-    if transaction.kind() == TxKind::Create && transaction.input().is_empty() {
-        return Err(CreationError::ContractMissingData);
-    }
-
-    match validate_initial_tx_gas(&transaction, spec_id) {
-        Ok(_) => Ok(transaction),
-        Err(l1::InvalidTransaction::CallGasCostMoreThanGasLimit {
-            initial_gas,
-            gas_limit,
-        }) => Err(CreationError::InsufficientGas {
-            initial_gas_cost: initial_gas,
-            gas_limit,
-        }),
-        Err(l1::InvalidTransaction::GasFloorMoreThanGasLimit {
-            gas_floor,
-            gas_limit,
-        }) => Err(CreationError::GasFloorTooHigh {
-            gas_floor,
-            gas_limit,
-        }),
-        Err(e) => unreachable!("Unexpected error: {e}"),
-    }
 }
 
 #[cfg(test)]

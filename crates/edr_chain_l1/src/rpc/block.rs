@@ -1,10 +1,17 @@
 use std::fmt::Debug;
 
-use edr_eth::{block::BlobGas, withdrawal::Withdrawal, Address, Bloom, Bytes, B256, B64, U256};
+use edr_eth::{
+    transaction::ExecutableTransaction, withdrawal::Withdrawal, Address, Bloom, Bytes, B256, B64,
+    U256,
+};
+use edr_evm::{
+    spec::RuntimeSpec, Block as BlockTrait, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock,
+    RemoteBlockConversionError,
+};
 use edr_rpc_eth::spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 
-pub type Block<TransactionT> = L1RpcBlock<TransactionT>;
+use crate::block::{self, BlobGas};
 
 /// block object returned by `eth_getBlockBy*`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -97,9 +104,72 @@ pub struct L1RpcBlock<TransactionT> {
     pub requests_hash: Option<B256>,
 }
 
+impl<TransactionT> EthRpcBlock for L1RpcBlock<TransactionT> {
+    fn state_root(&self) -> &B256 {
+        &self.state_root
+    }
+
+    fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+
+    fn total_difficulty(&self) -> Option<&U256> {
+        self.total_difficulty.as_ref()
+    }
+}
+
 impl<TransactionT> GetBlockNumber for L1RpcBlock<TransactionT> {
     fn number(&self) -> Option<u64> {
         self.number
+    }
+}
+
+impl<BlockT: BlockTrait<SignedTransactionT>, SignedTransactionT>
+    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>> for L1RpcBlock<B256>
+where
+    SignedTransactionT: ExecutableTransaction,
+{
+    fn from(value: BlockAndTotalDifficulty<BlockT, SignedTransactionT>) -> Self {
+        let transactions = value
+            .block
+            .transactions()
+            .iter()
+            .map(|tx| *tx.transaction_hash())
+            .collect();
+
+        let header = value.block.header();
+        L1RpcBlock {
+            hash: Some(*value.block.block_hash()),
+            parent_hash: header.parent_hash,
+            sha3_uncles: header.ommers_hash,
+            state_root: header.state_root,
+            transactions_root: header.transactions_root,
+            receipts_root: header.receipts_root,
+            number: Some(header.number),
+            gas_used: header.gas_used,
+            gas_limit: header.gas_limit,
+            extra_data: header.extra_data.clone(),
+            logs_bloom: header.logs_bloom,
+            timestamp: header.timestamp,
+            difficulty: header.difficulty,
+            total_difficulty: value.total_difficulty,
+            uncles: value.block.ommer_hashes().to_vec(),
+            transactions,
+            size: value.block.rlp_size(),
+            mix_hash: Some(header.mix_hash),
+            nonce: Some(header.nonce),
+            base_fee_per_gas: header.base_fee_per_gas,
+            miner: Some(header.beneficiary),
+            withdrawals: value
+                .block
+                .withdrawals()
+                .map(<[edr_eth::withdrawal::Withdrawal]>::to_vec),
+            withdrawals_root: header.withdrawals_root,
+            blob_gas_used: header.blob_gas.as_ref().map(|bg| bg.gas_used),
+            excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),
+            parent_beacon_block_root: header.parent_beacon_block_root,
+            requests_hash: header.requests_hash,
+        }
     }
 }
 
@@ -123,11 +193,11 @@ pub enum MissingFieldError {
     Number,
 }
 
-impl<TransactionT> TryFrom<&L1RpcBlock<TransactionT>> for edr_eth::block::Header {
+impl<TransactionT> TryFrom<&L1RpcBlock<TransactionT>> for block::Header {
     type Error = MissingFieldError;
 
     fn try_from(value: &L1RpcBlock<TransactionT>) -> Result<Self, Self::Error> {
-        let header = edr_eth::block::Header {
+        let header = block::Header {
             parent_hash: value.parent_hash,
             ommers_hash: value.sha3_uncles,
             beneficiary: value.miner.ok_or(MissingFieldError::Miner)?,
@@ -156,5 +226,67 @@ impl<TransactionT> TryFrom<&L1RpcBlock<TransactionT>> for edr_eth::block::Header
         };
 
         Ok(header)
+    }
+}
+
+impl<ChainSpecT: RuntimeSpec> TryFrom<L1RpcBlock<ChainSpecT::RpcTransaction>>
+    for EthBlockData<ChainSpecT>
+{
+    type Error = RemoteBlockConversionError<ChainSpecT::RpcTransactionConversionError>;
+
+    fn try_from(value: L1RpcBlock<ChainSpecT::RpcTransaction>) -> Result<Self, Self::Error> {
+        let header = block::Header {
+            parent_hash: value.parent_hash,
+            ommers_hash: value.sha3_uncles,
+            beneficiary: value
+                .miner
+                .ok_or(RemoteBlockConversionError::MissingMiner)?,
+            state_root: value.state_root,
+            transactions_root: value.transactions_root,
+            receipts_root: value.receipts_root,
+            logs_bloom: value.logs_bloom,
+            difficulty: value.difficulty,
+            number: value
+                .number
+                .ok_or(RemoteBlockConversionError::MissingNumber)?,
+            gas_limit: value.gas_limit,
+            gas_used: value.gas_used,
+            timestamp: value.timestamp,
+            extra_data: value.extra_data,
+            // TODO don't accept remote blocks with missing mix hash,
+            // see https://github.com/NomicFoundation/edr/issues/518
+            mix_hash: value.mix_hash.unwrap_or_default(),
+            nonce: value
+                .nonce
+                .ok_or(RemoteBlockConversionError::MissingNonce)?,
+            base_fee_per_gas: value.base_fee_per_gas,
+            withdrawals_root: value.withdrawals_root,
+            blob_gas: value.blob_gas_used.and_then(|gas_used| {
+                value.excess_blob_gas.map(|excess_gas| BlobGas {
+                    gas_used,
+                    excess_gas,
+                })
+            }),
+            parent_beacon_block_root: value.parent_beacon_block_root,
+            requests_hash: value.requests_hash,
+        };
+
+        let transactions = value
+            .transactions
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<ChainSpecT::SignedTransaction>, _>>()
+            .map_err(RemoteBlockConversionError::TransactionConversionError)?;
+
+        let hash = value.hash.ok_or(RemoteBlockConversionError::MissingHash)?;
+
+        Ok(Self {
+            header,
+            transactions,
+            ommer_hashes: value.uncles,
+            withdrawals: value.withdrawals,
+            hash,
+            rlp_size: value.size,
+        })
     }
 }

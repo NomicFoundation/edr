@@ -5,14 +5,13 @@ use derive_where::derive_where;
 use edr_eth::{
     block::{BlobGas, HeaderOverrides, PartialHeader},
     eips::{eip4844, eip7691},
-    l1,
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
     result::{ExecutionResult, ExecutionResultAndState},
     transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
-    Address, Bloom, HashMap, B256, U256,
+    Address, Bloom, EvmSpecId, HashMap, B256, U256,
 };
 use revm::{precompile::PrecompileFn, Inspector};
 
@@ -99,7 +98,7 @@ where
             ..
         }) = self.header.blob_gas.as_ref()
         {
-            let max_blob_gas_per_block = if self.config().spec.into() >= l1::SpecId::PRAGUE {
+            let max_blob_gas_per_block = if self.config().spec.into() >= EvmSpecId::PRAGUE {
                 eip7691::MAX_BLOBS_PER_BLOCK_ELECTRA * eip4844::GAS_PER_BLOB
             } else {
                 eip4844::MAX_BLOB_GAS_PER_BLOCK_CANCUN
@@ -137,9 +136,9 @@ where
             .map_err(BlockBuilderCreationError::Blockchain)?;
 
         let eth_hardfork = cfg.spec.into();
-        if eth_hardfork < l1::SpecId::BYZANTIUM {
+        if eth_hardfork < EvmSpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec));
-        } else if eth_hardfork >= l1::SpecId::SHANGHAI && inputs.withdrawals.is_none() {
+        } else if eth_hardfork >= EvmSpecId::SHANGHAI && inputs.withdrawals.is_none() {
             return Err(BlockBuilderCreationError::MissingWithdrawals);
         }
 
@@ -498,7 +497,7 @@ pub struct EthBlockReceiptFactory<ExecutionReceiptT: ExecutionReceipt<Log = Filt
 
 impl<
         ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>,
-        HardforkT: Into<l1::SpecId>,
+        HardforkT: Into<EvmSpecId>,
         SignedTransactionT,
     > ReceiptFactory<ExecutionReceiptT, HardforkT, SignedTransactionT>
     for EthBlockReceiptFactory<ExecutionReceiptT>
@@ -515,7 +514,7 @@ impl<
     ) -> Self::Output {
         // The JSON-RPC layer should not return the gas price as effective gas price for
         // receipts in pre-London hardforks.
-        if hardfork.into() < l1::SpecId::LONDON {
+        if hardfork.into() < EvmSpecId::LONDON {
             transaction_receipt.effective_gas_price = None;
         }
 

@@ -2,13 +2,9 @@
 pub use edr_eth::receipt::*;
 use edr_eth::{
     block,
-    eips::eip2718::TypedEnvelope,
-    l1,
-    log::{self, ExecutionLog},
-    receipt,
     result::ExecutionResult,
     spec::HaltReasonTrait,
-    transaction::{self, ExecutableTransaction, TransactionType as _, TransactionValidation},
+    transaction::{ExecutableTransaction, TransactionValidation},
 };
 
 use crate::state::State;
@@ -36,38 +32,4 @@ where
         result: &ExecutionResult<HaltReasonT>,
         hardfork: HardforkT,
     ) -> Self::Receipt;
-}
-
-/// Builder for execution receipts.
-pub struct Builder;
-
-impl ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::Signed> for Builder {
-    type Receipt = TypedEnvelope<receipt::execution::Eip658<ExecutionLog>>;
-
-    fn new_receipt_builder<StateT: State>(
-        _pre_execution_state: StateT,
-        _transaction: &transaction::Signed,
-    ) -> Result<Self, StateT::Error> {
-        Ok(Self)
-    }
-
-    fn build_receipt(
-        self,
-        header: &block::PartialHeader,
-        transaction: &transaction::Signed,
-        result: &ExecutionResult<l1::HaltReason>,
-        _hardfork: l1::SpecId,
-    ) -> Self::Receipt {
-        let logs = result.logs().to_vec();
-        let logs_bloom = log::logs_to_bloom(&logs);
-
-        let receipt = receipt::execution::Eip658 {
-            status: result.is_success(),
-            cumulative_gas_used: header.gas_used,
-            logs_bloom,
-            logs,
-        };
-
-        TypedEnvelope::new(receipt, transaction.transaction_type())
-    }
 }

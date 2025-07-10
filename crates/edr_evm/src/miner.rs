@@ -2,7 +2,6 @@ use std::{cmp::Ordering, fmt::Debug};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, HeaderOverrides},
-    l1,
     result::ExecutionResult,
     signature::SignatureError,
     spec::{ChainSpec, HaltReasonTrait},
@@ -20,7 +19,7 @@ use crate::{
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
-    Block as _, BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
+    Block as _, BlockBuilder, BlockInputs, BlockTransactionError, EvmInvalidTransaction, MemPool,
 };
 
 /// The result of mining a block, including the state. This result needs to be
@@ -110,7 +109,7 @@ where
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     InspectorT: for<'inspector> Inspector<
@@ -173,7 +172,7 @@ where
                     }
                     BlockTransactionError::Transaction(TransactionError::InvalidTransaction(
                         error,
-                    )) if error == l1::InvalidTransaction::GasPriceLessThanBasefee.into() => {
+                    )) if error == EvmInvalidTransaction::GasPriceLessThanBasefee.into() => {
                         pending_transactions.remove_caller(&caller);
                     }
                     remainder => return Err(MineBlockError::BlockTransaction(remainder)),
@@ -313,7 +312,7 @@ where
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     InspectorT: for<'inspector> Inspector<

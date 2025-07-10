@@ -9,9 +9,8 @@ use std::{
 use derive_where::derive_where;
 use edr_eth::{
     block::{BlobGas, HeaderOverrides, PartialHeader},
-    l1,
     log::FilterLog,
-    Address, Bytes, HashSet, B256, U256,
+    Address, Bytes, EvmSpecId, HashSet, B256, U256,
 };
 
 use super::{
@@ -110,7 +109,7 @@ where
         genesis_state.commit(genesis_diff.clone().into());
 
         let evm_spec_id = hardfork.into();
-        if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
+        if evm_spec_id >= EvmSpecId::MERGE && options.mix_hash.is_none() {
             return Err(CreationError::MissingPrevrandao);
         }
 
@@ -135,7 +134,7 @@ where
         // No ommers in the genesis block
         let ommers = Vec::new();
 
-        let withdrawals = if evm_spec_id >= l1::SpecId::SHANGHAI {
+        let withdrawals = if evm_spec_id >= EvmSpecId::SHANGHAI {
             // Empty withdrawals for genesis block
             Some(Vec::new())
         } else {
@@ -178,7 +177,7 @@ where
             });
         }
 
-        if hardfork.into() >= l1::SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
+        if hardfork.into() >= EvmSpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
             return Err(InsertBlockError::MissingWithdrawals);
         }
 
@@ -463,7 +462,7 @@ mod tests {
         let mut blockchain = LocalBlockchain::<L1ChainSpec>::new(
             genesis_diff,
             123,
-            l1::SpecId::SHANGHAI,
+            EvmSpecId::SHANGHAI,
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),

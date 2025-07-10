@@ -12,7 +12,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{eip2718::TypedEnvelope, transaction::r#type::L1TransactionType, L1Hardfork};
 
-pub type BlockReceipt = L1RpcBlockReceipt;
+/// Convenience type alias for [`L1RpcBlockReceipt`].
+///
+/// This allows usage like `edr_chain_l1::rpc::Block`.
+pub type Block = L1RpcBlockReceipt;
 
 /// Ethereum L1 JSON-RPC block receipt
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -161,12 +164,18 @@ impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<
     }
 }
 
+/// Error type for converting from [`L1RpcBlockReceipt`] to
+/// [`receipt::BlockReceipt`].
 #[derive(Debug, thiserror::Error)]
 pub enum ConversionError {
+    /// RPC block receipt is missing the state root or status field, for legacy
+    /// transactions.
     #[error("Legacy transaction is missing state root or status")]
     MissingStateRootOrStatus,
+    /// RPC block receipt is missing the status field.
     #[error("Missing status")]
     MissingStatus,
+    /// RPC block receipt has an unknown transaction type.
     #[error("Unknown transaction type: {0}")]
     UnknownType(u8),
 }
@@ -289,7 +298,7 @@ impl TryFrom<L1RpcBlockReceipt>
 #[cfg(test)]
 mod test {
     use assert_json_diff::assert_json_eq;
-    use edr_eth::{log::ExecutionLog, receipt, Bloom, Bytes};
+    use edr_eth::{log::ExecutionLog, Bloom, Bytes};
     use edr_evm::block::EthBlockReceiptFactory;
     use edr_rpc_eth::impl_execution_receipt_tests;
     use serde_json::json;

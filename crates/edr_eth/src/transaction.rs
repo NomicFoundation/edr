@@ -16,12 +16,11 @@ use core::fmt::Debug;
 
 pub use revm_context_interface::Transaction;
 pub use revm_primitives::alloy_primitives::TxKind;
-use revm_primitives::{ruint, B256};
 
 use crate::{
     eips::{eip2930, eip7702},
     signature::Signature,
-    Address, Bytes, U256,
+    Address, Bytes, B256, U256,
 };
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
@@ -30,16 +29,6 @@ pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 pub trait ComputeTransactionHash {
     /// Computes the hash of the transaction.
     fn compute_transaction_hash(&self) -> B256;
-}
-
-impl From<ruint::ParseError> for ParseError {
-    fn from(error: ruint::ParseError) -> Self {
-        match error {
-            ruint::ParseError::InvalidDigit(c) => ParseError::InvalidDigit(c),
-            ruint::ParseError::InvalidRadix(_) => ParseError::InvalidRadix,
-            ruint::ParseError::BaseConvertError(error) => ParseError::BaseConvertError(error),
-        }
-    }
 }
 
 /// Trait for information about executable transactions.

@@ -54,3 +54,9 @@ pub mod test_utils;
 pub mod trace;
 /// Types for Ethereum transactions
 pub mod transaction;
+
+/// Error returned by the EVM when a block header is invalid.
+pub type EvmInvalidHeader = revm_context_interface::result::InvalidHeader;
+
+/// Error returned by the EVM when a transaction is invalid.
+pub type EvmInvalidTransaction = revm_context_interface::result::InvalidTransaction;

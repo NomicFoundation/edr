@@ -14,7 +14,7 @@ edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm" }
 foundry-compilers.workspace = true
 indexmap = { version = "2", features = ["serde"] }
-log = { version = "0.4.17", default-features = false }
+log.workspace = true
 parking_lot = { version = "0.12.1", default-features = false }
 serde.workspace = true
 serde_json.workspace = true

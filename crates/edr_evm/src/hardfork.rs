@@ -1,6 +1,3 @@
-/// Ethereum L1 hardforks.
-pub mod l1;
-
 /// Fork condition for a hardfork.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -262,7 +262,7 @@ mod tests {
             Ok(request)
         }
 
-        pub fn signed() -> anyhow::Result<transaction::Signed> {
+        pub fn signed() -> anyhow::Result<edr_chain_l1::transaction::Signed> {
             let request = expectation::request()?;
 
             let secret_key = expectation::secret_key()?;
@@ -279,13 +279,15 @@ mod tests {
     use alloy_rlp::Decodable as _;
 
     use super::*;
-    use crate::{address, b256, signature::public_key_to_address};
+    use crate::{
+        address, b256, signature::public_key_to_address, transaction::ExecutableTransaction as _,
+    };
 
     #[test]
     fn decoding() -> anyhow::Result<()> {
         let raw_transaction = expectation::raw()?;
 
-        let decoded = transaction::Signed::decode(&mut raw_transaction.as_slice())?;
+        let decoded = edr_chain_l1::transaction::Signed::decode(&mut raw_transaction.as_slice())?;
         let expected = expectation::signed()?;
         assert_eq!(decoded, expected);
 

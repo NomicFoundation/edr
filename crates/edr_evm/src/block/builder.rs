@@ -7,7 +7,7 @@ use edr_eth::{
     spec::ChainSpec,
     transaction::TransactionValidation,
     withdrawal::Withdrawal,
-    Address, HashMap,
+    Address, EvmSpecId, HashMap,
 };
 use revm::{precompile::PrecompileFn, Inspector};
 
@@ -70,8 +70,8 @@ impl BlockInputs {
     // TODO: https://github.com/NomicFoundation/edr/issues/990
     // Add support for specifying withdrawals
     /// Constructs default block inputs for the provided hardfork.
-    pub fn new<HardforkT: Into<edr_eth::l1::SpecId>>(hardfork: HardforkT) -> Self {
-        let withdrawals = if hardfork.into() >= edr_eth::l1::SpecId::SHANGHAI {
+    pub fn new<HardforkT: Into<EvmSpecId>>(hardfork: HardforkT) -> Self {
+        let withdrawals = if hardfork.into() >= EvmSpecId::SHANGHAI {
             Some(Vec::new())
         } else {
             None

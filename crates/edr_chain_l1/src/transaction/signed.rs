@@ -5,22 +5,47 @@ pub use edr_eth::transaction::signed::PreOrPostEip155;
 use edr_eth::{
     eips, impl_revm_transaction_trait,
     signature::{Fakeable, Signature},
-    transaction::{
-        ExecutableTransaction, IsEip155, IsEip4844, IsLegacy, IsSupported, SignedTransaction,
-        TransactionMut, TransactionType, TransactionValidation, TxKind,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
-    },
     Address, Bytes, B256, U256,
 };
 
-use crate::{transaction::r#type::L1TransactionType, L1InvalidTransaction};
+use crate::{
+    transaction::{
+        r#type::L1TransactionType, ExecutableTransaction, IsEip155, IsEip4844, IsLegacy,
+        IsSupported, SignedTransaction, TransactionMut, TransactionType, TransactionValidation,
+        TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+    },
+    L1InvalidTransaction,
+};
 
+/// Convenience type alias for [`edr_eth::transaction::signed::Legacy`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Legacy`.
 pub type Legacy = edr_eth::transaction::signed::Legacy;
+
+/// Convenience type alias for [`edr_eth::transaction::signed::Eip155`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip155`.
 pub type Eip155 = edr_eth::transaction::signed::Eip155;
+
+/// Convenience type alias for [`edr_eth::transaction::signed::Eip2930`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip2930`.
 pub type Eip2930 = edr_eth::transaction::signed::Eip2930;
+
+/// Convenience type alias for [`edr_eth::transaction::signed::Eip1559`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip1559`.
 pub type Eip1559 = edr_eth::transaction::signed::Eip1559;
+
+/// Convenience type alias for [`edr_eth::transaction::signed::Eip4844`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip4844`.
 pub type Eip4844 = edr_eth::transaction::signed::Eip4844;
-pub type Eip7702 = edr_eth::transaction::signed::Eip7702;
+
+/// Convenience type alias for [`edr_eth::transaction::signed::Eip7702`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip7702`.
+pub use edr_eth::transaction::signed::Eip7702;
 
 /// Container type for various signed Ethereum transactions.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
@@ -55,6 +80,7 @@ impl L1SignedTransaction {
         matches!(self, L1SignedTransaction::Eip2930(_))
     }
 
+    /// Returns the instance as a [`Legacy`] transaction, if it is one.
     pub fn as_legacy(&self) -> Option<&Legacy> {
         match self {
             L1SignedTransaction::PreEip155Legacy(tx) => Some(tx),

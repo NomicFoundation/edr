@@ -1,12 +1,8 @@
 use std::str::FromStr;
 
-use edr_eth::{
-    ruint,
-    transaction::{IsEip4844, IsLegacy},
-    U8,
-};
+use edr_eth::{ruint, U8};
 
-use crate::transaction::signed;
+use crate::transaction::{signed, IsEip4844, IsLegacy};
 
 /// The type of transaction.
 #[repr(u8)]
@@ -42,16 +38,31 @@ impl IsLegacy for L1TransactionType {
     }
 }
 
+/// Error type for parsing L1 transaction types.
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
+    /// Error from [`ruint::Uint::from_base_be`].
     #[error("{0}")]
     BaseConvertError(ruint::BaseConvertError),
+    /// Invalid digit in the input string.
     #[error("Invalid digit: {0}")]
     InvalidDigit(char),
+    /// Invalid radix, up to base 64 is supported.
     #[error("Invalid radix. Only hexadecimal is supported.")]
     InvalidRadix,
+    /// Unknown transaction type.
     #[error("Unknown transaction type: {0}")]
     UnknownType(u8),
+}
+
+impl From<ruint::ParseError> for ParseError {
+    fn from(error: ruint::ParseError) -> Self {
+        match error {
+            ruint::ParseError::InvalidDigit(c) => ParseError::InvalidDigit(c),
+            ruint::ParseError::InvalidRadix(_) => ParseError::InvalidRadix,
+            ruint::ParseError::BaseConvertError(error) => ParseError::BaseConvertError(error),
+        }
+    }
 }
 
 impl FromStr for L1TransactionType {

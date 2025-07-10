@@ -1,17 +1,42 @@
 use edr_eth::{
     eips::{eip2930, eip7702},
-    transaction::{ExecutableTransaction, IsEip155, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
 
-use crate::transaction::signed::{L1SignedTransaction, PreOrPostEip155};
+use crate::transaction::{
+    signed::{L1SignedTransaction, PreOrPostEip155},
+    ExecutableTransaction, IsEip155, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+};
 
+/// Convenience type alias for [`edr_eth::transaction::pooled::Legacy`].
+///
+/// This allows usage like `edr_chain_l1::transaction::pooled::Legacy`.
 pub type Legacy = edr_eth::transaction::pooled::Legacy;
+
+/// Convenience type alias for [`edr_eth::transaction::pooled::Eip155`].
+///
+/// This allows usage like `edr_chain_l1::transaction::pooled::Eip155`.
 pub type Eip155 = edr_eth::transaction::pooled::Eip155;
+
+/// Convenience type alias for [`edr_eth::transaction::pooled::Eip2930`].
+///
+/// This allows usage like `edr_chain_l1::transaction::pooled::Eip2930`.
 pub type Eip2930 = edr_eth::transaction::pooled::Eip2930;
+
+/// Convenience type alias for [`edr_eth::transaction::pooled::Eip1559`].
+///
+/// This allows usage like `edr_chain_l1::transaction::pooled::Eip1559`.
 pub type Eip1559 = edr_eth::transaction::pooled::Eip1559;
+
+/// Convenience type alias for [`edr_eth::transaction::pooled::Eip4844`].
+///
+/// This allows usage like `edr_chain_l1::transaction::pooled::Eip4844`.
 pub type Eip4844 = edr_eth::transaction::pooled::Eip4844;
+
+/// Convenience type alias for [`edr_eth::transaction::pooled::Eip7702`].
+///
+/// This allows usage like `edr_chain_l1::transaction::pooled::Eip7702`.
 pub type Eip7702 = edr_eth::transaction::pooled::Eip7702;
 
 /// An Ethereum Layer 1 (L1) pooled transaction.

@@ -8,11 +8,34 @@ use k256::SecretKey;
 
 use crate::transaction::signed::L1SignedTransaction;
 
+/// Convenience type alias for [`edr_eth::transaction::request::Legacy`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Legacy`.
 pub type Legacy = edr_eth::transaction::request::Legacy;
+
+/// Convenience type alias for [`edr_eth::transaction::request::Eip155`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip155`.
 pub type Eip155 = edr_eth::transaction::request::Eip155;
+
+/// Convenience type alias for [`edr_eth::transaction::request::Eip2930`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip2930`.
 pub type Eip2930 = edr_eth::transaction::request::Eip2930;
+
+/// Convenience type alias for [`edr_eth::transaction::request::Eip1559`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip1559`.
 pub type Eip1559 = edr_eth::transaction::request::Eip1559;
+
+/// Convenience type alias for [`edr_eth::transaction::request::Eip4844`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip4844`.
 pub type Eip4844 = edr_eth::transaction::request::Eip4844;
+
+/// Convenience type alias for [`edr_eth::transaction::request::Eip7702`].
+///
+/// This allows usage like `edr_chain_l1::transaction::Eip7702`.
 pub type Eip7702 = edr_eth::transaction::request::Eip7702;
 
 /// Container type for various Ethereum transaction requests
@@ -111,6 +134,7 @@ impl L1TransactionRequest {
         }
     }
 
+    /// Signs the transaction request with the provided secret key.
     pub fn sign(self, secret_key: &SecretKey) -> Result<L1SignedTransaction, SignatureError> {
         Ok(match self {
             L1TransactionRequest::Legacy(transaction) => transaction.sign(secret_key)?.into(),

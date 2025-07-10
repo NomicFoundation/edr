@@ -5,14 +5,13 @@ use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_eth::{
     block::{self, Header, PartialHeader},
-    l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     receipt::{MapReceiptLogs, ReceiptTrait, TransactionReceipt},
     spec::ChainSpec,
     transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
-    B256, KECCAK_EMPTY,
+    EvmSpecId, B256, KECCAK_EMPTY,
 };
 use edr_utils::types::TypeConstructor;
 use itertools::izip;
@@ -257,7 +256,7 @@ impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: Into<l1::SpecId>,
+        HardforkT: Into<EvmSpecId>,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
     > EmptyBlock<HardforkT>
@@ -271,7 +270,7 @@ impl<
     >
 {
     fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self {
-        let withdrawals = if hardfork.into() >= l1::SpecId::SHANGHAI {
+        let withdrawals = if hardfork.into() >= EvmSpecId::SHANGHAI {
             Some(Vec::new())
         } else {
             None

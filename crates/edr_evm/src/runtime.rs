@@ -1,8 +1,7 @@
 use edr_eth::{
-    l1,
     result::{ExecutionResult, ExecutionResultAndState},
     transaction::TransactionValidation,
-    Address, HashMap,
+    Address, EvmSpecId, HashMap,
 };
 use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
 use revm_context::JournalTr as _;
@@ -15,6 +14,7 @@ use crate::{
     spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
     transaction::{TransactionError, TransactionErrorForChainSpec},
+    EvmInvalidTransaction,
 };
 
 /// Runs a transaction without committing the state.
@@ -35,7 +35,7 @@ pub fn dry_run<BlockchainT, ChainSpecT, StateT>(
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<EvmInvalidTransaction>>,
     >,
     StateT: State<Error: Send + std::error::Error>,
 {
@@ -84,7 +84,7 @@ pub fn dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, StateT>(
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<EvmInvalidTransaction>>,
     >,
     StateT: State<Error: Send + std::error::Error>,
     InspectorT: Inspector<
@@ -135,7 +135,7 @@ pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, StateT>(
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<EvmInvalidTransaction>>,
     >,
     StateT: State<Error: Send + std::error::Error>,
 {
@@ -172,7 +172,7 @@ pub fn guaranteed_dry_run_with_inspector<BlockchainT, ChainSpecT, InspectorT, St
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<EvmInvalidTransaction>>,
     >,
     InspectorT: Inspector<
         ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
@@ -210,7 +210,7 @@ pub fn run<BlockchainT, ChainSpecT, StateT>(
 where
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
     ChainSpecT: RuntimeSpec<
-        SignedTransaction: TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+        SignedTransaction: TransactionValidation<ValidationError: From<EvmInvalidTransaction>>,
     >,
     StateT: State<Error: Send + std::error::Error> + StateCommit,
 {
@@ -231,7 +231,7 @@ where
     Ok(result)
 }
 
-fn set_guarantees<HardforkT: Into<l1::SpecId>>(config: &mut CfgEnv<HardforkT>) {
+fn set_guarantees<HardforkT: Into<EvmSpecId>>(config: &mut CfgEnv<HardforkT>) {
     config.disable_balance_check = true;
     config.disable_block_gas_limit = true;
     config.disable_nonce_check = true;

@@ -4,12 +4,11 @@ use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
     block::{self, miner_reward, HeaderOverrides},
-    l1,
     log::FilterLog,
     receipt::{AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _},
-    transaction::{TransactionValidation, TxKind},
+    transaction::{ExecutableTransaction, TransactionValidation},
     withdrawal::Withdrawal,
-    Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
+    Address, HashMap, PreEip1898BlockSpec,
 };
 use edr_rpc_eth::client::EthRpcClient;
 
@@ -18,19 +17,19 @@ use crate::{
     config::CfgEnv,
     spec::SyncRuntimeSpec,
     state::{AccountTrie, IrregularState, StateError, TrieState},
-    transaction, Block, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
-    MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
+    Block, BlockBuilder, BlockInputs, BlockReceipts, EvmInvalidTransaction, LocalBlock as _,
+    MemPool, MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
 };
 
 /// A test fixture for `MemPool`.
-pub struct MemPoolTestFixture {
+pub struct MemPoolTestFixture<SignedTransactionT: ExecutableTransaction> {
     /// The mem pool.
-    pub mem_pool: MemPool<transaction::Signed>,
+    pub mem_pool: MemPool<SignedTransactionT>,
     /// The state.
     pub state: TrieState,
 }
 
-impl MemPoolTestFixture {
+impl<SignedTransactionT: ExecutableTransaction> MemPoolTestFixture<SignedTransactionT> {
     /// Constructs an instance with the provided accounts.
     pub fn with_accounts(accounts: &[(Address, AccountInfo)]) -> Self {
         let accounts = accounts.iter().cloned().collect::<HashMap<_, _>>();
@@ -41,14 +40,6 @@ impl MemPoolTestFixture {
             mem_pool: MemPool::new(unsafe { NonZeroU64::new_unchecked(10_000_000u64) }),
             state: TrieState::with_accounts(trie),
         }
-    }
-
-    /// Tries to add the provided transaction to the mem pool.
-    pub fn add_transaction(
-        &mut self,
-        transaction: transaction::Signed,
-    ) -> Result<(), MemPoolAddTransactionError<StateError>> {
-        self.mem_pool.add_transaction(&self.state, transaction)
     }
 
     /// Sets the block gas limit.
@@ -63,96 +54,14 @@ impl MemPoolTestFixture {
     }
 }
 
-/// Creates a dummy EIP-155 transaction.
-pub fn dummy_eip155_transaction(
-    caller: Address,
-    nonce: u64,
-) -> Result<transaction::Signed, transaction::CreationError> {
-    dummy_eip155_transaction_with_price(caller, nonce, 0)
-}
-
-/// Creates a dummy EIP-155 transaction with the provided gas price.
-pub fn dummy_eip155_transaction_with_price(
-    caller: Address,
-    nonce: u64,
-    gas_price: u128,
-) -> Result<transaction::Signed, transaction::CreationError> {
-    dummy_eip155_transaction_with_price_and_limit(caller, nonce, gas_price, 30_000)
-}
-
-/// Creates a dummy EIP-155 transaction with the provided gas limit.
-pub fn dummy_eip155_transaction_with_limit(
-    caller: Address,
-    nonce: u64,
-    gas_limit: u64,
-) -> Result<transaction::Signed, transaction::CreationError> {
-    dummy_eip155_transaction_with_price_and_limit(caller, nonce, 0, gas_limit)
-}
-
-fn dummy_eip155_transaction_with_price_and_limit(
-    caller: Address,
-    nonce: u64,
-    gas_price: u128,
-    gas_limit: u64,
-) -> Result<transaction::Signed, transaction::CreationError> {
-    dummy_eip155_transaction_with_price_limit_and_value(
-        caller,
-        nonce,
-        gas_price,
-        gas_limit,
-        U256::ZERO,
-    )
-}
-
-/// Creates a dummy EIP-155 transaction with the provided gas price, gas limit,
-/// and value.
-pub fn dummy_eip155_transaction_with_price_limit_and_value(
-    caller: Address,
-    nonce: u64,
-    gas_price: u128,
-    gas_limit: u64,
-    value: U256,
-) -> Result<transaction::Signed, transaction::CreationError> {
-    let from = Address::random();
-    let request = transaction::request::Eip155 {
-        nonce,
-        gas_price,
-        gas_limit,
-        kind: TxKind::Call(from),
-        value,
-        input: Bytes::new(),
-        chain_id: 123,
-    };
-    let transaction = request.fake_sign(caller);
-    let transaction = transaction::Signed::from(transaction);
-
-    transaction::validate(transaction, l1::SpecId::default())
-}
-
-/// Creates a dummy EIP-1559 transaction with the provided max fee and max
-/// priority fee per gas.
-pub fn dummy_eip1559_transaction(
-    caller: Address,
-    nonce: u64,
-    max_fee_per_gas: u128,
-    max_priority_fee_per_gas: u128,
-) -> Result<transaction::Signed, transaction::CreationError> {
-    let from = Address::random();
-    let request = transaction::request::Eip1559 {
-        chain_id: 123,
-        nonce,
-        max_priority_fee_per_gas,
-        max_fee_per_gas,
-        gas_limit: 30_000,
-        kind: TxKind::Call(from),
-        value: U256::ZERO,
-        input: Bytes::new(),
-        access_list: Vec::new(),
-    };
-    let transaction = request.fake_sign(caller);
-    let transaction = transaction::Signed::from(transaction);
-
-    transaction::validate(transaction, l1::SpecId::default())
+impl<SignedTransactionT: Clone + ExecutableTransaction> MemPoolTestFixture<SignedTransactionT> {
+    /// Tries to add the provided transaction to the mem pool.
+    pub fn add_transaction(
+        &mut self,
+        transaction: SignedTransactionT,
+    ) -> Result<(), MemPoolAddTransactionError<StateError>> {
+        self.mem_pool.add_transaction(&self.state, transaction)
+    }
 }
 
 /// Runs a full remote block, asserting that the mined block matches the remote
@@ -169,7 +78,7 @@ pub async fn run_full_block<
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,
             >,
             SignedTransaction: TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + Send + Sync,
+                ValidationError: From<EvmInvalidTransaction> + Send + Sync,
             >,
         >,
 >(
