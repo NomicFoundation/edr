@@ -92,3 +92,6 @@ useless_transmute = "warn"
 verbose_file_reads = "warn"
 wildcard-imports = "warn"
 zero_sized_map_values = "warn"
+
+[patch.crates-io]
+reqwest = { git = "https://github.com/NomicFoundation/reqwest.git", branch = "custom-executor" }
