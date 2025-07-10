@@ -237,6 +237,8 @@ revm-primitives = { git = "https://github.com/NomicFoundation/revm.git", rev = "
 revm-state = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
 op-revm = { git = "https://github.com/NomicFoundation/revm.git", rev = "bf38db03db11" }
 
+reqwest = { git = "https://github.com/NomicFoundation/reqwest.git", branch = "custom-executor" }
+
 [workspace.lints.rust]
 future_incompatible = "warn"
 nonstandard_style = "warn"
