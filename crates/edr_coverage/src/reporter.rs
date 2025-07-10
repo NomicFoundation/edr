@@ -1,5 +1,4 @@
-use std::fmt::{self, Debug};
-
+use derive_more::Debug;
 use dyn_clone::DynClone;
 use edr_eth::{Bytes, HashSet};
 
@@ -13,9 +12,10 @@ dyn_clone::clone_trait_object!(SyncOnCollectedCoverageCallback);
 
 /// A reporter for code coverage that collects hits and reports them to a
 /// callback.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CodeCoverageReporter {
     pub collector: CoverageHitCollector,
+    #[debug(skip)]
     callback: Box<dyn SyncOnCollectedCoverageCallback>,
 }
 
@@ -32,13 +32,5 @@ impl CodeCoverageReporter {
     pub fn report(self) {
         let hits = self.collector.into_hits();
         (self.callback)(hits);
-    }
-}
-
-impl Debug for CodeCoverageReporter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CodeCoverageReporter")
-            .field("collector", &self.collector)
-            .finish()
     }
 }
