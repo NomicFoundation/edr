@@ -25,8 +25,8 @@ edr_napi_core = { path = "../edr_napi_core" }
 edr_op = { path = "../edr_op", optional = true }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_client = { path = "../edr_rpc_client" }
-edr_scenarios = { version = "0.3.5", path = "../edr_scenarios", optional = true }
-edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
+edr_scenarios = { workspace = true, optional = true }
+edr_solidity.workspace = true
 k256 = { version = "0.13.1", default-features = false, features = [
     "arithmetic",
     "ecdsa",

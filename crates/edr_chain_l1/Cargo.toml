@@ -22,6 +22,7 @@ thiserror.workspace = true
 anyhow.workspace = true
 assert-json-diff = "2.0.2"
 edr_defaults.workspace = true
+edr_rpc_eth = { workspace = true, features = ["test-utils"] }
 edr_test_utils.workspace = true
 serde_json.workspace = true
 

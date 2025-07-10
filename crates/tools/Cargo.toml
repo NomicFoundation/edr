@@ -9,16 +9,16 @@ cfg-if = "1.0.0"
 clap = { version = "3.2.20", features = ["derive"] }
 derive-where.workspace = true
 difference = { version = "2.0.0", default-features = false }
-edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
-edr_eth = { version = "0.3.5", path = "../edr_eth" }
-edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["test-utils", "tracing"] }
-edr_generic = { version = "0.3.5", path = "../edr_generic" }
-edr_napi_core = { path = "../edr_napi_core" }
-edr_op = { path = "../edr_op", features = ["test-utils"] }
-edr_provider = { path = "../edr_provider", features = ["test-utils"] }
-edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
-edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
-edr_scenarios = { version = "0.3.5", path = "../edr_scenarios" }
+edr_defaults.workspace = true
+edr_eth.workspace = true
+edr_evm = { workspace = true, features = ["test-utils", "tracing"] }
+edr_generic.workspace = true
+edr_napi_core.workspace = true
+edr_op = { workspace = true, features = ["test-utils"] }
+edr_provider = { workspace = true, features = ["test-utils"] }
+edr_rpc_eth.workspace = true
+edr_solidity.workspace = true
+edr_scenarios.workspace = true
 flate2 = "1.0.28"
 indicatif = { version = "0.17.7", features = ["rayon"] }
 mimalloc = { version = "0.1.39", default-features = false }

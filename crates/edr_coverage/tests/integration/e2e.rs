@@ -1,9 +1,9 @@
 use std::{collections::BTreeMap, str::FromStr};
 
+use edr_chain_l1::{L1BlockEnv, L1ChainSpec, L1Hardfork};
 use edr_coverage::CoverageHitCollector;
 use edr_eth::{
     bytes,
-    l1::{self, L1ChainSpec},
     result::{ExecutionResult, Output},
     signature::public_key_to_address,
     transaction::{self, TxKind},
@@ -46,9 +46,9 @@ fn deploy_contract(
     let signed = request.sign(&secret_key)?;
 
     let cfg = CfgEnv::new_with_spec(blockchain.hardfork()).with_chain_id(blockchain.chain_id());
-    let block = l1::BlockEnv {
+    let block = L1BlockEnv {
         number: 1,
-        ..l1::BlockEnv::default()
+        ..L1BlockEnv::default()
     };
 
     let result = run::<_, L1ChainSpec, _>(
@@ -103,10 +103,10 @@ fn call_inc_by(
 
     let signed = request.sign(&secret_key)?;
 
-    let cfg = CfgEnv::new_with_spec(l1::SpecId::CANCUN).with_chain_id(blockchain.chain_id());
-    let block = l1::BlockEnv {
+    let cfg = CfgEnv::new_with_spec(L1Hardfork::CANCUN).with_chain_id(blockchain.chain_id());
+    let block = L1BlockEnv {
         number: 1,
-        ..l1::BlockEnv::default()
+        ..L1BlockEnv::default()
     };
 
     let mut coverage_collector = CoverageHitCollector::default();
@@ -133,7 +133,7 @@ fn record_hits() -> anyhow::Result<()> {
     let blockchain = LocalBlockchain::<L1ChainSpec>::new(
         StateDiff::default(),
         CHAIN_ID,
-        l1::SpecId::CANCUN,
+        L1Hardfork::CANCUN,
         GenesisBlockOptions {
             mix_hash: Some(B256::random()),
             ..GenesisBlockOptions::default()

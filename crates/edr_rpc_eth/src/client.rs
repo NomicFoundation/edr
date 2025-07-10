@@ -322,7 +322,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
 mod tests {
     use std::{ops::Deref, str::FromStr};
 
-    use edr_eth::l1::L1ChainSpec;
+    use edr_chain_l1::L1ChainSpec;
     use reqwest::StatusCode;
     use tempfile::TempDir;
 

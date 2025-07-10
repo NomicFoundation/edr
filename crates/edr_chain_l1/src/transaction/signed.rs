@@ -45,7 +45,7 @@ pub type Eip4844 = edr_eth::transaction::signed::Eip4844;
 /// Convenience type alias for [`edr_eth::transaction::signed::Eip7702`].
 ///
 /// This allows usage like `edr_chain_l1::transaction::Eip7702`.
-pub use edr_eth::transaction::signed::Eip7702;
+pub type Eip7702 = edr_eth::transaction::signed::Eip7702;
 
 /// Container type for various signed Ethereum transactions.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
@@ -851,5 +851,22 @@ mod tests {
                 L1SignedTransaction::Eip7702(transaction) => transaction.into(),
             }
         }
+    }
+
+    #[test]
+    fn decode_eip7702() -> anyhow::Result<()> {
+        use edr_test_utils::transaction::eip7702 as expectation;
+
+        let raw_transaction = 
+            hex::decode(
+                "04f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c01a0be47a039954e4dfb7f08927ef7f072e0ec7510290e3c4c1405f3bf0329d0be51a06f291c455321a863d4c8ebbd73d58e809328918bcb5555958247ca6ec27feec8",
+            )?;
+
+        let decoded = L1SignedTransaction::decode(&mut raw_transaction.as_slice())?;
+
+        let expected = L1SignedTransaction::from(expectation::signed()?);
+        assert_eq!(decoded, expected);
+
+        Ok(())
     }
 }

@@ -12,13 +12,13 @@ auto_impl = { version = "1.2", default-features = false }
 derive-where.workspace = true
 dyn-clone = { version = "1.0.13", default-features = false }
 edr_coverage = { path = "../edr_coverage" }
-edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
-edr_eth = { version = "0.3.5", path = "../edr_eth" }
-edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
-edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
-edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
-edr_test_utils = { version = "0.3.5", path = "../edr_test_utils", optional = true }
-edr_utils = { version = "0.3.5", path = "../edr_utils" }
+edr_defaults.workspace = true
+edr_eth.workspace = true
+edr_evm = { workspace = true, features = ["tracing"] }
+edr_rpc_eth.workspace = true
+edr_solidity.workspace = true
+edr_test_utils = { workspace = true, optional = true }
+edr_utils.workspace = true
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
 itertools = { version = "0.12.0", default-features = false, features = ["use_alloc"] }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pem", "pkcs8", "precomputed-tables", "std"] }
@@ -39,7 +39,7 @@ tracing = { version = "0.1.37", features = ["attributes", "std"], optional = tru
 [dev-dependencies]
 anyhow = "1.0.89"
 edr_evm = { path = "../edr_evm", features = ["test-utils"] }
-edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
+edr_test_utils.workspace = true
 paste = { version = "1.0.14", default-features = false }
 serial_test = "2.0.0"
 tempfile = "3.7.1"
