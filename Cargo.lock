@@ -2304,6 +2304,7 @@ name = "edr_coverage"
 version = "0.3.8"
 dependencies = [
  "anyhow",
+ "edr_chain_l1",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
@@ -2626,6 +2627,7 @@ dependencies = [
  "alloy-serde",
  "anyhow",
  "derive-where",
+ "edr_chain_l1",
  "edr_eth",
  "edr_evm",
  "edr_rpc_client",
@@ -2734,7 +2736,9 @@ dependencies = [
 name = "edr_test_utils"
 version = "0.3.8"
 dependencies = [
+ "anyhow",
  "edr_common",
+ "edr_defaults",
  "edr_eth",
  "fd-lock",
  "foundry-compilers",

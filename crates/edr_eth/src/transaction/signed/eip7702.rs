@@ -206,10 +206,10 @@ impl From<&Decodable> for transaction::request::Eip7702 {
 
 #[cfg(test)]
 mod tests {
-    use edr_test_utils::transaction::eip7702 as expectation;
-
     use super::*;
-    use crate::signature::public_key_to_address;
+    use crate::{
+        signature::public_key_to_address, test_utils::transaction::eip7702 as expectation,
+    };
 
     #[test]
     fn encoding() -> anyhow::Result<()> {

@@ -35,6 +35,9 @@ pub mod signature;
 pub mod spec;
 /// Ethereum state types and functions
 pub mod state;
+/// Utilities for testing
+#[cfg(any(test, feature = "test-utils"))]
+pub mod test_utils;
 /// Ethereum transaction types
 pub mod transaction;
 /// Ethereum trie functions

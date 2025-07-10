@@ -17,8 +17,8 @@ edr_napi_core.workspace = true
 edr_op = { workspace = true, features = ["test-utils"] }
 edr_provider = { workspace = true, features = ["test-utils"] }
 edr_rpc_eth.workspace = true
-edr_solidity.workspace = true
 edr_scenarios.workspace = true
+edr_solidity.workspace = true
 flate2 = "1.0.28"
 indicatif = { version = "0.17.7", features = ["rayon"] }
 mimalloc = { version = "0.1.39", default-features = false }

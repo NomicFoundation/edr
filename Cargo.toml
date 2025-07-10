@@ -1,14 +1,17 @@
 [workspace]
 members = [
     # EDR
+    "crates/edr_chain_l1",
     "crates/edr_common",
     "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
     "crates/edr_evm",
+    "crates/edr_generic",
     "crates/edr_instrument",
     "crates/edr_macros",
     "crates/edr_napi",
+    "crates/edr_napi_core",
     "crates/edr_op",
     "crates/edr_provider",
     "crates/edr_rpc_client",
@@ -17,6 +20,7 @@ members = [
     "crates/edr_solidity",
     "crates/edr_solidity_tests",
     "crates/edr_test_utils",
+    "crates/edr_utils",
     "crates/tools",
     # Foundry
     "crates/foundry/cheatcodes",
@@ -85,15 +89,23 @@ scrypt.opt-level = 3
 [workspace.dependencies]
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }
+edr_coverage = { path = "crates/edr_coverage" }
 edr_defaults = { path = "crates/edr_defaults" }
-edr_eth = { path = "crates/edr_eth" }
+edr_eth = { path = "crates/edr_eth", features = ["serde"] }
 edr_evm = { path = "crates/edr_evm" }
+edr_generic = { path = "crates/edr_generic" }
+edr_instrument = { path = "crates/edr_instrument" }
 edr_macros = { path = "crates/edr_macros" }
+edr_napi_core = { path = "crates/edr_napi_core" }
+edr_op = { path = "crates/edr_op" }
+edr_provider = { path = "crates/edr_provider" }
 edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
+edr_scenarios = { path = "crates/edr_scenarios" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_test_utils = { path = "crates/edr_test_utils" }
+edr_utils = { path = "crates/edr_utils" }
 
 foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
 foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }
