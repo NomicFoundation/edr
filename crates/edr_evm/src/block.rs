@@ -8,12 +8,14 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    block::{self, PartialHeader},
+    block::{self, BlobGas, PartialHeader},
     receipt::ReceiptTrait,
     spec::ChainSpec,
+    transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     B256, U256,
 };
+use edr_rpc_eth::RpcBlock;
 pub use revm_context::BlockEnv;
 
 pub use self::{
@@ -124,6 +126,68 @@ pub struct EthBlockData<ChainSpecT: RuntimeSpec> {
     pub rlp_size: u64,
 }
 
+impl<ChainSpecT: RuntimeSpec> TryFrom<RpcBlock<ChainSpecT::RpcTransaction>>
+    for EthBlockData<ChainSpecT>
+{
+    type Error = RemoteBlockConversionError<ChainSpecT::RpcTransactionConversionError>;
+
+    fn try_from(value: RpcBlock<ChainSpecT::RpcTransaction>) -> Result<Self, Self::Error> {
+        let header = block::Header {
+            parent_hash: value.parent_hash,
+            ommers_hash: value.sha3_uncles,
+            beneficiary: value
+                .miner
+                .ok_or(RemoteBlockConversionError::MissingMiner)?,
+            state_root: value.state_root,
+            transactions_root: value.transactions_root,
+            receipts_root: value.receipts_root,
+            logs_bloom: value.logs_bloom,
+            difficulty: value.difficulty,
+            number: value
+                .number
+                .ok_or(RemoteBlockConversionError::MissingNumber)?,
+            gas_limit: value.gas_limit,
+            gas_used: value.gas_used,
+            timestamp: value.timestamp,
+            extra_data: value.extra_data,
+            // TODO don't accept remote blocks with missing mix hash,
+            // see https://github.com/NomicFoundation/edr/issues/518
+            mix_hash: value.mix_hash.unwrap_or_default(),
+            nonce: value
+                .nonce
+                .ok_or(RemoteBlockConversionError::MissingNonce)?,
+            base_fee_per_gas: value.base_fee_per_gas,
+            withdrawals_root: value.withdrawals_root,
+            blob_gas: value.blob_gas_used.and_then(|gas_used| {
+                value.excess_blob_gas.map(|excess_gas| BlobGas {
+                    gas_used,
+                    excess_gas,
+                })
+            }),
+            parent_beacon_block_root: value.parent_beacon_block_root,
+            requests_hash: value.requests_hash,
+        };
+
+        let transactions = value
+            .transactions
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<ChainSpecT::SignedTransaction>, _>>()
+            .map_err(RemoteBlockConversionError::TransactionConversionError)?;
+
+        let hash = value.hash.ok_or(RemoteBlockConversionError::MissingHash)?;
+
+        Ok(Self {
+            header,
+            transactions,
+            ommer_hashes: value.uncles,
+            withdrawals: value.withdrawals,
+            hash,
+            rlp_size: value.size,
+        })
+    }
+}
+
 /// Helper type for a chain-specific [`BlockAndTotalDifficulty`].
 pub type BlockAndTotalDifficultyForChainSpec<ChainSpecT> = BlockAndTotalDifficulty<
     Arc<<ChainSpecT as RuntimeSpec>::Block>,
@@ -147,6 +211,53 @@ impl<BlockT, SignedTransactionT> BlockAndTotalDifficulty<BlockT, SignedTransacti
             block,
             total_difficulty,
             phantom: PhantomData,
+        }
+    }
+}
+
+impl<BlockT: Block<SignedTransactionT>, SignedTransactionT: ExecutableTransaction>
+    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>> for RpcBlock<B256>
+{
+    fn from(value: BlockAndTotalDifficulty<BlockT, SignedTransactionT>) -> Self {
+        let transactions = value
+            .block
+            .transactions()
+            .iter()
+            .map(|tx| *tx.transaction_hash())
+            .collect();
+
+        let header = value.block.header();
+        RpcBlock {
+            hash: Some(*value.block.block_hash()),
+            parent_hash: header.parent_hash,
+            sha3_uncles: header.ommers_hash,
+            state_root: header.state_root,
+            transactions_root: header.transactions_root,
+            receipts_root: header.receipts_root,
+            number: Some(header.number),
+            gas_used: header.gas_used,
+            gas_limit: header.gas_limit,
+            extra_data: header.extra_data.clone(),
+            logs_bloom: header.logs_bloom,
+            timestamp: header.timestamp,
+            difficulty: header.difficulty,
+            total_difficulty: value.total_difficulty,
+            uncles: value.block.ommer_hashes().to_vec(),
+            transactions,
+            size: value.block.rlp_size(),
+            mix_hash: Some(header.mix_hash),
+            nonce: Some(header.nonce),
+            base_fee_per_gas: header.base_fee_per_gas,
+            miner: Some(header.beneficiary),
+            withdrawals: value
+                .block
+                .withdrawals()
+                .map(<[edr_eth::withdrawal::Withdrawal]>::to_vec),
+            withdrawals_root: header.withdrawals_root,
+            blob_gas_used: header.blob_gas.as_ref().map(|bg| bg.gas_used),
+            excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),
+            parent_beacon_block_root: header.parent_beacon_block_root,
+            requests_hash: header.requests_hash,
         }
     }
 }

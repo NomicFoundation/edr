@@ -1,11 +1,10 @@
 use edr_eth::{
     fee_history::FeeHistoryResult,
-    l1,
     reward_percentile::RewardPercentile,
     transaction::{signed::FakeSign as _, TransactionMut, TransactionValidation},
-    BlockSpec, U256, U64,
+    BlockSpec, EvmSpecId, U256, U64,
 };
-use edr_evm::{state::StateOverrides, transaction, Block as _};
+use edr_evm::{state::StateOverrides, transaction, Block as _, EvmInvalidTransaction};
 
 use crate::{
     data::ProviderData,
@@ -23,7 +22,7 @@ pub fn handle_estimate_gas<
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -62,7 +61,7 @@ pub fn handle_fee_history<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -72,7 +71,7 @@ pub fn handle_fee_history<
     newest_block: BlockSpec,
     reward_percentiles: Option<Vec<f64>>,
 ) -> Result<FeeHistoryResult, ProviderErrorForChainSpec<ChainSpecT>> {
-    if data.evm_spec_id() < l1::SpecId::LONDON {
+    if data.evm_spec_id() < EvmSpecId::LONDON {
         return Err(ProviderError::InvalidInput(
             "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
                 .into(),
@@ -125,7 +124,7 @@ fn resolve_estimate_gas_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -190,7 +189,6 @@ fn resolve_estimate_gas_request<
 mod tests {
     use edr_eth::{transaction::ExecutableTransaction as _, BlockTag};
     use edr_rpc_eth::CallRequest;
-    use l1::L1ChainSpec;
 
     use super::*;
     use crate::test_utils::{pending_base_fee, ProviderTestFixture};

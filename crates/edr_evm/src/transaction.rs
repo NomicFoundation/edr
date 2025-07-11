@@ -6,7 +6,8 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{spec::ChainSpec, U256};
+use edr_eth::{spec::ChainSpec, EvmSpecId, U256};
+use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 
 pub use self::detailed::*;
@@ -105,6 +106,35 @@ pub enum CreationError {
         /// The gas limit of the transaction
         gas_limit: u64,
     },
+}
+
+/// Validates the transaction.
+pub fn validate<TransactionT: revm_context_interface::Transaction>(
+    transaction: TransactionT,
+    spec_id: EvmSpecId,
+) -> Result<TransactionT, CreationError> {
+    if transaction.kind() == TxKind::Create && transaction.input().is_empty() {
+        return Err(CreationError::ContractMissingData);
+    }
+
+    match validate_initial_tx_gas(&transaction, spec_id) {
+        Ok(_) => Ok(transaction),
+        Err(EvmInvalidTransaction::CallGasCostMoreThanGasLimit {
+            initial_gas,
+            gas_limit,
+        }) => Err(CreationError::InsufficientGas {
+            initial_gas_cost: initial_gas,
+            gas_limit,
+        }),
+        Err(EvmInvalidTransaction::GasFloorMoreThanGasLimit {
+            gas_floor,
+            gas_limit,
+        }) => Err(CreationError::GasFloorTooHigh {
+            gas_floor,
+            gas_limit,
+        }),
+        Err(e) => unreachable!("Unexpected error: {e}"),
+    }
 }
 
 #[cfg(test)]

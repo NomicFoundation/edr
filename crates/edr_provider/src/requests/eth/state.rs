@@ -1,7 +1,7 @@
 use edr_eth::{
-    l1, transaction::TransactionValidation, utils::u256_to_padded_hex, Address, BlockSpec, Bytes,
-    U256,
+    transaction::TransactionValidation, utils::u256_to_padded_hex, Address, BlockSpec, Bytes, U256,
 };
+use edr_evm::EvmInvalidTransaction;
 
 use crate::{
     data::ProviderData, requests::validation::validate_post_merge_block_tags,
@@ -14,7 +14,7 @@ pub fn handle_get_balance_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -36,7 +36,7 @@ pub fn handle_get_code_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -58,7 +58,7 @@ pub fn handle_get_storage_at_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

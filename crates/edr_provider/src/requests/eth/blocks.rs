@@ -2,14 +2,13 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_eth::{
-    l1,
     transaction::{ExecutableTransaction as _, TransactionValidation},
     BlockSpec, PreEip1898BlockSpec, B256, U256, U64,
 };
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     spec::RuntimeSpec,
-    Block as _,
+    Block as _, EvmInvalidTransaction,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
 
@@ -34,7 +33,7 @@ pub fn handle_get_block_by_hash_request<
     block_hash: B256,
     transaction_detail_flag: bool,
 ) -> Result<
-    Option<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>>,
+    Option<edr_rpc_eth::RpcBlock<HashOrTransaction<ChainSpecT>>>,
     ProviderErrorForChainSpec<ChainSpecT>,
 > {
     data.block_by_hash(&block_hash)?
@@ -58,7 +57,7 @@ pub fn handle_get_block_by_number_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -67,7 +66,7 @@ pub fn handle_get_block_by_number_request<
     block_spec: PreEip1898BlockSpec,
     transaction_detail_flag: bool,
 ) -> Result<
-    Option<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>>,
+    Option<edr_rpc_eth::RpcBlock<HashOrTransaction<ChainSpecT>>>,
     ProviderErrorForChainSpec<ChainSpecT>,
 > {
     block_by_number(data, &block_spec.into())?
@@ -107,7 +106,7 @@ pub fn handle_get_block_transaction_count_by_block_number<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -140,7 +139,7 @@ fn block_by_number<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -190,8 +189,10 @@ fn block_to_rpc_output<ChainSpecT: RuntimeSpec>(
     is_pending: bool,
     total_difficulty: Option<U256>,
     transaction_detail_flag: bool,
-) -> Result<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>, ProviderErrorForChainSpec<ChainSpecT>>
-{
+) -> Result<
+    edr_rpc_eth::RpcBlock<HashOrTransaction<ChainSpecT>>,
+    ProviderErrorForChainSpec<ChainSpecT>,
+> {
     let header = block.header();
 
     let transactions: Vec<HashOrTransaction<ChainSpecT>> = if transaction_detail_flag {
@@ -237,7 +238,7 @@ fn block_to_rpc_output<ChainSpecT: RuntimeSpec>(
         Some(header.number)
     };
 
-    Ok(edr_rpc_eth::Block {
+    Ok(edr_rpc_eth::RpcBlock {
         hash: Some(*block.block_hash()),
         parent_hash: header.parent_hash,
         sha3_uncles: header.ommers_hash,

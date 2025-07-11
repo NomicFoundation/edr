@@ -5,10 +5,9 @@ pub use config::{assert_multiple, TestConfig};
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
-use edr_eth::{
-    l1::{self, BlockEnv},
-    spec::HaltReasonTrait,
-};
+use edr_chain_l1::{L1BlockEnv, L1HaltReason, L1Hardfork, L1InvalidTransaction};
+use edr_eth::spec::HaltReasonTrait;
+use edr_evm::EvmHaltReason;
 pub use solidity_test_filter::SolidityTestFilter;
 mod tracing;
 
@@ -296,12 +295,12 @@ impl From<TestFuzzDictionaryConfig> for FuzzDictionaryConfig {
 
 /// Type alias for [`ForgeTestData`] targetting L1.
 pub type L1ForgeTestData = ForgeTestData<
-    BlockEnv,
+    L1BlockEnv,
     (),
     L1EvmBuilder,
-    l1::HaltReason,
-    l1::SpecId,
-    l1::InvalidTransaction,
+    L1HaltReason,
+    L1Hardfork,
+    L1InvalidTransaction,
     TxEnv,
 >;
 
@@ -345,7 +344,7 @@ impl<
             TransactionErrorT,
             TransactionT,
         >,
-        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
@@ -684,17 +683,17 @@ fn get_compiled(project: &Project) -> ProjectCompileOutput {
 
 /// Default data for the tests group.
 pub static TEST_DATA_DEFAULT: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Default, l1::SpecId::CANCUN).expect("linking ok")
+    ForgeTestData::new(ForgeTestProfile::Default, L1Hardfork::CANCUN).expect("linking ok")
 });
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_CANCUN: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Cancun, l1::SpecId::CANCUN).expect("linking ok")
+    ForgeTestData::new(ForgeTestProfile::Cancun, L1Hardfork::CANCUN).expect("linking ok")
 });
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::MultiVersion, l1::SpecId::CANCUN).expect("linking ok")
+    ForgeTestData::new(ForgeTestProfile::MultiVersion, L1Hardfork::CANCUN).expect("linking ok")
 });
 
 fn rpc_endpoints() -> RpcEndpoints {

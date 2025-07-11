@@ -37,7 +37,6 @@ pub(crate) mod tests {
     use anyhow::Context;
     use edr_eth::{
         hex,
-        l1::L1ChainSpec,
         transaction::{self, request::TransactionRequestAndSender, TxKind},
         Bytes, U256,
     };

@@ -1,3 +1,4 @@
+mod block;
 mod cacheable_method_invocation;
 /// Input type for `eth_call` and `debug_traceCall`.
 mod call_request;
@@ -11,11 +12,14 @@ mod request_methods;
 pub mod spec;
 #[cfg(any(feature = "test-utils", test))]
 mod test_utils;
+/// Input type for `eth_sendTransaction`.
+mod transaction_request;
 
 pub use edr_rpc_client::{error, header, jsonrpc, HeaderMap};
 
 pub use self::{
-    call_request::CallRequest, r#override::*, request_methods::RequestMethod, spec::RpcSpec,
+    block::RpcBlock, call_request::CallRequest, r#override::*, request_methods::RequestMethod,
+    spec::RpcSpec, transaction_request::TransactionRequest,
 };
 
 /// Trait for constructing an RPC type from an internal type.

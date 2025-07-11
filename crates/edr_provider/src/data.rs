@@ -19,7 +19,6 @@ use edr_eth::{
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
-    l1,
     log::FilterLog,
     receipt::{ExecutionReceipt, ReceiptTrait as _},
     result::ExecutionResult,
@@ -32,8 +31,8 @@ use edr_eth::{
         ExecutableTransaction, IsEip4844, IsSupported as _, TransactionMut, TransactionType,
         TransactionValidation,
     },
-    Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet, B256,
-    KECCAK_EMPTY, U256,
+    Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, EvmSpecId, HashMap, HashSet,
+    B256, KECCAK_EMPTY, U256,
 };
 use edr_evm::{
     block::transaction::{
@@ -52,8 +51,8 @@ use edr_evm::{
         StateOverrides, StateRefOverrider, SyncState,
     },
     trace::Trace,
-    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, MemPool,
-    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
+    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, EvmInvalidTransaction,
+    MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -751,7 +750,7 @@ where
             // Matching Hardhat behaviour by returning the last block for finalized and safe.
             // https://github.com/NomicFoundation/hardhat/blob/b84baf2d9f5d3ea897c06e0ecd5e7084780d8b6c/packages/hardhat-core/src/internal/hardhat-network/provider/modules/eth.ts#L1395
             BlockSpec::Tag(tag @ (BlockTag::Finalized | BlockTag::Safe)) => {
-                if self.evm_spec_id() >= l1::SpecId::MERGE {
+                if self.evm_spec_id() >= EvmSpecId::MERGE {
                     Some(self.blockchain.last_block()?)
                 } else {
                     return Err(ProviderError::InvalidBlockTag {
@@ -981,7 +980,7 @@ where
         &mut self,
         min_gas_price: u128,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-        if self.evm_spec_id() >= l1::SpecId::LONDON {
+        if self.evm_spec_id() >= EvmSpecId::LONDON {
             return Err(ProviderError::SetMinGasPriceUnsupported);
         }
 
@@ -996,7 +995,7 @@ where
         base_fee_per_gas: u128,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let hardfork = self.hardfork();
-        if hardfork.into() < l1::SpecId::LONDON {
+        if hardfork.into() < EvmSpecId::LONDON {
             return Err(ProviderError::SetNextBlockBaseFeePerGasUnsupported { hardfork });
         }
 
@@ -1036,7 +1035,7 @@ where
         prev_randao: B256,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
         let hardfork = self.hardfork();
-        if hardfork.into() < l1::SpecId::MERGE {
+        if hardfork.into() < EvmSpecId::MERGE {
             return Err(ProviderError::SetNextPrevRandaoUnsupported { hardfork });
         }
 
@@ -1204,7 +1203,7 @@ where
             BlockSpec::Number(number) => Some(*number),
             BlockSpec::Tag(BlockTag::Earliest) => Some(0),
             BlockSpec::Tag(tag @ (BlockTag::Finalized | BlockTag::Safe)) => {
-                if self.evm_spec_id() >= l1::SpecId::MERGE {
+                if self.evm_spec_id() >= EvmSpecId::MERGE {
                     Some(self.blockchain.last_block_number())
                 } else {
                     return Err(ProviderError::InvalidBlockTag {
@@ -1401,11 +1400,11 @@ where
         let evm_config = self.create_evm_config(self.blockchain.chain_id(), hardfork);
 
         let evm_spec_id = hardfork.into();
-        if options.mix_hash.is_none() && evm_spec_id >= l1::SpecId::MERGE {
+        if options.mix_hash.is_none() && evm_spec_id >= EvmSpecId::MERGE {
             options.mix_hash = Some(self.prev_randao_generator.next_value());
         }
 
-        if evm_spec_id >= l1::SpecId::CANCUN {
+        if evm_spec_id >= EvmSpecId::CANCUN {
             options.parent_beacon_block_root = options
                 .parent_beacon_block_root
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
@@ -1580,8 +1579,8 @@ where
         Ok(chain_id)
     }
 
-    /// Returns the local EVM's [`l1::SpecId`].
-    pub fn evm_spec_id(&self) -> l1::SpecId {
+    /// Returns the local EVM's [`EvmSpecId`].
+    pub fn evm_spec_id(&self) -> EvmSpecId {
         self.hardfork().into()
     }
 
@@ -1629,7 +1628,7 @@ where
     pub fn next_block_base_fee_per_gas(
         &self,
     ) -> Result<Option<u128>, BlockchainErrorForChainSpec<ChainSpecT>> {
-        if self.evm_spec_id() < l1::SpecId::LONDON {
+        if self.evm_spec_id() < EvmSpecId::LONDON {
             return Ok(None);
         }
 
@@ -1654,7 +1653,7 @@ where
     pub fn next_block_base_fee_per_blob_gas(
         &self,
     ) -> Result<Option<u128>, BlockchainErrorForChainSpec<ChainSpecT>> {
-        if self.evm_spec_id() < l1::SpecId::CANCUN {
+        if self.evm_spec_id() < EvmSpecId::CANCUN {
             return Ok(None);
         }
 
@@ -1701,7 +1700,7 @@ where
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -1781,10 +1780,10 @@ where
         newest_block_spec: &BlockSpec,
         percentiles: Option<Vec<RewardPercentile>>,
     ) -> Result<FeeHistoryResult, ProviderErrorForChainSpec<ChainSpecT>> {
-        if self.evm_spec_id() < l1::SpecId::LONDON {
+        if self.evm_spec_id() < EvmSpecId::LONDON {
             return Err(ProviderError::UnmetHardfork {
                 actual: self.evm_spec_id(),
-                minimum: l1::SpecId::LONDON,
+                minimum: EvmSpecId::LONDON,
             });
         }
 
@@ -2303,7 +2302,7 @@ where
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -2429,7 +2428,7 @@ where
         BlockEnv: Clone + Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -2524,7 +2523,7 @@ where
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -2829,7 +2828,7 @@ fn create_blockchain_and_state<
                 .expect("Elapsed time since fork block must be representable as i64")
         };
 
-        let next_block_base_fee_per_gas = if config.hardfork.into() >= l1::SpecId::LONDON {
+        let next_block_base_fee_per_gas = if config.hardfork.into() >= EvmSpecId::LONDON {
             if let Some(base_fee) = config.initial_base_fee_per_gas {
                 Some(base_fee)
             } else {
@@ -2868,7 +2867,7 @@ fn create_blockchain_and_state<
             next_block_base_fee_per_gas,
         })
     } else {
-        let mix_hash = if config.hardfork.into() >= l1::SpecId::MERGE {
+        let mix_hash = if config.hardfork.into() >= EvmSpecId::MERGE {
             Some(prev_randao_generator.generate_next())
         } else {
             None

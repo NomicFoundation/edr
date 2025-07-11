@@ -9,6 +9,7 @@ alloy-serde.workspace = true
 c-kzg.workspace = true
 edr_eth.workspace = true
 edr_evm.workspace = true
+edr_provider.workspace = true
 edr_rpc_eth.workspace = true
 k256.workspace = true
 log.workspace = true
@@ -22,6 +23,7 @@ thiserror.workspace = true
 anyhow.workspace = true
 assert-json-diff = "2.0.2"
 edr_defaults.workspace = true
+edr_provider = { workspace = true, features = ["test-utils"] }
 edr_rpc_eth = { workspace = true, features = ["test-utils"] }
 edr_test_utils.workspace = true
 serde_json.workspace = true

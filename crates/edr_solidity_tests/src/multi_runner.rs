@@ -7,7 +7,8 @@ use std::{
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
 use derive_where::derive_where;
-use edr_eth::{l1, spec::HaltReasonTrait};
+use edr_eth::spec::HaltReasonTrait;
+use edr_evm::EvmHaltReason;
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_evm::{
@@ -120,7 +121,7 @@ impl<
             TransactionErrorT,
             TransactionT,
         >,
-        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
         TransactionErrorT: TransactionErrorTrait,
@@ -227,7 +228,7 @@ impl<
                 TransactionErrorT,
                 TransactionT,
             >,
-        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
         TransactionErrorT: TransactionErrorTrait,

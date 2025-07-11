@@ -1,6 +1,5 @@
 use edr_eth::{
-    block::Header, l1, result::ExecutionResult, transaction::TransactionValidation, Address,
-    HashMap,
+    block::Header, result::ExecutionResult, transaction::TransactionValidation, Address, HashMap,
 };
 use edr_evm::{
     blockchain::{BlockHash, BlockchainErrorForChainSpec},
@@ -10,6 +9,7 @@ use edr_evm::{
     runtime::guaranteed_dry_run_with_inspector,
     spec::{BlockEnvConstructor as _, ContextForChainSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
+    EvmInvalidTransaction,
 };
 
 use crate::{error::ProviderErrorForChainSpec, ProviderError};
@@ -29,7 +29,7 @@ where
     ChainSpecT: SyncRuntimeSpec<
         BlockEnv: Default,
         SignedTransaction: Default
-                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+                               + TransactionValidation<ValidationError: From<EvmInvalidTransaction>>,
     >,
     InspectorT: Inspector<
         ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,

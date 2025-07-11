@@ -3,10 +3,9 @@
 use alloy_dyn_abi::{DynSolValue, EventExt};
 use alloy_json_abi::Event;
 use alloy_primitives::{address, Address, U256};
-use edr_eth::{
-    l1::{self, BlockEnv},
-    spec::HaltReasonTrait,
-};
+use edr_chain_l1::{L1BlockEnv, L1HaltReason, L1Hardfork, L1InvalidTransaction};
+use edr_eth::spec::HaltReasonTrait;
+use edr_evm::EvmHaltReason;
 use edr_solidity_tests::{
     result::TestStatus, revm::context::TxEnv, IncludeTraces, SolidityTestRunnerConfig,
 };
@@ -68,7 +67,7 @@ async fn runner_config<
     BlockT: BlockEnvTr,
     ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TransactionT>,
-    HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
@@ -108,7 +107,7 @@ async fn repro_config(
     should_fail: bool,
     sender: Option<Address>,
     test_data: &L1ForgeTestData,
-) -> TestConfig<BlockEnv, (), L1EvmBuilder, l1::HaltReason, l1::SpecId, l1::InvalidTransaction, TxEnv>
+) -> TestConfig<L1BlockEnv, (), L1EvmBuilder, L1HaltReason, L1Hardfork, L1InvalidTransaction, TxEnv>
 {
     let config = runner_config(sender, test_data).await;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;

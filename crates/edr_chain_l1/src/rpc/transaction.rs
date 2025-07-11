@@ -1,5 +1,3 @@
-mod request;
-
 use std::{ops::Deref, sync::OnceLock};
 
 use edr_eth::{

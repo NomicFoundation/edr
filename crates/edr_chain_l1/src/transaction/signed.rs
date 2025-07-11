@@ -855,7 +855,7 @@ mod tests {
 
     #[test]
     fn decode_eip7702() -> anyhow::Result<()> {
-        use edr_test_utils::transaction::eip7702 as expectation;
+        use edr_eth::test_utils::transaction::eip7702 as expectation;
 
         let raw_transaction = 
             hex::decode(

@@ -55,6 +55,11 @@ pub mod trace;
 /// Types for Ethereum transactions
 pub mod transaction;
 
+pub use revm_context_interface::result::OutOfGasError;
+
+/// Halt reason returned by the EVM.
+pub type EvmHaltReason = revm_context_interface::result::HaltReason;
+
 /// Error returned by the EVM when a block header is invalid.
 pub type EvmInvalidHeader = revm_context_interface::result::InvalidHeader;
 

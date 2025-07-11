@@ -5,13 +5,12 @@ use anyhow::anyhow;
 use edr_eth::{
     block::{self, BlobGas},
     eips::eip7702,
-    l1::{self, L1ChainSpec},
     signature::{public_key_to_address, secret_key_from_str, SignatureWithYParity},
     transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
     trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, U160, U256,
 };
-use edr_evm::Block as _;
+use edr_evm::{Block as _, EvmInvalidTransaction};
 use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use k256::SecretKey;
@@ -122,7 +121,7 @@ pub fn pending_base_fee<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -138,14 +137,11 @@ pub fn pending_base_fee<
 
 /// Deploys a contract with the provided code. Returns the address of the
 /// contract.
-pub fn deploy_contract<TimerT>(
-    provider: &Provider<L1ChainSpec, TimerT>,
+pub fn deploy_contract<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
+    provider: &Provider<ChainSpecT, TimerT>,
     caller: Address,
     code: Bytes,
-) -> anyhow::Result<Address>
-where
-    TimerT: Clone + TimeSinceEpoch,
-{
+) -> anyhow::Result<Address> {
     let deploy_transaction = TransactionRequest {
         from: caller,
         data: Some(code),
@@ -259,44 +255,6 @@ where
             .nth(index)
             .copied()
             .ok_or(anyhow!("the requested local account does not exist"))
-    }
-}
-
-impl ProviderTestFixture<L1ChainSpec> {
-    pub fn dummy_transaction_request(
-        &self,
-        local_account_index: usize,
-        gas_limit: u64,
-        nonce: Option<u64>,
-    ) -> anyhow::Result<TransactionRequestAndSender<transaction::Request>> {
-        let request = transaction::Request::Eip155(transaction::request::Eip155 {
-            kind: TxKind::Call(Address::ZERO),
-            gas_limit,
-            gas_price: 42_000_000_000_u128,
-            value: U256::from(1),
-            input: Bytes::default(),
-            nonce: nonce.unwrap_or(0),
-            chain_id: self.config.chain_id,
-        });
-
-        let sender = self.nth_local_account(local_account_index)?;
-        Ok(TransactionRequestAndSender { request, sender })
-    }
-
-    pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<transaction::Signed> {
-        let mut transaction = self.dummy_transaction_request(0, 30_000, None)?;
-        transaction.sender = self.impersonated_account;
-
-        Ok(self.provider_data.sign_transaction_request(transaction)?)
-    }
-
-    pub fn signed_dummy_transaction(
-        &self,
-        local_account_index: usize,
-        nonce: Option<u64>,
-    ) -> anyhow::Result<transaction::Signed> {
-        let transaction = self.dummy_transaction_request(local_account_index, 30_000, nonce)?;
-        Ok(self.provider_data.sign_transaction_request(transaction)?)
     }
 }
 

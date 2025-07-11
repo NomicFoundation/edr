@@ -4,7 +4,7 @@ use derive_where::derive_where;
 use edr_eth::{
     block::Header, transaction::ExecutableTransaction as _, withdrawal::Withdrawal, B256, U256,
 };
-use edr_rpc_eth::client::EthRpcClient;
+use edr_rpc_eth::{client::EthRpcClient, RpcBlock};
 use tokio::runtime;
 
 use crate::{
@@ -157,4 +157,18 @@ pub trait EthRpcBlock {
     /// Returns the total difficulty of the chain until this block for finalised
     /// blocks. For pending blocks, returns `None`.
     fn total_difficulty(&self) -> Option<&U256>;
+}
+
+impl<TransactionT> EthRpcBlock for RpcBlock<TransactionT> {
+    fn state_root(&self) -> &B256 {
+        &self.state_root
+    }
+
+    fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+
+    fn total_difficulty(&self) -> Option<&U256> {
+        self.total_difficulty.as_ref()
+    }
 }

@@ -162,6 +162,118 @@ impl FakeSign for L1TransactionRequest {
     }
 }
 
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
+    for L1TransactionRequest
+{
+    type Context<'context> = TransactionContext<'context, L1ChainSpec, TimerT>;
+
+    type Error = ProviderErrorForChainSpec<L1ChainSpec>;
+
+    fn from_rpc_type(
+        value: TransactionRequest,
+        context: Self::Context<'_>,
+    ) -> Result<transaction::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
+        let TransactionContext { data } = context;
+
+        validate_send_transaction_request(data, &value)?;
+
+        let TransactionRequest {
+            from,
+            to,
+            gas_price,
+            max_fee_per_gas,
+            max_priority_fee_per_gas,
+            gas,
+            value,
+            data: input,
+            nonce,
+            chain_id,
+            access_list,
+            // We ignore the transaction type
+            transaction_type: _transaction_type,
+            blobs: _blobs,
+            blob_hashes: _blob_hashes,
+            authorization_list,
+        } = value;
+
+        let chain_id = chain_id.unwrap_or_else(|| data.chain_id());
+        let gas_limit = gas.unwrap_or_else(|| data.block_gas_limit());
+        let input = input.map_or(Bytes::new(), Into::into);
+        let nonce = nonce.map_or_else(|| data.account_next_nonce(&from), Ok)?;
+        let value = value.unwrap_or(U256::ZERO);
+
+        let current_hardfork = data.evm_spec_id();
+        let request = if let Some(authorization_list) = authorization_list {
+            let (max_fee_per_gas, max_priority_fee_per_gas) =
+                calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
+
+            Self::Eip7702(transaction::request::Eip7702 {
+                nonce,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
+                gas_limit,
+                value,
+                input,
+                to: to.ok_or(ProviderError::Eip7702TransactionMissingReceiver)?,
+                chain_id,
+                access_list: access_list.unwrap_or_default(),
+                authorization_list,
+            })
+        } else if current_hardfork >= l1::SpecId::LONDON
+            && (gas_price.is_none()
+                || max_fee_per_gas.is_some()
+                || max_priority_fee_per_gas.is_some())
+        {
+            let (max_fee_per_gas, max_priority_fee_per_gas) =
+                calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
+
+            Self::Eip1559(transaction::request::Eip1559 {
+                nonce,
+                max_fee_per_gas,
+                max_priority_fee_per_gas,
+                gas_limit,
+                value,
+                input,
+                kind: match to {
+                    Some(to) => TxKind::Call(to),
+                    None => TxKind::Create,
+                },
+                chain_id,
+                access_list: access_list.unwrap_or_default(),
+            })
+        } else if let Some(access_list) = access_list {
+            Self::Eip2930(transaction::request::Eip2930 {
+                nonce,
+                gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
+                gas_limit,
+                value,
+                input,
+                kind: match to {
+                    Some(to) => TxKind::Call(to),
+                    None => TxKind::Create,
+                },
+                chain_id,
+                access_list,
+            })
+        } else {
+            Self::Eip155(transaction::request::Eip155 {
+                nonce,
+                gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
+                gas_limit,
+                value,
+                input,
+                kind: match to {
+                    Some(to) => TxKind::Call(to),
+                    None => TxKind::Create,
+                },
+                chain_id,
+            })
+        };
+
+        Ok(request)
+    }
+}
+
 impl Sign for L1TransactionRequest {
     type Signed = L1SignedTransaction;
 

@@ -3,6 +3,7 @@ use edr_eth::{
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
+use edr_provider::spec::HardforkValidationData;
 
 use crate::transaction::{
     signed::{L1SignedTransaction, PreOrPostEip155},
@@ -406,6 +407,64 @@ impl From<PreOrPostEip155> for L1PooledTransaction {
 impl From<L1PooledTransaction> for L1SignedTransaction {
     fn from(value: L1PooledTransaction) -> Self {
         value.into_payload()
+    }
+}
+
+impl HardforkValidationData for L1PooledTransaction {
+    fn to(&self) -> Option<&Address> {
+        Some(self.caller())
+    }
+
+    fn gas_price(&self) -> Option<&u128> {
+        match self {
+            L1PooledTransaction::PreEip155Legacy(tx) => Some(&tx.gas_price),
+            L1PooledTransaction::PostEip155Legacy(tx) => Some(&tx.gas_price),
+            L1PooledTransaction::Eip2930(tx) => Some(&tx.gas_price),
+            L1PooledTransaction::Eip1559(_)
+            | L1PooledTransaction::Eip4844(_)
+            | L1PooledTransaction::Eip7702(_) => None,
+        }
+    }
+
+    fn max_fee_per_gas(&self) -> Option<&u128> {
+        ExecutableTransaction::max_fee_per_gas(self)
+    }
+
+    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
+        ExecutableTransaction::max_priority_fee_per_gas(self)
+    }
+
+    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
+        match self {
+            L1PooledTransaction::PreEip155Legacy(_) | L1PooledTransaction::PostEip155Legacy(_) => {
+                None
+            }
+            L1PooledTransaction::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
+            L1PooledTransaction::Eip1559(tx) => Some(tx.access_list.0.as_ref()),
+            L1PooledTransaction::Eip4844(tx) => Some(&tx.payload().access_list),
+            L1PooledTransaction::Eip7702(tx) => Some(tx.access_list.0.as_ref()),
+        }
+    }
+
+    fn blobs(&self) -> Option<&Vec<Blob>> {
+        match self {
+            L1PooledTransaction::Eip4844(tx) => Some(tx.blobs_ref()),
+            _ => None,
+        }
+    }
+
+    fn blob_hashes(&self) -> Option<&Vec<B256>> {
+        match self {
+            L1PooledTransaction::Eip4844(tx) => Some(&tx.payload().blob_hashes),
+            _ => None,
+        }
+    }
+
+    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
+        match self {
+            L1PooledTransaction::Eip7702(tx) => Some(tx.authorization_list.as_ref()),
+            _ => None,
+        }
     }
 }
 

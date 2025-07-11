@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use edr_eth::{
-    l1,
-    transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
+use edr_eth::transaction::{
+    IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation,
 };
-use edr_evm::blockchain::BlockchainErrorForChainSpec;
+use edr_evm::{blockchain::BlockchainErrorForChainSpec, EvmInvalidTransaction};
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::Mutex;
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
@@ -89,7 +88,7 @@ impl<
             BlockEnv: Default,
             SignedTransaction: Default
                                    + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+                ValidationError: From<EvmInvalidTransaction> + PartialEq,
             >,
         >,
         TimerT: Clone + TimeSinceEpoch,
@@ -158,7 +157,7 @@ impl<
                                    + TransactionMut
                                    + TransactionType<Type: IsEip4844>
                                    + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+                ValidationError: From<EvmInvalidTransaction> + PartialEq,
             >,
         >,
         TimerT: Clone + TimeSinceEpoch,

@@ -3,7 +3,8 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 
 use derive_where::derive_where;
-use edr_eth::{l1, spec::HaltReasonTrait};
+use edr_eth::spec::HaltReasonTrait;
+use edr_evm::EvmHaltReason;
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::NestedTrace,
@@ -38,7 +39,7 @@ pub struct TestConfig<
             TransactionErrorT,
             TransactionT,
         >,
-    HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
@@ -69,7 +70,7 @@ impl<
                 TransactionErrorT,
                 TransactionT,
             >,
-        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,

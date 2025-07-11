@@ -1,4 +1,5 @@
-use edr_eth::{l1, transaction::TransactionValidation, Address, BlockSpec, U256, U64};
+use edr_eth::{transaction::TransactionValidation, Address, BlockSpec, U256, U64};
+use edr_evm::EvmInvalidTransaction;
 
 use crate::{
     data::ProviderData, requests::validation::validate_post_merge_block_tags,
@@ -29,7 +30,7 @@ pub fn handle_get_transaction_count_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

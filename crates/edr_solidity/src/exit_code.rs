@@ -1,6 +1,7 @@
 //! Exit code of the EVM.
 
-use edr_eth::{l1, spec::HaltReasonTrait};
+use edr_eth::spec::HaltReasonTrait;
+use edr_evm::{EvmHaltReason, OutOfGasError};
 
 /// Represents the exit code of the EVM.
 #[derive(Clone, Debug)]
@@ -51,7 +52,7 @@ impl<HaltReasonT: HaltReasonTrait> ExitCode<HaltReasonT> {
     /// Returns whether the exit code is a contract too large error.
     pub fn is_contract_too_large_error(&self) -> bool {
         if let Self::Halt(reason) = self {
-            *reason == l1::HaltReason::CreateContractSizeLimit.into()
+            *reason == EvmHaltReason::CreateContractSizeLimit.into()
         } else {
             false
         }
@@ -60,9 +61,9 @@ impl<HaltReasonT: HaltReasonTrait> ExitCode<HaltReasonT> {
     /// Returns whether the exit code is an invalid opcode error.
     pub fn is_invalid_opcode_error(&self) -> bool {
         if let Self::Halt(reason) = self {
-            (*reason == l1::HaltReason::InvalidFEOpcode.into())
-                | (*reason == l1::HaltReason::OpcodeNotFound.into())
-                | (*reason == l1::HaltReason::NotActivated.into())
+            (*reason == EvmHaltReason::InvalidFEOpcode.into())
+                | (*reason == EvmHaltReason::OpcodeNotFound.into())
+                | (*reason == EvmHaltReason::NotActivated.into())
         } else {
             false
         }
@@ -71,12 +72,12 @@ impl<HaltReasonT: HaltReasonTrait> ExitCode<HaltReasonT> {
     /// Returns whether the exit code is an out of gas error.
     pub fn is_out_of_gas_error(&self) -> bool {
         if let Self::Halt(reason) = self {
-            (*reason == l1::HaltReason::OutOfGas(l1::OutOfGasError::Basic).into())
-                | (*reason == l1::HaltReason::OutOfGas(l1::OutOfGasError::MemoryLimit).into())
-                | (*reason == l1::HaltReason::OutOfGas(l1::OutOfGasError::Memory).into())
-                | (*reason == l1::HaltReason::OutOfGas(l1::OutOfGasError::Precompile).into())
-                | (*reason == l1::HaltReason::OutOfGas(l1::OutOfGasError::InvalidOperand).into())
-                | (*reason == l1::HaltReason::OutOfGas(l1::OutOfGasError::ReentrancySentry).into())
+            (*reason == EvmHaltReason::OutOfGas(OutOfGasError::Basic).into())
+                | (*reason == EvmHaltReason::OutOfGas(OutOfGasError::MemoryLimit).into())
+                | (*reason == EvmHaltReason::OutOfGas(OutOfGasError::Memory).into())
+                | (*reason == EvmHaltReason::OutOfGas(OutOfGasError::Precompile).into())
+                | (*reason == EvmHaltReason::OutOfGas(OutOfGasError::InvalidOperand).into())
+                | (*reason == EvmHaltReason::OutOfGas(OutOfGasError::ReentrancySentry).into())
         } else {
             false
         }

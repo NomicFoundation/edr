@@ -4,7 +4,6 @@ use std::sync::Arc;
 pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
     eips::{eip2930, eip7702},
-    l1::L1ChainSpec,
     rlp,
     transaction::{
         signed::{FakeSign, Sign},
@@ -14,8 +13,8 @@ use edr_eth::{
 };
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
-    blockchain::BlockchainErrorForChainSpec, state::StateOverrides, transaction,
-    BlockAndTotalDifficulty, BlockReceipts,
+    blockchain::BlockchainErrorForChainSpec, state::StateOverrides, BlockAndTotalDifficulty,
+    BlockReceipts,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
@@ -59,24 +58,6 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     /// This is implemented as an associated function to avoid problems when
     /// implementing type conversions for third-party types.
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason>;
-}
-
-impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
-    type PooledTransaction = transaction::pooled::PooledTransaction;
-    type TransactionRequest = transaction::Request;
-
-    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
-        match reason {
-            Self::HaltReason::CreateContractSizeLimit => {
-                TransactionFailureReason::CreateContractSizeLimit
-            }
-            Self::HaltReason::OpcodeNotFound | Self::HaltReason::InvalidFEOpcode => {
-                TransactionFailureReason::OpcodeNotFound
-            }
-            Self::HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
-            remainder => TransactionFailureReason::Inner(remainder),
-        }
-    }
 }
 
 /// Trait with data used for validating a transaction complies with a

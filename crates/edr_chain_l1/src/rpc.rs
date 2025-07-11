@@ -1,5 +1,4 @@
-/// Types for Ethereum L1 JSON-RPC blocks.
-pub mod block;
+mod call_request;
 /// Types for Ethereum L1 JSON-RPC receipts.
 pub mod receipt;
 /// Types for Ethereum L1 JSON-RPC transactions.

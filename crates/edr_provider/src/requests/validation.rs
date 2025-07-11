@@ -1,8 +1,7 @@
 use edr_eth::{
     eips::{eip2930, eip7702},
-    l1,
-    transaction::{pooled::PooledTransaction, ExecutableTransaction},
-    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
+    Address, Blob, BlockSpec, BlockTag, Bytes, EvmSpecId, PreEip1898BlockSpec, B256,
+    MAX_INITCODE_SIZE,
 };
 use edr_evm::{spec::RuntimeSpec, transaction};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
@@ -11,40 +10,6 @@ use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
     time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
 };
-
-impl HardforkValidationData for TransactionRequest {
-    fn to(&self) -> Option<&Address> {
-        self.to.as_ref()
-    }
-
-    fn gas_price(&self) -> Option<&u128> {
-        self.gas_price.as_ref()
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&u128> {
-        self.max_fee_per_gas.as_ref()
-    }
-
-    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
-        self.max_priority_fee_per_gas.as_ref()
-    }
-
-    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
-        self.access_list.as_ref()
-    }
-
-    fn blobs(&self) -> Option<&Vec<Blob>> {
-        self.blobs.as_ref()
-    }
-
-    fn blob_hashes(&self) -> Option<&Vec<B256>> {
-        self.blob_hashes.as_ref()
-    }
-
-    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
-        self.authorization_list.as_ref()
-    }
-}
 
 impl HardforkValidationData for CallRequest {
     fn to(&self) -> Option<&Address> {
@@ -80,59 +45,37 @@ impl HardforkValidationData for CallRequest {
     }
 }
 
-impl HardforkValidationData for PooledTransaction {
+impl HardforkValidationData for TransactionRequest {
     fn to(&self) -> Option<&Address> {
-        Some(self.caller())
+        self.to.as_ref()
     }
 
     fn gas_price(&self) -> Option<&u128> {
-        match self {
-            PooledTransaction::PreEip155Legacy(tx) => Some(&tx.gas_price),
-            PooledTransaction::PostEip155Legacy(tx) => Some(&tx.gas_price),
-            PooledTransaction::Eip2930(tx) => Some(&tx.gas_price),
-            PooledTransaction::Eip1559(_)
-            | PooledTransaction::Eip4844(_)
-            | PooledTransaction::Eip7702(_) => None,
-        }
+        self.gas_price.as_ref()
     }
 
     fn max_fee_per_gas(&self) -> Option<&u128> {
-        ExecutableTransaction::max_fee_per_gas(self)
+        self.max_fee_per_gas.as_ref()
     }
 
     fn max_priority_fee_per_gas(&self) -> Option<&u128> {
-        ExecutableTransaction::max_priority_fee_per_gas(self)
+        self.max_priority_fee_per_gas.as_ref()
     }
 
     fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
-        match self {
-            PooledTransaction::PreEip155Legacy(_) | PooledTransaction::PostEip155Legacy(_) => None,
-            PooledTransaction::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
-            PooledTransaction::Eip1559(tx) => Some(tx.access_list.0.as_ref()),
-            PooledTransaction::Eip4844(tx) => Some(&tx.payload().access_list),
-            PooledTransaction::Eip7702(tx) => Some(tx.access_list.0.as_ref()),
-        }
+        self.access_list.as_ref()
     }
 
     fn blobs(&self) -> Option<&Vec<Blob>> {
-        match self {
-            PooledTransaction::Eip4844(tx) => Some(tx.blobs_ref()),
-            _ => None,
-        }
+        self.blobs.as_ref()
     }
 
     fn blob_hashes(&self) -> Option<&Vec<B256>> {
-        match self {
-            PooledTransaction::Eip4844(tx) => Some(&tx.payload().blob_hashes),
-            _ => None,
-        }
+        self.blob_hashes.as_ref()
     }
 
     fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
-        match self {
-            PooledTransaction::Eip7702(tx) => Some(tx.authorization_list.as_ref()),
-            _ => None,
-        }
+        self.authorization_list.as_ref()
     }
 }
 
@@ -168,7 +111,7 @@ pub fn validate_send_transaction_request<
     }
 
     if let Some(transaction_type) = request.transaction_type {
-        if transaction_type == u8::from(transaction::Type::Eip4844) {
+        if transaction_type == u8::from(transaction::request::Eip4844::TYPE) {
             return Err(ProviderError::Eip4844TransactionUnsupported);
         }
     }
@@ -186,33 +129,33 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 }
 
 fn validate_transaction_spec<ChainSpecT: RuntimeSpec>(
-    spec_id: l1::SpecId,
+    spec_id: EvmSpecId,
     value: &impl HardforkValidationData,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    if spec_id < l1::SpecId::BERLIN && value.access_list().is_some() {
+    if spec_id < EvmSpecId::BERLIN && value.access_list().is_some() {
         return Err(ProviderError::UnsupportedAccessListParameter {
             current_hardfork: spec_id,
-            minimum_hardfork: l1::SpecId::BERLIN,
+            minimum_hardfork: EvmSpecId::BERLIN,
         });
     }
 
-    if spec_id < l1::SpecId::LONDON
+    if spec_id < EvmSpecId::LONDON
         && (value.max_fee_per_gas().is_some() || value.max_priority_fee_per_gas().is_some())
     {
         return Err(ProviderError::UnsupportedEIP1559Parameters {
             current_hardfork: spec_id,
-            minimum_hardfork: l1::SpecId::BERLIN,
+            minimum_hardfork: EvmSpecId::BERLIN,
         });
     }
 
-    if spec_id < l1::SpecId::CANCUN && (value.blobs().is_some() || value.blob_hashes().is_some()) {
+    if spec_id < EvmSpecId::CANCUN && (value.blobs().is_some() || value.blob_hashes().is_some()) {
         return Err(ProviderError::UnsupportedEIP4844Parameters {
             current_hardfork: spec_id,
-            minimum_hardfork: l1::SpecId::CANCUN,
+            minimum_hardfork: EvmSpecId::CANCUN,
         });
     }
 
-    if spec_id < l1::SpecId::PRAGUE && value.authorization_list().is_some() {
+    if spec_id < EvmSpecId::PRAGUE && value.authorization_list().is_some() {
         return Err(ProviderError::UnsupportedEip7702Parameters {
             current_hardfork: spec_id,
         });
@@ -325,12 +268,12 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 }
 
 pub(crate) fn validate_eip3860_max_initcode_size<ChainSpecT: RuntimeSpec>(
-    spec_id: l1::SpecId,
+    spec_id: EvmSpecId,
     allow_unlimited_contract_code_size: bool,
     to: Option<&Address>,
     data: &Bytes,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    if spec_id < l1::SpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
+    if spec_id < EvmSpecId::SHANGHAI || to.is_some() || allow_unlimited_contract_code_size {
         return Ok(());
     }
 
@@ -381,7 +324,7 @@ pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec>(
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     let block_spec: ValidationBlockSpec<'a> = block_spec.into();
 
-    if hardfork.into() < l1::SpecId::MERGE {
+    if hardfork.into() < EvmSpecId::MERGE {
         match block_spec {
             ValidationBlockSpec::PreEip1898(PreEip1898BlockSpec::Tag(
                 tag @ (BlockTag::Safe | BlockTag::Finalized),
@@ -402,11 +345,11 @@ pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{l1::L1ChainSpec, U256};
+    use edr_eth::U256;
 
     use super::*;
 
-    fn assert_mixed_eip_1559_parameters(spec: l1::SpecId) {
+    fn assert_mixed_eip_1559_parameters(spec: EvmSpecId) {
         let mixed_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
@@ -444,7 +387,7 @@ mod tests {
         ));
     }
 
-    fn assert_unsupported_eip_1559_parameters(spec: l1::SpecId) {
+    fn assert_unsupported_eip_1559_parameters(spec: EvmSpecId) {
         let eip_1559_request = TransactionRequest {
             from: Address::ZERO,
             max_fee_per_gas: Some(0),
@@ -468,7 +411,7 @@ mod tests {
         ));
     }
 
-    fn assert_unsupported_eip_4844_parameters(spec: l1::SpecId) {
+    fn assert_unsupported_eip_4844_parameters(spec: EvmSpecId) {
         let eip_4844_request = TransactionRequest {
             from: Address::ZERO,
             blobs: Some(Vec::new()),
@@ -492,7 +435,7 @@ mod tests {
         ));
     }
 
-    fn assert_unsuporrted_eip_7702_parameters(spec: l1::SpecId) {
+    fn assert_unsuporrted_eip_7702_parameters(spec: EvmSpecId) {
         let eip_7702_request = TransactionRequest {
             from: Address::ZERO,
             authorization_list: Some(Vec::new()),
@@ -507,7 +450,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_155_invalid_inputs() {
-        let eip155_spec = l1::SpecId::MUIR_GLACIER;
+        let eip155_spec = EvmSpecId::MUIR_GLACIER;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
@@ -534,7 +477,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_2930_invalid_inputs() {
-        let eip2930_spec = l1::SpecId::BERLIN;
+        let eip2930_spec = EvmSpecId::BERLIN;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
@@ -551,7 +494,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_1559_invalid_inputs() {
-        let eip1559_spec = l1::SpecId::LONDON;
+        let eip1559_spec = EvmSpecId::LONDON;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             max_fee_per_gas: Some(0),
@@ -569,7 +512,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_4844_invalid_inputs() {
-        let eip4844_spec = l1::SpecId::CANCUN;
+        let eip4844_spec = EvmSpecId::CANCUN;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),
@@ -635,7 +578,7 @@ mod tests {
 
     #[test]
     fn validate_transaction_spec_eip_7702_invalid_inputs() {
-        let eip7702_spec = l1::SpecId::PRAGUE;
+        let eip7702_spec = EvmSpecId::PRAGUE;
         let valid_request = TransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),

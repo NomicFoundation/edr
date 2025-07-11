@@ -20,6 +20,7 @@ use edr_evm::{
     BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, EvmInvalidTransaction,
     RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
+use edr_provider::ProviderSpec;
 use edr_rpc_eth::{CallRequest, RpcSpec};
 use revm_handler::PrecompileProvider;
 use serde::{de::DeserializeOwned, Serialize};
@@ -48,6 +49,24 @@ impl EthHeaderConstants for L1ChainSpec {
         BaseFeeParams::Constant(ConstantBaseFeeParams::ethereum());
 
     const MIN_ETHASH_DIFFICULTY: u64 = 131072;
+}
+
+impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
+    type PooledTransaction = transaction::pooled::PooledTransaction;
+    type TransactionRequest = transaction::Request;
+
+    fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
+        match reason {
+            Self::HaltReason::CreateContractSizeLimit => {
+                TransactionFailureReason::CreateContractSizeLimit
+            }
+            Self::HaltReason::OpcodeNotFound | Self::HaltReason::InvalidFEOpcode => {
+                TransactionFailureReason::OpcodeNotFound
+            }
+            Self::HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+            remainder => TransactionFailureReason::Inner(remainder),
+        }
+    }
 }
 
 impl RpcSpec for L1ChainSpec {

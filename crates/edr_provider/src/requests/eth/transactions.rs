@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    l1,
     rlp::Decodable,
     transaction::{
         request::TransactionRequestAndSender, ExecutableTransaction as _, IsEip155, IsEip4844,
@@ -13,7 +12,7 @@ use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainErrorForChainSpec,
     spec::RuntimeSpec,
-    transaction, Block,
+    transaction, Block, EvmInvalidTransaction,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
 
@@ -55,7 +54,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -173,7 +172,7 @@ pub fn handle_send_transaction_request<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -199,7 +198,7 @@ pub fn handle_send_raw_transaction_request<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
         PooledTransaction: IsEip155,
     >,
@@ -234,7 +233,7 @@ pub fn calculate_eip1559_fee_parameters<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -255,7 +254,7 @@ pub fn calculate_eip1559_fee_parameters<
             SignedTransaction: Default
                                    + TransactionType<Type: IsEip4844>
                                    + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+                ValidationError: From<EvmInvalidTransaction> + PartialEq,
             >,
         >,
         TimerT: Clone + TimeSinceEpoch,
@@ -298,7 +297,7 @@ fn send_raw_transaction_and_log<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmInvalidTransaction> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
