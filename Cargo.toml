@@ -183,7 +183,7 @@ chrono = { version = "0.4", default-features = false, features = [
     "std",
 ] }
 color-eyre = "0.6"
-derive_more = "2"
+derive_more = { version = "2", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
 evm-disassembler = "0.5"
 eyre = "0.6"
