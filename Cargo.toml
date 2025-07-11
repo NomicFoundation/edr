@@ -214,9 +214,12 @@ tempfile = "3.10"
 tokio = "1"
 
 hyper = "1.0"
-reqwest = { version = "0.12", default-features = false }
-tower = "0.4"
-tower-http = "0.5"
+reqwest = { version = "0.12.22", features = ["blocking", "json"] }
+reqwest-middleware = { version = "0.4", default-features = false }
+reqwest-retry = { version = "0.7", default-features = false }
+reqwest-tracing = { version = "0.5", default-features = false }
+tower = "0.5"
+tower-http = "0.6"
 
 [patch.crates-io]
 # revm v24

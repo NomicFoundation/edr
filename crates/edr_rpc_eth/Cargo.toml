@@ -22,9 +22,9 @@ anyhow = { workspace = true, features = ["std"] }
 assert-json-diff = "2.0.2"
 edr_evm = { version = "0.3.5", path = "../edr_evm" }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
-mockito = { version = "1.0.2", default-features = false }
+mockito = { version = "1.7.0", default-features = false }
 paste = { version = "1.0.14", default-features = false }
-reqwest = { version = "0.11", default-features = false, features = ["blocking", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json"] }
 serde_json.workspace = true
 tempfile = { version = "3.7.1", default-features = false }
 walkdir = { version = "2.3.3", default-features = false }
