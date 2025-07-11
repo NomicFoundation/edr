@@ -12,15 +12,18 @@ use edr_eth::{
     U64,
 };
 use futures::{future, Future, TryFutureExt};
-use hyper::{header::HeaderValue, rt::Executor};
 pub use hyper::{header, HeaderMap};
+use hyper::{header::HeaderValue, rt::Executor};
 use reqwest::Client as HttpClient;
 use reqwest_middleware::{ClientBuilder as HttpClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 #[cfg(feature = "tracing")]
 use reqwest_tracing::TracingMiddleware;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::{runtime, sync::{OnceCell, RwLock}};
+use tokio::{
+    runtime,
+    sync::{OnceCell, RwLock},
+};
 use uuid::Uuid;
 
 use crate::{
