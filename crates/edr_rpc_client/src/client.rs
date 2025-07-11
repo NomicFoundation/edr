@@ -11,16 +11,19 @@ use edr_eth::{
     block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs},
     U64,
 };
-use futures::{future, TryFutureExt};
-use hyper::header::HeaderValue;
+use futures::{future, Future, TryFutureExt};
 pub use hyper::{header, HeaderMap};
+use hyper::{header::HeaderValue, rt::Executor};
 use reqwest::Client as HttpClient;
 use reqwest_middleware::{ClientBuilder as HttpClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 #[cfg(feature = "tracing")]
 use reqwest_tracing::TracingMiddleware;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::sync::{OnceCell, RwLock};
+use tokio::{
+    runtime,
+    sync::{OnceCell, RwLock},
+};
 use uuid::Uuid;
 
 use crate::{
@@ -181,6 +184,7 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
 
         let client = HttpClient::builder()
             .default_headers(headers)
+            .executor(TokioHandle(runtime::Handle::current()))
             .build()
             .expect("Default construction nor setting default headers can cause an error");
 
@@ -1024,5 +1028,18 @@ mod tests {
 
             assert_eq!(network_id, U64::from(1u64));
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct TokioHandle(runtime::Handle);
+
+impl<F> Executor<F> for TokioHandle
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    fn execute(&self, fut: F) {
+        self.0.spawn(fut);
     }
 }
