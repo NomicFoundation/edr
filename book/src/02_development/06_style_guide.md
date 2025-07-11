@@ -62,8 +62,6 @@ impl Foo {
 
 Annotate every function/method exposed from `edr_napi` to JS with the `catch_unwind` NAPI-RS macro attribute.
 
-Note that this will not capture panics from background threads.
-
 ### Example
 
 ```rust
@@ -76,8 +74,8 @@ pub fn foo() {
 
 ### Rationale
 
-While EDR should only panic if there is a logic error in the code, and ideally we would detect panics during development with the test suite, it is possible that panics happen in the wild.
+Rust functions that panic on the Node.js main thread will not return a result and crash the Node.js process.
 
-Rust functions that panic crash the Node.js main thread, and the panic messages are not reported to Sentry.
+Annotating with the `catch_unwind` macro attribute will turn the panic into a `napi::Error`, which can then be returned as a `napi::Result`.
 
-Annotating with the `catch_unwind` macro attribute will turn panics into errors that are reported via the normal Node.js Sentry integration.
+Note that this will not capture panics in background threads.
