@@ -36,7 +36,7 @@ impl From<PrecompileWithAddress> for Precompile {
 #[napi]
 impl Precompile {
     /// Returns the address of the precompile.
-    #[napi(getter)]
+    #[napi(catch_unwind, getter)]
     pub fn address(&self) -> Uint8Array {
         Uint8Array::with_data_copied(self.address)
     }
@@ -44,7 +44,7 @@ impl Precompile {
 
 /// [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification)
 /// secp256r1 precompile.
-#[napi]
+#[napi(catch_unwind)]
 pub fn precompile_p256_verify() -> Precompile {
     Precompile::from(precompile::secp256r1::P256VERIFY)
 }

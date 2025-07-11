@@ -47,7 +47,7 @@ pub enum StackTraceEntryType {
     CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR,
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn stack_trace_entry_type_to_string(val: StackTraceEntryType) -> &'static str {
     val.into()
 }
