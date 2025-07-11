@@ -292,6 +292,7 @@ function solidityTestConfigToSolidityTestRunnerConfigArgs(
       : hexStringToBuffer(config.blockCoinbase);
 
   return {
+    observability: {},
     projectRoot,
     ...config,
     fsPermissions,

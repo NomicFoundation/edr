@@ -10,7 +10,7 @@ async-rwlock = { version = "1.3.0", default-features = false }
 auto_impl = { version = "1.2", default-features = false }
 cita_trie = { version = "4.0.0", default-features = false }
 derive-where.workspace = true
-dyn-clone = { version = "1.0.13", default-features = false }
+dyn-clone.workspace = true
 futures = { version = "0.3.28", features = ["alloc", "async-await", "executor", "std"] }
 hasher = { version = "0.1.4", default-features = false, features = ["hash-keccak"] }
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }

@@ -313,8 +313,8 @@ describe("Multi-chain", () => {
     describe("Solidity Tests", () => {
       it("executes tests for OP chain", async function () {
         const artifacts = [
-          loadContract("./artifacts/SetupConsistencyCheck.json"),
-          loadContract("./artifacts/PaymentFailureTest.json"),
+          loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+          loadContract("./data/artifacts/default/PaymentFailureTest.json"),
         ];
         // All artifacts are test suites.
         const testSuites = artifacts.map((artifact) => artifact.id);

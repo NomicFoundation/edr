@@ -1,6 +1,7 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
+use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_eth::spec::HaltReasonTrait;
 use edr_evm::{
     blockchain::BlockHash,
@@ -15,12 +16,7 @@ use edr_evm::{
     trace::TraceCollector,
 };
 
-use crate::{
-    console_log::ConsoleLogCollector,
-    coverage::{CodeCoverageReporter, SyncOnCollectedCoverageCallback},
-    mock::Mocker,
-    SyncCallOverride,
-};
+use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
 
 /// Configuration for a [`RuntimeObserver`].
 #[derive(Clone, Default)]

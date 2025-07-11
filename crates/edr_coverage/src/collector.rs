@@ -3,7 +3,7 @@ use edr_evm::{inspector::Inspector, interpreter::InterpreterTypes, spec::Context
 
 use crate::COVERAGE_ADDRESS;
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct CoverageHitCollector {
     hits: HashSet<Bytes>,
 }

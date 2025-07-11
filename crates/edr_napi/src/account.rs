@@ -1,4 +1,5 @@
-use edr_eth::{HashMap, U256};
+use derive_more::Debug;
+use edr_eth::{hex, HashMap, U256};
 use edr_solidity_tests::{backend::Predeploy, revm::state::AccountInfo};
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
@@ -13,9 +14,10 @@ use crate::{
 
 /// Specification of overrides for an account and its storage.
 #[napi(object)]
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct AccountOverride {
     /// The account's address
+    #[debug("{}", hex::encode(address))]
     #[serde(serialize_with = "serialize_uint8array_as_hex")]
     pub address: Uint8Array,
     /// If present, the overwriting balance.
@@ -25,6 +27,7 @@ pub struct AccountOverride {
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub nonce: Option<BigInt>,
     /// If present, the overwriting code.
+    #[debug("{:?}", code.as_ref().map(hex::encode))]
     #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
     pub code: Option<Uint8Array>,
     /// BEWARE: This field is not supported yet. See <https://github.com/NomicFoundation/edr/issues/911>
@@ -109,7 +112,7 @@ impl TryFrom<AccountOverride> for Predeploy {
 
 /// A description of a storage slot's state.
 #[napi(object)]
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct StorageSlot {
     /// The storage slot's index
     #[serde(serialize_with = "serialize_bigint_as_struct")]

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use edr_eth::HashMap;
 use edr_napi_core::{
     provider::{self, SyncProviderFactory},
-    solidity::{self, config::TestRunnerConfig},
+    solidity,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_solidity_tests::{
@@ -195,6 +195,23 @@ impl EdrContext {
                 }
             };
 
+        let test_filter: Arc<TestFilterConfig> =
+            Arc::new(match config_args.try_get_test_filter() {
+                Ok(test_filter) => test_filter,
+                Err(error) => {
+                    deferred.reject(error);
+                    return Ok(promise);
+                }
+            });
+
+        let config = match config_args.resolve(&env) {
+            Ok(config) => config,
+            Err(error) => {
+                deferred.reject(error);
+                return Ok(promise);
+            }
+        };
+
         let runtime = runtime::Handle::current();
 
         let context = self.inner.clone();
@@ -216,7 +233,7 @@ impl EdrContext {
             };
 
             let linking_output =
-                try_or_reject_deferred!(LinkingOutput::link(&config_args.project_root, artifacts));
+                try_or_reject_deferred!(LinkingOutput::link(&config.project_root, artifacts));
 
             // Build revert decoder from ABIs of all artifacts.
             let abis = linking_output
@@ -263,10 +280,6 @@ impl EdrContext {
                 })
                 .collect::<napi::Result<TestContracts>>());
 
-            let test_filter: Arc<TestFilterConfig> =
-                Arc::new(try_or_reject_deferred!(config_args.try_get_test_filter()));
-
-            let config = try_or_reject_deferred!(TestRunnerConfig::try_from(config_args));
             let include_traces = config.include_traces.into();
 
             let test_runner = try_or_reject_deferred!(runtime

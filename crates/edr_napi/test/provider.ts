@@ -481,7 +481,9 @@ describe("Provider", () => {
 
   async function deployAndTestCustomPrecompile(enabled: boolean) {
     // Contract code in edr/data/contracts/CustomPrecompile.sol
-    const contractArtifact = loadContract("./artifacts/CustomPrecompile.json");
+    const contractArtifact = loadContract(
+      "./data/artifacts/default/CustomPrecompile.json"
+    );
     const contractInterface = new Interface(contractArtifact.contract.abi);
 
     const provider = await context.createProvider(
