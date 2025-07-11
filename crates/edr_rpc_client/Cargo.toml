@@ -12,10 +12,10 @@ hyper = { version = "1.5.2", default-features = false }
 lazy_static = { version = "1.4.0", default-features = false }
 log = { version = "0.4.17", default-features = false }
 regex = "1.10.0"
-reqwest = { version = "0.12", features = ["blocking", "json"] }
-reqwest-middleware = { version = "0.4", default-features = false }
-reqwest-retry = { version = "0.7", default-features = false }
-reqwest-tracing = { version = "0.5", default-features = false, optional = true }
+reqwest.workspace = true
+reqwest-middleware.workspace = true
+reqwest-retry.workspace = true
+reqwest-tracing = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 sha3.workspace = true
