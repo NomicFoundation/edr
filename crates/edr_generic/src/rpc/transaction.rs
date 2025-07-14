@@ -1,4 +1,9 @@
-use edr_eth::{l1, transaction::SignedTransaction as _};
+use edr_chain_l1::{
+    rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature},
+    transaction::{r#type::L1TransactionType, signed::L1SignedTransaction},
+    L1Hardfork,
+};
+use edr_eth::transaction::SignedTransaction as _;
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
     transaction::remote::EthRpcTransaction,
@@ -15,7 +20,7 @@ use crate::{transaction, GenericChainSpec};
 // defining crate of `edr_evm::TransactionAndBlock`, which probably shouldn't
 // as far as defining spec externally is concerned.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct TransactionWithSignature(edr_rpc_eth::TransactionWithSignature);
+pub struct TransactionWithSignature(L1RpcTransactionWithSignature);
 
 impl EthRpcTransaction for TransactionWithSignature {
     fn block_hash(&self) -> Option<&edr_eth::B256> {
@@ -23,14 +28,14 @@ impl EthRpcTransaction for TransactionWithSignature {
     }
 }
 
-impl From<edr_rpc_eth::TransactionWithSignature> for TransactionWithSignature {
-    fn from(value: edr_rpc_eth::TransactionWithSignature) -> Self {
+impl From<L1RpcTransactionWithSignature> for TransactionWithSignature {
+    fn from(value: L1RpcTransactionWithSignature) -> Self {
         Self(value)
     }
 }
 
 impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for TransactionWithSignature {
-    type Hardfork = l1::SpecId;
+    type Hardfork = L1Hardfork;
 
     fn rpc_type_from(
         value: &TransactionAndBlockForChainSpec<GenericChainSpec>,
@@ -47,7 +52,7 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for Transact
             )
             .unzip();
 
-        let transaction = edr_rpc_eth::Transaction::new(
+        let transaction = L1RpcTransaction::new(
             &value.transaction,
             header,
             transaction_index,
@@ -56,7 +61,7 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for Transact
         );
         let signature = value.transaction.signature();
 
-        edr_rpc_eth::TransactionWithSignature::new(
+        L1RpcTransactionWithSignature::new(
             transaction,
             signature.r(),
             signature.s(),
@@ -67,20 +72,15 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for Transact
     }
 }
 
-pub use edr_rpc_eth::TransactionConversionError as ConversionError;
+pub use edr_chain_l1::rpc::transaction::ConversionError;
 
 impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPostEip155 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
-        use edr_eth::transaction::Signed;
-
         let TransactionWithSignature(value) = value;
 
-        let tx_type = match value
-            .transaction_type
-            .map(edr_eth::transaction::Type::try_from)
-        {
+        let tx_type = match value.transaction_type.map(L1TransactionType::try_from) {
             None => transaction::Type::Legacy,
             Some(Ok(r#type)) => r#type.into(),
             Some(Err(r#type)) => {
@@ -95,19 +95,21 @@ impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPost
         let transaction = match tx_type {
             // We explicitly treat unrecognized transaction types as post-EIP 155 legacy
             // transactions
-            transaction::Type::Unrecognized(_) => Signed::PostEip155Legacy(value.into()),
+            transaction::Type::Unrecognized(_) => {
+                L1SignedTransaction::PostEip155Legacy(value.into())
+            }
 
             transaction::Type::Legacy => {
                 if value.is_legacy() {
-                    Signed::PreEip155Legacy(value.into())
+                    L1SignedTransaction::PreEip155Legacy(value.into())
                 } else {
-                    Signed::PostEip155Legacy(value.into())
+                    L1SignedTransaction::PostEip155Legacy(value.into())
                 }
             }
-            transaction::Type::Eip2930 => Signed::Eip2930(value.try_into()?),
-            transaction::Type::Eip1559 => Signed::Eip1559(value.try_into()?),
-            transaction::Type::Eip4844 => Signed::Eip4844(value.try_into()?),
-            transaction::Type::Eip7702 => Signed::Eip7702(value.try_into()?),
+            transaction::Type::Eip2930 => L1SignedTransaction::Eip2930(value.try_into()?),
+            transaction::Type::Eip1559 => L1SignedTransaction::Eip1559(value.try_into()?),
+            transaction::Type::Eip4844 => L1SignedTransaction::Eip4844(value.try_into()?),
+            transaction::Type::Eip7702 => L1SignedTransaction::Eip7702(value.try_into()?),
         };
 
         Ok(Self::with_type(transaction, tx_type))

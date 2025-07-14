@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+ambassador.workspace = true
 anyhow = { workspace = true, optional = true }
 alloy-rlp = { version = "0.3.11", default-features = false, features = ["derive"] }
 async-rwlock = { version = "1.3.0", default-features = false }
@@ -40,7 +41,6 @@ tracing = { version = "0.1.37", features = ["attributes", "std"], optional = tru
 anyhow.workspace = true
 criterion = { version = "0.4.0", default-features = false, features = ["cargo_bench_support", "html_reports", "plotters"] }
 edr_chain_l1 = { workspace = true, features = ["test-utils"] }
-edr_generic.workspace = true
 edr_test_utils.workspace = true
 lazy_static = "1.4.0"
 paste = { version = "1.0.14", default-features = false }

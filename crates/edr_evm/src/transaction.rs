@@ -160,8 +160,7 @@ mod tests {
         };
 
         let transaction = request.fake_sign(caller);
-        let transaction = transaction::Signed::from(transaction);
-        let result = validate(transaction, l1::SpecId::BERLIN);
+        let result = validate(transaction, EvmSpecId::BERLIN);
 
         let expected_gas_cost = 21_000;
         assert!(matches!(
@@ -195,8 +194,7 @@ mod tests {
         };
 
         let transaction = request.fake_sign(caller);
-        let transaction = transaction::Signed::from(transaction);
-        let result = validate(transaction, l1::SpecId::BERLIN);
+        let result = validate(transaction, EvmSpecId::BERLIN);
 
         assert!(matches!(result, Err(CreationError::ContractMissingData)));
 

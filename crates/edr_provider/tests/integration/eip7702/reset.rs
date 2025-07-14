@@ -6,7 +6,7 @@ use edr_eth::{
     Address, Bytes, U256,
 };
 use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
-use edr_rpc_eth::TransactionRequest;
+use edr_rpc_eth::RpcTransactionRequest;
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
 use super::{assert_code_at, sign_authorization, CHAIN_ID};
@@ -74,7 +74,7 @@ async fn send_transaction() -> anyhow::Result<()> {
     let sender = public_key_to_address(secret_key.public_key());
     let authorized_address = sender;
 
-    let transaction_request1 = TransactionRequest {
+    let transaction_request1 = RpcTransactionRequest {
         chain_id: Some(CHAIN_ID),
         nonce: Some(0),
         from: sender,
@@ -84,16 +84,16 @@ async fn send_transaction() -> anyhow::Result<()> {
             0x1,
             &secret_key,
         )?]),
-        ..TransactionRequest::default()
+        ..RpcTransactionRequest::default()
     };
 
-    let transaction_request2 = TransactionRequest {
+    let transaction_request2 = RpcTransactionRequest {
         chain_id: Some(CHAIN_ID),
         nonce: Some(2),
         from: sender,
         to: Some(sender),
         authorization_list: Some(vec![signed_authorization(Address::ZERO, 0x3, &secret_key)?]),
-        ..TransactionRequest::default()
+        ..RpcTransactionRequest::default()
     };
 
     let provider = new_provider(secret_key)?;

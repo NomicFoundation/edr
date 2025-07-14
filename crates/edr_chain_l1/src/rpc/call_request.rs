@@ -1,12 +1,13 @@
+use edr_eth::{Bytes, EvmSpecId, U256};
 use edr_provider::{
     requests::validation::validate_call_request,
     spec::{CallContext, FromRpcType},
     time::TimeSinceEpoch,
-    ProviderErrorForChainSpec,
+    ProviderError, ProviderErrorForChainSpec,
 };
 use edr_rpc_eth::CallRequest;
 
-use crate::transaction;
+use crate::{transaction, L1ChainSpec};
 
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transaction::Request {
     type Context<'context> = CallContext<'context, L1ChainSpec, TimerT>;
@@ -52,10 +53,10 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
         let value = value.unwrap_or(U256::ZERO);
 
         let evm_spec_id = data.evm_spec_id();
-        let request = if evm_spec_id < l1::SpecId::LONDON || gas_price.is_some() {
+        let request = if evm_spec_id < EvmSpecId::LONDON || gas_price.is_some() {
             let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
             match access_list {
-                Some(access_list) if evm_spec_id >= l1::SpecId::BERLIN => {
+                Some(access_list) if evm_spec_id >= EvmSpecId::BERLIN => {
                     transaction::Request::Eip2930(transaction::request::Eip2930 {
                         nonce,
                         gas_price,

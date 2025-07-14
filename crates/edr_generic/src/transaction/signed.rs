@@ -1,6 +1,9 @@
+use edr_chain_l1::transaction::{
+    pooled::L1PooledTransaction, r#type::L1TransactionType, signed::L1SignedTransaction,
+};
 use edr_eth::{
     eips::{eip2930, eip7702},
-    impl_revm_transaction_trait,
+    impl_delegated_revm_transaction_trait,
     signature::Signature,
     transaction::{
         self, ExecutableTransaction, IsSupported, SignedTransaction, TransactionMut,
@@ -54,14 +57,14 @@ impl From<u8> for Type {
     }
 }
 
-impl From<edr_eth::transaction::Type> for Type {
-    fn from(value: edr_eth::transaction::Type) -> Self {
+impl From<L1TransactionType> for Type {
+    fn from(value: L1TransactionType) -> Self {
         match value {
-            edr_eth::transaction::Type::Legacy => Self::Legacy,
-            edr_eth::transaction::Type::Eip2930 => Self::Eip2930,
-            edr_eth::transaction::Type::Eip1559 => Self::Eip1559,
-            edr_eth::transaction::Type::Eip4844 => Self::Eip4844,
-            edr_eth::transaction::Type::Eip7702 => Self::Eip7702,
+            L1TransactionType::Legacy => Self::Legacy,
+            L1TransactionType::Eip2930 => Self::Eip2930,
+            L1TransactionType::Eip1559 => Self::Eip1559,
+            L1TransactionType::Eip4844 => Self::Eip4844,
+            L1TransactionType::Eip7702 => Self::Eip7702,
         }
     }
 }
@@ -78,21 +81,21 @@ impl transaction::IsLegacy for Type {
     }
 }
 
-/// A regular [`Signed`](edr_eth::transaction::Signed) transaction that falls
-/// back to post-EIP 155 legacy transactions for unrecognized transaction types
-/// when converting from an RPC request.
+/// A regular [`L1SignedTransaction`] transaction that falls back to post-EIP
+/// 155 legacy transactions for unrecognized transaction types when converting
+/// from an RPC request.
 // NOTE: This is a newtype only because we need to use a different
 // `TryFrom<TransactionWithSignature>` impl that treats unrecognized transaction
 // types different.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SignedWithFallbackToPostEip155 {
-    inner: transaction::Signed,
+    inner: L1SignedTransaction,
     r#type: Type,
 }
 
 impl SignedWithFallbackToPostEip155 {
     /// Constructs a new instance with the provided transaction its type.
-    pub fn with_type(inner: transaction::Signed, r#type: Type) -> Self {
+    pub fn with_type(inner: L1SignedTransaction, r#type: Type) -> Self {
         Self { inner, r#type }
     }
 }
@@ -107,8 +110,8 @@ impl alloy_rlp::Encodable for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl From<transaction::Signed> for SignedWithFallbackToPostEip155 {
-    fn from(value: transaction::Signed) -> Self {
+impl From<L1SignedTransaction> for SignedWithFallbackToPostEip155 {
+    fn from(value: L1SignedTransaction) -> Self {
         Self {
             r#type: value.transaction_type().into(),
             inner: value,
@@ -122,14 +125,14 @@ impl IsSupported for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl From<edr_eth::transaction::pooled::PooledTransaction> for SignedWithFallbackToPostEip155 {
-    fn from(value: edr_eth::transaction::pooled::PooledTransaction) -> Self {
-        edr_eth::transaction::Signed::from(value).into()
+impl From<L1PooledTransaction> for SignedWithFallbackToPostEip155 {
+    fn from(value: L1PooledTransaction) -> Self {
+        L1SignedTransaction::from(value).into()
     }
 }
 
 impl TransactionValidation for SignedWithFallbackToPostEip155 {
-    type ValidationError = <transaction::Signed as TransactionValidation>::ValidationError;
+    type ValidationError = <L1SignedTransaction as TransactionValidation>::ValidationError;
 }
 
 impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
@@ -244,4 +247,4 @@ impl transaction::IsLegacy for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl_revm_transaction_trait!(SignedWithFallbackToPostEip155);
+impl_delegated_revm_transaction_trait!(SignedWithFallbackToPostEip155);

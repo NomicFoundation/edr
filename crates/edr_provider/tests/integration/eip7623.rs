@@ -14,7 +14,7 @@ use edr_provider::{
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
 use tokio::runtime;
@@ -23,7 +23,7 @@ const CHAIN_ID: u64 = 0x7a69;
 
 fn assert_transaction_gas_usage(
     provider: &Provider<L1ChainSpec>,
-    request: TransactionRequest,
+    request: RpcTransactionRequest,
     expected_gas_usage: u64,
 ) {
     let transaction_hash = send_transaction(provider, request).expect("transaction should succeed");
@@ -84,7 +84,7 @@ fn new_provider(hardfork: l1::SpecId) -> anyhow::Result<Provider<L1ChainSpec>> {
 
 fn send_transaction(
     provider: &Provider<L1ChainSpec>,
-    request: TransactionRequest,
+    request: RpcTransactionRequest,
 ) -> anyhow::Result<B256> {
     let response = provider
         .handle_request(ProviderRequest::with_single(

@@ -49,7 +49,7 @@ impl RpcSpec for OpChainSpec {
     type RpcCallRequest = edr_rpc_eth::CallRequest;
     type RpcReceipt = rpc::BlockReceipt;
     type RpcTransaction = rpc::Transaction;
-    type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
+    type RpcTransactionRequest = edr_rpc_eth::RpcTransactionRequest;
 }
 
 impl ChainSpec for OpChainSpec {

@@ -1,11 +1,15 @@
 #![cfg(feature = "test-utils")]
 
+mod local;
+
 use std::{collections::BTreeMap, sync::Arc};
 
+use edr_chain_l1::{
+    eip2718::TypedEnvelope, receipt::L1ReceiptBuilder, test_utils::dummy_eip155_transaction,
+    transaction, L1ChainSpec, L1Hardfork,
+};
 use edr_eth::{
     block::{HeaderOverrides, PartialHeader},
-    eips::eip2718::TypedEnvelope,
-    l1::{self, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
@@ -20,11 +24,9 @@ use edr_evm::{
     receipt::{self, ExecutionReceiptBuilder as _},
     spec::{ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
     state::{StateDiff, StateError},
-    test_utils::dummy_eip155_transaction,
-    transaction, EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
+    EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
     RemoteBlockConversionError,
 };
-use edr_rpc_eth::TransactionConversionError;
 use serial_test::serial;
 
 #[cfg(feature = "test-remote")]
@@ -46,7 +48,7 @@ const REMOTE_BLOCK_LAST_TRANSACTION_HASH: &str =
 async fn create_forked_dummy_blockchain(
     fork_block_number: Option<u64>,
 ) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>> {
-    use edr_eth::{l1, HashMap};
+    use edr_eth::HashMap;
     use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
@@ -61,7 +63,7 @@ async fn create_forked_dummy_blockchain(
         ForkedBlockchain::new(
             tokio::runtime::Handle::current().clone(),
             None,
-            l1::SpecId::default(),
+            L1Hardfork::default(),
             Arc::new(rpc_client),
             fork_block_number,
             &mut irregular_state,
@@ -86,7 +88,7 @@ async fn create_dummy_blockchains(
     let local_blockchain = LocalBlockchain::new(
         StateDiff::default(),
         1,
-        l1::SpecId::default(),
+        L1Hardfork::default(),
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
@@ -163,7 +165,7 @@ fn create_dummy_block_with_difficulty(
 }
 
 fn create_dummy_block_with_hash(
-    hardfork: l1::SpecId,
+    hardfork: L1Hardfork,
     number: u64,
     parent_hash: B256,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
@@ -184,7 +186,7 @@ fn create_dummy_block_with_hash(
 }
 
 fn create_dummy_block_with_header(
-    spec_id: l1::SpecId,
+    spec_id: L1Hardfork,
     partial_header: PartialHeader,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     EthLocalBlock::empty(spec_id, partial_header)
@@ -223,7 +225,7 @@ fn insert_dummy_block_with_transaction(
     let state_overrides = BTreeMap::new();
     let state = blockchain.state_at_block_number(header.number - 1, &state_overrides)?;
 
-    let receipt_builder = receipt::Builder::new_receipt_builder(state, &transaction)?;
+    let receipt_builder = L1ReceiptBuilder::new_receipt_builder(state, &transaction)?;
 
     let execution_result = ExecutionResult::Success {
         reason: SuccessReason::Stop,
@@ -255,11 +257,11 @@ fn insert_dummy_block_with_transaction(
     let receipt_factory = EthBlockReceiptFactory::default();
 
     let block = EthLocalBlock::<
-        RemoteBlockConversionError<TransactionConversionError>,
+        RemoteBlockConversionError<edr_chain_l1::rpc::transaction::ConversionError>,
         BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>,
         ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
-        l1::SpecId,
-        edr_rpc_eth::receipt::ConversionError,
+        L1Hardfork,
+        edr_chain_l1::rpc::receipt::ConversionError,
         transaction::Signed,
     >::new(
         &receipt_factory,

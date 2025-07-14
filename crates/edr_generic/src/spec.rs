@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
+use edr_chain_l1::{
+    transaction::pooled::L1PooledTransaction, L1BlockEnv, L1ChainSpec, L1HaltReason, L1Hardfork,
+    L1InvalidTransaction,
+};
 use edr_eth::{
     eips::eip1559::BaseFeeParams,
-    l1::{self, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
     receipt::BlockReceipt,
     spec::{ChainSpec, EthHeaderConstants},
@@ -24,10 +27,10 @@ use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason}
 use crate::GenericChainSpec;
 
 impl ChainSpec for GenericChainSpec {
-    type BlockEnv = l1::BlockEnv;
+    type BlockEnv = L1BlockEnv;
     type Context = ();
-    type HaltReason = l1::HaltReason;
-    type Hardfork = l1::SpecId;
+    type HaltReason = L1HaltReason;
+    type Hardfork = L1Hardfork;
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
 
@@ -102,7 +105,7 @@ impl RuntimeSpec for GenericChainSpec {
         // over the specific chain spec rather than just the validation error.
         // Instead, we copy the impl here.
         match error {
-            InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
+            L1InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
                 TransactionError::LackOfFundForMaxFee { fee, balance }
             }
             remainder => TransactionError::InvalidTransaction(remainder),
@@ -153,7 +156,7 @@ impl RuntimeSpec for GenericChainSpec {
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
-    type PooledTransaction = edr_eth::transaction::pooled::PooledTransaction;
+    type PooledTransaction = L1PooledTransaction;
     type TransactionRequest = crate::transaction::Request;
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {

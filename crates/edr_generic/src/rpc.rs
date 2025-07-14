@@ -16,5 +16,5 @@ impl RpcSpec for GenericChainSpec {
     type RpcCallRequest = edr_rpc_eth::CallRequest;
     type RpcReceipt = self::receipt::BlockReceipt;
     type RpcTransaction = self::transaction::TransactionWithSignature;
-    type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
+    type RpcTransactionRequest = edr_rpc_eth::RpcTransactionRequest;
 }

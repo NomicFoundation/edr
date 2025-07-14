@@ -15,7 +15,7 @@ use edr_provider::{
     time::TimeSinceEpoch,
     ProviderError, ProviderErrorForChainSpec,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 
 use super::{Request, Signed};
 use crate::OpChainSpec;
@@ -174,20 +174,20 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
     }
 }
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for Request {
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<RpcTransactionRequest, TimerT> for Request {
     type Context<'context> = TransactionContext<'context, OpChainSpec, TimerT>;
 
     type Error = ProviderErrorForChainSpec<OpChainSpec>;
 
     fn from_rpc_type(
-        value: TransactionRequest,
+        value: RpcTransactionRequest,
         context: Self::Context<'_>,
     ) -> Result<Request, ProviderErrorForChainSpec<OpChainSpec>> {
         let TransactionContext { data } = context;
 
         validate_send_transaction_request(data, &value)?;
 
-        let TransactionRequest {
+        let RpcTransactionRequest {
             from,
             to,
             gas_price,

@@ -7,7 +7,8 @@ use edr_eth::{
     rlp,
     transaction::{
         signed::{FakeSign, Sign},
-        ExecutableTransaction, IsSupported,
+        ExecutableTransaction, IsEip155, IsEip4844, IsSupported, TransactionMut, TransactionType,
+        TransactionValidation,
     },
     Address, Blob, BlockSpec, B256,
 };
@@ -16,7 +17,7 @@ use edr_evm::{
     blockchain::BlockchainErrorForChainSpec, state::StateOverrides, BlockAndTotalDifficulty,
     BlockReceipts,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, time::TimeSinceEpoch,
@@ -26,15 +27,20 @@ use crate::{
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     RuntimeSpec<
     Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
+    BlockEnv: Clone + Default,
     LocalBlock: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
     RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
     RpcCallRequest: MaybeSender,
     RpcTransactionRequest: Sender,
-    SignedTransaction: IsSupported,
+    SignedTransaction: IsSupported
+                           + TransactionMut
+                           + TransactionType<Type: IsEip4844>
+                           + TransactionValidation<ValidationError: PartialEq>,
 >
 {
     type PooledTransaction: HardforkValidationData
         + Into<Self::SignedTransaction>
+        + IsEip155
         + rlp::Decodable
         + ExecutableTransaction;
 
@@ -106,13 +112,11 @@ pub trait Sender {
     fn sender(&self) -> &Address;
 }
 
-impl Sender for TransactionRequest {
+impl Sender for RpcTransactionRequest {
     fn sender(&self) -> &Address {
         &self.from
     }
 }
-
-// ChainSpecT: ProviderSpec<TimerT, Hardfork: Debug>,
 
 /// Trait for resolving an RPC type to an internal type.
 pub trait FromRpcType<RpcT, TimerT: Clone + TimeSinceEpoch>: Sized {

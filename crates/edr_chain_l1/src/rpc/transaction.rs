@@ -4,7 +4,9 @@ use edr_eth::{
     block,
     eips::{eip2930, eip7702},
     signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
-    transaction::SignedTransaction as _,
+    transaction::{
+        ExecutableTransaction, IsEip4844, IsLegacy, SignedTransaction as _, TransactionType, TxKind,
+    },
     Address, Bytes, B256, U256,
 };
 use edr_evm::{
@@ -13,22 +15,7 @@ use edr_evm::{
 };
 use edr_rpc_eth::RpcTypeFrom;
 
-pub use self::request::L1RpcTransactionRequest;
-use crate::{
-    spec::L1ChainSpec,
-    transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
-    Hardfork,
-};
-
-/// Convenience type alias for [`L1RpcTransactionRequest`].
-///
-/// This allows usage like `edr_chain_l1::rpc::Request`.
-pub type Request = L1RpcTransactionRequest;
-
-/// Convenience type alias for [`L1RpcTransaction`].
-///
-/// This allows usage like `edr_chain_l1::rpc::Transaction`.
-pub type Transaction = L1RpcTransaction;
+use crate::{spec::L1ChainSpec, transaction, Hardfork};
 
 /// RPC transaction
 #[derive(Clone, Debug, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]

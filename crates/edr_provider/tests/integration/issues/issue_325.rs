@@ -9,7 +9,7 @@ use edr_provider::{
     time::CurrentTime,
     AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::TransactionRequest;
+use edr_rpc_eth::RpcTransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
@@ -48,10 +48,10 @@ async fn issue_325() -> anyhow::Result<()> {
     ))?;
 
     let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+        MethodInvocation::SendTransaction(RpcTransactionRequest {
             from: impersonated_account,
             to: Some(Address::random()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         }),
     ))?;
 

@@ -14,6 +14,7 @@ use crate::{
     transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, RemoteBlock,
 };
 
+/// Blockchain type for tracking a remote provider.
 #[derive_where(Debug; BlockT)]
 pub struct RemoteBlockchain<BlockT, ChainSpecT, const FORCE_CACHING: bool>
 where
@@ -51,6 +52,8 @@ where
         &self.client
     }
 
+    /// Retrieves the logs for the specified block range and addresses, with
+    /// optional topics.
     pub async fn logs(
         &self,
         from_block: BlockSpec,
@@ -288,7 +291,6 @@ where
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-    use edr_eth::l1::L1ChainSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
@@ -297,7 +299,7 @@ mod tests {
     async fn no_cache_for_unsafe_block_number() {
         let tempdir = tempfile::tempdir().expect("can create tempdir");
 
-        let rpc_client = EthRpcClient::<L1ChainSpec>::new(
+        let rpc_client = EthRpcClient::<MockChainSpec>::new(
             &get_alchemy_url(),
             tempdir.path().to_path_buf(),
             None,
@@ -307,7 +309,7 @@ mod tests {
         // Latest block number is always unsafe to cache
         let block_number = rpc_client.block_number().await.unwrap();
 
-        let remote = RemoteBlockchain::<RemoteBlock<L1ChainSpec>, L1ChainSpec, false>::new(
+        let remote = RemoteBlockchain::<RemoteBlock<MockChainSpec>, MockChainSpec, false>::new(
             Arc::new(rpc_client),
             runtime::Handle::current(),
         );

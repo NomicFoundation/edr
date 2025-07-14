@@ -2,6 +2,7 @@
 
 use std::num::NonZeroU64;
 
+use edr_chain_l1::transaction::signed::L1SignedTransaction;
 use edr_eth::{account::AccountInfo, transaction::ExecutableTransaction, Address, U256};
 use edr_evm::{
     state::{AccountModifierFn, StateDebug},
@@ -190,10 +191,10 @@ macro_rules! impl_test_replace_transaction_gas_price_too_low {
                         },
                     )]);
 
-                    let transaction1 = dummy_eip155_transaction_with_price(sender, $nonce, 20)?;
+                    let transaction1 = L1SignedTransaction::from(dummy_eip155_transaction_with_price(sender, $nonce, 20)?);
                     fixture.add_transaction(transaction1.clone())?;
 
-                    let transaction2 = dummy_eip155_transaction_with_price(sender, $nonce, 21)?;
+                    let transaction2 = L1SignedTransaction::from(dummy_eip155_transaction_with_price(sender, $nonce, 21)?);
                     let result = fixture.add_transaction(transaction2);
 
                     assert!(matches!(
@@ -212,7 +213,7 @@ macro_rules! impl_test_replace_transaction_gas_price_too_low {
                         )
                     );
 
-                    let transaction3 = dummy_eip1559_transaction(sender, $nonce, 21, 21)?;
+                    let transaction3 = L1SignedTransaction::from(dummy_eip1559_transaction(sender, $nonce, 21, 21)?);
                     let result = fixture.add_transaction(transaction3);
 
                     assert!(matches!(
@@ -225,7 +226,7 @@ macro_rules! impl_test_replace_transaction_gas_price_too_low {
 
                     assert_eq!(result.unwrap_err().to_string(), format!("Replacement transaction underpriced. A gasPrice/maxFeePerGas of at least 22 is necessary to replace the existing transaction with nonce {}.", $nonce));
 
-                    let transaction4 = dummy_eip1559_transaction(sender, $nonce, 22, 21)?;
+                    let transaction4 = L1SignedTransaction::from(dummy_eip1559_transaction(sender, $nonce, 22, 21)?);
                     let result = fixture.add_transaction(transaction4);
 
                     assert!(matches!(

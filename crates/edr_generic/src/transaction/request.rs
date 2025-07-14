@@ -1,12 +1,12 @@
+use edr_chain_l1::transaction::request::L1TransactionRequest;
 use edr_eth::{
-    l1,
     signature::{SecretKey, SignatureError},
     transaction::{
         self,
         signed::{FakeSign, Sign},
         TxKind,
     },
-    Address, Bytes, U256,
+    Address, Bytes, EvmSpecId, U256,
 };
 use edr_provider::{
     calculate_eip1559_fee_parameters,
@@ -15,7 +15,7 @@ use edr_provider::{
     time::TimeSinceEpoch,
     ProviderError, ProviderErrorForChainSpec,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 
 use crate::{transaction::SignedWithFallbackToPostEip155, GenericChainSpec};
 
@@ -25,10 +25,10 @@ use crate::{transaction::SignedWithFallbackToPostEip155, GenericChainSpec};
 // wanting the same logic, we need to use our own type and copy the
 // implementation.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Request(edr_eth::transaction::Request);
+pub struct Request(L1TransactionRequest);
 
-impl From<edr_eth::transaction::Request> for Request {
-    fn from(value: edr_eth::transaction::Request) -> Self {
+impl From<L1TransactionRequest> for Request {
+    fn from(value: L1TransactionRequest) -> Self {
         Self(value)
     }
 }
@@ -37,7 +37,7 @@ impl FakeSign for Request {
     type Signed = SignedWithFallbackToPostEip155;
 
     fn fake_sign(self, sender: edr_eth::Address) -> SignedWithFallbackToPostEip155 {
-        <edr_eth::transaction::Request as FakeSign>::fake_sign(self.0, sender).into()
+        <L1TransactionRequest as FakeSign>::fake_sign(self.0, sender).into()
     }
 }
 
@@ -51,9 +51,7 @@ impl Sign for Request {
     ) -> Result<SignedWithFallbackToPostEip155, SignatureError> {
         // SAFETY: The safety concern is propagated in the function signature.
         unsafe {
-            <edr_eth::transaction::Request as Sign>::sign_for_sender_unchecked(
-                self.0, secret_key, caller,
-            )
+            <L1TransactionRequest as Sign>::sign_for_sender_unchecked(self.0, secret_key, caller)
         }
         .map(Into::into)
     }
@@ -103,11 +101,11 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
         let value = value.unwrap_or(U256::ZERO);
 
         let evm_spec_id = data.evm_spec_id();
-        let request = if evm_spec_id < l1::SpecId::LONDON || gas_price.is_some() {
+        let request = if evm_spec_id < EvmSpecId::LONDON || gas_price.is_some() {
             let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
             match access_list {
-                Some(access_list) if evm_spec_id >= l1::SpecId::BERLIN => {
-                    edr_eth::transaction::Request::Eip2930(edr_eth::transaction::request::Eip2930 {
+                Some(access_list) if evm_spec_id >= EvmSpecId::BERLIN => {
+                    L1TransactionRequest::Eip2930(transaction::request::Eip2930 {
                         nonce,
                         gas_price,
                         gas_limit,
@@ -118,7 +116,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
                         access_list,
                     })
                 }
-                _ => edr_eth::transaction::Request::Eip155(edr_eth::transaction::request::Eip155 {
+                _ => L1TransactionRequest::Eip155(transaction::request::Eip155 {
                     nonce,
                     gas_price,
                     gas_limit,
@@ -133,7 +131,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
                 max_fees_fn(data, block_spec, max_fee_per_gas, max_priority_fee_per_gas)?;
 
             if let Some(authorization_list) = authorization_list {
-                transaction::Request::Eip7702(transaction::request::Eip7702 {
+                L1TransactionRequest::Eip7702(transaction::request::Eip7702 {
                     chain_id,
                     nonce,
                     max_fee_per_gas,
@@ -146,7 +144,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
                     authorization_list,
                 })
             } else {
-                transaction::Request::Eip1559(transaction::request::Eip1559 {
+                L1TransactionRequest::Eip1559(transaction::request::Eip1559 {
                     chain_id,
                     nonce,
                     max_fee_per_gas,
@@ -164,20 +162,20 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
     }
 }
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for Request {
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<RpcTransactionRequest, TimerT> for Request {
     type Context<'context> = TransactionContext<'context, GenericChainSpec, TimerT>;
 
     type Error = ProviderErrorForChainSpec<GenericChainSpec>;
 
     fn from_rpc_type(
-        value: TransactionRequest,
+        value: RpcTransactionRequest,
         context: Self::Context<'_>,
     ) -> Result<crate::transaction::Request, ProviderErrorForChainSpec<GenericChainSpec>> {
         let TransactionContext { data } = context;
 
         validate_send_transaction_request(data, &value)?;
 
-        let TransactionRequest {
+        let RpcTransactionRequest {
             from,
             to,
             gas_price,
@@ -207,7 +205,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
             let (max_fee_per_gas, max_priority_fee_per_gas) =
                 calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-            transaction::Request::Eip7702(transaction::request::Eip7702 {
+            L1TransactionRequest::Eip7702(transaction::request::Eip7702 {
                 nonce,
                 max_fee_per_gas,
                 max_priority_fee_per_gas,
@@ -219,7 +217,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
                 access_list: access_list.unwrap_or_default(),
                 authorization_list,
             })
-        } else if current_hardfork >= l1::SpecId::LONDON
+        } else if current_hardfork >= EvmSpecId::LONDON
             && (gas_price.is_none()
                 || max_fee_per_gas.is_some()
                 || max_priority_fee_per_gas.is_some())
@@ -227,7 +225,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
             let (max_fee_per_gas, max_priority_fee_per_gas) =
                 calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-            transaction::Request::Eip1559(transaction::request::Eip1559 {
+            L1TransactionRequest::Eip1559(transaction::request::Eip1559 {
                 nonce,
                 max_fee_per_gas,
                 max_priority_fee_per_gas,
@@ -242,7 +240,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
                 access_list: access_list.unwrap_or_default(),
             })
         } else if let Some(access_list) = access_list {
-            transaction::Request::Eip2930(transaction::request::Eip2930 {
+            L1TransactionRequest::Eip2930(transaction::request::Eip2930 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,
@@ -256,7 +254,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
                 access_list,
             })
         } else {
-            transaction::Request::Eip155(transaction::request::Eip155 {
+            L1TransactionRequest::Eip155(transaction::request::Eip155 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,

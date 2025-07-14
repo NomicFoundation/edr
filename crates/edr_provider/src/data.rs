@@ -28,8 +28,7 @@ use edr_eth::{
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
-        ExecutableTransaction, IsEip4844, IsSupported as _, TransactionMut, TransactionType,
-        TransactionValidation,
+        ExecutableTransaction, IsEip4844, IsSupported as _, TransactionType,
     },
     Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, EvmSpecId, HashMap, HashSet,
     B256, KECCAK_EMPTY, U256,
@@ -51,8 +50,8 @@ use edr_evm::{
         StateOverrides, StateRefOverrider, SyncState,
     },
     trace::Trace,
-    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, EvmInvalidTransaction,
-    MemPool, MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
+    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, MemPool,
+    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -1695,14 +1694,7 @@ where
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmInvalidTransaction> + PartialEq,
-        >,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 {
     /// Returns the balance of the account corresponding to the provided address
@@ -2296,15 +2288,7 @@ where
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<EvmInvalidTransaction> + PartialEq,
-        >,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 {
     pub fn send_transaction(
@@ -2423,14 +2407,7 @@ where
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Clone + Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmInvalidTransaction> + PartialEq,
-        >,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 {
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
@@ -2517,15 +2494,7 @@ where
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<
-            ValidationError: From<EvmInvalidTransaction> + PartialEq,
-        >,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 {
     /// Estimate the gas cost of a transaction. Matches Hardhat behavior.

@@ -4,7 +4,7 @@ use alloy_rlp::RlpEncodable;
 
 use crate::{
     eips::{eip2930, eip7702},
-    keccak256,
+    impl_revm_transaction_trait_with_tx_type, keccak256,
     signature::{self, Signature},
     transaction::{self, ExecutableTransaction, TxKind},
     Address, Bytes, B256, U256,
@@ -143,6 +143,8 @@ impl PartialEq for Eip155 {
             && self.signature == other.signature
     }
 }
+
+impl_revm_transaction_trait_with_tx_type!(Eip155);
 
 /// Converts a V-value to a chain ID.
 pub(super) fn v_to_chain_id(v: u64) -> u64 {

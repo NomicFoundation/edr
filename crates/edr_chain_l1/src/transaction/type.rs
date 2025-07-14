@@ -1,8 +1,12 @@
 use std::str::FromStr;
 
-use edr_eth::{ruint, U8};
+use edr_eth::{
+    ruint,
+    transaction::{IsEip4844, IsLegacy},
+    U8,
+};
 
-use crate::transaction::{signed, IsEip4844, IsLegacy};
+use crate::transaction::signed;
 
 /// The type of transaction.
 #[repr(u8)]

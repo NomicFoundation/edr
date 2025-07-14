@@ -1,10 +1,11 @@
 use alloy_rlp::Buf as _;
 use edr_eth::{
     receipt::{self, ExecutionReceipt, MapReceiptLogs},
+    transaction::TransactionType,
     Bloom,
 };
 
-use crate::{transaction, transaction::TransactionType};
+use crate::transaction;
 
 /// An compile-time typed EIP-2718 envelope for L1 Ethereum.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

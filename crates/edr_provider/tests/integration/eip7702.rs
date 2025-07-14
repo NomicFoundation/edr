@@ -25,7 +25,7 @@ use edr_provider::{
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
 };
-use edr_rpc_eth::TransactionRequest;
+use edr_rpc_eth::RpcTransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
 use k256::SecretKey;
@@ -73,7 +73,7 @@ async fn trace_transaction() -> anyhow::Result<()> {
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
     let sender = public_key_to_address(secret_key.public_key());
 
-    let transaction_request = TransactionRequest {
+    let transaction_request = RpcTransactionRequest {
         chain_id: Some(CHAIN_ID),
         nonce: Some(0),
         from: sender,
@@ -86,7 +86,7 @@ async fn trace_transaction() -> anyhow::Result<()> {
             },
             &secret_key,
         )?]),
-        ..TransactionRequest::default()
+        ..RpcTransactionRequest::default()
     };
 
     let mut config = create_test_config();
@@ -117,7 +117,7 @@ async fn get_transaction() -> anyhow::Result<()> {
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
     let sender = public_key_to_address(secret_key.public_key());
 
-    let transaction_request = TransactionRequest {
+    let transaction_request = RpcTransactionRequest {
         chain_id: Some(CHAIN_ID),
         nonce: Some(0),
         from: sender,
@@ -130,7 +130,7 @@ async fn get_transaction() -> anyhow::Result<()> {
             },
             &secret_key,
         )?]),
-        ..TransactionRequest::default()
+        ..RpcTransactionRequest::default()
     };
 
     let mut config = create_test_config();

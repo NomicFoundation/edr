@@ -4,7 +4,7 @@ use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 
 use crate::{
     eips::{eip2930, eip7702},
-    keccak256, signature,
+    impl_revm_transaction_trait_with_tx_type, keccak256, signature,
     transaction::{self, request, ComputeTransactionHash as _, ExecutableTransaction, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
@@ -203,6 +203,8 @@ impl From<&Decodable> for transaction::request::Eip7702 {
         }
     }
 }
+
+impl_revm_transaction_trait_with_tx_type!(Eip7702);
 
 #[cfg(test)]
 mod tests {

@@ -1,13 +1,15 @@
+use c_kzg::Blob;
 use edr_eth::{
     eips::{eip2930, eip7702},
+    transaction::{ExecutableTransaction, IsEip155, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
 use edr_provider::spec::HardforkValidationData;
 
 use crate::transaction::{
+    ambassador_impl_ExecutableTransaction,
     signed::{L1SignedTransaction, PreOrPostEip155},
-    ExecutableTransaction, IsEip155, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 
 /// Convenience type alias for [`edr_eth::transaction::pooled::Legacy`].
@@ -41,7 +43,8 @@ pub type Eip4844 = edr_eth::transaction::pooled::Eip4844;
 pub type Eip7702 = edr_eth::transaction::pooled::Eip7702;
 
 /// An Ethereum Layer 1 (L1) pooled transaction.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, ambassador::Delegate)]
+#[delegate(ExecutableTransaction)]
 pub enum L1PooledTransaction {
     /// Legacy transaction
     PreEip155Legacy(Legacy),
@@ -155,206 +158,6 @@ impl alloy_rlp::Encodable for L1PooledTransaction {
             L1PooledTransaction::Eip1559(tx) => tx.length() + 1,
             L1PooledTransaction::Eip4844(tx) => tx.length() + 1,
             L1PooledTransaction::Eip7702(tx) => tx.length() + 1,
-        }
-    }
-}
-
-impl ExecutableTransaction for L1PooledTransaction {
-    fn caller(&self) -> &Address {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.caller(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.caller(),
-            L1PooledTransaction::Eip2930(tx) => tx.caller(),
-            L1PooledTransaction::Eip1559(tx) => tx.caller(),
-            L1PooledTransaction::Eip4844(tx) => tx.caller(),
-            L1PooledTransaction::Eip7702(tx) => tx.caller(),
-        }
-    }
-
-    fn gas_limit(&self) -> u64 {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.gas_limit(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.gas_limit(),
-            L1PooledTransaction::Eip2930(tx) => tx.gas_limit(),
-            L1PooledTransaction::Eip1559(tx) => tx.gas_limit(),
-            L1PooledTransaction::Eip4844(tx) => tx.gas_limit(),
-            L1PooledTransaction::Eip7702(tx) => tx.gas_limit(),
-        }
-    }
-
-    fn gas_price(&self) -> &u128 {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.gas_price(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.gas_price(),
-            L1PooledTransaction::Eip2930(tx) => tx.gas_price(),
-            L1PooledTransaction::Eip1559(tx) => tx.gas_price(),
-            L1PooledTransaction::Eip4844(tx) => tx.gas_price(),
-            L1PooledTransaction::Eip7702(tx) => tx.gas_price(),
-        }
-    }
-
-    fn kind(&self) -> TxKind {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.kind(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.kind(),
-            L1PooledTransaction::Eip2930(tx) => tx.kind(),
-            L1PooledTransaction::Eip1559(tx) => tx.kind(),
-            L1PooledTransaction::Eip4844(tx) => tx.kind(),
-            L1PooledTransaction::Eip7702(tx) => tx.kind(),
-        }
-    }
-
-    fn value(&self) -> &U256 {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.value(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.value(),
-            L1PooledTransaction::Eip2930(tx) => tx.value(),
-            L1PooledTransaction::Eip1559(tx) => tx.value(),
-            L1PooledTransaction::Eip4844(tx) => tx.value(),
-            L1PooledTransaction::Eip7702(tx) => tx.value(),
-        }
-    }
-
-    fn data(&self) -> &Bytes {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.data(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.data(),
-            L1PooledTransaction::Eip2930(tx) => tx.data(),
-            L1PooledTransaction::Eip1559(tx) => tx.data(),
-            L1PooledTransaction::Eip4844(tx) => tx.data(),
-            L1PooledTransaction::Eip7702(tx) => tx.data(),
-        }
-    }
-
-    fn nonce(&self) -> u64 {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.nonce(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.nonce(),
-            L1PooledTransaction::Eip2930(tx) => tx.nonce(),
-            L1PooledTransaction::Eip1559(tx) => tx.nonce(),
-            L1PooledTransaction::Eip4844(tx) => tx.nonce(),
-            L1PooledTransaction::Eip7702(tx) => tx.nonce(),
-        }
-    }
-
-    fn chain_id(&self) -> Option<u64> {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.chain_id(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.chain_id(),
-            L1PooledTransaction::Eip2930(tx) => tx.chain_id(),
-            L1PooledTransaction::Eip1559(tx) => tx.chain_id(),
-            L1PooledTransaction::Eip4844(tx) => tx.chain_id(),
-            L1PooledTransaction::Eip7702(tx) => tx.chain_id(),
-        }
-    }
-
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.access_list(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.access_list(),
-            L1PooledTransaction::Eip2930(tx) => tx.access_list(),
-            L1PooledTransaction::Eip1559(tx) => tx.access_list(),
-            L1PooledTransaction::Eip4844(tx) => tx.access_list(),
-            L1PooledTransaction::Eip7702(tx) => tx.access_list(),
-        }
-    }
-
-    fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128> {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.effective_gas_price(block_base_fee),
-            L1PooledTransaction::Eip2930(tx) => tx.effective_gas_price(block_base_fee),
-            L1PooledTransaction::Eip1559(tx) => tx.effective_gas_price(block_base_fee),
-            L1PooledTransaction::Eip4844(tx) => tx.effective_gas_price(block_base_fee),
-            L1PooledTransaction::Eip7702(tx) => tx.effective_gas_price(block_base_fee),
-        }
-    }
-
-    fn max_fee_per_gas(&self) -> Option<&u128> {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.max_fee_per_gas(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.max_fee_per_gas(),
-            L1PooledTransaction::Eip2930(tx) => tx.max_fee_per_gas(),
-            L1PooledTransaction::Eip1559(tx) => tx.max_fee_per_gas(),
-            L1PooledTransaction::Eip4844(tx) => tx.max_fee_per_gas(),
-            L1PooledTransaction::Eip7702(tx) => tx.max_fee_per_gas(),
-        }
-    }
-
-    fn max_priority_fee_per_gas(&self) -> Option<&u128> {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.max_priority_fee_per_gas(),
-            L1PooledTransaction::Eip2930(tx) => tx.max_priority_fee_per_gas(),
-            L1PooledTransaction::Eip1559(tx) => tx.max_priority_fee_per_gas(),
-            L1PooledTransaction::Eip4844(tx) => tx.max_priority_fee_per_gas(),
-            L1PooledTransaction::Eip7702(tx) => tx.max_priority_fee_per_gas(),
-        }
-    }
-
-    fn blob_hashes(&self) -> &[B256] {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.blob_hashes(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.blob_hashes(),
-            L1PooledTransaction::Eip2930(tx) => tx.blob_hashes(),
-            L1PooledTransaction::Eip1559(tx) => tx.blob_hashes(),
-            L1PooledTransaction::Eip4844(tx) => tx.blob_hashes(),
-            L1PooledTransaction::Eip7702(tx) => tx.blob_hashes(),
-        }
-    }
-
-    fn max_fee_per_blob_gas(&self) -> Option<&u128> {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.max_fee_per_blob_gas(),
-            L1PooledTransaction::Eip2930(tx) => tx.max_fee_per_blob_gas(),
-            L1PooledTransaction::Eip1559(tx) => tx.max_fee_per_blob_gas(),
-            L1PooledTransaction::Eip4844(tx) => tx.max_fee_per_blob_gas(),
-            L1PooledTransaction::Eip7702(tx) => tx.max_fee_per_blob_gas(),
-        }
-    }
-
-    fn total_blob_gas(&self) -> Option<u64> {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.total_blob_gas(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.total_blob_gas(),
-            L1PooledTransaction::Eip2930(tx) => tx.total_blob_gas(),
-            L1PooledTransaction::Eip1559(tx) => tx.total_blob_gas(),
-            L1PooledTransaction::Eip4844(tx) => tx.total_blob_gas(),
-            L1PooledTransaction::Eip7702(tx) => tx.total_blob_gas(),
-        }
-    }
-
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.authorization_list(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.authorization_list(),
-            L1PooledTransaction::Eip2930(tx) => tx.authorization_list(),
-            L1PooledTransaction::Eip1559(tx) => tx.authorization_list(),
-            L1PooledTransaction::Eip4844(tx) => tx.authorization_list(),
-            L1PooledTransaction::Eip7702(tx) => tx.authorization_list(),
-        }
-    }
-
-    fn rlp_encoding(&self) -> &Bytes {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.rlp_encoding(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.rlp_encoding(),
-            L1PooledTransaction::Eip2930(tx) => tx.rlp_encoding(),
-            L1PooledTransaction::Eip1559(tx) => tx.rlp_encoding(),
-            L1PooledTransaction::Eip4844(tx) => tx.rlp_encoding(),
-            L1PooledTransaction::Eip7702(tx) => tx.rlp_encoding(),
-        }
-    }
-
-    fn transaction_hash(&self) -> &B256 {
-        match self {
-            L1PooledTransaction::PreEip155Legacy(tx) => tx.transaction_hash(),
-            L1PooledTransaction::PostEip155Legacy(tx) => tx.transaction_hash(),
-            L1PooledTransaction::Eip2930(tx) => tx.transaction_hash(),
-            L1PooledTransaction::Eip1559(tx) => tx.transaction_hash(),
-            L1PooledTransaction::Eip4844(tx) => tx.transaction_hash(),
-            L1PooledTransaction::Eip7702(tx) => tx.transaction_hash(),
         }
     }
 }

@@ -1,6 +1,7 @@
 mod forked;
 mod local;
-mod remote;
+/// Types related to a remote blockchain.
+pub mod remote;
 /// Storage data structures for a blockchain
 pub mod storage;
 
@@ -22,6 +23,12 @@ use crate::{
     state::{StateCommit, StateDiff, StateOverride, SyncState},
     Block, BlockAndTotalDifficultyForChainSpec,
 };
+
+/// Convenience type alias for [`self::remote::RemoteBlockchain`].
+///
+/// This allows usage like [`edr_evm::blockchain::Remote`].
+pub type Remote<BlockT, ChainSpecT, const FORCE_CACHING: bool> =
+    self::remote::RemoteBlockchain<BlockT, ChainSpecT, FORCE_CACHING>;
 
 /// Helper type for a chain-specific [`BlockchainError`].
 pub type BlockchainErrorForChainSpec<ChainSpecT> = BlockchainError<

@@ -1,14 +1,12 @@
-use edr_eth::{
-    l1, log::ExecutionLog, receipt, result::ExecutionResult, transaction::TransactionType,
-};
+use edr_chain_l1::{L1HaltReason, L1Hardfork};
+use edr_eth::{log::ExecutionLog, receipt, result::ExecutionResult, transaction::TransactionType};
 use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
 
 use crate::{eip2718::TypedEnvelope, transaction};
 
 pub struct Builder;
 
-impl
-    ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::SignedWithFallbackToPostEip155>
+impl ExecutionReceiptBuilder<L1HaltReason, L1Hardfork, transaction::SignedWithFallbackToPostEip155>
     for Builder
 {
     type Receipt = TypedEnvelope<receipt::execution::Eip658<ExecutionLog>>;
@@ -24,8 +22,8 @@ impl
         self,
         header: &edr_eth::block::PartialHeader,
         transaction: &crate::transaction::SignedWithFallbackToPostEip155,
-        result: &ExecutionResult<l1::HaltReason>,
-        _hardfork: l1::SpecId,
+        result: &ExecutionResult<L1HaltReason>,
+        _hardfork: L1Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = edr_eth::log::logs_to_bloom(&logs);

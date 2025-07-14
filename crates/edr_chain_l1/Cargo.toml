@@ -4,8 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+ambassador.workspace = true
 alloy-rlp.workspace = true
 alloy-serde.workspace = true
+anyhow = { workspace = true, optional = true }
 c-kzg.workspace = true
 edr_eth.workspace = true
 edr_evm.workspace = true
@@ -29,7 +31,7 @@ edr_test_utils.workspace = true
 serde_json.workspace = true
 
 [features]
-test-utils = []
+test-utils = ["dep:anyhow"]
 
 [lints]
 workspace = true

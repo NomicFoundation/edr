@@ -8,7 +8,7 @@ use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
 pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
     eips::{eip2930, eip7702},
-    impl_revm_transaction_trait,
+    impl_delegated_revm_transaction_trait,
     signature::{Fakeable, Signature},
     transaction::{
         ExecutableTransaction, IsEip4844, IsLegacy, IsSupported, MaybeSignedTransaction,
@@ -485,7 +485,7 @@ impl TransactionValidation for Signed {
     type ValidationError = InvalidTransaction;
 }
 
-impl_revm_transaction_trait!(Signed);
+impl_delegated_revm_transaction_trait!(Signed);
 
 #[cfg(test)]
 mod tests {

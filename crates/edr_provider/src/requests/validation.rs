@@ -4,7 +4,7 @@ use edr_eth::{
     MAX_INITCODE_SIZE,
 };
 use edr_evm::{spec::RuntimeSpec, transaction};
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
@@ -45,7 +45,7 @@ impl HardforkValidationData for CallRequest {
     }
 }
 
-impl HardforkValidationData for TransactionRequest {
+impl HardforkValidationData for RpcTransactionRequest {
     fn to(&self) -> Option<&Address> {
         self.to.as_ref()
     }
@@ -85,7 +85,7 @@ pub fn validate_send_transaction_request<
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &ProviderData<ChainSpecT, TimerT>,
-    request: &TransactionRequest,
+    request: &RpcTransactionRequest,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     if let Some(chain_id) = request.chain_id {
         let expected = data.chain_id();
@@ -111,7 +111,7 @@ pub fn validate_send_transaction_request<
     }
 
     if let Some(transaction_type) = request.transaction_type {
-        if transaction_type == u8::from(transaction::request::Eip4844::TYPE) {
+        if transaction_type == transaction::request::Eip4844::TYPE {
             return Err(ProviderError::Eip4844TransactionUnsupported);
         }
     }
@@ -350,11 +350,11 @@ mod tests {
     use super::*;
 
     fn assert_mixed_eip_1559_parameters(spec: EvmSpecId) {
-        let mixed_request = TransactionRequest {
+        let mixed_request = RpcTransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
             max_fee_per_gas: Some(0),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -362,11 +362,11 @@ mod tests {
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
-        let mixed_request = TransactionRequest {
+        let mixed_request = RpcTransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
             max_priority_fee_per_gas: Some(0),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -374,11 +374,11 @@ mod tests {
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
-        let request_with_too_low_max_fee = TransactionRequest {
+        let request_with_too_low_max_fee = RpcTransactionRequest {
             from: Address::ZERO,
             max_fee_per_gas: Some(0),
             max_priority_fee_per_gas: Some(1),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -388,10 +388,10 @@ mod tests {
     }
 
     fn assert_unsupported_eip_1559_parameters(spec: EvmSpecId) {
-        let eip_1559_request = TransactionRequest {
+        let eip_1559_request = RpcTransactionRequest {
             from: Address::ZERO,
             max_fee_per_gas: Some(0),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -399,10 +399,10 @@ mod tests {
             Err(ProviderError::UnsupportedEIP1559Parameters { .. })
         ));
 
-        let eip_1559_request = TransactionRequest {
+        let eip_1559_request = RpcTransactionRequest {
             from: Address::ZERO,
             max_priority_fee_per_gas: Some(0),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -412,10 +412,10 @@ mod tests {
     }
 
     fn assert_unsupported_eip_4844_parameters(spec: EvmSpecId) {
-        let eip_4844_request = TransactionRequest {
+        let eip_4844_request = RpcTransactionRequest {
             from: Address::ZERO,
             blobs: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -423,10 +423,10 @@ mod tests {
             Err(ProviderError::UnsupportedEIP4844Parameters { .. })
         ));
 
-        let eip_4844_request = TransactionRequest {
+        let eip_4844_request = RpcTransactionRequest {
             from: Address::ZERO,
             blob_hashes: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -436,10 +436,10 @@ mod tests {
     }
 
     fn assert_unsuporrted_eip_7702_parameters(spec: EvmSpecId) {
-        let eip_7702_request = TransactionRequest {
+        let eip_7702_request = RpcTransactionRequest {
             from: Address::ZERO,
             authorization_list: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -451,18 +451,18 @@ mod tests {
     #[test]
     fn validate_transaction_spec_eip_155_invalid_inputs() {
         let eip155_spec = EvmSpecId::MUIR_GLACIER;
-        let valid_request = TransactionRequest {
+        let valid_request = RpcTransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(validate_transaction_spec::<L1ChainSpec>(eip155_spec, &valid_request).is_ok());
 
-        let eip_2930_request = TransactionRequest {
+        let eip_2930_request = RpcTransactionRequest {
             from: Address::ZERO,
             access_list: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -478,11 +478,11 @@ mod tests {
     #[test]
     fn validate_transaction_spec_eip_2930_invalid_inputs() {
         let eip2930_spec = EvmSpecId::BERLIN;
-        let valid_request = TransactionRequest {
+        let valid_request = RpcTransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
             access_list: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(validate_transaction_spec::<L1ChainSpec>(eip2930_spec, &valid_request).is_ok());
@@ -495,12 +495,12 @@ mod tests {
     #[test]
     fn validate_transaction_spec_eip_1559_invalid_inputs() {
         let eip1559_spec = EvmSpecId::LONDON;
-        let valid_request = TransactionRequest {
+        let valid_request = RpcTransactionRequest {
             from: Address::ZERO,
             max_fee_per_gas: Some(0),
             max_priority_fee_per_gas: Some(0),
             access_list: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(validate_transaction_spec::<L1ChainSpec>(eip1559_spec, &valid_request).is_ok());
@@ -513,7 +513,7 @@ mod tests {
     #[test]
     fn validate_transaction_spec_eip_4844_invalid_inputs() {
         let eip4844_spec = EvmSpecId::CANCUN;
-        let valid_request = TransactionRequest {
+        let valid_request = RpcTransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),
             max_fee_per_gas: Some(0),
@@ -521,17 +521,17 @@ mod tests {
             access_list: Some(Vec::new()),
             blobs: Some(Vec::new()),
             blob_hashes: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &valid_request).is_ok());
         assert_mixed_eip_1559_parameters(eip4844_spec);
 
-        let mixed_request = TransactionRequest {
+        let mixed_request = RpcTransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
             blobs: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -539,11 +539,11 @@ mod tests {
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
-        let mixed_request = TransactionRequest {
+        let mixed_request = RpcTransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
             blob_hashes: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -551,10 +551,10 @@ mod tests {
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
-        let missing_receiver_request = TransactionRequest {
+        let missing_receiver_request = RpcTransactionRequest {
             from: Address::ZERO,
             blobs: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -562,10 +562,10 @@ mod tests {
             Err(ProviderError::Eip4844TransactionMissingReceiver)
         ));
 
-        let missing_receiver_request = TransactionRequest {
+        let missing_receiver_request = RpcTransactionRequest {
             from: Address::ZERO,
             blob_hashes: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -579,7 +579,7 @@ mod tests {
     #[test]
     fn validate_transaction_spec_eip_7702_invalid_inputs() {
         let eip7702_spec = EvmSpecId::PRAGUE;
-        let valid_request = TransactionRequest {
+        let valid_request = RpcTransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),
             max_fee_per_gas: Some(0),
@@ -595,17 +595,17 @@ mod tests {
                 U256::ZERO,
                 U256::ZERO,
             )]),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(validate_transaction_spec::<L1ChainSpec>(eip7702_spec, &valid_request).is_ok());
         assert_mixed_eip_1559_parameters(eip7702_spec);
 
-        let mixed_request = TransactionRequest {
+        let mixed_request = RpcTransactionRequest {
             from: Address::ZERO,
             gas_price: Some(0),
             authorization_list: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -613,10 +613,10 @@ mod tests {
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
-        let missing_receiver_request = TransactionRequest {
+        let missing_receiver_request = RpcTransactionRequest {
             from: Address::ZERO,
             authorization_list: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(
@@ -624,11 +624,11 @@ mod tests {
             Err(ProviderError::Eip7702TransactionMissingReceiver)
         ));
 
-        let empty_authorization_list_request = TransactionRequest {
+        let empty_authorization_list_request = RpcTransactionRequest {
             from: Address::ZERO,
             to: Some(Address::ZERO),
             authorization_list: Some(Vec::new()),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         };
 
         assert!(matches!(

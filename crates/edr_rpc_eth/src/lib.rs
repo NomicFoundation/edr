@@ -19,7 +19,7 @@ pub use edr_rpc_client::{error, header, jsonrpc, HeaderMap};
 
 pub use self::{
     block::RpcBlock, call_request::CallRequest, r#override::*, request_methods::RequestMethod,
-    spec::RpcSpec, transaction_request::TransactionRequest,
+    spec::RpcSpec, transaction_request::RpcTransactionRequest,
 };
 
 /// Trait for constructing an RPC type from an internal type.

@@ -5,6 +5,7 @@ use revm_primitives::keccak256;
 
 use crate::{
     eips::{eip2930, eip4844::GAS_PER_BLOB, eip7702},
+    impl_revm_transaction_trait_with_tx_type,
     signature::{self, Fakeable},
     transaction::{self, ExecutableTransaction, TxKind},
     utils::enveloped,
@@ -209,6 +210,8 @@ impl From<&Decodable> for transaction::request::Eip4844 {
         }
     }
 }
+
+impl_revm_transaction_trait_with_tx_type!(Eip4844);
 
 /// Total blob gas used by the transaction.
 pub fn total_blob_gas(transaction: &Eip4844) -> u64 {

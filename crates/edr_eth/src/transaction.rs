@@ -14,6 +14,7 @@ pub mod signed;
 
 use core::fmt::Debug;
 
+use ambassador::delegatable_trait;
 pub use revm_context_interface::Transaction;
 pub use revm_primitives::alloy_primitives::TxKind;
 
@@ -32,6 +33,7 @@ pub trait ComputeTransactionHash {
 }
 
 /// Trait for information about executable transactions.
+#[delegatable_trait]
 pub trait ExecutableTransaction {
     /// Caller aka Author aka transaction signer.
     fn caller(&self) -> &Address;
@@ -120,10 +122,88 @@ pub trait ExecutableTransaction {
 }
 
 /// Macro for implementing [`revm_context_interface::Transaction`] for a type
+/// using the existing implementations of [`ExecutableTransaction`] and a `pub
+/// const TYPE: u8`.
+#[macro_export]
+macro_rules! impl_revm_transaction_trait_with_tx_type {
+    ($ty:ty) => {
+        impl $crate::transaction::Transaction for $ty {
+            type AccessListItem = $crate::eips::eip2930::AccessListItem;
+            type Authorization = $crate::eips::eip7702::SignedAuthorization;
+
+            fn tx_type(&self) -> u8 {
+                Self::TYPE
+            }
+
+            fn caller(&self) -> $crate::Address {
+                $crate::transaction::ExecutableTransaction::caller(self).clone()
+            }
+            fn gas_limit(&self) -> u64 {
+                $crate::transaction::ExecutableTransaction::gas_limit(self)
+            }
+
+            fn value(&self) -> $crate::U256 {
+                $crate::transaction::ExecutableTransaction::value(self).clone()
+            }
+
+            fn input(&self) -> &$crate::Bytes {
+                $crate::transaction::ExecutableTransaction::data(self)
+            }
+
+            fn nonce(&self) -> u64 {
+                $crate::transaction::ExecutableTransaction::nonce(self)
+            }
+
+            fn kind(&self) -> $crate::transaction::TxKind {
+                $crate::transaction::ExecutableTransaction::kind(self)
+            }
+
+            fn chain_id(&self) -> Option<u64> {
+                $crate::transaction::ExecutableTransaction::chain_id(self)
+            }
+
+            fn gas_price(&self) -> u128 {
+                $crate::transaction::ExecutableTransaction::gas_price(self).clone()
+            }
+
+            fn access_list(&self) -> Option<impl Iterator<Item = &Self::AccessListItem>> {
+                $crate::transaction::ExecutableTransaction::access_list(self)
+                    .map(|list| list.iter())
+            }
+
+            fn blob_versioned_hashes(&self) -> &[$crate::B256] {
+                $crate::transaction::ExecutableTransaction::blob_hashes(self)
+            }
+
+            fn max_fee_per_blob_gas(&self) -> u128 {
+                $crate::transaction::ExecutableTransaction::max_fee_per_blob_gas(self)
+                    .cloned()
+                    .unwrap_or(0u128)
+            }
+
+            fn authorization_list_len(&self) -> usize {
+                $crate::transaction::ExecutableTransaction::authorization_list(self)
+                    .map_or(0, |list| list.len())
+            }
+
+            fn authorization_list(&self) -> impl Iterator<Item = &Self::Authorization> {
+                $crate::transaction::ExecutableTransaction::authorization_list(self)
+                    .unwrap_or(&[])
+                    .iter()
+            }
+
+            fn max_priority_fee_per_gas(&self) -> Option<u128> {
+                $crate::transaction::ExecutableTransaction::max_priority_fee_per_gas(self).cloned()
+            }
+        }
+    };
+}
+
+/// Macro for implementing [`revm_context_interface::Transaction`] for a type
 /// using the existing implementations of [`ExecutableTransaction`] and
 /// [`TransactionType`].
 #[macro_export]
-macro_rules! impl_revm_transaction_trait {
+macro_rules! impl_delegated_revm_transaction_trait {
     ($ty:ty) => {
         impl $crate::transaction::Transaction for $ty {
             type AccessListItem = $crate::eips::eip2930::AccessListItem;

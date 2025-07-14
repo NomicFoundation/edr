@@ -130,7 +130,6 @@ fn fetch_remote_account<ChainSpecT: RpcSpec>(
 mod tests {
     use std::{str::FromStr, sync::Arc};
 
-    use edr_eth::l1::L1ChainSpec;
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use tokio::runtime;

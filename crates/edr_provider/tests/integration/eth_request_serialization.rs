@@ -5,7 +5,7 @@ use edr_eth::{
     Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, U160, U256,
 };
 use edr_provider::{IntervalConfigRequest, MethodInvocation, Timestamp};
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 
 use crate::common::{
     help_test_method_invocation_serde, help_test_method_invocation_serde_with_expected,
@@ -366,7 +366,7 @@ fn test_serde_eth_send_raw_transaction() {
 #[test]
 fn test_serde_eth_send_transaction() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::SendTransaction(
-        TransactionRequest {
+        RpcTransactionRequest {
             from: Address::from(U160::from(1)),
             to: Some(Address::from(U160::from(2))),
             gas: Some(3),

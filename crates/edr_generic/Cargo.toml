@@ -8,6 +8,7 @@ description = "A generic chain specification for Ethereum Layer 1 chains."
 alloy-rlp = { version = "0.3.11", default-features = false, features = ["derive"] }
 alloy-serde = { workspace = true, features = ["std"] }
 derive-where.workspace = true
+edr_chain_l1.workspace = true
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
 edr_provider = { path = "../edr_provider" }

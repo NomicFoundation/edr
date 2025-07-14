@@ -6,12 +6,11 @@ use edr_eth::{
     block::{self, BlobGas},
     eips::eip7702,
     signature::{public_key_to_address, secret_key_from_str, SignatureWithYParity},
-    transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
     trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, U160, U256,
 };
-use edr_evm::{Block as _, EvmInvalidTransaction};
-use edr_rpc_eth::TransactionRequest;
+use edr_evm::Block as _;
+use edr_rpc_eth::RpcTransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use k256::SecretKey;
 use tokio::runtime;
@@ -115,17 +114,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
 }
 
 /// Retrieves the pending base fee per gas from the provider data.
-pub fn pending_base_fee<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmInvalidTransaction> + PartialEq,
-        >,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
->(
+pub fn pending_base_fee<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     data: &mut ProviderData<ChainSpecT, TimerT>,
 ) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
     let block = data.mine_pending_block()?.block;
@@ -135,17 +124,19 @@ pub fn pending_base_fee<
     Ok(base_fee)
 }
 
-/// Deploys a contract with the provided code. Returns the address of the
-/// contract.
-pub fn deploy_contract<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
+/// Deploys a contract with the provided code. Returns the transaction receipt.
+pub fn deploy_contract<
+    ChainSpecT: SyncProviderSpec<TimerT, RpcTransactionRequest = RpcTransactionRequest>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     provider: &Provider<ChainSpecT, TimerT>,
     caller: Address,
     code: Bytes,
-) -> anyhow::Result<Address> {
-    let deploy_transaction = TransactionRequest {
+) -> anyhow::Result<ChainSpecT::RpcReceipt> {
+    let deploy_transaction = RpcTransactionRequest {
         from: caller,
         data: Some(code),
-        ..TransactionRequest::default()
+        ..RpcTransactionRequest::default()
     };
 
     let result = provider.handle_request(ProviderRequest::with_single(
@@ -158,10 +149,8 @@ pub fn deploy_contract<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + Tim
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
-    let receipt: edr_rpc_eth::receipt::Block = serde_json::from_value(result.result)?;
-    let contract_address = receipt.contract_address.expect("Call must create contract");
-
-    Ok(contract_address)
+    let receipt: ChainSpecT::RpcReceipt = serde_json::from_value(result.result)?;
+    Ok(receipt)
 }
 
 /// Fixture for testing `ProviderData`.

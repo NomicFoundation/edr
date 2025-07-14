@@ -1,6 +1,7 @@
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_eth::{l1, B256};
+use edr_chain_l1::L1Hardfork;
+use edr_eth::B256;
 use edr_evm::hardfork::{self, ChainOverride};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
@@ -26,7 +27,7 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
         ChainOverride {
             name: "Base Sepolia".to_owned(),
             hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(
-                l1::SpecId::CANCUN,
+                L1Hardfork::CANCUN,
             )),
         },
     )]

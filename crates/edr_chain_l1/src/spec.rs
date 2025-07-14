@@ -20,8 +20,8 @@ use edr_evm::{
     BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, EvmInvalidTransaction,
     RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
-use edr_provider::ProviderSpec;
-use edr_rpc_eth::{CallRequest, RpcSpec};
+use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
+use edr_rpc_eth::{CallRequest, RpcBlock, RpcSpec, RpcTransactionRequest};
 use revm_handler::PrecompileProvider;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -52,7 +52,7 @@ impl EthHeaderConstants for L1ChainSpec {
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
-    type PooledTransaction = transaction::pooled::PooledTransaction;
+    type PooledTransaction = transaction::Pooled;
     type TransactionRequest = transaction::Request;
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
@@ -72,13 +72,13 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
 impl RpcSpec for L1ChainSpec {
     type ExecutionReceipt<LogT> = TypedEnvelope<edr_eth::receipt::execution::Eip658<LogT>>;
     type RpcBlock<DataT>
-        = rpc::Block<DataT>
+        = RpcBlock<DataT>
     where
         DataT: Default + DeserializeOwned + Serialize;
     type RpcCallRequest = CallRequest;
     type RpcReceipt = rpc::receipt::Block;
     type RpcTransaction = rpc::transaction::TransactionWithSignature;
-    type RpcTransactionRequest = rpc::transaction::Request;
+    type RpcTransactionRequest = RpcTransactionRequest;
 }
 
 impl RuntimeSpec for L1ChainSpec {

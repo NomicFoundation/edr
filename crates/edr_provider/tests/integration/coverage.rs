@@ -9,7 +9,7 @@ use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::Mutex;
 use tokio::runtime;
@@ -78,12 +78,12 @@ fn provider_with_deployed_test_contract(
     let transaction_hash = {
         let response = provider
             .handle_request(ProviderRequest::with_single(
-                MethodInvocation::SendTransaction(TransactionRequest {
+                MethodInvocation::SendTransaction(RpcTransactionRequest {
                     from,
                     data: Some(
                         Bytes::from_str(INCREMENT_DEPLOYED_BYTECODE).expect("Invalid bytecode"),
                     ),
-                    ..TransactionRequest::default()
+                    ..RpcTransactionRequest::default()
                 }),
             ))
             .expect("Failed to deploy test contract");
@@ -182,11 +182,11 @@ async fn debug_trace_transaction() -> anyhow::Result<()> {
 
     let transaction_hash: B256 = {
         let response = provider.handle_request(ProviderRequest::with_single(
-            MethodInvocation::SendTransaction(TransactionRequest {
+            MethodInvocation::SendTransaction(RpcTransactionRequest {
                 from,
                 to: Some(deployed_address),
                 data: Some(INCREMENT_CALLDATA),
-                ..TransactionRequest::default()
+                ..RpcTransactionRequest::default()
             }),
         ))?;
 
@@ -242,11 +242,11 @@ async fn send_transaction() -> anyhow::Result<()> {
     } = provider_with_deployed_test_contract(coverage_reporter.clone());
 
     let _response = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(TransactionRequest {
+        MethodInvocation::SendTransaction(RpcTransactionRequest {
             from,
             to: Some(deployed_address),
             data: Some(INCREMENT_CALLDATA),
-            ..TransactionRequest::default()
+            ..RpcTransactionRequest::default()
         }),
     ))?;
 

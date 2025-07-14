@@ -458,12 +458,77 @@ fn priority_comparator<SignedTransactionT: ExecutableTransaction>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{account::AccountInfo, Address, U256};
+    use ambassador::delegatable_trait_remote;
+    use edr_eth::{
+        account::AccountInfo,
+        eips::{eip2930, eip7702},
+        transaction,
+        transaction::TxKind,
+        Address, Bytes, B256, U256,
+    };
 
     use super::*;
     use crate::test_utils::{
         dummy_eip1559_transaction, dummy_eip155_transaction_with_price, MemPoolTestFixture,
     };
+
+    #[delegatable_trait_remote]
+    trait ExecutableTransaction {
+        fn caller(&self) -> &Address;
+
+        fn gas_limit(&self) -> u64;
+
+        fn gas_price(&self) -> &u128;
+
+        fn kind(&self) -> TxKind;
+
+        fn value(&self) -> &U256;
+
+        fn data(&self) -> &Bytes;
+
+        fn nonce(&self) -> u64;
+
+        fn chain_id(&self) -> Option<u64>;
+
+        fn access_list(&self) -> Option<&[eip2930::AccessListItem]>;
+
+        fn effective_gas_price(&self, block_base_fee: u128) -> Option<u128>;
+
+        fn max_fee_per_gas(&self) -> Option<&u128>;
+
+        fn max_priority_fee_per_gas(&self) -> Option<&u128>;
+
+        fn blob_hashes(&self) -> &[B256];
+
+        fn max_fee_per_blob_gas(&self) -> Option<&u128>;
+
+        fn total_blob_gas(&self) -> Option<u64>;
+
+        fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]>;
+
+        fn rlp_encoding(&self) -> &Bytes;
+
+        fn transaction_hash(&self) -> &B256;
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, ambassador::Delegate)]
+    #[delegate(ExecutableTransaction)]
+    enum Transaction {
+        Eip155(transaction::signed::Eip155),
+        Eip1559(transaction::signed::Eip1559),
+    }
+
+    impl From<transaction::signed::Eip155> for Transaction {
+        fn from(value: transaction::signed::Eip155) -> Self {
+            Transaction::Eip155(value)
+        }
+    }
+
+    impl From<transaction::signed::Eip1559> for Transaction {
+        fn from(value: transaction::signed::Eip1559) -> Self {
+            Transaction::Eip1559(value)
+        }
+    }
 
     #[test]
     fn fifo_ordering() -> anyhow::Result<()> {
@@ -475,7 +540,7 @@ mod tests {
             balance: U256::from(100_000_000u64),
             ..AccountInfo::default()
         };
-        let mut fixture = MemPoolTestFixture::with_accounts(&[
+        let mut fixture = MemPoolTestFixture::<Transaction>::with_accounts(&[
             (sender1, account_with_balance.clone()),
             (sender2, account_with_balance.clone()),
             (sender3, account_with_balance),
@@ -483,15 +548,15 @@ mod tests {
 
         let base_fee = Some(15u128);
 
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 111)?;
+        let transaction1 = Transaction::from(dummy_eip155_transaction_with_price(sender1, 0, 111)?);
         assert_eq!(effective_miner_fee(&transaction1, base_fee), 96);
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip1559_transaction(sender2, 0, 120, 100)?;
+        let transaction2 = Transaction::from(dummy_eip1559_transaction(sender2, 0, 120, 100)?);
         assert_eq!(effective_miner_fee(&transaction2, base_fee), 100);
         fixture.add_transaction(transaction2.clone())?;
 
-        let transaction3 = dummy_eip1559_transaction(sender3, 0, 140, 110)?;
+        let transaction3 = Transaction::from(dummy_eip1559_transaction(sender3, 0, 140, 110)?);
         assert_eq!(effective_miner_fee(&transaction3, base_fee), 110);
         fixture.add_transaction(transaction3.clone())?;
 
@@ -570,23 +635,23 @@ mod tests {
 
         let base_fee = Some(15u128);
 
-        let transaction1 = dummy_eip155_transaction_with_price(sender1, 0, 111)?;
+        let transaction1 = Transaction::from(dummy_eip155_transaction_with_price(sender1, 0, 111)?);
         assert_eq!(effective_miner_fee(&transaction1, base_fee), 96);
         fixture.add_transaction(transaction1.clone())?;
 
-        let transaction2 = dummy_eip1559_transaction(sender2, 0, 120, 100)?;
+        let transaction2 = Transaction::from(dummy_eip1559_transaction(sender2, 0, 120, 100)?);
         assert_eq!(effective_miner_fee(&transaction2, base_fee), 100);
         fixture.add_transaction(transaction2.clone())?;
 
-        let transaction3 = dummy_eip1559_transaction(sender3, 0, 140, 110)?;
+        let transaction3 = Transaction::from(dummy_eip1559_transaction(sender3, 0, 140, 110)?);
         assert_eq!(effective_miner_fee(&transaction3, base_fee), 110);
         fixture.add_transaction(transaction3.clone())?;
 
-        let transaction4 = dummy_eip1559_transaction(sender4, 0, 140, 130)?;
+        let transaction4 = Transaction::from(dummy_eip1559_transaction(sender4, 0, 140, 130)?);
         assert_eq!(effective_miner_fee(&transaction4, base_fee), 125);
         fixture.add_transaction(transaction4.clone())?;
 
-        let transaction5 = dummy_eip155_transaction_with_price(sender5, 0, 170)?;
+        let transaction5 = Transaction::from(dummy_eip155_transaction_with_price(sender5, 0, 170)?);
         assert_eq!(effective_miner_fee(&transaction5, base_fee), 155);
         fixture.add_transaction(transaction5.clone())?;
 

@@ -14,7 +14,7 @@ use crate::{eip2718::TypedEnvelope, transaction::r#type::L1TransactionType, L1Ha
 
 /// Convenience type alias for [`L1RpcBlockReceipt`].
 ///
-/// This allows usage like `edr_chain_l1::rpc::Block`.
+/// This allows usage like `edr_chain_l1::rpc::receipt::Block`.
 pub type Block = L1RpcBlockReceipt;
 
 /// Ethereum L1 JSON-RPC block receipt

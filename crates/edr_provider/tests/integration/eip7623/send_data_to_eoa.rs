@@ -1,5 +1,5 @@
 use edr_eth::{address, bytes, l1};
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 
 use super::new_provider;
 use crate::integration::eip7623::assert_transaction_gas_usage;
@@ -15,12 +15,12 @@ fn call_request() -> CallRequest {
     }
 }
 
-fn transaction_request() -> TransactionRequest {
-    TransactionRequest {
+fn transaction_request() -> RpcTransactionRequest {
+    RpcTransactionRequest {
         from: address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
         to: Some(address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")),
         data: Some(bytes!("0x11")),
-        ..TransactionRequest::default()
+        ..RpcTransactionRequest::default()
     }
 }
 

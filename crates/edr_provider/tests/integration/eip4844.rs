@@ -2,6 +2,7 @@
 
 use std::{str::FromStr, sync::Arc};
 
+use edr_chain_l1::L1ChainSpec;
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     eips::eip4844::{self, GAS_PER_BLOB},
@@ -14,7 +15,7 @@ use edr_provider::{
     time::CurrentTime,
     AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
 use tokio::runtime;
@@ -52,7 +53,7 @@ fn fake_call_request() -> CallRequest {
     }
 }
 
-fn fake_transaction_request() -> TransactionRequest {
+fn fake_transaction_request() -> RpcTransactionRequest {
     let transaction = fake_pooled_transaction();
     let blobs = transaction.blobs().map(<[edr_eth::Blob]>::to_vec);
 
@@ -65,7 +66,7 @@ fn fake_transaction_request() -> TransactionRequest {
         None
     };
 
-    TransactionRequest {
+    RpcTransactionRequest {
         from,
         to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas().copied(),
@@ -81,7 +82,7 @@ fn fake_transaction_request() -> TransactionRequest {
         transaction_type: Some(transaction.transaction_type().into()),
         blobs,
         blob_hashes,
-        ..TransactionRequest::default()
+        ..RpcTransactionRequest::default()
     }
 }
 
@@ -474,7 +475,7 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
         },
     );
 
-    let provider = Provider::new(
+    let provider = Provider::<L1ChainSpec, CurrentTime>::new(
         runtime::Handle::current(),
         logger,
         subscriber,
@@ -486,7 +487,9 @@ async fn blob_hash_opcode() -> anyhow::Result<()> {
     let fixture: ContractFixture =
         serde_json::from_str(include_str!("../fixtures/blob_hash_opcode_contract.json"))?;
 
-    let contract_address = deploy_contract(&provider, caller, fixture.bytecode)?;
+    let contract_address = deploy_contract(&provider, caller, fixture.bytecode)?
+        .contract_address
+        .expect("Call must create contract");
 
     let mut nonce = 1;
     for num_blobs in 1..=6 {

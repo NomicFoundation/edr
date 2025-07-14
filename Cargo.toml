@@ -187,6 +187,7 @@ alloy-rlp = "0.3.3"
 alloy-trie = "0.7.0"
 
 ## misc
+ambassador = { version = "0.4.1", default-features = false }
 anyhow = { version = "1.0.89", default-features = false }
 arrayvec = "0.7"
 dunce = "1"
