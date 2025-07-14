@@ -1,9 +1,9 @@
 use std::str::FromStr as _;
 
+use edr_chain_l1::transaction;
 use edr_eth::{
     eips::eip4844::ethereum_kzg_settings,
     rlp::{self, Decodable as _},
-    transaction::{self, pooled::PooledTransaction},
     Address, Blob, Bytes, Bytes48, B256,
 };
 use edr_test_utils::secret_key::secret_key_from_str;
@@ -22,7 +22,7 @@ impl BlobTransactionBuilder {
         self.request.blob_hashes.clone()
     }
 
-    pub fn build(self) -> PooledTransaction {
+    pub fn build(self) -> transaction::Pooled {
         let secret_key =
             secret_key_from_str(edr_defaults::SECRET_KEYS[0]).expect("Invalid secret key");
         let signed_transaction = self
@@ -39,7 +39,7 @@ impl BlobTransactionBuilder {
         )
         .expect("Invalid blob transaction");
 
-        PooledTransaction::Eip4844(pooled_transaction)
+        transaction::Pooled::Eip4844(pooled_transaction)
     }
 
     pub fn build_raw(self) -> Bytes {
@@ -82,7 +82,7 @@ impl BlobTransactionBuilder {
 
 impl Default for BlobTransactionBuilder {
     fn default() -> Self {
-        let PooledTransaction::Eip4844(pooled_transaction) = fake_pooled_transaction() else {
+        let transaction::Pooled::Eip4844(pooled_transaction) = fake_pooled_transaction() else {
             unreachable!("Must be an EIP-4844 transaction")
         };
 
@@ -115,10 +115,10 @@ pub fn fake_raw_transaction() -> Bytes {
         .expect("failed to parse raw transaction")
 }
 
-pub fn fake_pooled_transaction() -> PooledTransaction {
+pub fn fake_pooled_transaction() -> transaction::Pooled {
     let raw_transaction = fake_raw_transaction();
 
-    PooledTransaction::decode(&mut raw_transaction.as_ref())
+    transaction::Pooled::decode(&mut raw_transaction.as_ref())
         .expect("failed to decode raw transaction")
 }
 

@@ -381,7 +381,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{l1::L1ChainSpec, Address, Bytes, U256};
+    use edr_eth::{Address, Bytes, U256};
     use transaction::{signed::FakeSign as _, TxKind};
 
     use super::*;

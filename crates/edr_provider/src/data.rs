@@ -2931,7 +2931,7 @@ fn get_max_cached_states_from_env<ChainSpecT: RuntimeSpec>(
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{hex, l1::L1ChainSpec, transaction::ExecutableTransaction as _};
+    use edr_eth::{hex, transaction::ExecutableTransaction as _};
     use edr_evm::MineOrdering;
     use serde_json::json;
 

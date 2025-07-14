@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
-use edr_eth::{
-    filter::LogFilterOptions,
-    l1::{self, L1ChainSpec},
-    Address, BlockSpec,
-};
+use edr_chain_l1::{L1ChainSpec, L1Hardfork};
+use edr_eth::{filter::LogFilterOptions, Address, BlockSpec};
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
@@ -20,7 +17,7 @@ async fn issue_361() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = l1::SpecId::MUIR_GLACIER;
+    config.hardfork = L1Hardfork::MUIR_GLACIER;
 
     let impersonated_account = Address::random();
     config.genesis_state.insert(

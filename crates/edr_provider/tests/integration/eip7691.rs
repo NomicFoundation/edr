@@ -2,11 +2,9 @@
 
 use std::sync::Arc;
 
+use edr_chain_l1::{L1ChainSpec, L1Hardfork};
 use edr_eth::{
-    eips::eip4844::GAS_PER_BLOB,
-    l1::{self, L1ChainSpec},
-    transaction::ExecutableTransaction as _,
-    PreEip1898BlockSpec, B256,
+    eips::eip4844::GAS_PER_BLOB, transaction::ExecutableTransaction as _, PreEip1898BlockSpec, B256,
 };
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
@@ -27,7 +25,7 @@ async fn block_header() -> anyhow::Result<()> {
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
-    config.hardfork = l1::SpecId::PRAGUE;
+    config.hardfork = L1Hardfork::PRAGUE;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -49,7 +47,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let first_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let first_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(first_block.blob_gas_used, Some(GAS_PER_BLOB));
 
     assert_eq!(
@@ -72,7 +70,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let second_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let second_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(second_block.blob_gas_used, Some(7 * GAS_PER_BLOB));
 
     assert_eq!(
@@ -96,7 +94,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let third_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let third_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(third_block.blob_gas_used, Some(8 * GAS_PER_BLOB));
 
     assert_eq!(
@@ -116,7 +114,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fourth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fourth_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fourth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
@@ -137,7 +135,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fifth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fifth_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fifth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(

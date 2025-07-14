@@ -1,9 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
-use edr_eth::{
-    l1::{self, L1ChainSpec},
-    Address, Bytes, HashMap, U256,
-};
+use edr_chain_l1::{L1ChainSpec, L1Hardfork};
+use edr_eth::{Address, Bytes, HashMap, U256};
 use edr_provider::{
     test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
@@ -34,7 +32,7 @@ async fn issue_324() -> anyhow::Result<()> {
         http_headers: None,
         url: get_alchemy_url().replace("mainnet", "sepolia"),
     }));
-    config.hardfork = l1::SpecId::CANCUN;
+    config.hardfork = L1Hardfork::CANCUN;
 
     let provider = Provider::new(
         runtime::Handle::current(),

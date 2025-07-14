@@ -1,4 +1,5 @@
-use edr_eth::{address, bytes, l1};
+use edr_chain_l1::L1Hardfork;
+use edr_eth::{address, bytes};
 use edr_rpc_eth::{CallRequest, RpcTransactionRequest};
 
 use super::new_provider;
@@ -26,14 +27,14 @@ fn transaction_request() -> RpcTransactionRequest {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn estimate_gas() -> anyhow::Result<()> {
-    let cancun_provider = new_provider(l1::SpecId::CANCUN)?;
+    let cancun_provider = new_provider(L1Hardfork::CANCUN)?;
     assert_eq!(
         super::estimate_gas(&cancun_provider, call_request()),
         // NOTE: Our estimate differs from the real cost by 1 gas unit.
         21_017
     );
 
-    let prague_provider = new_provider(l1::SpecId::PRAGUE)?;
+    let prague_provider = new_provider(L1Hardfork::PRAGUE)?;
     assert_eq!(
         super::estimate_gas(&prague_provider, call_request()),
         21_040
@@ -44,10 +45,10 @@ async fn estimate_gas() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction() -> anyhow::Result<()> {
-    let cancun_provider = new_provider(l1::SpecId::CANCUN)?;
+    let cancun_provider = new_provider(L1Hardfork::CANCUN)?;
     assert_transaction_gas_usage(&cancun_provider, transaction_request(), 21_016);
 
-    let prague_provider = new_provider(l1::SpecId::PRAGUE)?;
+    let prague_provider = new_provider(L1Hardfork::PRAGUE)?;
     assert_transaction_gas_usage(&prague_provider, transaction_request(), 21_040);
 
     Ok(())

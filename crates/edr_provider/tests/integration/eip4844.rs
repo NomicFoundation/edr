@@ -2,12 +2,13 @@
 
 use std::{str::FromStr, sync::Arc};
 
-use edr_chain_l1::L1ChainSpec;
+use edr_chain_l1::{
+    rpc::transaction::L1RpcTransactionWithSignature, transaction, L1ChainSpec, L1Hardfork,
+};
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     eips::eip4844::{self, GAS_PER_BLOB},
-    l1::{self, L1ChainSpec},
-    transaction::{self, ExecutableTransaction as _, TransactionType as _},
+    transaction::{ExecutableTransaction as _, TransactionType as _},
     Address, Blob, Bytes, PreEip1898BlockSpec, B256, U256,
 };
 use edr_provider::{
@@ -93,7 +94,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = l1::SpecId::SHANGHAI;
+    config.hardfork = L1Hardfork::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -125,7 +126,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = l1::SpecId::SHANGHAI;
+    config.hardfork = L1Hardfork::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -258,7 +259,7 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: edr_rpc_eth::TransactionWithSignature = serde_json::from_value(result.result)?;
+    let transaction: L1RpcTransactionWithSignature = serde_json::from_value(result.result)?;
     let transaction = transaction::Signed::try_from(transaction)?;
 
     assert_eq!(transaction, expected);
@@ -276,7 +277,7 @@ async fn block_header() -> anyhow::Result<()> {
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
-    config.hardfork = l1::SpecId::CANCUN;
+    config.hardfork = L1Hardfork::CANCUN;
 
     config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,
@@ -306,7 +307,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let first_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let first_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(first_block.blob_gas_used, Some(eip4844::GAS_PER_BLOB));
 
     assert_eq!(
@@ -330,7 +331,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let second_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let second_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(second_block.blob_gas_used, Some(4 * GAS_PER_BLOB));
 
     assert_eq!(
@@ -354,7 +355,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let third_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let third_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(third_block.blob_gas_used, Some(5 * GAS_PER_BLOB));
 
     assert_eq!(
@@ -374,7 +375,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fourth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fourth_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fourth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
@@ -395,7 +396,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fifth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fifth_block: edr_rpc_eth::RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fifth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(

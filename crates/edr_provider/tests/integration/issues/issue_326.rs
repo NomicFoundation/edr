@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use edr_eth::{
-    l1::{self, L1ChainSpec},
-    Address,
-};
+use edr_chain_l1::{L1ChainSpec, L1Hardfork};
+use edr_eth::Address;
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
@@ -19,7 +17,7 @@ async fn issue_326() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config_with_fork(None);
-    config.hardfork = l1::SpecId::CANCUN;
+    config.hardfork = L1Hardfork::CANCUN;
     config.mining = MiningConfig {
         auto_mine: false,
         ..MiningConfig::default()

@@ -2,9 +2,8 @@
 
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_eth::{
-    bytes, l1::L1ChainSpec, signature::public_key_to_address, Address, Bytes, HashSet, B256,
-};
+use edr_chain_l1::{rpc::receipt::L1RpcBlockReceipt, L1ChainSpec};
+use edr_eth::{bytes, signature::public_key_to_address, Address, Bytes, HashSet, B256};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
@@ -100,7 +99,7 @@ fn provider_with_deployed_test_contract(
             ))
             .expect("Failed to get transaction receipt");
 
-        let receipt: edr_rpc_eth::receipt::Block = serde_json::from_value(response.result)
+        let receipt: L1RpcBlockReceipt = serde_json::from_value(response.result)
             .expect("Failed to deserialize transaction receipt");
 
         receipt

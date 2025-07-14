@@ -1,9 +1,6 @@
+use edr_chain_l1::{L1ChainSpec, L1Hardfork};
 use edr_eth::{
-    address, bytes,
-    eips::eip7702,
-    l1::{self, L1ChainSpec},
-    signature::public_key_to_address,
-    Address, Bytes, U256,
+    address, bytes, eips::eip7702, signature::public_key_to_address, Address, Bytes, U256,
 };
 use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
 use edr_rpc_eth::RpcTransactionRequest;
@@ -16,7 +13,7 @@ static EXPECTED_CODE: Bytes = bytes!("ef0100123456789012345678901234567890123456
 fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<L1ChainSpec>> {
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = l1::SpecId::PRAGUE;
+    config.hardfork = L1Hardfork::PRAGUE;
 
     super::new_provider(config, vec![sender_secret_key])
 }

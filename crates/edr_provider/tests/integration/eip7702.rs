@@ -10,13 +10,12 @@ mod zeroed_chain_id;
 
 use std::sync::Arc;
 
+use edr_chain_l1::{
+    rpc::transaction::L1RpcTransactionWithSignature, transaction, L1ChainSpec, L1Hardfork,
+};
 use edr_eth::{
-    address,
-    eips::eip7702,
-    l1::{self, L1ChainSpec},
-    signature::public_key_to_address,
-    transaction::{self, ExecutableTransaction as _},
-    Address, Bytes, B256, U256,
+    address, eips::eip7702, signature::public_key_to_address,
+    transaction::ExecutableTransaction as _, Address, Bytes, B256, U256,
 };
 use edr_provider::{
     test_utils::{
@@ -48,7 +47,7 @@ fn assert_code_at(provider: &Provider<L1ChainSpec>, address: Address, expected: 
 }
 
 fn new_provider(
-    mut config: ProviderConfig<l1::SpecId>,
+    mut config: ProviderConfig<L1Hardfork>,
     owned_accounts: Vec<SecretKey>,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
     set_genesis_state_with_owned_accounts(&mut config, owned_accounts, one_ether());
@@ -91,7 +90,7 @@ async fn trace_transaction() -> anyhow::Result<()> {
 
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = l1::SpecId::PRAGUE;
+    config.hardfork = L1Hardfork::PRAGUE;
 
     let provider = new_provider(config, vec![secret_key])?;
 
@@ -135,7 +134,7 @@ async fn get_transaction() -> anyhow::Result<()> {
 
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = l1::SpecId::PRAGUE;
+    config.hardfork = L1Hardfork::PRAGUE;
 
     let provider = new_provider(config, vec![secret_key])?;
 
@@ -151,8 +150,7 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: edr_rpc_eth::TransactionWithSignature =
-        serde_json::from_value(response.result)?;
+    let transaction: L1RpcTransactionWithSignature = serde_json::from_value(response.result)?;
     let transaction = transaction::Signed::try_from(transaction)?;
 
     if let transaction::Signed::Eip7702(transaction) = transaction {
