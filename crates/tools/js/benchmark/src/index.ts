@@ -17,7 +17,11 @@ import readline from "readline";
 import zlib from "zlib";
 import { dirName } from "@nomicfoundation/edr-helpers";
 
-import { runForgeStdTests, runSolidityTests } from "./solidity-tests.js";
+import {
+  runForgeStdTests,
+  runSolidityTests,
+  runForgeTests,
+} from "./solidity-tests.js";
 
 const {
   createHardhatNetworkProvider,
@@ -28,11 +32,19 @@ const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
 const NEPTUNE_MAX_MIN_FAILURES = 1.05;
 
 interface ParsedArguments {
-  command: "benchmark" | "verify" | "report" | "solidity-tests";
+  command:
+    | "benchmark"
+    | "verify"
+    | "report"
+    | "solidity-tests"
+    | "compare-forge";
   grep?: string;
   repo?: string;
+  count?: number;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   benchmark_output: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  csv_output?: string;
 }
 
 interface BenchmarkScenarioResult {
@@ -66,8 +78,14 @@ async function main() {
     description: "Scenario benchmark runner",
   });
   parser.add_argument("command", {
-    choices: ["benchmark", "verify", "report", "solidity-tests"],
-    help: "Whether to run a benchmark, verify that there are no regressions or create a report for `github-action-benchmark`",
+    choices: [
+      "benchmark",
+      "verify",
+      "report",
+      "solidity-tests",
+      "compare-forge",
+    ],
+    help: "Whether to run a benchmark, verify that there are no regressions, create a report for `github-action-benchmark`, run solidity tests, or compare EDR vs Forge tests",
   });
   parser.add_argument("-g", "--grep", {
     type: "str",
@@ -81,6 +99,15 @@ async function main() {
   parser.add_argument("-r", "--repo", {
     type: "str",
     help: "Path to a repo to execute for Solidity tests. Defaults to `forge-std` that is checked out automatically.",
+  });
+  parser.add_argument("-c", "--count", {
+    type: "int",
+    default: 3,
+    help: "Number of times to run each test suite for compare-forge command (default: 3)",
+  });
+  parser.add_argument("--csv-output", {
+    type: "str",
+    help: "Path to save CSV output for compare-forge command",
   });
   const args: ParsedArguments = parser.parse_args();
 
@@ -122,10 +149,29 @@ async function main() {
     );
 
     if (args.repo !== undefined) {
-      await runSolidityTests(context, L1_CHAIN_TYPE, args.repo, args.grep);
+      const csvResults = await runSolidityTests(
+        context,
+        L1_CHAIN_TYPE,
+        args.repo,
+        args.grep
+      );
+      printCsvResults(csvResults);
     } else {
       await runForgeStdTests(context, L1_CHAIN_TYPE, benchmarkOutputPath);
     }
+  } else if (args.command === "compare-forge") {
+    if (!args.repo) {
+      console.error("Error: --repo is required for compare-forge command");
+      process.exit(1);
+    }
+    if (!args.csv_output) {
+      console.error(
+        "Error: --csv-output is required for compare-forge command"
+      );
+      process.exit(1);
+    }
+
+    await runCompareTests(args.repo, args.count!, args.csv_output);
   } else {
     const _exhaustiveCheck: never = args.command;
   }
@@ -502,6 +548,104 @@ function getScenarioFileNames(): string[] {
   const scenarioFiles = fs.readdirSync(scenariosDir);
   scenarioFiles.sort();
   return scenarioFiles.filter((fileName) => fileName.endsWith(".jsonl.gz"));
+}
+
+async function runSolidityTestsInSubprocess(
+  repoPath: string
+): Promise<string[][]> {
+  const args = [
+    "--noconcurrent_sweeping",
+    "--noconcurrent_recompilation",
+    "--max-old-space-size=28000",
+    "--import",
+    "tsx",
+    "src/index.ts",
+    "solidity-tests",
+    "--repo",
+    repoPath,
+  ];
+
+  const processResult = child_process.spawnSync(process.argv[0], args, {
+    shell: true,
+    timeout: 60 * 60 * 1000, // 1 hour timeout
+    stdio: [process.stdin, "pipe", process.stderr],
+    encoding: "utf-8",
+  });
+
+  if (processResult.error) {
+    throw new Error(`Failed to run EDR tests: ${processResult.error.message}`);
+  }
+
+  if (processResult.status !== 0) {
+    throw new Error(`EDR tests failed with exit code ${processResult.status}`);
+  }
+
+  // Parse CSV output from stdout
+  const csvLines = processResult.stdout.trim().split("\n");
+  return csvLines.map((line) => line.split(","));
+}
+
+async function runCompareTests(
+  repoPath: string,
+  count: number,
+  csvOutputPath: string
+) {
+  const allCsvResults: string[][] = [];
+  let headerAdded = false;
+
+  console.error(
+    `Running EDR and Forge tests ${count} times each (alternating)...`
+  );
+
+  // Alternate between EDR and Forge for each run
+  for (let i = 0; i < count; i++) {
+    // Run EDR test in subprocess
+    console.error(`EDR run ${i + 1}/${count}`);
+    const edrResults = await runSolidityTestsInSubprocess(repoPath);
+
+    // Add run number to each row
+    const edrResultsWithRun = edrResults.map((row, index) => {
+      if (index === 0) {
+        // Header row - add run_number column
+        return [...row, "run_number"];
+      } else {
+        // Data rows - add run number
+        return [...row, (i + 1).toString()];
+      }
+    });
+
+    if (!headerAdded) {
+      // First run - include header
+      allCsvResults.push(...edrResultsWithRun);
+      headerAdded = true;
+    } else {
+      // Subsequent runs - skip header
+      allCsvResults.push(...edrResultsWithRun.slice(1));
+    }
+
+    // Run Forge test
+    console.error(`Forge run ${i + 1}/${count}`);
+    const forgeResults = await runForgeTests(repoPath);
+
+    // Add run number to each row (skip header)
+    const forgeResultsWithRun = forgeResults.slice(1).map((row) => {
+      return [...row, (i + 1).toString()];
+    });
+
+    allCsvResults.push(...forgeResultsWithRun);
+  }
+
+  // Save merged results to CSV file
+  const csvContent = allCsvResults.map((row) => row.join(",")).join("\n");
+  fs.writeFileSync(csvOutputPath, csvContent);
+
+  console.error(`CSV results saved to ${csvOutputPath}`);
+}
+
+function printCsvResults(csvResults: string[][]) {
+  for (const row of csvResults) {
+    console.log(row.join(","));
+  }
 }
 
 async function flushStdout() {

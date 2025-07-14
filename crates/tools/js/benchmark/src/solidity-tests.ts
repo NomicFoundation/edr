@@ -18,6 +18,10 @@ forge test --fuzz-seed 0x1234567890123456789012345678901234567890 --match-contra
 import fs from "fs";
 import path from "path";
 import { simpleGit } from "simple-git";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 import {
   buildSolidityTestsInput,
   dirName,
@@ -33,6 +37,9 @@ import {
   type CachedEndpoints,
   SuiteResult,
   EdrContext,
+  StandardTestKind,
+  FuzzTestKind,
+  InvariantTestKind,
 } from "@nomicfoundation/edr";
 import { hexStringToBytes } from "@nomicfoundation/hardhat-utils/hex";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
@@ -67,7 +74,7 @@ export async function runSolidityTests(
   chainType: string,
   repoPath: string,
   grep?: string
-) {
+): Promise<string[][]> {
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath);
 
@@ -94,18 +101,10 @@ export async function runSolidityTests(
     throw new Error(`Didn't run any tests for ${repoPath}`);
   }
 
-  results.sort((a, b) => Number(a.durationMs - b.durationMs));
-  for (const result of results) {
-    console.log(result.id.name, result.durationMs, result.id.source);
-    for (const test of result.testResults) {
-      // @ts-ignore
-      console.log("  ", test.name, test.durationMs, test.kind.runs);
-    }
-  }
-
-  console.log(`Ran ${results.length} tests for ${repoPath} in ${elapsed}ms`);
-
   assertNoFailures(results);
+
+  // Generate CSV results
+  return generateCsvResults(results, repoPath, elapsed);
 }
 
 /// Run Solidity test benchmarks in the `forge-std` at v3 repo
@@ -194,6 +193,244 @@ function getMeasurements(runs: Map<string, number[]>) {
   }
 
   return results;
+}
+
+function generateCsvResults(
+  results: SuiteResult[],
+  repoPath: string,
+  totalElapsed: number
+): string[][] {
+  const repoName = path.basename(repoPath);
+  const csvRows: string[][] = [];
+
+  // CSV Header
+  csvRows.push([
+    "repo",
+    "test_suite_name",
+    "test_name",
+    "test_type",
+    "outcome",
+    "duration_ms",
+    "runs",
+    "executor",
+  ]);
+
+  // Individual test results
+  for (const suiteResult of results) {
+    const testSuiteName = suiteResult.id.name;
+
+    for (const testResult of suiteResult.testResults) {
+      const testType = getTestType(testResult.kind);
+      const outcome = testResult.status.toLowerCase();
+      const runs = getTestRuns(testResult.kind);
+      csvRows.push([
+        repoName,
+        testSuiteName,
+        testResult.name,
+        testType,
+        outcome,
+        testResult.durationMs.toString(),
+        runs,
+        "edr",
+      ]);
+    }
+  }
+
+  // Test suite totals
+  for (const suiteResult of results) {
+    const testSuiteName = suiteResult.id.name;
+    csvRows.push([
+      repoName,
+      testSuiteName,
+      "",
+      "suite_total",
+      "",
+      suiteResult.durationMs.toString(),
+      "",
+      "edr",
+    ]);
+  }
+
+  // Overall total
+  csvRows.push([
+    repoName,
+    "",
+    "",
+    "total",
+    "",
+    Math.round(totalElapsed).toString(),
+    "",
+    "edr",
+  ]);
+
+  return csvRows;
+}
+
+/// Run forge test --json and generate CSV results
+export async function runForgeTests(repoPath: string): Promise<string[][]> {
+  // Build the project first (not timed)
+  await execAsync("forge build", {
+    cwd: repoPath,
+  });
+
+  const start = performance.now();
+
+  // Execute forge test --json
+  const { stdout } = await execAsync("forge test --json", {
+    cwd: repoPath,
+    maxBuffer: 1024 * 1024 * 10, // 10MB buffer for large outputs
+  });
+
+  // Total time is not exactly the same as for EDR, as it contains process initialization, reading config from disk, checking the build cache, and then piping the results.
+  const elapsed = performance.now() - start;
+
+  // Parse JSON output
+  const testResults = JSON.parse(stdout);
+
+  // Generate CSV results
+  return generateForgeTestCsvResults(testResults, repoPath, elapsed);
+}
+
+function generateForgeTestCsvResults(
+  testResults: any,
+  repoPath: string,
+  totalElapsed: number
+): string[][] {
+  const repoName = path.basename(repoPath);
+  const csvRows: string[][] = [];
+
+  // CSV Header
+  csvRows.push([
+    "repo",
+    "test_suite_name",
+    "test_name",
+    "test_type",
+    "outcome",
+    "duration_ms",
+    "runs",
+    "executor",
+  ]);
+
+  // Individual test results
+  for (const [suitePath, suiteData] of Object.entries(testResults)) {
+    const testSuiteName = extractTestSuiteName(suitePath);
+    const suiteResults = (suiteData as any).test_results;
+
+    for (const [testName, testData] of Object.entries(suiteResults)) {
+      const testType = getForgeTestType((testData as any).kind);
+      const outcome = (testData as any).status.toLowerCase();
+      const runs = getForgeTestRuns((testData as any).kind);
+      const duration = parseForgeTestDuration((testData as any).duration);
+
+      csvRows.push([
+        repoName,
+        testSuiteName,
+        testName,
+        testType,
+        outcome,
+        duration.toString(),
+        runs,
+        "forge",
+      ]);
+    }
+  }
+
+  // Test suite totals
+  for (const [suitePath, suiteData] of Object.entries(testResults)) {
+    const testSuiteName = extractTestSuiteName(suitePath);
+    const suiteDuration = parseForgeTestDuration((suiteData as any).duration);
+
+    csvRows.push([
+      repoName,
+      testSuiteName,
+      "",
+      "suite_total",
+      "",
+      suiteDuration.toString(),
+      "",
+      "forge",
+    ]);
+  }
+
+  // Overall total
+  csvRows.push([
+    repoName,
+    "",
+    "",
+    "total",
+    "",
+    Math.round(totalElapsed).toString(),
+    "",
+    "forge",
+  ]);
+
+  return csvRows;
+}
+
+function extractTestSuiteName(suitePath: string): string {
+  // Extract test suite name from path like "test/fuzz/casting/CastingUint128.t.sol:CastingUint128_Test"
+  const parts = suitePath.split(":");
+  return parts[parts.length - 1];
+}
+
+function getForgeTestType(kind: any): string {
+  if (kind.Fuzz) {
+    return "fuzz";
+  } else if (kind.Invariant) {
+    return "invariant";
+  } else if (kind.Standard) {
+    return "unit";
+  }
+  return "unknown";
+}
+
+function getForgeTestRuns(kind: any): string {
+  if (kind.Fuzz) {
+    return kind.Fuzz.runs?.toString() || "";
+  } else if (kind.Invariant) {
+    return kind.Invariant.runs?.toString() || "";
+  }
+  return "";
+}
+
+function parseForgeTestDuration(duration: string): number {
+  // Parse duration like "5ms 287µs 747ns" into milliseconds
+  const parts = duration.split(" ");
+  let totalMs = 0;
+
+  for (const part of parts) {
+    if (part.endsWith("ms")) {
+      totalMs += parseFloat(part.slice(0, -2));
+    } else if (part.endsWith("µs")) {
+      totalMs += parseFloat(part.slice(0, -2)) / 1000;
+    } else if (part.endsWith("ns")) {
+      totalMs += parseFloat(part.slice(0, -2)) / 1000000;
+    }
+  }
+
+  return Math.round(totalMs);
+}
+
+function getTestType(
+  kind: StandardTestKind | FuzzTestKind | InvariantTestKind
+): string {
+  if ("consumedGas" in kind) {
+    return "unit";
+  } else if ("runs" in kind && "meanGas" in kind) {
+    return "fuzz";
+  } else if ("runs" in kind && "calls" in kind) {
+    return "invariant";
+  }
+  return "unknown";
+}
+
+function getTestRuns(
+  kind: StandardTestKind | FuzzTestKind | InvariantTestKind
+): string {
+  if ("runs" in kind) {
+    return kind.runs.toString();
+  }
+  return "";
 }
 
 function medianMs(values: number[]) {
