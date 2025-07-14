@@ -24,6 +24,15 @@ impl<ChainSpecT: RpcSpec> CachedRemoteState<ChainSpecT> {
             code_cache: HashMap::new(),
         }
     }
+
+    /// Retrieves the current cache entries.
+    ///
+    /// This method is for testing purposes only and should not be used in
+    /// production code.
+    #[cfg(feature = "test-utils")]
+    pub fn cache(&self) -> &HashMap<u64, HashMap<Address, EdrAccount>> {
+        &self.account_cache
+    }
 }
 
 impl<ChainSpecT: RpcSpec> StateMut for CachedRemoteState<ChainSpecT> {
@@ -124,55 +133,4 @@ fn fetch_remote_account<ChainSpecT: RpcSpec>(
     });
 
     Ok(account)
-}
-
-#[cfg(all(test, feature = "test-remote"))]
-mod tests {
-    use std::{str::FromStr, sync::Arc};
-
-    use edr_rpc_eth::client::EthRpcClient;
-    use edr_test_utils::env::get_alchemy_url;
-    use tokio::runtime;
-
-    use super::*;
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn no_cache_for_unsafe_block_number() {
-        let tempdir = tempfile::tempdir().expect("can create tempdir");
-
-        let rpc_client = EthRpcClient::<L1ChainSpec>::new(
-            &get_alchemy_url(),
-            tempdir.path().to_path_buf(),
-            None,
-        )
-        .expect("url ok");
-
-        let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
-            .expect("failed to parse address");
-
-        // Latest block number is always unsafe
-        let block_number = rpc_client.block_number().await.unwrap();
-
-        let runtime = runtime::Handle::current();
-
-        let remote = RemoteState::new(runtime, Arc::new(rpc_client), block_number);
-        let mut cached = CachedRemoteState::new(remote);
-
-        let account_info = cached
-            .basic_mut(dai_address)
-            .expect("should succeed")
-            .unwrap();
-
-        cached
-            .storage_mut(dai_address, U256::from(0))
-            .expect("should succeed");
-
-        for entry in cached.account_cache.values() {
-            assert!(entry.is_empty());
-        }
-
-        cached
-            .code_by_hash_mut(account_info.code_hash)
-            .expect("should succeed");
-    }
 }

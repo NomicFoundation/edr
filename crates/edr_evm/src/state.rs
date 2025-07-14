@@ -28,7 +28,7 @@ pub use self::{
     irregular::IrregularState,
     overrides::*,
     r#override::StateOverride,
-    remote::RemoteState,
+    remote::{CachedRemoteState, RemoteState},
     trie::{AccountTrie, TrieState},
 };
 use crate::blockchain::BlockHash;

@@ -287,39 +287,22 @@ where
             Ok(block)
         }
     }
-}
 
-#[cfg(all(test, feature = "test-remote"))]
-mod tests {
-    use edr_test_utils::env::get_alchemy_url;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn no_cache_for_unsafe_block_number() {
-        let tempdir = tempfile::tempdir().expect("can create tempdir");
-
-        let rpc_client = EthRpcClient::<MockChainSpec>::new(
-            &get_alchemy_url(),
-            tempdir.path().to_path_buf(),
-            None,
-        )
-        .expect("url ok");
-
-        // Latest block number is always unsafe to cache
-        let block_number = rpc_client.block_number().await.unwrap();
-
-        let remote = RemoteBlockchain::<RemoteBlock<MockChainSpec>, MockChainSpec, false>::new(
-            Arc::new(rpc_client),
-            runtime::Handle::current(),
-        );
-
-        let _ = remote.block_by_number(block_number).await.unwrap();
-        assert!(remote
-            .cache
-            .read()
-            .await
-            .block_by_number(block_number)
-            .is_none());
+    /// Retrieves the current cache entries.
+    ///
+    /// This method is for testing purposes only and should not be used in
+    /// production code.
+    #[cfg(feature = "test-utils")]
+    pub async fn cache(
+        &self,
+    ) -> async_rwlock::RwLockReadGuard<
+        '_,
+        SparseBlockchainStorage<
+            Arc<ChainSpecT::BlockReceipt>,
+            BlockT,
+            ChainSpecT::SignedTransaction,
+        >,
+    > {
+        self.cache.read().await
     }
 }

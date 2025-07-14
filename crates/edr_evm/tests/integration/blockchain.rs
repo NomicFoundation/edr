@@ -1,12 +1,15 @@
 #![cfg(feature = "test-utils")]
 
 mod local;
+mod remote;
 
 use std::{collections::BTreeMap, sync::Arc};
 
 use edr_chain_l1::{
-    eip2718::TypedEnvelope, receipt::L1ReceiptBuilder, test_utils::dummy_eip155_transaction,
-    transaction, L1ChainSpec, L1Hardfork,
+    eip2718::TypedEnvelope,
+    receipt::L1ReceiptBuilder,
+    transaction::{self, signed::L1SignedTransaction},
+    L1ChainSpec, L1Hardfork,
 };
 use edr_eth::{
     block::{HeaderOverrides, PartialHeader},
@@ -24,6 +27,7 @@ use edr_evm::{
     receipt::{self, ExecutionReceiptBuilder as _},
     spec::{ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
     state::{StateDiff, StateError},
+    test_utils::dummy_eip155_transaction,
     EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
     RemoteBlockConversionError,
 };
@@ -210,7 +214,7 @@ fn insert_dummy_block_with_transaction(
     const GAS_USED: u64 = 100;
 
     let caller = Address::random();
-    let transaction = dummy_eip155_transaction(caller, 0)?;
+    let transaction = L1SignedTransaction::from(dummy_eip155_transaction(caller, 0)?);
     let transaction_hash = *transaction.transaction_hash();
 
     let mut header = PartialHeader::new::<L1ChainSpec>(

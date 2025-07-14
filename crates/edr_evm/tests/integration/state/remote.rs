@@ -1,3 +1,5 @@
+mod cached;
+
 use std::{str::FromStr, sync::Arc};
 
 use edr_chain_l1::L1ChainSpec;

@@ -8,9 +8,9 @@ mod alchemy {
                 paste::item! {
                     #[tokio::test]
                     async fn [<transaction_remote_ $name _hash>]() {
+                        use edr_chain_l1::{transaction, L1ChainSpec};
                         use edr_eth::{
-                            l1::L1ChainSpec,
-                            transaction::{self, ExecutableTransaction as _},
+                            transaction::ExecutableTransaction as _,
                             PreEip1898BlockSpec,
                             B256
                         };
