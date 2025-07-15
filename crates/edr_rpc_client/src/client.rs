@@ -13,17 +13,18 @@ use edr_eth::{
 };
 use futures::{future, Future, TryFutureExt};
 pub use hyper::{header, HeaderMap};
-use hyper::{header::HeaderValue, rt::Executor};
+use hyper::{
+    header::HeaderValue,
+    rt::{Executor, Timer},
+};
+use hyper_util::rt::TokioTimer;
 use reqwest::Client as HttpClient;
 use reqwest_middleware::{ClientBuilder as HttpClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 #[cfg(feature = "tracing")]
 use reqwest_tracing::TracingMiddleware;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::{
-    runtime,
-    sync::{OnceCell, RwLock},
-};
+use tokio::{runtime, sync::{OnceCell, RwLock}};
 use uuid::Uuid;
 
 use crate::{
@@ -165,6 +166,7 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
         url: &str,
         cache_dir: PathBuf,
         extra_headers: Option<HeaderMap>,
+        runtime_handle: runtime::Handle,
     ) -> Result<Self, RpcClientError> {
         let retry_policy = ExponentialBackoff::builder()
             .retry_bounds(MIN_RETRY_INTERVAL, MAX_RETRY_INTERVAL)
@@ -182,9 +184,12 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
                 .expect("Version string is valid header value"),
         );
 
+        let runtime_handle = TokioHandle::new(runtime_handle);
+
         let client = HttpClient::builder()
             .default_headers(headers)
-            .executor(TokioHandle(runtime::Handle::current()))
+            .executor(runtime_handle.clone())
+            .timer(runtime_handle)
             .build()
             .expect("Default construction nor setting default headers can cause an error");
 
@@ -1032,7 +1037,19 @@ mod tests {
 }
 
 #[derive(Debug, Clone)]
-struct TokioHandle(runtime::Handle);
+struct TokioHandle {
+    runtime: runtime::Handle,
+    timer: TokioTimer,
+}
+
+impl TokioHandle {
+    fn new(runtime: runtime::Handle) -> Self {
+        Self {
+            runtime,
+            timer: TokioTimer::new(),
+        }
+    }
+}
 
 impl<F> Executor<F> for TokioHandle
 where
@@ -1040,6 +1057,25 @@ where
     F::Output: Send + 'static,
 {
     fn execute(&self, fut: F) {
-        self.0.spawn(fut);
+        self.runtime.spawn(fut);
+    }
+}
+
+impl Timer for TokioHandle {
+    fn sleep(&self, duration: Duration) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
+        let guard = self.runtime.enter();
+        let sleep = self.timer.sleep(duration);
+        drop(guard);
+        sleep
+    }
+
+    fn sleep_until(
+        &self,
+        deadline: std::time::Instant,
+    ) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
+        let guard = self.runtime.enter();
+        let sleep = self.timer.sleep_until(deadline);
+        drop(guard);
+        sleep
     }
 }

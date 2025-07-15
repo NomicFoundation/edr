@@ -179,7 +179,7 @@ pub async fn run_full_block<
 ) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Handle::current();
 
-    let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
+    let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None, runtime.clone())?;
     let chain_id = rpc_client.chain_id().await?;
 
     let rpc_client = Arc::new(rpc_client);
