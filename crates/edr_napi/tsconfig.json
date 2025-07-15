@@ -10,15 +10,17 @@
     "noEmitOnError": true,
     "skipDefaultLibCheck": true,
     "skipLibCheck": true,
-    "outDir": "./build-test",
+    "outDir": "./dist",
     "rootDirs": [
-      "./test"
+      "./test",
+      "./src/ts"
     ],
     "composite": true
   },
   "include": [
     "./*.ts",
-    "./test/**/*.ts"
+    "./test/**/*.ts",
+    "./src/ts/**/*.ts"
   ],
   "exclude": [
     "./node_modules"

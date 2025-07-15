@@ -5,7 +5,7 @@
 /docs/.vuepress/dist/
 
 # Tests compilation output
-/build-test/
+/dist/test/
 
 # Code coverage artifacts
 /coverage

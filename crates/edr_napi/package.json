@@ -27,6 +27,10 @@
   "engines": {
     "node": ">= 18"
   },
+  "exports": {
+    ".": "./index.js",
+    "./solidity-tests": "./dist/src/ts/solidity_tests.js"
+  },
   "files": [
     "index.js",
     "index.d.ts",
@@ -56,8 +60,8 @@
     "artifacts": "napi artifacts",
     "build": "pnpm run build:publish",
     "build:debug": "napi build --platform  --no-const-enum --features op",
-    "build:dev": "napi build --platform --release --no-const-enum --features op,test-mock",
-    "build:publish": "napi build --platform --profile napi-publish --no-const-enum ",
+    "build:dev": "napi build --platform --release --no-const-enum --features op,test-mock && pnpm tsc",
+    "build:publish": "napi build --platform --profile napi-publish --no-const-enum  && pnpm tsc",
     "build:scenarios": "napi build --platform --release --no-const-enum --features scenarios",
     "build:tracing": "napi build --platform --release --no-const-enum --features tracing",
     "build:typingFile": "napi build --platform --no-const-enum",
