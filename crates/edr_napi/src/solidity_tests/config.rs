@@ -1,5 +1,6 @@
-use std::{collections::HashMap, fmt::Debug, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 
+use derive_more::Debug;
 use edr_eth::hex;
 use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
@@ -17,6 +18,7 @@ use napi_derive::napi;
 use crate::{
     account::AccountOverride,
     cast::TryCast,
+    config::ObservabilityConfig,
     serde::{
         serialize_optional_bigint_as_struct, serialize_optional_uint8array_as_hex,
         serialize_uint8array_as_hex,
@@ -26,7 +28,7 @@ use crate::{
 /// Solidity test runner configuration arguments exposed through the ffi.
 /// Docs based on <https://book.getfoundry.sh/reference/config/testing>.
 #[napi(object)]
-#[derive(Clone, serde::Serialize)]
+#[derive(Debug, serde::Serialize)]
 pub struct SolidityTestRunnerConfigArgs {
     /// The absolute path to the project root directory.
     /// Relative paths in cheat codes are resolved against this path.
@@ -50,10 +52,12 @@ pub struct SolidityTestRunnerConfigArgs {
     pub ffi: Option<bool>,
     /// The value of `msg.sender` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
+    #[debug("{:?}", sender.as_ref().map(hex::encode))]
     #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
     pub sender: Option<Uint8Array>,
     /// The value of `tx.origin` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
+    #[debug("{:?}", tx_origin.as_ref().map(hex::encode))]
     #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
     pub tx_origin: Option<Uint8Array>,
     /// The initial balance of the sender in tests.
@@ -83,6 +87,7 @@ pub struct SolidityTestRunnerConfigArgs {
     /// The value of `block.coinbase` in tests.
     /// Defaults to `0x0000000000000000000000000000000000000000`.
     #[serde(serialize_with = "serialize_optional_uint8array_as_hex")]
+    #[debug("{:?}", block_coinbase.as_ref().map(hex::encode))]
     pub block_coinbase: Option<Uint8Array>,
     /// The value of `block.timestamp` in tests.
     /// Defaults to 1.
@@ -137,49 +142,22 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Controls which test results should include execution traces. Defaults to
     /// None.
     pub include_traces: Option<IncludeTraces>,
+    /// The configuration for the Solidity test runner's observability
+    #[debug(skip)]
+    #[serde(skip)]
+    pub observability: Option<ObservabilityConfig>,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
 }
 
-impl Debug for SolidityTestRunnerConfigArgs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SolidityTestRunnerConfigArgs")
-            .field("project_root", &self.project_root)
-            .field("fs_permissions", &self.fs_permissions)
-            .field("ffi", &self.ffi)
-            .field("sender", &self.sender.as_ref().map(hex::encode))
-            .field("tx_origin", &self.tx_origin.as_ref().map(hex::encode))
-            .field("initial_balance", &self.initial_balance)
-            .field("block_number", &self.block_number)
-            .field("chain_id", &self.chain_id)
-            .field("gas_limit", &self.gas_limit)
-            .field("gas_price", &self.gas_price)
-            .field("block_base_fee_per_gas", &self.block_base_fee_per_gas)
-            .field(
-                "block_coinbase",
-                &self.block_coinbase.as_ref().map(hex::encode),
-            )
-            .field("block_timestamp", &self.block_timestamp)
-            .field("block_difficulty", &self.block_difficulty)
-            .field("block_gas_limit", &self.block_gas_limit)
-            .field("memory_limit", &self.memory_limit)
-            .field("eth_rpc_url", &self.eth_rpc_url)
-            .field("rpc_cache_path", &self.rpc_cache_path)
-            .field("rpc_endpoints", &self.rpc_endpoints)
-            .field("rpc_storage_caching", &self.rpc_storage_caching)
-            .field("prompt_timeout", &self.prompt_timeout)
-            .field("fuzz", &self.fuzz)
-            .field("invariant", &self.invariant)
-            .field("test_pattern", &self.test_pattern)
-            .finish()
-    }
-}
-
-impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::TestRunnerConfig {
-    type Error = napi::Error;
-
-    fn try_from(value: SolidityTestRunnerConfigArgs) -> Result<Self, Self::Error> {
+impl SolidityTestRunnerConfigArgs {
+    /// Resolves the instance, converting it to a
+    /// [`edr_napi_core::solidity::config::TestRunnerConfig`].
+    pub fn resolve(
+        self,
+        env: &napi::Env,
+    ) -> napi::Result<edr_napi_core::solidity::config::TestRunnerConfig> {
         let SolidityTestRunnerConfigArgs {
             project_root,
             fs_permissions,
@@ -211,8 +189,9 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::
             fuzz,
             invariant,
             include_traces,
+            observability,
             test_pattern,
-        } = value;
+        } = self;
 
         let test_pattern = TestFilterConfig {
             test_pattern: test_pattern
@@ -275,7 +254,16 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::
                 .collect::<Result<_, napi::Error>>()?,
         };
 
-        let config = Self {
+        let on_collected_coverage_fn = observability.map_or_else(
+            || Ok(None),
+            |observability| {
+                observability
+                    .resolve(env)
+                    .map(|config| config.on_collected_coverage_fn)
+            },
+        )?;
+
+        let config = edr_napi_core::solidity::config::TestRunnerConfig {
             project_root: project_root.into(),
             include_traces: include_traces.unwrap_or_default().into(),
             test_fail: test_fail.unwrap_or_default(),
@@ -301,6 +289,7 @@ impl TryFrom<SolidityTestRunnerConfigArgs> for edr_napi_core::solidity::config::
             cheatcode,
             fuzz,
             invariant,
+            on_collected_coverage_fn,
             test_pattern,
         };
 
@@ -684,22 +673,14 @@ impl From<FsAccessPermission> for foundry_cheatcodes::FsAccessPermission {
 }
 
 #[napi(object)]
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct AddressLabel {
     /// The address to label
     #[serde(serialize_with = "serialize_uint8array_as_hex")]
+    #[debug("{}", hex::encode(address))]
     pub address: Uint8Array,
     /// The label to assign to the address
     pub label: String,
-}
-
-impl Debug for AddressLabel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AddressLabel")
-            .field("address", &hex::encode(&self.address))
-            .field("label", &self.label)
-            .finish()
-    }
 }
 
 /// Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that

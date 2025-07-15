@@ -6,7 +6,7 @@ use napi_derive::napi;
 use super::solidity_stack_trace::{RevertErrorStackTraceEntry, SolidityStackTrace};
 use crate::trace::return_data::ReturnData;
 
-#[napi]
+#[napi(catch_unwind)]
 fn print_stack_trace(trace: SolidityStackTrace) -> napi::Result<()> {
     let entry_values = trace
         .into_iter()

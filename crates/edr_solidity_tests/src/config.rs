@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eth::{Address, B256, U256};
 use foundry_evm::{
     backend::Predeploy,
@@ -27,7 +28,7 @@ pub enum SolidityTestRunnerConfigError {
 }
 
 /// Solidity tests configuration
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Project root directory.
     pub project_root: PathBuf,
@@ -52,6 +53,8 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub fuzz: FuzzConfig,
     /// Configuration for invariant testing
     pub invariant: InvariantConfig,
+    /// Optionally, a callback for reporting collected coverage hits.
+    pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
 }
 
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {

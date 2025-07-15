@@ -57,3 +57,25 @@ impl Foo {
     }
 }
 ```
+
+## Use `#[napi(catch_unwind)]`
+
+Annotate every function/method exposed from `edr_napi` to JS with the `catch_unwind` NAPI-RS macro attribute.
+
+### Example
+
+```rust
+#[napi(catch_unwind)]
+pub fn foo() {
+  // The panic is turned into an error thrown on the JS side
+  panic!("panic message")
+}
+```
+
+### Rationale
+
+Rust functions that panic on the Node.js main thread will not return a result and crash the Node.js process.
+
+Annotating with the `catch_unwind` macro attribute will turn the panic into a `napi::Error`, which can then be returned as a `napi::Result`.
+
+Note that this will not capture panics in background threads.

@@ -84,6 +84,7 @@ scrypt.opt-level = 3
 
 [workspace.dependencies]
 edr_common = { path = "crates/edr_common" }
+edr_coverage = { path = "crates/edr_coverage" }
 edr_defaults = { path = "crates/edr_defaults" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/edr_evm" }
@@ -175,13 +176,14 @@ alloy-trie = "0.9.0"
 anyhow = { version = "1.0.89", default-features = false }
 arrayvec = "0.7"
 dunce = "1"
+dyn-clone = { version = "1.0.13", default-features = false }
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = [
     "clock",
     "std",
 ] }
 color-eyre = "0.6"
-derive_more = "0.99"
+derive_more = { version = "2", default-features = false }
 derive-where = { version = "1.2.7", default-features = false }
 evm-disassembler = "0.5"
 eyre = "0.6"

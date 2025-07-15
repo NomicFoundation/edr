@@ -23,14 +23,14 @@ impl From<edr_napi_core::spec::Response<l1::HaltReason>> for Response {
 #[napi]
 impl Response {
     #[doc = "Returns the response data as a JSON string or a JSON object."]
-    #[napi(getter)]
+    #[napi(catch_unwind, getter)]
     pub fn data(&self) -> Either<String, serde_json::Value> {
         self.inner.data.clone()
     }
 
     // Rust port of https://github.com/NomicFoundation/hardhat/blob/c20bf195a6efdc2d74e778b7a4a7799aac224841/packages/hardhat-core/src/internal/hardhat-network/provider/provider.ts#L590
     #[doc = "Compute the error stack trace. Return the stack trace if it can be decoded, otherwise returns none. Throws if there was an error computing the stack trace."]
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn stack_trace(&self) -> napi::Result<Option<SolidityStackTrace>> {
         let Some(SolidityTraceData {
             trace,
@@ -62,7 +62,7 @@ impl Response {
     }
 
     #[doc = "Returns the raw traces of executed contracts. This maybe contain zero or more traces."]
-    #[napi(getter)]
+    #[napi(catch_unwind, getter)]
     pub fn traces(&self) -> Vec<RawTrace> {
         self.inner
             .traces

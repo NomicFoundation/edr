@@ -10,7 +10,7 @@ alloy-serde.workspace = true
 anyhow = { workspace = true, optional = true }
 auto_impl = { version = "1.2", default-features = false }
 derive-where.workspace = true
-dyn-clone = { version = "1.0.13", default-features = false }
+dyn-clone.workspace = true
 edr_coverage = { path = "../edr_coverage" }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }

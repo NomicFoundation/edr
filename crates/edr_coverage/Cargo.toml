@@ -5,6 +5,8 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+derive_more = { workspace = true, features = ["debug"] }
+dyn-clone.workspace = true
 edr_defaults = { path = "../edr_defaults" }
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }

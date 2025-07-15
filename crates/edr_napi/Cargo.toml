@@ -10,7 +10,9 @@ crate-type = ["cdylib"]
 alloy-dyn-abi.workspace = true
 alloy-json-abi.workspace = true
 alloy-sol-types.workspace = true
+derive_more.workspace = true
 derive-where.workspace = true
+edr_coverage.workspace = true
 edr_defaults = { path = "../edr_defaults" }
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
