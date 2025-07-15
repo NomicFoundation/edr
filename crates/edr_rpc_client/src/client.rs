@@ -24,7 +24,10 @@ use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 #[cfg(feature = "tracing")]
 use reqwest_tracing::TracingMiddleware;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::{runtime, sync::{OnceCell, RwLock}};
+use tokio::{
+    runtime,
+    sync::{OnceCell, RwLock},
+};
 use uuid::Uuid;
 
 use crate::{

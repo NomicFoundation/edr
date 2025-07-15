@@ -67,7 +67,12 @@ where
             >,
         >,
 {
-    let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None, runtime::Handle::current())?;
+    let rpc_client = EthRpcClient::<ChainSpecT>::new(
+        &url,
+        edr_defaults::CACHE_DIR.into(),
+        None,
+        runtime::Handle::current(),
+    )?;
 
     let block_number = if let Some(block_number) = block_number {
         block_number
