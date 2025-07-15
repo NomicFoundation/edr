@@ -17,6 +17,8 @@ use ::serde::{
 use derive_where::derive_where;
 use edr_rpc_eth::spec::RpcSpec;
 
+#[cfg(feature = "test-utils")]
+pub use self::eth::resolve_estimate_gas_request;
 pub use crate::requests::{
     methods::{IntervalConfig, MethodInvocation},
     serde::{InvalidRequestReason, Timestamp},

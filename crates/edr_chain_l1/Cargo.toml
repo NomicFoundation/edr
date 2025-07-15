@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 ambassador.workspace = true
+anyhow = { workspace = true, optional = true }
 alloy-rlp.workspace = true
 alloy-serde.workspace = true
 c-kzg.workspace = true
@@ -28,6 +29,9 @@ edr_provider = { workspace = true, features = ["test-utils"] }
 edr_rpc_eth = { workspace = true, features = ["test-utils"] }
 edr_test_utils.workspace = true
 serde_json.workspace = true
+
+[features]
+test-utils = ["dep:anyhow", "edr_provider/test-utils"]
 
 [lints]
 workspace = true

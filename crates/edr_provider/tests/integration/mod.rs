@@ -1,4 +1,5 @@
 mod coverage;
+mod data;
 mod disable_balance_check;
 mod eip2537;
 mod eip4844;

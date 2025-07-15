@@ -1,96 +1,151 @@
-use edr_eth::{transaction::TxKind, Address, Bytes, U256};
-use edr_evm::transaction::CreationError as TransactionCreationError;
+use anyhow::Context as _;
+use edr_eth::{
+    hex,
+    transaction::{request::TransactionRequestAndSender, TxKind},
+    Bytes, U256,
+};
+use edr_provider::{time::TimeSinceEpoch, ProviderData};
 
-use crate::{transaction, Hardfork};
+use crate::{transaction, L1ChainSpec};
 
-/// Creates a dummy EIP-155 transaction.
-pub fn dummy_eip155_transaction(
-    caller: Address,
-    nonce: u64,
-) -> Result<transaction::Signed, TransactionCreationError> {
-    dummy_eip155_transaction_with_price(caller, nonce, 0)
+pub struct ConsoleLogTransaction {
+    pub transaction: TransactionRequestAndSender<transaction::Request>,
+    pub expected_call_data: Bytes,
 }
 
-/// Creates a dummy EIP-155 transaction with the provided gas price.
-pub fn dummy_eip155_transaction_with_price(
-    caller: Address,
-    nonce: u64,
-    gas_price: u128,
-) -> Result<transaction::Signed, TransactionCreationError> {
-    dummy_eip155_transaction_with_price_and_limit(caller, nonce, gas_price, 30_000)
-}
+pub fn deploy_console_log_contract<TimerT: Clone + TimeSinceEpoch>(
+    provider_data: &mut ProviderData<L1ChainSpec, TimerT>,
+) -> anyhow::Result<ConsoleLogTransaction> {
+    // Compiled with solc 0.8.17, without optimizations
+    /*
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.0;
 
-/// Creates a dummy EIP-155 transaction with the provided gas limit.
-pub fn dummy_eip155_transaction_with_limit(
-    caller: Address,
-    nonce: u64,
-    gas_limit: u64,
-) -> Result<transaction::Signed, TransactionCreationError> {
-    dummy_eip155_transaction_with_price_and_limit(caller, nonce, 0, gas_limit)
-}
+    import "hardhat/console.sol";
 
-fn dummy_eip155_transaction_with_price_and_limit(
-    caller: Address,
-    nonce: u64,
-    gas_price: u128,
-    gas_limit: u64,
-) -> Result<transaction::Signed, TransactionCreationError> {
-    dummy_eip155_transaction_with_price_limit_and_value(
-        caller,
-        nonce,
-        gas_price,
-        gas_limit,
-        U256::ZERO,
-    )
-}
+    contract Foo {
+      function f() public pure {
+        console.log("hello");
+      }
+    }
+    */
+    let byte_code = hex::decode(
+            "608060405234801561001057600080fd5b5061027a806100206000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c806326121ff014610030575b600080fd5b61003861003a565b005b6100786040518060400160405280600581526020017f68656c6c6f00000000000000000000000000000000000000000000000000000081525061007a565b565b6101108160405160240161008e91906101f3565b6040516020818303038152906040527f41304fac000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19166020820180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff8381831617835250505050610113565b50565b61012a8161012261012d61014e565b63ffffffff16565b50565b60006a636f6e736f6c652e6c6f679050600080835160208501845afa505050565b610159819050919050565b610161610215565b565b600081519050919050565b600082825260208201905092915050565b60005b8381101561019d578082015181840152602081019050610182565b60008484015250505050565b6000601f19601f8301169050919050565b60006101c582610163565b6101cf818561016e565b93506101df81856020860161017f565b6101e8816101a9565b840191505092915050565b6000602082019050818103600083015261020d81846101ba565b905092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052605160045260246000fdfea26469706673582212201e965281cb15cf946ada70867e2acb07debad82404e574500944a7b3e0b799ac64736f6c63430008110033",
+        )?;
 
-/// Creates a dummy EIP-155 transaction with the provided gas price, gas limit,
-/// and value.
-pub fn dummy_eip155_transaction_with_price_limit_and_value(
-    caller: Address,
-    nonce: u64,
-    gas_price: u128,
-    gas_limit: u64,
-    value: U256,
-) -> Result<transaction::Signed, TransactionCreationError> {
-    let from = Address::random();
-    let request = transaction::request::Eip155 {
-        nonce,
-        gas_price,
-        gas_limit,
-        kind: TxKind::Call(from),
-        value,
-        input: Bytes::new(),
-        chain_id: 123,
-    };
-    let transaction = request.fake_sign(caller);
-    let transaction = transaction::Signed::from(transaction);
-
-    edr_evm::transaction::validate(transaction, Hardfork::default())
-}
-
-/// Creates a dummy EIP-1559 transaction with the provided max fee and max
-/// priority fee per gas.
-pub fn dummy_eip1559_transaction(
-    caller: Address,
-    nonce: u64,
-    max_fee_per_gas: u128,
-    max_priority_fee_per_gas: u128,
-) -> Result<transaction::Signed, TransactionCreationError> {
-    let from = Address::random();
-    let request = transaction::request::Eip1559 {
-        chain_id: 123,
-        nonce,
-        max_priority_fee_per_gas,
-        max_fee_per_gas,
-        gas_limit: 30_000,
-        kind: TxKind::Call(from),
+    let deploy_tx = transaction::Request::Eip1559(transaction::request::Eip1559 {
+        kind: TxKind::Create,
+        gas_limit: 10_000_000,
         value: U256::ZERO,
-        input: Bytes::new(),
-        access_list: Vec::new(),
-    };
-    let transaction = request.fake_sign(caller);
-    let transaction = transaction::Signed::from(transaction);
+        input: byte_code.into(),
+        nonce: 0,
+        max_priority_fee_per_gas: 42_000_000_000_u128,
+        chain_id: provider_data.chain_id(),
+        max_fee_per_gas: 42_000_000_000_u128,
+        access_list: vec![],
+    });
 
-    edr_evm::transaction::validate(transaction, Hardfork::default())
+    let sender = *provider_data
+        .accounts()
+        .next()
+        .context("should have accounts")?;
+
+    let signed_transaction =
+        provider_data.sign_transaction_request(TransactionRequestAndSender {
+            request: deploy_tx,
+            sender,
+        })?;
+
+    let deploy_tx_hash = provider_data
+        .send_transaction(signed_transaction)?
+        .transaction_hash;
+
+    let deploy_receipt = provider_data
+        .transaction_receipt(&deploy_tx_hash)?
+        .context("deploy receipt should exist")?;
+    let contract_address = deploy_receipt
+        .contract_address
+        .context("contract address should exist")?;
+
+    // Call f()
+    let call_data = hex::decode("26121ff0")?;
+
+    // Expected call data for `console.log("hello")`
+    let expected_call_data = hex::decode("41304fac0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000568656c6c6f000000000000000000000000000000000000000000000000000000")?.into();
+
+    let transaction_request = transaction::Request::Eip1559(transaction::request::Eip1559 {
+        kind: TxKind::Call(contract_address),
+        gas_limit: 10_000_000,
+        value: U256::ZERO,
+        input: call_data.into(),
+        nonce: 1,
+        max_priority_fee_per_gas: 42_000_000_000_u128,
+        chain_id: provider_data.chain_id(),
+        max_fee_per_gas: 42_000_000_000_u128,
+        access_list: vec![],
+    });
+
+    Ok(ConsoleLogTransaction {
+        transaction: TransactionRequestAndSender {
+            request: transaction_request,
+            sender,
+        },
+        expected_call_data,
+    })
+}
+
+/// Utilities for testing L1 Ethereum providers.
+pub mod provider {
+    use edr_eth::{
+        transaction::{request::TransactionRequestAndSender, TxKind},
+        Address, Bytes, U256,
+    };
+    use edr_provider::test_utils::ProviderTestFixture;
+
+    use crate::{transaction, L1ChainSpec};
+
+    /// Creates a dummy transaction request for testing.
+    pub fn dummy_transaction_request(
+        provider: &ProviderTestFixture<L1ChainSpec>,
+        local_account_index: usize,
+        gas_limit: u64,
+        nonce: Option<u64>,
+    ) -> anyhow::Result<TransactionRequestAndSender<transaction::Request>> {
+        let request = transaction::Request::Eip155(transaction::request::Eip155 {
+            kind: TxKind::Call(Address::ZERO),
+            gas_limit,
+            gas_price: 42_000_000_000_u128,
+            value: U256::from(1),
+            input: Bytes::default(),
+            nonce: nonce.unwrap_or(0),
+            chain_id: provider.provider_data.chain_id(),
+        });
+
+        let sender = provider.nth_local_account(local_account_index)?;
+        Ok(TransactionRequestAndSender { request, sender })
+    }
+
+    /// Creates a dummy transaction signed by the impersonated account.
+    pub fn impersonated_dummy_transaction(
+        provider: &ProviderTestFixture<L1ChainSpec>,
+    ) -> anyhow::Result<transaction::Signed> {
+        let mut transaction = dummy_transaction_request(provider, 0, 30_000, None)?;
+        transaction.sender = provider.impersonated_account;
+
+        Ok(provider
+            .provider_data
+            .sign_transaction_request(transaction)?)
+    }
+
+    /// Creates a dummy signed transaction for testing.
+    pub fn signed_dummy_transaction(
+        provider: &ProviderTestFixture<L1ChainSpec>,
+        local_account_index: usize,
+        nonce: Option<u64>,
+    ) -> anyhow::Result<transaction::Signed> {
+        let transaction = dummy_transaction_request(provider, local_account_index, 30_000, nonce)?;
+        Ok(provider
+            .provider_data
+            .sign_transaction_request(transaction)?)
+    }
 }

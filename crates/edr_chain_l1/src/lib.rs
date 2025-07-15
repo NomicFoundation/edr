@@ -14,6 +14,9 @@ pub mod receipt;
 /// Ethereum L1 JSON-RPC types.
 pub mod rpc;
 mod spec;
+/// Utilities for testing
+#[cfg(any(test, feature = "test-utils"))]
+pub mod test_utils;
 /// L1 transaction types
 pub mod transaction;
 

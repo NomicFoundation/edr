@@ -1,3 +1,6 @@
+mod gas;
+mod transactions;
+
 use anyhow::Context;
 use edr_chain_l1::L1ChainSpec;
 use edr_provider::ProviderRequest;
