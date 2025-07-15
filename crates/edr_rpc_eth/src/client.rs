@@ -12,6 +12,7 @@ use edr_eth::{
 use edr_rpc_client::RpcClient;
 pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
 use futures::StreamExt;
+use tokio::runtime;
 
 use crate::{
     fork::ForkMetadata,
@@ -38,8 +39,9 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
         url: &str,
         cache_dir: PathBuf,
         extra_headers: Option<HeaderMap>,
+        runtime_handle: runtime::Handle,
     ) -> Result<Self, RpcClientError> {
-        let inner = RpcClient::new(url, cache_dir, extra_headers)?;
+        let inner = RpcClient::new(url, cache_dir, extra_headers, runtime_handle)?;
         Ok(Self {
             inner,
             _phantom: std::marker::PhantomData,

@@ -2598,6 +2598,7 @@ fn create_blockchain_and_state<ChainSpecT: SyncChainSpec<Hardfork: Debug>>(
             &fork_config.json_rpc_url,
             config.cache_dir.clone(),
             http_headers.clone(),
+            runtime.clone(),
         )?);
 
         let (blockchain, mut irregular_state) =

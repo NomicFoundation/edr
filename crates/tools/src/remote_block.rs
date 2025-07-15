@@ -9,6 +9,7 @@ use edr_evm::test_utils::run_full_block;
 use edr_optimism::OptimismChainSpec;
 use edr_provider::spec::SyncChainSpec;
 use edr_rpc_eth::client::EthRpcClient;
+use tokio::runtime;
 
 #[derive(Clone, ValueEnum)]
 pub enum SupportedChainTypes {
@@ -53,7 +54,7 @@ where
             >,
         >,
 {
-    let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
+    let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None, runtime::Handle::current())?;
 
     let block_number = if let Some(block_number) = block_number {
         block_number

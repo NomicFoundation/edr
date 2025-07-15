@@ -1060,6 +1060,9 @@ dependencies = [
 [[package]]
 name = "edr_defaults"
 version = "0.3.5"
+dependencies = [
+ "alloy-primitives 0.7.7",
+]
 
 [[package]]
 name = "edr_eth"
@@ -1292,6 +1295,7 @@ dependencies = [
  "futures",
  "hex",
  "hyper",
+ "hyper-util",
  "lazy_static",
  "log",
  "regex",
@@ -2965,7 +2969,7 @@ checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 [[package]]
 name = "reqwest"
 version = "0.12.22"
-source = "git+https://github.com/NomicFoundation/reqwest.git?branch=custom-executor#5b77adf6bc805bc32c3aabdd67c1a9c10889dac8"
+source = "git+https://github.com/NomicFoundation/reqwest.git?branch=custom-executor#b4d8a3eda3d73fe602aa344ac80ac0cb05decce9"
 dependencies = [
  "base64",
  "bytes",
