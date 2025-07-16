@@ -343,7 +343,7 @@ mod tests {
         fn new(url: &str) -> Self {
             let tempdir = TempDir::new().unwrap();
             Self {
-                client: EthRpcClient::new(url, tempdir.path().into(), None).expect("url ok"),
+                client: EthRpcClient::new(url, tempdir.path().into(), None, runtime::Handle::current()).expect("url ok"),
                 cache_dir: tempdir,
             }
         }

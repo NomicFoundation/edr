@@ -301,11 +301,11 @@ mod tests {
         // node for less common, EVM-compatible chains that are not supported
         // by reliable providers like Alchemy or Infura.
         // Instead, we use a static response here.
+        let runtime = tokio::runtime::Handle::current();
         let dummy_client = Arc::new(
-            EthRpcClient::<GenericChainSpec>::new("http://example.com", "<dummy>".into(), None)
+            EthRpcClient::<GenericChainSpec>::new("http://example.com", "<dummy>".into(), None, runtime.clone())
                 .unwrap(),
         );
-        let runtime = tokio::runtime::Handle::current();
 
         RemoteBlock::new(rpc_block, dummy_client, runtime)
             .expect("Conversion should accept a missing nonce or mix hash");

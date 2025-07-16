@@ -23,7 +23,7 @@ async fn unknown_transaction_types() -> anyhow::Result<()> {
     // transaction types (e.g. found in OP), as we want to fallback to
     // legacy transactions for the for the generic (aka fallback) chain spec.
     let url = get_alchemy_url().replace("eth-", "opt-");
-    let rpc_client = EthRpcClient::<GenericChainSpec>::new(&url, CACHE_DIR.into(), None)?;
+    let rpc_client = EthRpcClient::<GenericChainSpec>::new(&url, CACHE_DIR.into(), None, runtime::Handle::current())?;
     let mut irregular_state = IrregularState::default();
     let state_root_generator = Arc::new(Mutex::new(RandomHashGenerator::with_seed("test")));
     let hardfork_activation_overrides = HashMap::new();

@@ -53,7 +53,7 @@ async fn create_forked_dummy_blockchain(
     use parking_lot::Mutex;
 
     let rpc_client =
-        EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None)
+        EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None, tokio::runtime::Handle::current())
             .expect("url ok");
 
     let mut irregular_state = IrregularState::default();

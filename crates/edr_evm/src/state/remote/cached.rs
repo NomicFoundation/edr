@@ -145,6 +145,7 @@ mod tests {
             &get_alchemy_url(),
             tempdir.path().to_path_buf(),
             None,
+            runtime::Handle::current(),
         )
         .expect("url ok");
 

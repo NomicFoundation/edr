@@ -22,7 +22,7 @@ mod remote {
                         use edr_rpc_eth::{client::EthRpcClient};
                         use edr_test_utils::env::get_alchemy_url;
 
-                        let client = EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None)?;
+                        let client = EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None, tokio::runtime::Handle::current())?;
 
                         let block = client
                             .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number($block_number))
@@ -80,7 +80,7 @@ mod remote {
                         use tempfile::TempDir;
 
                         let tempdir = TempDir::new().unwrap();
-                        let client = EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), tempdir.path().into(), None).unwrap();
+                        let client = EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), tempdir.path().into(), None, tokio::runtime::Handle::current()).unwrap();
 
                         let transaction_hash = B256::from_slice(&hex::decode($transaction_hash).unwrap());
 
