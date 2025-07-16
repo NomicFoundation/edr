@@ -1059,19 +1059,15 @@ where
 
 impl Timer for TokioHandle {
     fn sleep(&self, duration: Duration) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
-        let guard = self.runtime.enter();
-        let sleep = self.timer.sleep(duration);
-        drop(guard);
-        sleep
+        let _guard = self.runtime.enter();
+        self.timer.sleep(duration)
     }
 
     fn sleep_until(
         &self,
         deadline: std::time::Instant,
     ) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
-        let guard = self.runtime.enter();
-        let sleep = self.timer.sleep_until(deadline);
-        drop(guard);
-        sleep
+        let _guard = self.runtime.enter();
+        self.timer.sleep_until(deadline)
     }
 }
