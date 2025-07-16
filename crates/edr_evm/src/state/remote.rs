@@ -125,9 +125,13 @@ mod tests {
             .expect("couldn't convert OsString into a String");
 
         let runtime = runtime::Handle::current();
-        let rpc_client =
-            EthRpcClient::<L1ChainSpec>::new(&alchemy_url, tempdir.path().to_path_buf(), None, runtime.clone())
-                .expect("url ok");
+        let rpc_client = EthRpcClient::<L1ChainSpec>::new(
+            &alchemy_url,
+            tempdir.path().to_path_buf(),
+            None,
+            runtime.clone(),
+        )
+        .expect("url ok");
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");

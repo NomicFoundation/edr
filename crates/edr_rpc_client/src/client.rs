@@ -879,7 +879,13 @@ mod tests {
             fn new(url: &str) -> Self {
                 let tempdir = TempDir::new().unwrap();
                 Self {
-                    client: RpcClient::new(url, tempdir.path().into(), None, runtime::Handle::current()).expect("url ok"),
+                    client: RpcClient::new(
+                        url,
+                        tempdir.path().into(),
+                        None,
+                        runtime::Handle::current(),
+                    )
+                    .expect("url ok"),
                     cache_dir: tempdir,
                 }
             }

@@ -303,8 +303,13 @@ mod tests {
         // Instead, we use a static response here.
         let runtime = tokio::runtime::Handle::current();
         let dummy_client = Arc::new(
-            EthRpcClient::<GenericChainSpec>::new("http://example.com", "<dummy>".into(), None, runtime.clone())
-                .unwrap(),
+            EthRpcClient::<GenericChainSpec>::new(
+                "http://example.com",
+                "<dummy>".into(),
+                None,
+                runtime.clone(),
+            )
+            .unwrap(),
         );
 
         RemoteBlock::new(rpc_block, dummy_client, runtime)
