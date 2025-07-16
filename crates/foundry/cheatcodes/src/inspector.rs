@@ -46,7 +46,7 @@ use crate::{
         mapping::{self, MappingSlots},
         mock::{MockCallDataContext, MockCallReturnData},
         prank::Prank,
-        DealRecord, RecordAccess,
+        DealRecord, GasRecord, RecordAccess,
     },
     test::{
         expect::{
@@ -55,8 +55,8 @@ use crate::{
         },
         revert_handlers,
     },
-    CheatsConfig, CheatsCtxt, DynCheatcode, Error, Result, Vm,
-    Vm::AccountAccess,
+    CheatsConfig, CheatsCtxt, DynCheatcode, Error, Result,
+    Vm::{self, AccountAccess},
 };
 
 macro_rules! try_or_continue {
@@ -99,6 +99,63 @@ pub struct BroadcastableTransaction {
     pub rpc: Option<String>,
     /// The transaction to broadcast.
     pub transaction: TransactionRequest,
+}
+
+/// Holds gas metering state.
+#[derive(Clone, Debug, Default)]
+pub struct GasMetering {
+    /// True if gas metering is paused.
+    pub paused: bool,
+    /// True if gas metering was resumed or reset during the test.
+    /// Used to reconcile gas when frame ends (if spent less than refunded).
+    pub touched: bool,
+    /// True if gas metering should be reset to frame limit.
+    pub reset: bool,
+    /// Stores paused gas frames.
+    pub paused_frames: Vec<Gas>,
+
+    /// The group and name of the active snapshot.
+    pub active_gas_snapshot: Option<(String, String)>,
+
+    /// Cache of the amount of gas used in previous call.
+    /// This is used by the `lastCallGas` cheatcode.
+    pub last_call_gas: Option<crate::Vm::Gas>,
+
+    /// True if gas recording is enabled.
+    pub recording: bool,
+    /// The gas used in the last frame.
+    pub last_gas_used: u64,
+    /// Gas records for the active snapshots.
+    pub gas_records: Vec<GasRecord>,
+}
+
+impl GasMetering {
+    /// Start the gas recording.
+    pub fn start(&mut self) {
+        self.recording = true;
+    }
+
+    /// Stop the gas recording.
+    pub fn stop(&mut self) {
+        self.recording = false;
+    }
+
+    /// Resume paused gas metering.
+    pub fn resume(&mut self) {
+        if self.paused {
+            self.paused = false;
+            self.touched = true;
+        }
+        self.paused_frames.clear();
+    }
+
+    /// Reset gas to limit.
+    pub fn reset(&mut self) {
+        self.paused = false;
+        self.touched = true;
+        self.reset = true;
+        self.paused_frames.clear();
+    }
 }
 
 /// List of transactions that can be broadcasted.
@@ -214,19 +271,12 @@ pub struct Cheatcodes<
     /// All recorded ETH `deal`s.
     pub eth_deals: Vec<DealRecord>,
 
-    /// Holds the stored gas info for when we pause gas metering. It is an
-    /// `Option<Option<..>>` because the `call` callback in an `Inspector`
-    /// doesn't get access to the `revm::Interpreter` which holds the
-    /// `revm::Gas` struct that we need to copy. So we convert it to a
-    /// `Some(None)` in `apply_cheatcode`, and once we have the interpreter,
-    /// we copy the gas struct. Then each time there is an execution of an
-    /// operation, we reset the gas.
-    pub gas_metering: Option<Option<Gas>>,
+    /// Gas metering state.
+    pub gas_metering: GasMetering,
 
-    /// Holds stored gas info for when we pause gas metering, and we're
-    /// entering/inside CREATE / CREATE2 frames. This is needed to make gas
-    /// meter pausing work correctly when paused and creating new contracts.
-    pub gas_metering_create: Option<Option<Gas>>,
+    /// Contains gas snapshots made over the course of a test suite.
+    // **Note**: both must a BTreeMap to ensure the order of the keys is deterministic.
+    pub gas_snapshots: BTreeMap<String, BTreeMap<String, String>>,
 
     /// Mapping slots.
     pub mapping_slots: Option<HashMap<Address, MappingSlots>>,
@@ -506,61 +556,14 @@ impl<
     ) {
         self.pc = interpreter.bytecode.pc();
 
-        // reset gas if gas metering is turned off
-        match self.gas_metering {
-            Some(None) => {
-                // need to store gas metering
-                self.gas_metering = Some(Some(interpreter.control.gas));
-            }
-            Some(Some(gas)) => {
-                match interpreter.bytecode.opcode() {
-                    opcode::CREATE | opcode::CREATE2 => {
-                        // set we're about to enter CREATE frame to meter its gas on first opcode
-                        // inside it
-                        self.gas_metering_create = Some(None);
-                    }
-                    opcode::STOP | opcode::RETURN | opcode::SELFDESTRUCT | opcode::REVERT => {
-                        // If we are ending current execution frame, we want to just fully reset gas
-                        // otherwise weird things with returning gas from a call happen
-                        // ref: https://github.com/bluealloy/revm/blob/2cb991091d32330cfe085320891737186947ce5a/crates/revm/src/evm_impl.rs#L190
-                        //
-                        // It would be nice if we had access to the interpreter in `call_end`, as we
-                        // could just do this there instead.
-                        match self.gas_metering_create {
-                            None | Some(None) => {
-                                interpreter.control.gas = Gas::new(0);
-                            }
-                            Some(Some(gas)) => {
-                                // If this was CREATE frame, set correct gas limit. This is needed
-                                // because CREATE opcodes deduct additional gas for code storage,
-                                // and deducted amount is compared to gas limit. If we set this to
-                                // 0, the CREATE would fail with out of gas.
-                                //
-                                // If we however set gas limit to the limit of outer frame, it would
-                                // cause a panic after erasing gas cost post-create. Reason for this
-                                // is pre-create REVM records `gas_limit - (gas_limit / 64)` as gas
-                                // used, and erases costs by `remaining` gas post-create.
-                                // gas used ref: https://github.com/bluealloy/revm/blob/2cb991091d32330cfe085320891737186947ce5a/crates/revm/src/instructions/host.rs#L254-L258
-                                // post-create erase ref: https://github.com/bluealloy/revm/blob/2cb991091d32330cfe085320891737186947ce5a/crates/revm/src/instructions/host.rs#L279
-                                interpreter.control.gas = Gas::new(gas.limit());
+        // `pauseGasMetering`: pause / resume interpreter gas.
+        if self.gas_metering.paused {
+            self.meter_gas(interpreter);
+        }
 
-                                // reset CREATE gas metering because we're about to exit its frame
-                                self.gas_metering_create = None;
-                            }
-                        }
-                    }
-                    _ => {
-                        // if just starting with CREATE opcodes, record its inner frame gas
-                        if let Some(None) = self.gas_metering_create {
-                            self.gas_metering_create = Some(Some(interpreter.control.gas));
-                        }
-
-                        // dont monitor gas changes, keep it constant
-                        interpreter.control.gas = gas;
-                    }
-                }
-            }
-            _ => {}
+        // `resetGasMetering`: reset interpreter gas.
+        if self.gas_metering.reset {
+            self.meter_gas_reset(interpreter);
         }
 
         // Record writes and reads if `record` has been called
@@ -922,6 +925,32 @@ impl<
         // called
         if let Some(mapping_slots) = &mut self.mapping_slots {
             mapping::step(mapping_slots, interpreter);
+        }
+
+        // `snapshotGas*`: take a snapshot of the current gas.
+        if self.gas_metering.recording {
+            self.meter_gas_record(interpreter, ecx);
+        }
+    }
+
+    fn step_end(
+        &mut self,
+        interpreter: &mut Interpreter<revm::interpreter::interpreter::EthInterpreter>,
+        _context: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
+        if self.gas_metering.paused {
+            self.meter_gas_end(interpreter);
+        }
+
+        if self.gas_metering.touched {
+            Self::meter_gas_check(interpreter);
         }
     }
 
@@ -1729,6 +1758,113 @@ impl<
     }
 }
 
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    >
+    Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>
+{
+    #[cold]
+    fn meter_gas(&mut self, interpreter: &mut Interpreter) {
+        if let Some(paused_gas) = self.gas_metering.paused_frames.last() {
+            // Keep gas constant if paused.
+            // Make sure we record the memory changes so that memory expansion is not
+            // paused.
+            let memory = *interpreter.control.gas.memory();
+            interpreter.control.gas = *paused_gas;
+            interpreter.control.gas.memory_mut().words_num = memory.words_num;
+            interpreter.control.gas.memory_mut().expansion_cost = memory.expansion_cost;
+        } else {
+            // Record frame paused gas.
+            self.gas_metering
+                .paused_frames
+                .push(interpreter.control.gas);
+        }
+    }
+
+    #[cold]
+    fn meter_gas_record<
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &mut self,
+        interpreter: &mut Interpreter,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
+        if matches!(
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
+        ) {
+            self.gas_metering.gas_records.iter_mut().for_each(|record| {
+                let curr_depth = ecx.journaled_state.depth();
+                if curr_depth == record.depth {
+                    // Skip the first opcode of the first call frame as it includes the gas cost of
+                    // creating the snapshot.
+                    if self.gas_metering.last_gas_used != 0 {
+                        let gas_diff = interpreter
+                            .control
+                            .gas
+                            .spent()
+                            .saturating_sub(self.gas_metering.last_gas_used);
+                        record.gas_used = record.gas_used.saturating_add(gas_diff);
+                    }
+
+                    // Update `last_gas_used` to the current spent gas for the next iteration to
+                    // compare against.
+                    self.gas_metering.last_gas_used = interpreter.control.gas.spent();
+                }
+            });
+        }
+    }
+
+    #[cold]
+    fn meter_gas_end(&mut self, interpreter: &mut Interpreter) {
+        // Remove recorded gas if we exit frame.
+        if will_exit(interpreter.control.instruction_result) {
+            self.gas_metering.paused_frames.pop();
+        }
+    }
+
+    #[cold]
+    fn meter_gas_reset(&mut self, interpreter: &mut Interpreter) {
+        interpreter.control.gas = Gas::new(interpreter.control.gas.limit());
+        self.gas_metering.reset = false;
+    }
+
+    #[cold]
+    fn meter_gas_check(interpreter: &mut Interpreter) {
+        if will_exit(interpreter.control.instruction_result) {
+            // Reset gas if spent is less than refunded.
+            // This can happen if gas was paused / resumed or reset.
+            // https://github.com/foundry-rs/foundry/issues/4370
+            if interpreter.control.gas.spent()
+                < u64::try_from(interpreter.control.gas.refunded()).unwrap_or_default()
+            {
+                interpreter.control.gas = Gas::new(interpreter.control.gas.limit());
+            }
+        }
+    }
+}
+
 /// Helper that expands memory, stores a revert string pertaining to a
 /// disallowed memory write, and sets the return range to the revert string's
 /// location in memory.
@@ -1874,4 +2010,12 @@ fn find_upstream_cheatcode_signature(selector: alloy_primitives::FixedBytes<4>) 
         }
     }
     None
+}
+
+/// Helper function to check if frame execution will exit.
+fn will_exit(ir: InstructionResult) -> bool {
+    !matches!(
+        ir,
+        InstructionResult::Continue | InstructionResult::CallOrCreate
+    )
 }
