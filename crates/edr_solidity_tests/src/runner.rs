@@ -565,16 +565,21 @@ impl<
         };
 
         let RawCallResult {
+            exit_reason: _exit_reason,
             reverted,
+            has_state_snapshot_failure: _has_state_snapshot_failure,
+            result: _result,
             gas_used: gas,
+            gas_refunded: _gas_refunded,
             stipend,
             logs: execution_logs,
             traces: execution_trace,
             coverage: execution_coverage,
             labels: new_labels,
             state_changeset,
+            env: _env,
             cheatcodes,
-            ..
+            out: _out,
         } = raw_call_result;
 
         let success = executor.is_success(
@@ -608,8 +613,10 @@ impl<
             None
         };
 
-        let deprecated_cheatcodes =
-            cheatcodes.map_or_else(HashMap::new, |cheatcodes| cheatcodes.deprecated);
+        let (deprecated_cheatcodes, gas_snapshots) = cheatcodes.map_or_else(
+            || (HashMap::new(), BTreeMap::new()),
+            |cheatcodes| (cheatcodes.deprecated, cheatcodes.gas_snapshots),
+        );
 
         TestResult {
             status: match success {
@@ -626,6 +633,7 @@ impl<
             labeled_addresses,
             duration,
             gas_report_traces: Vec::new(),
+            gas_snapshots,
             stack_trace_result,
             deprecated_cheatcodes,
         }
@@ -799,6 +807,7 @@ impl<
                 .into_iter()
                 .map(|t| vec![t])
                 .collect(),
+            gas_snapshots: BTreeMap::new(),
             stack_trace_result,
             deprecated_cheatcodes: result.deprecated_cheatcodes,
         }
@@ -1150,6 +1159,7 @@ impl<
             labeled_addresses: labeled_addresses.clone(),
             duration: start.elapsed(),
             gas_report_traces,
+            gas_snapshots: BTreeMap::new(),
             stack_trace_result: stack_trace,
             deprecated_cheatcodes,
         }
@@ -1320,6 +1330,7 @@ impl<
                         coverage: setup.coverage,
                         labeled_addresses: setup.labeled_addresses,
                         duration: elapsed,
+                        gas_snapshots: BTreeMap::new(),
                         stack_trace_result,
                         deprecated_cheatcodes: HashMap::new(),
                     },
@@ -1638,6 +1649,7 @@ fn try_to_replay_recorded_failures<
                     duration: start.elapsed(),
                     logs: vec![],
                     labeled_addresses: AddressHashMap::<String>::default(),
+                    gas_snapshots: BTreeMap::new(),
                     stack_trace_result,
                     deprecated_cheatcodes: deprecated_cheatcodes.clone(),
                 });

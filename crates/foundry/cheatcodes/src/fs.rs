@@ -794,8 +794,6 @@ fn get_artifact_code<
     path: &str,
     deployed: bool,
 ) -> Result<Bytes> {
-    const NO_MATCHING_ARTIFACT: &str = "No matching artifact found";
-
     let mut parts = path.split(':');
 
     let mut file = None;
@@ -854,26 +852,35 @@ fn get_artifact_code<
         })
         .collect::<Vec<_>>();
 
-    let artifact = match filtered.as_slice() {
-        [] => Err(fmt_err!(NO_MATCHING_ARTIFACT)),
-        [(_id, artifact)] => Ok(*artifact),
+    let artifact = match &filtered[..] {
+        [] => Err(fmt_err!("no matching artifact found")),
+        [artifact] => Ok(*artifact),
         filtered => {
+            let mut filtered = filtered.to_vec();
             // If we know the current script/test contract solc version, try to filter by it
-            let mut result = None;
-            if let Some(version) = state.config.running_version.as_ref() {
-                for (id, artifact) in filtered {
-                    if id.version == *version {
-                        if result.is_some() {
-                            return Err(fmt_err!("Multiple matching artifacts found"));
-                        } else {
-                            result = Some(*artifact);
-                        }
+            state
+                .config
+                .running_artifact
+                .as_ref()
+                .and_then(|running| {
+                    // Firstly filter by version
+                    filtered.retain(|(id, _)| id.version == running.version);
+
+                    // Return artifact if only one matched
+                    if filtered.len() == 1 {
+                        return Some(filtered[0]);
                     }
-                }
-            }
-            result.ok_or_else(|| fmt_err!(NO_MATCHING_ARTIFACT))
+
+                    if filtered.len() == 1 {
+                        Some(filtered[0])
+                    } else {
+                        None
+                    }
+                })
+                .ok_or_else(|| fmt_err!("multiple matching artifacts found"))
         }
-    }?;
+    }?
+    .1;
 
     let maybe_bytecode = if deployed {
         artifact.deployed_bytecode.clone()
