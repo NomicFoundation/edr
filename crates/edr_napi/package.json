@@ -60,7 +60,7 @@
   "scripts": {
     "artifacts": "napi artifacts",
     "build": "pnpm run build:publish",
-    "build:debug": "bash ../../scripts/build_edr_napi.sh  --features op",
+    "build:debug": "bash ../../scripts/build_edr_napi.sh --features op",
     "build:dev": "bash ../../scripts/build_edr_napi.sh --release --features op,test-mock",
     "build:publish": "bash ../../scripts/build_edr_napi.sh --profile napi-publish",
     "build:scenarios": "bash ../../scripts/build_edr_napi.sh --release --features scenarios",
