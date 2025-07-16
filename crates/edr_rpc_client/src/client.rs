@@ -679,6 +679,46 @@ impl SerializedRequest {
     }
 }
 
+#[derive(Debug, Clone)]
+struct TokioHandle {
+    runtime: runtime::Handle,
+    timer: TokioTimer,
+}
+
+impl TokioHandle {
+    fn new(runtime: runtime::Handle) -> Self {
+        Self {
+            runtime,
+            timer: TokioTimer::new(),
+        }
+    }
+}
+
+impl<F> Executor<F> for TokioHandle
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    fn execute(&self, fut: F) {
+        self.runtime.spawn(fut);
+    }
+}
+
+impl Timer for TokioHandle {
+    fn sleep(&self, duration: Duration) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
+        let _guard = self.runtime.enter();
+        self.timer.sleep(duration)
+    }
+
+    fn sleep_until(
+        &self,
+        deadline: std::time::Instant,
+    ) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
+        let _guard = self.runtime.enter();
+        self.timer.sleep_until(deadline)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use edr_eth::PreEip1898BlockSpec;
@@ -1042,45 +1082,5 @@ mod tests {
 
             assert_eq!(network_id, U64::from(1u64));
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct TokioHandle {
-    runtime: runtime::Handle,
-    timer: TokioTimer,
-}
-
-impl TokioHandle {
-    fn new(runtime: runtime::Handle) -> Self {
-        Self {
-            runtime,
-            timer: TokioTimer::new(),
-        }
-    }
-}
-
-impl<F> Executor<F> for TokioHandle
-where
-    F: Future + Send + 'static,
-    F::Output: Send + 'static,
-{
-    fn execute(&self, fut: F) {
-        self.runtime.spawn(fut);
-    }
-}
-
-impl Timer for TokioHandle {
-    fn sleep(&self, duration: Duration) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
-        let _guard = self.runtime.enter();
-        self.timer.sleep(duration)
-    }
-
-    fn sleep_until(
-        &self,
-        deadline: std::time::Instant,
-    ) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
-        let _guard = self.runtime.enter();
-        self.timer.sleep_until(deadline)
     }
 }
