@@ -15,8 +15,8 @@ describe("Solidity Tests", () => {
 
   it("executes basic tests", async function () {
     const artifacts = [
-      loadContract("./artifacts/SetupConsistencyCheck.json"),
-      loadContract("./artifacts/PaymentFailureTest.json"),
+      loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+      loadContract("./data/artifacts/default/PaymentFailureTest.json"),
     ];
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
@@ -50,8 +50,8 @@ describe("Solidity Tests", () => {
 
   it("throws errors", async function () {
     const artifacts = [
-      loadContract("./artifacts/SetupConsistencyCheck.json"),
-      loadContract("./artifacts/PaymentFailureTest.json"),
+      loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+      loadContract("./data/artifacts/default/PaymentFailureTest.json"),
     ];
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
@@ -75,8 +75,8 @@ describe("Solidity Tests", () => {
 
   it("error callback is called if contract bytecode is invalid", async function () {
     const artifacts = [
-      loadContract("./artifacts/SetupConsistencyCheck.json"),
-      loadContract("./artifacts/PaymentFailureTest.json"),
+      loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+      loadContract("./data/artifacts/default/PaymentFailureTest.json"),
     ];
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
@@ -99,7 +99,9 @@ describe("Solidity Tests", () => {
   });
 
   it("filters tests according to pattern", async function () {
-    const artifacts = [loadContract("./artifacts/SetupConsistencyCheck.json")];
+    const artifacts = [
+      loadContract("./data/artifacts/default/SetupConsistencyCheck.json"),
+    ];
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
 

@@ -13,7 +13,7 @@ use crate::{
     blockchain::BlockHash,
     interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
-        EthInterpreter, Interpreter, Jumps as _, MemoryGetter as _, SuccessOrHalt,
+        EthInterpreter, Interpreter, Jumps as _, SuccessOrHalt,
     },
     journal::{JournalExt, JournalTrait},
     spec::ContextTrait,
@@ -208,6 +208,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         &mut self,
         journal: &JournalT,
         inputs: &CallInputs,
+        input_data: Bytes,
     ) {
         if self.is_new_trace {
             self.is_new_trace = false;
@@ -249,7 +250,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             to: Some(inputs.target_address),
             is_static_call: inputs.is_static,
             gas_limit: inputs.gas_limit,
-            data: inputs.input.clone(),
+            data: input_data,
             value: match inputs.value {
                 CallValue::Transfer(value) | CallValue::Apparent(value) => value,
             },
@@ -437,14 +438,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 Stack::Top(interpreter.stack.data().last().cloned())
             };
             let memory = if self.verbose {
-                Some(
-                    interpreter
-                        .memory
-                        .borrow()
-                        .memory()
-                        .context_memory()
-                        .to_vec(),
-                )
+                Some(interpreter.memory.context_memory().to_vec())
             } else {
                 None
             };
@@ -479,7 +473,8 @@ impl<
     > Inspector<ContextT, EthInterpreter> for TraceCollector<HaltReasonT>
 {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
-        self.notify_call_start(context.journal(), inputs);
+        let input_data = inputs.input.bytes(context);
+        self.notify_call_start(context.journal(), inputs, input_data);
         None
     }
 

@@ -8,6 +8,7 @@ use edr_evm::{
     interpreter::{
         CallInputs, CallOutcome, EthInterpreter, Gas, InstructionResult, InterpreterResult,
     },
+    spec::ContextTrait,
 };
 
 /// The result of executing a call override.
@@ -43,34 +44,38 @@ impl Mocker {
         self.call_override.as_ref().and_then(|f| f(contract, input))
     }
 
-    fn try_mocking_call(&mut self, inputs: &CallInputs) -> Option<CallOutcome> {
-        self.override_call(inputs.bytecode_address, inputs.input.clone())
-            .map(
-                |CallOverrideResult {
-                     output,
-                     should_revert,
-                 }| {
-                    let result = if should_revert {
-                        InstructionResult::Revert
-                    } else {
-                        InstructionResult::Return
-                    };
+    fn try_mocking_call(
+        &mut self,
+        context: &mut impl ContextTrait,
+        inputs: &mut CallInputs,
+    ) -> Option<CallOutcome> {
+        let input_data = inputs.input.bytes(context);
+        self.override_call(inputs.bytecode_address, input_data).map(
+            |CallOverrideResult {
+                 output,
+                 should_revert,
+             }| {
+                let result = if should_revert {
+                    InstructionResult::Revert
+                } else {
+                    InstructionResult::Return
+                };
 
-                    CallOutcome::new(
-                        InterpreterResult {
-                            result,
-                            output,
-                            gas: Gas::new(inputs.gas_limit),
-                        },
-                        inputs.return_memory_offset.clone(),
-                    )
-                },
-            )
+                CallOutcome::new(
+                    InterpreterResult {
+                        result,
+                        output,
+                        gas: Gas::new(inputs.gas_limit),
+                    },
+                    inputs.return_memory_offset.clone(),
+                )
+            },
+        )
     }
 }
 
-impl<ContextT> Inspector<ContextT, EthInterpreter> for Mocker {
-    fn call(&mut self, _context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
-        self.try_mocking_call(inputs)
+impl<ContextT: ContextTrait> Inspector<ContextT, EthInterpreter> for Mocker {
+    fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
+        self.try_mocking_call(context, inputs)
     }
 }

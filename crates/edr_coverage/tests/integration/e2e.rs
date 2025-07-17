@@ -51,7 +51,14 @@ fn deploy_contract(
         ..l1::BlockEnv::default()
     };
 
-    let result = run::<_, L1ChainSpec, _>(blockchain, state, cfg, signed.into(), block)?;
+    let result = run::<_, L1ChainSpec, _>(
+        blockchain,
+        state,
+        cfg,
+        signed.into(),
+        block,
+        &HashMap::new(),
+    )?;
     let address = if let ExecutionResult::Success {
         output: Output::Create(_, Some(address)),
         ..

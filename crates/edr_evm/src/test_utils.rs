@@ -3,7 +3,7 @@ use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
-    block::{miner_reward, BlockOptions},
+    block::{self, miner_reward, HeaderOverrides},
     l1,
     log::FilterLog,
     receipt::{AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _},
@@ -18,7 +18,7 @@ use crate::{
     config::CfgEnv,
     spec::SyncRuntimeSpec,
     state::{AccountTrie, IrregularState, StateError, TrieState},
-    transaction, Block, BlockBuilder, BlockReceipts, LocalBlock as _, MemPool,
+    transaction, Block, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
 };
 
@@ -175,6 +175,7 @@ pub async fn run_full_block<
 >(
     url: String,
     block_number: u64,
+    header_overrides_constructor: impl FnOnce(&block::Header) -> HeaderOverrides,
 ) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Handle::current();
 
@@ -223,22 +224,18 @@ pub async fn run_full_block<
     let state =
         blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
 
+    let custom_precompiles = HashMap::new();
+
     let mut builder = ChainSpecT::BlockBuilder::new_block_builder(
         &blockchain,
         state,
         cfg,
-        BlockOptions {
-            beneficiary: Some(replay_header.beneficiary),
-            gas_limit: Some(replay_header.gas_limit),
-            extra_data: Some(replay_header.extra_data.clone()),
-            mix_hash: Some(replay_header.mix_hash),
-            nonce: Some(replay_header.nonce),
-            parent_beacon_block_root: replay_header.parent_beacon_block_root,
-            state_root: Some(replay_header.state_root),
-            timestamp: Some(replay_header.timestamp),
+        BlockInputs {
+            ommers: Vec::new(),
             withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
-            ..BlockOptions::default()
         },
+        header_overrides_constructor(replay_header),
+        &custom_precompiles,
     )?;
 
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);
@@ -361,14 +358,22 @@ pub async fn run_full_block<
 
 /// Implements full block tests for the provided chain specs.
 /// ```no_run
-/// use edr_eth::l1::L1ChainSpec;
+/// use edr_eth::{block::{self, HeaderOverrides}, l1::L1ChainSpec};
 /// use edr_evm::impl_full_block_tests;
 /// use edr_test_utils::env::get_alchemy_url;
+///
+/// fn timestamp_overrides(replay_header: &block::Header) -> HeaderOverrides {
+///     HeaderOverrides {
+///         timestamp: Some(replay_header.timestamp),
+///         ..HeaderOverrides::default()
+///     }
+/// }
 ///
 /// impl_full_block_tests! {
 ///     mainnet_byzantium => L1ChainSpec {
 ///         block_number: 4_370_001,
 ///         url: get_alchemy_url(),
+///         header_overrides_constructor: timestamp_overrides,
 ///     },
 /// }
 /// ```
@@ -378,6 +383,7 @@ macro_rules! impl_full_block_tests {
         $name:ident => $chain_spec:ident {
             block_number: $block_number:expr,
             url: $url:expr,
+            header_overrides_constructor: $header_overrides_constructor:expr,
         },
     )+) => {
         $(
@@ -387,7 +393,7 @@ macro_rules! impl_full_block_tests {
                 async fn [<full_block_ $name>]() -> anyhow::Result<()> {
                     let url = $url;
 
-                    $crate::test_utils::run_full_block::<$chain_spec>(url, $block_number).await
+                    $crate::test_utils::run_full_block::<$chain_spec>(url, $block_number, $header_overrides_constructor).await
                 }
             }
         )+

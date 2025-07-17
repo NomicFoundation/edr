@@ -6,7 +6,7 @@ use edr_solidity_tests::{
     evm_context::HardforkTr,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
-    IncludeTraces, SolidityTestRunnerConfig, TestFilterConfig,
+    IncludeTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback, TestFilterConfig,
 };
 use napi::{bindgen_prelude::Uint8Array, Either};
 
@@ -165,6 +165,8 @@ pub struct TestRunnerConfig {
     /// Whether to enable trace mode and which traces to include in test
     /// results.
     pub include_traces: IncludeTraces,
+    /// The configuration for the Solidity test runner's observability
+    pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: TestFilterConfig,
@@ -200,6 +202,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             fuzz,
             invariant,
             include_traces,
+            on_collected_coverage_fn,
             test_pattern: _,
         } = value;
 
@@ -280,6 +283,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             local_predeploys,
             fuzz,
             invariant,
+            on_collected_coverage_fn,
             // Solidity fuzz fixtures are not supported by the JS backend
             solidity_fuzz_fixtures: false,
         })

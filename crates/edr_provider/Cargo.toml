@@ -10,7 +10,7 @@ alloy-serde.workspace = true
 anyhow = { workspace = true, optional = true }
 auto_impl = { version = "1.2", default-features = false }
 derive-where.workspace = true
-dyn-clone = { version = "1.0.13", default-features = false }
+dyn-clone.workspace = true
 edr_coverage = { path = "../edr_coverage" }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
@@ -26,7 +26,7 @@ lazy_static = { version = "1.4.0", default-features = false }
 log = { version = "0.4.20", default-features = false }
 lru = "0.12.2"
 parking_lot = { version = "0.12.1", default-features = false }
-rand = { version = "0.8.5", default-features = false }
+rand.workspace = true
 revm-precompile.workspace = true
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde.workspace = true

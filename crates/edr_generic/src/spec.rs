@@ -9,7 +9,7 @@ use edr_eth::{
     transaction::TransactionValidation,
 };
 use edr_evm::{
-    evm::{Evm, EvmData},
+    evm::Evm,
     hardfork::Activations,
     inspector::{Inspector, NoOpInspector},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
@@ -45,10 +45,10 @@ impl RuntimeSpec for GenericChainSpec {
     >;
 
     type BlockBuilder<
-        'blockchain,
-        BlockchainErrorT: 'blockchain + std::error::Error + Send,
-        StateErrorT: 'blockchain + std::error::Error + Send,
-    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, StateErrorT>;
+        'builder,
+        BlockchainErrorT: 'builder + std::error::Error + Send,
+        StateErrorT: 'builder + std::error::Error + Send,
+    > = EthBlockBuilder<'builder, BlockchainErrorT, Self, StateErrorT>;
 
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
 
@@ -120,21 +120,14 @@ impl RuntimeSpec for GenericChainSpec {
     fn evm<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
     >(
         context: ContextForChainSpec<Self, DatabaseT>,
-    ) -> Self::Evm<
-        BlockchainErrorT,
-        DatabaseT,
-        NoOpInspector,
-        Self::PrecompileProvider<BlockchainErrorT, DatabaseT, StateErrorT>,
-        StateErrorT,
-    > {
-        Self::evm_with_inspector(
-            context,
-            NoOpInspector {},
-            Self::PrecompileProvider::<BlockchainErrorT, DatabaseT, StateErrorT>::default(),
-        )
+        precompile_provider: PrecompileProviderT,
+    ) -> Self::Evm<BlockchainErrorT, DatabaseT, NoOpInspector, PrecompileProviderT, StateErrorT>
+    {
+        Self::evm_with_inspector(context, NoOpInspector {}, precompile_provider)
     }
 
     fn evm_with_inspector<
@@ -149,10 +142,8 @@ impl RuntimeSpec for GenericChainSpec {
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
         Evm {
-            data: EvmData {
-                ctx: context,
-                inspector,
-            },
+            ctx: context,
+            inspector,
             instruction: EthInstructions::default(),
             precompiles: precompile_provider,
         }

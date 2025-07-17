@@ -5,28 +5,31 @@
 //! OP types as needed by EDR. They are based on the same primitive types
 //! as `revm`.
 
-/// OP RPC types
-pub mod rpc;
-
 /// Types for OP blocks.
 pub mod block;
 /// Types for OP's EIP-2718 envelope.
 pub mod eip2718;
 /// OP harforks.
 pub mod hardfork;
+/// Types and constants for OP predeploys.
+pub mod predeploys;
 /// Types for OP receipts.
 pub mod receipt;
-mod spec;
-pub use self::spec::OpChainSpec;
-
+/// OP RPC types
+pub mod rpc;
 /// Types for running Solidity tests.
 pub mod solidity_tests;
-
+mod spec;
+/// Utility types for testing.
+#[cfg(any(test, feature = "test-utils"))]
+pub mod test_utils;
 /// OP transaction types
 pub mod transaction;
 
 use edr_eth::U256;
 pub use op_revm::{OpHaltReason, OpSpecId};
+
+pub use self::spec::OpChainSpec;
 
 /// OP Stack chain type
 pub const CHAIN_TYPE: &str = "op";

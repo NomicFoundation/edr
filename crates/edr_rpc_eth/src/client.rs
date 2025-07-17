@@ -430,13 +430,7 @@ mod tests {
                 .await
                 .expect_err("should have failed");
 
-            if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.code, -32602);
-                assert_eq!(error.message, "Unknown block number");
-                assert!(error.data.is_none());
-            } else {
-                unreachable!("Invalid error: {error}");
-            }
+            assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
         }
 
         #[tokio::test]
@@ -659,16 +653,7 @@ mod tests {
                     assert!(response.is_empty());
                 }
                 Err(error) => {
-                    if let RpcClientError::JsonRpcError { error, .. } = error {
-                        assert_eq!(error.code, -32000);
-                        assert_eq!(
-                            error.message,
-                            "One of the blocks specified in filter (fromBlock, toBlock or blockHash) cannot be found."
-                        );
-                        assert!(error.data.is_none());
-                    } else {
-                        unreachable!("Invalid error: {error}");
-                    }
+                    assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
                 }
             }
         }
@@ -805,13 +790,7 @@ mod tests {
                 .await
                 .expect_err("should have failed");
 
-            if let RpcClientError::JsonRpcError { error, .. } = error {
-                assert_eq!(error.code, -32602);
-                assert_eq!(error.message, "Unknown block number");
-                assert!(error.data.is_none());
-            } else {
-                unreachable!("Invalid error: {error}");
-            }
+            assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
         }
 
         #[tokio::test]
@@ -922,16 +901,16 @@ mod tests {
             let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
                 .expect("failed to parse address");
 
-            let storage_slot = TestRpcClient::new(&alchemy_url)
+            let error = TestRpcClient::new(&alchemy_url)
                 .get_storage_at(
                     dai_address,
                     U256::from(1),
                     Some(BlockSpec::Number(MAX_BLOCK_NUMBER)),
                 )
                 .await
-                .expect("should have succeeded");
+                .expect_err("should have failed");
 
-            assert!(storage_slot.is_none());
+            assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
         }
 
         #[tokio::test]

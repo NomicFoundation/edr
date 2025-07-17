@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use derive_where::derive_where;
 use edr_eth::{
-    block::{BlobGas, BlockOptions, PartialHeader},
+    block::{BlobGas, HeaderOverrides, PartialHeader},
     eips::{eip4844, eip7691},
     l1,
     log::{ExecutionLog, FilterLog},
@@ -14,10 +14,11 @@ use edr_eth::{
     withdrawal::Withdrawal,
     Address, Bloom, HashMap, B256, U256,
 };
-use revm::Inspector;
+use revm::{precompile::PrecompileFn, Inspector};
 
 use super::{BlockBuilder, BlockTransactionError, BlockTransactionErrorForChainSpec};
 use crate::{
+    block::builder::BlockInputs,
     blockchain::SyncBlockchain,
     config::CfgEnv,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
@@ -43,6 +44,7 @@ where
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
     withdrawals: Option<Vec<Withdrawal>>,
+    custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
 }
 
 impl<BlockchainErrorT, ChainSpecT, StateErrorT>
@@ -125,7 +127,9 @@ where
         blockchain: &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
         state: Box<dyn SyncState<StateErrorT>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
-        mut options: BlockOptions,
+        inputs: BlockInputs,
+        mut overrides: HeaderOverrides,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
     {
         let parent_block = blockchain
@@ -135,25 +139,25 @@ where
         let eth_hardfork = cfg.spec.into();
         if eth_hardfork < l1::SpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec));
+        } else if eth_hardfork >= l1::SpecId::SHANGHAI && inputs.withdrawals.is_none() {
+            return Err(BlockBuilderCreationError::MissingWithdrawals);
         }
 
         let parent_header = parent_block.header();
-        let parent_gas_limit = if options.gas_limit.is_none() {
+        let parent_gas_limit = if overrides.gas_limit.is_none() {
             Some(parent_header.gas_limit)
         } else {
             None
         };
 
-        let withdrawals = std::mem::take(&mut options.withdrawals).or_else(|| {
-            if eth_hardfork >= l1::SpecId::SHANGHAI {
-                Some(Vec::new())
-            } else {
-                None
-            }
-        });
-
-        options.parent_hash = Some(*parent_block.block_hash());
-        let header = PartialHeader::new::<ChainSpecT>(cfg.spec, options, Some(parent_header));
+        overrides.parent_hash = Some(*parent_block.block_hash());
+        let header = PartialHeader::new::<ChainSpecT>(
+            cfg.spec,
+            overrides,
+            Some(parent_header),
+            &inputs.ommers,
+            inputs.withdrawals.as_ref(),
+        );
 
         Ok(Self {
             blockchain,
@@ -165,7 +169,8 @@ where
             state_diff: StateDiff::default(),
             transactions: Vec::new(),
             transaction_results: Vec::new(),
-            withdrawals,
+            withdrawals: inputs.withdrawals,
+            custom_precompiles,
         })
     }
 
@@ -190,6 +195,7 @@ where
             self.cfg.clone(),
             transaction.clone(),
             block,
+            self.custom_precompiles,
         )?;
 
         self.add_transaction_result(receipt_builder, transaction, transaction_result);
@@ -230,7 +236,7 @@ where
             self.cfg.clone(),
             transaction.clone(),
             block,
-            &HashMap::new(),
+            self.custom_precompiles,
             extension,
         )
         .map_err(BlockTransactionError::from)?;
@@ -395,12 +401,21 @@ where
         >,
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
-        options: BlockOptions,
+        inputs: BlockInputs,
+        overrides: HeaderOverrides,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,
     > {
-        Self::new(blockchain, state, cfg, options)
+        Self::new(
+            blockchain,
+            state,
+            cfg,
+            inputs,
+            overrides,
+            custom_precompiles,
+        )
     }
 
     fn block_receipt_factory(&self) -> ChainSpecT::BlockReceiptFactory {

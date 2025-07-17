@@ -78,7 +78,7 @@ impl TryFrom<edr_instrument::coverage::InstrumentationMetadata> for Instrumentat
 
 /// Adds per-statement coverage instrumentation to the given Solidity source
 /// code.
-#[napi]
+#[napi(catch_unwind)]
 pub fn add_statement_coverage_instrumentation(
     source_code: String,
     source_id: String,

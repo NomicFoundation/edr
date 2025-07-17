@@ -4,5 +4,5 @@ pub use revm_interpreter::{
     interpreter_types::{InputsTr, Jumps, LoopControl},
     return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
     EOFCreateInputs, FrameInput, Gas, Host, InputsImpl, InstructionResult, Interpreter,
-    InterpreterResult, InterpreterTypes, MemoryGetter, SuccessOrHalt,
+    InterpreterResult, InterpreterTypes, SuccessOrHalt,
 };

@@ -48,7 +48,7 @@ impl SyncProviderFactory for L1ProviderFactory {
 #[napi]
 pub const L1_CHAIN_TYPE: &str = L1ChainSpec::CHAIN_TYPE;
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn l1_genesis_state(hardfork: SpecId) -> Vec<AccountOverride> {
     // Use closures for lazy execution
     let beacon_roots_account_constructor = || AccountOverride {
@@ -81,7 +81,7 @@ pub fn l1_genesis_state(hardfork: SpecId) -> Vec<AccountOverride> {
     }
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn l1_provider_factory() -> ProviderFactory {
     let factory: Arc<dyn SyncProviderFactory> = Arc::new(L1ProviderFactory);
     factory.into()
@@ -192,12 +192,12 @@ impl From<SpecId> for edr_eth::l1::SpecId {
 /// Tries to parse the provided string to create a [`SpecId`] instance.
 ///
 /// Returns an error if the string does not match any known hardfork.
-#[napi]
+#[napi(catch_unwind)]
 pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
     hardfork.parse()
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn l1_hardfork_to_string(harfork: SpecId) -> &'static str {
     match harfork {
         SpecId::Frontier => edr_eth::l1::hardfork::name::FRONTIER,

@@ -62,7 +62,7 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
     }
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_solidity_test_runner_factory() -> SolidityTestRunnerFactory {
     let factory: Arc<dyn SyncTestRunnerFactory> = Arc::new(OpTestRunnerFactory);
     factory.into()

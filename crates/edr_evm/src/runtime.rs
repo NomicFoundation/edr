@@ -5,7 +5,7 @@ use edr_eth::{
     Address, HashMap,
 };
 use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
-use revm_context::JournalTr as _;
+use revm_context::{JournalTr as _, LocalContext};
 
 use crate::{
     blockchain::BlockHash,
@@ -27,6 +27,7 @@ pub fn dry_run<BlockchainT, ChainSpecT, StateT>(
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     ExecutionResultAndState<ChainSpecT::HaltReason>,
     TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
@@ -46,10 +47,16 @@ where
         journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
+        local: LocalContext::default(),
         error: Ok(()),
     };
 
-    let mut evm = ChainSpecT::evm(context);
+    let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
+        ChainSpecT::PrecompileProvider::default(),
+        custom_precompiles.clone(),
+    );
+
+    let mut evm = ChainSpecT::evm(context, precompile_provider);
     evm.replay().map_err(|error| match error {
         EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
         EVMError::Header(error) => TransactionError::InvalidHeader(error),
@@ -93,6 +100,7 @@ where
         journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
+        local: LocalContext::default(),
         error: Ok(()),
     };
 
@@ -121,6 +129,7 @@ pub fn guaranteed_dry_run<BlockchainT, ChainSpecT, StateT>(
     mut cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     ExecutionResultAndState<ChainSpecT::HaltReason>,
     TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
@@ -134,7 +143,14 @@ where
 {
     set_guarantees(&mut cfg);
 
-    dry_run::<_, ChainSpecT, _>(blockchain, state, cfg, transaction, block)
+    dry_run::<_, ChainSpecT, _>(
+        blockchain,
+        state,
+        cfg,
+        transaction,
+        block,
+        custom_precompiles,
+    )
 }
 
 /// Runs a transaction while observing with an inspector, without committing the
@@ -188,6 +204,7 @@ pub fn run<BlockchainT, ChainSpecT, StateT>(
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
     block: ChainSpecT::BlockEnv,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     ExecutionResult<ChainSpecT::HaltReason>,
     TransactionErrorForChainSpec<BlockchainT::Error, ChainSpecT, StateT::Error>,
@@ -202,7 +219,14 @@ where
     let ExecutionResultAndState {
         result,
         state: state_diff,
-    } = dry_run::<_, ChainSpecT, _>(blockchain, &state, cfg, transaction, block)?;
+    } = dry_run::<_, ChainSpecT, _>(
+        blockchain,
+        &state,
+        cfg,
+        transaction,
+        block,
+        custom_precompiles,
+    )?;
 
     state.commit(state_diff);
 

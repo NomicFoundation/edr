@@ -5,11 +5,11 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eth::{
     signature::{secret_key_from_str, SecretKey},
     Bytes, HashMap, HashSet,
 };
-use edr_provider::coverage::SyncOnCollectedCoverageCallback;
 use napi::{
     bindgen_prelude::{BigInt, Reference, Uint8Array},
     threadsafe_function::{

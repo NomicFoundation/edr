@@ -3,10 +3,10 @@ use std::{num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    block::PartialHeader,
+    block::{HeaderOverrides, PartialHeader},
     log::FilterLog,
     receipt::{ExecutionReceipt, ReceiptTrait},
-    spec::ChainSpec,
+    spec::{ChainSpec, EthHeaderConstants},
     transaction::ExecutableTransaction,
     Address, HashMap, HashSet, B256, U256,
 };
@@ -270,9 +270,12 @@ impl<
 {
     /// Retrieves the block by number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn block_by_number(&self, number: u64) -> Result<Option<BlockT>, InsertError> {
+    pub fn block_by_number<ChainSpecT: EthHeaderConstants<Hardfork = HardforkT>>(
+        &self,
+        number: u64,
+    ) -> Result<Option<BlockT>, InsertError> {
         Ok(self
-            .try_fulfilling_reservation(number)?
+            .try_fulfilling_reservation::<ChainSpecT>(number)?
             .or_else(|| self.storage.read().block_by_number(number).cloned()))
     }
 
@@ -298,7 +301,10 @@ impl<
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn try_fulfilling_reservation(&self, block_number: u64) -> Result<Option<BlockT>, InsertError> {
+    fn try_fulfilling_reservation<ChainSpecT: EthHeaderConstants<Hardfork = HardforkT>>(
+        &self,
+        block_number: u64,
+    ) -> Result<Option<BlockT>, InsertError> {
         let reservations = self.reservations.upgradable_read();
 
         reservations
@@ -342,14 +348,20 @@ impl<
                 );
 
                 let block = BlockT::empty(
-                    reservation.hardfork,
-                    PartialHeader {
-                        number: block_number,
-                        state_root: reservation.previous_state_root,
-                        base_fee: reservation.previous_base_fee_per_gas,
-                        timestamp,
-                        ..PartialHeader::default()
-                    },
+                    reservation.hardfork.clone(),
+                    PartialHeader::new::<ChainSpecT>(
+                        reservation.hardfork,
+                        HeaderOverrides {
+                            number: Some(block_number),
+                            state_root: Some(reservation.previous_state_root),
+                            base_fee: reservation.previous_base_fee_per_gas,
+                            timestamp: Some(timestamp),
+                            ..HeaderOverrides::default()
+                        },
+                        None,
+                        &Vec::new(),
+                        None,
+                    ),
                 );
 
                 {

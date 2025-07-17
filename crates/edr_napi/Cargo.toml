@@ -7,10 +7,12 @@ edition.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-alloy-dyn-abi = { version = "0.8.22", default-features = false, features = ["eip712", "std"] }
-alloy-json-abi = { version = "0.8.22", default-features = false }
-alloy-sol-types = { version = "0.8.22", default-features = false, features = ["std"] }
+alloy-dyn-abi.workspace = true
+alloy-json-abi.workspace = true
+alloy-sol-types.workspace = true
+derive_more.workspace = true
 derive-where.workspace = true
+edr_coverage.workspace = true
 edr_defaults = { path = "../edr_defaults" }
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
@@ -22,10 +24,21 @@ edr_provider = { path = "../edr_provider" }
 edr_rpc_client = { path = "../edr_rpc_client" }
 edr_scenarios = { version = "0.3.5", path = "../edr_scenarios", optional = true }
 edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
-k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8" ] }
-mimalloc = { version = "0.1.39", default-features = false, features = ["local_dynamic_tls"] }
+k256 = { version = "0.13.1", default-features = false, features = [
+    "arithmetic",
+    "ecdsa",
+    "pkcs8",
+] }
+mimalloc = { version = "0.1.39", default-features = false, features = [
+    "local_dynamic_tls",
+] }
 # The `async` feature ensures that a tokio runtime is available
-napi = { version = "2.16.17", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
+napi = { version = "2.16.17", default-features = false, features = [
+    "async",
+    "error_anyhow",
+    "napi8",
+    "serde-json",
+] }
 napi-derive = "2.16.13"
 rand = { version = "0.8.4", optional = true }
 semver = "1.0.22"
@@ -35,8 +48,17 @@ static_assertions = "1.1.0"
 strum = { version = "0.26.0", features = ["derive"] }
 thiserror = { version = "1.0.37", default-features = false }
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
-tracing-flame = { version = "0.2.0", default-features = false, features = ["smallvec"] }
-tracing-subscriber = { version = "0.3.18", default-features = false, features = ["ansi", "env-filter", "fmt", "parking_lot", "smallvec", "std"] }
+tracing-flame = { version = "0.2.0", default-features = false, features = [
+    "smallvec",
+] }
+tracing-subscriber = { version = "0.3.18", default-features = false, features = [
+    "ansi",
+    "env-filter",
+    "fmt",
+    "parking_lot",
+    "smallvec",
+    "std",
+] }
 
 # Solidity tests
 edr_solidity_tests.workspace = true
@@ -64,6 +86,7 @@ napi-build = "2.0.1"
 op = ["dep:edr_op"]
 scenarios = ["dep:edr_scenarios", "dep:rand"]
 tracing = ["edr_evm/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
+test-mock = []
 
 [lints]
 workspace = true

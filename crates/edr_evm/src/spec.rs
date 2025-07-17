@@ -20,7 +20,7 @@ use revm_interpreter::{interpreter::EthInterpreter, InterpreterResult};
 use crate::{
     block::transaction::TransactionAndBlockForChainSpec,
     config::CfgEnv,
-    evm::{Evm, EvmData},
+    evm::Evm,
     hardfork::{self, Activations},
     journal::Journal,
     precompile::EthPrecompiles,
@@ -134,11 +134,11 @@ pub trait RuntimeSpec:
 
     /// Type representing a block builder.
     type BlockBuilder<
-        'blockchain,
-        BlockchainErrorT: 'blockchain + std::error::Error + Send,
-        StateErrorT: 'blockchain + std::error::Error + Send
+        'builder,
+        BlockchainErrorT: 'builder + std::error::Error + Send,
+        StateErrorT: 'builder + std::error::Error + Send
     >: BlockBuilder<
-        'blockchain,
+        'builder,
         Self,
         BlockchainError = BlockchainErrorT,
         StateError = StateErrorT>;
@@ -226,20 +226,25 @@ pub trait RuntimeSpec:
     fn evm<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        PrecompileProviderT: PrecompileProvider<
+            ContextForChainSpec<Self, DatabaseT>,
+            Output = InterpreterResult
+        >,
         StateErrorT,
     >(
         context: ContextForChainSpec<Self, DatabaseT>,
+        precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<
         BlockchainErrorT,
         DatabaseT,
         NoOpInspector,
-        Self::PrecompileProvider<BlockchainErrorT, DatabaseT, StateErrorT>,
+        PrecompileProviderT,
         StateErrorT,
     > {
         Self::evm_with_inspector(
             context,
             NoOpInspector {},
-            Self::PrecompileProvider::<BlockchainErrorT, DatabaseT, StateErrorT>::default(),
+            precompile_provider,
         )
     }
 
@@ -364,10 +369,10 @@ impl RuntimeSpec for L1ChainSpec {
     >;
 
     type BlockBuilder<
-        'blockchain,
-        BlockchainErrorT: 'blockchain + Send + std::error::Error,
-        StateErrorT: 'blockchain + Send + std::error::Error,
-    > = EthBlockBuilder<'blockchain, BlockchainErrorT, Self, StateErrorT>;
+        'builder,
+        BlockchainErrorT: 'builder + Send + std::error::Error,
+        StateErrorT: 'builder + Send + std::error::Error,
+    > = EthBlockBuilder<'builder, BlockchainErrorT, Self, StateErrorT>;
 
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
@@ -444,10 +449,8 @@ impl RuntimeSpec for L1ChainSpec {
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
         Evm {
-            data: EvmData {
-                ctx: context,
-                inspector,
-            },
+            ctx: context,
+            inspector,
             instruction: EthInstructions::default(),
             precompiles: precompile_provider,
         }

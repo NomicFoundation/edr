@@ -6,9 +6,9 @@ use edr_napi_core::{
     provider::{self, ProviderBuilder, SyncProviderFactory},
     subscription,
 };
-use edr_op::{OpChainSpec, OpSpecId};
+use edr_op::{predeploys::GAS_PRICE_ORACLE_ADDRESS, OpChainSpec, OpSpecId};
 use edr_solidity::contract_decoder::ContractDecoder;
-use napi::bindgen_prelude::BigInt;
+use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
 use crate::{
@@ -96,13 +96,13 @@ impl FromStr for OpHardfork {
 /// instance.
 ///
 /// Returns an error if the string does not match any known hardfork.
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_hardfork_from_string(hardfork: String) -> napi::Result<OpHardfork> {
     hardfork.parse()
 }
 
 /// Returns the string representation of the provided OP hardfork.
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
     match hardfork {
         OpHardfork::Bedrock => edr_op::hardfork::name::BEDROCK,
@@ -119,7 +119,7 @@ pub fn op_hardfork_to_string(hardfork: OpHardfork) -> &'static str {
 /// Returns the latest supported OP hardfork.
 ///
 /// The returned value will be updated after each network upgrade.
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_latest_hardfork() -> OpHardfork {
     OpHardfork::Holocene
 }
@@ -127,27 +127,8 @@ pub fn op_latest_hardfork() -> OpHardfork {
 #[napi]
 pub const OP_CHAIN_TYPE: &str = edr_op::CHAIN_TYPE;
 
-#[napi]
-pub fn op_genesis_state(_hardfork: OpHardfork) -> Vec<AccountOverride> {
-    let gas_price_oracle_code = hex::decode(include_str!(
-        "../../data/op/predeploys/gas_price_oracle.txt"
-    ))
-    .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
-    let gas_price_oracle = AccountOverride {
-        address: hex!("420000000000000000000000000000000000000F").into(),
-        balance: Some(BigInt::from(0u64)),
-        nonce: Some(BigInt::from(0u64)),
-        code: Some(gas_price_oracle_code.into()),
-        storage: Some(vec![StorageSlot {
-            index: BigInt::from(0u64),
-            // bool isEcotone = true
-            // bool isFjord = true
-            value: BigInt::from(
-                0x0000000000000000000000000000000000000000000000000000000000000101u64,
-            ),
-        }]),
-    };
-
+#[napi(catch_unwind)]
+pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
     let l1_block_code = hex::decode(include_str!("../../data/op/predeploys/l1_block.txt"))
         .expect("The bytecode for the L1Block predeploy should be a valid hex string");
     let l1_block = AccountOverride {
@@ -336,15 +317,91 @@ pub fn op_genesis_state(_hardfork: OpHardfork) -> Vec<AccountOverride> {
             storage: Some(vec![]),
         });
 
-    let predeploys = vec![gas_price_oracle, l1_block];
+    let predeploys = vec![gas_price_oracle_override(hardfork.into()), l1_block];
 
     predeploys.into_iter().chain(stubbed_predeploys).collect()
 }
 
-#[napi]
+#[napi(catch_unwind)]
 pub fn op_provider_factory() -> ProviderFactory {
     let factory: Arc<dyn SyncProviderFactory> = Arc::new(OpProviderFactory);
     factory.into()
+}
+
+fn gas_price_oracle_override(hardfork: OpSpecId) -> AccountOverride {
+    if hardfork >= OpSpecId::ISTHMUS {
+        gas_price_oracle_isthmus()
+    } else if hardfork >= OpSpecId::FJORD {
+        gas_price_oracle_fjord()
+    } else {
+        gas_price_oracle_ecotone()
+    }
+}
+
+fn gas_price_oracle_ecotone() -> AccountOverride {
+    let gas_price_oracle_code = hex::decode(include_str!(
+        "../../data/op/predeploys/gas_price_oracle/ecotone.txt"
+    ))
+    .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
+
+    AccountOverride {
+        address: Uint8Array::with_data_copied(GAS_PRICE_ORACLE_ADDRESS),
+        balance: None,
+        nonce: None,
+        code: Some(gas_price_oracle_code.into()),
+        storage: Some(vec![StorageSlot {
+            index: BigInt::from(0u64),
+            // bool isEcotone = true
+            value: BigInt::from(
+                0x0000000000000000000000000000000000000000000000000000000000000001u64,
+            ),
+        }]),
+    }
+}
+
+fn gas_price_oracle_fjord() -> AccountOverride {
+    let gas_price_oracle_code = hex::decode(include_str!(
+        "../../data/op/predeploys/gas_price_oracle/fjord.txt"
+    ))
+    .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
+
+    AccountOverride {
+        address: Uint8Array::with_data_copied(GAS_PRICE_ORACLE_ADDRESS),
+        balance: None,
+        nonce: None,
+        code: Some(gas_price_oracle_code.into()),
+        storage: Some(vec![StorageSlot {
+            index: BigInt::from(0u64),
+            // bool isEcotone = true
+            // bool isFjord = true
+            value: BigInt::from(
+                0x0000000000000000000000000000000000000000000000000000000000000101u64,
+            ),
+        }]),
+    }
+}
+
+fn gas_price_oracle_isthmus() -> AccountOverride {
+    let gas_price_oracle_code = hex::decode(include_str!(
+        "../../data/op/predeploys/gas_price_oracle/isthmus.txt"
+    ))
+    .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
+
+    AccountOverride {
+        address: Uint8Array::with_data_copied(GAS_PRICE_ORACLE_ADDRESS),
+        balance: None,
+        nonce: None,
+        code: Some(gas_price_oracle_code.into()),
+        storage: Some(vec![StorageSlot {
+            index: BigInt::from(0u64),
+            // bool isEcotone = true
+            // bool isFjord = true
+            // bool isIsthmus = true
+            value: BigInt::from(
+                0x0000000000000000000000000000000000000000000000000000000000010101u64,
+            ),
+        }]),
+    }
 }
 
 macro_rules! export_spec_id {

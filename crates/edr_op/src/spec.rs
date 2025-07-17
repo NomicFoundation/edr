@@ -8,7 +8,7 @@ use edr_eth::{
     spec::{ChainSpec, EthHeaderConstants},
 };
 use edr_evm::{
-    evm::{Evm, EvmData},
+    evm::Evm,
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::PrecompileProvider,
     spec::{ContextForChainSpec, RuntimeSpec},
@@ -68,10 +68,10 @@ impl RuntimeSpec for OpChainSpec {
     >;
 
     type BlockBuilder<
-        'blockchain,
-        BlockchainErrorT: 'blockchain + Send + std::error::Error,
-        StateErrorT: 'blockchain + Send + std::error::Error,
-    > = block::Builder<'blockchain, BlockchainErrorT, StateErrorT>;
+        'builder,
+        BlockchainErrorT: 'builder + Send + std::error::Error,
+        StateErrorT: 'builder + Send + std::error::Error,
+    > = block::Builder<'builder, BlockchainErrorT, StateErrorT>;
 
     type BlockReceipt = receipt::Block;
     type BlockReceiptFactory = BlockReceiptFactory;
@@ -144,10 +144,8 @@ impl RuntimeSpec for OpChainSpec {
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
         OpEvm(Evm {
-            data: EvmData {
-                ctx: context,
-                inspector,
-            },
+            ctx: context,
+            inspector,
             instruction: EthInstructions::new_mainnet(),
             precompiles: precompile_provider,
         })

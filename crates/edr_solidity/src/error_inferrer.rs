@@ -58,6 +58,9 @@ pub enum InferrerError<HaltReasonT> {
     /// Serde JSON error while parsing [`ContractFunction`].
     #[error("Failed to parse function: {0}")]
     InvalidFunction(Arc<serde_json::Error>),
+    /// An invariant assumed by the code was violated.
+    #[error("Invariant violation: {0}")]
+    InvariantViolation(String),
     /// Invalid input or logic error: Missing contract metadata.
     #[error("Missing contract")]
     MissingContract,
@@ -68,6 +71,10 @@ pub enum InferrerError<HaltReasonT> {
     /// Invalid input or logic error: Missing source reference.
     #[error("Missing source reference")]
     MissingSourceReference,
+    /// Semver error.
+    #[error(transparent)]
+    // Arc to make it clonable.
+    Semver(#[from] Arc<semver::Error>),
     /// Solidity types error.
     #[error(transparent)]
     SolidityTypes(#[from] alloy_sol_types::Error),
@@ -86,6 +93,7 @@ impl<HaltReasonT> InferrerError<HaltReasonT> {
             InferrerError::ContractMetadata(err) => InferrerError::ContractMetadata(err),
             InferrerError::ExpectedEvmStep => InferrerError::ExpectedEvmStep,
             InferrerError::InvalidFunction(err) => InferrerError::InvalidFunction(err),
+            InferrerError::InvariantViolation(err) => InferrerError::InvariantViolation(err),
             InferrerError::MissingContract => InferrerError::MissingContract,
             InferrerError::MissingFunctionJumpDest(call_message) => {
                 InferrerError::MissingFunctionJumpDest(Box::new(
@@ -93,6 +101,7 @@ impl<HaltReasonT> InferrerError<HaltReasonT> {
                 ))
             }
             InferrerError::MissingSourceReference => InferrerError::MissingSourceReference,
+            InferrerError::Semver(err) => InferrerError::Semver(err),
             InferrerError::SolidityTypes(err) => InferrerError::SolidityTypes(err),
         }
     }
@@ -321,7 +330,7 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
     let inst_location = match &inst.location {
         None => {
             let location = &contract.location;
-            let file = location.file();
+            let file = location.file()?;
             let file = file.read();
 
             return Ok(StackTraceEntry::InternalFunctionCallstackEntry {
@@ -331,7 +340,7 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
                     source_content: file.content.clone(),
                     contract: Some(contract.name.clone()),
                     function: None,
-                    line: location.get_starting_line_number(),
+                    line: location.get_starting_line_number()?,
                     range: (location.offset, location.offset + location.length),
                 },
             });
@@ -339,9 +348,9 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
         Some(inst_location) => inst_location,
     };
 
-    if let Some(func) = inst_location.get_containing_function() {
+    if let Some(func) = inst_location.get_containing_function()? {
         let source_reference =
-            source_location_to_source_reference(contract_meta, Some(inst_location))
+            source_location_to_source_reference(contract_meta, Some(inst_location))?
                 .ok_or(InferrerError::MissingSourceReference)?;
 
         return Ok(StackTraceEntry::CallstackEntry {
@@ -350,7 +359,7 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
         });
     };
 
-    let file = inst_location.file();
+    let file = inst_location.file()?;
     let file = file.read();
 
     Ok(StackTraceEntry::CallstackEntry {
@@ -359,7 +368,7 @@ pub(crate) fn instruction_to_callstack_stack_trace_entry<HaltReasonT: HaltReason
             contract: Some(contract.name.clone()),
             source_name: file.source_name.clone(),
             source_content: file.content.clone(),
-            line: inst_location.get_starting_line_number(),
+            line: inst_location.get_starting_line_number()?,
             range: (
                 inst_location.offset,
                 inst_location.offset + inst_location.length,
@@ -375,7 +384,7 @@ fn call_instruction_to_call_failed_to_execute_stack_trace_entry<HaltReasonT: Hal
 ) -> Result<StackTraceEntry, InferrerError<HaltReasonT>> {
     let location = call_inst.location.as_deref();
 
-    let source_reference = source_location_to_source_reference(contract_meta, location)
+    let source_reference = source_location_to_source_reference(contract_meta, location)?
         .ok_or(InferrerError::MissingSourceReference)?;
 
     // Calls only happen within functions
@@ -512,7 +521,11 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 
     let last_step = match steps.last() {
         Some(NestedTraceStep::Evm(step)) => step,
-        _ => panic!("This should not happen: MessageTrace ends with a subtrace"),
+        _ => {
+            return Err(InferrerError::InvariantViolation(
+                "MessageTrace ends with a subtrace".to_string(),
+            ))
+        }
     };
 
     let last_instruction = contract_meta.get_instruction(last_step.pc)?;
@@ -548,7 +561,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 
     // Sometimes we do fail inside of a function but there's no jump into
     if let Some(location) = &last_instruction.location {
-        let failing_function = location.get_containing_function();
+        let failing_function = location.get_containing_function()?;
 
         if let Some(failing_function) = failing_function {
             let frame = StackTraceEntry::RevertError {
@@ -576,7 +589,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
             .map_err(|error| InferrerError::InvalidFunction(Arc::new(error)))?;
 
         let is_valid_calldata = match &called_function.param_types {
-            Some(_) => abi.abi_decode_input(calldata, true).is_ok(),
+            Some(_) => abi.abi_decode_input(calldata).is_ok(),
             // if we don't know the param types, we just assume that the call is valid
             None => true,
         };
@@ -626,16 +639,23 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
     // get the instruction before the submessage and add it to the stack trace
     let call_step = match steps.get(last_submessage_data.step_index as usize - 1) {
         Some(NestedTraceStep::Evm(call_step)) => call_step,
-        _ => panic!("This should not happen: MessageTrace should be preceded by a EVM step"),
+        _ => {
+            return Err(InferrerError::InvariantViolation(
+                "MessageTrace should be preceded by a EVM step".to_string(),
+            ))
+        }
     };
 
     let call_inst = contract_meta.get_instruction(call_step.pc)?;
     let call_stack_frame = instruction_to_callstack_stack_trace_entry(&contract_meta, call_inst)?;
-    // TODO: remove this expect
     let call_stack_frame_source_reference = call_stack_frame
         .source_reference()
         .cloned()
-        .expect("Callstack entry must have source reference");
+        .ok_or_else(|| {
+            InferrerError::InvariantViolation(
+                "Callstack entry must have source reference".to_string(),
+            )
+        })?;
 
     let last_message_failed = match &last_submessage_data.message_trace {
         NestedTrace::Create(create) => create.exit.is_error(),
@@ -655,7 +675,11 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
             if is_contract_call_run_out_of_gas_error(trace, last_submessage_data.step_index)? {
                 let last_frame = match inferred_stacktrace.pop() {
                     Some(frame) => frame,
-                    _ => panic!("Expected inferred stack trace to have at least one frame"),
+                    _ => {
+                        return Err(InferrerError::InvariantViolation(
+                            "Expected inferred stack trace to have at least one frame".to_string(),
+                        ))
+                    }
                 };
 
                 inferred_stacktrace.push(StackTraceEntry::ContractCallRunOutOfGasError {
@@ -728,7 +752,9 @@ fn check_non_contract_called<HaltReasonT: HaltReasonTrait>(
 
         // We are sure this is not undefined because there was at least a call
         // instruction
-        let source_reference = source_reference.expect("Expected source reference to be defined");
+        let source_reference = source_reference.ok_or_else(|| {
+            InferrerError::InvariantViolation("Expected source reference to be defined".to_string())
+        })?;
 
         let non_contract_called_frame =
             StackTraceEntry::NoncontractAccountCalledError { source_reference };
@@ -771,7 +797,7 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
             //
             // If it's a call trace, we already jumped into a function. But optimizations
             // can happen.
-            let failing_function = location.get_containing_function();
+            let failing_function = location.get_containing_function()?;
 
             // If the failure is in a modifier we add an entry with the function/constructor
             match failing_function {
@@ -800,7 +826,7 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
 
     if let Some(location) = &last_instruction.location {
         if jumped_into_function || matches!(trace, CreateOrCallMessageRef::Create(_)) {
-            let failing_function = location.get_containing_function();
+            let failing_function = location.get_containing_function()?;
 
             if failing_function.is_some() {
                 let frame = instruction_within_function_to_revert_stack_trace_entry(
@@ -897,8 +923,7 @@ fn empty_calldata_and_no_receive<HaltReasonT: HaltReasonTrait>(
         .ok_or(InferrerError::MissingContract)?;
     let contract = contract_meta.contract.read();
 
-    let version =
-        Version::parse(&contract_meta.compiler_version).expect("Failed to parse SemVer version");
+    let version = Version::parse(&contract_meta.compiler_version).map_err(Arc::new)?;
 
     // this only makes sense when receive functions are available
     if version < FIRST_SOLC_VERSION_RECEIVE_FUNCTION {
@@ -934,10 +959,11 @@ fn fails_right_after_call<HaltReasonT: HaltReasonTrait>(
     let call_inst = contract_meta.get_instruction(call_opcode_step.pc)?;
 
     // Calls are always made from within functions
-    let call_inst_location = call_inst
-        .location
-        .as_ref()
-        .expect("Expected call instruction location to be defined");
+    let call_inst_location = call_inst.location.as_ref().ok_or_else(|| {
+        InferrerError::InvariantViolation(
+            "Expected call instruction location to be defined".to_string(),
+        )
+    })?;
 
     is_last_location(trace, call_subtrace_step_index + 1, call_inst_location)
 }
@@ -1005,11 +1031,11 @@ fn get_constructor_start_source_reference<HaltReasonT: HaltReasonTrait>(
     let contract_location = &contract.location;
 
     let line = match &contract.constructor {
-        Some(constructor) => constructor.location.get_starting_line_number(),
-        None => contract_location.get_starting_line_number(),
+        Some(constructor) => constructor.location.get_starting_line_number()?,
+        None => contract_location.get_starting_line_number()?,
     };
 
-    let file = contract_location.file();
+    let file = contract_location.file()?;
     let file = file.read();
 
     Ok(SourceReference {
@@ -1035,7 +1061,7 @@ fn get_contract_start_without_function_source_reference<HaltReasonT: HaltReasonT
     let contract = contract_meta.contract.read();
 
     let location = &contract.location;
-    let file = location.file();
+    let file = location.file()?;
     let file = file.read();
 
     Ok(SourceReference {
@@ -1044,7 +1070,7 @@ fn get_contract_start_without_function_source_reference<HaltReasonT: HaltReasonT
         contract: Some(contract.name.clone()),
 
         function: None,
-        line: location.get_starting_line_number(),
+        line: location.get_starting_line_number()?,
         range: (location.offset, location.offset + location.length),
     })
 }
@@ -1084,7 +1110,7 @@ fn get_function_start_source_reference<HaltReasonT: HaltReasonTrait>(
         .ok_or(InferrerError::MissingContract)?;
     let contract = contract_meta.contract.read();
 
-    let file = func.location.file();
+    let file = func.location.file()?;
     let file = file.read();
 
     let location = &func.location;
@@ -1095,7 +1121,7 @@ fn get_function_start_source_reference<HaltReasonT: HaltReasonTrait>(
         contract: Some(contract.name.clone()),
 
         function: Some(func.name.clone()),
-        line: location.get_starting_line_number(),
+        line: location.get_starting_line_number()?,
         range: (location.offset, location.offset + location.length),
     })
 }
@@ -1194,13 +1220,16 @@ fn get_fallback_start_source_reference<HaltReasonT: HaltReasonTrait>(
 
     let func = match &contract.fallback {
         Some(func) => func,
-        None => panic!(
-            "This shouldn't happen: trying to get fallback source reference from a contract without fallback"
-        ),
+        None => {
+            return Err(InferrerError::InvariantViolation(
+                "trying to get fallback source reference from a contract without fallback"
+                    .to_string(),
+            ))
+        }
     };
 
     let location = &func.location;
-    let file = location.file();
+    let file = location.file()?;
     let file = file.read();
 
     Ok(SourceReference {
@@ -1208,7 +1237,7 @@ fn get_fallback_start_source_reference<HaltReasonT: HaltReasonTrait>(
         source_content: file.content.clone(),
         contract: Some(contract.name.clone()),
         function: Some(FALLBACK_FUNCTION_NAME.to_string()),
-        line: location.get_starting_line_number(),
+        line: location.get_starting_line_number()?,
         range: (location.offset, location.offset + location.length),
     })
 }
@@ -1280,7 +1309,7 @@ fn get_last_source_reference<HaltReasonT: HaltReasonTrait>(
             continue;
         };
 
-        let source_reference = source_location_to_source_reference(&contract_meta, Some(location));
+        let source_reference = source_location_to_source_reference(&contract_meta, Some(location))?;
 
         if let Some(source_reference) = source_reference {
             return Ok(Some(source_reference));
@@ -1337,11 +1366,9 @@ fn has_failed_inside_function<HaltReasonT: HaltReasonTrait>(
     trace: &CallMessage<HaltReasonT>,
     func: &ContractFunction,
 ) -> Result<bool, InferrerError<HaltReasonT>> {
-    let last_step = trace
-        .steps
-        .iter()
-        .last()
-        .expect("There should at least be one step");
+    let last_step = trace.steps.iter().last().ok_or_else(|| {
+        InferrerError::InvariantViolation("There should at least be one step".to_string())
+    })?;
 
     let last_step = match last_step {
         NestedTraceStep::Evm(step) => step,
@@ -1370,15 +1397,16 @@ fn instruction_within_function_to_custom_error_stack_trace_entry<HaltReasonT: Ha
     message: String,
 ) -> Result<StackTraceEntry, InferrerError<HaltReasonT>> {
     let last_source_reference = get_last_source_reference(trace)?;
-    let last_source_reference =
-        last_source_reference.expect("Expected source reference to be defined");
+    let last_source_reference = last_source_reference.ok_or_else(|| {
+        InferrerError::InvariantViolation("Expected source reference to be defined".to_string())
+    })?;
 
     let contract_meta = trace
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref());
+        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
 
     let source_reference = source_reference.unwrap_or(last_source_reference);
 
@@ -1400,7 +1428,7 @@ fn instruction_within_function_to_panic_stack_trace_entry<HaltReasonT: HaltReaso
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref());
+        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
 
     let source_reference = source_reference.or(last_source_reference);
 
@@ -1419,7 +1447,7 @@ fn instruction_within_function_to_revert_stack_trace_entry<HaltReasonT: HaltReas
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref())
+        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?
             .ok_or(InferrerError::MissingSourceReference)?;
 
     Ok(StackTraceEntry::RevertError {
@@ -1440,7 +1468,7 @@ fn instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_refere
         .ok_or(InferrerError::MissingContract)?;
 
     let source_reference =
-        source_location_to_source_reference(&contract_meta, inst.location.as_deref());
+        source_location_to_source_reference(&contract_meta, inst.location.as_deref())?;
 
     Ok(source_reference)
 }
@@ -1466,7 +1494,11 @@ fn is_called_non_contract_account_error<HaltReasonT: HaltReasonTrait>(
 
     let last_step = match &steps[last_index] {
         NestedTraceStep::Evm(step) => step,
-        _ => panic!("We know this is an EVM step"),
+        _ => {
+            return Err(InferrerError::InvariantViolation(
+                "Expected EVM step".to_string(),
+            ))
+        }
     };
 
     let last_inst = contract_meta.get_instruction(last_step.pc)?;
@@ -1477,7 +1509,11 @@ fn is_called_non_contract_account_error<HaltReasonT: HaltReasonTrait>(
 
     let prev_step = match &steps[last_index - 1] {
         NestedTraceStep::Evm(step) => step,
-        _ => panic!("We know this is an EVM step"),
+        _ => {
+            return Err(InferrerError::InvariantViolation(
+                "Expected EVM step".to_string(),
+            ))
+        }
     };
 
     let prev_inst = contract_meta.get_instruction(prev_step.pc)?;
@@ -1492,7 +1528,11 @@ fn is_call_failed_error<HaltReasonT: HaltReasonTrait>(
 ) -> Result<bool, InferrerError<HaltReasonT>> {
     let call_location = match &call_instruction.location {
         Some(location) => location,
-        None => panic!("Expected call location to be defined"),
+        None => {
+            return Err(InferrerError::InvariantViolation(
+                "Expected call location to be defined".to_string(),
+            ))
+        }
     };
 
     is_last_location(trace, inst_index, call_location)
@@ -1620,7 +1660,11 @@ fn is_contract_call_run_out_of_gas_error<HaltReasonT: HaltReasonTrait>(
     }
 
     let call_exit = match steps.get(call_step_index as usize) {
-        None | Some(NestedTraceStep::Evm(_)) => panic!("Expected call to be a message trace"),
+        None | Some(NestedTraceStep::Evm(_)) => {
+            return Err(InferrerError::InvariantViolation(
+                "Expected call to be a message trace".to_string(),
+            ))
+        }
         Some(NestedTraceStep::Precompile(precompile)) => precompile.exit.clone(),
         Some(NestedTraceStep::Call(call)) => call.exit.clone(),
         Some(NestedTraceStep::Create(create)) => create.exit.clone(),
@@ -1835,7 +1879,11 @@ fn is_subtrace_error_propagated<HaltReasonT: HaltReasonTrait>(
     let exit = trace.exit_code();
 
     let (call_return_data, call_exit) = match steps.get(call_subtrace_step_index as usize) {
-        None | Some(NestedTraceStep::Evm(_)) => panic!("Expected call to be a message trace"),
+        None | Some(NestedTraceStep::Evm(_)) => {
+            return Err(InferrerError::InvariantViolation(
+                "Expected call to be a message trace".to_string(),
+            ))
+        }
         Some(NestedTraceStep::Precompile(precompile)) => {
             (precompile.return_data.clone(), precompile.exit.clone())
         }
@@ -1896,7 +1944,7 @@ fn solidity_0_6_3_maybe_unmapped_revert<HaltReasonT: HaltReasonTrait>(
         return Ok(false);
     };
     let req = VersionReq::parse(&format!("^{FIRST_SOLC_VERSION_WITH_UNMAPPED_REVERTS}"))
-        .expect("valid semver");
+        .map_err(Arc::new)?;
 
     Ok(req.matches(&version) && last_instruction.opcode == OpCode::REVERT)
 }
@@ -1926,7 +1974,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function<HaltReasonT: Hal
                 // Failed within the fallback
                 if let Some(fallback) = &contract.fallback {
                     let location = &fallback.location;
-                    let file = location.file();
+                    let file = location.file()?;
                     let file = file.read();
 
                     let source_reference = SourceReference {
@@ -1934,7 +1982,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function<HaltReasonT: Hal
                         function: Some(FALLBACK_FUNCTION_NAME.to_string()),
                         source_name: file.source_name.clone(),
                         source_content: file.content.clone(),
-                        line: location.get_starting_line_number(),
+                        line: location.get_starting_line_number()?,
                         range: (location.offset, location.offset + location.length),
                     };
                     let revert_frame = StackTraceEntry::UnmappedSolc0_6_3RevertError {
@@ -1948,13 +1996,12 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function<HaltReasonT: Hal
                     None
                 }
             } else {
-                let receive = contract
-                    .receive
-                    .as_ref()
-                    .expect("None always hits branch above");
+                let receive = contract.receive.as_ref().ok_or_else(|| {
+                    InferrerError::InvariantViolation("None always hits branch above".to_string())
+                })?;
 
                 let location = &receive.location;
-                let file = location.file();
+                let file = location.file()?;
                 let file = file.read();
 
                 let source_reference = SourceReference {
@@ -1962,7 +2009,7 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_before_function<HaltReasonT: Hal
                     function: Some(RECEIVE_FUNCTION_NAME.to_string()),
                     source_name: file.source_name.clone(),
                     source_content: file.content.clone(),
-                    line: location.get_starting_line_number(),
+                    line: location.get_starting_line_number()?,
                     range: (location.offset, location.offset + location.length),
                 };
                 let revert_frame = StackTraceEntry::UnmappedSolc0_6_3RevertError {
@@ -2004,8 +2051,12 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function<HaltReasonT: Hal
         let prev_loc = prev_inst.as_ref().and_then(|i| i.location.as_deref());
         let next_loc = next_inst.location.as_deref();
 
-        let prev_func = prev_loc.and_then(SourceLocation::get_containing_function);
-        let next_func = next_loc.and_then(SourceLocation::get_containing_function);
+        let prev_func = prev_loc
+            .map(SourceLocation::get_containing_function)
+            .transpose()?;
+        let next_func = next_loc
+            .map(SourceLocation::get_containing_function)
+            .transpose()?;
 
         // This is probably a require. This means that we have the exact
         // line, but the stack trace may be degraded (e.g. missing our
@@ -2027,7 +2078,9 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function<HaltReasonT: Hal
         let source_reference = if prev_func.is_some() && prev_inst.is_some() {
             instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_reference(
                 trace,
-                prev_inst.as_ref().unwrap(),
+                prev_inst.as_ref().ok_or_else(|| {
+                    InferrerError::InvariantViolation("Expected prev_inst to be Some".to_string())
+                })?,
             )?
         } else if next_func.is_some() {
             instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_reference(
@@ -2047,37 +2100,36 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function<HaltReasonT: Hal
         // an unconditional revert happens in a constructor. If this is the case
         // we just return a special error.
 
-        let source_reference =
+        let source_reference = if let Some(source_ref) =
             instruction_within_function_to_unmapped_solc_0_6_3_revert_error_source_reference(
                 trace,
-                prev_inst.as_ref().unwrap(),
-            )?
-            .map_or_else(
-                || {
-                    // When the latest instruction is not within a function we need
-                    // some default sourceReference to show to the user
-                    let location = &contract.location;
-                    let file = location.file();
-                    let file = file.read();
+                prev_inst.as_ref().ok_or_else(|| {
+                    InferrerError::InvariantViolation("Expected prev_inst to be Some".to_string())
+                })?,
+            )? {
+            solidity_0_6_3_correct_line_number(source_ref)
+        } else {
+            // When the latest instruction is not within a function we need
+            // some default sourceReference to show to the user
+            let location = &contract.location;
+            let file = location.file()?;
+            let file = file.read();
 
-                    let mut default_source_reference = SourceReference {
-                        function: Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
-                        contract: Some(contract.name.clone()),
-                        source_name: file.source_name.clone(),
-                        source_content: file.content.clone(),
-                        line: location.get_starting_line_number(),
-                        range: (location.offset, location.offset + location.length),
-                    };
+            let mut default_source_reference = SourceReference {
+                function: Some(CONSTRUCTOR_FUNCTION_NAME.to_string()),
+                contract: Some(contract.name.clone()),
+                source_name: file.source_name.clone(),
+                source_content: file.content.clone(),
+                line: location.get_starting_line_number()?,
+                range: (location.offset, location.offset + location.length),
+            };
 
-                    if let Some(constructor) = &contract.constructor {
-                        default_source_reference.line =
-                            constructor.location.get_starting_line_number();
-                    }
+            if let Some(constructor) = &contract.constructor {
+                default_source_reference.line = constructor.location.get_starting_line_number()?;
+            }
 
-                    default_source_reference
-                },
-                solidity_0_6_3_correct_line_number,
-            );
+            default_source_reference
+        };
 
         return Ok(Some(StackTraceEntry::UnmappedSolc0_6_3RevertError {
             source_reference: Some(source_reference),
@@ -2128,12 +2180,16 @@ fn solidity_0_6_3_correct_line_number(mut source_reference: SourceReference) -> 
     source_reference
 }
 
-fn source_location_to_source_reference(
+fn source_location_to_source_reference<HaltReasonT>(
     contract_meta: &ContractMetadata,
     location: Option<&SourceLocation>,
-) -> Option<SourceReference> {
-    let location = location?;
-    let func = location.get_containing_function()?;
+) -> Result<Option<SourceReference>, InferrerError<HaltReasonT>> {
+    let Some(location) = location else {
+        return Ok(None);
+    };
+    let Some(func) = location.get_containing_function()? else {
+        return Ok(None);
+    };
 
     let func_name = match func.r#type {
         ContractFunctionType::Constructor => CONSTRUCTOR_FUNCTION_NAME.to_string(),
@@ -2142,10 +2198,10 @@ fn source_location_to_source_reference(
         _ => func.name.clone(),
     };
 
-    let func_location_file = func.location.file();
+    let func_location_file = func.location.file()?;
     let func_location_file = func_location_file.read();
 
-    Some(SourceReference {
+    Ok(Some(SourceReference {
         function: Some(func_name.clone()),
         contract: if func.r#type == ContractFunctionType::FreeFunction {
             None
@@ -2154,9 +2210,9 @@ fn source_location_to_source_reference(
         },
         source_name: func_location_file.source_name.clone(),
         source_content: func_location_file.content.clone(),
-        line: location.get_starting_line_number(),
+        line: location.get_starting_line_number()?,
         range: (location.offset, location.offset + location.length),
-    })
+    }))
 }
 
 #[cfg(test)]

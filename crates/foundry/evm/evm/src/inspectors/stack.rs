@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
 use derive_where::derive_where;
+use edr_coverage::CodeCoverageReporter;
 use foundry_evm_core::{
     backend::{update_state, CheatcodeBackend},
     evm_context::{
@@ -18,8 +19,8 @@ use revm::{
     },
     context_interface::{result::Output, JournalTr},
     interpreter::{
-        CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, InstructionResult,
-        Interpreter, InterpreterResult,
+        interpreter::EthInterpreter, CallInputs, CallOutcome, CallScheme, CreateInputs,
+        CreateOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
     DatabaseCommit, ExecuteEvm, Inspector, Journal,
 };
@@ -52,6 +53,8 @@ pub struct InspectorStackBuilder<HardforkT: HardforkTr, ChainContextT: ChainCont
     pub trace: Option<bool>,
     /// Whether logs should be collected.
     pub logs: Option<bool>,
+    /// Whether to report EDR code coverage.
+    pub code_coverage: Option<CodeCoverageReporter>,
     /// Whether coverage info should be collected.
     pub coverage: Option<bool>,
     /// Whether to enable call isolation.
@@ -102,6 +105,15 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
     #[inline]
     pub fn logs(mut self, yes: bool) -> Self {
         self.logs = Some(yes);
+        self
+    }
+
+    /// Set whether to report EDR code coverage.
+    #[inline]
+    pub fn code_coverage(mut self, reporter: Option<CodeCoverageReporter>) -> Self {
+        if let Some(reporter) = reporter {
+            self.code_coverage = Some(reporter);
+        }
         self
     }
 
@@ -157,6 +169,7 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
             fuzzer,
             trace,
             logs,
+            code_coverage,
             coverage,
             enable_isolation,
         } = self;
@@ -168,6 +181,9 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
         }
         if let Some(fuzzer) = fuzzer {
             stack.set_fuzzer(fuzzer);
+        }
+        if let Some(reporter) = code_coverage {
+            stack.set_code_coverage(reporter);
         }
         stack.collect_coverage(coverage.unwrap_or(false));
         stack.collect_logs(logs.unwrap_or(true));
@@ -317,6 +333,8 @@ pub struct InspectorStack<
             TransactionErrorT,
         >,
     >,
+    /// EDR coverage reporter.
+    pub code_coverage: Option<CodeCoverageReporter>,
     pub coverage: Option<CoverageCollector>,
     pub fuzzer: Option<Fuzzer>,
     pub log_collector: Option<LogCollector>,
@@ -408,6 +426,12 @@ impl<
     #[inline]
     pub fn set_fuzzer(&mut self, fuzzer: Fuzzer) {
         self.fuzzer = Some(fuzzer);
+    }
+
+    /// Set whether to enable EDR code coverage reporting.
+    #[inline]
+    pub fn set_code_coverage(&mut self, reporter: CodeCoverageReporter) {
+        self.code_coverage = Some(reporter);
     }
 
     /// Set whether to enable the coverage collector.
@@ -729,7 +753,7 @@ impl<
         if let Err(e) = update_state(&mut context.journaled_state.state, &mut *db, None) {
             let res = InterpreterResult {
                 result: InstructionResult::Revert,
-                output: Bytes::from(e.to_string()),
+                output: Bytes::from(e.to_string().into_bytes()),
                 gas,
             };
             return (res, None);
@@ -737,7 +761,7 @@ impl<
         if let Err(e) = update_state(&mut res.state, &mut *db, None) {
             let res = InterpreterResult {
                 result: InstructionResult::Revert,
-                output: Bytes::from(e.to_string()),
+                output: Bytes::from(e.to_string().into_bytes()),
                 gas,
             };
             return (res, None);
@@ -943,16 +967,22 @@ impl<
             return None;
         }
 
+        let code_coverage_collector = self
+            .code_coverage
+            .as_mut()
+            .map(|reporter| &mut reporter.collector);
+
         call_inspectors_adjust_depth!(
             [
                 &mut self.fuzzer,
                 &mut self.tracer,
+                code_coverage_collector,
                 &mut self.log_collector,
                 &mut self.cheatcodes
             ],
             |inspector| {
                 let mut out = None;
-                if let Some(output) = inspector.call(ecx, call) {
+                if let Some(output) = Inspector::<_, EthInterpreter>::call(inspector, ecx, call) {
                     if output.result.result != InstructionResult::Continue {
                         out = Some(Some(output));
                     }
@@ -968,11 +998,12 @@ impl<
             && !self.in_inner_context
             && ecx.journaled_state.depth == 1
         {
+            let input = call.input.bytes(ecx);
             let (result, _) = self.transact_inner(
                 ecx,
                 TxKind::Call(call.target_address),
                 call.caller,
-                call.input.clone(),
+                input,
                 call.gas_limit,
                 call.value.get(),
             );
