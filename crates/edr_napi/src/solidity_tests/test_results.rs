@@ -22,6 +22,26 @@ use crate::{
     trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
 };
 
+/// A grouping of scoped snapshot entries for a test.
+#[napi(object)]
+#[derive(Clone, Debug)]
+pub struct ScopedSnapshotGroup {
+    /// The group name.
+    pub group: String,
+    /// The entries in the group.
+    pub entries: Vec<ScopedSnapshotEntry>,
+}
+
+/// An entry in a scoped snapshot group.
+#[napi(object)]
+#[derive(Clone, Debug)]
+pub struct ScopedSnapshotEntry {
+    /// The name of the entry.
+    pub name: String,
+    /// The value of the entry.
+    pub value: String,
+}
+
 /// See [edr_solidity_tests::result::SuiteResult]
 #[napi]
 #[derive(Clone, Debug)]
@@ -85,6 +105,12 @@ pub struct TestResult {
     /// See [edr_solidity_tests::result::TestResult::duration]
     #[napi(readonly)]
     pub duration_ms: BigInt,
+    /// A scoped snapshot (i.e. gas & value), consisting of groups of entries.
+    ///
+    /// Only present if the test runner collected scoped snapshots. Currently,
+    /// this is always the case.
+    #[napi(readonly)]
+    pub scoped_snapshot: Option<Vec<ScopedSnapshotGroup>>,
 
     stack_trace_result: Option<Arc<StackTraceResult<String>>>,
     call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
@@ -264,6 +290,19 @@ impl TestResult {
                 }),
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
+            scoped_snapshot: Some(
+                test_result
+                    .scoped_snapshots
+                    .into_iter()
+                    .map(|(group, entries)| ScopedSnapshotGroup {
+                        group,
+                        entries: entries
+                            .into_iter()
+                            .map(|(name, value)| ScopedSnapshotEntry { name, value })
+                            .collect(),
+                    })
+                    .collect(),
+            ),
             stack_trace_result: test_result.stack_trace_result.map(Arc::new),
             call_trace_arenas: if include_trace {
                 test_result.traces
