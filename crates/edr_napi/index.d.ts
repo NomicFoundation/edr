@@ -798,6 +798,20 @@ export enum IncludeTraces {
   All = 2
 }
 export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
+/** A grouping of scoped snapshot entries for a test. */
+export interface ScopedSnapshotGroup {
+  /** The group name. */
+  group: string
+  /** The entries in the group. */
+  entries: Array<ScopedSnapshotEntry>
+}
+/** An entry in a scoped snapshot group. */
+export interface ScopedSnapshotEntry {
+  /** The name of the entry. */
+  name: string
+  /** The value of the entry. */
+  value: string
+}
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -1322,6 +1336,13 @@ export declare class TestResult {
   readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
   /** See [edr_solidity_tests::result::TestResult::duration] */
   readonly durationMs: bigint
+  /**
+   * A scoped snapshot (i.e. gas & value), consisting of groups of entries.
+   *
+   * Only present if the test runner collected scoped snapshots. Currently,
+   * this is always the case.
+   */
+  readonly scopedSnapshot?: Array<ScopedSnapshotGroup>
   /**
    * Compute the error stack trace.
    * The result is either the stack trace or the reason why we couldn't

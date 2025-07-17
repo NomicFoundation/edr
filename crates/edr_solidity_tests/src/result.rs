@@ -396,9 +396,9 @@ pub struct TestResult<HaltReasonT> {
     /// Wall clock execution time.
     pub duration: Duration,
 
-    /// Any captured gas snapshots along the test's execution which should be
-    /// accumulated.
-    pub gas_snapshots: BTreeMap<String, BTreeMap<String, String>>,
+    /// Any captured scoped snapshots (i.e. gas & value) along the test's
+    /// execution which should be accumulated.
+    pub scoped_snapshots: BTreeMap<String, BTreeMap<String, String>>,
 
     /// The outcome of the stack trace error computation.
     /// None if the test status is succeeded or skipped.
@@ -433,7 +433,7 @@ impl<HaltReasonT> TestResult<HaltReasonT> {
             coverage: self.coverage,
             labeled_addresses: self.labeled_addresses,
             duration: self.duration,
-            gas_snapshots: self.gas_snapshots,
+            scoped_snapshots: self.scoped_snapshots,
             stack_trace_result: self
                 .stack_trace_result
                 .map(|s| s.map_halt_reason(conversion_fn)),
