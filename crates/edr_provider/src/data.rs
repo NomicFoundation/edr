@@ -2719,6 +2719,7 @@ fn create_blockchain_and_state<
             &fork_config.url,
             fork_config.cache_dir.clone(),
             http_headers.clone(),
+            runtime.clone(),
         )?);
 
         let (blockchain, mut irregular_state) = tokio::task::block_in_place(
