@@ -3,7 +3,7 @@
 import type {
   BuildInfoAndOutput,
   Artifact as EdrArtifact,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr-optimism";
 
 import {
   assertHardhatInvariant,

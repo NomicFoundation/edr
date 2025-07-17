@@ -1,10 +1,10 @@
 {
-  "name": "@nomicfoundation/edr-darwin-x64",
+  "name": "@ignored/edr-optimism-darwin-x64",
   "repository": {
     "url": "https://github.com/NomicFoundation/edr.git",
     "type": "git"
   },
-  "version": "0.10.0-alpha.6",
+  "version": "0.13.0-alpha.7",
   "main": "edr.darwin-x64.node",
   "files": [
     "edr.darwin-x64.node"

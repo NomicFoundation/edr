@@ -7,7 +7,7 @@ import {
   EdrContext,
   L1_CHAIN_TYPE,
   l1SolidityTestRunnerFactory,
-} from "@nomicfoundation/edr";
+} from "@ignored/edr-optimism";
 import { ArgumentParser } from "argparse";
 import child_process, { SpawnSyncReturns } from "child_process";
 import fs from "fs";
