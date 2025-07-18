@@ -35,8 +35,6 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "Cargo.toml",
-    "build.rs",
     "src/",
     "dist/src/"
   ],
