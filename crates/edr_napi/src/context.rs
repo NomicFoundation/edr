@@ -77,7 +77,9 @@ impl EdrContext {
             };
         }
 
-        let provider_config = try_or_reject_promise!(provider_config.resolve(&env));
+        let runtime = runtime::Handle::current();
+        let provider_config =
+            try_or_reject_promise!(provider_config.resolve(&env, runtime.clone()));
 
         let logger_config = try_or_reject_promise!(logger_config.resolve(&env));
 
@@ -95,8 +97,6 @@ impl EdrContext {
                 |error| Err(napi::Error::from_reason(error.to_string())),
                 |contract_decoder| Ok(Arc::new(contract_decoder))
             ));
-
-        let runtime = runtime::Handle::current();
 
         #[cfg(feature = "scenarios")]
         let scenario_file =
@@ -204,15 +204,14 @@ impl EdrContext {
                 }
             });
 
-        let config = match config_args.resolve(&env) {
+        let runtime = runtime::Handle::current();
+        let config = match config_args.resolve(&env, runtime.clone()) {
             Ok(config) => config,
             Err(error) => {
                 deferred.reject(error);
                 return Ok(promise);
             }
         };
-
-        let runtime = runtime::Handle::current();
 
         let context = self.inner.clone();
         runtime.clone().spawn(async move {

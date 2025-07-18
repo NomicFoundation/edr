@@ -1290,9 +1290,9 @@ impl<
             let elapsed = start.elapsed();
 
             // Re-execute for stack traces
-            let stack_trace_result: StackTraceResult<HaltReasonT> =
+            let stack_trace_result: Option<StackTraceResult<HaltReasonT>> =
                 if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
-                    indeterminism_reasons.into()
+                    Some(indeterminism_reasons.into())
                 } else {
                     let mut executor = self.executor_builder.clone().build();
                     executor.inspector.enable_for_stack_traces();
@@ -1300,8 +1300,7 @@ impl<
 
                     get_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
                         .transpose()
-                        .expect("traces are not empty")
-                        .into()
+                        .map(Into::into)
                 };
 
             // The setup failed, so we return a single test result for `setUp`
@@ -1321,7 +1320,7 @@ impl<
                         coverage: setup.coverage,
                         labeled_addresses: setup.labeled_addresses,
                         duration: elapsed,
-                        stack_trace_result: Some(stack_trace_result),
+                        stack_trace_result,
                         deprecated_cheatcodes: HashMap::new(),
                     },
                 )]

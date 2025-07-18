@@ -1676,7 +1676,7 @@ fn convert_executed_result<
         traces,
         coverage,
         cheatcodes,
-    } = inspector.collect();
+    } = inspector.collect()?;
 
     Ok(RawCallResult {
         exit_reason,

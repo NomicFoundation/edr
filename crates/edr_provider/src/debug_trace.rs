@@ -87,7 +87,9 @@ where
             } = runtime_observer;
 
             if let Some(code_coverage) = code_coverage {
-                code_coverage.report();
+                code_coverage
+                    .report()
+                    .map_err(DebugTraceError::OnCollectedCoverageCallback)?;
             }
 
             return Ok(execution_result_to_debug_result(
@@ -184,6 +186,9 @@ pub enum DebugTraceError<BlockchainErrorT, StateErrorT, TransactionValidationErr
         /// The block number.
         block_number: u64,
     },
+    /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
+    #[error(transparent)]
+    OnCollectedCoverageCallback(Box<dyn std::error::Error + Send + Sync>),
     /// Transaction error.
     #[error(transparent)]
     TransactionError(

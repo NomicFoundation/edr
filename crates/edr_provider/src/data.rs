@@ -1423,7 +1423,9 @@ where
         } = runtime_observer;
 
         if let Some(code_coverage) = code_coverage {
-            code_coverage.report();
+            code_coverage
+                .report()
+                .map_err(ProviderError::OnCollectedCoverageCallback)?;
         }
 
         let traces = trace_collector.into_traces();
@@ -1764,7 +1766,9 @@ where
             } = runtime_observer;
 
             if let Some(code_coverage) = code_coverage {
-                code_coverage.report();
+                code_coverage
+                    .report()
+                    .map_err(ProviderError::OnCollectedCoverageCallback)?;
             }
 
             let debug_result =
@@ -2185,7 +2189,9 @@ where
             } = runtime_observer;
 
             if let Some(code_coverage) = code_coverage {
-                code_coverage.report();
+                code_coverage
+                    .report()
+                    .map_err(ProviderError::OnCollectedCoverageCallback)?;
             }
 
             let mut traces = trace_collector.into_traces();
@@ -2570,7 +2576,9 @@ where
             } = runtime_observer;
 
             if let Some(code_coverage) = code_coverage {
-                code_coverage.report();
+                code_coverage
+                    .report()
+                    .map_err(ProviderError::OnCollectedCoverageCallback)?;
             }
 
             let mut initial_estimation = match result {
