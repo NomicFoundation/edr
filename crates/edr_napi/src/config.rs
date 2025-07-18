@@ -375,8 +375,8 @@ impl ObservabilityConfig {
                                 .call_with_return_value(hits, ThreadsafeFunctionCallMode::Blocking, move |result: Promise<()>| {
                                     // We spawn a background task to handle the async callback
                                     runtime.spawn(async move {
-                                        let () = result.await?;
-                                        sender.send(()).map_err(|_error| {
+                                        let result = result.await;
+                                        sender.send(result).map_err(|_error| {
                                             napi::Error::new(
                                                 napi::Status::GenericFailure,
                                                 "Failed to send result from on_collected_coverage_callback",
@@ -386,9 +386,11 @@ impl ObservabilityConfig {
                                     Ok(())
                                 });
 
-                            let () = receiver.recv().expect("Receive can only fail if the channel is closed");
+                            let () = receiver.recv().expect("Receive can only fail if the channel is closed")?;
 
                             assert_eq!(status, napi::Status::Ok);
+
+                            Ok(())
                         });
 
                     Ok(on_collected_coverage_fn)

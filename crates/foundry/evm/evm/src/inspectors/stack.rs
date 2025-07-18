@@ -3,6 +3,7 @@ use std::sync::Arc;
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
 use derive_where::derive_where;
 use edr_coverage::CodeCoverageReporter;
+use eyre::eyre;
 use foundry_evm_core::{
     backend::{update_state, CheatcodeBackend},
     evm_context::{
@@ -491,14 +492,16 @@ impl<
     #[inline]
     pub fn collect(
         self,
-    ) -> InspectorData<
-        BlockT,
-        TxT,
-        ChainContextT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
+    ) -> eyre::Result<
+        InspectorData<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     > {
         let traces = self
             .tracer
@@ -511,10 +514,10 @@ impl<
             });
 
         if let Some(code_coverage) = self.code_coverage {
-            code_coverage.report();
+            code_coverage.report().map_err(|error| eyre!(error))?;
         }
 
-        InspectorData {
+        Ok(InspectorData {
             logs: self.log_collector.map(|logs| logs.logs).unwrap_or_default(),
             labels: self
                 .cheatcodes
@@ -533,7 +536,7 @@ impl<
                 .coverage
                 .map(foundry_evm_coverage::CoverageCollector::finish),
             cheatcodes: self.cheatcodes,
-        }
+        })
     }
 
     fn do_call_end<

@@ -51,6 +51,8 @@ fn provider_with_deployed_test_contract(
     let mut config = create_test_config();
     config.observability.on_collected_coverage_fn = Some(Box::new(move |hits| {
         coverage_reporter.lock().hits.extend(hits);
+
+        Ok(())
     }));
 
     let from = {
