@@ -92,7 +92,7 @@ describe("Code coverage", () => {
     networkId: 123n,
     observability: {
       codeCoverage: {
-        onCollectedCoverageCallback: (coverage: Uint8Array[]) => {
+        onCollectedCoverageCallback: async (coverage: Uint8Array[]) => {
           coverageReporter.hits.push(...coverage);
         },
       },
@@ -199,7 +199,7 @@ describe("Code coverage", () => {
         projectRoot: __dirname,
         observability: {
           codeCoverage: {
-            onCollectedCoverageCallback: (coverage: Uint8Array[]) => {
+            onCollectedCoverageCallback: async (coverage: Uint8Array[]) => {
               coverageReporter.hits.push(...coverage);
             },
           },

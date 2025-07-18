@@ -146,7 +146,7 @@ export interface CodeCoverageConfig {
    *
    * Errors should not be thrown inside the callback.
    */
-  onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => void
+  onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => Promise<void>
 }
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
