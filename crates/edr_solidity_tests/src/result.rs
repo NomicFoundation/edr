@@ -396,6 +396,10 @@ pub struct TestResult<HaltReasonT> {
     /// Wall clock execution time.
     pub duration: Duration,
 
+    /// Any captured scoped snapshots (i.e. gas & value) along the test's
+    /// execution which should be accumulated.
+    pub scoped_snapshots: BTreeMap<String, BTreeMap<String, String>>,
+
     /// The outcome of the stack trace error computation.
     /// None if the test status is succeeded or skipped.
     /// If the heuristic failed the vec is set but emtpy.
@@ -429,6 +433,7 @@ impl<HaltReasonT> TestResult<HaltReasonT> {
             coverage: self.coverage,
             labeled_addresses: self.labeled_addresses,
             duration: self.duration,
+            scoped_snapshots: self.scoped_snapshots,
             stack_trace_result: self
                 .stack_trace_result
                 .map(|s| s.map_halt_reason(conversion_fn)),

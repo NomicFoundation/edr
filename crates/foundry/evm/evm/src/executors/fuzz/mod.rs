@@ -63,10 +63,10 @@ pub struct FuzzTestData<
     pub coverage: Option<HitMaps>,
     // Stores logs for all fuzz cases
     pub logs: Vec<Log>,
-    // Deprecated cheatcodes mapped to their replacements.
-    pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
     // Stores gas snapshots for all fuzz cases
     pub gas_snapshots: BTreeMap<String, BTreeMap<String, String>>,
+    // Deprecated cheatcodes mapped to their replacements.
+    pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
 }
 
 /// Wrapper around an [`Executor`] which provides fuzzing support using

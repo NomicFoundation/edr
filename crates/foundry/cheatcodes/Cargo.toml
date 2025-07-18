@@ -12,6 +12,7 @@ foundry-cheatcodes-spec.workspace = true
 # Nightly (2025-07-02)
 upstream-foundry-cheatcodes-spec = { git = "https://github.com/foundry-rs/foundry", rev = "6983a938580a", package = "foundry-cheatcodes-spec" }
 edr_common.workspace = true
+edr_solidity.workspace = true
 foundry-compilers.workspace = true
 foundry-evm-core.workspace = true
 

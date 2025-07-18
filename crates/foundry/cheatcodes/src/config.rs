@@ -7,9 +7,9 @@ use std::{
 
 use alloy_primitives::Address;
 use edr_common::fs::normalize_path;
+use edr_solidity::artifacts::ArtifactId;
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
-use semver::Version;
 
 use super::{FsAccessKind, FsPermissions, Result, RpcEndpoints};
 use crate::{cache::StorageCachingConfig, Vm::Rpc};
@@ -47,8 +47,8 @@ pub struct CheatsConfig<HardforkT> {
     pub labels: HashMap<Address, String>,
     /// Solidity compilation artifacts.
     pub available_artifacts: Arc<ContractsByArtifact>,
-    /// Version of the script/test contract which is currently running.
-    pub running_version: Option<Version>,
+    /// Currently running artifact.
+    pub running_artifact: Option<ArtifactId>,
 }
 
 /// Solidity test execution contexts.
@@ -97,7 +97,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         config: CheatsConfigOptions,
         evm_opts: EvmOpts<HardforkT>,
         available_artifacts: Arc<ContractsByArtifact>,
-        running_version: Option<Version>,
+        running_artifact: Option<ArtifactId>,
     ) -> Self {
         let CheatsConfigOptions {
             execution_context,
@@ -123,7 +123,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             evm_opts,
             labels,
             available_artifacts,
-            running_version,
+            running_artifact,
         }
     }
 
@@ -267,7 +267,7 @@ impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
             evm_opts: EvmOpts::default(),
             labels: HashMap::default(),
             available_artifacts: Arc::<ContractsByArtifact>::default(),
-            running_version: Option::default(),
+            running_artifact: None,
         }
     }
 }
