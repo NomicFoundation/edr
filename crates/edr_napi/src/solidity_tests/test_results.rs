@@ -27,7 +27,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct ScopedSnapshotGroup {
     /// The group name.
-    pub group: String,
+    pub name: String,
     /// The entries in the group.
     pub entries: Vec<ScopedSnapshotEntry>,
 }
@@ -105,12 +105,12 @@ pub struct TestResult {
     /// See [edr_solidity_tests::result::TestResult::duration]
     #[napi(readonly)]
     pub duration_ms: BigInt,
-    /// A scoped snapshot (i.e. gas & value), consisting of groups of entries.
+    /// Groups of scoped snapshot entries (i.e. gas & value).
     ///
     /// Only present if the test runner collected scoped snapshots. Currently,
     /// this is always the case.
     #[napi(readonly)]
-    pub scoped_snapshot: Option<Vec<ScopedSnapshotGroup>>,
+    pub scoped_snapshot_groups: Option<Vec<ScopedSnapshotGroup>>,
 
     stack_trace_result: Option<Arc<StackTraceResult<String>>>,
     call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
@@ -290,12 +290,12 @@ impl TestResult {
                 }),
             },
             duration_ms: BigInt::from(test_result.duration.as_millis()),
-            scoped_snapshot: Some(
+            scoped_snapshot_groups: Some(
                 test_result
                     .scoped_snapshots
                     .into_iter()
-                    .map(|(group, entries)| ScopedSnapshotGroup {
-                        group,
+                    .map(|(group_name, entries)| ScopedSnapshotGroup {
+                        name: group_name,
                         entries: entries
                             .into_iter()
                             .map(|(name, value)| ScopedSnapshotEntry { name, value })
