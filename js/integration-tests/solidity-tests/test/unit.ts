@@ -279,4 +279,22 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
     assert.equal(failedTests, 0);
   });
+
+  it("Gas snapshot cheatcodes", async function () {
+    const { totalTests, failedTests, suiteResults } =
+      await testContext.runTestsWithStats("GasSnapshotTest", {}, L1_CHAIN_TYPE);
+
+    assert.equal(totalTests, 12);
+    assert.equal(failedTests, 0);
+
+    for (const suiteResult of suiteResults) {
+      for (const testResult of suiteResult.testResults) {
+        assert.notEqual(testResult.scopedSnapshot, undefined);
+        assert(
+          testResult.scopedSnapshot!.length > 0,
+          "All gas snapshot tests should have at least one scoped snapshot"
+        );
+      }
+    }
+  });
 });
