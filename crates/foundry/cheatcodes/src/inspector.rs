@@ -234,10 +234,6 @@ pub struct Cheatcodes<
     /// Recorded logs
     pub recorded_logs: Option<Vec<crate::Vm::Log>>,
 
-    /// Cache of the amount of gas used in previous call.
-    /// This is used by the `lastCallGas` cheatcode.
-    pub last_call_gas: Option<crate::Vm::Gas>,
-
     /// Mocked calls
     // **Note**: inner must a BTreeMap because of special `Ord` impl for `MockCallDataContext`
     pub mocked_calls: HashMap<Address, BTreeMap<MockCallDataContext, MockCallReturnData>>,
@@ -516,7 +512,7 @@ impl<
     #[inline]
     fn initialize_interp(
         &mut self,
-        _: &mut Interpreter,
+        interpreter: &mut Interpreter,
         ecx: &mut EvmContext<
             BlockT,
             TxT,
@@ -534,6 +530,13 @@ impl<
         }
         if let Some(gas_price) = self.gas_price.take() {
             ecx.tx.set_gas_price(gas_price);
+        }
+
+        // Record gas for current frame.
+        if self.gas_metering.paused {
+            self.gas_metering
+                .paused_frames
+                .push(interpreter.control.gas);
         }
 
         // `expectRevert`: track the max call depth during `expectRevert`
@@ -1287,7 +1290,7 @@ impl<
         // Record the gas usage of the call, this allows the `lastCallGas` cheatcode to
         // retrieve the gas usage of the last call.
         let gas = outcome.result.gas;
-        self.last_call_gas = Some(crate::Vm::Gas {
+        self.gas_metering.last_call_gas = Some(crate::Vm::Gas {
             gasLimit: gas.limit(),
             gasTotalUsed: gas.spent(),
             gasMemoryUsed: 0,
