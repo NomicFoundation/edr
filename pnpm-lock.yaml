@@ -38,8 +38,8 @@ importers:
         specifier: ^9.0.4
         version: 9.0.4
       '@tsconfig/node20':
-        specifier: ^20.1.4
-        version: 20.1.5
+        specifier: ^20.1.6
+        version: 20.1.6
       '@types/chai':
         specifier: ^4.2.0
         version: 4.3.12
@@ -1361,6 +1361,9 @@ packages:
 
   '@tsconfig/node20@20.1.5':
     resolution: {integrity: sha512-Vm8e3WxDTqMGPU4GATF9keQAIy1Drd7bPwlgzKJnZtoOsTm1tduUTbDjg0W5qERvGuxPI2h9RbMufH0YdfBylA==}
+
+  '@tsconfig/node20@20.1.6':
+    resolution: {integrity: sha512-sz+Hqx9zwZDpZIV871WSbUzSqNIsXzghZydypnfgzPKLltVJfkINfUeTct31n/tTSa9ZE1ZOfKdRre1uHHquYQ==}
 
   '@types/argparse@2.0.16':
     resolution: {integrity: sha512-aMqBra2JlqpFeCWOinCtpRpiCkPIXH8hahW2+FkGzvWjfE5sAqtOcrjN5DRcMnTQqFDe6gb1CVYuGnBH0lhXwA==}
@@ -5068,6 +5071,8 @@ snapshots:
   '@tsconfig/node16@1.0.4': {}
 
   '@tsconfig/node20@20.1.5': {}
+
+  '@tsconfig/node20@20.1.6': {}
 
   '@types/argparse@2.0.16': {}
 
