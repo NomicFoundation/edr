@@ -628,16 +628,10 @@ impl Cheatcode for lastCallGasCall {
         >,
     ) -> Result {
         let Self {} = self;
-        ensure!(
-            state.last_call_gas.is_some(),
-            "`lastCallGas` is only available after a call"
-        );
-        Ok(state
-            .last_call_gas
-            .as_ref()
-            // This should never happen, as we ensure `last_call_gas` is `Some` above.
-            .expect("`lastCallGas` is only available after a call")
-            .abi_encode())
+        let Some(last_call_gas) = &state.gas_metering.last_call_gas else {
+            bail!("no external call was made yet");
+        };
+        Ok(last_call_gas.abi_encode())
     }
 }
 
