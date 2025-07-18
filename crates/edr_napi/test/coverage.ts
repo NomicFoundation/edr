@@ -49,7 +49,9 @@ describe("Code coverage", () => {
       L1_CHAIN_TYPE,
       l1SolidityTestRunnerFactory()
     );
+  });
 
+  beforeEach(() => {
     // Reset the coverage reporter
     coverageReporter = new CoverageReporter();
   });

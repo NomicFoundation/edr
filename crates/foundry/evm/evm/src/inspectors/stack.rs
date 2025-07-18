@@ -510,6 +510,10 @@ impl<
                 ignored: alloy_primitives::map::HashMap::default(),
             });
 
+        if let Some(code_coverage) = self.code_coverage {
+            code_coverage.report();
+        }
+
         InspectorData {
             logs: self.log_collector.map(|logs| logs.logs).unwrap_or_default(),
             labels: self
