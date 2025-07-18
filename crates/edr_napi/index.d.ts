@@ -142,9 +142,8 @@ export interface CodeCoverageConfig {
    * The callback receives an array of unique coverage hit markers (i.e. no
    * repetition) per transaction.
    *
-   * # Safety
-   *
-   * Errors should not be thrown inside the callback.
+   * Exceptions thrown in the callback will be propagated to the original
+   * caller.
    */
   onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => Promise<void>
 }

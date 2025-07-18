@@ -41,9 +41,8 @@ pub struct CodeCoverageConfig {
     /// The callback receives an array of unique coverage hit markers (i.e. no
     /// repetition) per transaction.
     ///
-    /// # Safety
-    ///
-    /// Errors should not be thrown inside the callback.
+    /// Exceptions thrown in the callback will be propagated to the original
+    /// caller.
     #[napi(ts_type = "(coverageHits: Uint8Array[]) => Promise<void>")]
     pub on_collected_coverage_callback: JsFunction,
 }
