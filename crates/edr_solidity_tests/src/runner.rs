@@ -1195,10 +1195,13 @@ impl<
         handle: &tokio::runtime::Handle,
     ) -> SuiteResult<HaltReasonT> {
         info!("starting tests");
+
+        // Forge doesn't include building the executor in the test time, so we're
+        // excluding it as well.
+        let mut executor = self.executor_builder.clone().build();
+
         let start = Instant::now();
         let mut warnings = Vec::new();
-
-        let mut executor = self.executor_builder.clone().build();
 
         let setup_fns: Vec<_> = self
             .contract
@@ -1353,6 +1356,7 @@ impl<
                 self.known_contracts,
             )
         });
+        let start = Instant::now();
         let test_results = functions
             .par_iter()
             .map(|&func| {

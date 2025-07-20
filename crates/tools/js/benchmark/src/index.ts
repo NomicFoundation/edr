@@ -3,6 +3,7 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 
 import { bytesToHex, privateToAddress, toBytes } from "@ethereumjs/util";
+import Papa from "papaparse";
 import {
   EdrContext,
   L1_CHAIN_TYPE,
@@ -17,7 +18,11 @@ import readline from "readline";
 import zlib from "zlib";
 import { dirName } from "@nomicfoundation/edr-helpers";
 
-import { runForgeStdTests, runSolidityTests } from "./solidity-tests.js";
+import {
+  runForgeStdTests,
+  runSolidityTests,
+  runForgeTests,
+} from "./solidity-tests.js";
 
 const {
   createHardhatNetworkProvider,
@@ -28,11 +33,24 @@ const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
 const NEPTUNE_MAX_MIN_FAILURES = 1.05;
 
 interface ParsedArguments {
-  command: "benchmark" | "verify" | "report" | "solidity-tests";
+  command:
+    | "benchmark"
+    | "verify"
+    | "report"
+    | "solidity-tests"
+    | "compare-forge"
+    | "report-forge";
   grep?: string;
   repo?: string;
+  count?: number;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   benchmark_output: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  csv_output?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  csv_input?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  forge_path?: string;
 }
 
 interface BenchmarkScenarioResult {
@@ -66,8 +84,15 @@ async function main() {
     description: "Scenario benchmark runner",
   });
   parser.add_argument("command", {
-    choices: ["benchmark", "verify", "report", "solidity-tests"],
-    help: "Whether to run a benchmark, verify that there are no regressions or create a report for `github-action-benchmark`",
+    choices: [
+      "benchmark",
+      "verify",
+      "report",
+      "solidity-tests",
+      "compare-forge",
+      "report-forge",
+    ],
+    help: "Whether to run a benchmark, verify that there are no regressions, create a report for `github-action-benchmark`, run solidity tests, compare EDR vs Forge tests, or generate a report from compare-forge output",
   });
   parser.add_argument("-g", "--grep", {
     type: "str",
@@ -81,6 +106,23 @@ async function main() {
   parser.add_argument("-r", "--repo", {
     type: "str",
     help: "Path to a repo to execute for Solidity tests. Defaults to `forge-std` that is checked out automatically.",
+  });
+  parser.add_argument("-c", "--count", {
+    type: "int",
+    default: 3,
+    help: "Number of times to run each test suite for compare-forge command (default: 3)",
+  });
+  parser.add_argument("--csv-output", {
+    type: "str",
+    help: "Path to save CSV output for compare-forge command",
+  });
+  parser.add_argument("--csv-input", {
+    type: "str",
+    help: "Path to input CSV file for report-forge command",
+  });
+  parser.add_argument("--forge-path", {
+    type: "str",
+    help: "Path to forge executable (default: 'forge')",
   });
   const args: ParsedArguments = parser.parse_args();
 
@@ -122,10 +164,48 @@ async function main() {
     );
 
     if (args.repo !== undefined) {
-      await runSolidityTests(context, L1_CHAIN_TYPE, args.repo, args.grep);
+      const csvResults = await runSolidityTests(
+        context,
+        L1_CHAIN_TYPE,
+        args.repo,
+        args.grep
+      );
+      console.log(csvResults);
     } else {
       await runForgeStdTests(context, L1_CHAIN_TYPE, benchmarkOutputPath);
     }
+  } else if (args.command === "compare-forge") {
+    if (!args.repo) {
+      console.error("Error: --repo is required for compare-forge command");
+      process.exit(1);
+    }
+    if (!args.csv_output) {
+      console.error(
+        "Error: --csv-output is required for compare-forge command"
+      );
+      process.exit(1);
+    }
+    if (!args.forge_path) {
+      console.error(
+        "Error: --forge-path is required for compare-forge command"
+      );
+      process.exit(1);
+    }
+
+    await runCompareTests(
+      args.repo,
+      args.count!,
+      args.csv_output,
+      args.forge_path
+    );
+  } else if (args.command === "report-forge") {
+    if (!args.csv_input) {
+      console.error("Error: --csv-input is required for report-forge command");
+      process.exit(1);
+    }
+
+    const reportResults = await generateForgeReport(args.csv_input);
+    console.log(reportResults);
   } else {
     const _exhaustiveCheck: never = args.command;
   }
@@ -502,6 +582,281 @@ function getScenarioFileNames(): string[] {
   const scenarioFiles = fs.readdirSync(scenariosDir);
   scenarioFiles.sort();
   return scenarioFiles.filter((fileName) => fileName.endsWith(".jsonl.gz"));
+}
+
+async function runSolidityTestsInSubprocess(repoPath: string): Promise<string> {
+  const args = [
+    "--noconcurrent_sweeping",
+    "--noconcurrent_recompilation",
+    "--max-old-space-size=28000",
+    "--import",
+    "tsx",
+    "src/index.ts",
+    "solidity-tests",
+    "--repo",
+    repoPath,
+  ];
+
+  const processResult = child_process.spawnSync(process.argv[0], args, {
+    shell: true,
+    timeout: 60 * 60 * 1000, // 1 hour timeout
+    stdio: [process.stdin, "pipe", process.stderr],
+    encoding: "utf-8",
+  });
+
+  if (processResult.error) {
+    throw new Error(`Failed to run EDR tests: ${processResult.error.message}`);
+  }
+
+  if (processResult.status !== 0) {
+    throw new Error(`EDR tests failed with exit code ${processResult.status}`);
+  }
+
+  // Return CSV output from stdout
+  return processResult.stdout.trim();
+}
+
+async function runCompareTests(
+  repoPath: string,
+  count: number,
+  csvOutputPath: string,
+  forgePath: string
+) {
+  const allCsvData: any[] = [];
+
+  console.error(
+    `Running EDR and Forge tests ${count} times each (alternating)...`
+  );
+
+  // Alternate between EDR and Forge for each run
+  for (let i = 0; i < count; i++) {
+    // Run EDR test in subprocess
+    console.error(`EDR run ${i + 1}/${count}`);
+    const edrResultsCsv = await runSolidityTestsInSubprocess(repoPath);
+
+    // Parse EDR CSV results
+    const edrParseResult = Papa.parse(edrResultsCsv, {
+      header: true,
+      skipEmptyLines: true,
+    });
+
+    // Add run number to each row
+    for (const row of edrParseResult.data as any[]) {
+      allCsvData.push({
+        ...row,
+        run_number: (i + 1).toString(),
+      });
+    }
+
+    // Run Forge test
+    console.error(`Forge run ${i + 1}/${count}`);
+    const forgeResultsCsv = await runForgeTests(repoPath, forgePath);
+
+    // Parse Forge CSV results
+    const forgeParseResult = Papa.parse(forgeResultsCsv, {
+      header: true,
+      skipEmptyLines: true,
+    });
+
+    // Add run number to each row
+    for (const row of forgeParseResult.data as any[]) {
+      allCsvData.push({
+        ...row,
+        run_number: (i + 1).toString(),
+      });
+    }
+  }
+
+  // Save merged results to CSV file
+  const csvContent = Papa.unparse(allCsvData);
+  fs.writeFileSync(csvOutputPath, csvContent);
+
+  console.error(`CSV results saved to ${csvOutputPath}`);
+}
+
+// Compares the sum the test execution times. Shouldn't compare suite execution times as there is unpredictability due to nested parallelism in test suites.
+async function generateForgeReport(csvInputPath: string): Promise<string> {
+  const csvContent = fs.readFileSync(csvInputPath, "utf-8");
+
+  // Parse CSV using papaparse
+  const parseResult = Papa.parse(csvContent, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  if (parseResult.errors.length > 0) {
+    throw new Error(
+      `CSV parsing errors: ${parseResult.errors.map((e) => e.message).join(", ")}`
+    );
+  }
+
+  // Parse data rows and filter only actual tests (rows with test names) that succeeded
+  const testRows = parseResult.data.filter((row: any) => {
+    // Only include rows that have a test name (exclude suite totals and overall totals)
+    // and where the test succeeded
+    return row.test_name && row.test_name.trim() !== "";
+  });
+
+  // Group tests by test identification to calculate medians
+  const testGroups = new Map<
+    string,
+    { edr: bigint[]; forge: bigint[]; failed: boolean }
+  >();
+
+  let repo = undefined;
+  for (const row of testRows) {
+    if (repo === undefined) {
+      repo = row.repo;
+    } else if (repo !== row.repo) {
+      throw new Error(
+        `Expected repo to be '${repo}', instead it is: '${row.repo}'`
+      );
+    }
+
+    const testKey = `${row.repo}|${row.test_suite_source}|${row.test_suite_name}|${row.test_name}|${row.test_type}`;
+
+    if (!testGroups.has(testKey)) {
+      testGroups.set(testKey, { edr: [], forge: [], failed: false });
+    }
+
+    const group = testGroups.get(testKey)!;
+    group.failed = group.failed || row.outcome !== "success";
+
+    const duration = BigInt(row.duration_ns);
+
+    if (row.executor === "edr") {
+      group.edr.push(duration);
+    } else if (row.executor === "forge") {
+      group.forge.push(duration);
+    } else {
+      throw new Error(`Unknown executor: '${row.executor}'`);
+    }
+  }
+
+  // Calculate medians for each test and sum them by test type
+  const testTypeTotals = {
+    unit: { edr: 0n, forge: 0n },
+    fuzz: { edr: 0n, forge: 0n },
+    invariant: { edr: 0n, forge: 0n },
+  };
+
+  let successfulTestCount = 0;
+  let failedTestCount = 0;
+
+  for (const [testKey, durations] of testGroups) {
+    if (durations.failed) {
+      failedTestCount += 1;
+      continue;
+    }
+
+    const [, , , , testType] = testKey.split("|");
+
+    // Only include tests where both EDR and Forge have successful results
+    if (durations.edr.length > 0 && durations.forge.length > 0) {
+      const edrMedian = calculateMedianBigInt(durations.edr);
+      const forgeMedian = calculateMedianBigInt(durations.forge);
+
+      successfulTestCount++;
+
+      // Add to test type totals
+      if (testType === "unit") {
+        testTypeTotals.unit.edr += edrMedian;
+        testTypeTotals.unit.forge += forgeMedian;
+      } else if (testType === "fuzz") {
+        testTypeTotals.fuzz.edr += edrMedian;
+        testTypeTotals.fuzz.forge += forgeMedian;
+      } else if (testType === "invariant") {
+        testTypeTotals.invariant.edr += edrMedian;
+        testTypeTotals.invariant.forge += forgeMedian;
+      }
+    }
+  }
+
+  // Calculate overall totals from test type totals
+  const edrTotalNs =
+    testTypeTotals.unit.edr +
+    testTypeTotals.fuzz.edr +
+    testTypeTotals.invariant.edr;
+  const forgeTotalNs =
+    testTypeTotals.unit.forge +
+    testTypeTotals.fuzz.forge +
+    testTypeTotals.invariant.forge;
+
+  // Calculate ratios
+  const totalRatio =
+    forgeTotalNs > 0n ? Number((edrTotalNs * 100n) / forgeTotalNs) / 100 : 0;
+  const unitRatio =
+    testTypeTotals.unit.forge > 0n
+      ? Number((testTypeTotals.unit.edr * 100n) / testTypeTotals.unit.forge) /
+        100
+      : 0;
+  const fuzzRatio =
+    testTypeTotals.fuzz.forge > 0n
+      ? Number((testTypeTotals.fuzz.edr * 100n) / testTypeTotals.fuzz.forge) /
+        100
+      : 0;
+  const invariantRatio =
+    testTypeTotals.invariant.forge > 0n
+      ? Number(
+          (testTypeTotals.invariant.edr * 100n) / testTypeTotals.invariant.forge
+        ) / 100
+      : 0;
+
+  // Generate single summary result
+  if (repo !== undefined) {
+    const reportData = [
+      {
+        repo,
+        edr_total_ns: edrTotalNs.toString(),
+        forge_total_ns: forgeTotalNs.toString(),
+        total_ratio: totalRatio.toString(),
+        successful_tests: successfulTestCount.toString(),
+        failed_tests: failedTestCount.toString(),
+        unit_edr_ns: testTypeTotals.unit.edr.toString(),
+        unit_forge_ns: testTypeTotals.unit.forge.toString(),
+        unit_ratio: unitRatio.toString(),
+        fuzz_edr_ns: testTypeTotals.fuzz.edr.toString(),
+        fuzz_forge_ns: testTypeTotals.fuzz.forge.toString(),
+        fuzz_ratio: fuzzRatio.toString(),
+        invariant_edr_ns: testTypeTotals.invariant.edr.toString(),
+        invariant_forge_ns: testTypeTotals.invariant.forge.toString(),
+        invariant_ratio: invariantRatio.toString(),
+      },
+    ];
+
+    // Convert to CSV string using papaparse
+    return Papa.unparse(reportData);
+  } else {
+    return "";
+  }
+}
+
+function calculateMedianBigInt(values: bigint[]): bigint {
+  const sorted = [...values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const mid = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2n;
+  } else {
+    return sorted[mid];
+  }
+}
+
+function calculateVarianceBigInt(values: bigint[]): bigint {
+  if (values.length <= 1) return 0n;
+
+  const sum = values.reduce((acc, val) => acc + val, 0n);
+  const mean = sum / BigInt(values.length);
+
+  const squaredDiffs = values.map((val) => {
+    const diff = val - mean;
+    return diff * diff;
+  });
+
+  const variance =
+    squaredDiffs.reduce((acc, val) => acc + val, 0n) / BigInt(values.length);
+
+  return variance;
 }
 
 async function flushStdout() {
