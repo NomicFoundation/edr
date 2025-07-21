@@ -11,6 +11,7 @@ use edr_solidity_tests::{
 use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
 use napi::{
     bindgen_prelude::{BigInt, Uint8Array},
+    tokio::runtime,
     Either, Status,
 };
 use napi_derive::napi;
@@ -157,6 +158,7 @@ impl SolidityTestRunnerConfigArgs {
     pub fn resolve(
         self,
         env: &napi::Env,
+        runtime: runtime::Handle,
     ) -> napi::Result<edr_napi_core::solidity::config::TestRunnerConfig> {
         let SolidityTestRunnerConfigArgs {
             project_root,
@@ -258,7 +260,7 @@ impl SolidityTestRunnerConfigArgs {
             || Ok(None),
             |observability| {
                 observability
-                    .resolve(env)
+                    .resolve(env, runtime)
                     .map(|config| config.on_collected_coverage_fn)
             },
         )?;

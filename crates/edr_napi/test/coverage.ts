@@ -15,6 +15,7 @@ import {
   l1SolidityTestRunnerFactory,
   MineOrdering,
   SubscriptionEvent,
+  TestStatus,
 } from "..";
 import { getContext, loadContract, runAllSolidityTests } from "./helpers";
 
@@ -38,6 +39,8 @@ describe("Code coverage", () => {
   const incrementCallData =
     "0x70119d060000000000000000000000000000000000000000000000000000000000000001";
 
+  const ERROR_MESSAGE = "Simulated error in callback";
+
   let coverageReporter: CoverageReporter;
   before(async () => {
     await context.registerProviderFactory(
@@ -49,7 +52,9 @@ describe("Code coverage", () => {
       L1_CHAIN_TYPE,
       l1SolidityTestRunnerFactory()
     );
+  });
 
+  beforeEach(() => {
     // Reset the coverage reporter
     coverageReporter = new CoverageReporter();
   });
@@ -90,7 +95,7 @@ describe("Code coverage", () => {
     networkId: 123n,
     observability: {
       codeCoverage: {
-        onCollectedCoverageCallback: (coverage: Uint8Array[]) => {
+        onCollectedCoverageCallback: async (coverage: Uint8Array[]) => {
           coverageReporter.hits.push(...coverage);
         },
       },
@@ -181,6 +186,52 @@ describe("Code coverage", () => {
         ),
       ]);
     });
+
+    it("should handle thrown exception", async function () {
+      const provider = await context.createProvider(
+        GENERIC_CHAIN_TYPE,
+        {
+          ...providerConfig,
+          genesisState: providerConfig.genesisState.concat(
+            l1GenesisState(l1HardforkFromString(providerConfig.hardfork))
+          ),
+          observability: {
+            codeCoverage: {
+              onCollectedCoverageCallback: async (_coverage: Uint8Array[]) => {
+                throw new Error(ERROR_MESSAGE);
+              },
+            },
+          },
+        },
+        loggerConfig,
+        {
+          subscriptionCallback: (_event: SubscriptionEvent) => {},
+        },
+        {}
+      );
+
+      const sendTransactionResponse = await provider.handleRequest(
+        JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+              data: incrementDeployedBytecode,
+            },
+          ],
+        })
+      );
+
+      const error = JSON.parse(sendTransactionResponse.data).error;
+
+      assert.equal(error.code, -32603);
+      assert(
+        error.message.includes(ERROR_MESSAGE),
+        "Error message should contain the expected error"
+      );
+    });
   });
 
   describe("Solidity test runner", function () {
@@ -197,7 +248,7 @@ describe("Code coverage", () => {
         projectRoot: __dirname,
         observability: {
           codeCoverage: {
-            onCollectedCoverageCallback: (coverage: Uint8Array[]) => {
+            onCollectedCoverageCallback: async (coverage: Uint8Array[]) => {
               coverageReporter.hits.push(...coverage);
             },
           },
@@ -213,6 +264,46 @@ describe("Code coverage", () => {
       );
 
       assert(coverageReporter.hits.length > 0, "No coverage hits reported");
+    });
+
+    it("should handle thrown exception", async function () {
+      const artifacts = [
+        loadContract(
+          "./data/artifacts/instrumented/SetupConsistencyCheck.json"
+        ),
+        loadContract("./data/artifacts/instrumented/PaymentFailureTest.json"),
+      ];
+      // All artifacts are test suites.
+      const testSuites = artifacts.map((artifact) => artifact.id);
+      const config = {
+        projectRoot: __dirname,
+        observability: {
+          codeCoverage: {
+            onCollectedCoverageCallback: async (_coverage: Uint8Array[]) => {
+              throw new Error(ERROR_MESSAGE);
+            },
+          },
+        },
+      };
+
+      const suiteResults = await runAllSolidityTests(
+        context,
+        L1_CHAIN_TYPE,
+        artifacts,
+        testSuites,
+        config
+      );
+
+      for (const suiteResult of suiteResults) {
+        for (const testResult of suiteResult.testResults) {
+          assert.equal(testResult.status, TestStatus.Failure);
+          assert.isDefined(testResult.reason);
+          assert(
+            testResult.reason!.includes(ERROR_MESSAGE),
+            `Test failure reason should contain the expected error. Found: ${testResult.reason}`
+          );
+        }
+      }
     });
   });
 });
