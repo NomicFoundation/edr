@@ -866,11 +866,6 @@ fn get_artifact_code<
                     // Firstly filter by version
                     filtered.retain(|(id, _)| id.version == running.version);
 
-                    // Return artifact if only one matched
-                    if filtered.len() == 1 {
-                        return Some(filtered[0]);
-                    }
-
                     if filtered.len() == 1 {
                         Some(filtered[0])
                     } else {
