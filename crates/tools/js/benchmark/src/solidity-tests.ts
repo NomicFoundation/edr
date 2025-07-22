@@ -45,7 +45,7 @@ const RPC_CACHE_PATH = "./edr-cache";
 const TOTAL_NAME = "Total";
 const TOTAL_EXPECTED_RESULTS = 15;
 
-const DEFAULT_SAMPLES = 5;
+const DEFAULT_SAMPLES = 25;
 
 // Map of test suites to benchmark individually to number of samples (how many times to run the test suite)
 export const FORGE_STD_SAMPLES = {
@@ -54,7 +54,7 @@ export const FORGE_STD_SAMPLES = {
   StdCheatsForkTest: 45,
   StdMathTest: 45,
   StdStorageTest: DEFAULT_SAMPLES,
-  StdUtilsForkTest: 15,
+  StdUtilsForkTest: DEFAULT_SAMPLES,
 };
 
 const REPO_DIR = "forge-std";
