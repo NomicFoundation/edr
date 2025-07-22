@@ -51,6 +51,9 @@ pub struct SolidityTestRunnerConfigArgs {
     /// tests to execute arbitrary programs on your computer.
     /// Defaults to false.
     pub ffi: Option<bool>,
+    /// Allow expecting reverts with `expectRevert` at the same callstack depth
+    /// as the test. Defaults to false.
+    pub allow_internal_expect_revert: Option<bool>,
     /// The value of `msg.sender` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
     #[debug("{:?}", sender.as_ref().map(hex::encode))]
@@ -167,6 +170,7 @@ impl SolidityTestRunnerConfigArgs {
             labels,
             isolate,
             ffi,
+            allow_internal_expect_revert,
             sender,
             tx_origin,
             initial_balance,
@@ -254,6 +258,7 @@ impl SolidityTestRunnerConfigArgs {
                 .into_iter()
                 .map(|AddressLabel { address, label }| Ok((address.try_cast()?, label)))
                 .collect::<Result<_, napi::Error>>()?,
+            allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
         };
 
         let on_collected_coverage_fn = observability.map_or_else(
