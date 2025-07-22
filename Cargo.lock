@@ -2994,6 +2994,7 @@ dependencies = [
  "dunce",
  "edr_common",
  "edr_defaults",
+ "edr_solidity",
  "eyre",
  "foundry-cheatcodes-spec 0.3.8",
  "foundry-cheatcodes-spec 1.2.3",
