@@ -1,0 +1,13 @@
+{
+  "mode": "pre",
+  "tag": "next",
+  "initialVersions": {
+    "@nomicfoundation/edr": "0.12.0-alpha.0",
+    "benchmark": "1.0.0",
+    "hardhat-edr-tests": "0.0.0",
+    "hardhat-edr-smock-test": "1.0.0",
+    "@nomicfoundation/edr-helpers": "1.0.0",
+    "solidity-tests": "1.0.0"
+  },
+  "changesets": []
+}
