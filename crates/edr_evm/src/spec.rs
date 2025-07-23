@@ -1,14 +1,19 @@
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use std::{
+    fmt::Debug,
+    marker::PhantomData,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use edr_eth::{
-    block::{self, BlobGas, PartialHeader},
+    block::{self, BlobGas, HeaderOverrides, PartialHeader},
     eips::eip4844,
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ResultAndState,
     spec::{ChainSpec, EthHeaderConstants},
-    B256,
+    Bytes, B256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
@@ -27,14 +32,16 @@ use crate::{
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
     result::EVMErrorForChain,
-    state::{Database, DatabaseComponentError},
+    state::{
+        Database, DatabaseComponentError, StateCommit as _, StateDebug as _, StateDiff, TrieState,
+    },
     transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError,
         TransactionErrorForChainSpec, TransactionType, TransactionValidation,
     },
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
-    EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, GenesisBlockBuilder, LocalBlock,
-    RemoteBlock, RemoteBlockConversionError, SyncBlock,
+    EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, EthRpcBlock,
+    GenesisBlockOptions, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
 
 /// Helper type for a chain-specific [`revm::Context`].
@@ -90,6 +97,97 @@ impl<TypeConstructorT> ExecutionReceiptTypeConstructorBounds for TypeConstructor
 {
 }
 
+/// Trait for constructing a chain-specific genesis block.
+pub trait GenesisBlockFactory {
+    /// The error type for genesis block creation.
+    type CreationError: std::error::Error;
+
+    /// The hardfork type.
+    type Hardfork;
+
+    /// The local block type.
+    type LocalBlock;
+
+    /// Constructs a genesis block for the given chain spec.
+    fn genesis_block(
+        genesis_diff: StateDiff,
+        hardfork: Self::Hardfork,
+        options: GenesisBlockOptions,
+    ) -> Result<Self::LocalBlock, Self::CreationError>;
+}
+
+/// A supertrait for [`GenesisBlockFactory`] that is safe to send between
+/// threads.
+pub trait SyncGenesisBlockFactory:
+    GenesisBlockFactory<CreationError: Send + Sync> + Sync + Send
+{
+}
+
+impl<FactoryT> SyncGenesisBlockFactory for FactoryT where
+    FactoryT: GenesisBlockFactory<CreationError: Send + Sync> + Sync + Send
+{
+}
+
+impl GenesisBlockFactory for L1ChainSpec {
+    type CreationError = LocalCreationError;
+
+    type Hardfork = <Self as ChainSpec>::Hardfork;
+
+    type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
+
+    fn genesis_block(
+        genesis_diff: StateDiff,
+        hardfork: Self::Hardfork,
+        options: GenesisBlockOptions,
+    ) -> Result<Self::LocalBlock, Self::CreationError> {
+        const EXTRA_DATA: &[u8] = b"\x12\x34";
+
+        let mut genesis_state = TrieState::default();
+        genesis_state.commit(genesis_diff.clone().into());
+
+        let evm_spec_id = hardfork;
+        if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
+            return Err(LocalCreationError::MissingPrevrandao);
+        }
+
+        let mut options = HeaderOverrides::from(options);
+        options.state_root = Some(
+            genesis_state
+                .state_root()
+                .expect("TrieState is guaranteed to successfully compute the state root"),
+        );
+
+        if options.timestamp.is_none() {
+            options.timestamp = Some(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Current time must be after unix epoch")
+                    .as_secs(),
+            );
+        }
+
+        options.extra_data = Some(Bytes::from(EXTRA_DATA));
+
+        // No ommers in the genesis block
+        let ommers = Vec::new();
+
+        let withdrawals = if evm_spec_id >= l1::SpecId::SHANGHAI {
+            // Empty withdrawals for genesis block
+            Some(Vec::new())
+        } else {
+            None
+        };
+
+        let partial_header =
+            PartialHeader::new::<Self>(hardfork, options, None, &ommers, withdrawals.as_ref());
+
+        Ok(EthLocalBlockForChainSpec::<Self>::empty(
+            hardfork,
+            partial_header,
+        ))
+    }
+}
+
 /// A trait for defining a chain's associated types.
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
 #[allow(clippy::trait_duplication_in_bounds)]
@@ -142,7 +240,7 @@ pub trait RuntimeSpec:
         'builder,
         Self,
         BlockchainError = BlockchainErrorT,
-        StateError = StateErrorT> + GenesisBlockBuilder<CreationError = Self::GenesisBlockCreationError, Hardfork = Self::Hardfork, LocalBlock = Self::LocalBlock>;
+        StateError = StateErrorT>;
 
     /// Type representing a transaction's receipt in a block.
     type BlockReceipt: Debug +  ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<Self::RpcReceipt, Error = Self::RpcReceiptConversionError>;
@@ -169,9 +267,6 @@ pub trait RuntimeSpec:
         ResultAndState<Self::HaltReason>,
         EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
     >>;
-
-    /// Type of the error that occurs when creating a genesis block.
-    type GenesisBlockCreationError: std::error::Error;
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction> +
@@ -393,8 +488,6 @@ impl RuntimeSpec for L1ChainSpec {
         EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT,
     >;
-
-    type GenesisBlockCreationError = LocalCreationError;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,

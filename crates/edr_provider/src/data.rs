@@ -52,7 +52,7 @@ use edr_evm::{
         StateOverrides, StateRefOverrider, SyncState,
     },
     trace::Trace,
-    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, MemPool,
+    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, GenesisBlockOptions, MemPool,
     MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
@@ -179,7 +179,7 @@ pub struct ProviderData<
     TimerT: Clone + TimeSinceEpoch = CurrentTime,
 > {
     runtime_handle: runtime::Handle,
-    initial_config: ProviderConfig<ChainSpecT::Hardfork>,
+    initial_config: ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
     blockchain:
         Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
     pub irregular_state: IrregularState,
@@ -580,7 +580,7 @@ where
             dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
         >,
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
-        config: ProviderConfig<ChainSpecT::Hardfork>,
+        config: ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
@@ -595,7 +595,7 @@ where
             next_block_base_fee_per_gas,
         } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer)?;
 
-        let max_cached_states = get_max_cached_states_from_env::<ChainSpecT>()?;
+        let max_cached_states = get_max_cached_states_from_env::<ChainSpecT, TimerT>()?;
         let mut block_state_cache = LruCache::new(max_cached_states);
         let mut block_number_to_state_id = HashTrieMapSync::default();
 
@@ -1236,8 +1236,8 @@ where
     fn create_evm_config(
         &self,
         chain_id: u64,
-        hardfork: ChainSpecT::Hardfork,
-    ) -> CfgEnv<ChainSpecT::Hardfork> {
+        hardfork: <ChainSpecT as ChainSpec>::Hardfork,
+    ) -> CfgEnv<<ChainSpecT as ChainSpec>::Hardfork> {
         let mut cfg_env = CfgEnv::new_with_spec(hardfork);
         cfg_env.chain_id = chain_id;
         cfg_env.limit_contract_code_size = if self.allow_unlimited_contract_size {
@@ -1255,7 +1255,8 @@ where
     pub fn create_evm_config_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<CfgEnv<ChainSpecT::Hardfork>, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>, ProviderErrorForChainSpec<ChainSpecT>>
+    {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         let hardfork = if let Some(block_number) = block_number {
@@ -1278,7 +1279,7 @@ where
     pub fn hardfork_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<ChainSpecT::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<<ChainSpecT as ChainSpec>::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         if let Some(block_number) = block_number {
@@ -1323,11 +1324,15 @@ where
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
-            &CfgEnv<ChainSpecT::Hardfork>,
+            &CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
             HeaderOverrides,
             &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
-            MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+            MineBlockResultAndState<
+                ChainSpecT::HaltReason,
+                <ChainSpecT as RuntimeSpec>::LocalBlock,
+                StateError,
+            >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
         mut options: HeaderOverrides,
@@ -1381,16 +1386,24 @@ where
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
-            &CfgEnv<ChainSpecT::Hardfork>,
+            &CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
             HeaderOverrides,
             &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
-            MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+            MineBlockResultAndState<
+                ChainSpecT::HaltReason,
+                <ChainSpecT as RuntimeSpec>::LocalBlock,
+                StateError,
+            >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
         mut options: HeaderOverrides,
     ) -> Result<
-        DebugMineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+        DebugMineBlockResultAndState<
+            ChainSpecT::HaltReason,
+            <ChainSpecT as RuntimeSpec>::LocalBlock,
+            StateError,
+        >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
@@ -1489,7 +1502,7 @@ where
         &self,
         block_number: u64,
         block_spec: &BlockSpec,
-    ) -> Result<ChainSpecT::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<<ChainSpecT as ChainSpec>::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
         self.blockchain
             .spec_at_block_number(block_number)
             .map_err(|err| match err {
@@ -1588,7 +1601,7 @@ where
     }
 
     /// Returns the local hardfork.
-    pub fn hardfork(&self) -> ChainSpecT::Hardfork {
+    pub fn hardfork(&self) -> <ChainSpecT as ChainSpec>::Hardfork {
         self.blockchain.hardfork()
     }
 
@@ -2113,7 +2126,11 @@ where
     pub fn mine_pending_block(
         &mut self,
     ) -> Result<
-        DebugMineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+        DebugMineBlockResultAndState<
+            ChainSpecT::HaltReason,
+            <ChainSpecT as RuntimeSpec>::LocalBlock,
+            StateError,
+        >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         let (block_timestamp, _new_offset) = self.next_block_timestamp(None)?;
@@ -2245,11 +2262,15 @@ where
 
     fn mine_block_with_mem_pool(
         &mut self,
-        config: &CfgEnv<ChainSpecT::Hardfork>,
+        config: &CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
         options: HeaderOverrides,
         runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
-        MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+        MineBlockResultAndState<
+            ChainSpecT::HaltReason,
+            <ChainSpecT as RuntimeSpec>::LocalBlock,
+            StateError,
+        >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         let reward = miner_reward(config.spec.into()).unwrap_or(0);
@@ -2274,12 +2295,16 @@ where
     /// Mines a block with the provided transaction.
     fn mine_block_with_single_transaction(
         &mut self,
-        config: &CfgEnv<ChainSpecT::Hardfork>,
+        config: &CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
         options: HeaderOverrides,
         transaction: ChainSpecT::SignedTransaction,
         runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
-        MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateError>,
+        MineBlockResultAndState<
+            ChainSpecT::HaltReason,
+            <ChainSpecT as RuntimeSpec>::LocalBlock,
+            StateError,
+        >,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         let reward = miner_reward(config.spec.into()).unwrap_or(0);
@@ -2670,9 +2695,9 @@ impl StateId {
     }
 }
 
-fn block_time_offset_seconds<ChainSpecT: RuntimeSpec>(
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
-    timer: &impl TimeSinceEpoch,
+fn block_time_offset_seconds<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
+    config: &ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
+    timer: &TimerT,
 ) -> Result<i64, CreationErrorForChainSpec<ChainSpecT>> {
     config.initial_date.map_or(Ok(0), |initial_date| {
         let initial_timestamp = i64::try_from(
@@ -2707,8 +2732,8 @@ fn create_blockchain_and_state<
     TimerT: Clone + TimeSinceEpoch,
 >(
     runtime: runtime::Handle,
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
-    timer: &impl TimeSinceEpoch,
+    config: &ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
+    timer: &TimerT,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
@@ -2730,7 +2755,7 @@ fn create_blockchain_and_state<
         )?);
 
         let (blockchain, mut irregular_state) = tokio::task::block_in_place(
-            || -> Result<_, ForkedCreationError<ChainSpecT::Hardfork>> {
+            || -> Result<_, ForkedCreationError<<ChainSpecT as ChainSpec>::Hardfork>> {
                 let mut irregular_state = IrregularState::default();
                 let blockchain = runtime.block_on(ForkedBlockchain::<ChainSpecT>::new(
                     runtime.clone(),
@@ -2923,14 +2948,16 @@ fn create_blockchain_and_state<
                 base_fee: config.initial_base_fee_per_gas,
                 blob_gas: config.initial_blob_gas.clone(),
             },
-        )?;
+        )
+        .map_err(CreationError::LocalBlockchainCreation)?;
 
         let irregular_state = IrregularState::default();
         let state = blockchain
             .state_at_block_number(0, irregular_state.state_overrides())
             .expect("Genesis state must exist");
 
-        let block_time_offset_seconds = block_time_offset_seconds::<ChainSpecT>(config, timer)?;
+        let block_time_offset_seconds =
+            block_time_offset_seconds::<ChainSpecT, TimerT>(config, timer)?;
 
         Ok(BlockchainAndState {
             fork_metadata: None,
@@ -2952,8 +2979,10 @@ fn get_skip_unsupported_transaction_types_from_env() -> bool {
         .map_or(DEFAULT_SKIP_UNSUPPORTED_TRANSACTION_TYPES, |s| s == "true")
 }
 
-fn get_max_cached_states_from_env<ChainSpecT: RuntimeSpec>(
-) -> Result<NonZeroUsize, CreationErrorForChainSpec<ChainSpecT>> {
+fn get_max_cached_states_from_env<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>() -> Result<NonZeroUsize, CreationErrorForChainSpec<ChainSpecT>> {
     std::env::var(EDR_MAX_CACHED_STATES_ENV_VAR).map_or_else(
         |err| match err {
             std::env::VarError::NotPresent => {

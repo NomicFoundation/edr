@@ -20,7 +20,7 @@ pub use self::{
     builder::{
         BlockBuilder, BlockBuilderCreationError, BlockBuilderCreationErrorForChainSpec,
         BlockInputs, BlockTransactionError, BlockTransactionErrorForChainSpec, EthBlockBuilder,
-        EthBlockReceiptFactory, GenesisBlockBuilder, GenesisBlockOptions,
+        EthBlockReceiptFactory, GenesisBlockOptions,
     },
     local::{EthLocalBlock, EthLocalBlockForChainSpec},
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},

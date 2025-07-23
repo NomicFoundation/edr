@@ -1,7 +1,6 @@
 use core::fmt::Debug;
 use std::{num::NonZeroU64, sync::Arc};
 
-use derive_where::derive_where;
 use edr_eth::{
     block::{HeaderOverrides, PartialHeader},
     log::FilterLog,
@@ -40,7 +39,7 @@ pub type ReservableSparseBlockchainStorageForChainSpec<ChainSpecT> =
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory,
 /// while lazily loading blocks that have been reserved.
-#[derive_where(Debug; BlockReceiptT, BlockT, HardforkT)]
+#[derive(Debug)]
 pub struct ReservableSparseBlockchainStorage<
     BlockReceiptT: ReceiptTrait,
     BlockT,

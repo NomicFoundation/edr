@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{l1, log::FilterLog, Address, HashSet, B256, U256};
+use edr_eth::{l1, log::FilterLog, spec::ChainSpec, Address, HashSet, B256, U256};
 
 use super::{
     compute_state_at_block,
@@ -10,10 +10,10 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    spec::SyncRuntimeSpec,
+    spec::{GenesisBlockFactory, RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
-    GenesisBlockBuilder, GenesisBlockOptions,
+    GenesisBlockOptions,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
@@ -53,24 +53,6 @@ where
         >,
     >,
 {
-    /// Constructs a new instance using the provided arguments to build a
-    /// genesis block.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new<'builder>(
-        genesis_diff: StateDiff,
-        chain_id: u64,
-        hardfork: ChainSpecT::Hardfork,
-        options: GenesisBlockOptions,
-    ) -> Result<Self, ChainSpecT::GenesisBlockCreationError> {
-        let genesis_block =
-            ChainSpecT::BlockBuilder::genesis_block(genesis_diff.clone(), hardfork, options)?;
-
-        Ok(unsafe {
-            Self::with_genesis_block_unchecked(genesis_block, genesis_diff, chain_id, hardfork)
-        })
-    }
-
     /// Constructs a new instance with the provided genesis block, validating a
     /// zero block number.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -123,6 +105,35 @@ where
             chain_id,
             hardfork,
         }
+    }
+}
+
+impl<ChainSpecT> LocalBlockchain<ChainSpecT>
+where
+    <ChainSpecT as RuntimeSpec>::LocalBlock: BlockReceipts<
+        Arc<ChainSpecT::BlockReceipt>,
+        Error = BlockchainErrorForChainSpec<ChainSpecT>,
+    >,
+    ChainSpecT: GenesisBlockFactory<
+            Hardfork = <ChainSpecT as ChainSpec>::Hardfork,
+            LocalBlock = <ChainSpecT as RuntimeSpec>::LocalBlock,
+        > + SyncRuntimeSpec,
+{
+    /// Constructs a new instance using the provided arguments to build a
+    /// genesis block.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        genesis_diff: StateDiff,
+        chain_id: u64,
+        hardfork: <ChainSpecT as ChainSpec>::Hardfork,
+        options: GenesisBlockOptions,
+    ) -> Result<Self, <ChainSpecT as GenesisBlockFactory>::CreationError> {
+        let genesis_block = ChainSpecT::genesis_block(genesis_diff.clone(), hardfork, options)?;
+
+        Ok(unsafe {
+            Self::with_genesis_block_unchecked(genesis_block, genesis_diff, chain_id, hardfork)
+        })
     }
 }
 

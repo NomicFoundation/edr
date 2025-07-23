@@ -16,7 +16,7 @@ use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::{DatabaseComponentError, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
+    state::{DatabaseComponentError, DatabaseComponents, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
     MineBlockResultAndStateForChainSpec,
 };
@@ -210,23 +210,4 @@ where
         self,
         rewards: Vec<(Address, u128)>,
     ) -> Result<MineBlockResultAndStateForChainSpec<ChainSpecT, Self::StateError>, Self::StateError>;
-}
-
-/// Trait for constructing a genesis block.
-pub trait GenesisBlockBuilder {
-    /// The error type for genesis block creation.
-    type CreationError;
-
-    /// The hardfork type.
-    type Hardfork;
-
-    /// The local block type.
-    type LocalBlock;
-
-    /// Constructs a genesis block for the given chain spec.
-    fn genesis_block(
-        genesis_diff: StateDiff,
-        hardfork: Self::Hardfork,
-        options: GenesisBlockOptions,
-    ) -> Result<Self::LocalBlock, Self::CreationError>;
 }

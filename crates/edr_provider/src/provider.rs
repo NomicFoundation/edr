@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use edr_eth::{
     l1,
+    spec::ChainSpec,
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
@@ -102,7 +103,7 @@ impl<
             dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
         >,
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
-        config: ProviderConfig<ChainSpecT::Hardfork>,
+        config: ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {

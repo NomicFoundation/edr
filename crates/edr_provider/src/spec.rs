@@ -1,4 +1,3 @@
-use core::fmt::Debug;
 use std::sync::Arc;
 
 pub use edr_eth::spec::EthHeaderConstants;
@@ -6,6 +5,7 @@ use edr_eth::{
     eips::{eip2930, eip7702},
     l1::L1ChainSpec,
     rlp,
+    spec::ChainSpec,
     transaction::{
         signed::{FakeSign, Sign},
         ExecutableTransaction, IsSupported,
@@ -14,8 +14,10 @@ use edr_eth::{
 };
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
-    blockchain::BlockchainErrorForChainSpec, state::StateOverrides, transaction,
-    BlockAndTotalDifficulty, BlockReceipts,
+    blockchain::BlockchainErrorForChainSpec,
+    spec::{GenesisBlockFactory, SyncGenesisBlockFactory},
+    state::StateOverrides,
+    transaction, BlockAndTotalDifficulty, BlockReceipts,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
@@ -25,14 +27,20 @@ use crate::{
 };
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    RuntimeSpec<
-    Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
-    LocalBlock: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
-    RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
-    RpcCallRequest: MaybeSender,
-    RpcTransactionRequest: Sender,
-    SignedTransaction: IsSupported,
->
+    GenesisBlockFactory<
+        Hardfork = <Self as ChainSpec>::Hardfork,
+        LocalBlock = <Self as RuntimeSpec>::LocalBlock,
+    > + RuntimeSpec<
+        Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
+        LocalBlock: BlockReceipts<
+            Arc<Self::BlockReceipt>,
+            Error = BlockchainErrorForChainSpec<Self>,
+        >,
+        RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
+        RpcCallRequest: MaybeSender,
+        RpcTransactionRequest: Sender,
+        SignedTransaction: IsSupported,
+    >
 {
     type PooledTransaction: HardforkValidationData
         + Into<Self::SignedTransaction>
@@ -145,12 +153,22 @@ pub trait FromRpcType<RpcT, TimerT: Clone + TimeSinceEpoch>: Sized {
 }
 
 pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    ProviderSpec<TimerT> + SyncRuntimeSpec
+    ProviderSpec<TimerT>
+    + SyncGenesisBlockFactory<
+        Hardfork = <Self as ChainSpec>::Hardfork,
+        LocalBlock = <Self as RuntimeSpec>::LocalBlock,
+    > + SyncRuntimeSpec
 {
 }
 
-impl<ProviderSpecT: ProviderSpec<TimerT> + SyncRuntimeSpec, TimerT: Clone + TimeSinceEpoch>
-    SyncProviderSpec<TimerT> for ProviderSpecT
+impl<
+        ProviderSpecT: ProviderSpec<TimerT>
+            + SyncGenesisBlockFactory<
+                Hardfork = <Self as ChainSpec>::Hardfork,
+                LocalBlock = <Self as RuntimeSpec>::LocalBlock,
+            > + SyncRuntimeSpec,
+        TimerT: Clone + TimeSinceEpoch,
+    > SyncProviderSpec<TimerT> for ProviderSpecT
 {
 }
 
@@ -168,11 +186,7 @@ pub type MaxFeesFn<ChainSpecT, TimerT> =
         Option<u128>,
     ) -> Result<(u128, u128), ProviderErrorForChainSpec<ChainSpecT>>;
 
-pub struct CallContext<
-    'context,
-    ChainSpecT: ProviderSpec<TimerT, Hardfork: Debug>,
-    TimerT: Clone + TimeSinceEpoch,
-> {
+pub struct CallContext<'context, ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
     pub data: &'context mut ProviderData<ChainSpecT, TimerT>,
     pub block_spec: &'context BlockSpec,
     pub state_overrides: &'context StateOverrides,
@@ -182,7 +196,7 @@ pub struct CallContext<
 
 pub struct TransactionContext<
     'context,
-    ChainSpecT: ProviderSpec<TimerT, Hardfork: Debug>,
+    ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 > {
     pub data: &'context mut ProviderData<ChainSpecT, TimerT>,
