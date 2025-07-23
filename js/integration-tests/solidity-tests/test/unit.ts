@@ -279,4 +279,37 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
     assert.equal(failedTests, 0);
   });
+
+  describe("InternalExpectRevert", async function () {
+    it("allowInternalExpectRevert is true", async function () {
+      const { totalTests, failedTests } = await testContext.runTestsWithStats(
+        "InternalExpectRevertTest",
+        {
+          allowInternalExpectRevert: true,
+        },
+        L1_CHAIN_TYPE
+      );
+
+      assert.equal(totalTests, 1);
+      assert.equal(failedTests, 0);
+    });
+
+    it("allowInternalExpectRevert default", async function () {
+      const { totalTests, failedTests, stackTraces } =
+        await testContext.runTestsWithStats(
+          "InternalExpectRevertTest",
+          undefined,
+          L1_CHAIN_TYPE
+        );
+
+      assert.equal(totalTests, 1);
+      assert.equal(failedTests, 1);
+
+      const stackTrace = stackTraces.get("testInternalExpectRevert()");
+      assert.equal(
+        stackTrace?.reason,
+        "call didn't revert at a lower depth than cheatcode call depth"
+      );
+    });
+  });
 });

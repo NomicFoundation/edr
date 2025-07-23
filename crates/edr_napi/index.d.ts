@@ -520,6 +520,11 @@ export interface SolidityTestRunnerConfigArgs {
    */
   ffi?: boolean
   /**
+   * Allow expecting reverts with `expectRevert` at the same callstack depth
+   * as the test. Defaults to false.
+   */
+  allowInternalExpectRevert?: boolean
+  /**
    * The value of `msg.sender` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
    */
