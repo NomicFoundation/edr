@@ -1,7 +1,7 @@
 {
   "name": "hardhat-edr-tests",
-  "version": "1.0.0",
-  "author": "Nomic Foundation",
+  "version": "0.0.0",
+  "private": true,
   "devDependencies": {
     "@metamask/eth-sig-util": "^4.0.0",
     "@nomicfoundation/edr": "workspace:*",

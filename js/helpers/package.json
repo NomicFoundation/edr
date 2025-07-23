@@ -1,17 +1,14 @@
 {
   "name": "@nomicfoundation/edr-helpers",
-  "description": "",
   "version": "1.0.0",
-  "author": "",
-  "dependencies": {
+  "private": true,
+  "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/hardhat-errors": "3.0.0-next.0",
     "@nomicfoundation/hardhat-utils": "3.0.0-next.0",
     "fs-extra": "^7.0.1",
     "hardhat": "3.0.0-next.4",
-    "semver": "^6.3.0"
-  },
-  "devDependencies": {
+    "semver": "^6.3.0",
     "@tsconfig/node20": "^20.1.4",
     "@types/fs-extra": "^5.1.0",
     "@types/node": "^20.0.0",
@@ -29,7 +26,6 @@
   "keywords": [],
   "license": "MIT",
   "main": "dist/index.js",
-  "private": true,
   "scripts": {
     "build": "pnpm run build:dev",
     "build:dev": "tsc --build .",

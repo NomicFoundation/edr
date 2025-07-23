@@ -1,8 +1,7 @@
 {
   "name": "hardhat-edr-smock-test",
-  "description": "",
   "version": "1.0.0",
-  "author": "",
+  "private": true,
   "devDependencies": {
     "@defi-wonderland/smock": "^2.4.0",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
@@ -14,6 +13,5 @@
   },
   "keywords": [],
   "license": "MIT",
-  "main": "index.js",
-  "private": true
+  "main": "index.js"
 }
