@@ -14,7 +14,7 @@ use edr_eth::{
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
     forked::{CreationError as ForkedCreationError, ForkedBlockchain, ForkedBlockchainError},
-    local::{CreationError as LocalCreationError, GenesisBlockOptions, LocalBlockchain},
+    local::{CreationError as LocalCreationError, LocalBlockchain},
 };
 use crate::{
     hardfork::Activations,

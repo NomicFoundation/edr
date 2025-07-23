@@ -3,11 +3,11 @@ mod l1;
 use std::fmt::Debug;
 
 use edr_eth::{
-    block::{self, HeaderOverrides, PartialHeader},
+    block::{self, BlobGas, HeaderOverrides, PartialHeader},
     spec::ChainSpec,
     transaction::TransactionValidation,
     withdrawal::Withdrawal,
-    Address, HashMap,
+    Address, HashMap, B256,
 };
 use revm::{precompile::PrecompileFn, Inspector};
 
@@ -16,7 +16,7 @@ use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::{DatabaseComponentError, DatabaseComponents, SyncState, WrapDatabaseRef},
+    state::{DatabaseComponentError, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
     MineBlockResultAndStateForChainSpec,
 };
@@ -108,6 +108,34 @@ pub enum BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidat
     ),
 }
 
+/// Options for creating a genesis block.
+#[derive(Default)]
+pub struct GenesisBlockOptions {
+    /// The block's gas limit
+    pub gas_limit: Option<u64>,
+    /// The block's timestamp
+    pub timestamp: Option<u64>,
+    /// The block's mix hash (or prevrandao for post-merge blockchains)
+    pub mix_hash: Option<B256>,
+    /// The block's base gas fee
+    pub base_fee: Option<u128>,
+    /// The block's blob gas (for post-Cancun blockchains)
+    pub blob_gas: Option<BlobGas>,
+}
+
+impl From<GenesisBlockOptions> for HeaderOverrides {
+    fn from(value: GenesisBlockOptions) -> Self {
+        Self {
+            gas_limit: value.gas_limit,
+            timestamp: value.timestamp,
+            mix_hash: value.mix_hash,
+            base_fee: value.base_fee,
+            blob_gas: value.blob_gas,
+            ..HeaderOverrides::default()
+        }
+    }
+}
+
 /// A trait for building blocks.
 pub trait BlockBuilder<'builder, ChainSpecT>: Sized
 where
@@ -182,4 +210,23 @@ where
         self,
         rewards: Vec<(Address, u128)>,
     ) -> Result<MineBlockResultAndStateForChainSpec<ChainSpecT, Self::StateError>, Self::StateError>;
+}
+
+/// Trait for constructing a genesis block.
+pub trait GenesisBlockBuilder {
+    /// The error type for genesis block creation.
+    type CreationError;
+
+    /// The hardfork type.
+    type Hardfork;
+
+    /// The local block type.
+    type LocalBlock;
+
+    /// Constructs a genesis block for the given chain spec.
+    fn genesis_block(
+        genesis_diff: StateDiff,
+        hardfork: Self::Hardfork,
+        options: GenesisBlockOptions,
+    ) -> Result<Self::LocalBlock, Self::CreationError>;
 }

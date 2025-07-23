@@ -32,8 +32,8 @@ use crate::{
         TransactionErrorForChainSpec, TransactionType, TransactionValidation,
     },
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
-    EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock,
-    RemoteBlockConversionError, SyncBlock,
+    EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, GenesisBlockBuilder, LocalBlock,
+    RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
 
 /// Helper type for a chain-specific [`revm::Context`].
@@ -141,7 +141,7 @@ pub trait RuntimeSpec:
         'builder,
         Self,
         BlockchainError = BlockchainErrorT,
-        StateError = StateErrorT>;
+        StateError = StateErrorT> + GenesisBlockBuilder<Hardfork = Self::Hardfork, LocalBlock = Self::LocalBlock>;
 
     /// Type representing a transaction's receipt in a block.
     type BlockReceipt: Debug +  ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<Self::RpcReceipt, Error = Self::RpcReceiptConversionError>;

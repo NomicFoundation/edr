@@ -12,19 +12,25 @@ use edr_eth::{
     transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
-    Address, Bloom, HashMap, B256, U256,
+    Address, Bloom, Bytes, HashMap, B256, U256,
 };
 use revm::{precompile::PrecompileFn, Inspector};
 
 use super::{BlockBuilder, BlockTransactionError, BlockTransactionErrorForChainSpec};
 use crate::{
-    block::builder::BlockInputs,
-    blockchain::SyncBlockchain,
+    block::{
+        builder::{BlockInputs, GenesisBlockBuilder, GenesisBlockOptions},
+        EmptyBlock as _,
+    },
+    blockchain::{LocalCreationError, SyncBlockchain},
     config::CfgEnv,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     runtime::{dry_run, dry_run_with_inspector},
     spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
-    state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
+    state::{
+        AccountModifierFn, DatabaseComponents, StateCommit as _, StateDebug as _, StateDiff,
+        SyncState, TrieState, WrapDatabaseRef,
+    },
     transaction::TransactionError,
     Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
 };
@@ -486,6 +492,81 @@ where
             state_diff,
             transaction_results,
         })
+    }
+}
+
+impl<'builder, BlockchainErrorT, ChainSpecT, StateErrorT> GenesisBlockBuilder
+    for EthBlockBuilder<'builder, BlockchainErrorT, ChainSpecT, StateErrorT>
+where
+    BlockchainErrorT: Send + std::error::Error,
+    ChainSpecT: SyncRuntimeSpec<
+        BlockReceiptFactory: Default,
+        Hardfork: Debug,
+        LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>,
+    >,
+    StateErrorT: Send + std::error::Error,
+{
+    type CreationError = LocalCreationError;
+
+    type Hardfork = ChainSpecT::Hardfork;
+
+    type LocalBlock = EthLocalBlockForChainSpec<ChainSpecT>;
+
+    fn genesis_block(
+        genesis_diff: StateDiff,
+        hardfork: Self::Hardfork,
+        options: GenesisBlockOptions,
+    ) -> Result<Self::LocalBlock, Self::CreationError> {
+        const EXTRA_DATA: &[u8] = b"\x12\x34";
+
+        let mut genesis_state = TrieState::default();
+        genesis_state.commit(genesis_diff.clone().into());
+
+        let evm_spec_id = hardfork.into();
+        if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
+            return Err(LocalCreationError::MissingPrevrandao);
+        }
+
+        let mut options = HeaderOverrides::from(options);
+        options.state_root = Some(
+            genesis_state
+                .state_root()
+                .expect("TrieState is guaranteed to successfully compute the state root"),
+        );
+
+        if options.timestamp.is_none() {
+            options.timestamp = Some(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Current time must be after unix epoch")
+                    .as_secs(),
+            );
+        }
+
+        options.extra_data = Some(Bytes::from(EXTRA_DATA));
+
+        // No ommers in the genesis block
+        let ommers = Vec::new();
+
+        let withdrawals = if evm_spec_id >= l1::SpecId::SHANGHAI {
+            // Empty withdrawals for genesis block
+            Some(Vec::new())
+        } else {
+            None
+        };
+
+        let partial_header = PartialHeader::new::<ChainSpecT>(
+            hardfork,
+            options,
+            None,
+            &ommers,
+            withdrawals.as_ref(),
+        );
+
+        Ok(EthLocalBlockForChainSpec::<ChainSpecT>::empty(
+            hardfork,
+            partial_header,
+        ))
     }
 }
 

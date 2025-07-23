@@ -41,7 +41,7 @@ use edr_evm::{
     },
     blockchain::{
         Blockchain, BlockchainError, BlockchainErrorForChainSpec, ForkedBlockchain,
-        ForkedCreationError, GenesisBlockOptions, LocalBlockchain, SyncBlockchain,
+        ForkedCreationError, LocalBlockchain, SyncBlockchain,
     },
     config::CfgEnv,
     inspector::DualInspector,
