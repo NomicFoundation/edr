@@ -9,5 +9,36 @@
     "@nomicfoundation/edr-helpers": "1.0.0",
     "solidity-tests": "1.0.0"
   },
-  "changesets": []
+  "changesets": [
+    "angry-glasses-fail",
+    "cool-turtles-obey",
+    "dirty-melons-provide",
+    "fluffy-bags-tickle",
+    "four-melons-rhyme",
+    "fresh-chairs-relate",
+    "giant-spoons-notice",
+    "grumpy-doors-smile",
+    "grumpy-jokes-sort",
+    "hip-rings-allow",
+    "honest-tools-dress",
+    "lazy-jobs-draw",
+    "lemon-pumas-walk",
+    "lemon-snails-approve",
+    "long-eagles-thank",
+    "orange-pens-explode",
+    "perfect-meals-tie",
+    "poor-shirts-collect",
+    "red-wasps-complain",
+    "rotten-vans-divide",
+    "selfish-scissors-shake",
+    "seven-apes-hope",
+    "silly-zebras-decide",
+    "slimy-masks-cover",
+    "slow-houses-call",
+    "spicy-cameras-fix",
+    "stupid-dryers-know",
+    "tall-mayflies-applaud",
+    "tame-donuts-remain",
+    "tender-pillows-grab"
+  ]
 }
