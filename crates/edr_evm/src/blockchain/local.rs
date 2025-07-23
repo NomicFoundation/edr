@@ -62,7 +62,7 @@ where
         chain_id: u64,
         hardfork: ChainSpecT::Hardfork,
         options: GenesisBlockOptions,
-    ) -> Result<Self, <ChainSpecT::BlockBuilder<'builder, BlockchainErrorForChainSpec<ChainSpecT>, StateError> as GenesisBlockBuilder>::CreationError>{
+    ) -> Result<Self, ChainSpecT::GenesisBlockCreationError> {
         let genesis_block =
             ChainSpecT::BlockBuilder::genesis_block(genesis_diff.clone(), hardfork, options)?;
 

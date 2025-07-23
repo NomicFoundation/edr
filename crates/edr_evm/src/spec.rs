@@ -19,6 +19,7 @@ use revm_interpreter::{interpreter::EthInterpreter, InterpreterResult};
 
 use crate::{
     block::transaction::TransactionAndBlockForChainSpec,
+    blockchain::LocalCreationError,
     config::CfgEnv,
     evm::Evm,
     hardfork::{self, Activations},
@@ -141,7 +142,7 @@ pub trait RuntimeSpec:
         'builder,
         Self,
         BlockchainError = BlockchainErrorT,
-        StateError = StateErrorT> + GenesisBlockBuilder<Hardfork = Self::Hardfork, LocalBlock = Self::LocalBlock>;
+        StateError = StateErrorT> + GenesisBlockBuilder<CreationError = Self::GenesisBlockCreationError, Hardfork = Self::Hardfork, LocalBlock = Self::LocalBlock>;
 
     /// Type representing a transaction's receipt in a block.
     type BlockReceipt: Debug +  ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<Self::RpcReceipt, Error = Self::RpcReceiptConversionError>;
@@ -168,6 +169,9 @@ pub trait RuntimeSpec:
         ResultAndState<Self::HaltReason>,
         EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
     >>;
+
+    /// Type of the error that occurs when creating a genesis block.
+    type GenesisBlockCreationError: std::error::Error;
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction> +
@@ -389,6 +393,8 @@ impl RuntimeSpec for L1ChainSpec {
         EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT,
     >;
+
+    type GenesisBlockCreationError = LocalCreationError;
 
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
