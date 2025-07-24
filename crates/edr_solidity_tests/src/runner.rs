@@ -613,7 +613,7 @@ impl<
             None
         };
 
-        let (deprecated_cheatcodes, gas_snapshots) = cheatcodes.map_or_else(
+        let (deprecated_cheatcodes, value_snapshots) = cheatcodes.map_or_else(
             || (HashMap::new(), BTreeMap::new()),
             |cheatcodes| (cheatcodes.deprecated, cheatcodes.gas_snapshots),
         );
@@ -633,7 +633,7 @@ impl<
             labeled_addresses,
             duration,
             gas_report_traces: Vec::new(),
-            scoped_snapshots: gas_snapshots,
+            value_snapshots,
             stack_trace_result,
             deprecated_cheatcodes,
         }
@@ -807,7 +807,7 @@ impl<
                 .into_iter()
                 .map(|t| vec![t])
                 .collect(),
-            scoped_snapshots: BTreeMap::new(),
+            value_snapshots: BTreeMap::new(),
             stack_trace_result,
             deprecated_cheatcodes: result.deprecated_cheatcodes,
         }
@@ -1159,7 +1159,7 @@ impl<
             labeled_addresses: labeled_addresses.clone(),
             duration: start.elapsed(),
             gas_report_traces,
-            scoped_snapshots: BTreeMap::new(),
+            value_snapshots: BTreeMap::new(),
             stack_trace_result: stack_trace,
             deprecated_cheatcodes,
         }
@@ -1330,7 +1330,7 @@ impl<
                         coverage: setup.coverage,
                         labeled_addresses: setup.labeled_addresses,
                         duration: elapsed,
-                        scoped_snapshots: BTreeMap::new(),
+                        value_snapshots: BTreeMap::new(),
                         stack_trace_result,
                         deprecated_cheatcodes: HashMap::new(),
                     },
@@ -1649,7 +1649,7 @@ fn try_to_replay_recorded_failures<
                     duration: start.elapsed(),
                     logs: vec![],
                     labeled_addresses: AddressHashMap::<String>::default(),
-                    scoped_snapshots: BTreeMap::new(),
+                    value_snapshots: BTreeMap::new(),
                     stack_trace_result,
                     deprecated_cheatcodes: deprecated_cheatcodes.clone(),
                 });

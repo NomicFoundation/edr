@@ -291,9 +291,9 @@ describe("Unit tests", () => {
 
     for (const suiteResult of suiteResults) {
       for (const testResult of suiteResult.testResults) {
-        assert.notEqual(testResult.scopedSnapshotGroups, undefined);
+        assert.notEqual(testResult.valueSnapshotGroups, undefined);
 
-        const snapshotGroups = testResult.scopedSnapshotGroups!;
+        const snapshotGroups = testResult.valueSnapshotGroups!;
 
         assert(
           snapshotGroups.length > 0,
