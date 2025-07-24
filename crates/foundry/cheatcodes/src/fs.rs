@@ -13,6 +13,7 @@ use alloy_primitives::{Bytes, U256};
 use alloy_sol_types::SolValue;
 use dialoguer::{Input, Password};
 use edr_common::fs;
+use edr_solidity::artifacts::ArtifactId;
 use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
     TransactionErrorTrait,
@@ -763,6 +764,81 @@ impl Cheatcode for getDeployedCodeCall {
     }
 }
 
+struct ArtifactIdQuery<'a> {
+    file: Option<PathBuf>,
+    contract_name: Option<&'a str>,
+    version: Option<Version>,
+}
+
+impl<'a> ArtifactIdQuery<'a> {
+    fn new(path: &'a str) -> Result<Self> {
+        let mut parts = path.split(':');
+
+        let mut file = None;
+        let mut contract_name = None;
+        let mut version = None;
+
+        let path_or_name = parts
+            .next()
+            .expect("split always returns at least one element");
+        if path_or_name.ends_with(".sol") {
+            file = Some(PathBuf::from(path_or_name));
+            if let Some(name_or_version) = parts.next() {
+                if name_or_version.contains('.') {
+                    version = Some(name_or_version);
+                } else {
+                    contract_name = Some(name_or_version);
+                    version = parts.next();
+                }
+            }
+        } else {
+            contract_name = Some(path_or_name);
+            version = parts.next();
+        }
+
+        let version = if let Some(version) = version {
+            Some(Version::parse(version).map_err(|_err| fmt_err!("Error parsing version"))?)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            file,
+            contract_name,
+            version,
+        })
+    }
+
+    fn artifact_id_matches(&self, id: &ArtifactId) -> bool {
+        // name might be in the form of "Counter.0.8.23"
+        let id_name = id
+            .name
+            .split('.')
+            .next()
+            .expect("split always returns at least one element");
+
+        if let Some(path) = &self.file {
+            if !id.source.ends_with(path) {
+                return false;
+            }
+        }
+        if let Some(name) = self.contract_name {
+            if id_name != name {
+                return false;
+            }
+        }
+        if let Some(version) = &self.version {
+            if id.version.minor != version.minor
+                || id.version.major != version.major
+                || id.version.patch != version.patch
+            {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 /// Returns the artifact code from known artifacts
 ///
 /// Can parse following input formats:
@@ -796,62 +872,13 @@ fn get_artifact_code<
 ) -> Result<Bytes> {
     const NO_MATCHING_ARTIFACT: &str = "No matching artifact found";
 
-    let mut parts = path.split(':');
-
-    let mut file = None;
-    let mut contract_name = None;
-    let mut version = None;
-
-    let path_or_name = parts.next().unwrap();
-    if path_or_name.ends_with(".sol") {
-        file = Some(PathBuf::from(path_or_name));
-        if let Some(name_or_version) = parts.next() {
-            if name_or_version.contains('.') {
-                version = Some(name_or_version);
-            } else {
-                contract_name = Some(name_or_version);
-                version = parts.next();
-            }
-        }
-    } else {
-        contract_name = Some(path_or_name);
-        version = parts.next();
-    }
-
-    let version = if let Some(version) = version {
-        Some(Version::parse(version).map_err(|_err| fmt_err!("Error parsing version"))?)
-    } else {
-        None
-    };
+    let query = ArtifactIdQuery::new(path)?;
 
     let filtered = state
         .config
         .available_artifacts
         .iter()
-        .filter(|(id, _)| {
-            // name might be in the form of "Counter.0.8.23"
-            let id_name = id.name.split('.').next().unwrap();
-
-            if let Some(path) = &file {
-                if !id.source.ends_with(path) {
-                    return false;
-                }
-            }
-            if let Some(name) = contract_name {
-                if id_name != name {
-                    return false;
-                }
-            }
-            if let Some(ref version) = version {
-                if id.version.minor != version.minor
-                    || id.version.major != version.major
-                    || id.version.patch != version.patch
-                {
-                    return false;
-                }
-            }
-            true
-        })
+        .filter(|(id, _)| query.artifact_id_matches(id))
         .collect::<Vec<_>>();
 
     let artifact = match filtered.as_slice() {
@@ -1325,5 +1352,24 @@ mod tests {
 
         let artifact: ContractObject = serde_json::from_str(s).unwrap();
         assert!(artifact.deployed_bytecode.is_some());
+    }
+
+    #[test]
+    fn test_artifact_id_matches_hardhat_input_source_names() {
+        let query = ArtifactIdQuery::new("contracts/Counter.sol").unwrap();
+
+        let project_id = ArtifactId {
+            name: "Counter".into(),
+            source: "project/contracts/Counter.sol".into(),
+            version: Version::new(1, 2, 3),
+        };
+        assert!(query.artifact_id_matches(&project_id));
+
+        let npm_id = ArtifactId {
+            name: "Counter".into(),
+            source: "npm/contracts/Counter.sol".into(),
+            version: Version::new(1, 2, 3),
+        };
+        assert!(query.artifact_id_matches(&npm_id));
     }
 }
