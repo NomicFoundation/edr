@@ -1,5 +1,43 @@
 # @nomicfoundation/edr
 
+## 0.12.0
+
+### Minor Changes
+
+- 8396d70: Changed the ChainConfig to include a chain name and allow timestamp-based hardfork activations
+- 097b8c3: Changed ProviderConfig members to decouple from Hardhat 2 concepts
+- edc20dc: Added code coverage to the provider. It can be configured through the ProviderConfig
+- 5e209a1: Added support for asynchronous callbacks for collected code coverage
+- ef49c8a: Removed runSolidityTests method and introduced EdrContext::registerSolidityTestRunnerFactory and EdrContext::runSolidityTests functions as multi-chain alternative
+- 097b8c3: Removed unused type definitions from API
+- 6f0f557: Added instrumenting of source code for statement code coverage measurement
+- ae38942: Added the ability to request execution traces for Solidity tests for either all tests or just failing tests
+- 289de8a: Changed the instrumentation API to require a coverage library path
+- c21ec83: Replaced `Buffer` with `Uint8Array` in Solidity tests interface
+- 306a95e: Added an `ObservabilityConfig` to `SolidityTestRunnerConfigArgs` to allow code coverage measurement
+- eb928c6: Fixed panic on stack trace generation for receive function with modifier that calls another method. https://github.com/NomicFoundation/edr/issues/894
+- 097b8c3: Moved (and renamed) fork-specific configuration options from `ProviderConfig` to `ForkConfig`
+- 097b8c3: Replaced all occurences of Buffer with Uint8Array or ArrayBuffer
+- 585fe0b: Changed test and test suite execution time from milliseconds to nanoseconds. Correspondingly, the `durationMs` property of `TestResult` and `SuiteResult` was renamed to `durationNs`.
+
+### Patch Changes
+
+- f606fc6: Fixed instrumentation for control flow statements
+- c05b49b: Upgraded revm to v24 and alloy to more recent versions
+- f1cdbe2: Turned potential panics into JS errors to help with error reporting to Sentry.
+- a6864ff: Added support for local pre-deploys for Solidity tests.
+- 1b6d123: Fixed a bug causing async functions to throw errors at the callsite
+- ab4e20d: Added hardfork activations for Prague
+- 3f85d7d: Fixed `gasPriceOracle` predeploy for local blockchains when using Isthmus hardfork
+- 3910948: Deprecated `deleteSnapshot`, `deleteSnapshots`, `revertTo`, `revertToAndDelete`, and `snapshot` cheatcodes in favor of `deleteStateSnapshot`, `deleteStateSnapshots`, `revertToState`, `revertToStateAndDelete`, and `snapshotState`
+- 007800e: Fixed custom precompiles not being applied in `eth_sendTransaction`. This enables RIP-7212 support in transactions.
+- 2ec6415: Added hardfork activations for Base Mainnet and Base Sepolia.
+- c63ea3e: Added new `expectRevert` and `expectPartialRevert` cheatcodes.
+- 5e209a1: Fixed bug preventing reporting of collected code coverage
+- 4bad80f: Fixed the `withdrawalsRoot` field in mined post-Isthmus block headers of local blockchains
+- d903f35: Turned panics during stack trace generation due to invalid assumptions into errors.
+- 196af17: Add `allowInternalExpectRevert` config option to customize the behavior of the `expectRevert` cheatcode
+
 ## 0.12.0-alpha.0
 
 ### Minor Changes
