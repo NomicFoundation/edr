@@ -8,16 +8,20 @@ pub const DYNAMIC_BASE_FEE_PARAM_VERSION: u8 = 0x0;
 /// <https://specs.optimism.io/protocol/holocene/exec-engine.html#dynamic-eip-1559-parameters>
 pub fn encode_dynamic_base_fee_params(base_fee_params: &ConstantBaseFeeParams) -> Bytes {
     let denominator: [u8; 4] = u32::try_from(base_fee_params.max_change_denominator)
-        .expect(&format!(
-            "Base fee denominators can only be up to u32::MAX, but got {}",
-            base_fee_params.max_change_denominator
-        ))
+        .unwrap_or_else(|_| {
+            panic!(
+                "Base fee denominators can only be up to u32::MAX, but got {}",
+                base_fee_params.max_change_denominator
+            )
+        })
         .to_be_bytes();
     let elasticity: [u8; 4] = u32::try_from(base_fee_params.elasticity_multiplier)
-        .expect(&format!(
-            "Base fee elasticity can only be up to u32::MAX, but got {}",
-            base_fee_params.elasticity_multiplier
-        ))
+        .unwrap_or_else(|_| {
+            panic!(
+                "Base fee elasticity can only be up to u32::MAX, but got {}",
+                base_fee_params.elasticity_multiplier
+            )
+        })
         .to_be_bytes();
 
     let mut extra_data = [0u8; 9];
