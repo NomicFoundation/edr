@@ -31,9 +31,9 @@ If you would like to set up the environment manually, you will need to install t
 - Install Rust using [rustup](https://www.rust-lang.org/tools/install)
 - Install Rust fmt nightly version (as long as `unstable_features = true` in `rustfmt.toml`)
 
-   ```sh
-    rustup toolchain install nightly --profile minimal --component rustfmt
-   ```
+  ```sh
+   rustup toolchain install nightly --profile minimal --component rustfmt
+  ```
 
 - [NodeJS 22](https://nodejs.org/en)
 - [pnpm](https://pnpm.io/installation)
