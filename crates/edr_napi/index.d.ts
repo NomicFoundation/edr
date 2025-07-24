@@ -520,6 +520,11 @@ export interface SolidityTestRunnerConfigArgs {
    */
   ffi?: boolean
   /**
+   * Allow expecting reverts with `expectRevert` at the same callstack depth
+   * as the test. Defaults to false.
+   */
+  allowInternalExpectRevert?: boolean
+  /**
    * The value of `msg.sender` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
    */
@@ -1314,7 +1319,7 @@ export declare class SuiteResult {
    */
   readonly id: ArtifactId
   /** See [edr_solidity_tests::result::SuiteResult::duration] */
-  readonly durationMs: bigint
+  readonly durationNs: bigint
   /** See [edr_solidity_tests::result::SuiteResult::test_results] */
   readonly testResults: Array<TestResult>
   /** See [edr_solidity_tests::result::SuiteResult::warnings] */
@@ -1335,7 +1340,7 @@ export declare class TestResult {
   /** See [edr_solidity_tests::result::TestResult::kind] */
   readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
   /** See [edr_solidity_tests::result::TestResult::duration] */
-  readonly durationMs: bigint
+  readonly durationNs: bigint
   /**
    * Groups of value snapshot entries (incl. gas).
    *

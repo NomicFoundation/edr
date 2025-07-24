@@ -49,6 +49,8 @@ pub struct CheatsConfig<HardforkT> {
     pub available_artifacts: Arc<ContractsByArtifact>,
     /// Currently running artifact.
     pub running_artifact: Option<ArtifactId>,
+    /// Whether to allow `expectRevert` to work for internal calls.
+    pub internal_expect_revert: bool,
 }
 
 /// Solidity test execution contexts.
@@ -88,6 +90,9 @@ pub struct CheatsConfigOptions {
     pub prompt_timeout: u64,
     /// Address labels
     pub labels: HashMap<Address, String>,
+    /// Allow expecting reverts with `expectRevert` at the same callstack depth
+    /// as the test.
+    pub allow_internal_expect_revert: bool,
 }
 
 impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
@@ -107,6 +112,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             rpc_storage_caching,
             fs_permissions,
             labels,
+            allow_internal_expect_revert,
         } = config;
 
         let fs_permissions = fs_permissions.joined(&project_root);
@@ -124,6 +130,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             labels,
             available_artifacts,
             running_artifact,
+            internal_expect_revert: allow_internal_expect_revert,
         }
     }
 
@@ -268,6 +275,7 @@ impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
             labels: HashMap::default(),
             available_artifacts: Arc::<ContractsByArtifact>::default(),
             running_artifact: None,
+            internal_expect_revert: false,
         }
     }
 }
@@ -288,6 +296,7 @@ mod tests {
             fs_permissions,
             prompt_timeout: 0,
             labels: HashMap::default(),
+            allow_internal_expect_revert: false,
         };
 
         CheatsConfig::new(

@@ -52,7 +52,7 @@ pub struct SuiteResult {
     pub id: ArtifactId,
     /// See [edr_solidity_tests::result::SuiteResult::duration]
     #[napi(readonly)]
-    pub duration_ms: BigInt,
+    pub duration_ns: BigInt,
     /// See [edr_solidity_tests::result::SuiteResult::test_results]
     #[napi(readonly)]
     pub test_results: Vec<TestResult>,
@@ -69,7 +69,7 @@ impl SuiteResult {
     ) -> Self {
         Self {
             id: id.into(),
-            duration_ms: BigInt::from(suite_result.duration.as_millis()),
+            duration_ns: BigInt::from(suite_result.duration.as_nanos()),
             test_results: suite_result
                 .test_results
                 .into_iter()
@@ -104,7 +104,7 @@ pub struct TestResult {
     pub kind: Either3<StandardTestKind, FuzzTestKind, InvariantTestKind>,
     /// See [edr_solidity_tests::result::TestResult::duration]
     #[napi(readonly)]
-    pub duration_ms: BigInt,
+    pub duration_ns: BigInt,
     /// Groups of value snapshot entries (incl. gas).
     ///
     /// Only present if the test runner collected scoped snapshots. Currently,
@@ -289,7 +289,7 @@ impl TestResult {
                     reverts: BigInt::from(reverts as u64),
                 }),
             },
-            duration_ms: BigInt::from(test_result.duration.as_millis()),
+            duration_ns: BigInt::from(test_result.duration.as_nanos()),
             value_snapshot_groups: Some(
                 test_result
                     .value_snapshots

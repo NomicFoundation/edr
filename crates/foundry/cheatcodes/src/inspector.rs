@@ -1249,7 +1249,7 @@ impl<
                     return match revert_handlers::handle_expect_revert(
                         cheatcode_call,
                         false,
-                        expected_revert.allow_internal,
+                        self.config.internal_expect_revert || expected_revert.allow_internal,
                         &expected_revert,
                         outcome.result.result,
                         outcome.result.output.clone(),
@@ -1657,7 +1657,7 @@ impl<
                 return match revert_handlers::handle_expect_revert(
                     false,
                     true,
-                    false,
+                    self.config.internal_expect_revert,
                     &expected_revert,
                     outcome.result.result,
                     outcome.result.output.clone(),
