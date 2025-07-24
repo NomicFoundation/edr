@@ -464,7 +464,7 @@ impl<
     }
 
     /// Builds a base runner with base configs + rpc configs
-    pub fn runner_rpc_config(&self) -> SolidityTestRunnerConfig<HardforkT> {
+    pub fn runner_with_rpc_config(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
         // Construct a new one to create new failure persistance directory for each test
         let mut config = ForgeTestProfile::runner_config(self.hardfork);

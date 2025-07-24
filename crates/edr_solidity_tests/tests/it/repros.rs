@@ -108,7 +108,7 @@ async fn runner_config<
     rpc_config: bool,
 ) -> SolidityTestRunnerConfig<HardforkT> {
     let mut config = if rpc_config {
-        test_data.runner_rpc_config()
+        test_data.runner_with_rpc_config()
     } else {
         test_data.base_runner_config()
     };

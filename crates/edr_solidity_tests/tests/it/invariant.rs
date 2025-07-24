@@ -808,7 +808,7 @@ async fn test_invariant_roll_fork_handler() {
                 depth: 4,
                 ..TestInvariantConfig::default()
             },
-            TEST_DATA_DEFAULT.runner_rpc_config(),
+            TEST_DATA_DEFAULT.runner_with_rpc_config(),
         )
         .await;
 
@@ -841,7 +841,7 @@ async fn test_invariant_roll_fork_handler() {
                 runs: 1,
                 ..TestInvariantConfig::default()
             },
-            TEST_DATA_DEFAULT.runner_rpc_config(),
+            TEST_DATA_DEFAULT.runner_with_rpc_config(),
         )
         .await;
 
