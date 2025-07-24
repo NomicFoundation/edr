@@ -10,7 +10,7 @@ use edr_eth::{
     filter::SubscriptionType,
     hex, l1,
     result::ExecutionResult,
-    spec::{ChainSpec, HaltReasonTrait},
+    spec::{ChainHardfork, ChainSpec, HaltReasonTrait},
     transaction::TransactionValidation,
     Address, BlockSpec, BlockTag, Bytes, B256, U256,
 };
@@ -35,7 +35,7 @@ use crate::{
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
     <ChainSpecT as GenesisBlockFactory>::CreationError,
-    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as ChainHardfork>::Hardfork,
     <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
 >;
 
@@ -77,7 +77,7 @@ pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
     <ChainSpecT as GenesisBlockFactory>::CreationError,
     <ChainSpecT as ChainSpec>::HaltReason,
-    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as ChainHardfork>::Hardfork,
     <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use edr_eth::{
     l1,
-    spec::ChainSpec,
+    spec::ChainHardfork,
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
@@ -100,10 +100,14 @@ impl<
     pub fn new(
         runtime: runtime::Handle,
         logger: Box<
-            dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
+            dyn SyncLogger<
+                ChainSpecT,
+                TimerT,
+                BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
         >,
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
-        config: ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
+        config: ProviderConfig<<ChainSpecT as ChainHardfork>::Hardfork>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
@@ -221,182 +225,185 @@ impl<
         let result = match request {
             // eth_* method
             MethodInvocation::Accounts(()) => {
-                eth::handle_accounts_request(data).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_accounts_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::BlobBaseFee(()) => {
-                eth::handle_blob_base_fee(data).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_blob_base_fee(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::BlockNumber(()) => {
-                eth::handle_block_number_request(data).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_block_number_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::Call(request, block_spec, state_overrides) => {
                 eth::handle_call_request(data, request, block_spec, state_overrides)
-                    .and_then(to_json_with_trace::<_, ChainSpecT>)
+                    .and_then(to_json_with_trace::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::ChainId(()) => {
-                eth::handle_chain_id_request(data).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_chain_id_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::Coinbase(()) => {
-                eth::handle_coinbase_request(data).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_coinbase_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::EstimateGas(call_request, block_spec) => {
                 eth::handle_estimate_gas(data, call_request, block_spec)
-                    .and_then(to_json_with_traces::<_, ChainSpecT>)
+                    .and_then(to_json_with_traces::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::EthSign(address, message)
             | MethodInvocation::PersonalSign(message, address) => {
-                eth::handle_sign_request(data, message, address).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_sign_request(data, message, address)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::FeeHistory(block_count, newest_block, reward_percentiles) => {
                 eth::handle_fee_history(data, block_count, newest_block, reward_percentiles)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GasPrice(()) => {
-                eth::handle_gas_price(data).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_gas_price(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetBalance(address, block_spec) => {
                 eth::handle_get_balance_request(data, address, block_spec)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetBlockByNumber(block_spec, transaction_detail_flag) => {
                 eth::handle_get_block_by_number_request(data, block_spec, transaction_detail_flag)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetBlockByHash(block_hash, transaction_detail_flag) => {
                 eth::handle_get_block_by_hash_request(data, block_hash, transaction_detail_flag)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetBlockTransactionCountByHash(block_hash) => {
                 eth::handle_get_block_transaction_count_by_hash_request(data, block_hash)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetBlockTransactionCountByNumber(block_spec) => {
                 eth::handle_get_block_transaction_count_by_block_number(data, block_spec)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetCode(address, block_spec) => {
                 eth::handle_get_code_request(data, address, block_spec)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetFilterChanges(filter_id) => {
                 eth::handle_get_filter_changes_request(data, filter_id)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetFilterLogs(filter_id) => {
                 eth::handle_get_filter_logs_request(data, filter_id)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetLogs(filter_options) => {
                 eth::handle_get_logs_request(data, filter_options)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetStorageAt(address, index, block_spec) => {
                 eth::handle_get_storage_at_request(data, address, index, block_spec)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetTransactionByBlockHashAndIndex(block_hash, index) => {
                 eth::handle_get_transaction_by_block_hash_and_index(data, block_hash, index)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetTransactionByBlockNumberAndIndex(block_spec, index) => {
                 eth::handle_get_transaction_by_block_spec_and_index(data, block_spec, index)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetTransactionByHash(transaction_hash) => {
                 eth::handle_get_transaction_by_hash(data, transaction_hash)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetTransactionCount(address, block_spec) => {
                 eth::handle_get_transaction_count_request(data, address, block_spec)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::GetTransactionReceipt(transaction_hash) => {
                 eth::handle_get_transaction_receipt(data, transaction_hash)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::MaxPriorityFeePerGas(()) => {
-                eth::handle_max_priority_fee_per_gas::<ChainSpecT>()
-                    .and_then(to_json::<_, ChainSpecT>)
+                eth::handle_max_priority_fee_per_gas::<ChainSpecT, TimerT>()
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
-            MethodInvocation::Mining(()) => {
-                eth::handle_mining::<ChainSpecT>().and_then(to_json::<_, ChainSpecT>)
-            }
+            MethodInvocation::Mining(()) => eth::handle_mining::<ChainSpecT, TimerT>()
+                .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::NetListening(()) => {
-                eth::handle_net_listening_request::<ChainSpecT>().and_then(to_json::<_, ChainSpecT>)
+                eth::handle_net_listening_request::<ChainSpecT, TimerT>()
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::NetPeerCount(()) => {
-                eth::handle_net_peer_count_request::<ChainSpecT>()
-                    .and_then(to_json::<_, ChainSpecT>)
+                eth::handle_net_peer_count_request::<ChainSpecT, TimerT>()
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::NetVersion(()) => {
-                eth::handle_net_version_request(data).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_net_version_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
-            MethodInvocation::NewBlockFilter(()) => {
-                eth::handle_new_block_filter_request(data).and_then(to_json::<_, ChainSpecT>)
-            }
+            MethodInvocation::NewBlockFilter(()) => eth::handle_new_block_filter_request(data)
+                .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::NewFilter(options) => {
-                eth::handle_new_log_filter_request(data, options).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_new_log_filter_request(data, options)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::NewPendingTransactionFilter(()) => {
                 eth::handle_new_pending_transaction_filter_request(data)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::PendingTransactions(()) => {
-                eth::handle_pending_transactions(data).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_pending_transactions(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SendRawTransaction(raw_transaction) => {
                 eth::handle_send_raw_transaction_request(data, raw_transaction)
-                    .and_then(to_json_with_traces::<_, ChainSpecT>)
+                    .and_then(to_json_with_traces::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SendTransaction(transaction_request) => {
                 eth::handle_send_transaction_request(data, transaction_request)
-                    .and_then(to_json_with_traces::<_, ChainSpecT>)
+                    .and_then(to_json_with_traces::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SignTypedDataV4(address, message) => {
                 eth::handle_sign_typed_data_v4(data, address, message)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::Subscribe(subscription_type, filter_options) => {
                 eth::handle_subscribe_request(data, subscription_type, filter_options)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
-            MethodInvocation::Syncing(()) => {
-                eth::handle_syncing::<ChainSpecT>().and_then(to_json::<_, ChainSpecT>)
-            }
+            MethodInvocation::Syncing(()) => eth::handle_syncing::<ChainSpecT, TimerT>()
+                .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::UninstallFilter(filter_id) => {
                 eth::handle_uninstall_filter_request(data, filter_id)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::Unsubscribe(filter_id) => {
-                eth::handle_unsubscribe_request(data, filter_id).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_unsubscribe_request(data, filter_id)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
 
             // web3_* methods
             MethodInvocation::Web3ClientVersion(()) => {
-                eth::handle_web3_client_version_request::<ChainSpecT>()
-                    .and_then(to_json::<_, ChainSpecT>)
+                eth::handle_web3_client_version_request::<ChainSpecT, TimerT>()
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::Web3Sha3(message) => {
-                eth::handle_web3_sha3_request::<ChainSpecT>(message)
-                    .and_then(to_json::<_, ChainSpecT>)
+                eth::handle_web3_sha3_request::<ChainSpecT, TimerT>(message)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
 
             // evm_* methods
             MethodInvocation::EvmIncreaseTime(increment) => {
                 eth::handle_increase_time_request(data, increment)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::EvmMine(timestamp) => eth::handle_mine_request(data, timestamp)
-                .and_then(to_json_with_traces::<_, ChainSpecT>),
+                .and_then(to_json_with_traces::<_, ChainSpecT, TimerT>),
             MethodInvocation::EvmRevert(snapshot_id) => {
-                eth::handle_revert_request(data, snapshot_id).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_revert_request(data, snapshot_id)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::EvmSetAutomine(enabled) => {
-                eth::handle_set_automine_request(data, enabled).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_set_automine_request(data, enabled)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::EvmSetBlockGasLimit(gas_limit) => {
                 eth::handle_set_block_gas_limit_request(data, gas_limit)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::EvmSetIntervalMining(config) => handle_set_interval_mining(
                 self.data.clone(),
@@ -404,23 +411,23 @@ impl<
                 self.runtime.clone(),
                 config,
             )
-            .and_then(to_json::<_, ChainSpecT>),
+            .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::EvmSetNextBlockTimestamp(timestamp) => {
                 eth::handle_set_next_block_timestamp_request(data, timestamp)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::EvmSnapshot(()) => {
-                eth::handle_snapshot_request(data).and_then(to_json::<_, ChainSpecT>)
+                eth::handle_snapshot_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
 
             // debug_* methods
             MethodInvocation::DebugTraceTransaction(transaction_hash, config) => {
                 debug::handle_debug_trace_transaction(data, transaction_hash, config)
-                    .and_then(to_json_with_traces::<_, ChainSpecT>)
+                    .and_then(to_json_with_traces::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::DebugTraceCall(call_request, block_spec, config) => {
                 debug::handle_debug_trace_call(data, call_request, block_spec, config)
-                    .and_then(to_json_with_traces::<_, ChainSpecT>)
+                    .and_then(to_json_with_traces::<_, ChainSpecT, TimerT>)
             }
 
             // hardhat_* methods
@@ -434,69 +441,69 @@ impl<
                 *compiler_input,
                 compiler_output,
             )
-            .and_then(to_json::<_, ChainSpecT>),
+            .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::DropTransaction(transaction_hash) => {
                 hardhat::handle_drop_transaction(data, transaction_hash)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
-            MethodInvocation::GetAutomine(()) => {
-                hardhat::handle_get_automine_request(data).and_then(to_json::<_, ChainSpecT>)
-            }
+            MethodInvocation::GetAutomine(()) => hardhat::handle_get_automine_request(data)
+                .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::ImpersonateAccount(address) => {
                 hardhat::handle_impersonate_account_request(data, *address)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             // TODO: how to return traces from interval mine to the client?
-            MethodInvocation::IntervalMine(()) => {
-                hardhat::handle_interval_mine_request(data).and_then(to_json::<_, ChainSpecT>)
-            }
+            MethodInvocation::IntervalMine(()) => hardhat::handle_interval_mine_request(data)
+                .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::Metadata(()) => {
-                hardhat::handle_metadata_request(data).and_then(to_json::<_, ChainSpecT>)
+                hardhat::handle_metadata_request(data).and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::Mine(number_of_blocks, interval) => {
                 hardhat::handle_mine(data, number_of_blocks, interval)
-                    .and_then(to_json_with_traces::<_, ChainSpecT>)
+                    .and_then(to_json_with_traces::<_, ChainSpecT, TimerT>)
             }
-            MethodInvocation::Reset(config) => {
-                self.reset(data, config).and_then(to_json::<_, ChainSpecT>)
-            }
+            MethodInvocation::Reset(config) => self
+                .reset(data, config)
+                .and_then(to_json::<_, ChainSpecT, TimerT>),
             MethodInvocation::SetBalance(address, balance) => {
                 hardhat::handle_set_balance(data, address, balance)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SetCode(address, code) => {
-                hardhat::handle_set_code(data, address, code).and_then(to_json::<_, ChainSpecT>)
+                hardhat::handle_set_code(data, address, code)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SetCoinbase(coinbase) => {
                 hardhat::handle_set_coinbase_request(data, coinbase)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SetLoggingEnabled(is_enabled) => {
                 hardhat::handle_set_logging_enabled_request(data, is_enabled)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SetMinGasPrice(min_gas_price) => {
                 hardhat::handle_set_min_gas_price(data, min_gas_price.to())
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SetNextBlockBaseFeePerGas(base_fee_per_gas) => {
                 hardhat::handle_set_next_block_base_fee_per_gas_request(data, base_fee_per_gas.to())
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SetNonce(address, nonce) => {
-                hardhat::handle_set_nonce(data, address, nonce).and_then(to_json::<_, ChainSpecT>)
+                hardhat::handle_set_nonce(data, address, nonce)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SetPrevRandao(prev_randao) => {
                 hardhat::handle_set_prev_randao_request(data, prev_randao)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::SetStorageAt(address, index, value) => {
                 hardhat::handle_set_storage_at(data, address, index, value)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
             MethodInvocation::StopImpersonatingAccount(address) => {
                 hardhat::handle_stop_impersonating_account_request(data, *address)
-                    .and_then(to_json::<_, ChainSpecT>)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
         };
 

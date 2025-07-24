@@ -5,7 +5,7 @@ use edr_eth::{
     block::{HeaderOverrides, PartialHeader},
     log::FilterLog,
     receipt::{ExecutionReceipt, ReceiptTrait},
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     transaction::ExecutableTransaction,
     Address, HashMap, HashSet, B256, U256,
 };
@@ -33,7 +33,7 @@ pub type ReservableSparseBlockchainStorageForChainSpec<ChainSpecT> =
     ReservableSparseBlockchainStorage<
         Arc<<ChainSpecT as RuntimeSpec>::BlockReceipt>,
         Arc<<ChainSpecT as RuntimeSpec>::LocalBlock>,
-        <ChainSpecT as ChainSpec>::Hardfork,
+        <ChainSpecT as ChainHardfork>::Hardfork,
         <ChainSpecT as ChainSpec>::SignedTransaction,
     >;
 

@@ -1,18 +1,13 @@
-use std::{
-    fmt::Debug,
-    marker::PhantomData,
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_eth::{
-    block::{self, BlobGas, HeaderOverrides, PartialHeader},
+    block::{self, BlobGas, PartialHeader},
     eips::eip4844,
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ResultAndState,
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     Bytes, B256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
@@ -32,9 +27,7 @@ use crate::{
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
     result::EVMErrorForChain,
-    state::{
-        Database, DatabaseComponentError, StateCommit as _, StateDebug as _, StateDiff, TrieState,
-    },
+    state::{Database, DatabaseComponentError, StateDiff},
     transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError,
         TransactionErrorForChainSpec, TransactionType, TransactionValidation,
@@ -44,11 +37,14 @@ use crate::{
     GenesisBlockOptions, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
 
+/// Ethereum L1 extra data for genesis blocks.
+pub const EXTRA_DATA: &[u8] = b"\x12\x34";
+
 /// Helper type for a chain-specific [`revm::Context`].
 pub type ContextForChainSpec<ChainSpecT, DatabaseT> = revm::Context<
     <ChainSpecT as ChainSpec>::BlockEnv,
     <ChainSpecT as ChainSpec>::SignedTransaction,
-    CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
+    CfgEnv<<ChainSpecT as ChainHardfork>::Hardfork>,
     DatabaseT,
     Journal<DatabaseT>,
     <ChainSpecT as ChainSpec>::Context,
@@ -98,12 +94,9 @@ impl<TypeConstructorT> ExecutionReceiptTypeConstructorBounds for TypeConstructor
 }
 
 /// Trait for constructing a chain-specific genesis block.
-pub trait GenesisBlockFactory {
+pub trait GenesisBlockFactory: ChainHardfork {
     /// The error type for genesis block creation.
     type CreationError: std::error::Error;
-
-    /// The hardfork type.
-    type Hardfork;
 
     /// The local block type.
     type LocalBlock;
@@ -131,60 +124,25 @@ impl<FactoryT> SyncGenesisBlockFactory for FactoryT where
 impl GenesisBlockFactory for L1ChainSpec {
     type CreationError = LocalCreationError;
 
-    type Hardfork = <Self as ChainSpec>::Hardfork;
-
     type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
 
     fn genesis_block(
         genesis_diff: StateDiff,
         hardfork: Self::Hardfork,
-        options: GenesisBlockOptions,
+        mut options: GenesisBlockOptions,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
-        const EXTRA_DATA: &[u8] = b"\x12\x34";
-
-        let mut genesis_state = TrieState::default();
-        genesis_state.commit(genesis_diff.clone().into());
-
-        let evm_spec_id = hardfork;
-        if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
-            return Err(LocalCreationError::MissingPrevrandao);
-        }
-
-        let mut options = HeaderOverrides::from(options);
-        options.state_root = Some(
-            genesis_state
-                .state_root()
-                .expect("TrieState is guaranteed to successfully compute the state root"),
+        // If no option is provided, use the default extra data for L1 Ethereum.
+        options.extra_data = Some(
+            options
+                .extra_data
+                .unwrap_or(Bytes::copy_from_slice(EXTRA_DATA)),
         );
 
-        if options.timestamp.is_none() {
-            options.timestamp = Some(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("Current time must be after unix epoch")
-                    .as_secs(),
-            );
-        }
-
-        options.extra_data = Some(Bytes::from(EXTRA_DATA));
-
-        // No ommers in the genesis block
-        let ommers = Vec::new();
-
-        let withdrawals = if evm_spec_id >= l1::SpecId::SHANGHAI {
-            // Empty withdrawals for genesis block
-            Some(Vec::new())
-        } else {
-            None
-        };
-
-        let partial_header =
-            PartialHeader::new::<Self>(hardfork, options, None, &ommers, withdrawals.as_ref());
-
-        Ok(EthLocalBlockForChainSpec::<Self>::empty(
+        EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
+            genesis_diff,
             hardfork,
-            partial_header,
-        ))
+            options,
+        )
     }
 }
 
@@ -195,9 +153,9 @@ pub trait RuntimeSpec:
     alloy_rlp::Encodable
     // Defines the chain's internal types like blocks/headers or transactions
     + EthHeaderConstants
+    + ChainHardfork<Hardfork: Debug>
     + ChainSpec<
         BlockEnv: BlockEnvConstructor<block::Header> + BlockEnvConstructor<PartialHeader> + Default,
-        Hardfork: Debug,
         SignedTransaction: alloy_rlp::Encodable
           + Clone
           + Debug

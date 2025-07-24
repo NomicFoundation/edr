@@ -5,7 +5,6 @@ use edr_eth::{
     eips::{eip2930, eip7702},
     l1::L1ChainSpec,
     rlp,
-    spec::ChainSpec,
     transaction::{
         signed::{FakeSign, Sign},
         ExecutableTransaction, IsSupported,
@@ -27,10 +26,8 @@ use crate::{
 };
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    GenesisBlockFactory<
-        Hardfork = <Self as ChainSpec>::Hardfork,
-        LocalBlock = <Self as RuntimeSpec>::LocalBlock,
-    > + RuntimeSpec<
+    GenesisBlockFactory<LocalBlock = <Self as RuntimeSpec>::LocalBlock>
+    + RuntimeSpec<
         Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
         LocalBlock: BlockReceipts<
             Arc<Self::BlockReceipt>,
@@ -154,19 +151,15 @@ pub trait FromRpcType<RpcT, TimerT: Clone + TimeSinceEpoch>: Sized {
 
 pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     ProviderSpec<TimerT>
-    + SyncGenesisBlockFactory<
-        Hardfork = <Self as ChainSpec>::Hardfork,
-        LocalBlock = <Self as RuntimeSpec>::LocalBlock,
-    > + SyncRuntimeSpec
+    + SyncGenesisBlockFactory<LocalBlock = <Self as RuntimeSpec>::LocalBlock>
+    + SyncRuntimeSpec
 {
 }
 
 impl<
         ProviderSpecT: ProviderSpec<TimerT>
-            + SyncGenesisBlockFactory<
-                Hardfork = <Self as ChainSpec>::Hardfork,
-                LocalBlock = <Self as RuntimeSpec>::LocalBlock,
-            > + SyncRuntimeSpec,
+            + SyncGenesisBlockFactory<LocalBlock = <Self as RuntimeSpec>::LocalBlock>
+            + SyncRuntimeSpec,
         TimerT: Clone + TimeSinceEpoch,
     > SyncProviderSpec<TimerT> for ProviderSpecT
 {

@@ -4,12 +4,12 @@ use edr_eth::{
     transaction::{pooled::PooledTransaction, ExecutableTransaction},
     Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
 };
-use edr_evm::{spec::RuntimeSpec, transaction};
+use edr_evm::transaction;
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
-    time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
+    time::TimeSinceEpoch, ProviderError, ProviderSpec, SyncProviderSpec,
 };
 
 impl HardforkValidationData for TransactionRequest {
@@ -155,7 +155,7 @@ pub fn validate_send_transaction_request<
     }
 
     if let Some(request_data) = &request.data {
-        validate_eip3860_max_initcode_size::<ChainSpecT>(
+        validate_eip3860_max_initcode_size::<ChainSpecT, TimerT>(
             data.evm_spec_id(),
             data.allow_unlimited_initcode_size(),
             request.to.as_ref(),
@@ -173,7 +173,7 @@ pub fn validate_send_transaction_request<
         }
     }
 
-    validate_transaction_and_call_request::<ChainSpecT>(data.hardfork(), request).map_err(|err| match err {
+    validate_transaction_and_call_request::<ChainSpecT, TimerT>(data.hardfork(), request).map_err(|err| match err {
         ProviderError::UnsupportedEIP1559Parameters {
             minimum_hardfork, ..
         } => ProviderError::InvalidArgument(format!("\
@@ -185,7 +185,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-fn validate_transaction_spec<ChainSpecT: RuntimeSpec>(
+fn validate_transaction_spec<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     spec_id: l1::SpecId,
     value: &impl HardforkValidationData,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
@@ -278,18 +278,18 @@ fn validate_transaction_spec<ChainSpecT: RuntimeSpec>(
 }
 
 /// Validates a `CallRequest` and `BlockSpec` against the provided hardfork.
-pub fn validate_call_request<ChainSpecT: RuntimeSpec>(
+pub fn validate_call_request<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     hardfork: ChainSpecT::Hardfork,
     call_request: &CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_post_merge_block_tags::<ChainSpecT>(hardfork, block_spec)?;
+    validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, block_spec)?;
 
     if call_request.blobs.is_some() | call_request.blob_hashes.is_some() {
         return Err(ProviderError::Eip4844CallRequestUnsupported);
     }
 
-    validate_transaction_and_call_request::<ChainSpecT>(
+    validate_transaction_and_call_request::<ChainSpecT, TimerT>(
         hardfork,
         call_request
     ).map_err(|err| match err {
@@ -304,12 +304,15 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
     })
 }
 
-pub(crate) fn validate_transaction_and_call_request<ChainSpecT: RuntimeSpec>(
+pub(crate) fn validate_transaction_and_call_request<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     hardfork: ChainSpecT::Hardfork,
     validation_data: &impl HardforkValidationData,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_transaction_spec::<ChainSpecT>(hardfork.into(), validation_data).map_err(|err| {
-        match err {
+    validate_transaction_spec::<ChainSpecT, TimerT>(hardfork.into(), validation_data).map_err(
+        |err| match err {
             ProviderError::UnsupportedAccessListParameter {
                 minimum_hardfork, ..
             } => ProviderError::InvalidArgument(format!(
@@ -320,11 +323,14 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
         "
             )),
             err => err,
-        }
-    })
+        },
+    )
 }
 
-pub(crate) fn validate_eip3860_max_initcode_size<ChainSpecT: RuntimeSpec>(
+pub(crate) fn validate_eip3860_max_initcode_size<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     spec_id: l1::SpecId,
     allow_unlimited_contract_code_size: bool,
     to: Option<&Address>,
@@ -375,7 +381,11 @@ impl<'a> From<ValidationBlockSpec<'a>> for BlockSpec {
     }
 }
 
-pub(crate) fn validate_post_merge_block_tags<'a, ChainSpecT: RuntimeSpec>(
+pub(crate) fn validate_post_merge_block_tags<
+    'a,
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     hardfork: ChainSpecT::Hardfork,
     block_spec: impl Into<ValidationBlockSpec<'a>>,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
@@ -405,6 +415,7 @@ mod tests {
     use edr_eth::{l1::L1ChainSpec, U256};
 
     use super::*;
+    use crate::time::CurrentTime;
 
     fn assert_mixed_eip_1559_parameters(spec: l1::SpecId) {
         let mixed_request = TransactionRequest {
@@ -415,7 +426,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, &mixed_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(spec, &mixed_request),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
@@ -427,7 +438,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, &mixed_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(spec, &mixed_request),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
@@ -439,7 +450,10 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, &request_with_too_low_max_fee),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(
+                spec,
+                &request_with_too_low_max_fee
+            ),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
     }
@@ -452,7 +466,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, &eip_1559_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(spec, &eip_1559_request),
             Err(ProviderError::UnsupportedEIP1559Parameters { .. })
         ));
 
@@ -463,7 +477,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, &eip_1559_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(spec, &eip_1559_request),
             Err(ProviderError::UnsupportedEIP1559Parameters { .. })
         ));
     }
@@ -476,7 +490,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, &eip_4844_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(spec, &eip_4844_request),
             Err(ProviderError::UnsupportedEIP4844Parameters { .. })
         ));
 
@@ -487,7 +501,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, &eip_4844_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(spec, &eip_4844_request),
             Err(ProviderError::UnsupportedEIP4844Parameters { .. })
         ));
     }
@@ -500,7 +514,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(spec, &eip_7702_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(spec, &eip_7702_request),
             Err(ProviderError::UnsupportedEip7702Parameters { .. })
         ));
     }
@@ -514,7 +528,10 @@ mod tests {
             ..TransactionRequest::default()
         };
 
-        assert!(validate_transaction_spec::<L1ChainSpec>(eip155_spec, &valid_request).is_ok());
+        assert!(
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(eip155_spec, &valid_request)
+                .is_ok()
+        );
 
         let eip_2930_request = TransactionRequest {
             from: Address::ZERO,
@@ -523,7 +540,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip155_spec, &eip_2930_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(eip155_spec, &eip_2930_request),
             Err(ProviderError::UnsupportedAccessListParameter { .. })
         ));
 
@@ -542,7 +559,11 @@ mod tests {
             ..TransactionRequest::default()
         };
 
-        assert!(validate_transaction_spec::<L1ChainSpec>(eip2930_spec, &valid_request).is_ok());
+        assert!(validate_transaction_spec::<L1ChainSpec, CurrentTime>(
+            eip2930_spec,
+            &valid_request
+        )
+        .is_ok());
 
         assert_unsupported_eip_1559_parameters(eip2930_spec);
         assert_unsupported_eip_4844_parameters(eip2930_spec);
@@ -560,7 +581,11 @@ mod tests {
             ..TransactionRequest::default()
         };
 
-        assert!(validate_transaction_spec::<L1ChainSpec>(eip1559_spec, &valid_request).is_ok());
+        assert!(validate_transaction_spec::<L1ChainSpec, CurrentTime>(
+            eip1559_spec,
+            &valid_request
+        )
+        .is_ok());
 
         assert_unsupported_eip_4844_parameters(eip1559_spec);
         assert_unsuporrted_eip_7702_parameters(eip1559_spec);
@@ -581,7 +606,11 @@ mod tests {
             ..TransactionRequest::default()
         };
 
-        assert!(validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &valid_request).is_ok());
+        assert!(validate_transaction_spec::<L1ChainSpec, CurrentTime>(
+            eip4844_spec,
+            &valid_request
+        )
+        .is_ok());
         assert_mixed_eip_1559_parameters(eip4844_spec);
 
         let mixed_request = TransactionRequest {
@@ -592,7 +621,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &mixed_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(eip4844_spec, &mixed_request),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
@@ -604,7 +633,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &mixed_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(eip4844_spec, &mixed_request),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
@@ -615,7 +644,10 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &missing_receiver_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(
+                eip4844_spec,
+                &missing_receiver_request
+            ),
             Err(ProviderError::Eip4844TransactionMissingReceiver)
         ));
 
@@ -626,7 +658,10 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip4844_spec, &missing_receiver_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(
+                eip4844_spec,
+                &missing_receiver_request
+            ),
             Err(ProviderError::Eip4844TransactionMissingReceiver)
         ));
 
@@ -655,7 +690,11 @@ mod tests {
             ..TransactionRequest::default()
         };
 
-        assert!(validate_transaction_spec::<L1ChainSpec>(eip7702_spec, &valid_request).is_ok());
+        assert!(validate_transaction_spec::<L1ChainSpec, CurrentTime>(
+            eip7702_spec,
+            &valid_request
+        )
+        .is_ok());
         assert_mixed_eip_1559_parameters(eip7702_spec);
 
         let mixed_request = TransactionRequest {
@@ -666,7 +705,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip7702_spec, &mixed_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(eip7702_spec, &mixed_request),
             Err(ProviderError::InvalidTransactionInput(_))
         ));
 
@@ -677,7 +716,10 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(eip7702_spec, &missing_receiver_request),
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(
+                eip7702_spec,
+                &missing_receiver_request
+            ),
             Err(ProviderError::Eip7702TransactionMissingReceiver)
         ));
 
@@ -689,7 +731,7 @@ mod tests {
         };
 
         assert!(matches!(
-            validate_transaction_spec::<L1ChainSpec>(
+            validate_transaction_spec::<L1ChainSpec, CurrentTime>(
                 eip7702_spec,
                 &empty_authorization_list_request
             ),

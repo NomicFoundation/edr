@@ -179,7 +179,7 @@ pub struct ProviderData<
     TimerT: Clone + TimeSinceEpoch = CurrentTime,
 > {
     runtime_handle: runtime::Handle,
-    initial_config: ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
+    initial_config: ProviderConfig<ChainSpecT::Hardfork>,
     blockchain:
         Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
     pub irregular_state: IrregularState,
@@ -208,8 +208,13 @@ pub struct ProviderData<
     local_accounts: IndexMap<Address, k256::SecretKey>,
     filters: HashMap<U256, Filter>,
     last_filter_id: U256,
-    logger:
-        Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>>,
+    logger: Box<
+        dyn SyncLogger<
+            ChainSpecT,
+            TimerT,
+            BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
     impersonated_accounts: HashSet<Address>,
     subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
     timer: TimerT,
@@ -306,8 +311,11 @@ where
 
     pub fn logger_mut(
         &mut self,
-    ) -> &mut dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>
-    {
+    ) -> &mut dyn SyncLogger<
+        ChainSpecT,
+        TimerT,
+        BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
+    > {
         &mut *self.logger
     }
 
@@ -577,10 +585,14 @@ where
     pub fn new(
         runtime_handle: runtime::Handle,
         logger: Box<
-            dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
+            dyn SyncLogger<
+                ChainSpecT,
+                TimerT,
+                BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
         >,
         subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
-        config: ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
+        config: ProviderConfig<ChainSpecT::Hardfork>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
@@ -1236,8 +1248,8 @@ where
     fn create_evm_config(
         &self,
         chain_id: u64,
-        hardfork: <ChainSpecT as ChainSpec>::Hardfork,
-    ) -> CfgEnv<<ChainSpecT as ChainSpec>::Hardfork> {
+        hardfork: ChainSpecT::Hardfork,
+    ) -> CfgEnv<ChainSpecT::Hardfork> {
         let mut cfg_env = CfgEnv::new_with_spec(hardfork);
         cfg_env.chain_id = chain_id;
         cfg_env.limit_contract_code_size = if self.allow_unlimited_contract_size {
@@ -1255,8 +1267,7 @@ where
     pub fn create_evm_config_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>, ProviderErrorForChainSpec<ChainSpecT>>
-    {
+    ) -> Result<CfgEnv<ChainSpecT::Hardfork>, ProviderErrorForChainSpec<ChainSpecT>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         let hardfork = if let Some(block_number) = block_number {
@@ -1279,7 +1290,7 @@ where
     pub fn hardfork_at_block_spec(
         &self,
         block_spec: &BlockSpec,
-    ) -> Result<<ChainSpecT as ChainSpec>::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<ChainSpecT::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
         let block_number = self.block_number_by_block_spec(block_spec)?;
 
         if let Some(block_number) = block_number {
@@ -1324,7 +1335,7 @@ where
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
-            &CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
+            &CfgEnv<ChainSpecT::Hardfork>,
             HeaderOverrides,
             &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
@@ -1386,7 +1397,7 @@ where
         &mut self,
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
-            &CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
+            &CfgEnv<ChainSpecT::Hardfork>,
             HeaderOverrides,
             &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
@@ -1502,7 +1513,7 @@ where
         &self,
         block_number: u64,
         block_spec: &BlockSpec,
-    ) -> Result<<ChainSpecT as ChainSpec>::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<ChainSpecT::Hardfork, ProviderErrorForChainSpec<ChainSpecT>> {
         self.blockchain
             .spec_at_block_number(block_number)
             .map_err(|err| match err {
@@ -1601,7 +1612,7 @@ where
     }
 
     /// Returns the local hardfork.
-    pub fn hardfork(&self) -> <ChainSpecT as ChainSpec>::Hardfork {
+    pub fn hardfork(&self) -> ChainSpecT::Hardfork {
         self.blockchain.hardfork()
     }
 
@@ -1761,7 +1772,7 @@ where
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut runtime_observer);
 
-            let result = call::run_call::<_, ChainSpecT, _, _>(
+            let result = call::run_call::<_, ChainSpecT, _, _, TimerT>(
                 blockchain,
                 block.header(),
                 state.as_ref(),
@@ -1910,7 +1921,10 @@ where
                         .push(gas_used_ratio(header.gas_used, header.gas_limit));
 
                     if let Some((reward, percentiles)) = reward_and_percentile.as_mut() {
-                        reward.push(compute_rewards::<ChainSpecT>(block.as_ref(), percentiles)?);
+                        reward.push(compute_rewards::<ChainSpecT, TimerT>(
+                            block.as_ref(),
+                            percentiles,
+                        )?);
                     }
                 }
             } else if block_number == pending_block_number {
@@ -2188,7 +2202,7 @@ where
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
 
-            let execution_result = call::run_call::<_, ChainSpecT, _, _>(
+            let execution_result = call::run_call::<_, ChainSpecT, _, _, TimerT>(
                 blockchain,
                 block.header(),
                 state_overrider,
@@ -2262,7 +2276,7 @@ where
 
     fn mine_block_with_mem_pool(
         &mut self,
-        config: &CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
+        config: &CfgEnv<ChainSpecT::Hardfork>,
         options: HeaderOverrides,
         runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
@@ -2295,7 +2309,7 @@ where
     /// Mines a block with the provided transaction.
     fn mine_block_with_single_transaction(
         &mut self,
-        config: &CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
+        config: &CfgEnv<ChainSpecT::Hardfork>,
         options: HeaderOverrides,
         transaction: ChainSpecT::SignedTransaction,
         runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
@@ -2583,7 +2597,7 @@ where
             // Measure the gas used by the transaction with optional limit from call request
             // defaulting to block limit. Report errors from initial call as if from
             // `eth_call`.
-            let result = call::run_call::<_, ChainSpecT, _, _>(
+            let result = call::run_call::<_, ChainSpecT, _, _, TimerT>(
                 blockchain,
                 header,
                 state,
@@ -2696,7 +2710,7 @@ impl StateId {
 }
 
 fn block_time_offset_seconds<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
-    config: &ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &TimerT,
 ) -> Result<i64, CreationErrorForChainSpec<ChainSpecT>> {
     config.initial_date.map_or(Ok(0), |initial_date| {
@@ -2732,7 +2746,7 @@ fn create_blockchain_and_state<
     TimerT: Clone + TimeSinceEpoch,
 >(
     runtime: runtime::Handle,
-    config: &ProviderConfig<<ChainSpecT as ChainSpec>::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &TimerT,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
@@ -2755,7 +2769,7 @@ fn create_blockchain_and_state<
         )?);
 
         let (blockchain, mut irregular_state) = tokio::task::block_in_place(
-            || -> Result<_, ForkedCreationError<<ChainSpecT as ChainSpec>::Hardfork>> {
+            || -> Result<_, ForkedCreationError<ChainSpecT::Hardfork>> {
                 let mut irregular_state = IrregularState::default();
                 let blockchain = runtime.block_on(ForkedBlockchain::<ChainSpecT>::new(
                     runtime.clone(),
@@ -2938,6 +2952,7 @@ fn create_blockchain_and_state<
             config.chain_id,
             config.hardfork,
             GenesisBlockOptions {
+                extra_data: None,
                 gas_limit: Some(config.block_gas_limit.get()),
                 timestamp: config.initial_date.map(|d| {
                     d.duration_since(UNIX_EPOCH)

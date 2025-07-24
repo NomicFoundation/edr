@@ -5,8 +5,9 @@ use edr_eth::{
     l1::{self, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
     receipt::BlockReceipt,
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
+    Bytes,
 };
 use edr_evm::{
     evm::Evm,
@@ -14,20 +15,27 @@ use edr_evm::{
     inspector::{Inspector, NoOpInspector},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::{EthPrecompiles, PrecompileProvider},
-    spec::{ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
+    spec::{
+        ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory,
+        RuntimeSpec, EXTRA_DATA,
+    },
     state::{Database, DatabaseComponentError},
     transaction::{TransactionError, TransactionErrorForChainSpec},
-    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
+    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock,
+    EthLocalBlockForChainSpec, RemoteBlock, SyncBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
 use crate::GenericChainSpec;
 
+impl ChainHardfork for GenericChainSpec {
+    type Hardfork = l1::SpecId;
+}
+
 impl ChainSpec for GenericChainSpec {
     type BlockEnv = l1::BlockEnv;
     type Context = ();
     type HaltReason = l1::HaltReason;
-    type Hardfork = l1::SpecId;
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
 
@@ -35,6 +43,31 @@ impl EthHeaderConstants for GenericChainSpec {
     const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork> = L1ChainSpec::BASE_FEE_PARAMS;
 
     const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
+}
+
+impl GenesisBlockFactory for GenericChainSpec {
+    type CreationError = <L1ChainSpec as GenesisBlockFactory>::CreationError;
+
+    type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
+
+    fn genesis_block(
+        genesis_diff: edr_evm::state::StateDiff,
+        hardfork: Self::Hardfork,
+        mut options: edr_evm::GenesisBlockOptions,
+    ) -> Result<Self::LocalBlock, Self::CreationError> {
+        // If no option is provided, use the default extra data for L1 Ethereum.
+        options.extra_data = Some(
+            options
+                .extra_data
+                .unwrap_or(Bytes::copy_from_slice(EXTRA_DATA)),
+        );
+
+        EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
+            genesis_diff,
+            hardfork,
+            options,
+        )
+    }
 }
 
 impl RuntimeSpec for GenericChainSpec {

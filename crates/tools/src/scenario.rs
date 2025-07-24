@@ -8,10 +8,12 @@ use std::{
 use anyhow::Context;
 use derive_where::derive_where;
 use edr_eth::l1;
-use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
+use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use edr_generic::GenericChainSpec;
 use edr_napi_core::spec::SyncNapiSpec;
-use edr_provider::{time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest};
+use edr_provider::{
+    time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest, ProviderSpec,
+};
 use edr_rpc_eth::jsonrpc;
 use edr_scenarios::ScenarioConfig;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -263,11 +265,13 @@ async fn load_json(
 }
 
 #[derive_where(Clone, Default)]
-struct DisabledLogger<ChainSpecT: RuntimeSpec> {
+struct DisabledLogger<ChainSpecT: ProviderSpec<CurrentTime>> {
     _phantom: PhantomData<ChainSpecT>,
 }
 
-impl<ChainSpecT: RuntimeSpec> Logger<ChainSpecT> for DisabledLogger<ChainSpecT> {
+impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT, CurrentTime>
+    for DisabledLogger<ChainSpecT>
+{
     type BlockchainError = BlockchainErrorForChainSpec<GenericChainSpec>;
 
     fn is_enabled(&self) -> bool {

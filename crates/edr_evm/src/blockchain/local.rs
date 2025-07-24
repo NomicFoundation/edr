@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{l1, log::FilterLog, spec::ChainSpec, Address, HashSet, B256, U256};
+use edr_eth::{l1, log::FilterLog, spec::ChainHardfork, Address, HashSet, B256, U256};
 
 use super::{
     compute_state_at_block,
@@ -114,10 +114,8 @@ where
         Arc<ChainSpecT::BlockReceipt>,
         Error = BlockchainErrorForChainSpec<ChainSpecT>,
     >,
-    ChainSpecT: GenesisBlockFactory<
-            Hardfork = <ChainSpecT as ChainSpec>::Hardfork,
-            LocalBlock = <ChainSpecT as RuntimeSpec>::LocalBlock,
-        > + SyncRuntimeSpec,
+    ChainSpecT:
+        GenesisBlockFactory<LocalBlock = <ChainSpecT as RuntimeSpec>::LocalBlock> + SyncRuntimeSpec,
 {
     /// Constructs a new instance using the provided arguments to build a
     /// genesis block.
@@ -126,7 +124,7 @@ where
     pub fn new(
         genesis_diff: StateDiff,
         chain_id: u64,
-        hardfork: <ChainSpecT as ChainSpec>::Hardfork,
+        hardfork: <ChainSpecT as ChainHardfork>::Hardfork,
         options: GenesisBlockOptions,
     ) -> Result<Self, <ChainSpecT as GenesisBlockFactory>::CreationError> {
         let genesis_block = ChainSpecT::genesis_block(genesis_diff.clone(), hardfork, options)?;

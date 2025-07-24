@@ -10,10 +10,11 @@ use edr_eth::{
     Address, Bytes, HashMap, HashSet, B256, U256,
 };
 use edr_evm::{
-    blockchain::{Blockchain, GenesisBlockOptions, LocalBlockchain},
+    blockchain::{Blockchain, LocalBlockchain},
     config::CfgEnv,
     runtime::{dry_run_with_inspector, run},
     state::{AccountModifierFn, StateDiff, StateError, SyncState},
+    GenesisBlockOptions,
 };
 use edr_test_utils::secret_key::secret_key_from_str;
 
