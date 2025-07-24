@@ -565,21 +565,21 @@ impl<
         };
 
         let RawCallResult {
-            exit_reason: _exit_reason,
+            exit_reason: _,
             reverted,
-            has_state_snapshot_failure: _has_state_snapshot_failure,
-            result: _result,
+            has_state_snapshot_failure: _,
+            result: _,
             gas_used: gas,
-            gas_refunded: _gas_refunded,
+            gas_refunded: _,
             stipend,
             logs: execution_logs,
             traces: execution_trace,
             coverage: execution_coverage,
             labels: new_labels,
             state_changeset,
-            env: _env,
+            env: _,
             cheatcodes,
-            out: _out,
+            out: _,
         } = raw_call_result;
 
         let success = executor.is_success(
