@@ -79,7 +79,8 @@ impl GenesisBlockFactory for OpChainSpec {
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
             let extra_data = options.extra_data.unwrap_or_else(|| {
-                // TODO: Add support for configuring the dynamic base fee parameters.
+                // TODO: https://github.com/NomicFoundation/edr/issues/887
+                // Add support for configuring the dynamic base fee parameters.
                 let base_fee_params = *Self::BASE_FEE_PARAMS
                     .at_hardfork(hardfork)
                     .expect("Chain spec must have base fee params for post-London hardforks");
