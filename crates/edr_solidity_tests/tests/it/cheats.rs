@@ -20,7 +20,10 @@ async fn test_cheats_local(test_data: &L1ForgeTestData) {
     }
 
     let runner = test_data
-        .runner_with_fs_permissions(FsPermissions::new(vec![PathPermission::read_write("./")]))
+        .runner_with_fs_permissions(
+            FsPermissions::new(vec![PathPermission::read_write("./")]),
+            test_data.base_runner_config(),
+        )
         .await;
 
     TestConfig::with_filter(runner, filter).run().await;
