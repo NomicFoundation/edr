@@ -1,3 +1,4 @@
+#![cfg(feature = "test-remote")]
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_eth::{l1, B256};

@@ -463,6 +463,18 @@ impl<
         ForgeTestProfile::runner_config(self.hardfork)
     }
 
+    /// Builds a base runner with base configs + rpc configs
+    pub fn runner_with_rpc_config(&self) -> SolidityTestRunnerConfig<HardforkT> {
+        init_tracing_for_solidity_tests();
+        // Construct a new one to create new failure persistance directory for each test
+        let mut config = ForgeTestProfile::runner_config(self.hardfork);
+        config.cheats_config_options.rpc_endpoints = rpc_endpoints();
+        //`**/edr-cache` is cached in CI
+        config.cheats_config_options.rpc_cache_path =
+            Some(self.project.root().join("edr-cache/solidity-tests/rpc"));
+        config
+    }
+
     /// Builds a non-tracing runner
     pub async fn runner(
         &self,
@@ -494,11 +506,6 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        config.cheats_config_options.rpc_endpoints = rpc_endpoints();
-        // `**/edr-cache` is cached in CI
-        config.cheats_config_options.rpc_cache_path =
-            Some(self.project.root().join("edr-cache/solidity-tests/rpc"));
-
         // no prompt testing
         config.cheats_config_options.prompt_timeout = 0;
 
@@ -509,6 +516,7 @@ impl<
     pub async fn runner_with_fs_permissions(
         &self,
         fs_permissions: FsPermissions,
+        mut config: SolidityTestRunnerConfig<HardforkT>,
     ) -> MultiContractRunner<
         BlockT,
         ChainContextT,
@@ -519,7 +527,6 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        let mut config = self.base_runner_config();
         config.cheats_config_options.fs_permissions = fs_permissions;
         self.runner_with_config(config).await
     }
@@ -568,6 +575,7 @@ impl<
         &self,
         seed: U256,
         invariant_config: TestInvariantConfig,
+        mut config: SolidityTestRunnerConfig<HardforkT>,
     ) -> MultiContractRunner<
         BlockT,
         ChainContextT,
@@ -578,7 +586,6 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        let mut config = self.base_runner_config();
         config.fuzz.seed = Some(seed);
         config.invariant = invariant_config.into();
         self.runner_with_config(config).await
