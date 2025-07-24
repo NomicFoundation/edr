@@ -315,14 +315,6 @@ describe("Unit tests", () => {
       }
     }
 
-    // Sort the snapshot groups for consistent output
-    for (let groupEntries of snapshots.values()) {
-      groupEntries = new Map([...groupEntries].sort());
-    }
-
-    // Sort the snapshots for consistent equality testing
-    snapshots = new Map([...snapshots].sort());
-
     assert.deepEqual(
       snapshots,
       new Map([
