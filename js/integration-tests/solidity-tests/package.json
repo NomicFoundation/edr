@@ -1,7 +1,6 @@
 {
   "name": "solidity-tests",
   "version": "1.0.0",
-  "private": true,
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",
@@ -16,6 +15,7 @@
   "keywords": [],
   "license": "MIT",
   "main": "index.js",
+  "private": true,
   "scripts": {
     "build": "pnpm run build:dev",
     "build:dev": "tsc --build --incremental .",

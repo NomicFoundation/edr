@@ -1,7 +1,6 @@
 {
   "name": "benchmark",
   "version": "1.0.0",
-  "private": true,
   "dependencies": {
     "@nomicfoundation/hardhat-utils": "3.0.0-next.0"
   },
@@ -30,6 +29,7 @@
   },
   "keywords": [],
   "license": "ISC",
+  "private": true,
   "scripts": {
     "benchmark": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts benchmark",
     "build": "pnpm run build:dev",

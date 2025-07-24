@@ -1,7 +1,6 @@
 {
   "name": "hardhat-edr-tests",
   "version": "0.0.0",
-  "private": true,
   "devDependencies": {
     "@metamask/eth-sig-util": "^4.0.0",
     "@nomicfoundation/edr": "workspace:*",
@@ -51,6 +50,7 @@
   },
   "homepage": "https://hardhat.org",
   "license": "MIT",
+  "private": true,
   "repository": "github:NomicFoundation/edr",
   "scripts": {
     "build": "pnpm run build:dev",
