@@ -33,7 +33,7 @@ use edr_eth::{
 };
 // Re-export parts of `edr_evm`
 pub use edr_evm::hardfork;
-use edr_evm::{spec::RuntimeSpec, trace::Trace};
+use edr_evm::trace::Trace;
 use lazy_static::lazy_static;
 
 pub use self::{
@@ -58,6 +58,7 @@ pub use self::{
     spec::{ProviderSpec, SyncProviderSpec},
     subscribe::*,
 };
+use crate::time::TimeSinceEpoch;
 
 lazy_static! {
     pub static ref PRIVATE_RPC_METHODS: HashSet<&'static str> =
@@ -75,7 +76,11 @@ pub struct ResponseWithTraces<HaltReasonT: HaltReasonTrait> {
     pub traces: Vec<Trace<HaltReasonT>>,
 }
 
-fn to_json<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
+fn to_json<
+    T: serde::Serialize,
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     value: T,
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value).map_err(ProviderError::Serialization)?;
@@ -86,7 +91,11 @@ fn to_json<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
     })
 }
 
-fn to_json_with_trace<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
+fn to_json_with_trace<
+    T: serde::Serialize,
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     value: (T, Trace<ChainSpecT::HaltReason>),
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;
@@ -97,7 +106,11 @@ fn to_json_with_trace<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
     })
 }
 
-fn to_json_with_traces<T: serde::Serialize, ChainSpecT: RuntimeSpec>(
+fn to_json_with_traces<
+    T: serde::Serialize,
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     value: (T, Vec<Trace<ChainSpecT::HaltReason>>),
 ) -> Result<ResponseWithTraces<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
     let response = serde_json::to_value(value.0).map_err(ProviderError::Serialization)?;

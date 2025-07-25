@@ -13,7 +13,7 @@ use super::InsertError;
 use crate::{Block, BlockReceipts};
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
-#[derive_where(Debug; BlockReceiptT, BlockT)]
+#[derive(Debug)]
 #[derive_where(Default)]
 pub struct SparseBlockchainStorage<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT> {
     hash_to_block: HashMap<B256, BlockT>,
@@ -21,7 +21,7 @@ pub struct SparseBlockchainStorage<BlockReceiptT: ReceiptTrait, BlockT, SignedTr
     number_to_block: HashMap<u64, BlockT>,
     transaction_hash_to_block: HashMap<B256, BlockT>,
     transaction_hash_to_receipt: HashMap<B256, BlockReceiptT>,
-    phantom: PhantomData<SignedTransactionT>,
+    phantom: PhantomData<fn() -> SignedTransactionT>,
 }
 
 impl<

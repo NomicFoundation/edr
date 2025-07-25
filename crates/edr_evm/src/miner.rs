@@ -5,7 +5,7 @@ use edr_eth::{
     l1,
     result::ExecutionResult,
     signature::SignatureError,
-    spec::{ChainSpec, HaltReasonTrait},
+    spec::{ChainHardfork, ChainSpec, HaltReasonTrait},
     transaction::{ExecutableTransaction, TransactionValidation},
     Address, HashMap,
 };
@@ -56,7 +56,7 @@ pub enum MineOrdering {
 /// Helper type for a chain-specific [`MineBlockError`].
 pub type MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = MineBlockError<
     BlockchainErrorT,
-    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as ChainHardfork>::Hardfork,
     StateErrorT,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
@@ -194,7 +194,7 @@ where
 pub type MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
     MineTransactionError<
         BlockchainErrorT,
-        <ChainSpecT as ChainSpec>::Hardfork,
+        <ChainSpecT as ChainHardfork>::Hardfork,
         StateErrorT,
         <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
     >;

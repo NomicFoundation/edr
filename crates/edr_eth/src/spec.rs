@@ -9,6 +9,12 @@ use crate::{
     transaction::{ExecutableTransaction, TransactionValidation},
 };
 
+/// Trait for specifying the hardfork type of a chain.
+pub trait ChainHardfork {
+    /// The chain's hardfork type.
+    type Hardfork: Copy + Into<l1::SpecId>;
+}
+
 /// Trait for chain specifications.
 pub trait ChainSpec {
     /// The chain's block type.
@@ -17,8 +23,6 @@ pub trait ChainSpec {
     type Context: Debug + Default;
     /// The chain's halt reason type.
     type HaltReason: HaltReasonTrait + 'static;
-    /// The chain's hardfork type.
-    type Hardfork: Copy + Into<l1::SpecId>;
     /// The chain's signed transaction type.
     type SignedTransaction: ExecutableTransaction
         + revm_context_interface::Transaction
@@ -26,7 +30,7 @@ pub trait ChainSpec {
 }
 
 /// Constants for constructing Ethereum headers.
-pub trait EthHeaderConstants: ChainSpec<Hardfork: 'static + PartialOrd> {
+pub trait EthHeaderConstants: ChainHardfork<Hardfork: 'static + PartialOrd> {
     /// Parameters for the EIP-1559 base fee calculation.
     const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork>;
 

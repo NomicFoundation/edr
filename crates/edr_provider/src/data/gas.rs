@@ -21,7 +21,7 @@ use edr_evm::{
 };
 use itertools::Itertools;
 
-use crate::{data::call, error::ProviderErrorForChainSpec};
+use crate::{data::call, error::ProviderErrorForChainSpec, time::TimeSinceEpoch, SyncProviderSpec};
 
 pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub blockchain:
@@ -38,16 +38,18 @@ pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
-pub(super) fn check_gas_limit<ChainSpecT>(
+pub(super) fn check_gas_limit<ChainSpecT, TimerT>(
     args: CheckGasLimitArgs<'_, ChainSpecT>,
 ) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    ChainSpecT: SyncRuntimeSpec<
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
+    TimerT: Clone + TimeSinceEpoch,
 {
     let CheckGasLimitArgs {
         blockchain,
@@ -62,7 +64,7 @@ where
 
     transaction.set_gas_limit(gas_limit);
 
-    let result = call::run_call::<_, ChainSpecT, _, _>(
+    let result = call::run_call::<_, ChainSpecT, _, _, TimerT>(
         blockchain,
         header,
         state,
@@ -91,16 +93,18 @@ pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
 /// Search for a tight upper bound on the gas limit that will allow the
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
-pub(super) fn binary_search_estimation<ChainSpecT>(
+pub(super) fn binary_search_estimation<ChainSpecT, TimerT>(
     args: BinarySearchEstimationArgs<'_, ChainSpecT>,
 ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    ChainSpecT: SyncRuntimeSpec<
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >,
+    TimerT: Clone + TimeSinceEpoch,
 {
     const MAX_ITERATIONS: usize = 20;
 
@@ -169,17 +173,19 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<ChainSpecT>(
+pub(super) fn compute_rewards<ChainSpecT, TimerT>(
     block: &ChainSpecT::Block,
     reward_percentiles: &[RewardPercentile],
 ) -> Result<Vec<U256>, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    ChainSpecT: SyncRuntimeSpec<
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
         Block: BlockReceipts<
             Arc<ChainSpecT::BlockReceipt>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,
     >,
+    TimerT: Clone + TimeSinceEpoch,
 {
     if block.transactions().is_empty() {
         return Ok(reward_percentiles.iter().map(|_| U256::ZERO).collect());

@@ -1,8 +1,7 @@
 use edr_eth::{Bytes, B256};
-use edr_evm::spec::RuntimeSpec;
 use sha3::{Digest, Keccak256};
 
-use crate::ProviderErrorForChainSpec;
+use crate::{time::TimeSinceEpoch, ProviderErrorForChainSpec, ProviderSpec};
 
 pub fn client_version() -> String {
     format!(
@@ -12,12 +11,17 @@ pub fn client_version() -> String {
     )
 }
 
-pub fn handle_web3_client_version_request<ChainSpecT: RuntimeSpec>(
-) -> Result<String, ProviderErrorForChainSpec<ChainSpecT>> {
+pub fn handle_web3_client_version_request<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>() -> Result<String, ProviderErrorForChainSpec<ChainSpecT>> {
     Ok(client_version())
 }
 
-pub fn handle_web3_sha3_request<ChainSpecT: RuntimeSpec>(
+pub fn handle_web3_sha3_request<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     message: Bytes,
 ) -> Result<B256, ProviderErrorForChainSpec<ChainSpecT>> {
     let hash = Keccak256::digest(&message[..]);

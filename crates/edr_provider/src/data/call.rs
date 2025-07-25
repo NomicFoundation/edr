@@ -8,14 +8,16 @@ use edr_evm::{
     inspector::Inspector,
     precompile::PrecompileFn,
     runtime::guaranteed_dry_run_with_inspector,
-    spec::{BlockEnvConstructor as _, ContextForChainSpec, SyncRuntimeSpec},
+    spec::{BlockEnvConstructor as _, ContextForChainSpec},
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
 };
 
-use crate::{error::ProviderErrorForChainSpec, ProviderError};
+use crate::{
+    error::ProviderErrorForChainSpec, time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
+};
 
 /// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT>(
+pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT, TimerT>(
     blockchain: BlockchainT,
     header: &Header,
     state: StateT,
@@ -26,7 +28,8 @@ pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT>(
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
     BlockchainT: BlockHash<Error = BlockchainErrorForChainSpec<ChainSpecT>>,
-    ChainSpecT: SyncRuntimeSpec<
+    ChainSpecT: SyncProviderSpec<
+        TimerT,
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
@@ -35,6 +38,7 @@ where
         ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
     >,
     StateT: State<Error = StateError>,
+    TimerT: Clone + TimeSinceEpoch,
 {
     // `eth_call` uses a base fee of zero to mimick geth's behavior
     let mut header = header.clone();

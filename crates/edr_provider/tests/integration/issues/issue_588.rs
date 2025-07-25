@@ -14,7 +14,7 @@ use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_588() -> anyhow::Result<()> {
-    let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
+    let logger = Box::new(NoopLogger::<L1ChainSpec, Arc<MockTime>>::default());
     let subscriber = Box::new(|_event| {});
 
     let early_mainnet_fork = create_test_config_with_fork(Some(ForkConfig {

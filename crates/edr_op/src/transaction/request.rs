@@ -86,7 +86,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
             max_fees_fn,
         } = context;
 
-        validate_call_request::<OpChainSpec>(data.hardfork(), &value, block_spec)?;
+        validate_call_request::<OpChainSpec, TimerT>(data.hardfork(), &value, block_spec)?;
 
         let CallRequest {
             from,

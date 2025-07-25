@@ -100,7 +100,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT> edr_provider::Logger<ChainSpecT> for Logger<ChainSpecT>
+impl<ChainSpecT> edr_provider::Logger<ChainSpecT, CurrentTime> for Logger<ChainSpecT>
 where
     ChainSpecT: ProviderSpec<CurrentTime>,
 {

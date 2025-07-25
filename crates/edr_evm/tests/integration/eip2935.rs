@@ -5,13 +5,13 @@ use edr_eth::{
     Bytecode,
 };
 use edr_evm::{
-    blockchain::{Blockchain, GenesisBlockOptions, LocalBlockchain, LocalCreationError},
+    blockchain::{Blockchain, LocalBlockchain, LocalCreationError},
     eips::eip2935::{
         add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
         HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
     },
     state::StateDiff,
-    RandomHashGenerator,
+    GenesisBlockOptions, RandomHashGenerator,
 };
 
 fn local_blockchain(

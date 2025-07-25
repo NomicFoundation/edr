@@ -13,16 +13,13 @@ use edr_eth::{
     Address, Bytes, HashSet, B256, U256,
 };
 use edr_evm::{
-    blockchain::{
-        BlockchainError, BlockchainErrorForChainSpec, GenesisBlockOptions, LocalBlockchain,
-        SyncBlockchain,
-    },
+    blockchain::{BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain, SyncBlockchain},
     receipt::{self, ExecutionReceiptBuilder as _},
     spec::{ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
     transaction, EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
-    RemoteBlockConversionError,
+    GenesisBlockOptions, RemoteBlockConversionError,
 };
 use edr_rpc_eth::TransactionConversionError;
 use serial_test::serial;

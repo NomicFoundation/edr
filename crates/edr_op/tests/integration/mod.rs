@@ -1,5 +1,6 @@
 mod full_block;
 mod hardfork_activation;
+mod holocene;
 mod provider;
 mod rpc;
 
