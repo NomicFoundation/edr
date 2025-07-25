@@ -5,7 +5,10 @@ use edr_eth::{
     transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
 };
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{
+    artifacts::{CompilerInput, CompilerOutput},
+    contract_decoder::ContractDecoder,
+};
 use parking_lot::Mutex;
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
 
@@ -18,8 +21,7 @@ use crate::{
     requests::{
         debug,
         eth::{self, handle_set_interval_mining},
-        hardhat::{self, rpc_types::ResetProviderConfig},
-        MethodInvocation, ProviderRequest,
+        hardhat, MethodInvocation, ProviderRequest,
     },
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
@@ -129,6 +131,27 @@ impl<
             interval_miner,
             runtime,
         })
+    }
+
+    pub fn add_compilation_result(
+        &self,
+        solc_version: String,
+        compiler_input: CompilerInput,
+        compiler_output: CompilerOutput,
+    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
+
+        if let Err(error) = hardhat::handle_add_compilation_result(
+            &mut data,
+            solc_version,
+            compiler_input,
+            compiler_output,
+        ) {
+            data.logger_mut().print_contract_decoding_error(&error)?;
+            Ok(false)
+        } else {
+            Ok(true)
+        }
     }
 
     /// Set to `true` to make the traces returned with `eth_call`,
@@ -317,16 +340,6 @@ impl<
                 eth::handle_max_priority_fee_per_gas::<ChainSpecT>()
                     .and_then(to_json::<_, ChainSpecT>)
             }
-            MethodInvocation::Mining(()) => {
-                eth::handle_mining::<ChainSpecT>().and_then(to_json::<_, ChainSpecT>)
-            }
-            MethodInvocation::NetListening(()) => {
-                eth::handle_net_listening_request::<ChainSpecT>().and_then(to_json::<_, ChainSpecT>)
-            }
-            MethodInvocation::NetPeerCount(()) => {
-                eth::handle_net_peer_count_request::<ChainSpecT>()
-                    .and_then(to_json::<_, ChainSpecT>)
-            }
             MethodInvocation::NetVersion(()) => {
                 eth::handle_net_version_request(data).and_then(to_json::<_, ChainSpecT>)
             }
@@ -423,17 +436,6 @@ impl<
             }
 
             // hardhat_* methods
-            MethodInvocation::AddCompilationResult(
-                solc_version,
-                compiler_input,
-                compiler_output,
-            ) => hardhat::handle_add_compilation_result(
-                data,
-                solc_version,
-                *compiler_input,
-                compiler_output,
-            )
-            .and_then(to_json::<_, ChainSpecT>),
             MethodInvocation::DropTransaction(transaction_hash) => {
                 hardhat::handle_drop_transaction(data, transaction_hash)
                     .and_then(to_json::<_, ChainSpecT>)
@@ -445,19 +447,12 @@ impl<
                 hardhat::handle_impersonate_account_request(data, *address)
                     .and_then(to_json::<_, ChainSpecT>)
             }
-            // TODO: how to return traces from interval mine to the client?
-            MethodInvocation::IntervalMine(()) => {
-                hardhat::handle_interval_mine_request(data).and_then(to_json::<_, ChainSpecT>)
-            }
             MethodInvocation::Metadata(()) => {
                 hardhat::handle_metadata_request(data).and_then(to_json::<_, ChainSpecT>)
             }
             MethodInvocation::Mine(number_of_blocks, interval) => {
                 hardhat::handle_mine(data, number_of_blocks, interval)
                     .and_then(to_json_with_traces::<_, ChainSpecT>)
-            }
-            MethodInvocation::Reset(config) => {
-                self.reset(data, config).and_then(to_json::<_, ChainSpecT>)
             }
             MethodInvocation::SetBalance(address, balance) => {
                 hardhat::handle_set_balance(data, address, balance)
@@ -509,22 +504,5 @@ impl<
         }
 
         result
-    }
-
-    fn reset(
-        &self,
-        data: &mut ProviderData<ChainSpecT, TimerT>,
-        config: Option<ResetProviderConfig>,
-    ) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
-        let mut interval_miner = self.interval_miner.lock();
-        interval_miner.take();
-
-        data.reset(config.and_then(|c| c.forking))?;
-
-        *interval_miner = data.mining_config().interval.as_ref().map(|config| {
-            IntervalMiner::new(self.runtime.clone(), config.clone(), self.data.clone())
-        });
-
-        Ok(true)
     }
 }

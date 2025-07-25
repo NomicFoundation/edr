@@ -322,11 +322,6 @@ fn test_serde_eth_get_tx_receipt() {
 }
 
 #[test]
-fn test_serde_eth_mining() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::Mining(()));
-}
-
-#[test]
 fn test_serde_eth_new_block_filter() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::NewBlockFilter(()));
 }
@@ -554,16 +549,6 @@ fn test_evm_set_interval_mining() {
 #[test]
 fn test_evm_snapshot() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::EvmSnapshot(()));
-}
-
-#[test]
-fn test_net_listening() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::NetListening(()));
-}
-
-#[test]
-fn test_net_peer_count() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::NetPeerCount(()));
 }
 
 #[test]

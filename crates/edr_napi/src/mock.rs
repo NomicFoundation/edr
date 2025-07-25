@@ -20,6 +20,15 @@ impl MockProvider {
 }
 
 impl SyncProvider for MockProvider {
+    fn add_compilation_result(
+        &self,
+        _solc_version: String,
+        _compiler_input: edr_solidity::artifacts::CompilerInput,
+        _compiler_output: edr_solidity::artifacts::CompilerOutput,
+    ) -> napi::Result<bool> {
+        Ok(false) // Mock provider does not handle compilation results
+    }
+
     fn handle_request(
         &self,
         _request: String,
