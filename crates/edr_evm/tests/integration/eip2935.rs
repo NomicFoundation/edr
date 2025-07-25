@@ -98,6 +98,7 @@ mod remote {
             &get_alchemy_url(),
             edr_defaults::CACHE_DIR.into(),
             None,
+            runtime.clone(),
         )
         .expect("url ok");
 
