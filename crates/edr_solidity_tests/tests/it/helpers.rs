@@ -708,10 +708,6 @@ pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
 fn rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
         (
-            "rpcAliasFake",
-            RpcEndpoint::Url("https://example.com".to_string()),
-        ),
-        (
             "rpcAliasMainnet",
             RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Ethereum)),
         ),

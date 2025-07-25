@@ -1,5 +1,5 @@
 //! Forge tests for cheatcodes.
-use foundry_cheatcodes::{FsPermissions, PathPermission};
+use foundry_cheatcodes::{FsPermissions, PathPermission, RpcEndpoint, RpcEndpoints};
 
 use crate::helpers::{
     L1ForgeTestData, SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_CANCUN,
@@ -19,12 +19,15 @@ async fn test_cheats_local(test_data: &L1ForgeTestData) {
         filter = filter.exclude_tests("(Ffi|File|Line|Root)");
     }
 
-    let runner = test_data
-        .runner_with_fs_permissions(
-            FsPermissions::new(vec![PathPermission::read_write("./")]),
-            test_data.base_runner_config(),
-        )
-        .await;
+    let mut config = test_data.base_runner_config();
+    config.cheats_config_options.rpc_endpoints = RpcEndpoints::new([(
+        "rpcAliasFake",
+        RpcEndpoint::Url("https://example.com".to_string()),
+    )]);
+    config.cheats_config_options.fs_permissions =
+        FsPermissions::new(vec![PathPermission::read_write("./")]);
+
+    let runner = test_data.runner_with_config(config).await;
 
     TestConfig::with_filter(runner, filter).run().await;
 }
