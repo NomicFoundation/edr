@@ -1,0 +1,98 @@
+{
+  "changesets": [
+    {
+      "releases": [
+        {
+          "name": "@nomicfoundation/edr",
+          "type": "minor"
+        }
+      ],
+      "summary": "Added scoped snapshots to Solidity test runner using gas & value cheatcodes",
+      "id": "orange-pants-warn"
+    }
+  ],
+  "releases": [
+    {
+      "name": "@nomicfoundation/edr",
+      "type": "minor",
+      "oldVersion": "0.12.0-next.0",
+      "changesets": [
+        "orange-pants-warn"
+      ],
+      "newVersion": "0.12.0-next.1"
+    },
+    {
+      "name": "benchmark",
+      "type": "none",
+      "oldVersion": "1.0.0",
+      "changesets": [],
+      "newVersion": "1.0.0"
+    },
+    {
+      "name": "hardhat-edr-tests",
+      "type": "none",
+      "oldVersion": "0.0.0",
+      "changesets": [],
+      "newVersion": "0.0.0"
+    },
+    {
+      "name": "@nomicfoundation/edr-helpers",
+      "type": "none",
+      "oldVersion": "1.0.0",
+      "changesets": [],
+      "newVersion": "1.0.0"
+    },
+    {
+      "name": "solidity-tests",
+      "type": "none",
+      "oldVersion": "1.0.0",
+      "changesets": [],
+      "newVersion": "1.0.0"
+    }
+  ],
+  "preState": {
+    "mode": "pre",
+    "tag": "next",
+    "initialVersions": {
+      "@nomicfoundation/edr": "0.12.0-alpha.0",
+      "benchmark": "1.0.0",
+      "hardhat-edr-tests": "0.0.0",
+      "hardhat-edr-smock-test": "1.0.0",
+      "@nomicfoundation/edr-helpers": "1.0.0",
+      "solidity-tests": "1.0.0"
+    },
+    "changesets": [
+      "angry-glasses-fail",
+      "cool-turtles-obey",
+      "dirty-melons-provide",
+      "fluffy-bags-tickle",
+      "four-melons-rhyme",
+      "fresh-chairs-relate",
+      "giant-spoons-notice",
+      "grumpy-doors-smile",
+      "grumpy-jokes-sort",
+      "hip-rings-allow",
+      "honest-tools-dress",
+      "lazy-jobs-draw",
+      "lemon-pumas-walk",
+      "lemon-snails-approve",
+      "long-eagles-thank",
+      "orange-pants-warn",
+      "orange-pens-explode",
+      "perfect-meals-tie",
+      "poor-shirts-collect",
+      "red-wasps-complain",
+      "rotten-vans-divide",
+      "selfish-scissors-shake",
+      "seven-apes-hope",
+      "silly-zebras-decide",
+      "slimy-masks-cover",
+      "slow-houses-call",
+      "spicy-cameras-fix",
+      "stupid-dryers-know",
+      "tall-mayflies-applaud",
+      "tame-donuts-remain",
+      "tender-pillows-grab"
+    ]
+  }
+}
