@@ -24,7 +24,7 @@ use foundry_evm::{
     opts::EvmOpts,
     traces::{decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder},
 };
-use futures::StreamExt;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     result::SuiteResult,
@@ -414,38 +414,17 @@ impl<
             find_time,
         );
 
-        let handle = tokio::runtime::Handle::current();
+        let tokio_handle = tokio::runtime::Handle::current();
 
-        let this = Arc::new(self);
-        let args = contracts.into_iter().zip(std::iter::repeat((
-            this,
-            fork,
-            filter,
-            on_test_suite_completed_fn,
-        )));
+        contracts.into_par_iter().for_each(|(id, contract)| {
+            let _guard = tokio_handle.enter();
+            let result =
+                self.run_tests(&id, &contract, fork.clone(), filter.as_ref(), &tokio_handle);
 
-        handle.spawn(async {
-            futures::stream::iter(args)
-                .for_each_concurrent(
-                    Some(num_cpus::get()),
-                    |((id, contract), (this, fork, filter, on_test_suite_completed_fn))| async move {
-                        tokio::task::spawn_blocking(move || {
-                            let handle = tokio::runtime::Handle::current();
-                            let result =
-                                this.run_tests(&id, &contract, fork, filter.as_ref(), &handle);
-
-                            on_test_suite_completed_fn(
-                                SuiteResultAndArtifactId {
-                                    artifact_id: id,
-                                    result,
-                                },
-                            );
-                        })
-                        .await
-                        .expect("failed to join task");
-                    },
-                )
-                .await;
+            on_test_suite_completed_fn(SuiteResultAndArtifactId {
+                artifact_id: id,
+                result,
+            });
         });
     }
 }
