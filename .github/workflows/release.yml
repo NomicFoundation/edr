@@ -27,8 +27,9 @@ jobs:
       - name: Get version from package.json
         id: get-version
         run: |
-          pnpm changeset status --output status.json
-          VERSION="$(jq -r '.releases[] | select(.name == "@nomicfoundation/edr").newVersion' status.json)"
+          STATUS="$RUNNER_TEMP/status.json"
+          pnpm changeset status --output "$STATUS"
+          VERSION="$(jq -r '.releases[] | select(.name == "@nomicfoundation/edr").newVersion' "$STATUS")"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create Release Pull Request
