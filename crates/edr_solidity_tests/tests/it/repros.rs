@@ -108,9 +108,9 @@ async fn runner_config<
     rpc_config: bool,
 ) -> SolidityTestRunnerConfig<HardforkT> {
     let mut config = if rpc_config {
-        test_data.runner_with_rpc_config()
+        test_data.config_with_remote_rpc()
     } else {
-        test_data.base_runner_config()
+        test_data.config_with_mock_rpc()
     };
 
     config.cheats_config_options.fs_permissions = FsPermissions::new(vec![

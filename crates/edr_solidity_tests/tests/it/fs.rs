@@ -9,7 +9,7 @@ async fn test_fs_disabled() {
     let runner = TEST_DATA_DEFAULT
         .runner_with_fs_permissions(
             FsPermissions::new(vec![PathPermission::none("./")]),
-            TEST_DATA_DEFAULT.base_runner_config(),
+            TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
     let filter = SolidityTestFilter::new(".*", ".*", ".*fs/Disabled");
@@ -21,7 +21,7 @@ async fn test_fs_default() {
     let runner = TEST_DATA_DEFAULT
         .runner_with_fs_permissions(
             FsPermissions::new(vec![PathPermission::read("./fixtures")]),
-            TEST_DATA_DEFAULT.base_runner_config(),
+            TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
     let filter = SolidityTestFilter::new(".*", ".*", ".*fs/Default");
