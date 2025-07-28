@@ -768,7 +768,7 @@ async fn test_trace() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fail_test() {
     let filter = SolidityTestFilter::new(".*", "Reverting", "default/core/Reverting.t.sol");
-    let mut config = TEST_DATA_DEFAULT.base_runner_config();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.test_fail = false;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let results = runner.test_collect(filter).await;

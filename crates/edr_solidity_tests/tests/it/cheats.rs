@@ -19,15 +19,12 @@ async fn test_cheats_local(test_data: &L1ForgeTestData) {
         filter = filter.exclude_tests("(Ffi|File|Line|Root)");
     }
 
-    let mut config = test_data.base_runner_config();
-    config.cheats_config_options.rpc_endpoints = RpcEndpoints::new([(
-        "rpcAliasFake",
-        RpcEndpoint::Url("https://example.com".to_string()),
-    )]);
-    config.cheats_config_options.fs_permissions =
-        FsPermissions::new(vec![PathPermission::read_write("./")]);
-
-    let runner = test_data.runner_with_config(config).await;
+    let runner = test_data
+        .runner_with_fs_permissions(
+            FsPermissions::new(vec![PathPermission::read_write("./")]),
+            test_data.config_with_mock_rpc(),
+        )
+        .await;
 
     TestConfig::with_filter(runner, filter).run().await;
 }
@@ -40,7 +37,7 @@ async fn test_cheats_local_isolated(test_data: &L1ForgeTestData) {
         &format!(".*cheats{RE_PATH_SEPARATOR}*"),
     );
 
-    let mut config = test_data.base_runner_config();
+    let mut config = test_data.config_with_mock_rpc();
     config.evm_opts.isolate = true;
     let runner = test_data.runner_with_config(config).await;
 
@@ -57,7 +54,7 @@ async fn test_cheats_local_default() {
 async fn test_cheats_sleep_test() {
     let filter = SolidityTestFilter::new(".*", "Sleep", &format!(".*cheats{RE_PATH_SEPARATOR}*"));
 
-    let mut runner_config = TEST_DATA_DEFAULT.base_runner_config();
+    let mut runner_config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     runner_config.fuzz.runs = 2;
     let runner = TEST_DATA_DEFAULT.runner_with_config(runner_config).await;
 

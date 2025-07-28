@@ -29,7 +29,6 @@ jobs:
         run: |
           pnpm changeset status --output status.json
           VERSION="$(jq -r '.releases[] | select(.name == "@nomicfoundation/edr").newVersion' status.json)"
-          [ -n "$VERSION" ] || exit 1
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create Release Pull Request

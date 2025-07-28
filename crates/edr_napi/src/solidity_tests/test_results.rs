@@ -22,6 +22,26 @@ use crate::{
     trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
 };
 
+/// A grouping of value snapshot entries for a test.
+#[napi(object)]
+#[derive(Clone, Debug)]
+pub struct ValueSnapshotGroup {
+    /// The group name.
+    pub name: String,
+    /// The entries in the group.
+    pub entries: Vec<ValueSnapshotEntry>,
+}
+
+/// An entry in a value snapshot group.
+#[napi(object)]
+#[derive(Clone, Debug)]
+pub struct ValueSnapshotEntry {
+    /// The name of the entry.
+    pub name: String,
+    /// The value of the entry.
+    pub value: String,
+}
+
 /// See [edr_solidity_tests::result::SuiteResult]
 #[napi]
 #[derive(Clone, Debug)]
@@ -85,6 +105,12 @@ pub struct TestResult {
     /// See [edr_solidity_tests::result::TestResult::duration]
     #[napi(readonly)]
     pub duration_ns: BigInt,
+    /// Groups of value snapshot entries (incl. gas).
+    ///
+    /// Only present if the test runner collected scoped snapshots. Currently,
+    /// this is always the case.
+    #[napi(readonly)]
+    pub value_snapshot_groups: Option<Vec<ValueSnapshotGroup>>,
 
     stack_trace_result: Option<Arc<StackTraceResult<String>>>,
     call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
@@ -264,6 +290,19 @@ impl TestResult {
                 }),
             },
             duration_ns: BigInt::from(test_result.duration.as_nanos()),
+            value_snapshot_groups: Some(
+                test_result
+                    .value_snapshots
+                    .into_iter()
+                    .map(|(group_name, entries)| ValueSnapshotGroup {
+                        name: group_name,
+                        entries: entries
+                            .into_iter()
+                            .map(|(name, value)| ValueSnapshotEntry { name, value })
+                            .collect(),
+                    })
+                    .collect(),
+            ),
             stack_trace_result: test_result.stack_trace_result.map(Arc::new),
             call_trace_arenas: if include_trace {
                 test_result.traces
