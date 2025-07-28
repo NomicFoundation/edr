@@ -34,7 +34,7 @@ use crate::{
     Block, GenesisBlockOptions,
 };
 
-/// An error that occurs upon creation of a [`LocalBlockchain`].
+/// An error that occurs upon creation of an [`EthLocalBlock`].
 #[derive(Debug, thiserror::Error)]
 pub enum CreationError {
     /// Missing prevrandao for post-merge blockchain
