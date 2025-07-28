@@ -363,6 +363,7 @@ impl<
             tokio::sync::mpsc::unbounded_channel::<SuiteResultAndArtifactId<HaltReasonT>>();
 
         self.test(
+            tokio::runtime::Handle::current(),
             Arc::new(filter),
             Arc::new(move |suite_result| {
                 let _ = tx_results.clone().send(suite_result);
@@ -384,8 +385,9 @@ impl<
 
     /// Executes _all_ tests that match the given `filter`.
     ///
-    /// The method will immediately return and send the results to the given
-    /// channel as they're ready.
+    /// The method _blocks_ until all test suites have completed. The result of
+    /// each test suite is sent back via the callback function as soon as it's
+    /// completed.
     ///
     /// This will create the runtime based on the configured `evm` ops and
     /// create the `Backend` before executing all contracts and their tests
@@ -394,6 +396,7 @@ impl<
     /// Each Executor gets its own instance of the `Backend`.
     pub fn test(
         mut self,
+        tokio_handle: tokio::runtime::Handle,
         filter: Arc<impl TestFilter + 'static>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<HaltReasonT>>,
     ) {
@@ -413,8 +416,6 @@ impl<
             self.test_contracts.len(),
             find_time,
         );
-
-        let tokio_handle = tokio::runtime::Handle::current();
 
         contracts.into_par_iter().for_each(|(id, contract)| {
             let _guard = tokio_handle.enter();

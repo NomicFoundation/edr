@@ -431,8 +431,14 @@ describe("Unit tests", () => {
         )
         .catch(reject);
     });
+    const elapsed = process.hrtime.bigint() - results.start;
 
     assert.equal(results.testResults.length, 3);
+
+    assert(
+      Number(results.testResults[0].time) / Number(elapsed) > 2,
+      `Time for first test is not more than 2x of starting test execution: first test ${results.testResults[0].time} vs prevTime ${elapsed}`
+    );
 
     for (let i = 0; i < results.testResults.length; i++) {
       const suiteResult = results.testResults[i].testSuiteResult;
