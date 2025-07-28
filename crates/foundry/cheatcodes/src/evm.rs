@@ -24,7 +24,11 @@ use revm::{
     state::Account,
     Journal,
 };
-use spec::Vm::signCall;
+use spec::Vm::{
+    resetGasMeteringCall, signCall, snapshotGasLastCall_0Call, snapshotGasLastCall_1Call,
+    snapshotValue_0Call, snapshotValue_1Call, startSnapshotGas_0Call, startSnapshotGas_1Call,
+    stopSnapshotGas_0Call, stopSnapshotGas_1Call, stopSnapshotGas_2Call,
+};
 
 use crate::{
     impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result,
@@ -54,6 +58,19 @@ pub struct RecordAccess {
     pub reads: HashMap<Address, Vec<U256>>,
     /// Storage slots writes.
     pub writes: HashMap<Address, Vec<U256>>,
+}
+
+/// Records the `snapshotGas*` cheatcodes.
+#[derive(Clone, Debug)]
+pub struct GasRecord {
+    /// The group name of the gas snapshot.
+    pub group: String,
+    /// The name of the gas snapshot.
+    pub name: String,
+    /// The total gas used in the gas snapshot.
+    pub gas_used: u64,
+    /// Depth at which the gas snapshot was taken.
+    pub depth: usize,
 }
 
 /// Records `deal` cheatcodes
@@ -527,9 +544,7 @@ impl Cheatcode for pauseGasMeteringCall {
         >,
     ) -> Result {
         let Self {} = self;
-        if state.gas_metering.is_none() {
-            state.gas_metering = Some(None);
-        }
+        state.gas_metering.paused = true;
         Ok(Vec::default())
     }
 }
@@ -557,7 +572,35 @@ impl Cheatcode for resumeGasMeteringCall {
         >,
     ) -> Result {
         let Self {} = self;
-        state.gas_metering = None;
+        state.gas_metering.resume();
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(resetGasMeteringCall);
+impl Cheatcode for resetGasMeteringCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {} = self;
+        state.gas_metering.reset();
         Ok(Vec::default())
     }
 }
@@ -585,16 +628,10 @@ impl Cheatcode for lastCallGasCall {
         >,
     ) -> Result {
         let Self {} = self;
-        ensure!(
-            state.last_call_gas.is_some(),
-            "`lastCallGas` is only available after a call"
-        );
-        Ok(state
-            .last_call_gas
-            .as_ref()
-            // This should never happen, as we ensure `last_call_gas` is `Some` above.
-            .expect("`lastCallGas` is only available after a call")
-            .abi_encode())
+        let Some(last_call_gas) = &state.gas_metering.last_call_gas else {
+            bail!("no external call was made yet");
+        };
+        Ok(last_call_gas.abi_encode())
     }
 }
 
@@ -1564,6 +1601,355 @@ impl Cheatcode for readCallersCall {
     }
 }
 
+impl_is_pure_true!(snapshotValue_0Call);
+impl Cheatcode for snapshotValue_0Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { name, value } = self;
+        inner_value_snapshot(ccx, None, Some(name.clone()), value.to_string())
+    }
+}
+
+impl_is_pure_true!(snapshotValue_1Call);
+impl Cheatcode for snapshotValue_1Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { group, name, value } = self;
+        inner_value_snapshot(
+            ccx,
+            Some(group.clone()),
+            Some(name.clone()),
+            value.to_string(),
+        )
+    }
+}
+
+impl_is_pure_true!(snapshotGasLastCall_0Call);
+impl Cheatcode for snapshotGasLastCall_0Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { name } = self;
+        let Some(last_call_gas) = &ccx.state.gas_metering.last_call_gas else {
+            bail!("no external call was made yet");
+        };
+        inner_last_gas_snapshot(ccx, None, Some(name.clone()), last_call_gas.gasTotalUsed)
+    }
+}
+
+impl_is_pure_true!(snapshotGasLastCall_1Call);
+impl Cheatcode for snapshotGasLastCall_1Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { name, group } = self;
+        let Some(last_call_gas) = &ccx.state.gas_metering.last_call_gas else {
+            bail!("no external call was made yet");
+        };
+        inner_last_gas_snapshot(
+            ccx,
+            Some(group.clone()),
+            Some(name.clone()),
+            last_call_gas.gasTotalUsed,
+        )
+    }
+}
+
+impl_is_pure_true!(startSnapshotGas_0Call);
+impl Cheatcode for startSnapshotGas_0Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { name } = self;
+        inner_start_gas_snapshot(ccx, None, Some(name.clone()))
+    }
+}
+
+impl_is_pure_true!(startSnapshotGas_1Call);
+impl Cheatcode for startSnapshotGas_1Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { group, name } = self;
+        inner_start_gas_snapshot(ccx, Some(group.clone()), Some(name.clone()))
+    }
+}
+
+impl_is_pure_true!(stopSnapshotGas_0Call);
+impl Cheatcode for stopSnapshotGas_0Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {} = self;
+        inner_stop_gas_snapshot(ccx, None, None)
+    }
+}
+
+impl_is_pure_true!(stopSnapshotGas_1Call);
+impl Cheatcode for stopSnapshotGas_1Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { name } = self;
+        inner_stop_gas_snapshot(ccx, None, Some(name.clone()))
+    }
+}
+
+impl_is_pure_true!(stopSnapshotGas_2Call);
+impl Cheatcode for stopSnapshotGas_2Call {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { group, name } = self;
+        inner_stop_gas_snapshot(ccx, Some(group.clone()), Some(name.clone()))
+    }
+}
+
 // Deprecated in favor of `snapshotStateCall`
 impl_is_pure_true!(snapshotCall);
 impl Cheatcode for snapshotCall {
@@ -2224,6 +2610,280 @@ fn inner_delete_state_snapshots<
 ) -> Result {
     ccx.ecx.journaled_state.database.delete_state_snapshots();
     Ok(Vec::default())
+}
+
+fn inner_value_snapshot<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    group: Option<String>,
+    name: Option<String>,
+    value: String,
+) -> Result {
+    let (group, name) = derive_snapshot_name(ccx, group, name);
+
+    ccx.state
+        .gas_snapshots
+        .entry(group)
+        .or_default()
+        .insert(name, value);
+
+    Ok(Vec::default())
+}
+
+fn inner_last_gas_snapshot<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    group: Option<String>,
+    name: Option<String>,
+    value: u64,
+) -> Result {
+    let (group, name) = derive_snapshot_name(ccx, group, name);
+
+    ccx.state
+        .gas_snapshots
+        .entry(group)
+        .or_default()
+        .insert(name, value.to_string());
+
+    Ok(value.abi_encode())
+}
+
+fn inner_start_gas_snapshot<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    group: Option<String>,
+    name: Option<String>,
+) -> Result {
+    // Revert if there is an active gas snapshot as we can only have one active
+    // snapshot at a time.
+    if ccx.state.gas_metering.active_gas_snapshot.is_some() {
+        let (group, name) = ccx
+            .state
+            .gas_metering
+            .active_gas_snapshot
+            .as_ref()
+            .unwrap()
+            .clone();
+        bail!("gas snapshot was already started with group: {group} and name: {name}");
+    }
+
+    let (group, name) = derive_snapshot_name(ccx, group, name);
+
+    ccx.state.gas_metering.gas_records.push(GasRecord {
+        group: group.clone(),
+        name: name.clone(),
+        gas_used: 0,
+        depth: ccx.ecx.journaled_state.depth(),
+    });
+
+    ccx.state.gas_metering.active_gas_snapshot = Some((group, name));
+
+    ccx.state.gas_metering.start();
+
+    Ok(Vec::default())
+}
+
+fn inner_stop_gas_snapshot<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    group: Option<String>,
+    name: Option<String>,
+) -> Result {
+    // If group and name are not provided, use the last snapshot group and name.
+    let (group, name) = group.zip(name).unwrap_or_else(|| {
+        let (group, name) = ccx
+            .state
+            .gas_metering
+            .active_gas_snapshot
+            .as_ref()
+            .unwrap()
+            .clone();
+        (group, name)
+    });
+
+    if let Some(record) = ccx
+        .state
+        .gas_metering
+        .gas_records
+        .iter_mut()
+        .find(|record| record.group == group && record.name == name)
+    {
+        // Calculate the gas used since the snapshot was started.
+        // We subtract 171 from the gas used to account for gas used by the snapshot
+        // itself.
+        let value = record.gas_used.saturating_sub(171);
+
+        ccx.state
+            .gas_snapshots
+            .entry(group.clone())
+            .or_default()
+            .insert(name.clone(), value.to_string());
+
+        // Stop the gas metering.
+        ccx.state.gas_metering.stop();
+
+        // Remove the gas record.
+        ccx.state
+            .gas_metering
+            .gas_records
+            .retain(|record| !(record.group == group && record.name == name));
+
+        // Clear last snapshot cache if we have an exact match.
+        if let Some((snapshot_group, snapshot_name)) = &ccx.state.gas_metering.active_gas_snapshot {
+            if snapshot_group == &group && snapshot_name == &name {
+                ccx.state.gas_metering.active_gas_snapshot = None;
+            }
+        }
+
+        Ok(value.abi_encode())
+    } else {
+        bail!("no gas snapshot was started with the name: {name} in group: {group}");
+    }
+}
+
+// Derives the snapshot group and name from the provided group and name or the
+// running contract.
+fn derive_snapshot_name<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
+>(
+    ccx: &CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    group: Option<String>,
+    name: Option<String>,
+) -> (String, String) {
+    let group = group.unwrap_or_else(|| {
+        ccx.state
+            .config
+            .running_artifact
+            .clone()
+            .expect("expected running contract")
+            .name
+    });
+    let name = name.unwrap_or_else(|| "default".to_string());
+    (group, name)
 }
 
 /// Reads the current caller information and returns the current [`CallerMode`],

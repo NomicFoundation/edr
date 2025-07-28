@@ -285,6 +285,7 @@ async fn test_invariant_storage() {
                 depth: 100 + (50 * u32::from(cfg!(windows))),
                 ..TestInvariantConfig::default()
             },
+            TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
     let results = runner.test_collect(filter).await;
@@ -419,6 +420,7 @@ async fn check_shrink_sequence(test_pattern: &str, expected_len: usize) {
                 depth: 15,
                 ..TestInvariantConfig::default()
             },
+            TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
 
@@ -447,6 +449,7 @@ async fn test_shrink_big_sequence() {
                 depth: 1000,
                 ..TestInvariantConfig::default()
             },
+            TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
 
@@ -532,6 +535,7 @@ async fn test_shrink_fail_on_revert() {
                 fail_on_revert: true,
                 ..TestInvariantConfig::default()
             },
+            TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
 
@@ -792,6 +796,7 @@ async fn test_invariant_scrape_values() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[cfg(feature = "test-remote")]
 async fn test_invariant_roll_fork_handler() {
     let path_pattern = ".*fuzz/invariant/common/InvariantRollFork.t.sol";
 
@@ -803,6 +808,7 @@ async fn test_invariant_roll_fork_handler() {
                 depth: 4,
                 ..TestInvariantConfig::default()
             },
+            TEST_DATA_DEFAULT.config_with_remote_rpc(),
         )
         .await;
 
@@ -835,6 +841,7 @@ async fn test_invariant_roll_fork_handler() {
                 runs: 1,
                 ..TestInvariantConfig::default()
             },
+            TEST_DATA_DEFAULT.config_with_remote_rpc(),
         )
         .await;
 

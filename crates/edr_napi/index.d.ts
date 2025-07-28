@@ -125,6 +125,43 @@ export const MERGE: string
 export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
+/** Enumeration of supported OP hardforks. */
+export enum OpHardfork {
+  Bedrock = 100,
+  Regolith = 101,
+  Canyon = 102,
+  Ecotone = 103,
+  Fjord = 104,
+  Granite = 105,
+  Holocene = 106,
+  Isthmus = 107
+}
+/**
+ * Tries to parse the provided string to create an [`OpHardfork`]
+ * instance.
+ *
+ * Returns an error if the string does not match any known hardfork.
+ */
+export declare function opHardforkFromString(hardfork: string): OpHardfork
+/** Returns the string representation of the provided OP hardfork. */
+export declare function opHardforkToString(hardfork: OpHardfork): string
+/**
+ * Returns the latest supported OP hardfork.
+ *
+ * The returned value will be updated after each network upgrade.
+ */
+export declare function opLatestHardfork(): OpHardfork
+export const OP_CHAIN_TYPE: string
+export declare function opGenesisState(hardfork: OpHardfork): Array<AccountOverride>
+export declare function opProviderFactory(): ProviderFactory
+export const BEDROCK: string
+export const REGOLITH: string
+export const CANYON: string
+export const ECOTONE: string
+export const FJORD: string
+export const GRANITE: string
+export const HOLOCENE: string
+export const ISTHMUS: string
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
   /** The chain ID */
@@ -520,6 +557,11 @@ export interface SolidityTestRunnerConfigArgs {
    */
   ffi?: boolean
   /**
+   * Allow expecting reverts with `expectRevert` at the same callstack depth
+   * as the test. Defaults to false.
+   */
+  allowInternalExpectRevert?: boolean
+  /**
    * The value of `msg.sender` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
    */
@@ -798,6 +840,21 @@ export enum IncludeTraces {
   All = 2
 }
 export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
+export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory
+/** A grouping of value snapshot entries for a test. */
+export interface ValueSnapshotGroup {
+  /** The group name. */
+  name: string
+  /** The entries in the group. */
+  entries: Array<ValueSnapshotEntry>
+}
+/** An entry in a value snapshot group. */
+export interface ValueSnapshotEntry {
+  /** The name of the entry. */
+  name: string
+  /** The value of the entry. */
+  value: string
+}
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -1300,7 +1357,7 @@ export declare class SuiteResult {
    */
   readonly id: ArtifactId
   /** See [edr_solidity_tests::result::SuiteResult::duration] */
-  readonly durationMs: bigint
+  readonly durationNs: bigint
   /** See [edr_solidity_tests::result::SuiteResult::test_results] */
   readonly testResults: Array<TestResult>
   /** See [edr_solidity_tests::result::SuiteResult::warnings] */
@@ -1321,7 +1378,14 @@ export declare class TestResult {
   /** See [edr_solidity_tests::result::TestResult::kind] */
   readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
   /** See [edr_solidity_tests::result::TestResult::duration] */
-  readonly durationMs: bigint
+  readonly durationNs: bigint
+  /**
+   * Groups of value snapshot entries (incl. gas).
+   *
+   * Only present if the test runner collected scoped snapshots. Currently,
+   * this is always the case.
+   */
+  readonly valueSnapshotGroups?: Array<ValueSnapshotGroup>
   /**
    * Compute the error stack trace.
    * The result is either the stack trace or the reason why we couldn't
