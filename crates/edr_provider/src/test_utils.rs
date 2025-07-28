@@ -217,7 +217,7 @@ where
         runtime: tokio::runtime::Runtime,
         mut config: ProviderConfig<ChainSpecT::Hardfork>,
     ) -> anyhow::Result<Self> {
-        let logger = Box::<NoopLogger<ChainSpecT>>::default();
+        let logger = Box::<NoopLogger<ChainSpecT, CurrentTime>>::default();
         let subscription_callback_noop = Box::new(|_| ());
 
         let impersonated_account = Address::random();

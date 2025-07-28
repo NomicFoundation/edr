@@ -3,11 +3,11 @@ mod l1;
 use std::fmt::Debug;
 
 use edr_eth::{
-    block::{self, HeaderOverrides, PartialHeader},
-    spec::ChainSpec,
+    block::{self, BlobGas, HeaderOverrides, PartialHeader},
+    spec::{ChainHardfork, ChainSpec},
     transaction::TransactionValidation,
     withdrawal::Withdrawal,
-    Address, HashMap,
+    Address, Bytes, HashMap, B256,
 };
 use revm::{precompile::PrecompileFn, Inspector};
 
@@ -43,7 +43,11 @@ pub enum BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT> {
 
 /// Helper type for a chain-specific [`BlockBuilderCreationError`].
 pub type BlockBuilderCreationErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
-    BlockBuilderCreationError<BlockchainErrorT, <ChainSpecT as ChainSpec>::Hardfork, StateErrorT>;
+    BlockBuilderCreationError<
+        BlockchainErrorT,
+        <ChainSpecT as ChainHardfork>::Hardfork,
+        StateErrorT,
+    >;
 
 impl<BlockchainErrorT, HardforkT: Debug, StateErrorT>
     From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
@@ -106,6 +110,46 @@ pub enum BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidat
     Transaction(
         #[from] TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
     ),
+}
+
+/// Options for creating a genesis block.
+#[derive(Default)]
+pub struct GenesisBlockOptions {
+    /// The block's extra data
+    pub extra_data: Option<Bytes>,
+    /// The block's gas limit
+    pub gas_limit: Option<u64>,
+    /// The block's timestamp
+    pub timestamp: Option<u64>,
+    /// The block's mix hash (or prevrandao for post-merge blockchains)
+    pub mix_hash: Option<B256>,
+    /// The block's base gas fee
+    pub base_fee: Option<u128>,
+    /// The block's blob gas (for post-Cancun blockchains)
+    pub blob_gas: Option<BlobGas>,
+}
+
+impl From<GenesisBlockOptions> for HeaderOverrides {
+    fn from(value: GenesisBlockOptions) -> Self {
+        let GenesisBlockOptions {
+            extra_data,
+            gas_limit,
+            timestamp,
+            mix_hash,
+            base_fee,
+            blob_gas,
+        } = value;
+
+        Self {
+            extra_data,
+            gas_limit,
+            timestamp,
+            mix_hash,
+            base_fee,
+            blob_gas,
+            ..HeaderOverrides::default()
+        }
+    }
 }
 
 /// A trait for building blocks.

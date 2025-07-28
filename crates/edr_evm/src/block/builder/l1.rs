@@ -24,7 +24,10 @@ use crate::{
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     runtime::{dry_run, dry_run_with_inspector},
     spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
-    state::{AccountModifierFn, DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
+    state::{
+        AccountModifierFn, DatabaseComponents, StateCommit as _, StateDebug as _, StateDiff,
+        SyncState, WrapDatabaseRef,
+    },
     transaction::TransactionError,
     Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
 };

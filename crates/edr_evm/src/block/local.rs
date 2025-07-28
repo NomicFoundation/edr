@@ -1,14 +1,18 @@
 use core::fmt::Debug;
-use std::{marker::PhantomData, sync::Arc};
+use std::{
+    marker::PhantomData,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_eth::{
-    block::{self, Header, PartialHeader},
+    block::{self, Header, HeaderOverrides, PartialHeader},
     l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     receipt::{MapReceiptLogs, ReceiptTrait, TransactionReceipt},
-    spec::ChainSpec,
+    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
@@ -25,16 +29,25 @@ use crate::{
         ExecutionReceiptTypeConstructorBounds, ExecutionReceiptTypeConstructorForChainSpec,
         RuntimeSpec,
     },
+    state::{StateCommit as _, StateDebug as _, StateDiff, TrieState},
     transaction::DetailedTransaction,
-    Block,
+    Block, GenesisBlockOptions,
 };
+
+/// An error that occurs upon creation of an [`EthLocalBlock`].
+#[derive(Debug, thiserror::Error)]
+pub enum CreationError {
+    /// Missing prevrandao for post-merge blockchain
+    #[error("Missing prevrandao for post-merge blockchain")]
+    MissingPrevrandao,
+}
 
 /// Helper type for a local Ethereum block for a given chain spec.
 pub type EthLocalBlockForChainSpec<ChainSpecT> = EthLocalBlock<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
     <ChainSpecT as RuntimeSpec>::BlockReceipt,
     ExecutionReceiptTypeConstructorForChainSpec<ChainSpecT>,
-    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as ChainHardfork>::Hardfork,
     <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
@@ -68,8 +81,8 @@ pub struct EthLocalBlock<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
-        HardforkT: Clone,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+        HardforkT: Clone,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction,
     >
@@ -181,6 +194,75 @@ impl<
 
 impl<
         BlockConversionErrorT,
+        BlockReceiptT: ReceiptTrait,
+        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+        HardforkT: Clone + Into<l1::SpecId>,
+        ReceiptConversionErrorT,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    >
+    EthLocalBlock<
+        BlockConversionErrorT,
+        BlockReceiptT,
+        ExecutionReceiptTypeConstructorT,
+        HardforkT,
+        ReceiptConversionErrorT,
+        SignedTransactionT,
+    >
+{
+    /// Constructs a block with the provided genesis state and options.
+    pub fn with_genesis_state<HeaderConstantsT: EthHeaderConstants<Hardfork = HardforkT>>(
+        genesis_diff: StateDiff,
+        hardfork: HardforkT,
+        options: GenesisBlockOptions,
+    ) -> Result<Self, CreationError> {
+        let mut genesis_state = TrieState::default();
+        genesis_state.commit(genesis_diff.clone().into());
+
+        let evm_spec_id = hardfork.clone().into();
+        if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
+            return Err(CreationError::MissingPrevrandao);
+        }
+
+        let mut options = HeaderOverrides::from(options);
+        options.state_root = Some(
+            genesis_state
+                .state_root()
+                .expect("TrieState is guaranteed to successfully compute the state root"),
+        );
+
+        if options.timestamp.is_none() {
+            options.timestamp = Some(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Current time must be after unix epoch")
+                    .as_secs(),
+            );
+        }
+
+        // No ommers in the genesis block
+        let ommers = Vec::new();
+
+        let withdrawals = if evm_spec_id >= l1::SpecId::SHANGHAI {
+            // Empty withdrawals for genesis block
+            Some(Vec::new())
+        } else {
+            None
+        };
+
+        let partial_header = PartialHeader::new::<HeaderConstantsT>(
+            hardfork.clone(),
+            options,
+            None,
+            &ommers,
+            withdrawals.as_ref(),
+        );
+
+        Ok(Self::empty(hardfork, partial_header))
+    }
+}
+
+impl<
+        BlockConversionErrorT,
         BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
         HardforkT,
@@ -259,7 +341,7 @@ impl<
         ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
         HardforkT: Into<l1::SpecId>,
         ReceiptConversionErrorT,
-        SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
+        SignedTransactionT: Debug + ExecutableTransaction,
     > EmptyBlock<HardforkT>
     for EthLocalBlock<
         BlockConversionErrorT,

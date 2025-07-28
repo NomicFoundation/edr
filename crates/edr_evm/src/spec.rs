@@ -7,8 +7,8 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ResultAndState,
-    spec::{ChainSpec, EthHeaderConstants},
-    B256,
+    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
+    Bytes, B256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
@@ -18,7 +18,7 @@ use revm_handler::{instructions::EthInstructions, PrecompileProvider};
 use revm_interpreter::{interpreter::EthInterpreter, InterpreterResult};
 
 use crate::{
-    block::transaction::TransactionAndBlockForChainSpec,
+    block::{transaction::TransactionAndBlockForChainSpec, LocalCreationError},
     config::CfgEnv,
     evm::Evm,
     hardfork::{self, Activations},
@@ -26,21 +26,24 @@ use crate::{
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
     result::EVMErrorForChain,
-    state::{Database, DatabaseComponentError},
+    state::{Database, DatabaseComponentError, StateDiff},
     transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError,
         TransactionErrorForChainSpec, TransactionType, TransactionValidation,
     },
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
-    EthBlockReceiptFactory, EthLocalBlock, EthRpcBlock, LocalBlock, RemoteBlock,
-    RemoteBlockConversionError, SyncBlock,
+    EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, EthRpcBlock,
+    GenesisBlockOptions, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
+
+/// Ethereum L1 extra data for genesis blocks.
+pub const EXTRA_DATA: &[u8] = b"\x12\x34";
 
 /// Helper type for a chain-specific [`revm::Context`].
 pub type ContextForChainSpec<ChainSpecT, DatabaseT> = revm::Context<
     <ChainSpecT as ChainSpec>::BlockEnv,
     <ChainSpecT as ChainSpec>::SignedTransaction,
-    CfgEnv<<ChainSpecT as ChainSpec>::Hardfork>,
+    CfgEnv<<ChainSpecT as ChainHardfork>::Hardfork>,
     DatabaseT,
     Journal<DatabaseT>,
     <ChainSpecT as ChainSpec>::Context,
@@ -89,6 +92,59 @@ impl<TypeConstructorT> ExecutionReceiptTypeConstructorBounds for TypeConstructor
 {
 }
 
+/// Trait for constructing a chain-specific genesis block.
+pub trait GenesisBlockFactory: ChainHardfork {
+    /// The error type for genesis block creation.
+    type CreationError: std::error::Error;
+
+    /// The local block type.
+    type LocalBlock;
+
+    /// Constructs a genesis block for the given chain spec.
+    fn genesis_block(
+        genesis_diff: StateDiff,
+        hardfork: Self::Hardfork,
+        options: GenesisBlockOptions,
+    ) -> Result<Self::LocalBlock, Self::CreationError>;
+}
+
+/// A supertrait for [`GenesisBlockFactory`] that is safe to send between
+/// threads.
+pub trait SyncGenesisBlockFactory:
+    GenesisBlockFactory<CreationError: Send + Sync> + Sync + Send
+{
+}
+
+impl<FactoryT> SyncGenesisBlockFactory for FactoryT where
+    FactoryT: GenesisBlockFactory<CreationError: Send + Sync> + Sync + Send
+{
+}
+
+impl GenesisBlockFactory for L1ChainSpec {
+    type CreationError = LocalCreationError;
+
+    type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
+
+    fn genesis_block(
+        genesis_diff: StateDiff,
+        hardfork: Self::Hardfork,
+        mut options: GenesisBlockOptions,
+    ) -> Result<Self::LocalBlock, Self::CreationError> {
+        // If no option is provided, use the default extra data for L1 Ethereum.
+        options.extra_data = Some(
+            options
+                .extra_data
+                .unwrap_or(Bytes::copy_from_slice(EXTRA_DATA)),
+        );
+
+        EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
+            genesis_diff,
+            hardfork,
+            options,
+        )
+    }
+}
+
 /// A trait for defining a chain's associated types.
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
 #[allow(clippy::trait_duplication_in_bounds)]
@@ -96,9 +152,9 @@ pub trait RuntimeSpec:
     alloy_rlp::Encodable
     // Defines the chain's internal types like blocks/headers or transactions
     + EthHeaderConstants
+    + ChainHardfork<Hardfork: Debug>
     + ChainSpec<
         BlockEnv: BlockEnvConstructor<block::Header> + BlockEnvConstructor<PartialHeader> + Default,
-        Hardfork: Debug,
         SignedTransaction: alloy_rlp::Encodable
           + Clone
           + Debug

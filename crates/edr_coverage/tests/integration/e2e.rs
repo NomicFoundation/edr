@@ -10,10 +10,12 @@ use edr_eth::{
     Address, Bytes, HashMap, HashSet, B256, U256,
 };
 use edr_evm::{
-    blockchain::{Blockchain, GenesisBlockOptions, LocalBlockchain},
+    blockchain::{Blockchain, LocalBlockchain},
     config::CfgEnv,
     runtime::{dry_run_with_inspector, run},
+    spec::GenesisBlockFactory as _,
     state::{AccountModifierFn, StateDiff, StateError, SyncState},
+    GenesisBlockOptions,
 };
 use edr_test_utils::secret_key::secret_key_from_str;
 
@@ -130,14 +132,21 @@ fn call_inc_by(
 
 #[test]
 fn record_hits() -> anyhow::Result<()> {
-    let blockchain = LocalBlockchain::<L1ChainSpec>::new(
-        StateDiff::default(),
-        CHAIN_ID,
+    let genesis_diff = StateDiff::default();
+    let genesis_block = L1ChainSpec::genesis_block(
+        genesis_diff.clone(),
         l1::SpecId::CANCUN,
         GenesisBlockOptions {
             mix_hash: Some(B256::random()),
             ..GenesisBlockOptions::default()
         },
+    )?;
+
+    let blockchain = LocalBlockchain::<L1ChainSpec>::new(
+        genesis_block,
+        genesis_diff,
+        CHAIN_ID,
+        l1::SpecId::CANCUN,
     )?;
 
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
