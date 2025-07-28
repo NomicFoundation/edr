@@ -1,5 +1,5 @@
 //! Forge tests for cheatcodes.
-use foundry_cheatcodes::{FsPermissions, PathPermission, RpcEndpoint, RpcEndpoints};
+use foundry_cheatcodes::{FsPermissions, PathPermission};
 
 use crate::helpers::{
     L1ForgeTestData, SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_CANCUN,
