@@ -11,16 +11,23 @@ use edr_eth::{
     block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs},
     U64,
 };
-use futures::{future, TryFutureExt};
-use hyper::header::HeaderValue;
+use futures::{future, Future, TryFutureExt};
 pub use hyper::{header, HeaderMap};
+use hyper::{
+    header::HeaderValue,
+    rt::{Executor, Timer},
+};
+use hyper_util::rt::TokioTimer;
 use reqwest::Client as HttpClient;
 use reqwest_middleware::{ClientBuilder as HttpClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 #[cfg(feature = "tracing")]
 use reqwest_tracing::TracingMiddleware;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use tokio::sync::{OnceCell, RwLock};
+use tokio::{
+    runtime,
+    sync::{OnceCell, RwLock},
+};
 use uuid::Uuid;
 
 use crate::{
@@ -162,6 +169,7 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
         url: &str,
         cache_dir: PathBuf,
         extra_headers: Option<HeaderMap>,
+        runtime_handle: runtime::Handle,
     ) -> Result<Self, RpcClientError> {
         let retry_policy = ExponentialBackoff::builder()
             .retry_bounds(MIN_RETRY_INTERVAL, MAX_RETRY_INTERVAL)
@@ -179,8 +187,12 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
                 .expect("Version string is valid header value"),
         );
 
+        let runtime_handle = TokioHandle::new(runtime_handle);
+
         let client = HttpClient::builder()
             .default_headers(headers)
+            .executor(runtime_handle.clone())
+            .timer(runtime_handle)
             .build()
             .expect("Default construction nor setting default headers can cause an error");
 
@@ -667,6 +679,46 @@ impl SerializedRequest {
     }
 }
 
+#[derive(Debug, Clone)]
+struct TokioHandle {
+    runtime: runtime::Handle,
+    timer: TokioTimer,
+}
+
+impl TokioHandle {
+    fn new(runtime: runtime::Handle) -> Self {
+        Self {
+            runtime,
+            timer: TokioTimer::new(),
+        }
+    }
+}
+
+impl<F> Executor<F> for TokioHandle
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    fn execute(&self, fut: F) {
+        self.runtime.spawn(fut);
+    }
+}
+
+impl Timer for TokioHandle {
+    fn sleep(&self, duration: Duration) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
+        let _guard = self.runtime.enter();
+        self.timer.sleep(duration)
+    }
+
+    fn sleep_until(
+        &self,
+        deadline: std::time::Instant,
+    ) -> std::pin::Pin<Box<dyn hyper::rt::Sleep>> {
+        let _guard = self.runtime.enter();
+        self.timer.sleep_until(deadline)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use edr_eth::PreEip1898BlockSpec;
@@ -867,7 +919,13 @@ mod tests {
             fn new(url: &str) -> Self {
                 let tempdir = TempDir::new().unwrap();
                 Self {
-                    client: RpcClient::new(url, tempdir.path().into(), None).expect("url ok"),
+                    client: RpcClient::new(
+                        url,
+                        tempdir.path().into(),
+                        None,
+                        runtime::Handle::current(),
+                    )
+                    .expect("url ok"),
                     cache_dir: tempdir,
                 }
             }
