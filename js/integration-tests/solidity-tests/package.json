@@ -1,8 +1,6 @@
 {
   "name": "solidity-tests",
-  "description": "",
   "version": "1.0.0",
-  "author": "",
   "devDependencies": {
     "@nomicfoundation/edr": "workspace:*",
     "@nomicfoundation/edr-helpers": "workspace:*",

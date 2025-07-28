@@ -94,12 +94,12 @@ export async function runSolidityTests(
     throw new Error(`Didn't run any tests for ${repoPath}`);
   }
 
-  results.sort((a, b) => Number(a.durationMs - b.durationMs));
+  results.sort((a, b) => Number(a.durationNs - b.durationNs));
   for (const result of results) {
-    console.log(result.id.name, result.durationMs, result.id.source);
+    console.log(result.id.name, result.durationNs / 1000000n, result.id.source);
     for (const test of result.testResults) {
       // @ts-ignore
-      console.log("  ", test.name, test.durationMs, test.kind.runs);
+      console.log("  ", test.name, test.durationNs / 1000000n, test.kind.runs);
     }
   }
 

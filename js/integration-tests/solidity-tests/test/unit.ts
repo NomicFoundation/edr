@@ -279,4 +279,113 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
     assert.equal(failedTests, 0);
   });
+
+  it("Gas snapshot cheatcodes", async function () {
+    const { totalTests, failedTests, suiteResults } =
+      await testContext.runTestsWithStats("GasSnapshotTest", {}, L1_CHAIN_TYPE);
+
+    assert.equal(totalTests, 12);
+    assert.equal(failedTests, 0);
+
+    let snapshots = new Map<string, Map<string, string>>();
+
+    for (const suiteResult of suiteResults) {
+      for (const testResult of suiteResult.testResults) {
+        assert.notEqual(testResult.valueSnapshotGroups, undefined);
+
+        const snapshotGroups = testResult.valueSnapshotGroups!;
+
+        assert(
+          snapshotGroups.length > 0,
+          "All gas snapshot tests should have at least one scoped snapshot"
+        );
+
+        // Collect all snapshots from the groups
+        for (const group of snapshotGroups) {
+          let snapshot = snapshots.get(group.name);
+          if (snapshot === undefined) {
+            snapshot = new Map<string, string>();
+            snapshots.set(group.name, snapshot);
+          }
+
+          for (const entry of group.entries) {
+            snapshot.set(entry.name, entry.value);
+          }
+        }
+      }
+    }
+
+    assert.deepEqual(
+      snapshots,
+      new Map([
+        [
+          "CustomGroup",
+          new Map([
+            ["e", "456"],
+            ["i", "456"],
+            ["o", "123"],
+            ["q", "789"],
+            ["testSnapshotGasLastCallGroupName", "45084"],
+            ["testSnapshotGasSection", "5857390"],
+            ["testSnapshotGasSectionGroupName", "5857820"],
+            ["x", "123"],
+            ["z", "789"],
+          ]),
+        ],
+        [
+          "GasSnapshotTest",
+          new Map([
+            ["a", "123"],
+            ["b", "456"],
+            ["c", "789"],
+            ["d", "123"],
+            ["e", "456"],
+            ["f", "789"],
+            ["testAssertGasExternal", "50265"],
+            ["testAssertGasInternalA", "22052"],
+            ["testAssertGasInternalB", "1021"],
+            ["testAssertGasInternalC", "1020"],
+            ["testAssertGasInternalD", "20921"],
+            ["testAssertGasInternalE", "1021"],
+            ["testSnapshotGasLastCallName", "45084"],
+            ["testSnapshotGasSection", "5857390"],
+            ["testSnapshotGasSectionName", "5857630"],
+          ]),
+        ],
+      ])
+    );
+  });
+
+  describe("InternalExpectRevert", async function () {
+    it("allowInternalExpectRevert is true", async function () {
+      const { totalTests, failedTests } = await testContext.runTestsWithStats(
+        "InternalExpectRevertTest",
+        {
+          allowInternalExpectRevert: true,
+        },
+        L1_CHAIN_TYPE
+      );
+
+      assert.equal(totalTests, 1);
+      assert.equal(failedTests, 0);
+    });
+
+    it("allowInternalExpectRevert default", async function () {
+      const { totalTests, failedTests, stackTraces } =
+        await testContext.runTestsWithStats(
+          "InternalExpectRevertTest",
+          undefined,
+          L1_CHAIN_TYPE
+        );
+
+      assert.equal(totalTests, 1);
+      assert.equal(failedTests, 1);
+
+      const stackTrace = stackTraces.get("testInternalExpectRevert()");
+      assert.equal(
+        stackTrace?.reason,
+        "call didn't revert at a lower depth than cheatcode call depth"
+      );
+    });
+  });
 });

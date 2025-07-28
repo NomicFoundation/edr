@@ -2,7 +2,9 @@
 
 use alloy_dyn_abi::{DynSolValue, EventExt};
 use alloy_json_abi::Event;
-use alloy_primitives::{address, Address, U256};
+#[cfg(feature = "test-remote")]
+use alloy_primitives::address;
+use alloy_primitives::{Address, U256};
 use edr_eth::{
     l1::{self, BlockEnv},
     spec::HaltReasonTrait,
@@ -24,6 +26,26 @@ use crate::helpers::{
     ForgeTestData, L1ForgeTestData, SolidityTestFilter, TestConfig, TEST_DATA_DEFAULT,
 };
 
+macro_rules! remote_test_repro {
+    ($issue_number:literal $(,)?) => {
+         paste::paste! {
+            #[tokio::test(flavor = "multi_thread")]
+            #[cfg(feature = "test-remote")]
+            async fn [< issue_ $issue_number >]() {
+                repro_config($issue_number,  false, None,  &*TEST_DATA_DEFAULT, true).await.run().await;
+            }
+        }
+    };
+    ($issue_number:literal, $should_fail:expr, $sender:expr $(,)?) => {
+        paste::paste! {
+            #[tokio::test(flavor = "multi_thread")]
+            #[cfg(feature = "test-remote")]
+            async fn [< issue_ $issue_number >]() {
+                repro_config($issue_number, $should_fail, $sender.into(), &*TEST_DATA_DEFAULT, true).await.run().await;
+            }
+        }
+    };
+}
 /// Creates a test that runs `testdata/repros/Issue{issue}.t.sol`.
 macro_rules! test_repro {
     ($issue_number:literal $(,)?) => {
@@ -36,7 +58,7 @@ macro_rules! test_repro {
         paste::paste! {
             #[tokio::test(flavor = "multi_thread")]
             async fn [< issue_ $issue_number >]() {
-                repro_config($issue_number, $should_fail, $sender.into(), &*TEST_DATA_DEFAULT).await.run().await;
+                repro_config($issue_number, $should_fail, $sender.into(), &*TEST_DATA_DEFAULT, false).await.run().await;
             }
         }
     };
@@ -44,7 +66,7 @@ macro_rules! test_repro {
         paste::paste! {
             #[tokio::test(flavor = "multi_thread")]
             async fn [< issue_ $issue_number >]() {
-                let mut $res = repro_config($issue_number, $should_fail, $sender.into(), &*TEST_DATA_DEFAULT).await.test().await;
+                let mut $res = repro_config($issue_number, $should_fail, $sender.into(), &*TEST_DATA_DEFAULT, false).await.test().await;
                 $e
             }
         }
@@ -53,7 +75,7 @@ macro_rules! test_repro {
         paste::paste! {
             #[tokio::test(flavor = "multi_thread")]
             async fn [< issue_ $issue_number >]() {
-                let mut $runner_config = runner_config(None, &*TEST_DATA_DEFAULT).await;
+                let mut $runner_config = runner_config(None, &*TEST_DATA_DEFAULT, false).await;
                 $e
                 let filter = repro_filter($issue_number);
                 let runner = TEST_DATA_DEFAULT.runner_with_config($runner_config).await;
@@ -83,8 +105,13 @@ async fn runner_config<
         TransactionErrorT,
         TransactionT,
     >,
+    rpc_config: bool,
 ) -> SolidityTestRunnerConfig<HardforkT> {
-    let mut config = test_data.base_runner_config();
+    let mut config = if rpc_config {
+        test_data.config_with_remote_rpc()
+    } else {
+        test_data.config_with_mock_rpc()
+    };
 
     config.cheats_config_options.fs_permissions = FsPermissions::new(vec![
         PathPermission::read("./fixtures"),
@@ -108,28 +135,29 @@ async fn repro_config(
     should_fail: bool,
     sender: Option<Address>,
     test_data: &L1ForgeTestData,
+    rpc_config: bool,
 ) -> TestConfig<BlockEnv, (), L1EvmBuilder, l1::HaltReason, l1::SpecId, l1::InvalidTransaction, TxEnv>
 {
-    let config = runner_config(sender, test_data).await;
+    let config = runner_config(sender, test_data, rpc_config).await;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let filter = repro_filter(issue);
     TestConfig::with_filter(runner, filter).set_should_fail(should_fail)
 }
 
 // https://github.com/foundry-rs/foundry/issues/2623
-test_repro!(2623);
+remote_test_repro!(2623);
 
 // https://github.com/foundry-rs/foundry/issues/2629
-test_repro!(2629);
+remote_test_repro!(2629);
 
 // https://github.com/foundry-rs/foundry/issues/2723
-test_repro!(2723);
+remote_test_repro!(2723);
 
 // https://github.com/foundry-rs/foundry/issues/2898
 test_repro!(2898);
 
 // https://github.com/foundry-rs/foundry/issues/2956
-test_repro!(2956);
+remote_test_repro!(2956);
 
 // https://github.com/foundry-rs/foundry/issues/2984
 test_repro!(2984);
@@ -138,13 +166,13 @@ test_repro!(2984);
 test_repro!(3055, true);
 
 // https://github.com/foundry-rs/foundry/issues/3077
-test_repro!(3077);
+remote_test_repro!(3077);
 
 // https://github.com/foundry-rs/foundry/issues/3110
-test_repro!(3110);
+remote_test_repro!(3110);
 
 // https://github.com/foundry-rs/foundry/issues/3119
-test_repro!(3119);
+remote_test_repro!(3119);
 
 // https://github.com/foundry-rs/foundry/issues/3189
 test_repro!(3189, true);
@@ -153,16 +181,16 @@ test_repro!(3189, true);
 test_repro!(3190);
 
 // https://github.com/foundry-rs/foundry/issues/3192
-test_repro!(3192);
+remote_test_repro!(3192);
 
 // https://github.com/foundry-rs/foundry/issues/3220
-test_repro!(3220);
+remote_test_repro!(3220);
 
 // https://github.com/foundry-rs/foundry/issues/3221
-test_repro!(3221);
+remote_test_repro!(3221);
 
 // https://github.com/foundry-rs/foundry/issues/3223
-test_repro!(
+remote_test_repro!(
     3223,
     false,
     address!("F0959944122fb1ed4CfaBA645eA06EED30427BAA")
@@ -195,23 +223,23 @@ test_repro!(3347, false, None, |res| {
 test_repro!(3596, true, None);
 
 // https://github.com/foundry-rs/foundry/issues/3653
-test_repro!(3653);
+remote_test_repro!(3653);
 
 // https://github.com/foundry-rs/foundry/issues/3661
 test_repro!(3661);
 
 // https://github.com/foundry-rs/foundry/issues/3674
-test_repro!(
+remote_test_repro!(
     3674,
     false,
-    address!("F0959944122fb1ed4CfaBA645eA06EED30427BAA")
+    address!("F0959944122fb1ed4CfaBA645eA06EED30427BAA"),
 );
 
 // https://github.com/foundry-rs/foundry/issues/3685
 test_repro!(3685);
 
 // https://github.com/foundry-rs/foundry/issues/3703
-test_repro!(3703);
+remote_test_repro!(3703);
 
 // https://github.com/foundry-rs/foundry/issues/3708
 test_repro!(3708);
@@ -230,13 +258,13 @@ test_repro!(3792);
 test_repro!(4402);
 
 // https://github.com/foundry-rs/foundry/issues/4586
-test_repro!(4586);
+remote_test_repro!(4586);
 
 // https://github.com/foundry-rs/foundry/issues/4630
 test_repro!(4630);
 
 // https://github.com/foundry-rs/foundry/issues/4640
-test_repro!(4640);
+remote_test_repro!(4640);
 
 // https://github.com/foundry-rs/foundry/issues/4832
 // 1.0 related
@@ -246,16 +274,16 @@ test_repro!(4640);
 test_repro!(5038);
 
 // https://github.com/foundry-rs/foundry/issues/5739
-test_repro!(5739);
+remote_test_repro!(5739);
 
 // https://github.com/foundry-rs/foundry/issues/5808
 test_repro!(5808);
 
 // <https://github.com/foundry-rs/foundry/issues/5929>
-test_repro!(5929);
+remote_test_repro!(5929);
 
 // <https://github.com/foundry-rs/foundry/issues/5935>
-test_repro!(5935);
+remote_test_repro!(5935);
 
 // <https://github.com/foundry-rs/foundry/issues/5948>
 test_repro!(5948; |config| {
@@ -266,7 +294,7 @@ test_repro!(5948; |config| {
 test_repro!(6006);
 
 // https://github.com/foundry-rs/foundry/issues/6032
-test_repro!(6032);
+remote_test_repro!(6032);
 
 // https://github.com/foundry-rs/foundry/issues/6070
 test_repro!(6070);
@@ -355,7 +383,7 @@ test_repro!(6501, false, None, |res| {
 });
 
 // https://github.com/foundry-rs/foundry/issues/6538
-test_repro!(6538);
+remote_test_repro!(6538);
 
 // https://github.com/foundry-rs/foundry/issues/6554
 test_repro!(6554; |config| {
@@ -364,20 +392,20 @@ test_repro!(6554; |config| {
     config.cheats_config_options.fs_permissions.add(PathPermission::read_write(path));
 });
 
+// https://github.com/foundry-rs/foundry/issues/6616
+remote_test_repro!(6616);
+
 // https://github.com/foundry-rs/foundry/issues/6759
-test_repro!(6759);
+remote_test_repro!(6759);
 
 // https://github.com/foundry-rs/foundry/issues/6966
 test_repro!(6966);
-
-// https://github.com/foundry-rs/foundry/issues/6616
-test_repro!(6616);
 
 // https://github.com/foundry-rs/foundry/issues/7481
 test_repro!(7481);
 
 // https://github.com/foundry-rs/foundry/issues/8006
-test_repro!(8006);
+remote_test_repro!(8006);
 
 // https://github.com/foundry-rs/foundry/issues/8639
 test_repro!(8639; |config| {

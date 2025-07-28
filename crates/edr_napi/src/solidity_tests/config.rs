@@ -11,6 +11,7 @@ use edr_solidity_tests::{
 use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
 use napi::{
     bindgen_prelude::{BigInt, Uint8Array},
+    tokio::runtime,
     Either, Status,
 };
 use napi_derive::napi;
@@ -50,6 +51,9 @@ pub struct SolidityTestRunnerConfigArgs {
     /// tests to execute arbitrary programs on your computer.
     /// Defaults to false.
     pub ffi: Option<bool>,
+    /// Allow expecting reverts with `expectRevert` at the same callstack depth
+    /// as the test. Defaults to false.
+    pub allow_internal_expect_revert: Option<bool>,
     /// The value of `msg.sender` in tests as hex string.
     /// Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
     #[debug("{:?}", sender.as_ref().map(hex::encode))]
@@ -157,6 +161,7 @@ impl SolidityTestRunnerConfigArgs {
     pub fn resolve(
         self,
         env: &napi::Env,
+        runtime: runtime::Handle,
     ) -> napi::Result<edr_napi_core::solidity::config::TestRunnerConfig> {
         let SolidityTestRunnerConfigArgs {
             project_root,
@@ -165,6 +170,7 @@ impl SolidityTestRunnerConfigArgs {
             labels,
             isolate,
             ffi,
+            allow_internal_expect_revert,
             sender,
             tx_origin,
             initial_balance,
@@ -252,13 +258,14 @@ impl SolidityTestRunnerConfigArgs {
                 .into_iter()
                 .map(|AddressLabel { address, label }| Ok((address.try_cast()?, label)))
                 .collect::<Result<_, napi::Error>>()?,
+            allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
         };
 
         let on_collected_coverage_fn = observability.map_or_else(
             || Ok(None),
             |observability| {
                 observability
-                    .resolve(env)
+                    .resolve(env, runtime)
                     .map(|config| config.on_collected_coverage_fn)
             },
         )?;

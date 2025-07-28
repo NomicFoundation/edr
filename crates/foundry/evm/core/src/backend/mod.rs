@@ -2441,6 +2441,7 @@ fn is_known_system_sender(sender: Address) -> bool {
 }
 
 #[cfg(test)]
+#[cfg(feature = "test-remote")]
 mod tests {
     use std::collections::BTreeSet;
 
