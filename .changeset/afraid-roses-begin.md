@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Imrpoved parallelism in test suite execution for better error reporting and improved performance
+Improved parallelism in test suite execution for better error reporting and improved performance
