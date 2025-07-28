@@ -13,10 +13,10 @@ import {
 } from "@nomicfoundation/edr/solidity-tests";
 
 describe("Gas tests", () => {
-  let testResults: Array<{
+  let testResults: {
     name: string;
     kind: StandardTestKind | FuzzTestKind | InvariantTestKind;
-  }> = [
+  }[] = [
     {
       name: "Standard Test",
       kind: {

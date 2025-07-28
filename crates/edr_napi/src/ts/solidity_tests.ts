@@ -10,29 +10,21 @@ export interface GasUsageFilter {
   maxThreshold?: bigint;
 }
 
-function isStandardTestKind(object: any): object is StandardTestKind {
-  return "consumedGas" in object;
-}
-
-function isFuzzTestKind(object: any): object is FuzzTestKind {
-  return "runs" in object && "meanGas" in object && "medianGas" in object;
-}
-
 export function extractGasUsage(
-  testResults: Array<{
+  testResults: {
     name: string;
     kind: StandardTestKind | FuzzTestKind | InvariantTestKind;
-  }>,
+  }[],
   filter?: GasUsageFilter,
   ordering?: SortOrder
-): Array<{ name: string; gas: bigint }> {
-  const gasUsage: Array<{ name: string; gas: bigint }> = [];
+): { name: string; gas: bigint }[] {
+  const gasUsage: { name: string; gas: bigint }[] = [];
 
   for (const result of testResults) {
     // Default to zero gas for invariant tests
-    const gas = isStandardTestKind(result.kind)
+    const gas = "consumedGas" in result.kind
       ? result.kind.consumedGas
-      : isFuzzTestKind(result.kind)
+      : "medianGas" in result.kind
         ? result.kind.medianGas
         : BigInt(0);
 

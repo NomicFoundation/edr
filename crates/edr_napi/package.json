@@ -72,8 +72,8 @@
     "prepublishOnly": "bash ../../scripts/prepublish.sh",
     "pretest": "pnpm build:dev",
     "prettier": "prettier --check \"test/**.ts\"",
-    "test": "tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
-    "testNoBuild": "tsc && node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(op|mock)}.ts\"",
+    "test": "node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
+    "testNoBuild": "node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(op|mock)}.ts\"",
     "universal": "napi universal",
     "version": "napi version"
   },

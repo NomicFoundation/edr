@@ -7,10 +7,6 @@
     "noEmitOnError": true,
     "skipDefaultLibCheck": true,
     "outDir": "./dist",
-    "rootDirs": [
-      "./test",
-      "./src/ts"
-    ],
     "composite": true
   },
   "include": [
