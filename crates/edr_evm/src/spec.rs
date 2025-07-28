@@ -18,8 +18,7 @@ use revm_handler::{instructions::EthInstructions, PrecompileProvider};
 use revm_interpreter::{interpreter::EthInterpreter, InterpreterResult};
 
 use crate::{
-    block::transaction::TransactionAndBlockForChainSpec,
-    blockchain::LocalCreationError,
+    block::{transaction::TransactionAndBlockForChainSpec, LocalCreationError},
     config::CfgEnv,
     evm::Evm,
     hardfork::{self, Activations},

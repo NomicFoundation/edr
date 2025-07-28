@@ -22,7 +22,7 @@ pub use self::{
         BlockInputs, BlockTransactionError, BlockTransactionErrorForChainSpec, EthBlockBuilder,
         EthBlockReceiptFactory, GenesisBlockOptions,
     },
-    local::{EthLocalBlock, EthLocalBlockForChainSpec},
+    local::{CreationError as LocalCreationError, EthLocalBlock, EthLocalBlockForChainSpec},
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
 };
 use crate::spec::RuntimeSpec;

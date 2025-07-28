@@ -5,29 +5,31 @@ use edr_eth::{
     Bytecode,
 };
 use edr_evm::{
-    blockchain::{Blockchain, LocalBlockchain, LocalCreationError},
+    blockchain::{Blockchain, LocalBlockchain},
     eips::eip2935::{
         add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
         HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
     },
+    spec::GenesisBlockFactory as _,
     state::StateDiff,
     GenesisBlockOptions, RandomHashGenerator,
 };
 
-fn local_blockchain(
-    state_diff: StateDiff,
-) -> Result<LocalBlockchain<L1ChainSpec>, LocalCreationError> {
+fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L1ChainSpec>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
-    LocalBlockchain::new(
-        state_diff,
-        0x7a69,
+    let genesis_block = L1ChainSpec::genesis_block(
+        genesis_diff.clone(),
         l1::SpecId::PRAGUE,
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),
             ..GenesisBlockOptions::default()
         },
-    )
+    )?;
+
+    let blockchain = LocalBlockchain::new(genesis_block, genesis_diff, 0x7a69, l1::SpecId::PRAGUE)?;
+
+    Ok(blockchain)
 }
 
 #[test]

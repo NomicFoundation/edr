@@ -2947,9 +2947,9 @@ fn create_blockchain_and_state<
             })
             .collect();
 
-        let blockchain = LocalBlockchain::new(
-            StateDiff::from(genesis_state),
-            config.chain_id,
+        let genesis_diff = StateDiff::from(genesis_state);
+        let genesis_block = ChainSpecT::genesis_block(
+            genesis_diff.clone(),
             config.hardfork,
             GenesisBlockOptions {
                 extra_data: None,
@@ -2965,6 +2965,14 @@ fn create_blockchain_and_state<
             },
         )
         .map_err(CreationError::LocalBlockchainCreation)?;
+
+        let blockchain = LocalBlockchain::new(
+            genesis_block,
+            genesis_diff,
+            config.chain_id,
+            config.hardfork,
+        )
+        .map_err(CreationError::InvalidGenesisBlock)?;
 
         let irregular_state = IrregularState::default();
         let state = blockchain

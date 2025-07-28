@@ -23,7 +23,7 @@ use itertools::izip;
 
 use crate::{
     block::{BlockReceipts, EmptyBlock, LocalBlock},
-    blockchain::{BlockchainError, LocalCreationError},
+    blockchain::BlockchainError,
     receipt::ReceiptFactory,
     spec::{
         ExecutionReceiptTypeConstructorBounds, ExecutionReceiptTypeConstructorForChainSpec,
@@ -33,6 +33,14 @@ use crate::{
     transaction::DetailedTransaction,
     Block, GenesisBlockOptions,
 };
+
+/// An error that occurs upon creation of a [`LocalBlockchain`].
+#[derive(Debug, thiserror::Error)]
+pub enum CreationError {
+    /// Missing prevrandao for post-merge blockchain
+    #[error("Missing prevrandao for post-merge blockchain")]
+    MissingPrevrandao,
+}
 
 /// Helper type for a local Ethereum block for a given chain spec.
 pub type EthLocalBlockForChainSpec<ChainSpecT> = EthLocalBlock<
@@ -206,13 +214,13 @@ impl<
         genesis_diff: StateDiff,
         hardfork: HardforkT,
         options: GenesisBlockOptions,
-    ) -> Result<Self, LocalCreationError> {
+    ) -> Result<Self, CreationError> {
         let mut genesis_state = TrieState::default();
         genesis_state.commit(genesis_diff.clone().into());
 
         let evm_spec_id = hardfork.clone().into();
         if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
-            return Err(LocalCreationError::MissingPrevrandao);
+            return Err(CreationError::MissingPrevrandao);
         }
 
         let mut options = HeaderOverrides::from(options);

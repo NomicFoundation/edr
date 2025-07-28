@@ -15,7 +15,7 @@ use edr_eth::{
 use edr_evm::{
     blockchain::{BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain, SyncBlockchain},
     receipt::{self, ExecutionReceiptBuilder as _},
-    spec::{ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
+    spec::{ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory, RuntimeSpec},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
     transaction, EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
@@ -80,9 +80,9 @@ async fn create_dummy_blockchains(
     const DEFAULT_GAS_LIMIT: u64 = 0xffffffffffffff;
     const DEFAULT_INITIAL_BASE_FEE: u128 = 1000000000;
 
-    let local_blockchain = LocalBlockchain::new(
-        StateDiff::default(),
-        1,
+    let genesis_diff = StateDiff::default();
+    let genesis_block = L1ChainSpec::genesis_block(
+        genesis_diff.clone(),
         l1::SpecId::default(),
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
@@ -91,7 +91,11 @@ async fn create_dummy_blockchains(
             ..GenesisBlockOptions::default()
         },
     )
-    .expect("Should construct without issues");
+    .expect("Failed to create genesis block");
+
+    let local_blockchain =
+        LocalBlockchain::new(genesis_block, genesis_diff, 1, l1::SpecId::default())
+            .expect("Should construct without issues");
 
     vec![
         Box::new(local_blockchain),

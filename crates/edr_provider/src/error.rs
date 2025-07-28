@@ -15,7 +15,7 @@ use edr_eth::{
     Address, BlockSpec, BlockTag, Bytes, B256, U256,
 };
 use edr_evm::{
-    blockchain::{BlockchainError, ForkedCreationError},
+    blockchain::{BlockchainError, ForkedCreationError, InvalidGenesisBlock},
     spec::{GenesisBlockFactory, RuntimeSpec},
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
@@ -55,6 +55,9 @@ pub enum CreationError<
     /// An error that occurred while constructing a forked blockchain.
     #[error(transparent)]
     ForkedBlockchainCreation(#[from] ForkedCreationError<HardforkT>),
+    /// Invalid genesis block.
+    #[error(transparent)]
+    InvalidGenesisBlock(InvalidGenesisBlock),
     #[error("Invalid HTTP header name: {0}")]
     InvalidHttpHeaders(HttpError),
     /// Invalid initial date

@@ -8,14 +8,14 @@ use edr_eth::{
     spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
 };
 use edr_evm::{
-    blockchain::LocalCreationError,
     evm::Evm,
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::PrecompileProvider,
     spec::{ContextForChainSpec, GenesisBlockFactory, RuntimeSpec},
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec, TransactionValidation},
-    BlockReceipts, EthLocalBlockForChainSpec, RemoteBlock, RemoteBlockConversionError, SyncBlock,
+    BlockReceipts, EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock,
+    RemoteBlockConversionError, SyncBlock,
 };
 use edr_napi_core::{
     napi,
