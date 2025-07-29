@@ -1,17 +1,17 @@
 #![cfg(feature = "test-remote")]
-use std::{str::FromStr as _, sync::Arc};
+use std::str::FromStr as _;
 
 use edr_eth::{l1, B256};
 use edr_evm::hardfork::{self, ChainOverride};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
-    NoopLogger, Provider, ProviderError, ProviderRequest,
+    MethodInvocation,
+    Provider, ProviderError, ProviderRequest,
 };
-use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::env::get_alchemy_url;
 use serial_test::serial;
-use tokio::runtime;
+
+use crate::integration::helpers::get_chain_fork_provider;
+
 // SAFETY: tests that modify the environment should be run serially.
 
 fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
@@ -19,39 +19,12 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
     const CHAIN_ID: u64 = 84532;
     const BLOCK_NUMBER: u64 = 13_560_400;
 
-    let logger = Box::new(NoopLogger::<GenericChainSpec>::default());
-    let subscriber = Box::new(|_event| {});
-
-    let chain_overrides = [(
-        CHAIN_ID,
-        ChainOverride {
+    let chain_override = ChainOverride {
             name: "Base Sepolia".to_owned(),
             hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(
                 l1::SpecId::CANCUN,
-            )),
-        },
-    )]
-    .into_iter()
-    .collect();
-
-    let mut config = create_test_config_with_fork(Some(ForkConfig {
-        block_number: Some(BLOCK_NUMBER),
-        cache_dir: edr_defaults::CACHE_DIR.into(),
-        chain_overrides,
-        http_headers: None,
-        url: get_alchemy_url().replace("eth-mainnet", "base-sepolia"),
-    }));
-
-    config.chain_id = CHAIN_ID;
-
-    Ok(Provider::new(
-        runtime::Handle::current(),
-        logger,
-        subscriber,
-        config,
-        Arc::<ContractDecoder>::default(),
-        CurrentTime,
-    )?)
+            ))};
+    get_chain_fork_provider::<GenericChainSpec>(CHAIN_ID, BLOCK_NUMBER, chain_override,Some("base-sepolia"))
 }
 
 // `eth_debugTraceTransaction` should return a helpful error message if there is
