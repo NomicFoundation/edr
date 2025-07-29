@@ -1,24 +1,18 @@
 {
+  "extends": "@tsconfig/node20/tsconfig.json",
   "compilerOptions": {
-    "target": "ES2021",
-    "module": "commonjs",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "strict": true,
-    "esModuleInterop": true,
     "noEmitOnError": true,
     "skipDefaultLibCheck": true,
-    "skipLibCheck": true,
-    "outDir": "./build-test",
-    "rootDirs": [
-      "./test"
-    ],
+    "outDir": "./dist",
     "composite": true
   },
   "include": [
     "./*.ts",
-    "./test/**/*.ts"
+    "./test/**/*.ts",
+    "./src/ts/**/*.ts"
   ],
   "exclude": [
     "./node_modules"
