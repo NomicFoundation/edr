@@ -25,7 +25,7 @@ use edr_eth::{
     result::ExecutionResult,
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
-    spec::{ChainSpec, HaltReasonTrait},
+    spec::{ChainSpec, HaltReasonTrait, BlockEnvConstructor},
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
@@ -46,7 +46,7 @@ use edr_evm::{
     config::CfgEnv,
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
-    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
         StateOverrides, StateRefOverrider, SyncState,
@@ -2510,7 +2510,7 @@ where
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec.into());
+                let block_env = ChainSpecT::BlockConstructor::build_from_header(header, cfg_env.spec.into());
 
                 debug_trace_transaction(
                     blockchain,

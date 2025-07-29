@@ -1,9 +1,7 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_eth::{
-    block::{self, BlobGas, PartialHeader},
-    eips::eip4844,
-    l1::{self, BlockEnv, L1ChainSpec},
+    l1::{self, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ResultAndState,
@@ -154,7 +152,6 @@ pub trait RuntimeSpec:
     + EthHeaderConstants
     + ChainHardfork<Hardfork: Debug>
     + ChainSpec<
-        BlockEnv: BlockEnvConstructor<block::Header> + BlockEnvConstructor<PartialHeader> + Default,
         SignedTransaction: alloy_rlp::Encodable
           + Clone
           + Debug
@@ -328,61 +325,6 @@ pub trait RuntimeSpec:
 
 }
 
-/// A trait for constructing a (partial) block header into an EVM block.
-pub trait BlockEnvConstructor<HeaderT> {
-    /// Converts the instance into an EVM block.
-    fn new_block_env(header: &HeaderT, hardfork: l1::SpecId) -> Self;
-}
-
-impl BlockEnvConstructor<PartialHeader> for BlockEnv {
-    fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self {
-        Self {
-            number: header.number,
-            beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
-            difficulty: header.difficulty,
-            basefee: header.base_fee.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= l1::SpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: header.blob_gas.as_ref().map(
-                |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
-                },
-            ),
-        }
-    }
-}
-
-impl BlockEnvConstructor<block::Header> for BlockEnv {
-    fn new_block_env(header: &block::Header, hardfork: l1::SpecId) -> Self {
-        Self {
-            number: header.number,
-            beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
-            difficulty: header.difficulty,
-            basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= l1::SpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: header.blob_gas.as_ref().map(
-                |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
-                },
-            ),
-        }
-    }
-}
 
 /// A supertrait for [`RuntimeSpec`] that is safe to send between threads.
 pub trait SyncRuntimeSpec:

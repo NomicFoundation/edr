@@ -63,6 +63,7 @@ impl ChainSpec for OpChainSpec {
     type Context = L1BlockInfo;
     type HaltReason = OpHaltReason;
     type SignedTransaction = transaction::Signed;
+    type BlockConstructor = l1::L1BlockConstructor;
 }
 
 impl GenesisBlockFactory for OpChainSpec {

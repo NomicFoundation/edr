@@ -9,6 +9,7 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
     result::{ExecutionResult, ExecutionResultAndState},
+    spec::BlockEnvConstructor,
     transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
@@ -23,7 +24,7 @@ use crate::{
     config::CfgEnv,
     receipt::{ExecutionReceiptBuilder as _, ReceiptFactory},
     runtime::{dry_run, dry_run_with_inspector},
-    spec::{BlockEnvConstructor as _, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
+    spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, DatabaseComponents, StateCommit as _, StateDebug as _, StateDiff,
         SyncState, WrapDatabaseRef,
@@ -186,7 +187,7 @@ where
     {
         self.validate_transaction(&transaction)?;
 
-        let block = ChainSpecT::BlockEnv::new_block_env(&self.header, self.cfg.spec.into());
+        let block = ChainSpecT::BlockConstructor::build_from_header(&self.header, self.cfg.spec.into());
 
         let receipt_builder =
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
@@ -227,7 +228,7 @@ where
     {
         self.validate_transaction(&transaction)?;
 
-        let block = ChainSpecT::BlockEnv::new_block_env(&self.header, self.cfg.spec.into());
+        let block = ChainSpecT::BlockConstructor::build_from_header(&self.header, self.cfg.spec.into());
 
         let receipt_builder =
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)

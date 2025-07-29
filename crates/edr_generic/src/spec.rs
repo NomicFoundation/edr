@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    eips::eip1559::BaseFeeParams,
-    l1::{self, InvalidTransaction, L1ChainSpec},
+    block::{BlobGas, Header, PartialHeader},
+    eips::{
+        eip1559::BaseFeeParams,
+        eip4844::{self},
+    },
+    l1::{self, BlockEnv, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
     receipt::BlockReceipt,
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
+    spec::{BlockEnvConstructor, ChainHardfork, ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
     Bytes,
 };
@@ -37,6 +41,71 @@ impl ChainSpec for GenericChainSpec {
     type Context = ();
     type HaltReason = l1::HaltReason;
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
+    type BlockConstructor = GenericBlockConstructor;
+}
+
+/// Generic chain definition for BlockEnvConstructor
+pub struct GenericBlockConstructor;
+
+impl BlockEnvConstructor<Header, BlockEnv> for GenericBlockConstructor {
+     fn build_from_header(
+        header: &Header,
+        hardfork: l1::SpecId,
+    ) -> BlockEnv {
+        BlockEnv {
+            number: header.number,
+            beneficiary: header.beneficiary,
+            timestamp: header.timestamp,
+            difficulty: header.difficulty,
+            basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
+                base_fee.try_into().expect("base fee is too large")
+            }),
+            gas_limit: header.gas_limit,
+            prevrandao: if hardfork >= l1::SpecId::MERGE {
+                Some(header.mix_hash)
+            } else {
+                None
+            },
+            blob_excess_gas_and_price: header
+                .blob_gas
+                .as_ref()
+                .map(|BlobGas { excess_gas, .. }| {
+                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                })
+                .or_else(|| Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))),
+        }
+    }
+}
+
+impl BlockEnvConstructor<PartialHeader, BlockEnv> for GenericBlockConstructor {
+
+    fn build_from_header(
+        header: &PartialHeader,
+        hardfork: l1::SpecId,
+    ) -> BlockEnv {
+        BlockEnv {
+            number: header.number,
+            beneficiary: header.beneficiary,
+            timestamp: header.timestamp,
+            difficulty: header.difficulty,
+            basefee: header.base_fee.map_or(0u64, |base_fee| {
+                base_fee.try_into().expect("base fee is too large")
+            }),
+            gas_limit: header.gas_limit,
+            prevrandao: if hardfork >= l1::SpecId::MERGE {
+                Some(header.mix_hash)
+            } else {
+                None
+            },
+            blob_excess_gas_and_price: header
+                .blob_gas
+                .as_ref()
+                .map(|BlobGas { excess_gas, .. }| {
+                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                })
+                .or_else(|| Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))),
+        }
+    }
 }
 
 impl EthHeaderConstants for GenericChainSpec {
