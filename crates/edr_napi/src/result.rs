@@ -16,7 +16,6 @@ pub enum SuccessReason {
     Return,
     /// The opcode `SELFDESTRUCT` was called
     SelfDestruct,
-    EofReturnContract,
 }
 
 impl From<edr_eth::result::SuccessReason> for SuccessReason {
@@ -25,7 +24,6 @@ impl From<edr_eth::result::SuccessReason> for SuccessReason {
             edr_eth::result::SuccessReason::Stop => Self::Stop,
             edr_eth::result::SuccessReason::Return => Self::Return,
             edr_eth::result::SuccessReason::SelfDestruct => Self::SelfDestruct,
-            edr_eth::result::SuccessReason::EofReturnContract => Self::EofReturnContract,
         }
     }
 }
@@ -36,7 +34,6 @@ impl From<SuccessReason> for edr_eth::result::SuccessReason {
             SuccessReason::Stop => Self::Stop,
             SuccessReason::Return => Self::Return,
             SuccessReason::SelfDestruct => Self::SelfDestruct,
-            SuccessReason::EofReturnContract => Self::EofReturnContract,
         }
     }
 }
@@ -100,14 +97,6 @@ pub enum ExceptionalHalt {
     CreateContractStartingWithEF,
     /// EIP-3860: Limit and meter initcode. Initcode size limit exceeded.
     CreateInitCodeSizeLimit,
-    /// Aux data overflow, new aux data is larger tha u16 max size.
-    EofAuxDataOverflow,
-    /// Aud data is smaller then already present data size.
-    EofAuxDataTooSmall,
-    /// EOF Subroutine stack overflow
-    SubRoutineStackOverflow,
-    /// Check for target address validity is only done inside subcall.
-    InvalidEXTCALLTarget,
 }
 
 impl From<edr_eth::l1::HaltReason> for ExceptionalHalt {
@@ -133,12 +122,6 @@ impl From<edr_eth::l1::HaltReason> for ExceptionalHalt {
             edr_eth::l1::HaltReason::CreateInitCodeSizeLimit => {
                 ExceptionalHalt::CreateInitCodeSizeLimit
             }
-            edr_eth::l1::HaltReason::EofAuxDataOverflow => ExceptionalHalt::EofAuxDataOverflow,
-            edr_eth::l1::HaltReason::EofAuxDataTooSmall => ExceptionalHalt::EofAuxDataTooSmall,
-            edr_eth::l1::HaltReason::SubRoutineStackOverflow => {
-                ExceptionalHalt::SubRoutineStackOverflow
-            }
-            edr_eth::l1::HaltReason::InvalidEXTCALLTarget => ExceptionalHalt::InvalidEXTCALLTarget,
             edr_eth::l1::HaltReason::OverflowPayment
             | edr_eth::l1::HaltReason::StateChangeDuringStaticCall
             | edr_eth::l1::HaltReason::CallNotAllowedInsideStatic
@@ -167,10 +150,6 @@ impl From<ExceptionalHalt> for edr_eth::l1::HaltReason {
             ExceptionalHalt::CreateContractSizeLimit => Self::CreateContractSizeLimit,
             ExceptionalHalt::CreateContractStartingWithEF => Self::CreateContractStartingWithEF,
             ExceptionalHalt::CreateInitCodeSizeLimit => Self::CreateInitCodeSizeLimit,
-            ExceptionalHalt::EofAuxDataOverflow => Self::EofAuxDataOverflow,
-            ExceptionalHalt::EofAuxDataTooSmall => Self::EofAuxDataTooSmall,
-            ExceptionalHalt::SubRoutineStackOverflow => Self::SubRoutineStackOverflow,
-            ExceptionalHalt::InvalidEXTCALLTarget => Self::InvalidEXTCALLTarget,
         }
     }
 }

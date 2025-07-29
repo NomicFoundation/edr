@@ -15,7 +15,7 @@ use edr_evm::{
     config::CfgEnv,
     inspector::{DualInspector, Inspector},
     interpreter::{
-        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, EthInterpreter,
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter,
         InputsTr as _, Interpreter, InterpreterResult, Jumps as _, LoopControl as _,
     },
     journal::{JournalEntry, JournalExt, JournalTrait as _},
@@ -313,15 +313,6 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
         &mut self,
         _context: &mut ContextT,
         _inputs: &CreateInputs,
-        outcome: &mut CreateOutcome,
-    ) {
-        self.on_inner_frame_result(&outcome.result);
-    }
-
-    fn eofcreate_end(
-        &mut self,
-        _context: &mut ContextT,
-        _inputs: &EOFCreateInputs,
         outcome: &mut CreateOutcome,
     ) {
         self.on_inner_frame_result(&outcome.result);

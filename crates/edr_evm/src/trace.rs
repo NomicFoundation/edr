@@ -508,21 +508,4 @@ impl<
     fn step(&mut self, interpreter: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
         self.notify_step_start(interpreter, context.journal());
     }
-
-    fn eofcreate(
-        &mut self,
-        _context: &mut ContextT,
-        _inputs: &mut revm_interpreter::EOFCreateInputs,
-    ) -> Option<CreateOutcome> {
-        unreachable!("EOF create not supported in trace collector")
-    }
-
-    fn eofcreate_end(
-        &mut self,
-        _context: &mut ContextT,
-        _inputs: &revm_interpreter::EOFCreateInputs,
-        _outcome: &mut CreateOutcome,
-    ) {
-        unreachable!("EOF create not supported in trace collector");
-    }
 }

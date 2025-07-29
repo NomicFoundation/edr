@@ -3,8 +3,7 @@ use std::{fmt::Debug, marker::PhantomData};
 use edr_eth::{log::ExecutionLog, Address, U256};
 pub use revm::inspector::{Inspector, NoOpInspector};
 use revm_interpreter::{
-    CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, Interpreter,
-    InterpreterTypes,
+    CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter, InterpreterTypes,
 };
 
 // TODO: Improve this design by introducing a InspectorMut trait
@@ -110,25 +109,6 @@ where
     ) {
         self.immutable.create_end(context, inputs, outcome);
         self.mutable.create_end(context, inputs, outcome);
-    }
-
-    fn eofcreate(
-        &mut self,
-        context: &mut ContextT,
-        inputs: &mut EOFCreateInputs,
-    ) -> Option<CreateOutcome> {
-        self.immutable.eofcreate(context, inputs);
-        self.mutable.eofcreate(context, inputs)
-    }
-
-    fn eofcreate_end(
-        &mut self,
-        context: &mut ContextT,
-        inputs: &EOFCreateInputs,
-        outcome: &mut CreateOutcome,
-    ) {
-        self.immutable.eofcreate_end(context, inputs, outcome);
-        self.mutable.eofcreate_end(context, inputs, outcome);
     }
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {

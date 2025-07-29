@@ -1141,14 +1141,10 @@ impl<
                 .map(|account| (account.info.exists(), account.info.balance))
                 .unwrap_or_default();
             let kind = match call.scheme {
-                CallScheme::Call | CallScheme::ExtCall => crate::Vm::AccountAccessKind::Call,
+                CallScheme::Call => crate::Vm::AccountAccessKind::Call,
                 CallScheme::CallCode => crate::Vm::AccountAccessKind::CallCode,
-                CallScheme::DelegateCall | CallScheme::ExtDelegateCall => {
-                    crate::Vm::AccountAccessKind::DelegateCall
-                }
-                CallScheme::StaticCall | CallScheme::ExtStaticCall => {
-                    crate::Vm::AccountAccessKind::StaticCall
-                }
+                CallScheme::DelegateCall => crate::Vm::AccountAccessKind::DelegateCall,
+                CallScheme::StaticCall => crate::Vm::AccountAccessKind::StaticCall,
             };
             // Record this call by pushing it to a new pending vector; all subsequent calls
             // at that depth will be pushed to the same vector. When the call
