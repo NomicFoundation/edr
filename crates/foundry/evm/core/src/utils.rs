@@ -4,7 +4,10 @@ use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, BlockResponse, Network};
 use alloy_primitives::{Selector, Signature as PrimitiveSignature, TxKind, B256, U256};
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionRequest};
-use revm::primitives::hardfork::SpecId;
+use revm::primitives::{
+    eip4844::{BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN, BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE},
+    hardfork::SpecId,
+};
 pub use revm::state::EvmState as StateChangeset;
 
 pub use crate::ic::*;
@@ -80,7 +83,16 @@ pub fn apply_chain_and_block_specific_env_changes<N: Network>(
     }
 }
 
-/// Given an ABI and selector, it tries to find the respective function.
+//// Returns the blob base fee update fraction based on the spec id.
+pub fn get_blob_base_fee_update_fraction_by_spec_id(spec: SpecId) -> u64 {
+    if spec >= SpecId::PRAGUE {
+        BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE
+    } else {
+        BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN
+    }
+}
+
+// Given an ABI and selector, it tries to find the respective function.
 pub fn get_function<'a>(
     contract_name: &str,
     selector: Selector,

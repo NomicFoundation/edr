@@ -23,7 +23,11 @@ pub use self::{
 };
 use crate::{
     b256,
-    eips::{eip1559::ConstantBaseFeeParams, eip4844, eip7691},
+    eips::{
+        eip1559::ConstantBaseFeeParams,
+        eip4844::{self, blob_base_fee_update_fraction},
+        eip7691,
+    },
     keccak256, l1,
     spec::EthHeaderConstants,
     trie::{self, KECCAK_NULL_RLP},
@@ -466,7 +470,7 @@ pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<l1::SpecId>>(
         .blob_gas
         .as_ref()
         .map_or(0u128, |BlobGas { excess_gas, .. }| {
-            eip4844::calc_blob_gasprice(*excess_gas, hardfork.into() >= l1::SpecId::PRAGUE)
+            eip4844::calc_blob_gasprice(*excess_gas, blob_base_fee_update_fraction(hardfork.into()))
         })
 }
 
