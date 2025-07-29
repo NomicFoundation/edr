@@ -2511,7 +2511,7 @@ where
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
                 let block_env =
-                    ChainSpecT::BlockConstructor::build_from_header(header, cfg_env.spec.into());
+                    ChainSpecT::BlockConstructor::new_block_env(header, cfg_env.spec.into());
 
                 debug_trace_transaction(
                     blockchain,

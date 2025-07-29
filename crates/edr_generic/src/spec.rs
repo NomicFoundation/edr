@@ -48,7 +48,7 @@ impl ChainSpec for GenericChainSpec {
 pub struct GenericBlockConstructor;
 
 impl BlockEnvConstructor<Header, BlockEnv> for GenericBlockConstructor {
-    fn build_from_header(header: &Header, hardfork: l1::SpecId) -> BlockEnv {
+    fn new_block_env(header: &Header, hardfork: l1::SpecId) -> BlockEnv {
         BlockEnv {
             number: header.number,
             beneficiary: header.beneficiary,
@@ -75,7 +75,7 @@ impl BlockEnvConstructor<Header, BlockEnv> for GenericBlockConstructor {
 }
 
 impl BlockEnvConstructor<PartialHeader, BlockEnv> for GenericBlockConstructor {
-    fn build_from_header(header: &PartialHeader, hardfork: l1::SpecId) -> BlockEnv {
+    fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> BlockEnv {
         BlockEnv {
             number: header.number,
             beneficiary: header.beneficiary,

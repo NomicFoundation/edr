@@ -42,7 +42,7 @@ impl EthHeaderConstants for L1ChainSpec {
 pub struct L1BlockConstructor;
 
 impl BlockEnvConstructor<PartialHeader, BlockEnv> for L1BlockConstructor {
-    fn build_from_header(header: &PartialHeader, hardfork: SpecId) -> BlockEnv {
+    fn new_block_env(header: &PartialHeader, hardfork: SpecId) -> BlockEnv {
         BlockEnv {
             number: header.number,
             beneficiary: header.beneficiary,
@@ -67,7 +67,7 @@ impl BlockEnvConstructor<PartialHeader, BlockEnv> for L1BlockConstructor {
 }
 
 impl BlockEnvConstructor<Header, BlockEnv> for L1BlockConstructor {
-    fn build_from_header(header: &Header, hardfork: SpecId) -> BlockEnv {
+    fn new_block_env(header: &Header, hardfork: SpecId) -> BlockEnv {
         BlockEnv {
             number: header.number,
             beneficiary: header.beneficiary,

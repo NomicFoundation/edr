@@ -34,7 +34,7 @@ pub trait ChainSpec {
 /// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<HeaderT, BlockT: Block> {
     /// Converts the instance into an EVM block.
-    fn build_from_header(header: &HeaderT, hardfork: l1::SpecId) -> BlockT;
+    fn new_block_env(header: &HeaderT, hardfork: l1::SpecId) -> BlockT;
 }
 
 /// Constants for constructing Ethereum headers.
