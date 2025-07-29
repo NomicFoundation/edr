@@ -29,6 +29,7 @@ pub(super) fn insert_predeploys(
                 storage: predeploy.storage,
                 // Need touched and created to be committed.
                 status: AccountStatus::Created | AccountStatus::Touched,
+                transaction_id: 0,
             };
             (predeploy.address, account)
         })
