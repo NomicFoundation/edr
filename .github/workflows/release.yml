@@ -28,7 +28,7 @@ jobs:
         id: get-version
         run: |
           STATUS="$RUNNER_TEMP/status.json"
-          pnpm changeset status --output "$STATUS"
+          pnpm changeset status --output "$(realpath --relative-to=. "$STATUS")"
           VERSION="$(jq -r '.releases[] | select(.name == "@nomicfoundation/edr").newVersion' "$STATUS")"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
