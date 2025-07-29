@@ -330,7 +330,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         &mut self,
         journal: &impl JournalTrait<
             Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            FinalOutput = FinalOutputT,
+            State = FinalOutputT,
         >,
         inputs: &CreateInputs,
     ) {
@@ -421,7 +421,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         interpreter: &Interpreter<EthInterpreter>,
         journal: &impl JournalTrait<
             Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            FinalOutput = FinalOutputT,
+            State = FinalOutputT,
         >,
     ) {
         // Skip the step
