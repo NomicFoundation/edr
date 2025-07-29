@@ -408,7 +408,11 @@ pub trait BlockEnvMut {
     fn set_basefee(&mut self, basefee: u64);
     fn set_beneficiary(&mut self, beneficiary: Address);
     fn set_block_number(&mut self, block_number: u64);
-    fn set_blob_excess_gas_and_price(&mut self, excess_blob_gas: u64, is_prague: bool);
+    fn set_blob_excess_gas_and_price(
+        &mut self,
+        excess_blob_gas: u64,
+        base_fee_update_fraction: u64,
+    );
     fn set_difficulty(&mut self, difficulty: U256);
     fn set_gas_limit(&mut self, gas_limit: u64);
     fn set_prevrandao(&mut self, prevrandao: B256);
@@ -420,8 +424,12 @@ impl BlockEnvMut for BlockEnv {
         self.basefee = basefee;
     }
 
-    fn set_blob_excess_gas_and_price(&mut self, excess_blob_gas: u64, is_prague: bool) {
-        self.set_blob_excess_gas_and_price(excess_blob_gas, is_prague);
+    fn set_blob_excess_gas_and_price(
+        &mut self,
+        excess_blob_gas: u64,
+        base_fee_update_fraction: u64,
+    ) {
+        self.set_blob_excess_gas_and_price(excess_blob_gas, base_fee_update_fraction);
     }
 
     fn set_beneficiary(&mut self, coinbase: Address) {

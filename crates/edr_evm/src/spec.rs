@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_eth::{
     block::{self, BlobGas, PartialHeader},
-    eips::eip4844,
+    eips::eip4844::{self, blob_base_fee_update_fraction},
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
@@ -296,7 +296,10 @@ impl BlockEnvConstructor<PartialHeader> for BlockEnv {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                    eip4844::BlobExcessGasAndPrice::new(
+                        *excess_gas,
+                        blob_base_fee_update_fraction(hardfork),
+                    )
                 },
             ),
         }
@@ -321,7 +324,10 @@ impl BlockEnvConstructor<block::Header> for BlockEnv {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                    eip4844::BlobExcessGasAndPrice::new(
+                        *excess_gas,
+                        blob_base_fee_update_fraction(hardfork),
+                    )
                 },
             ),
         }
