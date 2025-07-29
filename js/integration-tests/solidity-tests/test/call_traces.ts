@@ -227,7 +227,7 @@ describe("Call traces - IncludeTraces.All", () => {
     const child = trace[0].children[0];
     assert.equal(child.kind, CallKind.Create);
     assert.equal(child.success, true);
-    assert.equal(child.contract, "CreateMe");
+    assert.equal(child.contract, "CreateMe@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f");
     assert(typeof child.outputs === "string");
     assert.match(child.outputs, /^\d+ bytes of code$/);
   });

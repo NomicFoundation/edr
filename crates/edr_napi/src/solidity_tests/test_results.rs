@@ -541,12 +541,15 @@ impl CallTrace {
     /// Instantiates a `CallTrace` with the details from a node and the supplied
     /// children.
     fn new(node: &traces::CallTraceNode, children: Vec<Either<CallTrace, LogTrace>>) -> Self {
-        let contract = node
-            .trace
-            .decoded
-            .label
-            .clone()
-            .unwrap_or(node.trace.address.to_checksum(None));
+        let label = node.trace.decoded.label.clone();
+        let address = node.trace.address.to_checksum(None);
+
+        let contract = if node.kind().is_any_create() {
+            let label = label.unwrap_or("<unknown>".into());
+            format!("{label}@{address}")
+        } else {
+            label.unwrap_or(address)
+        };
 
         let inputs = match &node.trace.decoded.call_data {
             Some(traces::DecodedCallData { signature, args }) => {
