@@ -1,5 +1,15 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.1
+
+### Minor Changes
+
+- ffd2deb: Added scoped snapshots to Solidity test runner using gas & value cheatcodes
+
+### Patch Changes
+
+- adbba3d: Fixed mining of local blocks for OP
+
 ## 0.12.0-next.0
 
 ### Minor Changes
