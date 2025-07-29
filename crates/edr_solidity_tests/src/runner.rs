@@ -627,7 +627,7 @@ impl<
             counterexample: None,
             decoded_logs: decode_console_logs(&logs),
             logs,
-            kind: TestKind::Standard(gas.overflowing_sub(stipend).0),
+            kind: TestKind::Standard(gas.wrapping_sub(stipend)),
             traces,
             coverage,
             labeled_addresses,
