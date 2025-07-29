@@ -27,11 +27,8 @@ pub trait ChainSpec{
     type SignedTransaction: ExecutableTransaction
         + revm_context_interface::Transaction
         + TransactionValidation;
-    /// chain way of building blocks
-    /// TODO: consider if the default type should define both generics
-    /// or if it even can have a lax definition as Context
-    /// or no definition at all
-    type BlockConstructor: BlockEnvConstructor<crate::block::PartialHeader, Self::BlockEnv> + BlockEnvConstructor<crate::block::Header, Self::BlockEnv>;
+    /// The chain's way of building blocks
+    type BlockConstructor: BlockEnvConstructor<crate::block::Header, Self::BlockEnv>;
 }
 
 /// A trait for constructing a (partial) block header into an EVM block.

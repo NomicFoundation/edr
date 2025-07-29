@@ -44,7 +44,7 @@ impl ChainSpec for GenericChainSpec {
     type BlockConstructor = GenericBlockConstructor;
 }
 
-/// Generic chain definition for BlockEnvConstructor
+/// Generic chain definition for `BlockEnvConstructor`
 pub struct GenericBlockConstructor;
 
 impl BlockEnvConstructor<Header, BlockEnv> for GenericBlockConstructor {

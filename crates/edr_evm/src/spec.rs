@@ -1,11 +1,12 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_eth::{
+    block,
     l1::{self, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ResultAndState,
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
+    spec::{BlockEnvConstructor, ChainHardfork, ChainSpec, EthHeaderConstants},
     Bytes, B256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
@@ -161,6 +162,7 @@ pub trait RuntimeSpec:
           + ExecutableTransaction
           + TransactionType
           + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+        BlockConstructor: BlockEnvConstructor<block::PartialHeader, Self::BlockEnv> + BlockEnvConstructor<block::Header, Self::BlockEnv>,
     >
     // Defines an RPC spec and conversion between RPC <-> EVM types
     + RpcSpec<

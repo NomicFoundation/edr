@@ -33,7 +33,7 @@ impl EthHeaderConstants for L1ChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = 131072;
 }
 
-/// L1 definition for BlockEnvConstructor
+/// L1 definition for `BlockEnvConstructor`
 pub struct L1BlockConstructor;
 
 impl BlockEnvConstructor<PartialHeader, BlockEnv> for L1BlockConstructor {
