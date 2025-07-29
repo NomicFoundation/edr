@@ -5,9 +5,10 @@ use edr_generic::GenericChainSpec;
 use edr_napi_core::{
     logger::{self, Logger},
     provider::{self, ProviderBuilder, SyncProviderFactory},
-    spec::SyncNapiSpec as _,
+    spec::SyncNapiSpec,
     subscription,
 };
+use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi_derive::napi;
 
@@ -42,7 +43,7 @@ impl SyncProviderFactory for GenericChainProviderFactory {
 }
 
 #[napi]
-pub const GENERIC_CHAIN_TYPE: &str = GenericChainSpec::CHAIN_TYPE;
+pub const GENERIC_CHAIN_TYPE: &str = <GenericChainSpec as SyncNapiSpec<CurrentTime>>::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
 pub fn generic_chain_provider_factory() -> ProviderFactory {

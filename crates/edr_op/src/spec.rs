@@ -162,7 +162,7 @@ impl EthHeaderConstants for OpChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
 }
 
-impl SyncNapiSpec for OpChainSpec {
+impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
     const CHAIN_TYPE: &'static str = crate::CHAIN_TYPE;
 
     fn cast_response(

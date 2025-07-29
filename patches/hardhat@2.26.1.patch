@@ -1,0 +1,1287 @@
+diff --git a/internal/hardhat-network/provider/provider.d.ts b/internal/hardhat-network/provider/provider.d.ts
+index 8fd0e3c63ee1e169a8c80ca82ac9c478c951390e..7ab9651b947cd7c3fc2277bee1a67a0cc24d0630 100644
+--- a/internal/hardhat-network/provider/provider.d.ts
++++ b/internal/hardhat-network/provider/provider.d.ts
+@@ -5,7 +5,7 @@ import { EventEmitter } from "events";
+ import { ForkConfig, GenesisAccount, IntervalMiningConfig, MempoolOrder } from "./node-types";
+ import { LoggerConfig } from "./modules/logger";
+ export declare const DEFAULT_COINBASE = "0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e";
+-export declare function getGlobalEdrContext(): EdrContext;
++export declare function getGlobalEdrContext(): Promise<EdrContext>;
+ interface HardhatNetworkProviderConfig {
+     hardfork: string;
+     chainId: number;
+@@ -30,13 +30,20 @@ interface HardhatNetworkProviderConfig {
+     enableRip7212: boolean;
+ }
+ export declare class EdrProviderWrapper extends EventEmitter implements EIP1193Provider {
+-    private readonly _provider;
+-    private readonly _node;
++    private _provider;
++    private readonly _providerConfig;
++    private readonly _loggerConfig;
++    private _node;
++    private readonly _subscriptionConfig;
++    private readonly _tracingConfig;
++    private _addedCompilationResults;
+     private _failedStackTraces;
+     private _callOverrideCallback?;
+     private constructor();
+     static create(config: HardhatNetworkProviderConfig, loggerConfig: LoggerConfig, tracingConfig?: TracingConfigWithBuffers): Promise<EdrProviderWrapper>;
+     request(args: RequestArguments): Promise<unknown>;
++    private _addCompilationResult;
++    private _reset;
+     private _setCallOverrideCallback;
+     private _setVerboseTracing;
+     private _ethEventListener;
+diff --git a/internal/hardhat-network/provider/provider.d.ts.map b/internal/hardhat-network/provider/provider.d.ts.map
+index e4d21f016c6f70c14ef9814dc2a0cdc916b73f5a..85b180a7344635303cd48fd03ab7d345257914c0 100644
+--- a/internal/hardhat-network/provider/provider.d.ts.map
++++ b/internal/hardhat-network/provider/provider.d.ts.map
+@@ -1 +1 @@
+-{"version":3,"file":"provider.d.ts","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":";AAAA,OAAO,KAAK,EACV,SAAS,EACT,eAAe,EAEf,0BAA0B,EAC1B,gBAAgB,EACjB,MAAM,gBAAgB,CAAC;AAExB,OAAO,KAAK,EACV,UAAU,EAKV,wBAAwB,EACzB,MAAM,sBAAsB,CAAC;AAG9B,OAAO,EAAE,YAAY,EAAE,MAAM,QAAQ,CAAC;AAoBtC,OAAO,EACL,UAAU,EACV,cAAc,EACd,oBAAoB,EACpB,YAAY,EACb,MAAM,cAAc,CAAC;AAUtB,OAAO,EAAE,YAAY,EAA8B,MAAM,kBAAkB,CAAC;AAO5E,eAAO,MAAM,gBAAgB,+CAA+C,CAAC;AAI7E,wBAAgB,mBAAmB,IAAI,UAAU,CAWhD;AAED,UAAU,4BAA4B;IACpC,QAAQ,EAAE,MAAM,CAAC;IACjB,OAAO,EAAE,MAAM,CAAC;IAChB,SAAS,EAAE,MAAM,CAAC;IAClB,aAAa,EAAE,MAAM,CAAC;IACtB,WAAW,EAAE,MAAM,CAAC;IACpB,QAAQ,EAAE,OAAO,CAAC;IAClB,cAAc,EAAE,oBAAoB,CAAC;IACrC,YAAY,EAAE,YAAY,CAAC;IAC3B,MAAM,EAAE,0BAA0B,CAAC;IACnC,eAAe,EAAE,cAAc,EAAE,CAAC;IAClC,0BAA0B,EAAE,OAAO,CAAC;IACpC,0BAA0B,EAAE,OAAO,CAAC;IACpC,mBAAmB,EAAE,OAAO,CAAC;IAC7B,4BAA4B,EAAE,OAAO,CAAC;IAEtC,oBAAoB,CAAC,EAAE,MAAM,CAAC;IAC9B,WAAW,CAAC,EAAE,IAAI,CAAC;IACnB,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,UAAU,CAAC,EAAE,UAAU,CAAC;IACxB,aAAa,CAAC,EAAE,MAAM,CAAC;IACvB,sBAAsB,EAAE,OAAO,CAAC;IAChC,aAAa,EAAE,OAAO,CAAC;CACxB;AAWD,qBAAa,kBACX,SAAQ,YACR,YAAW,eAAe;IAQxB,OAAO,CAAC,QAAQ,CAAC,SAAS;IAE1B,OAAO,CAAC,QAAQ,CAAC,KAAK;IARxB,OAAO,CAAC,kBAAkB,CAAK;IAG/B,OAAO,CAAC,qBAAqB,CAAC,CAAuB;IAErD,OAAO;WAUa,MAAM,CACxB,MAAM,EAAE,4BAA4B,EACpC,YAAY,EAAE,YAAY,EAC1B,aAAa,CAAC,EAAE,wBAAwB,GACvC,OAAO,CAAC,kBAAkB,CAAC;IAmIjB,OAAO,CAAC,IAAI,EAAE,gBAAgB,GAAG,OAAO,CAAC,OAAO,CAAC;IAuI9D,OAAO,CAAC,wBAAwB;IAUhC,OAAO,CAAC,kBAAkB;IAI1B,OAAO,CAAC,iBAAiB;IASzB,OAAO,CAAC,4BAA4B;IAOpC,OAAO,CAAC,6BAA6B;CAWtC;AAQD,wBAAsB,4BAA4B,CAChD,4BAA4B,EAAE,4BAA4B,EAC1D,YAAY,EAAE,YAAY,EAC1B,SAAS,CAAC,EAAE,SAAS,GACpB,OAAO,CAAC,eAAe,CAAC,CAY1B"}
+\ No newline at end of file
++{"version":3,"file":"provider.d.ts","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":";AAAA,OAAO,KAAK,EACV,SAAS,EAGT,eAAe,EAEf,0BAA0B,EAC1B,gBAAgB,EACjB,MAAM,gBAAgB,CAAC;AAExB,OAAO,KAAK,EACV,UAAU,EAMV,wBAAwB,EAGzB,MAAM,sBAAsB,CAAC;AAK9B,OAAO,EAAE,YAAY,EAAE,MAAM,QAAQ,CAAC;AAsBtC,OAAO,EACL,UAAU,EACV,cAAc,EACd,oBAAoB,EACpB,YAAY,EACb,MAAM,cAAc,CAAC;AAWtB,OAAO,EAAE,YAAY,EAA8B,MAAM,kBAAkB,CAAC;AAmB5E,eAAO,MAAM,gBAAgB,+CAA+C,CAAC;AAI7E,wBAAsB,mBAAmB,IAAI,OAAO,CAAC,UAAU,CAAC,CAgB/D;AAED,UAAU,4BAA4B;IACpC,QAAQ,EAAE,MAAM,CAAC;IACjB,OAAO,EAAE,MAAM,CAAC;IAChB,SAAS,EAAE,MAAM,CAAC;IAClB,aAAa,EAAE,MAAM,CAAC;IACtB,WAAW,EAAE,MAAM,CAAC;IACpB,QAAQ,EAAE,OAAO,CAAC;IAClB,cAAc,EAAE,oBAAoB,CAAC;IACrC,YAAY,EAAE,YAAY,CAAC;IAC3B,MAAM,EAAE,0BAA0B,CAAC;IACnC,eAAe,EAAE,cAAc,EAAE,CAAC;IAClC,0BAA0B,EAAE,OAAO,CAAC;IACpC,0BAA0B,EAAE,OAAO,CAAC;IACpC,mBAAmB,EAAE,OAAO,CAAC;IAC7B,4BAA4B,EAAE,OAAO,CAAC;IAEtC,oBAAoB,CAAC,EAAE,MAAM,CAAC;IAC9B,WAAW,CAAC,EAAE,IAAI,CAAC;IACnB,QAAQ,CAAC,EAAE,MAAM,CAAC;IAClB,UAAU,CAAC,EAAE,UAAU,CAAC;IACxB,aAAa,CAAC,EAAE,MAAM,CAAC;IACvB,sBAAsB,EAAE,OAAO,CAAC;IAChC,aAAa,EAAE,OAAO,CAAC;CACxB;AAWD,qBAAa,kBACX,SAAQ,YACR,YAAW,eAAe;IAWxB,OAAO,CAAC,SAAS;IACjB,OAAO,CAAC,QAAQ,CAAC,eAAe;IAChC,OAAO,CAAC,QAAQ,CAAC,aAAa;IAE9B,OAAO,CAAC,KAAK;IAGb,OAAO,CAAC,QAAQ,CAAC,mBAAmB;IACpC,OAAO,CAAC,QAAQ,CAAC,cAAc;IAjBjC,OAAO,CAAC,wBAAwB,CAC3B;IAEL,OAAO,CAAC,kBAAkB,CAAK;IAG/B,OAAO,CAAC,qBAAqB,CAAC,CAAuB;IAErD,OAAO;WAca,MAAM,CACxB,MAAM,EAAE,4BAA4B,EACpC,YAAY,EAAE,YAAY,EAC1B,aAAa,CAAC,EAAE,wBAAwB,GACvC,OAAO,CAAC,kBAAkB,CAAC;IAmKjB,OAAO,CAAC,IAAI,EAAE,gBAAgB,GAAG,OAAO,CAAC,OAAO,CAAC;YAiJhD,qBAAqB;YAuBrB,MAAM;YAiDN,wBAAwB;YAexB,kBAAkB;IAIhC,OAAO,CAAC,iBAAiB;IASzB,OAAO,CAAC,4BAA4B;IAOpC,OAAO,CAAC,6BAA6B;CAWtC;AAQD,wBAAsB,4BAA4B,CAChD,4BAA4B,EAAE,4BAA4B,EAC1D,YAAY,EAAE,YAAY,EAC1B,SAAS,CAAC,EAAE,SAAS,GACpB,OAAO,CAAC,eAAe,CAAC,CAY1B"}
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/provider.js b/internal/hardhat-network/provider/provider.js
+index c68092445cc8b68a0c26321c6bfba68294c5c22a..1c6d9671b92c4f51d0932f066a49ad9f1e58a91f 100644
+--- a/internal/hardhat-network/provider/provider.js
++++ b/internal/hardhat-network/provider/provider.js
+@@ -1,13 +1,39 @@
+ "use strict";
++var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
++    if (k2 === undefined) k2 = k;
++    var desc = Object.getOwnPropertyDescriptor(m, k);
++    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
++      desc = { enumerable: true, get: function() { return m[k]; } };
++    }
++    Object.defineProperty(o, k2, desc);
++}) : (function(o, m, k, k2) {
++    if (k2 === undefined) k2 = k;
++    o[k2] = m[k];
++}));
++var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
++    Object.defineProperty(o, "default", { enumerable: true, value: v });
++}) : function(o, v) {
++    o["default"] = v;
++});
++var __importStar = (this && this.__importStar) || function (mod) {
++    if (mod && mod.__esModule) return mod;
++    var result = {};
++    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
++    __setModuleDefault(result, mod);
++    return result;
++};
+ var __importDefault = (this && this.__importDefault) || function (mod) {
+     return (mod && mod.__esModule) ? mod : { "default": mod };
+ };
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.createHardhatNetworkProvider = exports.EdrProviderWrapper = exports.getGlobalEdrContext = exports.DEFAULT_COINBASE = void 0;
++const util_1 = require("@ethereumjs/util");
++const edr_1 = require("@nomicfoundation/edr");
+ const picocolors_1 = __importDefault(require("picocolors"));
+ const debug_1 = __importDefault(require("debug"));
+ const events_1 = require("events");
+ const fs_extra_1 = __importDefault(require("fs-extra"));
++const t = __importStar(require("io-ts"));
+ const napi_rs_1 = require("../../../common/napi-rs");
+ const constants_1 = require("../../constants");
+ const errors_1 = require("../../core/providers/errors");
+@@ -19,16 +45,21 @@ const packageInfo_1 = require("../../util/packageInfo");
+ const convertToEdr_1 = require("./utils/convertToEdr");
+ const logger_1 = require("./modules/logger");
+ const minimal_vm_1 = require("./vm/minimal-vm");
++const base_types_1 = require("../../core/jsonrpc/types/base-types");
++const validation_1 = require("../../core/jsonrpc/types/input/validation");
++const solc_1 = require("../../core/jsonrpc/types/input/solc");
++const hardhat_network_1 = require("../../core/jsonrpc/types/input/hardhat-network");
+ const log = (0, debug_1.default)("hardhat:core:hardhat-network:provider");
+ /* eslint-disable @nomicfoundation/hardhat-internal-rules/only-hardhat-error */
+ exports.DEFAULT_COINBASE = "0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e";
+ let _globalEdrContext;
+ // Lazy initialize the global EDR context.
+-function getGlobalEdrContext() {
+-    const { EdrContext } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++async function getGlobalEdrContext() {
++    const { EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
+     if (_globalEdrContext === undefined) {
+         // Only one is allowed to exist
+         _globalEdrContext = new EdrContext();
++        await _globalEdrContext.registerProviderFactory(GENERIC_CHAIN_TYPE, genericChainProviderFactory());
+     }
+     return _globalEdrContext;
+ }
+@@ -36,35 +67,43 @@ exports.getGlobalEdrContext = getGlobalEdrContext;
+ class EdrProviderEventAdapter extends events_1.EventEmitter {
+ }
+ class EdrProviderWrapper extends events_1.EventEmitter {
+-    constructor(_provider, 
++    constructor(_provider, _providerConfig, _loggerConfig, 
+     // we add this for backwards-compatibility with plugins like solidity-coverage
+-    _node) {
++    _node, _subscriptionConfig, _tracingConfig) {
+         super();
+         this._provider = _provider;
++        this._providerConfig = _providerConfig;
++        this._loggerConfig = _loggerConfig;
+         this._node = _node;
++        this._subscriptionConfig = _subscriptionConfig;
++        this._tracingConfig = _tracingConfig;
++        this._addedCompilationResults = [];
+         this._failedStackTraces = 0;
+     }
+     static async create(config, loggerConfig, tracingConfig) {
+-        const { Provider } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++        const { GENERIC_CHAIN_TYPE, l1GenesisState, l1HardforkFromString } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
+         const coinbase = config.coinbase ?? exports.DEFAULT_COINBASE;
+         let fork;
+         if (config.forkConfig !== undefined) {
+-            let httpHeaders;
+-            if (config.forkConfig.httpHeaders !== undefined) {
+-                httpHeaders = [];
+-                for (const [name, value] of Object.entries(config.forkConfig.httpHeaders)) {
+-                    httpHeaders.push({
+-                        name,
+-                        value,
+-                    });
+-                }
+-            }
+             fork = {
+-                jsonRpcUrl: config.forkConfig.jsonRpcUrl,
+                 blockNumber: config.forkConfig.blockNumber !== undefined
+                     ? BigInt(config.forkConfig.blockNumber)
+                     : undefined,
+-                httpHeaders,
++                cacheDir: config.forkCachePath,
++                chainOverrides: Array.from(config.chains, ([chainId, hardforkConfig]) => {
++                    return {
++                        chainId: BigInt(chainId),
++                        name: "Unknown",
++                        hardforks: Array.from(hardforkConfig.hardforkHistory, ([hardfork, blockNumber]) => {
++                            return {
++                                condition: { blockNumber: BigInt(blockNumber) },
++                                hardfork: (0, convertToEdr_1.ethereumsjsHardforkToEdrSpecId)((0, hardforks_1.getHardforkName)(hardfork)),
++                            };
++                        }),
++                    };
++                }),
++                httpHeaders: (0, convertToEdr_1.httpHeadersToEdr)(config.forkConfig.httpHeaders),
++                url: config.forkConfig.jsonRpcUrl,
+             };
+         }
+         const initialDate = config.initialDate !== undefined
+@@ -76,35 +115,28 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+         const printLineFn = loggerConfig.printLineFn ?? logger_1.printLine;
+         const replaceLastLineFn = loggerConfig.replaceLastLineFn ?? logger_1.replaceLastLine;
+         const hardforkName = (0, hardforks_1.getHardforkName)(config.hardfork);
+-        const provider = await Provider.withConfig(getGlobalEdrContext(), {
++        const genesisState = fork !== undefined
++            ? [] // TODO: Add support for overriding remote fork state when the local fork is different
++            : l1GenesisState(l1HardforkFromString((0, convertToEdr_1.ethereumsjsHardforkToEdrSpecId)(hardforkName)));
++        for (const account of config.genesisAccounts) {
++            const privateKey = Uint8Array.from(Buffer.from(account.privateKey.slice(2), "hex"));
++            genesisState.push({
++                address: (0, util_1.privateToAddress)(privateKey),
++                balance: BigInt(account.balance),
++            });
++        }
++        const edrProviderConfig = {
+             allowBlocksWithSameTimestamp: config.allowBlocksWithSameTimestamp ?? false,
+             allowUnlimitedContractSize: config.allowUnlimitedContractSize,
+             bailOnCallFailure: config.throwOnCallFailures,
+             bailOnTransactionFailure: config.throwOnTransactionFailures,
+             blockGasLimit: BigInt(config.blockGasLimit),
+             chainId: BigInt(config.chainId),
+-            chains: Array.from(config.chains, ([chainId, hardforkConfig]) => {
+-                return {
+-                    chainId: BigInt(chainId),
+-                    hardforks: Array.from(hardforkConfig.hardforkHistory, ([hardfork, blockNumber]) => {
+-                        return {
+-                            blockNumber: BigInt(blockNumber),
+-                            specId: (0, convertToEdr_1.ethereumsjsHardforkToEdrSpecId)((0, hardforks_1.getHardforkName)(hardfork)),
+-                        };
+-                    }),
+-                };
+-            }),
+-            cacheDir: config.forkCachePath,
+             coinbase: Buffer.from(coinbase.slice(2), "hex"),
+-            enableRip7212: config.enableRip7212,
++            precompileOverrides: config.enableRip7212 ? [(0, edr_1.precompileP256Verify)()] : [],
+             fork,
++            genesisState,
+             hardfork: (0, convertToEdr_1.ethereumsjsHardforkToEdrSpecId)(hardforkName),
+-            genesisAccounts: config.genesisAccounts.map((account) => {
+-                return {
+-                    secretKey: account.privateKey,
+-                    balance: BigInt(account.balance),
+-                };
+-            }),
+             initialDate,
+             initialBaseFeePerGas: config.initialBaseFeePerGas !== undefined
+                 ? BigInt(config.initialBaseFeePerGas)
+@@ -118,9 +150,18 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+                 },
+             },
+             networkId: BigInt(config.networkId),
+-        }, {
++            observability: {},
++            ownedAccounts: config.genesisAccounts.map((account) => {
++                return account.privateKey;
++            }),
++        };
++        const edrLoggerConfig = {
+             enable: loggerConfig.enabled,
+-            decodeConsoleLogInputsCallback: consoleLogger_1.ConsoleLogger.getDecodedLogs,
++            decodeConsoleLogInputsCallback: (inputs) => {
++                return consoleLogger_1.ConsoleLogger.getDecodedLogs(inputs.map((input) => {
++                    return Buffer.from(input);
++                }));
++            },
+             printLineCallback: (message, replace) => {
+                 if (replace) {
+                     replaceLastLineFn(message);
+@@ -129,13 +170,19 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+                     printLineFn(message);
+                 }
+             },
+-        }, tracingConfig ?? {}, (event) => {
+-            eventAdapter.emit("ethEvent", event);
+-        });
++        };
++        const edrSubscriptionConfig = {
++            subscriptionCallback: (event) => {
++                eventAdapter.emit("ethEvent", event);
++            },
++        };
++        const edrTracingConfig = tracingConfig ?? {};
++        const context = await getGlobalEdrContext();
++        const provider = await context.createProvider(GENERIC_CHAIN_TYPE, edrProviderConfig, edrLoggerConfig, edrSubscriptionConfig, edrTracingConfig);
+         const minimalEthereumJsNode = {
+             _vm: (0, minimal_vm_1.getMinimalEthereumJsVm)(provider),
+         };
+-        const wrapper = new EdrProviderWrapper(provider, minimalEthereumJsNode);
++        const wrapper = new EdrProviderWrapper(provider, edrProviderConfig, edrLoggerConfig, minimalEthereumJsNode, edrSubscriptionConfig, edrTracingConfig);
+         // Pass through all events from the provider
+         eventAdapter.addListener("ethEvent", wrapper._ethEventListener.bind(wrapper));
+         return wrapper;
+@@ -145,9 +192,20 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             throw new errors_1.InvalidInputError("Hardhat Network doesn't support JSON-RPC params sent as an object");
+         }
+         const params = args.params ?? [];
+-        if (args.method === "hardhat_getStackTraceFailuresCount") {
+-            // stubbed for backwards compatibility
+-            return 0;
++        // stubbed for backwards compatibility
++        switch (args.method) {
++            case "hardhat_getStackTraceFailuresCount":
++                return 0;
++            case "eth_mining":
++                return false;
++            case "net_listening":
++                return true;
++            case "net_peerCount":
++                return (0, base_types_1.numberToRpcQuantity)(0);
++            case "hardhat_reset":
++                return this._reset(..._resetParams(params));
++            case "hardhat_addCompilationResult":
++                return this._addCompilationResult(..._addCompilationResultParams(params));
+         }
+         const stringifiedArgs = JSON.stringify({
+             method: args.method,
+@@ -167,7 +225,7 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             const rawTraces = responseObject.traces;
+             for (const rawTrace of rawTraces) {
+                 // For other consumers in JS we need to marshall the entire trace over FFI
+-                const trace = rawTrace.trace();
++                const trace = rawTrace.trace;
+                 // beforeTx event
+                 if (this._node._vm.events.listenerCount("beforeTx") > 0) {
+                     this._node._vm.events.emit("beforeTx");
+@@ -226,10 +284,7 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             // eslint-disable-next-line @nomicfoundation/hardhat-internal-rules/only-hardhat-error
+             throw error;
+         }
+-        if (args.method === "hardhat_reset") {
+-            this.emit(constants_1.HARDHAT_NETWORK_RESET_EVENT);
+-        }
+-        else if (args.method === "evm_revert") {
++        if (args.method === "evm_revert") {
+             this.emit(constants_1.HARDHAT_NETWORK_REVERT_SNAPSHOT_EVENT);
+         }
+         // Override EDR version string with Hardhat version string with EDR backend,
+@@ -245,15 +300,60 @@ class EdrProviderWrapper extends events_1.EventEmitter {
+             return response.result;
+         }
+     }
++    async _addCompilationResult(solcVersion, input, output) {
++        try {
++            const success = await this._provider.addCompilationResult(solcVersion, input, output);
++            if (success) {
++                this._addedCompilationResults.push([solcVersion, input, output]);
++            }
++            return success;
++        }
++        catch (error) {
++            // eslint-disable-next-line @nomicfoundation/hardhat-internal-rules/only-hardhat-error
++            throw new errors_1.InternalError(error);
++        }
++    }
++    async _reset(networkConfig) {
++        const { GENERIC_CHAIN_TYPE } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
++        const forkConfig = networkConfig?.forking;
++        if (forkConfig !== undefined) {
++            this._providerConfig.fork = {
++                blockNumber: forkConfig.blockNumber !== undefined
++                    ? BigInt(forkConfig.blockNumber)
++                    : undefined,
++                cacheDir: this._providerConfig.fork?.cacheDir,
++                chainOverrides: this._providerConfig.fork?.chainOverrides,
++                httpHeaders: (0, convertToEdr_1.httpHeadersToEdr)(forkConfig.httpHeaders),
++                url: forkConfig.jsonRpcUrl,
++            };
++        }
++        else {
++            this._providerConfig.fork = undefined;
++        }
++        const context = await getGlobalEdrContext();
++        const provider = await context.createProvider(GENERIC_CHAIN_TYPE, this._providerConfig, this._loggerConfig, this._subscriptionConfig, this._tracingConfig);
++        for (const [solcVersion, input, output] of this._addedCompilationResults) {
++            // This should succeed as only succesful compilation results are added
++            // to the provider. Therefore, we don't need to handle errors here.
++            await provider.addCompilationResult(solcVersion, input, output);
++        }
++        const minimalEthereumJsNode = {
++            _vm: (0, minimal_vm_1.getMinimalEthereumJsVm)(provider),
++        };
++        this._provider = provider;
++        this._node = minimalEthereumJsNode;
++        this.emit(constants_1.HARDHAT_NETWORK_RESET_EVENT);
++        return true;
++    }
+     // temporarily added to make smock work with HH+EDR
+-    _setCallOverrideCallback(callback) {
++    async _setCallOverrideCallback(callback) {
+         this._callOverrideCallback = callback;
+-        this._provider.setCallOverrideCallback(async (address, data) => {
+-            return this._callOverrideCallback?.(address, data);
++        await this._provider.setCallOverrideCallback(async (address, data) => {
++            return this._callOverrideCallback?.(Buffer.from(address), Buffer.from(data));
+         });
+     }
+-    _setVerboseTracing(enabled) {
+-        this._provider.setVerboseTracing(enabled);
++    async _setVerboseTracing(enabled) {
++        await this._provider.setVerboseTracing(enabled);
+     }
+     _ethEventListener(event) {
+         const subscription = `0x${event.filterId.toString(16)}`;
+@@ -310,4 +410,10 @@ async function makeTracingConfig(artifacts) {
+         }
+     }
+ }
++function _addCompilationResultParams(params) {
++    return (0, validation_1.validateParams)(params, t.string, solc_1.rpcCompilerInput, solc_1.rpcCompilerOutput);
++}
++function _resetParams(params) {
++    return (0, validation_1.validateParams)(params, hardhat_network_1.optionalRpcHardhatNetworkConfig);
++}
+ //# sourceMappingURL=provider.js.map
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/provider.js.map b/internal/hardhat-network/provider/provider.js.map
+index beca1ccfa4487fe67bc98ffc9d4ceb75d9504cbe..006afa61f4814e645371e8ba03cfce32d6bfcdfb 100644
+--- a/internal/hardhat-network/provider/provider.js.map
++++ b/internal/hardhat-network/provider/provider.js.map
+@@ -1 +1 @@
+-{"version":3,"file":"provider.js","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
++{"version":3,"file":"provider.js","sourceRoot":"","sources":["../../../src/internal/hardhat-network/provider/provider.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/utils/convertToEdr.d.ts b/internal/hardhat-network/provider/utils/convertToEdr.d.ts
+index 3f88a622b92abfd911f4b79f5160758ee81a0f2a..69eebf11f2d8a5847ea74db738007391dde986b7 100644
+--- a/internal/hardhat-network/provider/utils/convertToEdr.d.ts
++++ b/internal/hardhat-network/provider/utils/convertToEdr.d.ts
+@@ -1,9 +1,9 @@
+-import type { SpecId, MineOrdering, IntervalRange, DebugTraceResult, TracingMessage, TracingMessageResult, TracingStep } from "@nomicfoundation/edr";
++import type { SpecId, MineOrdering, IntervalRange, DebugTraceResult, TracingMessage, TracingMessageResult, TracingStep, HttpHeader } from "@nomicfoundation/edr";
+ import { HardforkName } from "../../../util/hardforks";
+ import { IntervalMiningConfig, MempoolOrder } from "../node-types";
+ import { RpcDebugTraceOutput } from "../output";
+ import { MinimalEVMResult, MinimalInterpreterStep, MinimalMessage } from "../vm/types";
+-export declare function ethereumsjsHardforkToEdrSpecId(hardfork: HardforkName): SpecId;
++export declare function ethereumsjsHardforkToEdrSpecId(hardfork: HardforkName): string;
+ export declare function edrSpecIdToEthereumHardfork(specId: SpecId): HardforkName;
+ export declare function ethereumjsIntervalMiningConfigToEdr(config: IntervalMiningConfig): bigint | IntervalRange | undefined;
+ export declare function ethereumjsMempoolOrderToEdrMineOrdering(mempoolOrder: MempoolOrder): MineOrdering;
+@@ -11,4 +11,7 @@ export declare function edrRpcDebugTraceToHardhat(rpcDebugTrace: DebugTraceResul
+ export declare function edrTracingStepToMinimalInterpreterStep(step: TracingStep): MinimalInterpreterStep;
+ export declare function edrTracingMessageResultToMinimalEVMResult(tracingMessageResult: TracingMessageResult): MinimalEVMResult;
+ export declare function edrTracingMessageToMinimalMessage(message: TracingMessage): MinimalMessage;
++export declare function httpHeadersToEdr(input?: {
++    [name: string]: string;
++}): HttpHeader[] | undefined;
+ //# sourceMappingURL=convertToEdr.d.ts.map
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/utils/convertToEdr.d.ts.map b/internal/hardhat-network/provider/utils/convertToEdr.d.ts.map
+index 003582451a11ccabd20730fee5fc58f8d6dec152..2ea9da2daea470b126f3c473d444e1d31a407eee 100644
+--- a/internal/hardhat-network/provider/utils/convertToEdr.d.ts.map
++++ b/internal/hardhat-network/provider/utils/convertToEdr.d.ts.map
+@@ -1 +1 @@
+-{"version":3,"file":"convertToEdr.d.ts","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EACV,MAAM,EACN,YAAY,EACZ,aAAa,EACb,gBAAgB,EAChB,cAAc,EACd,oBAAoB,EACpB,WAAW,EACZ,MAAM,sBAAsB,CAAC;AAI9B,OAAO,EAAE,YAAY,EAAE,MAAM,yBAAyB,CAAC;AACvD,OAAO,EAAE,oBAAoB,EAAE,YAAY,EAAE,MAAM,eAAe,CAAC;AACnE,OAAO,EAAE,mBAAmB,EAAgB,MAAM,WAAW,CAAC;AAC9D,OAAO,EACL,gBAAgB,EAChB,sBAAsB,EACtB,cAAc,EACf,MAAM,aAAa,CAAC;AAIrB,wBAAgB,8BAA8B,CAAC,QAAQ,EAAE,YAAY,GAAG,MAAM,CAgD7E;AAED,wBAAgB,2BAA2B,CAAC,MAAM,EAAE,MAAM,GAAG,YAAY,CA8CxE;AAED,wBAAgB,mCAAmC,CACjD,MAAM,EAAE,oBAAoB,GAC3B,MAAM,GAAG,aAAa,GAAG,SAAS,CAcpC;AAED,wBAAgB,uCAAuC,CACrD,YAAY,EAAE,YAAY,GACzB,YAAY,CAWd;AAED,wBAAgB,yBAAyB,CACvC,aAAa,EAAE,gBAAgB,GAC9B,mBAAmB,CAoDrB;AAED,wBAAgB,sCAAsC,CACpD,IAAI,EAAE,WAAW,GAChB,sBAAsB,CAexB;AAED,wBAAgB,yCAAyC,CACvD,oBAAoB,EAAE,oBAAoB,GACzC,gBAAgB,CA+BlB;AAED,wBAAgB,iCAAiC,CAC/C,OAAO,EAAE,cAAc,GACtB,cAAc,CAahB"}
+\ No newline at end of file
++{"version":3,"file":"convertToEdr.d.ts","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EACV,MAAM,EACN,YAAY,EACZ,aAAa,EACb,gBAAgB,EAChB,cAAc,EACd,oBAAoB,EACpB,WAAW,EACX,UAAU,EACX,MAAM,sBAAsB,CAAC;AAwB9B,OAAO,EAAE,YAAY,EAAE,MAAM,yBAAyB,CAAC;AACvD,OAAO,EAAE,oBAAoB,EAAE,YAAY,EAAE,MAAM,eAAe,CAAC;AACnE,OAAO,EAAE,mBAAmB,EAAgB,MAAM,WAAW,CAAC;AAC9D,OAAO,EACL,gBAAgB,EAChB,sBAAsB,EACtB,cAAc,EACf,MAAM,aAAa,CAAC;AAIrB,wBAAgB,8BAA8B,CAAC,QAAQ,EAAE,YAAY,GAAG,MAAM,CA4C7E;AAED,wBAAgB,2BAA2B,CAAC,MAAM,EAAE,MAAM,GAAG,YAAY,CA8CxE;AAED,wBAAgB,mCAAmC,CACjD,MAAM,EAAE,oBAAoB,GAC3B,MAAM,GAAG,aAAa,GAAG,SAAS,CAcpC;AAED,wBAAgB,uCAAuC,CACrD,YAAY,EAAE,YAAY,GACzB,YAAY,CAWd;AAED,wBAAgB,yBAAyB,CACvC,aAAa,EAAE,gBAAgB,GAC9B,mBAAmB,CAoDrB;AAED,wBAAgB,sCAAsC,CACpD,IAAI,EAAE,WAAW,GAChB,sBAAsB,CAexB;AAED,wBAAgB,yCAAyC,CACvD,oBAAoB,EAAE,oBAAoB,GACzC,gBAAgB,CA+BlB;AAED,wBAAgB,iCAAiC,CAC/C,OAAO,EAAE,cAAc,GACtB,cAAc,CAahB;AAED,wBAAgB,gBAAgB,CAAC,KAAK,CAAC,EAAE;IACvC,CAAC,IAAI,EAAE,MAAM,GAAG,MAAM,CAAC;CACxB,GAAG,UAAU,EAAE,GAAG,SAAS,CAc3B"}
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/utils/convertToEdr.js b/internal/hardhat-network/provider/utils/convertToEdr.js
+index e42c0e53211c9f5d418d256f5b8e51c277d35072..da0b1800d4c3a8d3bc678ed5abcae161ad8fe7d5 100644
+--- a/internal/hardhat-network/provider/utils/convertToEdr.js
++++ b/internal/hardhat-network/provider/utils/convertToEdr.js
+@@ -1,49 +1,49 @@
+ "use strict";
+ Object.defineProperty(exports, "__esModule", { value: true });
+-exports.edrTracingMessageToMinimalMessage = exports.edrTracingMessageResultToMinimalEVMResult = exports.edrTracingStepToMinimalInterpreterStep = exports.edrRpcDebugTraceToHardhat = exports.ethereumjsMempoolOrderToEdrMineOrdering = exports.ethereumjsIntervalMiningConfigToEdr = exports.edrSpecIdToEthereumHardfork = exports.ethereumsjsHardforkToEdrSpecId = void 0;
++exports.httpHeadersToEdr = exports.edrTracingMessageToMinimalMessage = exports.edrTracingMessageResultToMinimalEVMResult = exports.edrTracingStepToMinimalInterpreterStep = exports.edrRpcDebugTraceToHardhat = exports.ethereumjsMempoolOrderToEdrMineOrdering = exports.ethereumjsIntervalMiningConfigToEdr = exports.edrSpecIdToEthereumHardfork = exports.ethereumsjsHardforkToEdrSpecId = void 0;
++const edr_1 = require("@nomicfoundation/edr");
+ const util_1 = require("@ethereumjs/util");
+ const napi_rs_1 = require("../../../../common/napi-rs");
+ const hardforks_1 = require("../../../util/hardforks");
+ /* eslint-disable @nomicfoundation/hardhat-internal-rules/only-hardhat-error */
+ function ethereumsjsHardforkToEdrSpecId(hardfork) {
+-    const { SpecId } = (0, napi_rs_1.requireNapiRsModule)("@nomicfoundation/edr");
+     switch (hardfork) {
+         case hardforks_1.HardforkName.FRONTIER:
+-            return SpecId.Frontier;
++            return edr_1.FRONTIER;
+         case hardforks_1.HardforkName.HOMESTEAD:
+-            return SpecId.Homestead;
++            return edr_1.HOMESTEAD;
+         case hardforks_1.HardforkName.DAO:
+-            return SpecId.DaoFork;
++            return edr_1.DAO_FORK;
+         case hardforks_1.HardforkName.TANGERINE_WHISTLE:
+-            return SpecId.Tangerine;
++            return edr_1.TANGERINE;
+         case hardforks_1.HardforkName.SPURIOUS_DRAGON:
+-            return SpecId.SpuriousDragon;
++            return edr_1.SPURIOUS_DRAGON;
+         case hardforks_1.HardforkName.BYZANTIUM:
+-            return SpecId.Byzantium;
++            return edr_1.BYZANTIUM;
+         case hardforks_1.HardforkName.CONSTANTINOPLE:
+-            return SpecId.Constantinople;
++            return edr_1.CONSTANTINOPLE;
+         case hardforks_1.HardforkName.PETERSBURG:
+-            return SpecId.Petersburg;
++            return edr_1.PETERSBURG;
+         case hardforks_1.HardforkName.ISTANBUL:
+-            return SpecId.Istanbul;
++            return edr_1.ISTANBUL;
+         case hardforks_1.HardforkName.MUIR_GLACIER:
+-            return SpecId.MuirGlacier;
++            return edr_1.MUIR_GLACIER;
+         case hardforks_1.HardforkName.BERLIN:
+-            return SpecId.Berlin;
++            return edr_1.BERLIN;
+         case hardforks_1.HardforkName.LONDON:
+-            return SpecId.London;
++            return edr_1.LONDON;
+         case hardforks_1.HardforkName.ARROW_GLACIER:
+-            return SpecId.ArrowGlacier;
++            return edr_1.ARROW_GLACIER;
+         case hardforks_1.HardforkName.GRAY_GLACIER:
+-            return SpecId.GrayGlacier;
++            return edr_1.GRAY_GLACIER;
+         case hardforks_1.HardforkName.MERGE:
+-            return SpecId.Merge;
++            return edr_1.MERGE;
+         case hardforks_1.HardforkName.SHANGHAI:
+-            return SpecId.Shanghai;
++            return edr_1.SHANGHAI;
+         case hardforks_1.HardforkName.CANCUN:
+-            return SpecId.Cancun;
++            return edr_1.CANCUN;
+         case hardforks_1.HardforkName.PRAGUE:
+-            return SpecId.Prague;
++            return edr_1.PRAGUE;
+         default:
+             const _exhaustiveCheck = hardfork;
+             throw new Error(`Unknown hardfork name '${hardfork}', this shouldn't happen`);
+@@ -154,7 +154,7 @@ function edrRpcDebugTraceToHardhat(rpcDebugTrace) {
+     if (structLogs.length > 0 && structLogs[0].op === "STOP") {
+         structLogs.shift();
+     }
+-    let returnValue = rpcDebugTrace.output?.toString("hex") ?? "";
++    let returnValue = rpcDebugTrace.output?.toString() ?? "";
+     if (returnValue === "0x") {
+         returnValue = "";
+     }
+@@ -197,11 +197,11 @@ function edrTracingMessageResultToMinimalEVMResult(tracingMessageResult) {
+     }
+     if ("output" in result) {
+         const { output } = result;
+-        if (Buffer.isBuffer(output)) {
+-            minimalEVMResult.execResult.output = output;
++        if (output instanceof Uint8Array) {
++            minimalEVMResult.execResult.output = Buffer.from(output);
+         }
+         else {
+-            minimalEVMResult.execResult.output = output.returnValue;
++            minimalEVMResult.execResult.output = Buffer.from(output.returnValue);
+         }
+     }
+     if (contractAddress !== undefined) {
+@@ -224,4 +224,18 @@ function edrTracingMessageToMinimalMessage(message) {
+     };
+ }
+ exports.edrTracingMessageToMinimalMessage = edrTracingMessageToMinimalMessage;
++function httpHeadersToEdr(input) {
++    let httpHeaders;
++    if (input !== undefined) {
++        httpHeaders = [];
++        for (const [name, value] of Object.entries(input)) {
++            httpHeaders.push({
++                name,
++                value,
++            });
++        }
++    }
++    return httpHeaders;
++}
++exports.httpHeadersToEdr = httpHeadersToEdr;
+ //# sourceMappingURL=convertToEdr.js.map
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/utils/convertToEdr.js.map b/internal/hardhat-network/provider/utils/convertToEdr.js.map
+index 79918d51fa738b6c10b351a82bde636c38706b81..c57ddfde2dc4e698aefbecd3a189ddeac4a8291e 100644
+--- a/internal/hardhat-network/provider/utils/convertToEdr.js.map
++++ b/internal/hardhat-network/provider/utils/convertToEdr.js.map
+@@ -1 +1 @@
+-{"version":3,"file":"convertToEdr.js","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
++{"version":3,"file":"convertToEdr.js","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/convertToEdr.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/utils/fork-recomendations-banner.d.ts b/internal/hardhat-network/provider/utils/fork-recomendations-banner.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..dbcfa7266d730e0a1f28814e1d2cb07768bb31c3
+--- /dev/null
++++ b/internal/hardhat-network/provider/utils/fork-recomendations-banner.d.ts
+@@ -0,0 +1,3 @@
++import { NetworkConfig } from "../../../../types";
++export declare function showForkRecommendationsBannerIfNecessary(currentNetworkConfig: NetworkConfig, forkCachePath: string): Promise<void>;
++//# sourceMappingURL=fork-recomendations-banner.d.ts.map
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/utils/fork-recomendations-banner.d.ts.map b/internal/hardhat-network/provider/utils/fork-recomendations-banner.d.ts.map
+new file mode 100644
+index 0000000000000000000000000000000000000000..10e5dad2045393033b29f93911b73dabf643a2a7
+--- /dev/null
++++ b/internal/hardhat-network/provider/utils/fork-recomendations-banner.d.ts.map
+@@ -0,0 +1 @@
++{"version":3,"file":"fork-recomendations-banner.d.ts","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/fork-recomendations-banner.ts"],"names":[],"mappings":"AAIA,OAAO,EAAE,aAAa,EAAE,MAAM,mBAAmB,CAAC;AAiBlD,wBAAsB,wCAAwC,CAC5D,oBAAoB,EAAE,aAAa,EACnC,aAAa,EAAE,MAAM,iBAwBtB"}
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/utils/fork-recomendations-banner.js b/internal/hardhat-network/provider/utils/fork-recomendations-banner.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..5ec0755071926150115f218f48e2260a788adb8d
+--- /dev/null
++++ b/internal/hardhat-network/provider/utils/fork-recomendations-banner.js
+@@ -0,0 +1,38 @@
++"use strict";
++var __importDefault = (this && this.__importDefault) || function (mod) {
++    return (mod && mod.__esModule) ? mod : { "default": mod };
++};
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.showForkRecommendationsBannerIfNecessary = void 0;
++const picocolors_1 = __importDefault(require("picocolors"));
++const fs_extra_1 = __importDefault(require("fs-extra"));
++const path_1 = __importDefault(require("path"));
++function getAlreadyShownFilePath(forkCachePath) {
++    return path_1.default.join(forkCachePath, "recommendations-already-shown.json");
++}
++function displayBanner() {
++    console.warn(picocolors_1.default.yellow(`You're running a network fork starting from the latest block.
++Performance may degrade due to fetching data from the network with each run.
++If connecting to an archival node (e.g. Alchemy), we strongly recommend setting
++blockNumber to a fixed value to increase performance with a local cache.`));
++}
++async function showForkRecommendationsBannerIfNecessary(currentNetworkConfig, forkCachePath) {
++    if (!("forking" in currentNetworkConfig)) {
++        return;
++    }
++    if (currentNetworkConfig.forking?.enabled !== true) {
++        return;
++    }
++    if (currentNetworkConfig.forking?.blockNumber !== undefined) {
++        return;
++    }
++    const shownPath = getAlreadyShownFilePath(forkCachePath);
++    if (await fs_extra_1.default.pathExists(shownPath)) {
++        return;
++    }
++    displayBanner();
++    await fs_extra_1.default.ensureDir(path_1.default.dirname(shownPath));
++    await fs_extra_1.default.writeJSON(shownPath, true);
++}
++exports.showForkRecommendationsBannerIfNecessary = showForkRecommendationsBannerIfNecessary;
++//# sourceMappingURL=fork-recomendations-banner.js.map
+\ No newline at end of file
+diff --git a/internal/hardhat-network/provider/utils/fork-recomendations-banner.js.map b/internal/hardhat-network/provider/utils/fork-recomendations-banner.js.map
+new file mode 100644
+index 0000000000000000000000000000000000000000..4f6678c34c16cee3025151977f1bb921add53c90
+--- /dev/null
++++ b/internal/hardhat-network/provider/utils/fork-recomendations-banner.js.map
+@@ -0,0 +1 @@
++{"version":3,"file":"fork-recomendations-banner.js","sourceRoot":"","sources":["../../../../src/internal/hardhat-network/provider/utils/fork-recomendations-banner.ts"],"names":[],"mappings":";;;;;;AAAA,4DAAoC;AACpC,wDAA+B;AAC/B,gDAAwB;AAIxB,SAAS,uBAAuB,CAAC,aAAqB;IACpD,OAAO,cAAI,CAAC,IAAI,CAAC,aAAa,EAAE,oCAAoC,CAAC,CAAC;AACxE,CAAC;AAED,SAAS,aAAa;IACpB,OAAO,CAAC,IAAI,CACV,oBAAU,CAAC,MAAM,CACf;;;yEAGmE,CACpE,CACF,CAAC;AACJ,CAAC;AAEM,KAAK,UAAU,wCAAwC,CAC5D,oBAAmC,EACnC,aAAqB;IAErB,IAAI,CAAC,CAAC,SAAS,IAAI,oBAAoB,CAAC,EAAE;QACxC,OAAO;KACR;IAED,IAAI,oBAAoB,CAAC,OAAO,EAAE,OAAO,KAAK,IAAI,EAAE;QAClD,OAAO;KACR;IAED,IAAI,oBAAoB,CAAC,OAAO,EAAE,WAAW,KAAK,SAAS,EAAE;QAC3D,OAAO;KACR;IAED,MAAM,SAAS,GAAG,uBAAuB,CAAC,aAAa,CAAC,CAAC;IAEzD,IAAI,MAAM,kBAAO,CAAC,UAAU,CAAC,SAAS,CAAC,EAAE;QACvC,OAAO;KACR;IAED,aAAa,EAAE,CAAC;IAEhB,MAAM,kBAAO,CAAC,SAAS,CAAC,cAAI,CAAC,OAAO,CAAC,SAAS,CAAC,CAAC,CAAC;IACjD,MAAM,kBAAO,CAAC,SAAS,CAAC,SAAS,EAAE,IAAI,CAAC,CAAC;AAC3C,CAAC;AA1BD,4FA0BC"}
+\ No newline at end of file
+diff --git a/src/internal/hardhat-network/provider/provider.ts b/src/internal/hardhat-network/provider/provider.ts
+index d895688d7b6ebed5a80db9b64017062b8bd42c10..a8db56a643b713d32bd00db1c52d8ea6f4247fc4 100644
+--- a/src/internal/hardhat-network/provider/provider.ts
++++ b/src/internal/hardhat-network/provider/provider.ts
+@@ -1,5 +1,7 @@
+ import type {
+   Artifacts,
++  CompilerInput,
++  CompilerOutput,
+   EIP1193Provider,
+   EthSubscription,
+   HardhatNetworkChainsConfig,
+@@ -8,16 +10,22 @@ import type {
+ 
+ import type {
+   EdrContext,
++  LoggerConfig as EdrLoggerConfig,
+   Provider as EdrProviderT,
+   Response,
+   SubscriptionEvent,
+   HttpHeader,
+   TracingConfigWithBuffers,
++  ProviderConfig,
++  SubscriptionConfig,
+ } from "@nomicfoundation/edr";
++import { privateToAddress } from "@ethereumjs/util";
++import { precompileP256Verify } from "@nomicfoundation/edr";
+ import picocolors from "picocolors";
+ import debug from "debug";
+ import { EventEmitter } from "events";
+ import fsExtra from "fs-extra";
++import * as t from "io-ts";
+ 
+ import { requireNapiRsModule } from "../../../common/napi-rs";
+ import {
+@@ -25,6 +33,7 @@ import {
+   HARDHAT_NETWORK_REVERT_SNAPSHOT_EVENT,
+ } from "../../constants";
+ import {
++  InternalError,
+   InvalidArgumentsError,
+   InvalidInputError,
+   ProviderError,
+@@ -50,9 +59,22 @@ import {
+   ethereumjsIntervalMiningConfigToEdr,
+   ethereumjsMempoolOrderToEdrMineOrdering,
+   ethereumsjsHardforkToEdrSpecId,
++  httpHeadersToEdr,
+ } from "./utils/convertToEdr";
+ import { LoggerConfig, printLine, replaceLastLine } from "./modules/logger";
+ import { MinimalEthereumJsVm, getMinimalEthereumJsVm } from "./vm/minimal-vm";
++import { numberToRpcQuantity } from "../../core/jsonrpc/types/base-types";
++import { validateParams } from "../../core/jsonrpc/types/input/validation";
++import {
++  rpcCompilerInput,
++  rpcCompilerOutput,
++} from "../../core/jsonrpc/types/input/solc";
++import {
++  optionalRpcHardhatNetworkConfig,
++  RpcHardhatNetworkConfig,
++} from "../../core/jsonrpc/types/input/hardhat-network";
++import { network } from "../../lib/hardhat-lib";
++import _ from "lodash";
+ 
+ const log = debug("hardhat:core:hardhat-network:provider");
+ 
+@@ -62,14 +84,19 @@ export const DEFAULT_COINBASE = "0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e";
+ let _globalEdrContext: EdrContext | undefined;
+ 
+ // Lazy initialize the global EDR context.
+-export function getGlobalEdrContext(): EdrContext {
+-  const { EdrContext } = requireNapiRsModule(
+-    "@nomicfoundation/edr"
+-  ) as typeof import("@nomicfoundation/edr");
++export async function getGlobalEdrContext(): Promise<EdrContext> {
++  const { EdrContext, GENERIC_CHAIN_TYPE, genericChainProviderFactory } =
++    requireNapiRsModule(
++      "@nomicfoundation/edr"
++    ) as typeof import("@nomicfoundation/edr");
+ 
+   if (_globalEdrContext === undefined) {
+     // Only one is allowed to exist
+     _globalEdrContext = new EdrContext();
++    await _globalEdrContext.registerProviderFactory(
++      GENERIC_CHAIN_TYPE,
++      genericChainProviderFactory()
++    );
+   }
+ 
+   return _globalEdrContext;
+@@ -113,17 +140,24 @@ export class EdrProviderWrapper
+   extends EventEmitter
+   implements EIP1193Provider
+ {
++  private _addedCompilationResults: [string, CompilerInput, CompilerOutput][] =
++    [];
++
+   private _failedStackTraces = 0;
+ 
+   // temporarily added to make smock work with HH+EDR
+   private _callOverrideCallback?: CallOverrideCallback;
+ 
+   private constructor(
+-    private readonly _provider: EdrProviderT,
++    private _provider: EdrProviderT,
++    private readonly _providerConfig: ProviderConfig,
++    private readonly _loggerConfig: EdrLoggerConfig,
+     // we add this for backwards-compatibility with plugins like solidity-coverage
+-    private readonly _node: {
++    private _node: {
+       _vm: MinimalEthereumJsVm;
+-    }
++    },
++    private readonly _subscriptionConfig: SubscriptionConfig,
++    private readonly _tracingConfig: TracingConfigWithBuffers
+   ) {
+     super();
+   }
+@@ -133,35 +167,43 @@ export class EdrProviderWrapper
+     loggerConfig: LoggerConfig,
+     tracingConfig?: TracingConfigWithBuffers
+   ): Promise<EdrProviderWrapper> {
+-    const { Provider } = requireNapiRsModule(
+-      "@nomicfoundation/edr"
+-    ) as typeof import("@nomicfoundation/edr");
++    const { GENERIC_CHAIN_TYPE, l1GenesisState, l1HardforkFromString } =
++      requireNapiRsModule(
++        "@nomicfoundation/edr"
++      ) as typeof import("@nomicfoundation/edr");
+ 
+     const coinbase = config.coinbase ?? DEFAULT_COINBASE;
+ 
+     let fork;
+     if (config.forkConfig !== undefined) {
+-      let httpHeaders: HttpHeader[] | undefined;
+-      if (config.forkConfig.httpHeaders !== undefined) {
+-        httpHeaders = [];
+-
+-        for (const [name, value] of Object.entries(
+-          config.forkConfig.httpHeaders
+-        )) {
+-          httpHeaders.push({
+-            name,
+-            value,
+-          });
+-        }
+-      }
+-
+       fork = {
+-        jsonRpcUrl: config.forkConfig.jsonRpcUrl,
+         blockNumber:
+           config.forkConfig.blockNumber !== undefined
+             ? BigInt(config.forkConfig.blockNumber)
+             : undefined,
+-        httpHeaders,
++        cacheDir: config.forkCachePath,
++        chainOverrides: Array.from(
++          config.chains,
++          ([chainId, hardforkConfig]) => {
++            return {
++              chainId: BigInt(chainId),
++              name: "Unknown",
++              hardforks: Array.from(
++                hardforkConfig.hardforkHistory,
++                ([hardfork, blockNumber]) => {
++                  return {
++                    condition: { blockNumber: BigInt(blockNumber) },
++                    hardfork: ethereumsjsHardforkToEdrSpecId(
++                      getHardforkName(hardfork)
++                    ),
++                  };
++                }
++              ),
++            };
++          }
++        ),
++        httpHeaders: httpHeadersToEdr(config.forkConfig.httpHeaders),
++        url: config.forkConfig.jsonRpcUrl,
+       };
+     }
+ 
+@@ -179,80 +221,104 @@ export class EdrProviderWrapper
+ 
+     const hardforkName = getHardforkName(config.hardfork);
+ 
+-    const provider = await Provider.withConfig(
+-      getGlobalEdrContext(),
+-      {
+-        allowBlocksWithSameTimestamp:
+-          config.allowBlocksWithSameTimestamp ?? false,
+-        allowUnlimitedContractSize: config.allowUnlimitedContractSize,
+-        bailOnCallFailure: config.throwOnCallFailures,
+-        bailOnTransactionFailure: config.throwOnTransactionFailures,
+-        blockGasLimit: BigInt(config.blockGasLimit),
+-        chainId: BigInt(config.chainId),
+-        chains: Array.from(config.chains, ([chainId, hardforkConfig]) => {
+-          return {
+-            chainId: BigInt(chainId),
+-            hardforks: Array.from(
+-              hardforkConfig.hardforkHistory,
+-              ([hardfork, blockNumber]) => {
+-                return {
+-                  blockNumber: BigInt(blockNumber),
+-                  specId: ethereumsjsHardforkToEdrSpecId(
+-                    getHardforkName(hardfork)
+-                  ),
+-                };
+-              }
+-            ),
+-          };
+-        }),
+-        cacheDir: config.forkCachePath,
+-        coinbase: Buffer.from(coinbase.slice(2), "hex"),
+-        enableRip7212: config.enableRip7212,
+-        fork,
+-        hardfork: ethereumsjsHardforkToEdrSpecId(hardforkName),
+-        genesisAccounts: config.genesisAccounts.map((account) => {
+-          return {
+-            secretKey: account.privateKey,
+-            balance: BigInt(account.balance),
+-          };
+-        }),
+-        initialDate,
+-        initialBaseFeePerGas:
+-          config.initialBaseFeePerGas !== undefined
+-            ? BigInt(config.initialBaseFeePerGas!)
+-            : undefined,
+-        minGasPrice: config.minGasPrice,
+-        mining: {
+-          autoMine: config.automine,
+-          interval: ethereumjsIntervalMiningConfigToEdr(config.intervalMining),
+-          memPool: {
+-            order: ethereumjsMempoolOrderToEdrMineOrdering(config.mempoolOrder),
+-          },
++    const genesisState =
++      fork !== undefined
++        ? [] // TODO: Add support for overriding remote fork state when the local fork is different
++        : l1GenesisState(
++            l1HardforkFromString(ethereumsjsHardforkToEdrSpecId(hardforkName))
++          );
++
++    for (const account of config.genesisAccounts) {
++      const privateKey = Uint8Array.from(
++        Buffer.from(account.privateKey.slice(2), "hex")
++      );
++
++      genesisState.push({
++        address: privateToAddress(privateKey),
++        balance: BigInt(account.balance),
++      });
++    }
++
++    const edrProviderConfig = {
++      allowBlocksWithSameTimestamp:
++        config.allowBlocksWithSameTimestamp ?? false,
++      allowUnlimitedContractSize: config.allowUnlimitedContractSize,
++      bailOnCallFailure: config.throwOnCallFailures,
++      bailOnTransactionFailure: config.throwOnTransactionFailures,
++      blockGasLimit: BigInt(config.blockGasLimit),
++      chainId: BigInt(config.chainId),
++      coinbase: Buffer.from(coinbase.slice(2), "hex"),
++      precompileOverrides: config.enableRip7212 ? [precompileP256Verify()] : [],
++      fork,
++      genesisState,
++      hardfork: ethereumsjsHardforkToEdrSpecId(hardforkName),
++      initialDate,
++      initialBaseFeePerGas:
++        config.initialBaseFeePerGas !== undefined
++          ? BigInt(config.initialBaseFeePerGas!)
++          : undefined,
++      minGasPrice: config.minGasPrice,
++      mining: {
++        autoMine: config.automine,
++        interval: ethereumjsIntervalMiningConfigToEdr(config.intervalMining),
++        memPool: {
++          order: ethereumjsMempoolOrderToEdrMineOrdering(config.mempoolOrder),
+         },
+-        networkId: BigInt(config.networkId),
+       },
+-      {
+-        enable: loggerConfig.enabled,
+-        decodeConsoleLogInputsCallback: ConsoleLogger.getDecodedLogs,
+-        printLineCallback: (message: string, replace: boolean) => {
+-          if (replace) {
+-            replaceLastLineFn(message);
+-          } else {
+-            printLineFn(message);
+-          }
+-        },
++      networkId: BigInt(config.networkId),
++      observability: {},
++      ownedAccounts: config.genesisAccounts.map((account) => {
++        return account.privateKey;
++      }),
++    };
++
++    const edrLoggerConfig = {
++      enable: loggerConfig.enabled,
++      decodeConsoleLogInputsCallback: (inputs: ArrayBuffer[]) => {
++        return ConsoleLogger.getDecodedLogs(
++          inputs.map((input) => {
++            return Buffer.from(input);
++          })
++        );
++      },
++      printLineCallback: (message: string, replace: boolean) => {
++        if (replace) {
++          replaceLastLineFn(message);
++        } else {
++          printLineFn(message);
++        }
+       },
+-      tracingConfig ?? {},
+-      (event: SubscriptionEvent) => {
++    };
++
++    const edrSubscriptionConfig = {
++      subscriptionCallback: (event: SubscriptionEvent) => {
+         eventAdapter.emit("ethEvent", event);
+-      }
++      },
++    };
++
++    const edrTracingConfig = tracingConfig ?? {};
++
++    const context = await getGlobalEdrContext();
++    const provider = await context.createProvider(
++      GENERIC_CHAIN_TYPE,
++      edrProviderConfig,
++      edrLoggerConfig,
++      edrSubscriptionConfig,
++      edrTracingConfig
+     );
+ 
+     const minimalEthereumJsNode = {
+       _vm: getMinimalEthereumJsVm(provider),
+     };
+ 
+-    const wrapper = new EdrProviderWrapper(provider, minimalEthereumJsNode);
++    const wrapper = new EdrProviderWrapper(
++      provider,
++      edrProviderConfig,
++      edrLoggerConfig,
++      minimalEthereumJsNode,
++      edrSubscriptionConfig,
++      edrTracingConfig
++    );
+ 
+     // Pass through all events from the provider
+     eventAdapter.addListener(
+@@ -272,9 +338,22 @@ export class EdrProviderWrapper
+ 
+     const params = args.params ?? [];
+ 
+-    if (args.method === "hardhat_getStackTraceFailuresCount") {
+-      // stubbed for backwards compatibility
+-      return 0;
++    // stubbed for backwards compatibility
++    switch (args.method) {
++      case "hardhat_getStackTraceFailuresCount":
++        return 0;
++      case "eth_mining":
++        return false;
++      case "net_listening":
++        return true;
++      case "net_peerCount":
++        return numberToRpcQuantity(0);
++      case "hardhat_reset":
++        return this._reset(..._resetParams(params));
++      case "hardhat_addCompilationResult":
++        return this._addCompilationResult(
++          ..._addCompilationResultParams(params)
++        );
+     }
+ 
+     const stringifiedArgs = JSON.stringify({
+@@ -301,7 +380,7 @@ export class EdrProviderWrapper
+       const rawTraces = responseObject.traces;
+       for (const rawTrace of rawTraces) {
+         // For other consumers in JS we need to marshall the entire trace over FFI
+-        const trace = rawTrace.trace();
++        const trace = rawTrace.trace;
+ 
+         // beforeTx event
+         if (this._node._vm.events.listenerCount("beforeTx") > 0) {
+@@ -377,9 +456,7 @@ export class EdrProviderWrapper
+       throw error;
+     }
+ 
+-    if (args.method === "hardhat_reset") {
+-      this.emit(HARDHAT_NETWORK_RESET_EVENT);
+-    } else if (args.method === "evm_revert") {
++    if (args.method === "evm_revert") {
+       this.emit(HARDHAT_NETWORK_REVERT_SNAPSHOT_EVENT);
+     }
+ 
+@@ -397,19 +474,95 @@ export class EdrProviderWrapper
+     }
+   }
+ 
++  private async _addCompilationResult(
++    solcVersion: string,
++    input: CompilerInput,
++    output: CompilerOutput
++  ): Promise<boolean> {
++    try {
++      const success = await this._provider.addCompilationResult(
++        solcVersion,
++        input,
++        output
++      );
++
++      if (success) {
++        this._addedCompilationResults.push([solcVersion, input, output]);
++      }
++
++      return success;
++    } catch (error: any) {
++      // eslint-disable-next-line @nomicfoundation/hardhat-internal-rules/only-hardhat-error
++      throw new InternalError(error);
++    }
++  }
++
++  private async _reset(networkConfig?: RpcHardhatNetworkConfig) {
++    const { GENERIC_CHAIN_TYPE } = requireNapiRsModule(
++      "@nomicfoundation/edr"
++    ) as typeof import("@nomicfoundation/edr");
++    const forkConfig = networkConfig?.forking;
++
++    if (forkConfig !== undefined) {
++      this._providerConfig.fork = {
++        blockNumber:
++          forkConfig.blockNumber !== undefined
++            ? BigInt(forkConfig.blockNumber)
++            : undefined,
++        cacheDir: this._providerConfig.fork?.cacheDir,
++        chainOverrides: this._providerConfig.fork?.chainOverrides,
++        httpHeaders: httpHeadersToEdr(forkConfig.httpHeaders),
++        url: forkConfig.jsonRpcUrl,
++      };
++    } else {
++      this._providerConfig.fork = undefined;
++    }
++
++    const context = await getGlobalEdrContext();
++    const provider = await context.createProvider(
++      GENERIC_CHAIN_TYPE,
++      this._providerConfig,
++      this._loggerConfig,
++      this._subscriptionConfig,
++      this._tracingConfig
++    );
++
++    for (const [solcVersion, input, output] of this._addedCompilationResults) {
++      // This should succeed as only succesful compilation results are added
++      // to the provider. Therefore, we don't need to handle errors here.
++      await provider.addCompilationResult(solcVersion, input, output);
++    }
++
++    const minimalEthereumJsNode = {
++      _vm: getMinimalEthereumJsVm(provider),
++    };
++
++    this._provider = provider;
++    this._node = minimalEthereumJsNode;
++
++    this.emit(HARDHAT_NETWORK_RESET_EVENT);
++
++    return true;
++  }
++
+   // temporarily added to make smock work with HH+EDR
+-  private _setCallOverrideCallback(callback: CallOverrideCallback) {
++  private async _setCallOverrideCallback(
++    callback: CallOverrideCallback
++  ): Promise<void> {
+     this._callOverrideCallback = callback;
+ 
+-    this._provider.setCallOverrideCallback(
+-      async (address: Buffer, data: Buffer) => {
+-        return this._callOverrideCallback?.(address, data);
++    await this._provider.setCallOverrideCallback(
++      async (address: ArrayBuffer, data: ArrayBuffer) => {
++        return this._callOverrideCallback?.(
++          Buffer.from(address),
++          Buffer.from(data)
++        );
+       }
+     );
+   }
+ 
+-  private _setVerboseTracing(enabled: boolean) {
+-    this._provider.setVerboseTracing(enabled);
++  private async _setVerboseTracing(enabled: boolean): Promise<void> {
++    await this._provider.setVerboseTracing(enabled);
+   }
+ 
+   private _ethEventListener(event: SubscriptionEvent) {
+@@ -493,3 +646,13 @@ async function makeTracingConfig(
+     }
+   }
+ }
++
++function _addCompilationResultParams(
++  params: any[]
++): [string, CompilerInput, CompilerOutput] {
++  return validateParams(params, t.string, rpcCompilerInput, rpcCompilerOutput);
++}
++
++function _resetParams(params: any[]): [RpcHardhatNetworkConfig | undefined] {
++  return validateParams(params, optionalRpcHardhatNetworkConfig);
++}
+diff --git a/src/internal/hardhat-network/provider/utils/convertToEdr.ts b/src/internal/hardhat-network/provider/utils/convertToEdr.ts
+index c5e9bd797f6bb1d3bb95922681dfd7a20b8138f9..a3be30a758f4bc2feee031526dd3cfc56741fee8 100644
+--- a/src/internal/hardhat-network/provider/utils/convertToEdr.ts
++++ b/src/internal/hardhat-network/provider/utils/convertToEdr.ts
+@@ -6,6 +6,27 @@ import type {
+   TracingMessage,
+   TracingMessageResult,
+   TracingStep,
++  HttpHeader,
++} from "@nomicfoundation/edr";
++import {
++  FRONTIER,
++  HOMESTEAD,
++  DAO_FORK,
++  TANGERINE,
++  SPURIOUS_DRAGON,
++  BYZANTIUM,
++  CONSTANTINOPLE,
++  PETERSBURG,
++  ISTANBUL,
++  MUIR_GLACIER,
++  BERLIN,
++  LONDON,
++  ARROW_GLACIER,
++  GRAY_GLACIER,
++  MERGE,
++  SHANGHAI,
++  CANCUN,
++  PRAGUE,
+ } from "@nomicfoundation/edr";
+ import { Address } from "@ethereumjs/util";
+ 
+@@ -21,48 +42,44 @@ import {
+ 
+ /* eslint-disable @nomicfoundation/hardhat-internal-rules/only-hardhat-error */
+ 
+-export function ethereumsjsHardforkToEdrSpecId(hardfork: HardforkName): SpecId {
+-  const { SpecId } = requireNapiRsModule(
+-    "@nomicfoundation/edr"
+-  ) as typeof import("@nomicfoundation/edr");
+-
++export function ethereumsjsHardforkToEdrSpecId(hardfork: HardforkName): string {
+   switch (hardfork) {
+     case HardforkName.FRONTIER:
+-      return SpecId.Frontier;
++      return FRONTIER;
+     case HardforkName.HOMESTEAD:
+-      return SpecId.Homestead;
++      return HOMESTEAD;
+     case HardforkName.DAO:
+-      return SpecId.DaoFork;
++      return DAO_FORK;
+     case HardforkName.TANGERINE_WHISTLE:
+-      return SpecId.Tangerine;
++      return TANGERINE;
+     case HardforkName.SPURIOUS_DRAGON:
+-      return SpecId.SpuriousDragon;
++      return SPURIOUS_DRAGON;
+     case HardforkName.BYZANTIUM:
+-      return SpecId.Byzantium;
++      return BYZANTIUM;
+     case HardforkName.CONSTANTINOPLE:
+-      return SpecId.Constantinople;
++      return CONSTANTINOPLE;
+     case HardforkName.PETERSBURG:
+-      return SpecId.Petersburg;
++      return PETERSBURG;
+     case HardforkName.ISTANBUL:
+-      return SpecId.Istanbul;
++      return ISTANBUL;
+     case HardforkName.MUIR_GLACIER:
+-      return SpecId.MuirGlacier;
++      return MUIR_GLACIER;
+     case HardforkName.BERLIN:
+-      return SpecId.Berlin;
++      return BERLIN;
+     case HardforkName.LONDON:
+-      return SpecId.London;
++      return LONDON;
+     case HardforkName.ARROW_GLACIER:
+-      return SpecId.ArrowGlacier;
++      return ARROW_GLACIER;
+     case HardforkName.GRAY_GLACIER:
+-      return SpecId.GrayGlacier;
++      return GRAY_GLACIER;
+     case HardforkName.MERGE:
+-      return SpecId.Merge;
++      return MERGE;
+     case HardforkName.SHANGHAI:
+-      return SpecId.Shanghai;
++      return SHANGHAI;
+     case HardforkName.CANCUN:
+-      return SpecId.Cancun;
++      return CANCUN;
+     case HardforkName.PRAGUE:
+-      return SpecId.Prague;
++      return PRAGUE;
+     default:
+       const _exhaustiveCheck: never = hardfork;
+       throw new Error(
+@@ -195,7 +212,7 @@ export function edrRpcDebugTraceToHardhat(
+     structLogs.shift();
+   }
+ 
+-  let returnValue = rpcDebugTrace.output?.toString("hex") ?? "";
++  let returnValue = rpcDebugTrace.output?.toString() ?? "";
+   if (returnValue === "0x") {
+     returnValue = "";
+   }
+@@ -248,10 +265,10 @@ export function edrTracingMessageResultToMinimalEVMResult(
+   }
+   if ("output" in result) {
+     const { output } = result;
+-    if (Buffer.isBuffer(output)) {
+-      minimalEVMResult.execResult.output = output;
++    if (output instanceof Uint8Array) {
++      minimalEVMResult.execResult.output = Buffer.from(output);
+     } else {
+-      minimalEVMResult.execResult.output = output.returnValue;
++      minimalEVMResult.execResult.output = Buffer.from(output.returnValue);
+     }
+   }
+ 
+@@ -278,3 +295,21 @@ export function edrTracingMessageToMinimalMessage(
+     isStaticCall: message.isStaticCall,
+   };
+ }
++
++export function httpHeadersToEdr(input?: {
++  [name: string]: string;
++}): HttpHeader[] | undefined {
++  let httpHeaders: HttpHeader[] | undefined;
++  if (input !== undefined) {
++    httpHeaders = [];
++
++    for (const [name, value] of Object.entries(input)) {
++      httpHeaders.push({
++        name,
++        value,
++      });
++    }
++  }
++
++  return httpHeaders;
++}

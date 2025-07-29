@@ -8,9 +8,10 @@ use edr_evm::eips::{
 use edr_napi_core::{
     logger::Logger,
     provider::{self, ProviderBuilder, SyncProviderFactory},
-    spec::SyncNapiSpec as _,
+    spec::SyncNapiSpec,
     subscription,
 };
+use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
@@ -46,7 +47,7 @@ impl SyncProviderFactory for L1ProviderFactory {
 }
 
 #[napi]
-pub const L1_CHAIN_TYPE: &str = L1ChainSpec::CHAIN_TYPE;
+pub const L1_CHAIN_TYPE: &str = <L1ChainSpec as SyncNapiSpec<CurrentTime>>::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
 pub fn l1_genesis_state(hardfork: SpecId) -> Vec<AccountOverride> {

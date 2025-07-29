@@ -384,10 +384,10 @@ impl ObservabilityConfig {
                                     });
                                     Ok(())
                                 });
+                                
+                            assert_eq!(status, napi::Status::Ok);
 
                             let () = receiver.recv().expect("Receive can only fail if the channel is closed")?;
-
-                            assert_eq!(status, napi::Status::Ok);
 
                             Ok(())
                         });

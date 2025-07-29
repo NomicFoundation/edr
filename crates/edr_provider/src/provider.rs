@@ -495,12 +495,9 @@ impl<
         };
 
         if let Some(method_name) = method_name {
-            // Skip printing for `hardhat_intervalMine` unless it is an error
-            if method_name != "hardhat_intervalMine" || result.is_err() {
-                data.logger_mut()
-                    .print_method_logs(method_name, result.as_ref().err())
-                    .map_err(ProviderError::Logger)?;
-            }
+            data.logger_mut()
+                .print_method_logs(method_name, result.as_ref().err())
+                .map_err(ProviderError::Logger)?;
         }
 
         result

@@ -5,7 +5,7 @@ mod factory;
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_eth::l1;
-use edr_provider::{InvalidRequestReason, SyncCallOverride};
+use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
 use edr_solidity::{
     artifacts::{CompilerInput, CompilerOutput},
@@ -47,7 +47,9 @@ pub trait SyncProvider: Send + Sync {
     fn set_verbose_tracing(&self, enabled: bool);
 }
 
-impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpecT> {
+impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvider
+    for edr_provider::Provider<ChainSpecT, TimerT>
+{
     fn add_compilation_result(
         &self,
         solc_version: String,

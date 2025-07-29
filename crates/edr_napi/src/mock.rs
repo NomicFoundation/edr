@@ -1,3 +1,5 @@
+pub mod time;
+
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
