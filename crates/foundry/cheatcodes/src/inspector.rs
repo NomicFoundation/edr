@@ -1141,12 +1141,12 @@ impl<
                 .map(|account| (account.info.exists(), account.info.balance))
                 .unwrap_or_default();
             let kind = match call.scheme {
-                CallScheme::Call | CallScheme::ExtCall => crate::Vm::AccountAccessKind::Call,
+                CallScheme::Call => crate::Vm::AccountAccessKind::Call,
                 CallScheme::CallCode => crate::Vm::AccountAccessKind::CallCode,
-                CallScheme::DelegateCall | CallScheme::ExtDelegateCall => {
+                CallScheme::DelegateCall => {
                     crate::Vm::AccountAccessKind::DelegateCall
                 }
-                CallScheme::StaticCall | CallScheme::ExtStaticCall => {
+                CallScheme::StaticCall => {
                     crate::Vm::AccountAccessKind::StaticCall
                 }
             };
