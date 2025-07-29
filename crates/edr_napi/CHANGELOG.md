@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- ffd2deb: Added scoped snapshots to Solidity test runner using gas & value cheatcodes
+- ffd2deb: Added value snapshots to Solidity test runner using gas & value cheatcodes
 
 ### Patch Changes
 
