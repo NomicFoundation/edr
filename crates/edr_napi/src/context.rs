@@ -281,11 +281,12 @@ impl EdrContext {
 
             let include_traces = config.include_traces.into();
 
+            let runtime_for_factory = runtime.clone();
             let test_runner = try_or_reject_deferred!(runtime
                 .clone()
                 .spawn_blocking(move || {
                     factory.create_test_runner(
-                        runtime,
+                        runtime_for_factory,
                         config,
                         contracts,
                         linking_output.known_contracts,
@@ -297,28 +298,38 @@ impl EdrContext {
                 .await
                 .expect("Failed to join test runner factory thread"));
 
-            let () = try_or_reject_deferred!(test_runner.run_tests(
-                test_filter,
-                Arc::new(
-                    move |SuiteResultAndArtifactId {
-                              artifact_id,
-                              result,
-                          }| {
-                        let suite_result = SuiteResult::new(artifact_id, result, include_traces);
+            let runtime_for_runner = runtime.clone();
+            let () = try_or_reject_deferred!(runtime
+                .clone()
+                .spawn_blocking(move || {
+                    test_runner.run_tests(
+                        runtime_for_runner,
+                        test_filter,
+                        Arc::new(
+                            move |SuiteResultAndArtifactId {
+                                      artifact_id,
+                                      result,
+                                  }| {
+                                let suite_result =
+                                    SuiteResult::new(artifact_id, result, include_traces);
 
-                        let status = on_test_suite_completed_callback
-                            .call(suite_result, ThreadsafeFunctionCallMode::Blocking);
+                                let status = on_test_suite_completed_callback
+                                    .call(suite_result, ThreadsafeFunctionCallMode::Blocking);
 
-                        // This should always succeed since we're using an unbounded queue. We add
-                        // an assertion for completeness.
-                        assert_eq!(
+                                // This should always succeed since we're using an unbounded queue.
+                                // We add an assertion for
+                                // completeness.
+                                assert_eq!(
                             status,
                             napi::Status::Ok,
                             "Failed to call on_test_suite_completed_callback with status: {status}"
                         );
-                    }
-                ),
-            ));
+                            },
+                        ),
+                    )
+                })
+                .await
+                .expect("Failed to join test runner thread"));
 
             deferred.resolve(move |_env| Ok(()));
         });

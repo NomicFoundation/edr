@@ -19,6 +19,7 @@ pub use self::factory::SyncTestRunnerFactory;
 pub trait SyncTestRunner: Send + Sync {
     fn run_tests(
         self: Box<Self>,
+        runtime: tokio::runtime::Handle,
         test_filter: Arc<TestFilterConfig>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<String>>,
     ) -> napi::Result<()>;
@@ -55,10 +56,12 @@ impl<
 {
     fn run_tests(
         self: Box<Self>,
+        runtime: tokio::runtime::Handle,
         test_filter: Arc<TestFilterConfig>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<String>>,
     ) -> napi::Result<()> {
         self.test(
+            runtime,
             test_filter,
             Arc::new(
                 move |SuiteResultAndArtifactId {
