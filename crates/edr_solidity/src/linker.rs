@@ -515,6 +515,8 @@ impl<'a> Linker<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
     use alloy_primitives::{fixed_bytes, map::HashMap};
     use foundry_compilers::{
         multi::MultiCompiler,
@@ -523,6 +525,9 @@ mod tests {
     };
 
     use super::*;
+
+    static SOLC: LazyLock<Solc> =
+        LazyLock::new(|| Solc::find_or_install(&Version::new(0, 8, 18)).unwrap());
 
     struct LinkerTest {
         project: Project,
@@ -541,13 +546,12 @@ mod tests {
                 .build()
                 .unwrap();
 
-            let solc = Solc::find_or_install(&Version::new(0, 8, 18)).unwrap();
             let project = Project::builder()
                 .paths(paths)
                 .ephemeral()
                 .no_artifacts()
                 .build(MultiCompiler {
-                    solc: Some(SolcCompiler::Specific(solc)),
+                    solc: Some(SolcCompiler::Specific(SOLC.clone())),
                     vyper: None,
                 })
                 .unwrap();
