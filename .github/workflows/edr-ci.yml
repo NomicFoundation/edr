@@ -136,7 +136,7 @@ jobs:
         run: |
           source <(cargo llvm-cov show-env --export-prefix)
           pnpm -C crates/edr_napi test
-          cargo llvm-cov report --codecov --output-path codecov.json
+          cargo llvm-cov report --release --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
