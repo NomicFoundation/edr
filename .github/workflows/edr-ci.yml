@@ -124,13 +124,27 @@ jobs:
             **/edr-cache
           key: edr-ts-rpc-cache-v1-${{ matrix.os }}
 
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Run tests
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
-        run: cd crates/edr_napi && pnpm test
+        run: |
+          export RUSTFLAGS="-C instrument-coverage -Clink-dead-code -Ccodegen-units=1"
+          pnpm -C crates/edr_napi test
+          cargo llvm-cov report --codecov --output-path codecov.json
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: codecov.json
+          name: ${{ matrix.os }}
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Save EDR RPC cache
         uses: actions/cache/save@v4
