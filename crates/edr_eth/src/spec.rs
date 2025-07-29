@@ -4,7 +4,7 @@ pub use revm_context_interface::result::HaltReasonTr as HaltReasonTrait;
 
 use crate::{
     block::Block,
-    eips::{eip1559::BaseFeeParams},
+    eips::eip1559::BaseFeeParams,
     l1,
     transaction::{ExecutableTransaction, TransactionValidation},
 };
@@ -16,7 +16,7 @@ pub trait ChainHardfork {
 }
 
 /// Trait for chain specifications.
-pub trait ChainSpec{
+pub trait ChainSpec {
     /// The chain's block type.
     type BlockEnv: Block;
     /// The chain's type for contextual information.
@@ -32,7 +32,7 @@ pub trait ChainSpec{
 }
 
 /// A trait for constructing a (partial) block header into an EVM block.
-pub trait BlockEnvConstructor<HeaderT, BlockT: Block>{
+pub trait BlockEnvConstructor<HeaderT, BlockT: Block> {
     /// Converts the instance into an EVM block.
     fn build_from_header(header: &HeaderT, hardfork: l1::SpecId) -> BlockT;
 }

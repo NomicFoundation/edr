@@ -2,44 +2,54 @@
 use std::str::FromStr as _;
 
 use edr_eth::{
-    l1::{self, InvalidHeader, L1ChainSpec}, transaction::TransactionValidation, B256
+    l1::{self, InvalidHeader, L1ChainSpec},
+    transaction::TransactionValidation,
+    B256,
 };
-use edr_evm::{hardfork::{self, ChainOverride}, 
-    transaction::TransactionError}
-;
+use edr_evm::{
+    hardfork::{self, ChainOverride},
+    transaction::TransactionError,
+};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, ProviderRequest, ProviderSpec, SyncProviderSpec
+    time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, ProviderRequest,
+    ProviderSpec, SyncProviderSpec,
 };
 use serial_test::serial;
 
 use crate::integration::helpers::get_chain_fork_provider;
 
-
-fn get_provider<ChainSpecT: SyncProviderSpec<
-CurrentTime,
-BlockEnv: Default,
-Hardfork = l1::SpecId,
-SignedTransaction: Default
-+ TransactionValidation<
-ValidationError: From<l1::InvalidTransaction> + PartialEq,
->,
-> + ProviderSpec<CurrentTime>>()  -> anyhow::Result<Provider<ChainSpecT>> { 
+fn get_provider<
+    ChainSpecT: SyncProviderSpec<
+            CurrentTime,
+            BlockEnv: Default,
+            Hardfork = l1::SpecId,
+            SignedTransaction: Default
+                                   + TransactionValidation<
+                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            >,
+        > + ProviderSpec<CurrentTime>,
+>() -> anyhow::Result<Provider<ChainSpecT>> {
     // Arbitrum one
     const CHAIN_ID: u64 = 42161;
     const BLOCK_NUMBER: u64 = 361_518_399;
-    
+
     let chain_override = ChainOverride {
-            name: "Arbitrum".to_owned(),
-            hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(
-                l1::SpecId::CANCUN,
-            )),
-        };
+        name: "Arbitrum".to_owned(),
+        hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(
+            l1::SpecId::CANCUN,
+        )),
+    };
     // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
     // ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true") };
-    let provider = get_chain_fork_provider::<ChainSpecT>(CHAIN_ID, BLOCK_NUMBER, chain_override, Some("arb-mainnet"));
-     // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
+    let provider = get_chain_fork_provider::<ChainSpecT>(
+        CHAIN_ID,
+        BLOCK_NUMBER,
+        chain_override,
+        Some("arb-mainnet"),
+    );
+    // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
     // ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES") };
     provider

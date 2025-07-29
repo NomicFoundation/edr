@@ -327,7 +327,6 @@ pub trait RuntimeSpec:
 
 }
 
-
 /// A supertrait for [`RuntimeSpec`] that is safe to send between threads.
 pub trait SyncRuntimeSpec:
     RuntimeSpec<

@@ -1,7 +1,6 @@
 use edr_eth::{
-    block::Header, l1, result::ExecutionResult, transaction::TransactionValidation, Address,
-    HashMap,
-    spec::BlockEnvConstructor,
+    block::Header, l1, result::ExecutionResult, spec::BlockEnvConstructor,
+    transaction::TransactionValidation, Address, HashMap,
 };
 use edr_evm::{
     blockchain::{BlockHash, BlockchainErrorForChainSpec},
@@ -9,7 +8,7 @@ use edr_evm::{
     inspector::Inspector,
     precompile::PrecompileFn,
     runtime::guaranteed_dry_run_with_inspector,
-    spec::{ContextForChainSpec, SyncRuntimeSpec},
+    spec::ContextForChainSpec,
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
 };
 

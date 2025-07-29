@@ -25,7 +25,7 @@ use edr_eth::{
     result::ExecutionResult,
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
-    spec::{ChainSpec, HaltReasonTrait, BlockEnvConstructor},
+    spec::{BlockEnvConstructor, ChainSpec, HaltReasonTrait},
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
@@ -2510,7 +2510,8 @@ where
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::BlockConstructor::build_from_header(header, cfg_env.spec.into());
+                let block_env =
+                    ChainSpecT::BlockConstructor::build_from_header(header, cfg_env.spec.into());
 
                 debug_trace_transaction(
                     blockchain,

@@ -187,7 +187,8 @@ where
     {
         self.validate_transaction(&transaction)?;
 
-        let block = ChainSpecT::BlockConstructor::build_from_header(&self.header, self.cfg.spec.into());
+        let block =
+            ChainSpecT::BlockConstructor::build_from_header(&self.header, self.cfg.spec.into());
 
         let receipt_builder =
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
@@ -228,7 +229,8 @@ where
     {
         self.validate_transaction(&transaction)?;
 
-        let block = ChainSpecT::BlockConstructor::build_from_header(&self.header, self.cfg.spec.into());
+        let block =
+            ChainSpecT::BlockConstructor::build_from_header(&self.header, self.cfg.spec.into());
 
         let receipt_builder =
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)

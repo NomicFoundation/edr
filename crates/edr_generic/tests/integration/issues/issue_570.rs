@@ -4,10 +4,7 @@ use std::str::FromStr as _;
 use edr_eth::{l1, B256};
 use edr_evm::hardfork::{self, ChainOverride};
 use edr_generic::GenericChainSpec;
-use edr_provider::{
-    MethodInvocation,
-    Provider, ProviderError, ProviderRequest,
-};
+use edr_provider::{MethodInvocation, Provider, ProviderError, ProviderRequest};
 use serial_test::serial;
 
 use crate::integration::helpers::get_chain_fork_provider;
@@ -20,11 +17,17 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
     const BLOCK_NUMBER: u64 = 13_560_400;
 
     let chain_override = ChainOverride {
-            name: "Base Sepolia".to_owned(),
-            hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(
-                l1::SpecId::CANCUN,
-            ))};
-    get_chain_fork_provider::<GenericChainSpec>(CHAIN_ID, BLOCK_NUMBER, chain_override,Some("base-sepolia"))
+        name: "Base Sepolia".to_owned(),
+        hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(
+            l1::SpecId::CANCUN,
+        )),
+    };
+    get_chain_fork_provider::<GenericChainSpec>(
+        CHAIN_ID,
+        BLOCK_NUMBER,
+        chain_override,
+        Some("base-sepolia"),
+    )
 }
 
 // `eth_debugTraceTransaction` should return a helpful error message if there is

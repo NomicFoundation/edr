@@ -6,7 +6,13 @@ pub use revm_context_interface::result::{
 pub use revm_primitives::hardfork::{self, SpecId};
 
 use crate::{
-    block::{BlobGas, Header, PartialHeader}, eips::{eip1559::{BaseFeeParams, ConstantBaseFeeParams}, eip4844}, spec::{BlockEnvConstructor, ChainHardfork, ChainSpec, EthHeaderConstants}, transaction
+    block::{BlobGas, Header, PartialHeader},
+    eips::{
+        eip1559::{BaseFeeParams, ConstantBaseFeeParams},
+        eip4844,
+    },
+    spec::{BlockEnvConstructor, ChainHardfork, ChainSpec, EthHeaderConstants},
+    transaction,
 };
 
 /// The chain specification for Ethereum Layer 1.
@@ -23,7 +29,6 @@ impl ChainSpec for L1ChainSpec {
     type HaltReason = HaltReason;
     type SignedTransaction = transaction::Signed;
     type BlockConstructor = L1BlockConstructor;
-
 }
 
 impl EthHeaderConstants for L1ChainSpec {
@@ -37,7 +42,6 @@ impl EthHeaderConstants for L1ChainSpec {
 pub struct L1BlockConstructor;
 
 impl BlockEnvConstructor<PartialHeader, BlockEnv> for L1BlockConstructor {
-
     fn build_from_header(header: &PartialHeader, hardfork: SpecId) -> BlockEnv {
         BlockEnv {
             number: header.number,
