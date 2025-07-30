@@ -3,7 +3,6 @@
 use std::{
     fmt,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 /// Configures file system access
@@ -70,7 +69,7 @@ impl FsPermissions {
                 permission = Some(perm);
             }
         }
-        permission.map(|perm| perm.access)
+        permission.and_then(|perm| perm.resolve_permission(path))
     }
 
     /// Updates all `allowed_paths` and joins ([`Path::join`]) the `root` with
@@ -126,19 +125,34 @@ impl PathPermission {
         }
     }
 
-    /// Returns a new read-only permission for the path
-    pub fn read(path: impl Into<PathBuf>) -> Self {
-        Self::new(path, FsAccessPermission::Read)
+    /// Returns a new read-only permission for the file
+    pub fn read_file(path: impl Into<PathBuf>) -> Self {
+        Self::new(path, FsAccessPermission::ReadFile)
     }
 
-    /// Returns a new read-write permission for the path
-    pub fn read_write(path: impl Into<PathBuf>) -> Self {
-        Self::new(path, FsAccessPermission::ReadWrite)
+    /// Returns a new read-write permission for the file
+    pub fn read_write_file(path: impl Into<PathBuf>) -> Self {
+        Self::new(path, FsAccessPermission::ReadWriteFile)
     }
 
-    /// Returns a new write-only permission for the path
-    pub fn write(path: impl Into<PathBuf>) -> Self {
-        Self::new(path, FsAccessPermission::Write)
+    /// Returns a new write-only permission for the file
+    pub fn write_file(path: impl Into<PathBuf>) -> Self {
+        Self::new(path, FsAccessPermission::WriteFile)
+    }
+
+    /// Returns a new read-only permission for the directory
+    pub fn read_directory(path: impl Into<PathBuf>) -> Self {
+        Self::new(path, FsAccessPermission::ReadDirectory)
+    }
+
+    /// Returns a new read-write permission for the directory
+    pub fn read_write_directory(path: impl Into<PathBuf>) -> Self {
+        Self::new(path, FsAccessPermission::DangerouslyReadWriteDirectory)
+    }
+
+    /// Returns a new write-only permission for the directory
+    pub fn write_directory(path: impl Into<PathBuf>) -> Self {
+        Self::new(path, FsAccessPermission::DangerouslyWriteDirectory)
     }
 
     /// Returns a non permission for the path
@@ -149,6 +163,27 @@ impl PathPermission {
     /// Returns true if the access is allowed
     pub fn is_granted(&self, kind: FsAccessKind) -> bool {
         self.access.is_granted(kind)
+    }
+
+    /// Converts directory permissions to file permissions if the path is a file
+    /// inside the directory.
+    pub fn resolve_permission(&self, path: impl Into<PathBuf>) -> Option<FsAccessPermission> {
+        let path = path.into();
+        if self.path == path {
+            Some(self.access)
+        } else {
+            // If the permission is for a directory, we can convert it to a file permission
+            match self.access {
+                FsAccessPermission::DangerouslyReadWriteDirectory => {
+                    Some(FsAccessPermission::ReadWriteFile)
+                }
+                FsAccessPermission::DangerouslyWriteDirectory => {
+                    Some(FsAccessPermission::WriteFile)
+                }
+                FsAccessPermission::ReadDirectory => Some(FsAccessPermission::ReadFile),
+                access => Some(access),
+            }
+        }
     }
 }
 
@@ -170,18 +205,35 @@ impl fmt::Display for FsAccessKind {
     }
 }
 
-/// Determines the status of file system access
+/**
+ * Determines the level of file system access for the given path.
+ *
+ * Giving write access to configuration files, source files or executables
+ * in a project is considered dangerous, because it can be used by malicious
+ * Solidity dependencies to escape the EVM sandbox. It is therefore
+ * recommended to give write access to specific safe files only. If write
+ * access to a directory is needed, please make sure that it doesn't contain
+ * configuration files, source files or executables neither in the top level
+ * directory, nor in any subdirectories.
+ */
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum FsAccessPermission {
     /// FS access is _not_ allowed
     #[default]
     None,
-    /// FS access is allowed, this includes `read` + `write`
-    ReadWrite,
-    /// Only reading is allowed
-    Read,
-    /// Only writing is allowed
-    Write,
+    /// Allows reading and writing the file
+    ReadWriteFile,
+    /// Only allows reading the file
+    ReadFile,
+    /// Only allows writing the file
+    WriteFile,
+    /// Allows reading and writing all files in the directory and its
+    /// subdirectories
+    DangerouslyReadWriteDirectory,
+    /// Allows reading all files in the directory and its subdirectories
+    ReadDirectory,
+    /// Allows writing all files in the directory and its subdirectories
+    DangerouslyWriteDirectory,
 }
 
 // === impl FsAccessPermission ===
@@ -191,36 +243,14 @@ impl FsAccessPermission {
     pub fn is_granted(&self, kind: FsAccessKind) -> bool {
         #[allow(clippy::match_same_arms)]
         match (self, kind) {
-            (FsAccessPermission::ReadWrite, _) => true,
+            (FsAccessPermission::ReadWriteFile, _) => true,
             (FsAccessPermission::None, _) => false,
-            (FsAccessPermission::Read, FsAccessKind::Read) => true,
-            (FsAccessPermission::Write, FsAccessKind::Write) => true,
+            (FsAccessPermission::ReadFile, FsAccessKind::Read) => true,
+            (FsAccessPermission::WriteFile, FsAccessKind::Write) => true,
+            (FsAccessPermission::DangerouslyReadWriteDirectory, _) => true,
+            (FsAccessPermission::ReadDirectory, FsAccessKind::Read) => true,
+            (FsAccessPermission::DangerouslyWriteDirectory, FsAccessKind::Write) => true,
             _ => false,
-        }
-    }
-}
-
-impl FromStr for FsAccessPermission {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "true" | "read-write" | "readwrite" => Ok(FsAccessPermission::ReadWrite),
-            "false" | "none" => Ok(FsAccessPermission::None),
-            "read" => Ok(FsAccessPermission::Read),
-            "write" => Ok(FsAccessPermission::Write),
-            _ => Err(format!("Unknown variant {s}")),
-        }
-    }
-}
-
-impl fmt::Display for FsAccessPermission {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FsAccessPermission::ReadWrite => f.write_str("read-write"),
-            FsAccessPermission::None => f.write_str("none"),
-            FsAccessPermission::Read => f.write_str("read"),
-            FsAccessPermission::Write => f.write_str("write"),
         }
     }
 }
@@ -230,31 +260,79 @@ mod tests {
     use super::*;
 
     #[test]
-    fn can_parse_permission() {
-        assert_eq!(FsAccessPermission::ReadWrite, "true".parse().unwrap());
-        assert_eq!(FsAccessPermission::ReadWrite, "readwrite".parse().unwrap());
-        assert_eq!(FsAccessPermission::ReadWrite, "read-write".parse().unwrap());
-        assert_eq!(FsAccessPermission::None, "false".parse().unwrap());
-        assert_eq!(FsAccessPermission::None, "none".parse().unwrap());
-        assert_eq!(FsAccessPermission::Read, "read".parse().unwrap());
-        assert_eq!(FsAccessPermission::Write, "write".parse().unwrap());
+    fn file_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_file("./out/contracts/ReadContract.sol"),
+            PathPermission::read_write_file("./out/contracts/ReadWriteContract.sol"),
+        ]);
+
+        let permission = permissions
+            .find_permission(Path::new("./out/contracts/ReadContract.sol"))
+            .unwrap();
+        assert_eq!(FsAccessPermission::ReadFile, permission);
+        let permission = permissions
+            .find_permission(Path::new("./out/contracts/ReadWriteContract.sol"))
+            .unwrap();
+        assert_eq!(FsAccessPermission::ReadWriteFile, permission);
+        let permission =
+            permissions.find_permission(Path::new("./out/contracts/NoPermissionContract.sol"));
+        assert!(permission.is_none());
+    }
+
+    #[test]
+    fn directory_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_directory("./out/contracts"),
+            PathPermission::read_write_directory("./out/contracts/readwrite/"),
+        ]);
+
+        let permission = permissions
+            .find_permission(Path::new("./out/contracts"))
+            .unwrap();
+        assert_eq!(FsAccessPermission::ReadDirectory, permission);
+
+        let permission = permissions
+            .find_permission(Path::new("./out/contracts/readwrite")) // canonicalize will resolve this
+            .unwrap();
+        assert_eq!(
+            FsAccessPermission::DangerouslyReadWriteDirectory,
+            permission
+        );
+        let permission = permissions.find_permission(Path::new("./out"));
+        assert!(permission.is_none());
+    }
+
+    #[test]
+    fn file_and_directory_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_directory("./out/contracts"),
+            PathPermission::write_file("./out/contracts/MyContract.sol"),
+        ]);
+        let permission = permissions
+            .find_permission(Path::new("./out/contracts/MyContract.sol"))
+            .unwrap();
+        assert_eq!(FsAccessPermission::WriteFile, permission);
+        let permission = permissions
+            .find_permission(Path::new("./out/contracts/ReadContract.sol"))
+            .unwrap();
+        assert_eq!(FsAccessPermission::ReadFile, permission);
     }
 
     #[test]
     fn nested_permissions() {
         let permissions = FsPermissions::new(vec![
-            PathPermission::read("./"),
-            PathPermission::write("./out"),
-            PathPermission::read_write("./out/contracts"),
+            PathPermission::read_directory("./"),
+            PathPermission::write_directory("./out"),
+            PathPermission::read_write_directory("./out/contracts"),
         ]);
 
         let permission = permissions
             .find_permission(Path::new("./out/contracts/MyContract.sol"))
             .unwrap();
-        assert_eq!(FsAccessPermission::ReadWrite, permission);
+        assert_eq!(FsAccessPermission::ReadWriteFile, permission);
         let permission = permissions
             .find_permission(Path::new("./out/MyContract.sol"))
             .unwrap();
-        assert_eq!(FsAccessPermission::Write, permission);
+        assert_eq!(FsAccessPermission::WriteFile, permission);
     }
 }

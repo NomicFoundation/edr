@@ -346,12 +346,14 @@ mod tests {
 
         test_cases(config(
             root,
-            FsPermissions::new(vec![PathPermission::read_write("./")]),
+            FsPermissions::new(vec![PathPermission::read_write_directory("./")]),
         ));
 
         test_cases(config(
             root,
-            FsPermissions::new(vec![PathPermission::read_write("/my/project/root")]),
+            FsPermissions::new(vec![PathPermission::read_write_directory(
+                "/my/project/root",
+            )]),
         ));
     }
 
@@ -360,7 +362,7 @@ mod tests {
         let root = "/my/project/root/";
         let config = config(
             root,
-            FsPermissions::new(vec![PathPermission::read_write("./")]),
+            FsPermissions::new(vec![PathPermission::read_write_directory("./")]),
         );
 
         let f = format!("{root}foundry.toml");

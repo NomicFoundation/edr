@@ -657,24 +657,52 @@ impl From<PathPermission> for foundry_cheatcodes::PathPermission {
     }
 }
 
-/// Determines the status of file system access
+/**
+ * Determines the level of file system access for the given path.
+ *
+ * Giving write access to configuration files, source files or executables
+ * in a project is considered dangerous, because it can be used by malicious
+ * Solidity dependencies to escape the EVM sandbox. It is therefore
+ * recommended to give write access to specific safe files only. If write
+ * access to a directory is needed, please make sure that it doesn't contain
+ * configuration files, source files or executables neither in the top level
+ * directory, nor in any subdirectories.
+ */
 #[napi]
 #[derive(Debug, serde::Serialize)]
 pub enum FsAccessPermission {
-    /// FS access is allowed with `read` + `write` permission
-    ReadWrite,
-    /// Only reading is allowed
-    Read,
-    /// Only writing is allowed
-    Write,
+    /// Allows reading and writing the file
+    ReadWriteFile,
+    /// Only allows reading the file
+    ReadFile,
+    /// Only allows writing the file
+    WriteFile,
+    /// Allows reading and writing all files in the directory and its
+    /// subdirectories
+    DangerouslyReadWriteDirectory,
+    /// Allows reading all files in the directory and its subdirectories
+    ReadDirectory,
+    /// Allows writing all files in the directory and its subdirectories
+    DangerouslyWriteDirectory,
 }
 
 impl From<FsAccessPermission> for foundry_cheatcodes::FsAccessPermission {
     fn from(value: FsAccessPermission) -> Self {
         match value {
-            FsAccessPermission::ReadWrite => foundry_cheatcodes::FsAccessPermission::ReadWrite,
-            FsAccessPermission::Read => foundry_cheatcodes::FsAccessPermission::Read,
-            FsAccessPermission::Write => foundry_cheatcodes::FsAccessPermission::Write,
+            FsAccessPermission::ReadWriteFile => {
+                foundry_cheatcodes::FsAccessPermission::ReadWriteFile
+            }
+            FsAccessPermission::ReadFile => foundry_cheatcodes::FsAccessPermission::ReadFile,
+            FsAccessPermission::WriteFile => foundry_cheatcodes::FsAccessPermission::WriteFile,
+            FsAccessPermission::DangerouslyReadWriteDirectory => {
+                foundry_cheatcodes::FsAccessPermission::DangerouslyReadWriteDirectory
+            }
+            FsAccessPermission::ReadDirectory => {
+                foundry_cheatcodes::FsAccessPermission::ReadDirectory
+            }
+            FsAccessPermission::DangerouslyWriteDirectory => {
+                foundry_cheatcodes::FsAccessPermission::DangerouslyWriteDirectory
+            }
         }
     }
 }
