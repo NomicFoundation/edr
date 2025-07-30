@@ -180,32 +180,6 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         Ok(normalized)
     }
 
-    /// Returns true if the given `path` is the project's foundry.toml file
-    ///
-    /// Note: this should be called with normalized path
-    pub fn is_foundry_toml(&self, path: impl AsRef<Path>) -> bool {
-        const FILE_NAME: &str = "foundry.toml";
-
-        // path methods that do not access the filesystem are such as
-        // [`Path::starts_with`], are case-sensitive no matter the platform or
-        // filesystem. to make this case-sensitive we convert the underlying
-        // `OssStr` to lowercase checking that `path` and `foundry.toml` are the
-        // same file by comparing the FD, because it may not exist
-        let foundry_toml = self.project_root.join(FILE_NAME);
-        Path::new(&foundry_toml.to_string_lossy().to_lowercase())
-            .starts_with(Path::new(&path.as_ref().to_string_lossy().to_lowercase()))
-    }
-
-    /// Same as [`Self::is_foundry_toml`] but returns an `Err` if
-    /// [`Self::is_foundry_toml`] returns true
-    pub fn ensure_not_foundry_toml(&self, path: impl AsRef<Path>) -> Result<()> {
-        ensure!(
-            !self.is_foundry_toml(path),
-            "access to `foundry.toml` is not allowed"
-        );
-        Ok(())
-    }
-
     /// Returns the RPC to use
     ///
     /// If `url_or_alias` is a known alias in the `RpcEndpoints` then it
@@ -355,23 +329,5 @@ mod tests {
                 "/my/project/root",
             )]),
         ));
-    }
-
-    #[test]
-    fn test_is_foundry_toml() {
-        let root = "/my/project/root/";
-        let config = config(
-            root,
-            FsPermissions::new(vec![PathPermission::read_write_directory("./")]),
-        );
-
-        let f = format!("{root}foundry.toml");
-        assert!(config.is_foundry_toml(f));
-
-        let f = format!("{root}Foundry.toml");
-        assert!(config.is_foundry_toml(f));
-
-        let f = format!("{root}lib/other/foundry.toml");
-        assert!(!config.is_foundry_toml(f));
     }
 }
