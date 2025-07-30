@@ -25,7 +25,7 @@ pub(crate) fn get_chain_fork_provider<
     chain_id: u64,
     block_number: u64,
     chain_override: ChainOverride<l1::SpecId>,
-    alchemy_url_replacement: Option<&str>,
+    url: String,
 ) -> anyhow::Result<Provider<ChainSpecT>> {
     let logger = Box::new(NoopLogger::<ChainSpecT>::default());
     let subscriber = Box::new(|_event| {});
@@ -38,9 +38,7 @@ pub(crate) fn get_chain_fork_provider<
         cache_dir: edr_defaults::CACHE_DIR.into(),
         chain_overrides,
         http_headers: None,
-        url: alchemy_url_replacement
-            .map(|replacement| alchemy_url.replace("eth-mainnet", replacement))
-            .unwrap_or(alchemy_url),
+        url,
     }));
 
     config.chain_id = chain_id;

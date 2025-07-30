@@ -15,6 +15,7 @@ use edr_provider::{
     time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, ProviderRequest,
     ProviderSpec, SyncProviderSpec,
 };
+use edr_test_utils::env::get_alchemy_url;
 use serial_test::serial;
 
 use crate::integration::helpers::get_chain_fork_provider;
@@ -40,15 +41,12 @@ fn get_provider<
             l1::SpecId::CANCUN,
         )),
     };
+    let url = get_alchemy_url().replace("eth-mainnet", "arb-mainnet");
     // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
     // ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::set_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES", "true") };
-    let provider = get_chain_fork_provider::<ChainSpecT>(
-        CHAIN_ID,
-        BLOCK_NUMBER,
-        chain_override,
-        Some("arb-mainnet"),
-    );
+    let provider =
+        get_chain_fork_provider::<ChainSpecT>(CHAIN_ID, BLOCK_NUMBER, chain_override, url);
     // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK
     // ACCEPTABLE FOR TESTING PURPOSES ONLY.
     unsafe { std::env::remove_var("__EDR_UNSAFE_SKIP_UNSUPPORTED_TRANSACTION_TYPES") };
