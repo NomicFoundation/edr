@@ -76,7 +76,7 @@ pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
-    const CHAIN_TYPE: &'static str = "L1";
+    const CHAIN_TYPE: &'static str = edr_eth::l1::CHAIN_TYPE;
 
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
@@ -128,7 +128,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
-    const CHAIN_TYPE: &'static str = "generic";
+    const CHAIN_TYPE: &'static str = edr_generic::CHAIN_TYPE;
 
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,

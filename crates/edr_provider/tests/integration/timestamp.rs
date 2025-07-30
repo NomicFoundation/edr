@@ -18,7 +18,7 @@ struct TimestampFixture {
 
 impl TimestampFixture {
     fn new(allow_blocks_with_same_timestamp: bool) -> anyhow::Result<Self> {
-        let logger = Box::<NoopLogger<L1ChainSpec>>::default();
+        let logger = Box::<NoopLogger<L1ChainSpec, Arc<MockTime>>>::default();
         let subscription_callback_noop = Box::new(|_| ());
 
         let mut config = create_test_config();

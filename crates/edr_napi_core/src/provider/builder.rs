@@ -15,8 +15,13 @@ pub trait Builder: Send {
 
 pub struct ProviderBuilder<ChainSpecT: SyncNapiSpec<CurrentTime>> {
     contract_decoder: Arc<ContractDecoder>,
-    logger:
-        Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>>,
+    logger: Box<
+        dyn SyncLogger<
+            ChainSpecT,
+            CurrentTime,
+            BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
+        >,
+    >,
     provider_config: edr_provider::ProviderConfig<ChainSpecT::Hardfork>,
     subscription_callback: subscription::Callback<ChainSpecT>,
 }
@@ -26,7 +31,11 @@ impl<ChainSpecT: SyncNapiSpec<CurrentTime>> ProviderBuilder<ChainSpecT> {
     pub fn new(
         contract_decoder: Arc<ContractDecoder>,
         logger: Box<
-            dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>>,
+            dyn SyncLogger<
+                ChainSpecT,
+                CurrentTime,
+                BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
         >,
         provider_config: edr_provider::ProviderConfig<ChainSpecT::Hardfork>,
         subscription_callback: subscription::Callback<ChainSpecT>,

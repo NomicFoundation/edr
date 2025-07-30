@@ -11,7 +11,7 @@ use edr_evm::{
     Block as _,
 };
 use edr_provider::{
-    time::CurrentTime, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
+    time::TimeSinceEpoch, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
     EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
 use edr_solidity::contract_decoder::{ContractAndFunctionName, ContractDecoder};
@@ -88,11 +88,11 @@ pub enum LoggerError {
 }
 
 #[derive_where(Clone)]
-pub struct Logger<ChainSpecT: ProviderSpec<CurrentTime>> {
-    collector: LogCollector<ChainSpecT>,
+pub struct Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
+    collector: LogCollector<ChainSpecT, TimerT>,
 }
 
-impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT> {
+impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> Logger<ChainSpecT, TimerT> {
     pub fn new(config: Config, contract_decoder: Arc<ContractDecoder>) -> napi::Result<Self> {
         Ok(Self {
             collector: LogCollector::new(config, contract_decoder)?,
@@ -100,9 +100,10 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT> edr_provider::Logger<ChainSpecT> for Logger<ChainSpecT>
+impl<ChainSpecT, TimerT> edr_provider::Logger<ChainSpecT, TimerT> for Logger<ChainSpecT, TimerT>
 where
-    ChainSpecT: ProviderSpec<CurrentTime>,
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
 {
     type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
 
@@ -236,17 +237,19 @@ pub struct CollapsedMethod {
 }
 
 #[derive_where(Clone)]
-struct LogCollector<ChainSpecT: ProviderSpec<CurrentTime>> {
+struct LogCollector<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
     config: Config,
     contract_decoder: Arc<ContractDecoder>,
     indentation: usize,
     logs: Vec<LogLine>,
     state: LoggingState,
     title_length: usize,
-    phantom: PhantomData<ChainSpecT>,
+    phantom: PhantomData<fn() -> (ChainSpecT, TimerT)>,
 }
 
-impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
+impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
+    LogCollector<ChainSpecT, TimerT>
+{
     pub fn new(config: Config, contract_decoder: Arc<ContractDecoder>) -> napi::Result<Self> {
         Ok(Self {
             config,
@@ -288,7 +291,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
             if let Some(transaction_failure) = TransactionFailure::from_execution_result::<
                 ChainSpecT,
-                CurrentTime,
+                TimerT,
             >(execution_result, None, trace)
             {
                 logger.log_transaction_failure(&transaction_failure);
@@ -670,7 +673,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
             let transaction_failure = edr_provider::TransactionFailure::from_execution_result::<
                 ChainSpecT,
-                CurrentTime,
+                TimerT,
             >(result, Some(transaction_hash), trace);
 
             if let Some(transaction_failure) = transaction_failure {
@@ -1082,7 +1085,7 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> LogCollector<ChainSpecT> {
 
             let transaction_failure = edr_provider::TransactionFailure::from_execution_result::<
                 ChainSpecT,
-                CurrentTime,
+                TimerT,
             >(
                 transaction_result, Some(transaction_hash), trace
             );

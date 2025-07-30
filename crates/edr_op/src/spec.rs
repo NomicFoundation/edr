@@ -5,16 +5,17 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
     l1,
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
 };
 use edr_evm::{
     evm::Evm,
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::PrecompileProvider,
-    spec::{ContextForChainSpec, RuntimeSpec},
+    spec::{ContextForChainSpec, GenesisBlockFactory, RuntimeSpec},
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec, TransactionValidation},
-    BlockReceipts, RemoteBlock, RemoteBlockConversionError, SyncBlock,
+    BlockReceipts, EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock,
+    RemoteBlockConversionError, SyncBlock,
 };
 use edr_napi_core::{
     napi,
@@ -28,6 +29,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     block::{self, LocalBlock},
+    eip1559::encode_dynamic_base_fee_params,
     eip2718::TypedEnvelope,
     hardfork,
     receipt::{self, BlockReceiptFactory},
@@ -52,12 +54,49 @@ impl RpcSpec for OpChainSpec {
     type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
 }
 
+impl ChainHardfork for OpChainSpec {
+    type Hardfork = OpSpecId;
+}
+
 impl ChainSpec for OpChainSpec {
     type BlockEnv = l1::BlockEnv;
     type Context = L1BlockInfo;
     type HaltReason = OpHaltReason;
-    type Hardfork = OpSpecId;
     type SignedTransaction = transaction::Signed;
+}
+
+impl GenesisBlockFactory for OpChainSpec {
+    type CreationError = LocalCreationError;
+
+    type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
+
+    fn genesis_block(
+        genesis_diff: edr_evm::state::StateDiff,
+        hardfork: Self::Hardfork,
+        mut options: edr_evm::GenesisBlockOptions,
+    ) -> Result<Self::LocalBlock, Self::CreationError> {
+        if hardfork >= OpSpecId::HOLOCENE {
+            // If no option is provided, fill the `extra_data` field with the dynamic
+            // EIP-1559 parameters.
+            let extra_data = options.extra_data.unwrap_or_else(|| {
+                // TODO: https://github.com/NomicFoundation/edr/issues/887
+                // Add support for configuring the dynamic base fee parameters.
+                let base_fee_params = *Self::BASE_FEE_PARAMS
+                    .at_hardfork(hardfork)
+                    .expect("Chain spec must have base fee params for post-London hardforks");
+
+                encode_dynamic_base_fee_params(&base_fee_params)
+            });
+
+            options.extra_data = Some(extra_data);
+        }
+
+        EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
+            genesis_diff,
+            hardfork,
+            options,
+        )
+    }
 }
 
 impl RuntimeSpec for OpChainSpec {

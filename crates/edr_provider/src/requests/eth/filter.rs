@@ -46,10 +46,10 @@ pub fn handle_get_logs_request<
     let hardfork = data.hardfork();
     // Hardhat integration tests expect validation in this order.
     if let Some(from_block) = &filter_options.from_block {
-        validate_post_merge_block_tags::<ChainSpecT>(hardfork, from_block)?;
+        validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, from_block)?;
     }
     if let Some(to_block) = &filter_options.to_block {
-        validate_post_merge_block_tags::<ChainSpecT>(hardfork, to_block)?;
+        validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, to_block)?;
     }
 
     let filter = validate_filter_criteria::<true, ChainSpecT, TimerT>(data, filter_options)?;
@@ -147,7 +147,7 @@ fn validate_filter_criteria<
         block_spec: Option<BlockSpec>,
     ) -> Result<Option<u64>, ProviderErrorForChainSpec<ChainSpecT>> {
         if let Some(block_spec) = &block_spec {
-            validate_post_merge_block_tags::<ChainSpecT>(data.hardfork(), block_spec)?;
+            validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), block_spec)?;
         }
 
         let block_number = match block_spec {

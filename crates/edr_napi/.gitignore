@@ -4,8 +4,8 @@
 # vuepress
 /docs/.vuepress/dist/
 
-# Tests compilation output
-/build-test/
+# TS compilation output
+/dist/
 
 # Code coverage artifacts
 /coverage

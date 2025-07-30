@@ -3,10 +3,14 @@ import { assert } from "chai";
 import chalk, { Chalk } from "chalk";
 import {
   AccountOverride,
+  // Ignore this on testNoBuild
+  // @ts-ignore
   createProviderWithMockTimer,
   l1GenesisState,
   l1HardforkFromString,
   MineOrdering,
+  // Ignore this on testNoBuild
+  // @ts-ignore
   MockTime,
   Provider,
   SHANGHAI,

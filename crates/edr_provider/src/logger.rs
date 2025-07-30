@@ -2,14 +2,17 @@ use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_evm::{blockchain::BlockchainErrorForChainSpec, spec::RuntimeSpec};
+use edr_evm::blockchain::BlockchainErrorForChainSpec;
 
 use crate::{
-    data::CallResult, debug_mine::DebugMineBlockResultForChainSpec, error::EstimateGasFailure,
-    ProviderErrorForChainSpec,
+    data::CallResult,
+    debug_mine::DebugMineBlockResultForChainSpec,
+    error::EstimateGasFailure,
+    time::{CurrentTime, TimeSinceEpoch},
+    ProviderErrorForChainSpec, ProviderSpec,
 };
 
-pub trait Logger<ChainSpecT: RuntimeSpec> {
+pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
     type BlockchainError;
 
     /// Whether the logger is enabled.
@@ -95,17 +98,21 @@ pub trait Logger<ChainSpecT: RuntimeSpec> {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
-pub trait SyncLogger<ChainSpecT: RuntimeSpec>: Logger<ChainSpecT> + DynClone + Send + Sync {}
-
-impl<ChainSpecT, T> SyncLogger<ChainSpecT> for T
-where
-    ChainSpecT: RuntimeSpec,
-    T: Logger<ChainSpecT> + DynClone + Send + Sync,
+pub trait SyncLogger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>:
+    Logger<ChainSpecT, TimerT> + DynClone + Send + Sync
 {
 }
 
-impl<ChainSpecT: RuntimeSpec, BlockchainErrorT> Clone
-    for Box<dyn SyncLogger<ChainSpecT, BlockchainError = BlockchainErrorT>>
+impl<ChainSpecT, LoggerT, TimerT> SyncLogger<ChainSpecT, TimerT> for LoggerT
+where
+    ChainSpecT: ProviderSpec<TimerT>,
+    LoggerT: Logger<ChainSpecT, TimerT> + DynClone + Send + Sync,
+    TimerT: Clone + TimeSinceEpoch,
+{
+}
+
+impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch, BlockchainErrorT> Clone
+    for Box<dyn SyncLogger<ChainSpecT, TimerT, BlockchainError = BlockchainErrorT>>
 {
     fn clone(&self) -> Self {
         dyn_clone::clone_box(&**self)
@@ -114,11 +121,16 @@ impl<ChainSpecT: RuntimeSpec, BlockchainErrorT> Clone
 
 /// A logger that does nothing.
 #[derive_where(Clone, Default)]
-pub struct NoopLogger<ChainSpecT: RuntimeSpec> {
-    _phantom: PhantomData<ChainSpecT>,
+pub struct NoopLogger<
+    ChainSpecT: ProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch = CurrentTime,
+> {
+    _phantom: PhantomData<fn() -> (ChainSpecT, TimerT)>,
 }
 
-impl<ChainSpecT: RuntimeSpec> Logger<ChainSpecT> for NoopLogger<ChainSpecT> {
+impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> Logger<ChainSpecT, TimerT>
+    for NoopLogger<ChainSpecT, TimerT>
+{
     type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
 
     fn is_enabled(&self) -> bool {

@@ -17,6 +17,7 @@ import {
   UnexpectedError,
   UnsafeToReplay,
   opSolidityTestRunnerFactory,
+  SuiteResult,
 } from "@nomicfoundation/edr";
 import {
   buildSolidityTestsInput,
@@ -133,7 +134,7 @@ export class TestContext {
         }
       }
     }
-    return { totalTests, failedTests, stackTraces, callTraces };
+    return { totalTests, failedTests, stackTraces, callTraces, suiteResults };
   }
 
   matchingTest(contractName: string): ArtifactId[] {
@@ -158,6 +159,7 @@ interface SolidityTestsRunResult {
     }
   >;
   callTraces: Map<string, CallTrace[]>;
+  suiteResults: SuiteResult[];
 }
 
 type ActualStackTraceResult =

@@ -456,19 +456,23 @@ impl<
         })
     }
 
-    /// Builds a base runner config
-    pub fn base_runner_config(&self) -> SolidityTestRunnerConfig<HardforkT> {
-        init_tracing_for_solidity_tests();
-        // Construct a new one to create new failure persistance directory for each test
-        ForgeTestProfile::runner_config(self.hardfork)
-    }
-
-    /// Builds a base runner with base configs + rpc configs
-    pub fn runner_with_rpc_config(&self) -> SolidityTestRunnerConfig<HardforkT> {
+    /// Builds a [`SolidityTestRunnerConfig`] with mock RPC endpoints.
+    pub fn config_with_mock_rpc(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
         // Construct a new one to create new failure persistance directory for each test
         let mut config = ForgeTestProfile::runner_config(self.hardfork);
-        config.cheats_config_options.rpc_endpoints = rpc_endpoints();
+        config.cheats_config_options.rpc_endpoints = mock_rpc_endpoints();
+
+        config
+    }
+
+    /// Builds a [`SolidityTestRunnerConfig`] with remote RPC endpoints and RPC
+    /// cache path.
+    pub fn config_with_remote_rpc(&self) -> SolidityTestRunnerConfig<HardforkT> {
+        init_tracing_for_solidity_tests();
+        // Construct a new one to create new failure persistance directory for each test
+        let mut config = ForgeTestProfile::runner_config(self.hardfork);
+        config.cheats_config_options.rpc_endpoints = remote_rpc_endpoints();
         //`**/edr-cache` is cached in CI
         config.cheats_config_options.rpc_cache_path =
             Some(self.project.root().join("edr-cache/solidity-tests/rpc"));
@@ -488,7 +492,7 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        let config = self.base_runner_config();
+        let config = self.config_with_mock_rpc();
         self.runner_with_config(config).await
     }
 
@@ -545,7 +549,7 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        let mut config = self.base_runner_config();
+        let mut config = self.config_with_mock_rpc();
         config.fuzz = fuzz_config.into();
         self.runner_with_config(config).await
     }
@@ -564,7 +568,7 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        let mut config = self.base_runner_config();
+        let mut config = self.config_with_mock_rpc();
         config.invariant = invariant_config.into();
         self.runner_with_config(config).await
     }
@@ -604,7 +608,7 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        let mut config = self.base_runner_config();
+        let mut config = self.config_with_mock_rpc();
         config.include_traces = IncludeTraces::All;
         self.build_runner(config).await
     }
@@ -623,7 +627,7 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        let mut config = self.base_runner_config();
+        let mut config = self.config_with_mock_rpc();
 
         config.evm_opts.fork_url = Some(rpc.to_string());
 
@@ -705,12 +709,15 @@ pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
     ForgeTestData::new(ForgeTestProfile::MultiVersion, l1::SpecId::CANCUN).expect("linking ok")
 });
 
-fn rpc_endpoints() -> RpcEndpoints {
+fn mock_rpc_endpoints() -> RpcEndpoints {
+    RpcEndpoints::new([(
+        "rpcAliasFake",
+        RpcEndpoint::Url("https://example.com".to_string()),
+    )])
+}
+
+fn remote_rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
-        (
-            "rpcAliasFake",
-            RpcEndpoint::Url("https://example.com".to_string()),
-        ),
         (
             "rpcAliasMainnet",
             RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Ethereum)),

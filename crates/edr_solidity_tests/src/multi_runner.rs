@@ -24,7 +24,7 @@ use foundry_evm::{
     opts::EvmOpts,
     traces::{decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder},
 };
-use futures::StreamExt;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     result::SuiteResult,
@@ -266,7 +266,7 @@ impl<
             (*self.cheats_config_options).clone(),
             self.evm_opts.clone(),
             self.known_contracts.clone(),
-            Some(artifact_id.version.clone()),
+            Some(artifact_id.clone()),
         );
 
         let executor_builder =
@@ -363,6 +363,7 @@ impl<
             tokio::sync::mpsc::unbounded_channel::<SuiteResultAndArtifactId<HaltReasonT>>();
 
         self.test(
+            tokio::runtime::Handle::current(),
             Arc::new(filter),
             Arc::new(move |suite_result| {
                 let _ = tx_results.clone().send(suite_result);
@@ -384,8 +385,9 @@ impl<
 
     /// Executes _all_ tests that match the given `filter`.
     ///
-    /// The method will immediately return and send the results to the given
-    /// channel as they're ready.
+    /// The method _blocks_ until all test suites have completed. The result of
+    /// each test suite is sent back via the callback function as soon as it's
+    /// completed.
     ///
     /// This will create the runtime based on the configured `evm` ops and
     /// create the `Backend` before executing all contracts and their tests
@@ -394,6 +396,7 @@ impl<
     /// Each Executor gets its own instance of the `Backend`.
     pub fn test(
         mut self,
+        tokio_handle: tokio::runtime::Handle,
         filter: Arc<impl TestFilter + 'static>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<HaltReasonT>>,
     ) {
@@ -414,38 +417,15 @@ impl<
             find_time,
         );
 
-        let handle = tokio::runtime::Handle::current();
+        contracts.into_par_iter().for_each(|(id, contract)| {
+            let _guard = tokio_handle.enter();
+            let result =
+                self.run_tests(&id, &contract, fork.clone(), filter.as_ref(), &tokio_handle);
 
-        let this = Arc::new(self);
-        let args = contracts.into_iter().zip(std::iter::repeat((
-            this,
-            fork,
-            filter,
-            on_test_suite_completed_fn,
-        )));
-
-        handle.spawn(async {
-            futures::stream::iter(args)
-                .for_each_concurrent(
-                    Some(num_cpus::get()),
-                    |((id, contract), (this, fork, filter, on_test_suite_completed_fn))| async move {
-                        tokio::task::spawn_blocking(move || {
-                            let handle = tokio::runtime::Handle::current();
-                            let result =
-                                this.run_tests(&id, &contract, fork, filter.as_ref(), &handle);
-
-                            on_test_suite_completed_fn(
-                                SuiteResultAndArtifactId {
-                                    artifact_id: id,
-                                    result,
-                                },
-                            );
-                        })
-                        .await
-                        .expect("failed to join task");
-                    },
-                )
-                .await;
+            on_test_suite_completed_fn(SuiteResultAndArtifactId {
+                artifact_id: id,
+                result,
+            });
         });
     }
 }

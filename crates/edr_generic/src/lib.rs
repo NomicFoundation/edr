@@ -6,6 +6,9 @@ mod rpc;
 mod spec;
 mod transaction;
 
+/// Generic chain type
+pub const CHAIN_TYPE: &str = "generic";
+
 /// The chain specification for Ethereum Layer 1 that is a bit more lenient
 /// and allows for more flexibility in contrast to
 /// [`L1ChainSpec`](edr_eth::l1::L1ChainSpec).

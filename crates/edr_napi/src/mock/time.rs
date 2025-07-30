@@ -69,7 +69,10 @@ pub fn create_provider_with_mock_timer(
 
     let contract_decoder = Arc::new(contract_decoder);
 
-    let logger = Logger::<GenericChainSpec>::new(logger_config, Arc::clone(&contract_decoder))?;
+    let logger = Logger::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(
+        logger_config,
+        Arc::clone(&contract_decoder),
+    )?;
 
     let subscription_config = edr_napi_core::subscription::Config::from(subscription_config);
     let subscription_callback = edr_napi_core::subscription::Callback::new(

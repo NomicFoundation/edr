@@ -8,7 +8,6 @@ use edr_evm::eips::{
 use edr_napi_core::{
     logger::Logger,
     provider::{self, ProviderBuilder, SyncProviderFactory},
-    spec::SyncNapiSpec,
     subscription,
 };
 use edr_provider::time::CurrentTime;
@@ -29,7 +28,8 @@ impl SyncProviderFactory for L1ProviderFactory {
         subscription_config: edr_napi_core::subscription::Config,
         contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Box<dyn provider::Builder>> {
-        let logger = Logger::<L1ChainSpec>::new(logger_config, Arc::clone(&contract_decoder))?;
+        let logger =
+            Logger::<L1ChainSpec, CurrentTime>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config =
             edr_provider::ProviderConfig::<l1::SpecId>::try_from(provider_config)?;
@@ -47,7 +47,7 @@ impl SyncProviderFactory for L1ProviderFactory {
 }
 
 #[napi]
-pub const L1_CHAIN_TYPE: &str = <L1ChainSpec as SyncNapiSpec<CurrentTime>>::CHAIN_TYPE;
+pub const L1_CHAIN_TYPE: &str = edr_eth::l1::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
 pub fn l1_genesis_state(hardfork: SpecId) -> Vec<AccountOverride> {

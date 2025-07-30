@@ -16,7 +16,7 @@ use edr_rpc_eth::RpcTypeFrom as _;
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec,
     requests::validation::validate_post_merge_block_tags, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, ProviderError,
+    time::TimeSinceEpoch, ProviderError, ProviderSpec,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -151,7 +151,7 @@ fn block_by_number<
     Option<BlockByNumberResultForChainSpec<ChainSpecT>>,
     ProviderErrorForChainSpec<ChainSpecT>,
 > {
-    validate_post_merge_block_tags::<ChainSpecT>(data.hardfork(), block_spec)?;
+    validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), block_spec)?;
 
     match data.block_by_block_spec(block_spec) {
         Ok(Some(block)) => {
@@ -184,7 +184,7 @@ fn block_by_number<
     }
 }
 
-fn block_to_rpc_output<ChainSpecT: RuntimeSpec>(
+fn block_to_rpc_output<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     hardfork: ChainSpecT::Hardfork,
     block: Arc<ChainSpecT::Block>,
     is_pending: bool,

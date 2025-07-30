@@ -17,7 +17,7 @@ mod remote {
         );
         // let runner = TEST_DATA_DEFAULT.runner().await;
         let runner = TEST_DATA_DEFAULT
-            .runner_with_config(TEST_DATA_DEFAULT.runner_with_rpc_config())
+            .runner_with_config(TEST_DATA_DEFAULT.config_with_remote_rpc())
             .await;
         let suite_result = runner.test_collect(filter).await;
         assert_eq!(suite_result.len(), 1);
@@ -38,7 +38,7 @@ mod remote {
         let runner = TEST_DATA_DEFAULT
             .runner_with_fs_permissions(
                 FsPermissions::new(vec![PathPermission::read("./fixtures")]),
-                TEST_DATA_DEFAULT.runner_with_rpc_config(),
+                TEST_DATA_DEFAULT.config_with_remote_rpc(),
             )
             .await;
         let filter = SolidityTestFilter::new(
@@ -56,7 +56,7 @@ mod remote {
         let runner = TEST_DATA_DEFAULT
             .runner_with_fs_permissions(
                 FsPermissions::new(vec![PathPermission::read("./fixtures")]),
-                TEST_DATA_DEFAULT.runner_with_rpc_config(),
+                TEST_DATA_DEFAULT.config_with_remote_rpc(),
             )
             .await;
         let filter = SolidityTestFilter::new(
@@ -74,7 +74,7 @@ mod remote {
         let runner = TEST_DATA_DEFAULT
             .runner_with_fs_permissions(
                 FsPermissions::new(vec![PathPermission::read("./fixtures")]),
-                TEST_DATA_DEFAULT.runner_with_rpc_config(),
+                TEST_DATA_DEFAULT.config_with_remote_rpc(),
             )
             .await;
         let filter =
@@ -87,7 +87,7 @@ mod remote {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_transact_fork() {
         let runner = TEST_DATA_DEFAULT
-            .runner_with_config(TEST_DATA_DEFAULT.runner_with_rpc_config())
+            .runner_with_config(TEST_DATA_DEFAULT.config_with_remote_rpc())
             .await;
         let filter =
             SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Transact"));
@@ -99,7 +99,7 @@ mod remote {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_create_same_fork() {
         let runner = TEST_DATA_DEFAULT
-            .runner_with_config(TEST_DATA_DEFAULT.runner_with_rpc_config())
+            .runner_with_config(TEST_DATA_DEFAULT.config_with_remote_rpc())
             .await;
         let filter =
             SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}ForkSame"));

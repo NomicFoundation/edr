@@ -85,7 +85,9 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
 
                 // HACK: We need to log failed deserialization attempts when they concern input
                 // validation.
-                if let Some((method_name, provider_error)) = reason.provider_error::<ChainSpecT>() {
+                if let Some((method_name, provider_error)) =
+                    reason.provider_error::<ChainSpecT, TimerT>()
+                {
                     // Ignore potential failure of logging, as returning the original error is more
                     // important
                     let _result = self.log_failed_deserialization(method_name, &provider_error);

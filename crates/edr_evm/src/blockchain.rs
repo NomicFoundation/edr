@@ -8,13 +8,13 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainSpec, Address, HashSet, B256, U256,
+    l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainHardfork, Address, HashSet, B256, U256,
 };
 
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
     forked::{CreationError as ForkedCreationError, ForkedBlockchain, ForkedBlockchainError},
-    local::{CreationError as LocalCreationError, GenesisBlockOptions, LocalBlockchain},
+    local::{InvalidGenesisBlock, LocalBlockchain},
 };
 use crate::{
     hardfork::Activations,
@@ -26,7 +26,7 @@ use crate::{
 /// Helper type for a chain-specific [`BlockchainError`].
 pub type BlockchainErrorForChainSpec<ChainSpecT> = BlockchainError<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
-    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as ChainHardfork>::Hardfork,
     <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
 >;
 
