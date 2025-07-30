@@ -7,10 +7,11 @@ use edr_provider::{
     ProviderSpec, SyncProviderSpec,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_test_utils::env::get_alchemy_url;
 use tokio::runtime;
 
-#[allow(unused)]
+#[allow(dead_code)]
+// allow it to avoid clippy complaining when running with
+// --features tracing,serde,std
 pub(crate) fn get_chain_fork_provider<
     ChainSpecT: SyncProviderSpec<
             CurrentTime,
@@ -32,7 +33,6 @@ pub(crate) fn get_chain_fork_provider<
 
     let chain_overrides = [(chain_id, chain_override)].into_iter().collect();
 
-    let alchemy_url = get_alchemy_url();
     let mut config = create_test_config_with_fork(Some(ForkConfig {
         block_number: Some(block_number),
         cache_dir: edr_defaults::CACHE_DIR.into(),
