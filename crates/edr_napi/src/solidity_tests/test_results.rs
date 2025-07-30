@@ -470,9 +470,10 @@ pub struct CallTrace {
     pub gas_used: BigInt,
     /// The amount of native token that was included with the call.
     pub value: BigInt,
-    /// The target of the call. Provided as a contract name if known, otherwise
-    /// a checksum address.
-    pub contract: String,
+    /// The target address of the call.
+    pub address: String,
+    /// The name of the contract that is the target of the call, if known.
+    pub contract: Option<String>,
     /// The input (calldata) to the call. If it encodes a known function call,
     /// it will be decoded into the function name and a list of arguments.
     /// For example, `{ name: "ownerOf", arguments: ["1"] }`. Note that the
@@ -541,15 +542,8 @@ impl CallTrace {
     /// Instantiates a `CallTrace` with the details from a node and the supplied
     /// children.
     fn new(node: &traces::CallTraceNode, children: Vec<Either<CallTrace, LogTrace>>) -> Self {
-        let label = node.trace.decoded.label.clone();
+        let contract = node.trace.decoded.label.clone();
         let address = node.trace.address.to_checksum(None);
-
-        let contract = if node.kind().is_any_create() {
-            let label = label.unwrap_or("<unknown>".into());
-            format!("{label}@{address}")
-        } else {
-            label.unwrap_or(address)
-        };
 
         let inputs = match &node.trace.decoded.call_data {
             Some(traces::DecodedCallData { signature, args }) => {
@@ -582,6 +576,7 @@ impl CallTrace {
             gas_used: node.trace.gas_used.into(),
             value: u256_to_bigint(&node.trace.value),
             contract,
+            address,
             inputs,
             outputs,
             children,

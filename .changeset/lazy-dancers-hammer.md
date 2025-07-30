@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Added addresses of newly created contracts in call traces.
+Made the `contract` field in `CallTrace` optional, and added a separate `address` field that is always present. (Breaking change)

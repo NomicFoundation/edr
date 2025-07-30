@@ -982,11 +982,10 @@ export interface CallTrace {
   gasUsed: bigint
   /** The amount of native token that was included with the call. */
   value: bigint
-  /**
-   * The target of the call. Provided as a contract name if known, otherwise
-   * a checksum address.
-   */
-  contract: string
+  /** The target address of the call. */
+  address: string
+  /** The name of the contract that is the target of the call, if known. */
+  contract?: string
   /**
    * The input (calldata) to the call. If it encodes a known function call,
    * it will be decoded into the function name and a list of arguments.
