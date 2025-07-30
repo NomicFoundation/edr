@@ -90,3 +90,82 @@ impl BlockEnvConstructor<Header, BlockEnv> for L1BlockConstructor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use revm_primitives::hardfork::SpecId;
+
+    use crate::{
+        block::{BlobGas, Header},
+        l1::L1BlockConstructor,
+        spec::BlockEnvConstructor,
+        Address, Bloom, Bytes, B256, B64, U256,
+    };
+
+    #[test]
+    fn generic_block_constructor_should_not_default_excess_blob_gas() {
+        let header = Header {
+            parent_hash: B256::default(),
+            ommers_hash: B256::default(),
+            beneficiary: Address::default(),
+            state_root: B256::default(),
+            transactions_root: B256::default(),
+            receipts_root: B256::default(),
+            logs_bloom: Bloom::default(),
+            difficulty: U256::default(),
+            number: 124,
+            gas_limit: u64::default(),
+            gas_used: 1337,
+            timestamp: 0,
+            extra_data: Bytes::default(),
+            mix_hash: B256::default(),
+            nonce: B64::from(99u64),
+            base_fee_per_gas: None,
+            withdrawals_root: None,
+            blob_gas: None, // No blob gas information
+            parent_beacon_block_root: None,
+            requests_hash: Some(B256::random()),
+        };
+
+        let block = L1BlockConstructor::new_block_env(&header, SpecId::CANCUN);
+        assert_eq!(block.blob_excess_gas_and_price, None);
+    }
+
+    #[test]
+    fn generic_block_constructor_should_use_existing_excess_blob_gas() {
+        let excess_gas = 0x80000u64;
+        let blob_gas = BlobGas {
+            excess_gas,
+            gas_used: 0x80000u64,
+        };
+        let header = Header {
+            parent_hash: B256::default(),
+            ommers_hash: B256::default(),
+            beneficiary: Address::default(),
+            state_root: B256::default(),
+            transactions_root: B256::default(),
+            receipts_root: B256::default(),
+            logs_bloom: Bloom::default(),
+            difficulty: U256::default(),
+            number: 124,
+            gas_limit: u64::default(),
+            gas_used: 1337,
+            timestamp: 0,
+            extra_data: Bytes::default(),
+            mix_hash: B256::default(),
+            nonce: B64::from(99u64),
+            base_fee_per_gas: None,
+            withdrawals_root: None,
+            blob_gas: Some(blob_gas), // blob gas present
+            parent_beacon_block_root: None,
+            requests_hash: Some(B256::random()),
+        };
+
+        let block = L1BlockConstructor::new_block_env(&header, SpecId::CANCUN);
+
+        let blob_excess_gas = block
+            .blob_excess_gas_and_price
+            .expect("Blob excess gas should be set");
+        assert_eq!(blob_excess_gas.excess_blob_gas, excess_gas);
+    }
+}

@@ -55,11 +55,6 @@ fn get_provider<
     provider
 }
 
-// TODO: should we "replicate" the data from arbitrum in case
-// they decide to follow the specification in the future?
-
-// TODO: test that it's setting the right default BlobExcessGas value
-
 // `eth_debugTraceTransaction` should succeed
 // even if block header does not contain `excess_blob_gas` in Cancun or above
 // https://github.com/NomicFoundation/edr/issues/947
@@ -106,6 +101,3 @@ async fn issue_947_should_fail_on_l1() -> anyhow::Result<()> {
 
     Ok(())
 }
-
-// TODO: should we add test for op-stack chain as well?
-// doubt: edr_generic crate does not depend on edr_op

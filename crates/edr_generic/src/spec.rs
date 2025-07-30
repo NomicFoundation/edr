@@ -255,3 +255,86 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
         <L1ChainSpec as ProviderSpec<TimerT>>::cast_halt_reason(reason)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use edr_eth::{
+        block::{BlobGas, Header},
+        eips::eip4844,
+        l1,
+        spec::BlockEnvConstructor,
+        Address, Bloom, Bytes, B256, B64, U256,
+    };
+
+    use crate::spec::GenericBlockConstructor;
+
+    #[test]
+    fn generic_block_constructor_should_default_excess_blob_gas() {
+        let header = Header {
+            parent_hash: B256::default(),
+            ommers_hash: B256::default(),
+            beneficiary: Address::default(),
+            state_root: B256::default(),
+            transactions_root: B256::default(),
+            receipts_root: B256::default(),
+            logs_bloom: Bloom::default(),
+            difficulty: U256::default(),
+            number: 124,
+            gas_limit: u64::default(),
+            gas_used: 1337,
+            timestamp: 0,
+            extra_data: Bytes::default(),
+            mix_hash: B256::default(),
+            nonce: B64::from(99u64),
+            base_fee_per_gas: None,
+            withdrawals_root: None,
+            blob_gas: None, // No blob gas information
+            parent_beacon_block_root: None,
+            requests_hash: Some(B256::random()),
+        };
+
+        let block = GenericBlockConstructor::new_block_env(&header, l1::SpecId::CANCUN);
+        assert_eq!(
+            block.blob_excess_gas_and_price,
+            Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))
+        );
+    }
+
+    #[test]
+    fn generic_block_constructor_should_use_existing_excess_blob_gas() {
+        let excess_gas = 0x80000u64;
+        let blob_gas = BlobGas {
+            excess_gas,
+            gas_used: 0x80000u64,
+        };
+        let header = Header {
+            parent_hash: B256::default(),
+            ommers_hash: B256::default(),
+            beneficiary: Address::default(),
+            state_root: B256::default(),
+            transactions_root: B256::default(),
+            receipts_root: B256::default(),
+            logs_bloom: Bloom::default(),
+            difficulty: U256::default(),
+            number: 124,
+            gas_limit: u64::default(),
+            gas_used: 1337,
+            timestamp: 0,
+            extra_data: Bytes::default(),
+            mix_hash: B256::default(),
+            nonce: B64::from(99u64),
+            base_fee_per_gas: None,
+            withdrawals_root: None,
+            blob_gas: Some(blob_gas), // blob gas present
+            parent_beacon_block_root: None,
+            requests_hash: Some(B256::random()),
+        };
+
+        let block = GenericBlockConstructor::new_block_env(&header, l1::SpecId::CANCUN);
+
+        let blob_excess_gas = block
+            .blob_excess_gas_and_price
+            .expect("Blob excess gas should be set");
+        assert_eq!(blob_excess_gas.excess_blob_gas, excess_gas);
+    }
+}
