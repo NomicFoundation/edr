@@ -183,6 +183,13 @@ export function assertStackTraces(
   ) {
     throw new Error("Stack trace is undefined");
   }
+
+  if (actual.reason !== expectedReason) {
+    throw new Error(
+      `Expected stack trace reason to be '${expectedReason}', but got '${actual.reason}'`
+    );
+  }
+
   if (actual.stackTrace.kind === "HeuristicFailed") {
     throw new Error("Stack trace result is 'HeuristicFailed'");
   }
