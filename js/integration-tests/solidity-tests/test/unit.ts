@@ -457,4 +457,24 @@ describe("Unit tests", () => {
       }
     }
   });
+
+  it.skip("CheatcodeError", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("CheatcodeError");
+
+    assertStackTraces(
+      stackTraces.get("testFunctionDoesntRevertAsExpected()"),
+      "next call did not revert as expected",
+      [
+        {
+          contract: "CheatcodeError",
+          function: "testFunctionDoesntRevertAsExpected",
+          message: "cheatcode error: next call did not revert as expected",
+        },
+      ]
+    );
+
+    assert.equal(failedTests, 1);
+    assert.equal(totalTests, 1);
+  });
 });

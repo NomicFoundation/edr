@@ -173,6 +173,7 @@ export function assertStackTraces(
   expectedEntries: {
     function: string;
     contract: string;
+    message?: string;
   }[]
 ) {
   if (
@@ -220,6 +221,16 @@ export function assertStackTraces(
     assert.equal(sourceReference.contract, expected.contract);
     assert.equal(sourceReference.function, expected.function);
     assert(sourceReference.sourceContent.includes(expected.function));
+    if (expected.message !== undefined) {
+      assert(
+        stackTrace.entries[i].message == expected.message,
+        `Expected message '${expected.message}' not found in entry: ${JSON.stringify(
+          stackTrace.entries[i],
+          null,
+          2
+        )}`
+      );
+    }
   }
 }
 
