@@ -49,6 +49,7 @@ pub struct GenericBlockConstructor;
 
 impl BlockEnvConstructor<Header, BlockEnv> for GenericBlockConstructor {
     fn new_block_env(header: &Header, hardfork: l1::SpecId) -> BlockEnv {
+        let is_prague = hardfork >= l1::SpecId::PRAGUE;
         BlockEnv {
             number: header.number,
             beneficiary: header.beneficiary,
@@ -67,15 +68,16 @@ impl BlockEnvConstructor<Header, BlockEnv> for GenericBlockConstructor {
                 .blob_gas
                 .as_ref()
                 .map(|BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, is_prague)
                 })
-                .or_else(|| Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))),
+                .or_else(|| Some(eip4844::BlobExcessGasAndPrice::new(0u64, is_prague))),
         }
     }
 }
 
 impl BlockEnvConstructor<PartialHeader, BlockEnv> for GenericBlockConstructor {
     fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> BlockEnv {
+        let is_prague = hardfork >= l1::SpecId::PRAGUE;
         BlockEnv {
             number: header.number,
             beneficiary: header.beneficiary,
@@ -94,9 +96,9 @@ impl BlockEnvConstructor<PartialHeader, BlockEnv> for GenericBlockConstructor {
                 .blob_gas
                 .as_ref()
                 .map(|BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, is_prague)
                 })
-                .or_else(|| Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))),
+                .or_else(|| Some(eip4844::BlobExcessGasAndPrice::new(0u64, is_prague))),
         }
     }
 }
