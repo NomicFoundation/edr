@@ -35,7 +35,7 @@ describe("Unit tests", () => {
 
   it("Latest global fork stack trace", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests, stackTraces } =
@@ -132,7 +132,7 @@ describe("Unit tests", () => {
 
   it("GlobalFork", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
@@ -149,7 +149,7 @@ describe("Unit tests", () => {
 
   it("ForkCheatcode", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
@@ -167,7 +167,7 @@ describe("Unit tests", () => {
 
   it("Latest fork cheatcode", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests, stackTraces } =
