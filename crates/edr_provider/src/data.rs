@@ -25,7 +25,7 @@ use edr_eth::{
     result::ExecutionResult,
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
-    spec::{BlockEnvConstructor, ChainSpec, HaltReasonTrait},
+    spec::{BlockEnvConstructor as _, ChainSpec, HaltReasonTrait},
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
