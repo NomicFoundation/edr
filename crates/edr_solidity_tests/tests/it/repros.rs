@@ -442,7 +442,7 @@ remote_test_repro!(6538);
 test_repro!(6554; |config| {
     let path = config.project_root.join("out/default/Issue6554.t.sol");
 
-    config.cheats_config_options.fs_permissions.add(PathPermission::read_write_file(path));
+    config.cheats_config_options.fs_permissions.add(PathPermission::read_write_directory(path));
 });
 
 // https://github.com/foundry-rs/foundry/issues/6616
