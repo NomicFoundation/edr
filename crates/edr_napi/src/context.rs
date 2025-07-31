@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::HashMap;
-use edr_napi_core::{
-    provider::{self, SyncProviderFactory},
-    solidity,
-};
+use edr_napi_core::{provider::SyncProviderFactory, solidity, subscription};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_solidity_tests::{
     decode::RevertDecoder,
@@ -98,6 +95,9 @@ impl EdrContext {
                 |contract_decoder| Ok(Arc::new(contract_decoder))
             ));
 
+        let subscription_callback =
+            subscription::Callback::new(&env, subscription_config.subscription_callback)?;
+
         #[cfg(feature = "scenarios")]
         let scenario_file =
             try_or_reject_promise!(runtime.clone().block_on(crate::scenarios::scenario_file(
@@ -106,31 +106,32 @@ impl EdrContext {
                 logger_config.enable,
             )));
 
-        let builder = {
+        let factory = {
             // TODO: https://github.com/NomicFoundation/edr/issues/760
             // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
 
-            try_or_reject_promise!(context.create_provider_builder(
-                &env,
-                &chain_type,
-                provider_config,
-                logger_config,
-                subscription_config.into(),
-                &contract_decoder,
-            ))
+            try_or_reject_promise!(context.get_provider_factory(&chain_type))
         };
 
         runtime.clone().spawn_blocking(move || {
-            let result = builder.build(runtime.clone()).map(|provider| {
-                Provider::new(
-                    provider,
-                    runtime,
-                    contract_decoder,
-                    #[cfg(feature = "scenarios")]
-                    scenario_file,
+            let result = factory
+                .create_provider(
+                    runtime.clone(),
+                    provider_config,
+                    logger_config,
+                    subscription_callback,
+                    Arc::clone(&contract_decoder),
                 )
-            });
+                .map(|provider| {
+                    Provider::new(
+                        provider,
+                        runtime,
+                        contract_decoder,
+                        #[cfg(feature = "scenarios")]
+                        scenario_file,
+                    )
+                });
 
             deferred.resolve(|_env| result);
         });
@@ -410,23 +411,12 @@ impl Context {
 
     /// Tries to create a new provider for the provided chain type and
     /// configuration.
-    pub fn create_provider_builder(
+    pub fn get_provider_factory(
         &self,
-        env: &napi::Env,
         chain_type: &str,
-        provider_config: edr_napi_core::provider::Config,
-        logger_config: edr_napi_core::logger::Config,
-        subscription_config: edr_napi_core::subscription::Config,
-        contract_decoder: &Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder>> {
+    ) -> napi::Result<Arc<dyn SyncProviderFactory>> {
         if let Some(factory) = self.provider_factories.get(chain_type) {
-            factory.create_provider_builder(
-                env,
-                provider_config,
-                logger_config,
-                subscription_config,
-                contract_decoder.clone(),
-            )
+            Ok(Arc::clone(factory))
         } else {
             Err(napi::Error::new(
                 napi::Status::GenericFailure,

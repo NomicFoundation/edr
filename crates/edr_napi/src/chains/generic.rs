@@ -3,12 +3,13 @@ use std::sync::Arc;
 use edr_eth::l1;
 use edr_generic::GenericChainSpec;
 use edr_napi_core::{
-    logger::{self, Logger},
-    provider::{self, ProviderBuilder, SyncProviderFactory},
-    subscription,
+    logger::Logger,
+    provider::{SyncProvider, SyncProviderFactory},
+    subscription::subscriber_callback_for_chain_spec,
 };
 use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
+use napi::tokio::runtime;
 use napi_derive::napi;
 
 use crate::provider::ProviderFactory;
@@ -16,14 +17,14 @@ use crate::provider::ProviderFactory;
 pub struct GenericChainProviderFactory;
 
 impl SyncProviderFactory for GenericChainProviderFactory {
-    fn create_provider_builder(
+    fn create_provider(
         &self,
-        env: &napi::Env,
+        runtime: runtime::Handle,
         provider_config: edr_napi_core::provider::Config,
-        logger_config: logger::Config,
-        subscription_config: subscription::Config,
+        logger_config: edr_napi_core::logger::Config,
+        subscription_callback: edr_napi_core::subscription::Callback,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder>> {
+    ) -> napi::Result<Arc<dyn SyncProvider>> {
         let logger = Logger::<GenericChainSpec, CurrentTime>::new(
             logger_config,
             Arc::clone(&contract_decoder),
@@ -32,15 +33,19 @@ impl SyncProviderFactory for GenericChainProviderFactory {
         let provider_config =
             edr_provider::ProviderConfig::<l1::SpecId>::try_from(provider_config)?;
 
-        let subscription_callback =
-            subscription::Callback::new(env, subscription_config.subscription_callback)?;
-
-        Ok(Box::new(ProviderBuilder::new(
-            contract_decoder,
+        let provider = edr_provider::Provider::<GenericChainSpec>::new(
+            runtime.clone(),
             Box::new(logger),
+            subscriber_callback_for_chain_spec::<GenericChainSpec, CurrentTime>(
+                subscription_callback,
+            ),
             provider_config,
-            subscription_callback,
-        )))
+            contract_decoder,
+            CurrentTime,
+        )
+        .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))?;
+
+        Ok(Arc::new(provider))
     }
 }
 
