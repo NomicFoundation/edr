@@ -36,11 +36,18 @@ impl SubscriptionEvent {
 
 /// Type alias for a function that converts a value to a JavaScript value.
 ///
-/// This is used because [`serde::Serialize`] cannot be used as a dynamic trait
-/// object.
+/// Since [`serde::Serialize`] cannot be used as a dynamic trait object, we are
+/// using a `FnOnce` to wrap N-API's [`napi::Env::to_js_value`] conversion
+/// logic.
 ///
 /// An alternative would be to use `serde_json::Value` as an intermediate
-/// representation, but that would require an additional conversion step.
+/// representation, but that would require an additional conversion step:
+///
+/// 1. Convert the value to `serde_json::Value`.
+/// 2. Send the `serde_json::Value` to the `ThreadsafeFunction`.
+/// 3. Convert the `serde_json::Value` to a JavaScript value using
+///    `napi::Env::to_js_value`.
+/// ```
 pub type ToJsValueFn = dyn FnOnce(&napi::Env) -> napi::Result<JsUnknown>;
 
 /// A chain-agnostic version of [`edr_provider::SubscriptionEventData`].
