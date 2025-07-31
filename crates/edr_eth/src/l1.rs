@@ -102,9 +102,8 @@ mod tests {
         Address, Bloom, Bytes, B256, B64, U256,
     };
 
-    #[test]
-    fn generic_block_constructor_should_not_default_excess_blob_gas() {
-        let header = Header {
+    fn build_block_header(blob_gas: Option<BlobGas>) -> Header {
+        Header {
             parent_hash: B256::default(),
             ommers_hash: B256::default(),
             beneficiary: Address::default(),
@@ -122,12 +121,33 @@ mod tests {
             nonce: B64::from(99u64),
             base_fee_per_gas: None,
             withdrawals_root: None,
-            blob_gas: None, // No blob gas information
+            blob_gas,
             parent_beacon_block_root: None,
             requests_hash: Some(B256::random()),
-        };
+        }
+    }
+
+    #[test]
+    fn generic_block_constructor_should_not_default_excess_blob_gas_for_cancun() {
+        let header = build_block_header(None); // No blob gas information
 
         let block = L1BlockConstructor::new_block_env(&header, SpecId::CANCUN);
+        assert_eq!(block.blob_excess_gas_and_price, None);
+    }
+
+    #[test]
+    fn generic_block_constructor_should_not_default_excess_blob_gas_below_cancun() {
+        let header = build_block_header(None); // No blob gas information
+
+        let block = L1BlockConstructor::new_block_env(&header, SpecId::SHANGHAI);
+        assert_eq!(block.blob_excess_gas_and_price, None);
+    }
+
+    #[test]
+    fn generic_block_constructor_should_not_default_excess_blob_gas_above_cancun() {
+        let header = build_block_header(None); // No blob gas information
+
+        let block = L1BlockConstructor::new_block_env(&header, SpecId::PRAGUE);
         assert_eq!(block.blob_excess_gas_and_price, None);
     }
 
@@ -138,28 +158,7 @@ mod tests {
             excess_gas,
             gas_used: 0x80000u64,
         };
-        let header = Header {
-            parent_hash: B256::default(),
-            ommers_hash: B256::default(),
-            beneficiary: Address::default(),
-            state_root: B256::default(),
-            transactions_root: B256::default(),
-            receipts_root: B256::default(),
-            logs_bloom: Bloom::default(),
-            difficulty: U256::default(),
-            number: 124,
-            gas_limit: u64::default(),
-            gas_used: 1337,
-            timestamp: 0,
-            extra_data: Bytes::default(),
-            mix_hash: B256::default(),
-            nonce: B64::from(99u64),
-            base_fee_per_gas: None,
-            withdrawals_root: None,
-            blob_gas: Some(blob_gas), // blob gas present
-            parent_beacon_block_root: None,
-            requests_hash: Some(B256::random()),
-        };
+        let header = build_block_header(Some(blob_gas)); // blob gas present
 
         let block = L1BlockConstructor::new_block_env(&header, SpecId::CANCUN);
 

@@ -4,7 +4,7 @@ use edr_eth::{
     block::{BlobGas, Header, PartialHeader},
     eips::{
         eip1559::BaseFeeParams,
-        eip4844::{self},
+        eip4844::{self, BlobExcessGasAndPrice},
     },
     l1::{self, BlockEnv, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
@@ -47,9 +47,30 @@ impl ChainSpec for GenericChainSpec {
 /// Generic chain definition for `BlockEnvConstructor`
 pub struct GenericBlockConstructor;
 
+impl GenericBlockConstructor {
+    fn blob_excess_gas_and_price(
+        blob_gas: &Option<BlobGas>,
+        hardfork: l1::SpecId,
+    ) -> Option<BlobExcessGasAndPrice> {
+        let is_prague: bool = hardfork >= l1::SpecId::PRAGUE;
+
+        blob_gas
+            .as_ref()
+            .map(|BlobGas { excess_gas, .. }| {
+                eip4844::BlobExcessGasAndPrice::new(*excess_gas, is_prague)
+            })
+            .or_else(|| {
+                if hardfork >= l1::SpecId::CANCUN {
+                    Some(eip4844::BlobExcessGasAndPrice::new(0u64, is_prague))
+                } else {
+                    None
+                }
+            })
+    }
+}
+
 impl BlockEnvConstructor<Header, BlockEnv> for GenericBlockConstructor {
     fn new_block_env(header: &Header, hardfork: l1::SpecId) -> BlockEnv {
-        let is_prague = hardfork >= l1::SpecId::PRAGUE;
         BlockEnv {
             number: header.number,
             beneficiary: header.beneficiary,
@@ -64,20 +85,13 @@ impl BlockEnvConstructor<Header, BlockEnv> for GenericBlockConstructor {
             } else {
                 None
             },
-            blob_excess_gas_and_price: header
-                .blob_gas
-                .as_ref()
-                .map(|BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, is_prague)
-                })
-                .or_else(|| Some(eip4844::BlobExcessGasAndPrice::new(0u64, is_prague))),
+            blob_excess_gas_and_price: Self::blob_excess_gas_and_price(&header.blob_gas, hardfork),
         }
     }
 }
 
 impl BlockEnvConstructor<PartialHeader, BlockEnv> for GenericBlockConstructor {
     fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> BlockEnv {
-        let is_prague = hardfork >= l1::SpecId::PRAGUE;
         BlockEnv {
             number: header.number,
             beneficiary: header.beneficiary,
@@ -92,13 +106,7 @@ impl BlockEnvConstructor<PartialHeader, BlockEnv> for GenericBlockConstructor {
             } else {
                 None
             },
-            blob_excess_gas_and_price: header
-                .blob_gas
-                .as_ref()
-                .map(|BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, is_prague)
-                })
-                .or_else(|| Some(eip4844::BlobExcessGasAndPrice::new(0u64, is_prague))),
+            blob_excess_gas_and_price: Self::blob_excess_gas_and_price(&header.blob_gas, hardfork),
         }
     }
 }
@@ -268,9 +276,8 @@ mod tests {
 
     use crate::spec::GenericBlockConstructor;
 
-    #[test]
-    fn generic_block_constructor_should_default_excess_blob_gas() {
-        let header = Header {
+    fn build_block_header(blob_gas: Option<BlobGas>) -> Header {
+        Header {
             parent_hash: B256::default(),
             ommers_hash: B256::default(),
             beneficiary: Address::default(),
@@ -288,10 +295,15 @@ mod tests {
             nonce: B64::from(99u64),
             base_fee_per_gas: None,
             withdrawals_root: None,
-            blob_gas: None, // No blob gas information
+            blob_gas,
             parent_beacon_block_root: None,
             requests_hash: Some(B256::random()),
-        };
+        }
+    }
+
+    #[test]
+    fn generic_block_constructor_should_default_excess_blob_gas_for_cancun() {
+        let header = build_block_header(None); // No blob gas information
 
         let block = GenericBlockConstructor::new_block_env(&header, l1::SpecId::CANCUN);
         assert_eq!(
@@ -301,34 +313,32 @@ mod tests {
     }
 
     #[test]
+    fn generic_block_constructor_should_default_excess_blob_gas_above_cancun() {
+        let header = build_block_header(None); // No blob gas information
+
+        let block = GenericBlockConstructor::new_block_env(&header, l1::SpecId::PRAGUE);
+        assert_eq!(
+            block.blob_excess_gas_and_price,
+            Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))
+        );
+    }
+
+    #[test]
+    fn generic_block_constructor_should_nor_default_excess_blob_gas_below_cancun() {
+        let header = build_block_header(None); // No blob gas information
+
+        let block = GenericBlockConstructor::new_block_env(&header, l1::SpecId::SHANGHAI);
+        assert_eq!(block.blob_excess_gas_and_price, None);
+    }
+
+    #[test]
     fn generic_block_constructor_should_use_existing_excess_blob_gas() {
         let excess_gas = 0x80000u64;
         let blob_gas = BlobGas {
             excess_gas,
             gas_used: 0x80000u64,
         };
-        let header = Header {
-            parent_hash: B256::default(),
-            ommers_hash: B256::default(),
-            beneficiary: Address::default(),
-            state_root: B256::default(),
-            transactions_root: B256::default(),
-            receipts_root: B256::default(),
-            logs_bloom: Bloom::default(),
-            difficulty: U256::default(),
-            number: 124,
-            gas_limit: u64::default(),
-            gas_used: 1337,
-            timestamp: 0,
-            extra_data: Bytes::default(),
-            mix_hash: B256::default(),
-            nonce: B64::from(99u64),
-            base_fee_per_gas: None,
-            withdrawals_root: None,
-            blob_gas: Some(blob_gas), // blob gas present
-            parent_beacon_block_root: None,
-            requests_hash: Some(B256::random()),
-        };
+        let header = build_block_header(Some(blob_gas)); // blob gas present
 
         let block = GenericBlockConstructor::new_block_env(&header, l1::SpecId::CANCUN);
 
