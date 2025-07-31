@@ -166,7 +166,7 @@ function ansiColor(text: string, color: Chalk): string {
   const formatted = color(text);
 
   // EDR's ansi console crate uses the RESET code to reset the color
-  return formatted.replace("\x1B[39m", "\x1B[0m");
+  return formatted.replaceAll("\x1B[39m", "\x1B[0m");
 }
 
 async function intervalMine(
