@@ -255,6 +255,8 @@ describe("Unit tests", () => {
         {
           contract: "UnsupportedCheatcodeTest",
           function: "testUnsupportedCheatcode",
+          message: "cheatcode 'broadcast()' is not supported",
+          line: 9,
         },
       ]
     );
@@ -458,23 +460,51 @@ describe("Unit tests", () => {
     }
   });
 
-  it.skip("CheatcodeError", async function () {
+  it("ExpectRevertError", async function () {
     const { totalTests, failedTests, stackTraces } =
-      await testContext.runTestsWithStats("CheatcodeError");
+      await testContext.runTestsWithStats("ExpectRevertErrorTest");
+
+    assert.equal(failedTests, 3);
+    assert.equal(totalTests, 3);
 
     assertStackTraces(
       stackTraces.get("testFunctionDoesntRevertAsExpected()"),
       "next call did not revert as expected",
       [
         {
-          contract: "CheatcodeError",
+          contract: "ExpectRevertErrorTest",
           function: "testFunctionDoesntRevertAsExpected",
-          message: "cheatcode error: next call did not revert as expected",
+          line: 19, // foo.f();
+          message: "next call did not revert as expected",
         },
       ]
     );
 
-    assert.equal(failedTests, 1);
-    assert.equal(totalTests, 1);
+    assertStackTraces(
+      stackTraces.get("testFunctionRevertsWithDifferentMessage()"),
+      "Error != expected error: revert with a different message != expected message",
+      [
+        {
+          contract: "ExpectRevertErrorTest",
+          function: "testFunctionRevertsWithDifferentMessage",
+          line: 25, // foo.g();
+          message:
+            "Error != expected error: revert with a different message != expected message",
+        },
+      ]
+    );
+
+    assertStackTraces(
+      stackTraces.get("testFunctionRevertCountMismatch()"),
+      "next call did not revert as expected",
+      [
+        {
+          contract: "ExpectRevertErrorTest",
+          function: "testFunctionRevertCountMismatch",
+          line: 32, // foo.f();
+          message: "next call did not revert as expected",
+        },
+      ]
+    );
   });
 });

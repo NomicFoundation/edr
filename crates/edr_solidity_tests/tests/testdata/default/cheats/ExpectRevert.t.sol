@@ -49,17 +49,17 @@ contract ConstructorReverter {
 /// is large enough to decode big structs.
 ///
 /// The struct is based on issue #2454
-struct LargeDummyStruct {
-    address a;
-    uint256 b;
-    bool c;
-    address d;
-    address e;
-    string f;
-    address[8] g;
-    address h;
-    uint256 i;
-}
+    struct LargeDummyStruct {
+        address a;
+        uint256 b;
+        bool c;
+        address d;
+        address e;
+        string f;
+        address[8] g;
+        address h;
+        uint256 i;
+    }
 
 contract Dummy {
     function callMe() public pure returns (string memory) {

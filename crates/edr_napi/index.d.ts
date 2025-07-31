@@ -1116,7 +1116,8 @@ export enum StackTraceEntryType {
   UNMAPPED_SOLC_0_6_3_REVERT_ERROR = 20,
   CONTRACT_TOO_LARGE_ERROR = 21,
   INTERNAL_FUNCTION_CALLSTACK_ENTRY = 22,
-  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23
+  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23,
+  CHEATCODE_ERROR = 24
 }
 export declare function stackTraceEntryTypeToString(val: StackTraceEntryType): string
 export const FALLBACK_FUNCTION_NAME: string
@@ -1246,6 +1247,11 @@ export interface ContractCallRunOutOfGasError {
   type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR
   sourceReference?: SourceReference
 }
+export interface CheatcodeErrorStackTraceEntry {
+  type: StackTraceEntryType.CHEATCODE_ERROR
+  message: string
+  sourceReference: SourceReference
+}
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Uint8Array
@@ -1321,6 +1327,11 @@ export declare class EdrContext {
    *is called to know when all tests are done.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
+  /**
+   *Creates a mock provider, which always returns the given response.
+   *For testing purposes.
+   */
+  createMockProvider(mockedResponse: any): Provider
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */

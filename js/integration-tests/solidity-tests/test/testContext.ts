@@ -174,6 +174,7 @@ export function assertStackTraces(
     function: string;
     contract: string;
     message?: string;
+    line?: number;
   }[]
 ) {
   if (
@@ -185,9 +186,9 @@ export function assertStackTraces(
     throw new Error("Stack trace is undefined");
   }
 
-  if (actual.reason !== expectedReason) {
+  if (actual.reason === undefined || !actual.reason.includes(expectedReason)) {
     throw new Error(
-      `Expected stack trace reason to be '${expectedReason}', but got '${actual.reason}'`
+      `Expected stack trace reason to include '${expectedReason}', but got '${actual.reason}'`
     );
   }
 
@@ -221,6 +222,9 @@ export function assertStackTraces(
     assert.equal(sourceReference.contract, expected.contract);
     assert.equal(sourceReference.function, expected.function);
     assert(sourceReference.sourceContent.includes(expected.function));
+    if (expected.line !== undefined) {
+      assert.equal(sourceReference.line, expected.line);
+    }
     if (expected.message !== undefined) {
       assert(
         stackTrace.entries[i].message == expected.message,
