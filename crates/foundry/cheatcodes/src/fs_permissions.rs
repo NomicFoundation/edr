@@ -47,8 +47,10 @@ impl FsPermissions {
 
     /// Returns the permission for the matching path.
     ///
-    /// This finds the longest matching path with resolved sym links, e.g. if we
-    /// have the following permissions:
+    /// For file permissions, this will return the exact match.
+    ///
+    /// For directory permissions, this will return the longest matching path
+    /// with resolved sym links, e.g. if we have the following permissions:
     ///
     /// `./out` = `read`
     /// `./out/contracts` = `read-write`
@@ -59,7 +61,16 @@ impl FsPermissions {
         let mut permission: Option<&PathPermission> = None;
         for perm in &self.permissions {
             let permission_path = dunce::canonicalize(&perm.path).unwrap_or(perm.path.clone());
-            if path.starts_with(permission_path) {
+            if perm.access == FsAccessPermission::ReadFile
+                || perm.access == FsAccessPermission::WriteFile
+                || perm.access == FsAccessPermission::ReadWriteFile
+            {
+                // file permission, check exact match
+                if path == permission_path {
+                    return Some(perm.access);
+                }
+            } else if path.starts_with(permission_path) {
+                // directory permission, check prefix
                 if let Some(active_perm) = permission.as_ref() {
                     // the longest path takes precedence
                     if perm.path < active_perm.path {
@@ -69,7 +80,8 @@ impl FsPermissions {
                 permission = Some(perm);
             }
         }
-        permission.and_then(|perm| perm.resolve_permission(path))
+
+        permission.map(|perm| perm.access)
     }
 
     /// Updates all `allowed_paths` and joins ([`Path::join`]) the `root` with
@@ -164,27 +176,6 @@ impl PathPermission {
     pub fn is_granted(&self, kind: FsAccessKind) -> bool {
         self.access.is_granted(kind)
     }
-
-    /// Converts directory permissions to file permissions if the path is a file
-    /// inside the directory.
-    pub fn resolve_permission(&self, path: impl Into<PathBuf>) -> Option<FsAccessPermission> {
-        let path = path.into();
-        if self.path == path {
-            Some(self.access)
-        } else {
-            // If the permission is for a directory, we can convert it to a file permission
-            match self.access {
-                FsAccessPermission::DangerouslyReadWriteDirectory => {
-                    Some(FsAccessPermission::ReadWriteFile)
-                }
-                FsAccessPermission::DangerouslyWriteDirectory => {
-                    Some(FsAccessPermission::WriteFile)
-                }
-                FsAccessPermission::ReadDirectory => Some(FsAccessPermission::ReadFile),
-                access => Some(access),
-            }
-        }
-    }
 }
 
 /// Represents the operation on the fs
@@ -266,17 +257,23 @@ mod tests {
             PathPermission::read_write_file("./out/contracts/ReadWriteContract.sol"),
         ]);
 
-        let permission = permissions
-            .find_permission(Path::new("./out/contracts/ReadContract.sol"))
-            .unwrap();
-        assert_eq!(FsAccessPermission::ReadFile, permission);
-        let permission = permissions
-            .find_permission(Path::new("./out/contracts/ReadWriteContract.sol"))
-            .unwrap();
-        assert_eq!(FsAccessPermission::ReadWriteFile, permission);
-        let permission =
-            permissions.find_permission(Path::new("./out/contracts/NoPermissionContract.sol"));
-        assert!(permission.is_none());
+        assert!(permissions.is_path_allowed(
+            Path::new("./out/contracts/ReadContract.sol"),
+            FsAccessKind::Read
+        ));
+        assert!(permissions.is_path_allowed(
+            Path::new("./out/contracts/ReadWriteContract.sol"),
+            FsAccessKind::Write
+        ));
+        assert!(
+            !permissions.is_path_allowed(
+                Path::new("./out/contracts/NoPermissionContract.sol"),
+                FsAccessKind::Write
+            ) && !permissions.is_path_allowed(
+                Path::new("./out/contracts/NoPermissionContract.sol"),
+                FsAccessKind::Read
+            )
+        );
     }
 
     #[test]
@@ -286,36 +283,38 @@ mod tests {
             PathPermission::read_write_directory("./out/contracts/readwrite/"),
         ]);
 
-        let permission = permissions
-            .find_permission(Path::new("./out/contracts"))
-            .unwrap();
-        assert_eq!(FsAccessPermission::ReadDirectory, permission);
+        assert!(permissions.is_path_allowed(Path::new("./out/contracts"), FsAccessKind::Read));
+        assert!(!permissions.is_path_allowed(Path::new("./out/contracts"), FsAccessKind::Write));
 
-        let permission = permissions
-            .find_permission(Path::new("./out/contracts/readwrite")) // canonicalize will resolve this
-            .unwrap();
-        assert_eq!(
-            FsAccessPermission::DangerouslyReadWriteDirectory,
-            permission
+        assert!(
+            permissions.is_path_allowed(Path::new("./out/contracts/readwrite"), FsAccessKind::Read)
         );
-        let permission = permissions.find_permission(Path::new("./out"));
-        assert!(permission.is_none());
+        assert!(permissions
+            .is_path_allowed(Path::new("./out/contracts/readwrite"), FsAccessKind::Write));
+
+        assert!(!permissions.is_path_allowed(Path::new("./out"), FsAccessKind::Read));
+        assert!(!permissions.is_path_allowed(Path::new("./out"), FsAccessKind::Write));
     }
 
     #[test]
     fn file_and_directory_permissions() {
         let permissions = FsPermissions::new(vec![
-            PathPermission::read_directory("./out/contracts"),
-            PathPermission::write_file("./out/contracts/MyContract.sol"),
+            PathPermission::read_directory("./out"),
+            PathPermission::write_file("./out/WriteContract.sol"),
         ]);
-        let permission = permissions
-            .find_permission(Path::new("./out/contracts/MyContract.sol"))
-            .unwrap();
-        assert_eq!(FsAccessPermission::WriteFile, permission);
-        let permission = permissions
-            .find_permission(Path::new("./out/contracts/ReadContract.sol"))
-            .unwrap();
-        assert_eq!(FsAccessPermission::ReadFile, permission);
+
+        assert!(permissions.is_path_allowed(Path::new("./out"), FsAccessKind::Read));
+        assert!(
+            permissions.is_path_allowed(Path::new("./out/WriteContract.sol"), FsAccessKind::Write)
+        );
+        // Inherited read from directory
+        assert!(
+            permissions.is_path_allowed(Path::new("./out/ReadContract.sol"), FsAccessKind::Read)
+        );
+        // No permission for writing
+        assert!(
+            !permissions.is_path_allowed(Path::new("./out/ReadContract.sol"), FsAccessKind::Write)
+        );
     }
 
     #[test]
@@ -326,13 +325,15 @@ mod tests {
             PathPermission::read_write_directory("./out/contracts"),
         ]);
 
-        let permission = permissions
-            .find_permission(Path::new("./out/contracts/MyContract.sol"))
-            .unwrap();
-        assert_eq!(FsAccessPermission::ReadWriteFile, permission);
-        let permission = permissions
-            .find_permission(Path::new("./out/MyContract.sol"))
-            .unwrap();
-        assert_eq!(FsAccessPermission::WriteFile, permission);
+        assert!(permissions.is_path_allowed(
+            Path::new("./out/contracts/MyContract.sol"),
+            FsAccessKind::Write
+        ));
+        assert!(permissions.is_path_allowed(
+            Path::new("./out/contracts/MyContract.sol"),
+            FsAccessKind::Read
+        ));
+        assert!(permissions.is_path_allowed(Path::new("./out/MyContract.sol"), FsAccessKind::Write));
+        assert!(!permissions.is_path_allowed(Path::new("./out/MyContract.sol"), FsAccessKind::Read));
     }
 }
