@@ -116,6 +116,11 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - uses: ./.github/actions/setup-rust
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Restore EDR RPC cache
         uses: actions/cache/restore@v4
@@ -132,7 +137,20 @@ jobs:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
           # Enables chalk colors in CI, required for logs tests
           FORCE_COLOR: 3
-        run: cd crates/edr_napi && pnpm test
+        shell: bash
+        run: |
+          source <(cargo llvm-cov show-env --export-prefix)
+          pnpm -C crates/edr_napi test
+          # `--release` included to match `build:dev` compilation flags
+          cargo llvm-cov report --release --codecov --output-path codecov.json
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: codecov.json
+          name: ${{ matrix.os }}
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Save EDR RPC cache
         uses: actions/cache/save@v4
@@ -140,6 +158,44 @@ jobs:
           path: |
             **/edr-cache
           key: edr-ts-rpc-cache-v1-${{ matrix.os }}-${{ hashFiles('**/edr-cache/**/*') }}
+
+  test-edr-ts-integration:
+    name: Run TS integration tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: check-edr
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-node
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Install package
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Run integration tests
+        shell: bash
+        run: |
+          source <(cargo llvm-cov show-env --export-prefix)
+          pnpm run --recursive --filter './js/integration-tests/*' test
+          # `--release` included to match `build:dev` compilation flags
+          cargo llvm-cov report --release --codecov --output-path codecov.json
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: codecov.json
+          name: ${{ matrix.os }}
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   edr-style:
     name: Check EDR Style
@@ -206,16 +262,3 @@ jobs:
 
       - name: Check that there are no uncommitted changes
         run: git diff --exit-code
-
-  edr-integration-tests:
-    name: Run integration tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/setup-node
-
-      - name: Install package
-        run: pnpm install --frozen-lockfile --prefer-offline
-
-      - name: Run integration tests
-        run: pnpm run --recursive --filter './js/integration-tests/*' test
