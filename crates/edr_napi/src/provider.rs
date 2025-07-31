@@ -55,16 +55,16 @@ impl Provider {
         compiler_input: serde_json::Value,
         compiler_output: serde_json::Value,
     ) -> napi::Result<bool> {
-        let compiler_input = serde_json::from_value(compiler_input)
-            .map_err(|error| napi::Error::from_reason(error.to_string()))?;
-
-        let compiler_output = serde_json::from_value(compiler_output)
-            .map_err(|error| napi::Error::from_reason(error.to_string()))?;
-
         let provider = self.provider.clone();
 
         self.runtime
             .spawn_blocking(move || {
+                let compiler_input = serde_json::from_value(compiler_input)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+
+                let compiler_output = serde_json::from_value(compiler_output)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+
                 provider.add_compilation_result(solc_version, compiler_input, compiler_output)
             })
             .await
