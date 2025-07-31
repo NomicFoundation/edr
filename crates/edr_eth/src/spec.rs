@@ -27,14 +27,6 @@ pub trait ChainSpec {
     type SignedTransaction: ExecutableTransaction
         + revm_context_interface::Transaction
         + TransactionValidation;
-    /// The chain's way of building blocks
-    type BlockConstructor: BlockEnvConstructor<crate::block::Header, Self::BlockEnv>;
-}
-
-/// A trait for constructing a (partial) block header into an EVM block.
-pub trait BlockEnvConstructor<HeaderT, BlockT: Block> {
-    /// Converts the instance into an EVM block.
-    fn new_block_env(header: &HeaderT, hardfork: l1::SpecId) -> BlockT;
 }
 
 /// Constants for constructing Ethereum headers.

@@ -9,7 +9,6 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
     result::{ExecutionResult, ExecutionResultAndState},
-    spec::BlockEnvConstructor as _,
     transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
@@ -187,7 +186,7 @@ where
     {
         self.validate_transaction(&transaction)?;
 
-        let block = ChainSpecT::BlockConstructor::new_block_env(&self.header, self.cfg.spec.into());
+        let block = ChainSpecT::new_block_env(&self.header, self.cfg.spec.into());
 
         let receipt_builder =
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
@@ -228,7 +227,7 @@ where
     {
         self.validate_transaction(&transaction)?;
 
-        let block = ChainSpecT::BlockConstructor::new_block_env(&self.header, self.cfg.spec.into());
+        let block = ChainSpecT::new_block_env(&self.header, self.cfg.spec.into());
 
         let receipt_builder =
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
