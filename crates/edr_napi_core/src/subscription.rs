@@ -1,8 +1,6 @@
-use std::marker::PhantomData;
-
 use derive_where::derive_where;
 use edr_eth::B256;
-use edr_provider::{time::TimeSinceEpoch, ProviderSpec, SubscriptionEvent};
+use edr_provider::{time::CurrentTime, ProviderSpec, SubscriptionEvent};
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
@@ -11,14 +9,11 @@ use napi::{
 };
 
 #[derive_where(Clone)]
-pub struct Callback<ChainSpecT: ProviderSpec<TimerT> + 'static, TimerT: Clone + TimeSinceEpoch> {
+pub struct Callback<ChainSpecT: ProviderSpec<CurrentTime> + 'static> {
     inner: ThreadsafeFunction<SubscriptionEvent<ChainSpecT>, ErrorStrategy::Fatal>,
-    _phantom: PhantomData<fn() -> TimerT>,
 }
 
-impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
-    Callback<ChainSpecT, TimerT>
-{
+impl<ChainSpecT: ProviderSpec<CurrentTime>> Callback<ChainSpecT> {
     pub fn new(env: &napi::Env, subscription_event_callback: JsFunction) -> napi::Result<Self> {
         let mut callback = subscription_event_callback.create_threadsafe_function(
             0,
@@ -51,10 +46,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         // from exiting.
         callback.unref(env)?;
 
-        Ok(Self {
-            inner: callback,
-            _phantom: PhantomData,
-        })
+        Ok(Self { inner: callback })
     }
 
     pub fn call(&self, event: SubscriptionEvent<ChainSpecT>) {

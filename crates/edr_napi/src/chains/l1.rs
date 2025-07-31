@@ -10,7 +10,7 @@ use edr_napi_core::{
     provider::{self, ProviderBuilder, SyncProviderFactory},
     subscription,
 };
-use edr_provider::time::{CurrentTime, TimeSinceEpoch};
+use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
@@ -19,7 +19,7 @@ use crate::{account::AccountOverride, provider::ProviderFactory};
 
 pub struct L1ProviderFactory;
 
-impl<TimerT: Clone + TimeSinceEpoch> SyncProviderFactory<TimerT> for L1ProviderFactory {
+impl SyncProviderFactory for L1ProviderFactory {
     fn create_provider_builder(
         &self,
         env: &napi::Env,
@@ -27,9 +27,9 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncProviderFactory<TimerT> for L1ProviderF
         logger_config: edr_napi_core::logger::Config,
         subscription_config: edr_napi_core::subscription::Config,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder<TimerT>>> {
+    ) -> napi::Result<Box<dyn provider::Builder>> {
         let logger =
-            Logger::<L1ChainSpec, TimerT>::new(logger_config, Arc::clone(&contract_decoder))?;
+            Logger::<L1ChainSpec, CurrentTime>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config =
             edr_provider::ProviderConfig::<l1::SpecId>::try_from(provider_config)?;
@@ -84,7 +84,7 @@ pub fn l1_genesis_state(hardfork: SpecId) -> Vec<AccountOverride> {
 
 #[napi(catch_unwind)]
 pub fn l1_provider_factory() -> ProviderFactory {
-    let factory: Arc<dyn SyncProviderFactory<CurrentTime>> = Arc::new(L1ProviderFactory);
+    let factory: Arc<dyn SyncProviderFactory> = Arc::new(L1ProviderFactory);
     factory.into()
 }
 

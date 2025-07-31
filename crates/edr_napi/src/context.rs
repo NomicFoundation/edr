@@ -5,7 +5,6 @@ use edr_napi_core::{
     provider::{self, SyncProviderFactory},
     solidity,
 };
-use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_solidity_tests::{
     decode::RevertDecoder,
@@ -123,7 +122,7 @@ impl EdrContext {
         };
 
         runtime.clone().spawn_blocking(move || {
-            let result = builder.build(runtime.clone(), CurrentTime).map(|provider| {
+            let result = builder.build(runtime.clone()).map(|provider| {
                 Provider::new(
                     provider,
                     runtime,
@@ -340,7 +339,7 @@ impl EdrContext {
 }
 
 pub struct Context {
-    provider_factories: HashMap<String, Arc<dyn SyncProviderFactory<CurrentTime>>>,
+    provider_factories: HashMap<String, Arc<dyn SyncProviderFactory>>,
     solidity_test_runner_factories: HashMap<String, Arc<dyn solidity::SyncTestRunnerFactory>>,
     #[cfg(feature = "tracing")]
     _tracing_write_guard: tracing_flame::FlushGuard<std::io::BufWriter<std::fs::File>>,
@@ -395,7 +394,7 @@ impl Context {
     pub fn register_provider_factory(
         &mut self,
         chain_type: String,
-        factory: Arc<dyn SyncProviderFactory<CurrentTime>>,
+        factory: Arc<dyn SyncProviderFactory>,
     ) {
         self.provider_factories.insert(chain_type, factory);
     }
@@ -419,7 +418,7 @@ impl Context {
         logger_config: edr_napi_core::logger::Config,
         subscription_config: edr_napi_core::subscription::Config,
         contract_decoder: &Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder<CurrentTime>>> {
+    ) -> napi::Result<Box<dyn provider::Builder>> {
         if let Some(factory) = self.provider_factories.get(chain_type) {
             factory.create_provider_builder(
                 env,
