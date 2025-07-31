@@ -130,6 +130,8 @@ jobs:
       - name: Run tests
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
+          # Enables chalk colors in CI, required for logs tests
+          FORCE_COLOR: 3
         run: cd crates/edr_napi && pnpm test
 
       - name: Save EDR RPC cache

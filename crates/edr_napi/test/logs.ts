@@ -334,10 +334,10 @@ describe("Provider logs", function () {
 
       // prettier-ignore
       {
-            assert.match(logger.lines[0], /Mined empty block range #\d+ to #\d+/);
-            assert.equal(logger.lines[1], ansiColor( "eth_blockNumber", chalk.green));
-            assert.match(logger.lines[2], /Mined empty block #\d+ with base fee \d+$/);
-          }
+        assert.match(logger.lines[0], /Mined empty block range #\d+ to #\d+/);
+        assert.equal(logger.lines[1], ansiColor( "eth_blockNumber", chalk.green));
+        assert.match(logger.lines[2], /Mined empty block #\d+ with base fee \d+$/);
+      }
     });
 
     it("should print a block with one transaction", async function () {
