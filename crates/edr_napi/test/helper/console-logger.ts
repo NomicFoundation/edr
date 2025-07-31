@@ -1,3 +1,5 @@
+// https://github.com/NomicFoundation/hardhat/blob/hardhat%403.0.0-next.26/v-next/hardhat/src/internal/builtin-plugins/network-manager/edr/utils/console-logger.ts
+
 import { bytesToBigInt, bytesToHex } from "@nomicfoundation/ethereumjs-util";
 import util from "node:util";
 
