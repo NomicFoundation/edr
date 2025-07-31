@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use edr_generic::GenericChainSpec;
-use edr_napi_core::logger::Logger;
+use edr_napi_core::provider::SyncProviderFactory as _;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{bindgen_prelude::BigInt, tokio::runtime, Env};
 use napi_derive::napi;
 
 use crate::{
     cast::TryCast as _,
+    chains::generic::GenericChainProviderFactory,
     config::{ProviderConfig, TracingConfigWithBuffers},
     logger::LoggerConfig,
     provider::Provider,
@@ -53,9 +53,6 @@ pub fn create_provider_with_mock_timer(
     let runtime = runtime::Handle::current();
 
     let provider_config = provider_config.resolve(&env, runtime.clone())?;
-    let provider_config =
-        edr_provider::ProviderConfig::<edr_eth::l1::SpecId>::try_from(provider_config)?;
-
     let logger_config = logger_config.resolve(&env)?;
 
     // TODO: https://github.com/NomicFoundation/edr/issues/760
@@ -69,30 +66,20 @@ pub fn create_provider_with_mock_timer(
 
     let contract_decoder = Arc::new(contract_decoder);
 
-    let logger = Logger::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(
+    let builder = GenericChainProviderFactory.create_provider_builder(
+        &env,
+        provider_config,
         logger_config,
+        subscription_config.into(),
         Arc::clone(&contract_decoder),
     )?;
 
-    let subscription_config = edr_napi_core::subscription::Config::from(subscription_config);
-    let subscription_callback = edr_napi_core::subscription::Callback::new(
-        &env,
-        subscription_config.subscription_callback,
-    )?;
-
-    let provider =
-        edr_provider::Provider::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(
-            runtime.clone(),
-            Box::new(logger),
-            Box::new(move |event| subscription_callback.call(event)),
-            provider_config,
-            contract_decoder.clone(),
-            Arc::clone(&time.inner),
-        )
+    let provider = builder
+        .build(runtime.clone(), Arc::clone(&time.inner))
         .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
     Ok(Provider::new(
-        Arc::new(provider),
+        provider,
         runtime,
         contract_decoder,
         #[cfg(feature = "scenarios")]

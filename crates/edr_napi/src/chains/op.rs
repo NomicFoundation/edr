@@ -7,7 +7,7 @@ use edr_napi_core::{
     subscription,
 };
 use edr_op::{predeploys::GAS_PRICE_ORACLE_ADDRESS, OpChainSpec, OpSpecId};
-use edr_provider::time::CurrentTime;
+use edr_provider::time::{CurrentTime, TimeSinceEpoch};
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
@@ -19,7 +19,7 @@ use crate::{
 
 pub struct OpProviderFactory;
 
-impl SyncProviderFactory for OpProviderFactory {
+impl<TimerT: Clone + TimeSinceEpoch> SyncProviderFactory<TimerT> for OpProviderFactory {
     fn create_provider_builder(
         &self,
         env: &napi::Env,
@@ -27,9 +27,9 @@ impl SyncProviderFactory for OpProviderFactory {
         logger_config: logger::Config,
         subscription_config: subscription::Config,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder>> {
+    ) -> napi::Result<Box<dyn provider::Builder<TimerT>>> {
         let logger =
-            Logger::<OpChainSpec, CurrentTime>::new(logger_config, Arc::clone(&contract_decoder))?;
+            Logger::<OpChainSpec, TimerT>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config = edr_provider::ProviderConfig::<OpSpecId>::try_from(provider_config)?;
 
@@ -326,7 +326,7 @@ pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
 
 #[napi(catch_unwind)]
 pub fn op_provider_factory() -> ProviderFactory {
-    let factory: Arc<dyn SyncProviderFactory> = Arc::new(OpProviderFactory);
+    let factory: Arc<dyn SyncProviderFactory<CurrentTime>> = Arc::new(OpProviderFactory);
     factory.into()
 }
 

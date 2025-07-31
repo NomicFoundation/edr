@@ -7,7 +7,7 @@ use edr_napi_core::{
     provider::{self, ProviderBuilder, SyncProviderFactory},
     subscription,
 };
-use edr_provider::time::CurrentTime;
+use edr_provider::time::{CurrentTime, TimeSinceEpoch};
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi_derive::napi;
 
@@ -15,7 +15,7 @@ use crate::provider::ProviderFactory;
 
 pub struct GenericChainProviderFactory;
 
-impl SyncProviderFactory for GenericChainProviderFactory {
+impl<TimerT: Clone + TimeSinceEpoch> SyncProviderFactory<TimerT> for GenericChainProviderFactory {
     fn create_provider_builder(
         &self,
         env: &napi::Env,
@@ -23,11 +23,9 @@ impl SyncProviderFactory for GenericChainProviderFactory {
         logger_config: logger::Config,
         subscription_config: subscription::Config,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder>> {
-        let logger = Logger::<GenericChainSpec, CurrentTime>::new(
-            logger_config,
-            Arc::clone(&contract_decoder),
-        )?;
+    ) -> napi::Result<Box<dyn provider::Builder<TimerT>>> {
+        let logger =
+            Logger::<GenericChainSpec, TimerT>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config =
             edr_provider::ProviderConfig::<l1::SpecId>::try_from(provider_config)?;
@@ -49,6 +47,6 @@ pub const GENERIC_CHAIN_TYPE: &str = edr_generic::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
 pub fn generic_chain_provider_factory() -> ProviderFactory {
-    let factory: Arc<dyn SyncProviderFactory> = Arc::new(GenericChainProviderFactory);
+    let factory: Arc<dyn SyncProviderFactory<CurrentTime>> = Arc::new(GenericChainProviderFactory);
     factory.into()
 }
