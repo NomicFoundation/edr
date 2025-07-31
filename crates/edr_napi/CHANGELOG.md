@@ -1,5 +1,14 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.2
+
+### Patch Changes
+
+- bf9b55b: Improved parallelism in test suite execution for better error reporting and improved performance
+- 0e0619e: Added support for function-level gas-tracking in Solidity tests.
+- 3f822d8: Fixed panic when using the `pauseGasMetering` cheatcode
+- 74b1f05: Made the `contract` field in `CallTrace` optional, and added a separate `address` field that is always present. (Breaking change)
+
 ## 0.12.0-next.1
 
 ### Minor Changes
