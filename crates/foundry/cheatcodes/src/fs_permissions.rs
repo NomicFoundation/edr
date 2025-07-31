@@ -199,6 +199,9 @@ impl fmt::Display for FsAccessKind {
 /**
  * Determines the level of file system access for the given path.
  *
+ * Exact path matching is used for file permissions. Prefix matching is used
+ * for directory permissions.
+ *
  * Giving write access to configuration files, source files or executables
  * in a project is considered dangerous, because it can be used by malicious
  * Solidity dependencies to escape the EVM sandbox. It is therefore
