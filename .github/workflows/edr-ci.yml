@@ -135,6 +135,8 @@ jobs:
       - name: Run tests
         env:
           ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
+          # Enables chalk colors in CI, required for logs tests
+          FORCE_COLOR: 3
         shell: bash
         run: |
           source <(cargo llvm-cov show-env --export-prefix)
@@ -222,7 +224,6 @@ jobs:
 
       - name: Check that there are no uncommitted changes
         run: git diff --exit-code
-
   edr-integration-tests:
     name: Run integration tests
     runs-on: ubuntu-latest
@@ -247,11 +248,10 @@ jobs:
           pnpm run --recursive --filter './js/integration-tests/*' test
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --codecov --output-path codecov.json
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           files: codecov.json
-          name: ${{ matrix.os }}
+          name: ubuntu-latest
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}

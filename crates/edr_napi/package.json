@@ -13,6 +13,7 @@
     "@typescript-eslint/parser": "5.61.0",
     "chai": "^4.3.6",
     "chai-as-promised": "^7.1.1",
+    "chalk": "^2.4.2",
     "eslint": "^8.44.0",
     "eslint-config-prettier": "9.1.0",
     "eslint-plugin-import": "2.27.5",
@@ -73,7 +74,7 @@
     "pretest": "pnpm build:dev",
     "prettier": "prettier --check \"test/**.ts\"",
     "test": "node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
-    "testNoBuild": "node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(mock)}.ts\"",
+    "testNoBuild": "node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/{,!(logs|mock)}.ts\"",
     "universal": "napi universal",
     "version": "napi version"
   },

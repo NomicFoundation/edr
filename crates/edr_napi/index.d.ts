@@ -1342,6 +1342,12 @@ export declare class Response {
 }
 /** A JSON-RPC provider for Ethereum. */
 export declare class Provider {
+  /**
+   *Adds a compilation result to the instance.
+   *
+   *For internal use only. Support for this method may be removed in the future.
+   */
+  addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<boolean>
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>

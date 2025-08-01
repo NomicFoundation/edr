@@ -5,9 +5,12 @@ mod factory;
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_eth::l1;
-use edr_provider::{time::CurrentTime, InvalidRequestReason, SyncCallOverride};
+use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{
+    artifacts::{CompilerInput, CompilerOutput},
+    contract_decoder::ContractDecoder,
+};
 
 pub use self::{
     builder::{Builder, ProviderBuilder},
@@ -19,6 +22,14 @@ use crate::spec::{Response, SyncNapiSpec};
 /// Trait for a synchronous N-API provider that can be used for dynamic trait
 /// objects.
 pub trait SyncProvider: Send + Sync {
+    /// Adds a compilation result to the provider.
+    fn add_compilation_result(
+        &self,
+        solc_version: String,
+        compiler_input: CompilerInput,
+        compiler_output: CompilerOutput,
+    ) -> napi::Result<bool>;
+
     /// Blocking method to handle a request.
     fn handle_request(
         &self,
@@ -36,7 +47,24 @@ pub trait SyncProvider: Send + Sync {
     fn set_verbose_tracing(&self, enabled: bool);
 }
 
-impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpecT> {
+impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvider
+    for edr_provider::Provider<ChainSpecT, TimerT>
+{
+    fn add_compilation_result(
+        &self,
+        solc_version: String,
+        compiler_input: CompilerInput,
+        compiler_output: CompilerOutput,
+    ) -> napi::Result<bool> {
+        edr_provider::Provider::add_compilation_result(
+            self,
+            solc_version,
+            compiler_input,
+            compiler_output,
+        )
+        .map_err(|error| napi::Error::from_reason(error.to_string()))
+    }
+
     fn handle_request(
         &self,
         request: String,
@@ -58,7 +86,7 @@ impl<ChainSpecT: SyncNapiSpec> SyncProvider for edr_provider::Provider<ChainSpec
                 // HACK: We need to log failed deserialization attempts when they concern input
                 // validation.
                 if let Some((method_name, provider_error)) =
-                    reason.provider_error::<ChainSpecT, CurrentTime>()
+                    reason.provider_error::<ChainSpecT, TimerT>()
                 {
                     // Ignore potential failure of logging, as returning the original error is more
                     // important

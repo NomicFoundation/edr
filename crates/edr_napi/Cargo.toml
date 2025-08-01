@@ -86,7 +86,7 @@ napi-build = "2.0.1"
 op = ["dep:edr_op"]
 scenarios = ["dep:edr_scenarios", "dep:rand"]
 tracing = ["edr_evm/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
-test-mock = []
+test-mock = ["edr_provider/test-utils"]
 
 [lints]
 workspace = true

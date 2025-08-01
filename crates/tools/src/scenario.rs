@@ -10,7 +10,6 @@ use derive_where::derive_where;
 use edr_eth::l1;
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use edr_generic::GenericChainSpec;
-use edr_napi_core::spec::SyncNapiSpec;
 use edr_provider::{
     time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest, ProviderSpec,
 };
@@ -102,7 +101,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
     }
 
     if let Some(chain_type) = config.chain_type {
-        if chain_type != GenericChainSpec::CHAIN_TYPE {
+        if chain_type != edr_generic::CHAIN_TYPE {
             anyhow::bail!("Unsupported chain type: {chain_type}")
         }
     }
@@ -218,7 +217,7 @@ async fn load_gzipped_json(
 
             if let Some(chain_type) = &config.chain_type {
                 anyhow::ensure!(
-                    chain_type == GenericChainSpec::CHAIN_TYPE,
+                    chain_type == edr_generic::CHAIN_TYPE,
                     "Unsupported chain type: {chain_type}"
                 );
             }
@@ -249,7 +248,7 @@ async fn load_json(
 
     if let Some(chain_type) = &config.chain_type {
         anyhow::ensure!(
-            chain_type == GenericChainSpec::CHAIN_TYPE,
+            chain_type == edr_generic::CHAIN_TYPE,
             "Unsupported chain type: {chain_type}"
         );
     }

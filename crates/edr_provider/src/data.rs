@@ -46,6 +46,7 @@ use edr_evm::{
     config::CfgEnv,
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
+    precompile::PrecompileFn,
     spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
@@ -82,7 +83,7 @@ use crate::{
     mock::SyncCallOverride,
     observability::{self, RuntimeObserver},
     pending::BlockchainWithPending,
-    requests::hardhat::rpc_types::{ForkMetadata, ResetForkConfig},
+    requests::hardhat::rpc_types::ForkMetadata,
     snapshot::Snapshot,
     spec::{ProviderSpec, SyncProviderSpec},
     time::{CurrentTime, TimeSinceEpoch},
@@ -179,12 +180,18 @@ pub struct ProviderData<
     TimerT: Clone + TimeSinceEpoch = CurrentTime,
 > {
     runtime_handle: runtime::Handle,
-    initial_config: ProviderConfig<ChainSpecT::Hardfork>,
+    /// Whether to return an `Err` when `eth_call` fails
+    bail_on_call_failure: bool,
+    /// Whether to return an `Err` when a `eth_sendTransaction` fails
+    bail_on_transaction_failure: bool,
     blockchain:
         Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
+    mining_config: MiningConfig,
+    network_id: u64,
     observability: observability::Config,
+    precompile_overrides: HashMap<Address, PrecompileFn>,
     beneficiary: Address,
     min_gas_price: u128,
     parent_beacon_block_root_generator: RandomHashGenerator,
@@ -251,12 +258,12 @@ where
 
     /// Whether the provider is configured to bail on call failures.
     pub fn bail_on_call_failure(&self) -> bool {
-        self.initial_config.bail_on_call_failure
+        self.bail_on_call_failure
     }
 
     /// Whether the provider is configured to bail on transaction failures.
     pub fn bail_on_transaction_failure(&self) -> bool {
-        self.initial_config.bail_on_transaction_failure
+        self.bail_on_transaction_failure
     }
 
     /// Retrieves the gas limit of the next block.
@@ -321,12 +328,12 @@ where
 
     /// Returns the instance's [`MiningConfig`].
     pub fn mining_config(&self) -> &MiningConfig {
-        &self.initial_config.mining
+        &self.mining_config
     }
 
     /// Returns the instance's network ID.
     pub fn network_id(&self) -> String {
-        self.initial_config.network_id.to_string()
+        self.network_id.to_string()
     }
 
     pub fn pending_transactions(&self) -> impl Iterator<Item = &ChainSpecT::SignedTransaction> {
@@ -646,11 +653,15 @@ where
 
         Ok(Self {
             runtime_handle,
-            initial_config: config,
+            bail_on_call_failure: config.bail_on_call_failure,
+            bail_on_transaction_failure: config.bail_on_transaction_failure,
             blockchain,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit),
+            mining_config: config.mining,
+            network_id: config.network_id,
             observability,
+            precompile_overrides: config.precompile_overrides,
             beneficiary,
             min_gas_price,
             parent_beacon_block_root_generator,
@@ -844,38 +855,6 @@ where
                 &filter.normalized_topics,
             )
             .map_err(ProviderError::Blockchain)
-    }
-
-    /// Resets the provider to its initial state, with a modified
-    /// [`ResetForkConfig`].
-    pub fn reset(
-        &mut self,
-        fork_config: Option<ResetForkConfig>,
-    ) -> Result<(), CreationErrorForChainSpec<ChainSpecT>> {
-        let mut config = self.initial_config.clone();
-        config.fork = fork_config.map(|fork_config| {
-            let (cache_dir, chain_overrides) = config
-                .fork
-                .map(|fork_config| (fork_config.cache_dir, fork_config.chain_overrides))
-                .unzip();
-
-            fork_config.resolve(cache_dir, chain_overrides.unwrap_or_default())
-        });
-
-        let mut reset_instance = Self::new(
-            self.runtime_handle.clone(),
-            self.logger.clone(),
-            self.subscriber_callback.clone(),
-            config,
-            // `hardhat_reset` doesn't discard contract metadata added with
-            // `hardhat_addCompilationResult`
-            Arc::clone(&self.contract_decoder),
-            self.timer.clone(),
-        )?;
-
-        std::mem::swap(self, &mut reset_instance);
-
-        Ok(())
     }
 
     pub fn set_account_storage_slot(
@@ -1767,7 +1746,7 @@ where
         });
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
 
-        let custom_precompiles = self.initial_config.precompile_overrides.clone();
+        let custom_precompiles = self.precompile_overrides.clone();
 
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
             let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut runtime_observer);
@@ -2196,7 +2175,7 @@ where
     ) -> Result<CallResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let custom_precompiles = self.initial_config.precompile_overrides.clone();
+        let custom_precompiles = self.precompile_overrides.clone();
         let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
@@ -2297,10 +2276,10 @@ where
             config,
             options,
             self.min_gas_price,
-            self.initial_config.mining.mem_pool.order,
+            self.mining_config.mem_pool.order,
             reward,
             Some(runtime_observer),
-            &self.initial_config.precompile_overrides,
+            &self.precompile_overrides,
         )?;
 
         Ok(result)
@@ -2333,7 +2312,7 @@ where
             self.min_gas_price,
             reward,
             Some(runtime_observer),
-            &self.initial_config.precompile_overrides,
+            &self.precompile_overrides,
         )?;
 
         Ok(result)
@@ -2588,7 +2567,7 @@ where
             transaction::calculate_initial_tx_gas_for_tx(&transaction, self.evm_spec_id())
                 .initial_gas;
 
-        let custom_precompiles = self.initial_config.precompile_overrides.clone();
+        let custom_precompiles = self.precompile_overrides.clone();
         let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
@@ -3995,54 +3974,7 @@ mod tests {
         use edr_test_utils::env::get_alchemy_url;
 
         use super::*;
-        use crate::{test_utils::FORK_BLOCK_NUMBER, ForkConfig};
-
-        #[test]
-        fn reset_local_to_forking() -> anyhow::Result<()> {
-            let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_local()?;
-
-            let fork_config = Some(ResetForkConfig {
-                json_rpc_url: get_alchemy_url(),
-                // Random recent block for better cache consistency
-                block_number: Some(FORK_BLOCK_NUMBER),
-                http_headers: None,
-            });
-
-            let block_spec = BlockSpec::Number(FORK_BLOCK_NUMBER);
-
-            assert_eq!(fixture.provider_data.last_block_number(), 0);
-
-            fixture.provider_data.reset(fork_config)?;
-
-            // We're fetching a specific block instead of the last block number for the
-            // forked blockchain, because the last block number query cannot be
-            // cached.
-            assert!(fixture
-                .provider_data
-                .block_by_block_spec(&block_spec)?
-                .is_some());
-
-            Ok(())
-        }
-
-        #[test]
-        fn reset_forking_to_local() -> anyhow::Result<()> {
-            let mut fixture = ProviderTestFixture::<L1ChainSpec>::new_forked(None)?;
-
-            // We're fetching a specific block instead of the last block number for the
-            // forked blockchain, because the last block number query cannot be
-            // cached.
-            assert!(fixture
-                .provider_data
-                .block_by_block_spec(&BlockSpec::Number(FORK_BLOCK_NUMBER))?
-                .is_some());
-
-            fixture.provider_data.reset(None)?;
-
-            assert_eq!(fixture.provider_data.last_block_number(), 0);
-
-            Ok(())
-        }
+        use crate::ForkConfig;
 
         #[test]
         fn run_call_in_hardfork_context() -> anyhow::Result<()> {

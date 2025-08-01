@@ -45,6 +45,32 @@ impl Provider {
 
 #[napi]
 impl Provider {
+    #[doc = "Adds a compilation result to the instance."]
+    #[doc = ""]
+    #[doc = "For internal use only. Support for this method may be removed in the future."]
+    #[napi(catch_unwind)]
+    pub async fn add_compilation_result(
+        &self,
+        solc_version: String,
+        compiler_input: serde_json::Value,
+        compiler_output: serde_json::Value,
+    ) -> napi::Result<bool> {
+        let provider = self.provider.clone();
+
+        self.runtime
+            .spawn_blocking(move || {
+                let compiler_input = serde_json::from_value(compiler_input)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+
+                let compiler_output = serde_json::from_value(compiler_output)
+                    .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+
+                provider.add_compilation_result(solc_version, compiler_input, compiler_output)
+            })
+            .await
+            .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
+    }
+
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]
     #[napi(catch_unwind)]
     pub async fn handle_request(&self, request: String) -> napi::Result<Response> {

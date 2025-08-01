@@ -7,6 +7,7 @@ use edr_napi_core::{
     subscription,
 };
 use edr_op::{predeploys::GAS_PRICE_ORACLE_ADDRESS, OpChainSpec, OpSpecId};
+use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
@@ -27,7 +28,8 @@ impl SyncProviderFactory for OpProviderFactory {
         subscription_config: subscription::Config,
         contract_decoder: Arc<ContractDecoder>,
     ) -> napi::Result<Box<dyn provider::Builder>> {
-        let logger = Logger::<OpChainSpec>::new(logger_config, Arc::clone(&contract_decoder))?;
+        let logger =
+            Logger::<OpChainSpec, CurrentTime>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config = edr_provider::ProviderConfig::<OpSpecId>::try_from(provider_config)?;
 
