@@ -7,8 +7,7 @@ use edr_evm::{
     blockchain::BlockHash,
     inspector::Inspector,
     interpreter::{
-        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter,
-        Interpreter,
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, Interpreter,
     },
     journal::{JournalExt, JournalTrait},
     spec::ContextTrait,
