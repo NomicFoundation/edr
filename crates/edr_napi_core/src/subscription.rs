@@ -47,7 +47,6 @@ impl SubscriptionEvent {
 /// 2. Send the `serde_json::Value` to the `ThreadsafeFunction`.
 /// 3. Convert the `serde_json::Value` to a JavaScript value using
 ///    `napi::Env::to_js_value`.
-/// ```
 pub type DynJsValueConstructor = dyn FnOnce(&napi::Env) -> napi::Result<JsUnknown>;
 
 /// A chain-agnostic version of [`edr_provider::SubscriptionEventData`].
