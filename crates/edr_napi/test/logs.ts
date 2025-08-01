@@ -285,7 +285,7 @@ describe("Provider logs", function () {
         },
       };
 
-      provider = createProviderWithMockTimer(
+      provider = await createProviderWithMockTimer(
         {
           ...providerConfig,
           genesisState: providerConfig.genesisState.concat(

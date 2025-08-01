@@ -22,7 +22,7 @@ pub struct MockTime {
 #[napi]
 impl MockTime {
     #[doc = "Creates a new instance of `MockTime` with the current time."]
-    #[napi(factory)]
+    #[napi(factory, catch_unwind)]
     pub fn now() -> Self {
         Self {
             inner: Arc::new(edr_provider::time::MockTime::now()),
@@ -30,7 +30,7 @@ impl MockTime {
     }
 
     #[doc = "Adds the specified number of seconds to the current time."]
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn add_seconds(&self, seconds: BigInt) -> napi::Result<()> {
         let seconds = seconds.try_cast()?;
 
@@ -41,7 +41,7 @@ impl MockTime {
 
 #[doc = "Creates a provider with a mock timer."]
 #[doc = "For testing purposes."]
-#[napi]
+#[napi(catch_unwind, ts_return_type = "Promise<Provider>")]
 pub fn create_provider_with_mock_timer(
     env: Env,
     provider_config: ProviderConfig,
