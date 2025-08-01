@@ -1327,11 +1327,6 @@ export declare class EdrContext {
    *is called to know when all tests are done.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
-  /**
-   *Creates a mock provider, which always returns the given response.
-   *For testing purposes.
-   */
-  createMockProvider(mockedResponse: any): Provider
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */
