@@ -184,7 +184,7 @@ pub enum DebugTraceError<BlockchainErrorT, StateErrorT, TransactionValidationErr
         /// The transaction hash.
         transaction_hash: B256,
         /// The block number.
-        block_number: u64,
+        block_number: U256,
     },
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
     #[error(transparent)]
