@@ -4,7 +4,7 @@ use op_revm::{OpEvm, OpTransaction};
 use revm::{
     context::{
         either::Either,
-        result::{EVMError, HaltReasonTr, InvalidTransaction, ResultAndState},
+        result::{EVMError, ExecutionResult, HaltReasonTr, InvalidTransaction},
         transaction::SignedAuthorization,
         BlockEnv, CfgEnv, Evm, JournalInner, LocalContext, TxEnv,
     },
@@ -12,6 +12,7 @@ use revm::{
     handler::{instructions::EthInstructions, EthFrame, EthPrecompiles, PrecompileProvider},
     interpreter::{interpreter::EthInterpreter, InterpreterResult},
     primitives::hardfork::SpecId,
+    state::EvmState,
     Database, InspectEvm, Inspector, Journal, JournalEntry,
 };
 
@@ -84,9 +85,14 @@ pub trait EvmBuilderTrait<
             EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
             EthInterpreter,
         >,
-    >: InspectEvm<Block = BlockT, Inspector = InspectorT, Tx = TransactionT, Output = Result<
-        ResultAndState<HaltReasonT>, EVMError<DatabaseT::Error, TransactionErrorT>
-    >> + IntoEvmContext<
+    >: InspectEvm<
+        Block = BlockT,
+        Inspector = InspectorT,
+        Tx = TransactionT,
+        ExecutionResult = ExecutionResult<HaltReasonT>,
+        State = EvmState,
+        Error = EVMError<DatabaseT::Error, TransactionErrorT>,
+    > + IntoEvmContext<
         BlockT,
         ChainContextT,
         DatabaseT,
