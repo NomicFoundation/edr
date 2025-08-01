@@ -1173,7 +1173,10 @@ impl<
 
         let env = self.env_with_handler_cfg(env);
         let fork = self.inner.get_fork_by_id_mut(id)?;
-        let full_block = fork.db.db.get_full_block(env.block.number())?;
+        let full_block = fork
+            .db
+            .db
+            .get_full_block(env.block.number().saturating_to::<u64>())?;
 
         for tx in full_block.inner.transactions.txns() {
             // System transactions such as on L2s don't contain any pricing info so we skip

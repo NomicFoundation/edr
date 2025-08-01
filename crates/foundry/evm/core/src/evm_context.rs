@@ -447,11 +447,11 @@ impl BlockEnvMut for BlockEnv {
     }
 
     fn set_block_number(&mut self, block_number: u64) {
-        self.number = block_number;
+        self.number = U256::from(block_number);
     }
 
     fn set_timestamp(&mut self, timestamp: u64) {
-        self.timestamp = timestamp;
+        self.timestamp = U256::from(timestamp);
     }
 
     fn set_gas_limit(&mut self, gas_limit: u64) {

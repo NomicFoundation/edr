@@ -1,6 +1,6 @@
 use edr_eth::{
     block::PartialHeader, eips::eip1559::ConstantBaseFeeParams, spec::EthHeaderConstants,
-    trie::KECCAK_NULL_RLP, Address, Bytes, HashMap,
+    trie::KECCAK_NULL_RLP, Address, Bytes, HashMap, U256,
 };
 use edr_evm::{
     blockchain::SyncBlockchain,
@@ -163,7 +163,11 @@ where
             });
 
             let l2_block_number = eth.header().number;
-            op_revm::L1BlockInfo::try_fetch(&mut db, l2_block_number, eth.config().spec)?
+            op_revm::L1BlockInfo::try_fetch(
+                &mut db,
+                U256::from(l2_block_number),
+                eth.config().spec,
+            )?
         };
 
         Ok(Self { eth, l1_block_info })

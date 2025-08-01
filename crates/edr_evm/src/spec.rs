@@ -8,7 +8,7 @@ use edr_eth::{
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ResultAndState,
     spec::{ChainSpec, EthHeaderConstants},
-    B256,
+    B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
@@ -281,9 +281,9 @@ pub trait BlockEnvConstructor<HeaderT> {
 impl BlockEnvConstructor<PartialHeader> for BlockEnv {
     fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self {
         Self {
-            number: header.number,
+            number: U256::from(header.number),
             beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
+            timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee.map_or(0u64, |base_fee| {
                 base_fee.try_into().expect("base fee is too large")
@@ -309,9 +309,9 @@ impl BlockEnvConstructor<PartialHeader> for BlockEnv {
 impl BlockEnvConstructor<block::Header> for BlockEnv {
     fn new_block_env(header: &block::Header, hardfork: l1::SpecId) -> Self {
         Self {
-            number: header.number,
+            number: U256::from(header.number),
             beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
+            timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
                 base_fee.try_into().expect("base fee is too large")

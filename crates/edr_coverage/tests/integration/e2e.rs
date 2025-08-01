@@ -47,7 +47,7 @@ fn deploy_contract(
 
     let cfg = CfgEnv::new_with_spec(blockchain.hardfork()).with_chain_id(blockchain.chain_id());
     let block = l1::BlockEnv {
-        number: 1,
+        number: U256::from(1),
         ..l1::BlockEnv::default()
     };
 
@@ -105,7 +105,7 @@ fn call_inc_by(
 
     let cfg = CfgEnv::new_with_spec(l1::SpecId::CANCUN).with_chain_id(blockchain.chain_id());
     let block = l1::BlockEnv {
-        number: 1,
+        number: U256::from(1),
         ..l1::BlockEnv::default()
     };
 
