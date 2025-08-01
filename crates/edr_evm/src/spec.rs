@@ -6,7 +6,7 @@ use edr_eth::{
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
-    result::ResultAndState,
+    result::ExecutionResult,
     spec::{ChainSpec, EthHeaderConstants},
     B256, U256,
 };
@@ -26,7 +26,7 @@ use crate::{
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
     result::EVMErrorForChain,
-    state::{Database, DatabaseComponentError},
+    state::{Database, DatabaseComponentError, EvmState},
     transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError,
         TransactionErrorForChainSpec, TransactionType, TransactionValidation,
@@ -161,13 +161,12 @@ pub trait RuntimeSpec:
         InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
-    >: ExecuteEvm<Output = Result<
-        ResultAndState<Self::HaltReason>,
-        EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
-    >> + InspectEvm<Inspector = InspectorT, Output = Result<
-        ResultAndState<Self::HaltReason>,
-        EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
-    >>;
+    >: ExecuteEvm<
+        ExecutionResult = ExecutionResult<Self::HaltReason>,
+        State = EvmState,
+        Error = EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
+        Tx = Self::SignedTransaction,
+    > + InspectEvm<Inspector = InspectorT>;
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction> +
