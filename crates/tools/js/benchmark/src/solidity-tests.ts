@@ -49,11 +49,11 @@ const DEFAULT_SAMPLES = 25;
 
 // Map of test suites to benchmark individually to number of samples (how many times to run the test suite)
 export const FORGE_STD_SAMPLES = {
-  [TOTAL_NAME]: DEFAULT_SAMPLES,
+  [TOTAL_NAME]: 5,
   StdCheatsTest: DEFAULT_SAMPLES,
   StdCheatsForkTest: 45,
   StdMathTest: 65,
-  StdStorageTest: DEFAULT_SAMPLES,
+  StdStorageTest: 5,
   StdUtilsForkTest: DEFAULT_SAMPLES,
 };
 
