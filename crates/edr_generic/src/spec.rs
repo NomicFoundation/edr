@@ -43,28 +43,26 @@ impl ChainSpec for GenericChainSpec {
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
 
-impl GenericChainSpec {
-    fn blob_excess_gas_and_price(
-        blob_gas: &Option<BlobGas>,
-        hardfork: l1::SpecId,
-    ) -> Option<BlobExcessGasAndPrice> {
-        let is_prague: bool = hardfork >= l1::SpecId::PRAGUE;
+fn blob_excess_gas_and_price(
+    blob_gas: &Option<BlobGas>,
+    hardfork: l1::SpecId,
+) -> Option<BlobExcessGasAndPrice> {
+    let is_prague: bool = hardfork >= l1::SpecId::PRAGUE;
 
-        blob_gas
-            .as_ref()
-            .map(|BlobGas { excess_gas, .. }| {
-                eip4844::BlobExcessGasAndPrice::new(*excess_gas, is_prague)
-            })
-            .or_else(|| {
-                // If the hardfork requires it, set ExcessGasAndPrice default value
-                // see https://github.com/NomicFoundation/edr/issues/947
-                if hardfork >= l1::SpecId::CANCUN {
-                    Some(eip4844::BlobExcessGasAndPrice::new(0u64, is_prague))
-                } else {
-                    None
-                }
-            })
-    }
+    blob_gas
+        .as_ref()
+        .map(|BlobGas { excess_gas, .. }| {
+            eip4844::BlobExcessGasAndPrice::new(*excess_gas, is_prague)
+        })
+        .or_else(|| {
+            // If the hardfork requires it, set ExcessGasAndPrice default value
+            // see https://github.com/NomicFoundation/edr/issues/947
+            if hardfork >= l1::SpecId::CANCUN {
+                Some(eip4844::BlobExcessGasAndPrice::new(0u64, is_prague))
+            } else {
+                None
+            }
+        })
 }
 
 impl BlockEnvConstructor<block::Header> for GenericChainSpec {
@@ -83,7 +81,7 @@ impl BlockEnvConstructor<block::Header> for GenericChainSpec {
             } else {
                 None
             },
-            blob_excess_gas_and_price: Self::blob_excess_gas_and_price(&header.blob_gas, hardfork),
+            blob_excess_gas_and_price: blob_excess_gas_and_price(&header.blob_gas, hardfork),
         }
     }
 }
@@ -104,7 +102,7 @@ impl BlockEnvConstructor<PartialHeader> for GenericChainSpec {
             } else {
                 None
             },
-            blob_excess_gas_and_price: Self::blob_excess_gas_and_price(&header.blob_gas, hardfork),
+            blob_excess_gas_and_price: blob_excess_gas_and_price(&header.blob_gas, hardfork),
         }
     }
 }
