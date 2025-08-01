@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::HashMap;
-use edr_napi_core::{
-    provider::{self, SyncProviderFactory},
-    solidity,
-};
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_napi_core::{provider::SyncProviderFactory, solidity};
 use edr_solidity_tests::{
     decode::RevertDecoder,
     multi_runner::{SuiteResultAndArtifactId, TestContract, TestContracts},
@@ -22,7 +18,7 @@ use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
-    config::{ProviderConfig, TracingConfigWithBuffers},
+    config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     logger::LoggerConfig,
     provider::{Provider, ProviderFactory},
     solidity_tests::{
@@ -78,25 +74,20 @@ impl EdrContext {
         }
 
         let runtime = runtime::Handle::current();
-        let provider_config =
-            try_or_reject_promise!(provider_config.resolve(&env, runtime.clone()));
 
-        let logger_config = try_or_reject_promise!(logger_config.resolve(&env));
-
-        // TODO: https://github.com/NomicFoundation/edr/issues/760
-        let build_info_config = try_or_reject_promise!(
-            edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers(
-                (&edr_napi_core::solidity::config::TracingConfigWithBuffers::from(tracing_config))
-                    .into(),
-            )
-            .map_err(|error| napi::Error::from_reason(error.to_string()))
-        );
-
-        let contract_decoder = try_or_reject_promise!(ContractDecoder::new(&build_info_config)
-            .map_or_else(
-                |error| Err(napi::Error::from_reason(error.to_string())),
-                |contract_decoder| Ok(Arc::new(contract_decoder))
-            ));
+        let ConfigResolution {
+            contract_decoder,
+            logger_config,
+            provider_config,
+            subscription_callback,
+        } = try_or_reject_promise!(resolve_configs(
+            &env,
+            runtime.clone(),
+            provider_config,
+            logger_config,
+            subscription_config,
+            tracing_config
+        ));
 
         #[cfg(feature = "scenarios")]
         let scenario_file =
@@ -106,31 +97,32 @@ impl EdrContext {
                 logger_config.enable,
             )));
 
-        let builder = {
+        let factory = {
             // TODO: https://github.com/NomicFoundation/edr/issues/760
             // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
 
-            try_or_reject_promise!(context.create_provider_builder(
-                &env,
-                &chain_type,
-                provider_config,
-                logger_config,
-                subscription_config.into(),
-                &contract_decoder,
-            ))
+            try_or_reject_promise!(context.get_provider_factory(&chain_type))
         };
 
         runtime.clone().spawn_blocking(move || {
-            let result = builder.build(runtime.clone()).map(|provider| {
-                Provider::new(
-                    provider,
-                    runtime,
-                    contract_decoder,
-                    #[cfg(feature = "scenarios")]
-                    scenario_file,
+            let result = factory
+                .create_provider(
+                    runtime.clone(),
+                    provider_config,
+                    logger_config,
+                    subscription_callback,
+                    Arc::clone(&contract_decoder),
                 )
-            });
+                .map(|provider| {
+                    Provider::new(
+                        provider,
+                        runtime,
+                        contract_decoder,
+                        #[cfg(feature = "scenarios")]
+                        scenario_file,
+                    )
+                });
 
             deferred.resolve(|_env| result);
         });
@@ -410,23 +402,12 @@ impl Context {
 
     /// Tries to create a new provider for the provided chain type and
     /// configuration.
-    pub fn create_provider_builder(
+    pub fn get_provider_factory(
         &self,
-        env: &napi::Env,
         chain_type: &str,
-        provider_config: edr_napi_core::provider::Config,
-        logger_config: edr_napi_core::logger::Config,
-        subscription_config: edr_napi_core::subscription::Config,
-        contract_decoder: &Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder>> {
+    ) -> napi::Result<Arc<dyn SyncProviderFactory>> {
         if let Some(factory) = self.provider_factories.get(chain_type) {
-            factory.create_provider_builder(
-                env,
-                provider_config,
-                logger_config,
-                subscription_config,
-                contract_decoder.clone(),
-            )
+            Ok(Arc::clone(factory))
         } else {
             Err(napi::Error::new(
                 napi::Status::GenericFailure,
