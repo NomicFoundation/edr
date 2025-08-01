@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::HashMap;
-use edr_napi_core::{provider::SyncProviderFactory, solidity, subscription};
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_napi_core::{provider::SyncProviderFactory, solidity};
 use edr_solidity_tests::{
     decode::RevertDecoder,
     multi_runner::{SuiteResultAndArtifactId, TestContract, TestContracts},
@@ -19,7 +18,7 @@ use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
-    config::{ProviderConfig, TracingConfigWithBuffers},
+    config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     logger::LoggerConfig,
     provider::{Provider, ProviderFactory},
     solidity_tests::{
@@ -75,28 +74,20 @@ impl EdrContext {
         }
 
         let runtime = runtime::Handle::current();
-        let provider_config =
-            try_or_reject_promise!(provider_config.resolve(&env, runtime.clone()));
 
-        let logger_config = try_or_reject_promise!(logger_config.resolve(&env));
-
-        // TODO: https://github.com/NomicFoundation/edr/issues/760
-        let build_info_config = try_or_reject_promise!(
-            edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers(
-                (&edr_napi_core::solidity::config::TracingConfigWithBuffers::from(tracing_config))
-                    .into(),
-            )
-            .map_err(|error| napi::Error::from_reason(error.to_string()))
-        );
-
-        let contract_decoder = try_or_reject_promise!(ContractDecoder::new(&build_info_config)
-            .map_or_else(
-                |error| Err(napi::Error::from_reason(error.to_string())),
-                |contract_decoder| Ok(Arc::new(contract_decoder))
-            ));
-
-        let subscription_callback =
-            subscription::Callback::new(&env, subscription_config.subscription_callback)?;
+        let ConfigResolution {
+            contract_decoder,
+            logger_config,
+            provider_config,
+            subscription_callback,
+        } = try_or_reject_promise!(resolve_configs(
+            &env,
+            runtime.clone(),
+            provider_config,
+            logger_config,
+            subscription_config,
+            tracing_config
+        ));
 
         #[cfg(feature = "scenarios")]
         let scenario_file =
