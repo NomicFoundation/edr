@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
+use edr_eth::{spec::ChainSpec, B256};
+use edr_evm::spec::RuntimeSpec;
 use edr_generic::GenericChainSpec;
 use edr_napi_core::logger::Logger;
+use edr_rpc_eth::RpcSpec;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{bindgen_prelude::BigInt, tokio::runtime, Env, JsObject};
 use napi_derive::napi;
@@ -106,7 +109,15 @@ pub fn create_provider_with_mock_timer(
             edr_provider::Provider::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(
                 runtime.clone(),
                 Box::new(logger),
-                Box::new(move |event| subscription_callback.call(event)),
+                Box::new(move |event| {
+                    let event = edr_napi_core::subscription::SubscriptionEvent::new::<
+                        <GenericChainSpec as RuntimeSpec>::Block,
+                        <GenericChainSpec as RpcSpec>::RpcBlock<B256>,
+                        <GenericChainSpec as ChainSpec>::SignedTransaction,
+                    >(event);
+
+                    subscription_callback.call(event);
+                }),
                 provider_config,
                 contract_decoder.clone(),
                 timer,
