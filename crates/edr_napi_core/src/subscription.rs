@@ -34,7 +34,7 @@ impl SubscriptionEvent {
     }
 }
 
-/// Type alias for a function that converts a value to a JavaScript value.
+/// Type alias for a closure trait object that constructs a JavaScript value.
 ///
 /// Since [`serde::Serialize`] cannot be used as a dynamic trait object, we are
 /// using a `FnOnce` to wrap N-API's [`napi::Env::to_js_value`] conversion
@@ -48,13 +48,13 @@ impl SubscriptionEvent {
 /// 3. Convert the `serde_json::Value` to a JavaScript value using
 ///    `napi::Env::to_js_value`.
 /// ```
-pub type ToJsValueFn = dyn FnOnce(&napi::Env) -> napi::Result<JsUnknown>;
+pub type DynJsValueConstructor = dyn FnOnce(&napi::Env) -> napi::Result<JsUnknown>;
 
 /// A chain-agnostic version of [`edr_provider::SubscriptionEventData`].
 pub enum SubscriptionEventData {
     Logs(Vec<LogOutput>),
     /// A function that converts a [`BlockAndTotalDifficulty`] to a JS value.
-    NewHeads(Box<ToJsValueFn>),
+    NewHeads(Box<DynJsValueConstructor>),
     NewPendingTransactions(B256),
 }
 
