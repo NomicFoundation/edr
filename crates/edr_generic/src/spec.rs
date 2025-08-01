@@ -9,7 +9,7 @@ use edr_eth::{
     transaction::TransactionValidation,
 };
 use edr_evm::{
-    evm::Evm,
+    evm::{EthFrame, Evm},
     hardfork::Activations,
     inspector::{Inspector, NoOpInspector},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
@@ -65,6 +65,7 @@ impl RuntimeSpec for GenericChainSpec {
         InspectorT,
         EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT,
+        EthFrame<EthInterpreter>,
     >;
 
     type LocalBlock = EthLocalBlock<

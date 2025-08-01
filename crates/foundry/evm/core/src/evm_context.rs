@@ -9,7 +9,7 @@ use revm::{
         BlockEnv, CfgEnv, Evm, JournalInner, LocalContext, TxEnv,
     },
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
-    handler::{instructions::EthInstructions, EthPrecompiles, PrecompileProvider},
+    handler::{instructions::EthInstructions, EthFrame, EthPrecompiles, PrecompileProvider},
     interpreter::{interpreter::EthInterpreter, InterpreterResult},
     primitives::hardfork::SpecId,
     Database, InspectEvm, Inspector, Journal, JournalEntry,
@@ -137,6 +137,7 @@ impl
             EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>,
         >,
         Self::PrecompileProvider<DatabaseT>,
+        EthFrame<EthInterpreter>,
     >;
 
     type PrecompileProvider<DatabaseT: Database> = EthPrecompiles;
@@ -203,6 +204,7 @@ impl<
             EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
         >,
         PrecompileProviderT,
+        EthFrame<EthInterpreter>,
     >
 {
     fn into_evm_context(

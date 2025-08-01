@@ -14,7 +14,7 @@ use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
 use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector};
 pub use revm_context_interface::ContextTr as ContextTrait;
-use revm_handler::{instructions::EthInstructions, PrecompileProvider};
+use revm_handler::{instructions::EthInstructions, EthFrame, PrecompileProvider};
 use revm_interpreter::{interpreter::EthInterpreter, InterpreterResult};
 
 use crate::{
@@ -394,6 +394,7 @@ impl RuntimeSpec for L1ChainSpec {
         InspectorT,
         EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT,
+        EthFrame<EthInterpreter>,
     >;
 
     type LocalBlock = EthLocalBlock<
