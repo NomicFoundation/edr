@@ -35,7 +35,7 @@ describe("Unit tests", () => {
 
   it("Latest global fork stack trace", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests, stackTraces } =
@@ -132,7 +132,7 @@ describe("Unit tests", () => {
 
   it("GlobalFork", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
@@ -149,7 +149,7 @@ describe("Unit tests", () => {
 
   it("ForkCheatcode", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
@@ -167,7 +167,7 @@ describe("Unit tests", () => {
 
   it("Latest fork cheatcode", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests, stackTraces } =
@@ -255,6 +255,8 @@ describe("Unit tests", () => {
         {
           contract: "UnsupportedCheatcodeTest",
           function: "testUnsupportedCheatcode",
+          message: "cheatcode 'broadcast()' is not supported",
+          line: 9,
         },
       ]
     );
@@ -456,5 +458,53 @@ describe("Unit tests", () => {
         );
       }
     }
+  });
+
+  it("ExpectRevertError", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("ExpectRevertErrorTest");
+
+    assert.equal(failedTests, 3);
+    assert.equal(totalTests, 3);
+
+    assertStackTraces(
+      stackTraces.get("testFunctionDoesntRevertAsExpected()"),
+      "next call did not revert as expected",
+      [
+        {
+          contract: "ExpectRevertErrorTest",
+          function: "testFunctionDoesntRevertAsExpected",
+          line: 19, // foo.f();
+          message: "next call did not revert as expected",
+        },
+      ]
+    );
+
+    assertStackTraces(
+      stackTraces.get("testFunctionRevertsWithDifferentMessage()"),
+      "Error != expected error: revert with a different message != expected message",
+      [
+        {
+          contract: "ExpectRevertErrorTest",
+          function: "testFunctionRevertsWithDifferentMessage",
+          line: 25, // foo.g();
+          message:
+            "Error != expected error: revert with a different message != expected message",
+        },
+      ]
+    );
+
+    assertStackTraces(
+      stackTraces.get("testFunctionRevertCountMismatch()"),
+      "next call did not revert as expected",
+      [
+        {
+          contract: "ExpectRevertErrorTest",
+          function: "testFunctionRevertCountMismatch",
+          line: 32, // foo.f();
+          message: "next call did not revert as expected",
+        },
+      ]
+    );
   });
 });

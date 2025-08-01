@@ -8,15 +8,16 @@ use edr_eth::{Bytes, U256};
 alloy_sol_types::sol! {
   error Error(string);
   error Panic(uint256);
+  error CheatcodeError(string);
 }
 
-pub struct ReturnData {
-    pub value: Bytes,
+pub struct ReturnData<'a> {
+    pub value: &'a Bytes,
     selector: Option<[u8; 4]>,
 }
 
-impl ReturnData {
-    pub fn new(value: Bytes) -> Self {
+impl<'a> ReturnData<'a> {
+    pub fn new(value: &'a Bytes) -> Self {
         let selector = if value.len() >= 4 {
             Some(value[0..4].try_into().expect("checked length"))
         } else {
@@ -39,6 +40,10 @@ impl ReturnData {
         self.selector == Some(Error::SELECTOR)
     }
 
+    pub fn is_cheatcode_error_return_data(&self) -> bool {
+        self.selector == Some(CheatcodeError::SELECTOR)
+    }
+
     pub fn is_panic_return_data(&self) -> bool {
         self.selector == Some(Panic::SELECTOR)
     }
@@ -46,5 +51,10 @@ impl ReturnData {
     /// Decodes the panic error code from the return data.
     pub fn decode_panic(&self) -> Result<U256, alloy_sol_types::Error> {
         Panic::abi_decode(&self.value[..]).map(|p| p.0)
+    }
+
+    /// Decodes the cheatcode error message from the return data.
+    pub fn decode_cheatcode_error(&self) -> Result<String, alloy_sol_types::Error> {
+        CheatcodeError::abi_decode(&self.value[..]).map(|p| p.0)
     }
 }

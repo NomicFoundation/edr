@@ -55,6 +55,10 @@ pub enum StackTraceEntry {
         error_code: U256,
         source_reference: Option<SourceReference>,
     },
+    CheatCodeError {
+        message: String,
+        source_reference: SourceReference,
+    },
     CustomError {
         message: String,
         source_reference: SourceReference,
@@ -130,6 +134,9 @@ impl StackTraceEntry {
                 source_reference, ..
             }
             | StackTraceEntry::RevertError {
+                source_reference, ..
+            }
+            | StackTraceEntry::CheatCodeError {
                 source_reference, ..
             }
             | StackTraceEntry::CustomError {

@@ -4,7 +4,7 @@
 use std::convert::Infallible;
 
 use edr_eth::{hex, U256};
-use napi::bindgen_prelude::{BigInt, Either24, FromNapiValue, ToNapiValue, Uint8Array, Undefined};
+use napi::bindgen_prelude::{BigInt, Either25, FromNapiValue, ToNapiValue, Uint8Array, Undefined};
 use napi_derive::napi;
 use serde::{Serialize, Serializer};
 
@@ -45,6 +45,7 @@ pub enum StackTraceEntryType {
     CONTRACT_TOO_LARGE_ERROR,
     INTERNAL_FUNCTION_CALLSTACK_ENTRY,
     CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR,
+    CHEATCODE_ERROR,
 }
 
 #[napi(catch_unwind)]
@@ -155,7 +156,7 @@ pub struct CallstackEntryStackTraceEntry {
 
 impl From<CallstackEntryStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: CallstackEntryStackTraceEntry) -> Self {
-        Either24::A(val)
+        Either25::A(val)
     }
 }
 
@@ -174,7 +175,7 @@ pub struct UnrecognizedCreateCallstackEntryStackTraceEntry {
 
 impl From<UnrecognizedCreateCallstackEntryStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: UnrecognizedCreateCallstackEntryStackTraceEntry) -> Self {
-        Either24::B(val)
+        Either25::B(val)
     }
 }
 
@@ -195,7 +196,7 @@ pub struct UnrecognizedContractCallstackEntryStackTraceEntry {
 
 impl From<UnrecognizedContractCallstackEntryStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: UnrecognizedContractCallstackEntryStackTraceEntry) -> Self {
-        Either24::C(val)
+        Either25::C(val)
     }
 }
 
@@ -210,7 +211,7 @@ pub struct PrecompileErrorStackTraceEntry {
 
 impl From<PrecompileErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: PrecompileErrorStackTraceEntry) -> Self {
-        Either24::D(val)
+        Either25::D(val)
     }
 }
 
@@ -227,7 +228,7 @@ pub struct RevertErrorStackTraceEntry {
 
 impl From<RevertErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: RevertErrorStackTraceEntry) -> Self {
-        Either24::E(val)
+        Either25::E(val)
     }
 }
 
@@ -243,7 +244,7 @@ pub struct PanicErrorStackTraceEntry {
 
 impl From<PanicErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: PanicErrorStackTraceEntry) -> Self {
-        Either24::F(val)
+        Either25::F(val)
     }
 }
 
@@ -259,7 +260,7 @@ pub struct CustomErrorStackTraceEntry {
 
 impl From<CustomErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: CustomErrorStackTraceEntry) -> Self {
-        Either24::G(val)
+        Either25::G(val)
     }
 }
 
@@ -278,7 +279,7 @@ pub struct FunctionNotPayableErrorStackTraceEntry {
 
 impl From<FunctionNotPayableErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: FunctionNotPayableErrorStackTraceEntry) -> Self {
-        Either24::H(val)
+        Either25::H(val)
     }
 }
 
@@ -292,7 +293,7 @@ pub struct InvalidParamsErrorStackTraceEntry {
 
 impl From<InvalidParamsErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: InvalidParamsErrorStackTraceEntry) -> Self {
-        Either24::I(val)
+        Either25::I(val)
     }
 }
 
@@ -311,7 +312,7 @@ pub struct FallbackNotPayableErrorStackTraceEntry {
 
 impl From<FallbackNotPayableErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: FallbackNotPayableErrorStackTraceEntry) -> Self {
-        Either24::J(val)
+        Either25::J(val)
     }
 }
 
@@ -332,7 +333,7 @@ pub struct FallbackNotPayableAndNoReceiveErrorStackTraceEntry {
 
 impl From<FallbackNotPayableAndNoReceiveErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: FallbackNotPayableAndNoReceiveErrorStackTraceEntry) -> Self {
-        Either24::K(val)
+        Either25::K(val)
     }
 }
 
@@ -351,7 +352,7 @@ pub struct UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry {
 
 impl From<UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: UnrecognizedFunctionWithoutFallbackErrorStackTraceEntry) -> Self {
-        Either24::L(val)
+        Either25::L(val)
     }
 }
 
@@ -369,7 +370,7 @@ pub struct MissingFallbackOrReceiveErrorStackTraceEntry {
 
 impl From<MissingFallbackOrReceiveErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: MissingFallbackOrReceiveErrorStackTraceEntry) -> Self {
-        Either24::M(val)
+        Either25::M(val)
     }
 }
 
@@ -386,7 +387,7 @@ pub struct ReturndataSizeErrorStackTraceEntry {
 
 impl From<ReturndataSizeErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: ReturndataSizeErrorStackTraceEntry) -> Self {
-        Either24::N(val)
+        Either25::N(val)
     }
 }
 
@@ -404,7 +405,7 @@ pub struct NonContractAccountCalledErrorStackTraceEntry {
 
 impl From<NonContractAccountCalledErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: NonContractAccountCalledErrorStackTraceEntry) -> Self {
-        Either24::O(val)
+        Either25::O(val)
     }
 }
 
@@ -418,7 +419,7 @@ pub struct CallFailedErrorStackTraceEntry {
 
 impl From<CallFailedErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: CallFailedErrorStackTraceEntry) -> Self {
-        Either24::P(val)
+        Either25::P(val)
     }
 }
 
@@ -435,7 +436,7 @@ pub struct DirectLibraryCallErrorStackTraceEntry {
 
 impl From<DirectLibraryCallErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: DirectLibraryCallErrorStackTraceEntry) -> Self {
-        Either24::Q(val)
+        Either25::Q(val)
     }
 }
 
@@ -455,7 +456,7 @@ pub struct UnrecognizedCreateErrorStackTraceEntry {
 
 impl From<UnrecognizedCreateErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: UnrecognizedCreateErrorStackTraceEntry) -> Self {
-        Either24::R(val)
+        Either25::R(val)
     }
 }
 
@@ -477,7 +478,7 @@ pub struct UnrecognizedContractErrorStackTraceEntry {
 
 impl From<UnrecognizedContractErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: UnrecognizedContractErrorStackTraceEntry) -> Self {
-        Either24::S(val)
+        Either25::S(val)
     }
 }
 
@@ -494,7 +495,7 @@ pub struct OtherExecutionErrorStackTraceEntry {
 
 impl From<OtherExecutionErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: OtherExecutionErrorStackTraceEntry) -> Self {
-        Either24::T(val)
+        Either25::T(val)
     }
 }
 
@@ -512,7 +513,7 @@ pub struct UnmappedSolc063RevertErrorStackTraceEntry {
 
 impl From<UnmappedSolc063RevertErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: UnmappedSolc063RevertErrorStackTraceEntry) -> Self {
-        Either24::U(val)
+        Either25::U(val)
     }
 }
 
@@ -529,7 +530,7 @@ pub struct ContractTooLargeErrorStackTraceEntry {
 
 impl From<ContractTooLargeErrorStackTraceEntry> for SolidityStackTraceEntry {
     fn from(val: ContractTooLargeErrorStackTraceEntry) -> Self {
-        Either24::V(val)
+        Either25::V(val)
     }
 }
 
@@ -548,7 +549,7 @@ pub struct InternalFunctionCallStackEntry {
 
 impl From<InternalFunctionCallStackEntry> for SolidityStackTraceEntry {
     fn from(val: InternalFunctionCallStackEntry) -> Self {
-        Either24::W(val)
+        Either25::W(val)
     }
 }
 
@@ -566,7 +567,23 @@ pub struct ContractCallRunOutOfGasError {
 
 impl From<ContractCallRunOutOfGasError> for SolidityStackTraceEntry {
     fn from(val: ContractCallRunOutOfGasError) -> Self {
-        Either24::X(val)
+        Either25::X(val)
+    }
+}
+
+#[napi(object)]
+#[derive(Clone, Serialize)]
+pub struct CheatcodeErrorStackTraceEntry {
+    #[napi(js_name = "type", ts_type = "StackTraceEntryType.CHEATCODE_ERROR")]
+    pub type_: StackTraceEntryTypeConst<{ StackTraceEntryType::CHEATCODE_ERROR as u8 }>,
+    // The parsed cheatcode error message that can be displayed to the user
+    pub message: String,
+    pub source_reference: SourceReference,
+}
+
+impl From<CheatcodeErrorStackTraceEntry> for SolidityStackTraceEntry {
+    fn from(val: CheatcodeErrorStackTraceEntry) -> Self {
+        Either25::Y(val)
     }
 }
 
@@ -580,7 +597,7 @@ impl From<ContractCallRunOutOfGasError> for SolidityStackTraceEntry {
 // Rather, we just bite the bullet for now and use the type alias directly
 // (which falls back to `any` as it's not recognized in the context of the
 // index.d.ts file) until we finish the porting work.
-pub type SolidityStackTraceEntry = Either24<
+pub type SolidityStackTraceEntry = Either25<
     CallstackEntryStackTraceEntry,
     UnrecognizedCreateCallstackEntryStackTraceEntry,
     UnrecognizedContractCallstackEntryStackTraceEntry,
@@ -605,6 +622,7 @@ pub type SolidityStackTraceEntry = Either24<
     ContractTooLargeErrorStackTraceEntry,
     InternalFunctionCallStackEntry,
     ContractCallRunOutOfGasError,
+    CheatcodeErrorStackTraceEntry,
 >;
 
 impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::StackTraceEntry {
@@ -661,6 +679,15 @@ impl TryCast<SolidityStackTraceEntry> for edr_solidity::solidity_stack_trace::St
                 type_: StackTraceEntryTypeConst,
                 error_code: u256_to_bigint(&error_code),
                 source_reference: source_reference.map(std::convert::Into::into),
+            }
+            .into(),
+            StackTraceEntry::CheatCodeError {
+                message,
+                source_reference,
+            } => CheatcodeErrorStackTraceEntry {
+                type_: StackTraceEntryTypeConst,
+                message,
+                source_reference: source_reference.into(),
             }
             .into(),
             StackTraceEntry::CustomError {

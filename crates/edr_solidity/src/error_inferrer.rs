@@ -413,9 +413,8 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
         .contract_meta()
         .ok_or(InferrerError::MissingContract)?;
     let contract = contract_meta.contract.read();
-    let return_data = trace.return_data();
 
-    let return_data = ReturnData::new(return_data.clone());
+    let return_data = ReturnData::new(trace.return_data());
 
     if return_data.is_empty() || return_data.is_error_return_data() {
         // if there is no return data, or if it's a Error(string),
@@ -423,7 +422,7 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
         return Ok(Heuristic::Miss(stacktrace));
     }
 
-    let raw_return_data = hex::encode(&*return_data.value);
+    let raw_return_data = hex::encode(return_data.value);
     let mut error_message =
         format!("reverted with an unrecognized custom error (return data: 0x{raw_return_data})",);
 
@@ -431,7 +430,7 @@ fn check_custom_errors<HaltReasonT: HaltReasonTrait>(
         if return_data.matches_selector(custom_error.selector) {
             // if the return data matches a custom error in the called contract,
             // we format the message using the returnData and the custom error instance
-            let decoded = custom_error.decode_error_data(&return_data.value)?;
+            let decoded = custom_error.decode_error_data(return_data.value)?;
 
             let params = decoded
                 .body
@@ -622,7 +621,7 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 /// Check if the last submessage can be used to generate the stack trace.
 fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
-    stacktrace: Vec<StackTraceEntry>,
+    mut stacktrace: Vec<StackTraceEntry>,
     last_submessage_data: Option<SubmessageData<HaltReasonT>>,
 ) -> Result<Heuristic, InferrerError<HaltReasonT>> {
     let contract_meta = trace
@@ -633,8 +632,6 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
     let Some(last_submessage_data) = last_submessage_data else {
         return Ok(Heuristic::Miss(stacktrace));
     };
-
-    let mut inferred_stacktrace = Cow::from(&stacktrace);
 
     // get the instruction before the submessage and add it to the stack trace
     let call_step = match steps.get(last_submessage_data.step_index as usize - 1) {
@@ -656,6 +653,20 @@ fn check_last_submessage<HaltReasonT: HaltReasonTrait>(
                 "Callstack entry must have source reference".to_string(),
             )
         })?;
+
+    // Check trace for cheatcode error as last submessage data may not have
+    // cheatcode error or have different error if the error is from expect revert.
+    let return_data = ReturnData::new(trace.return_data());
+    if return_data.is_cheatcode_error_return_data() {
+        let message = return_data.decode_cheatcode_error()?;
+        stacktrace.push(StackTraceEntry::CheatCodeError {
+            message,
+            source_reference: call_stack_frame_source_reference,
+        });
+        return fix_initial_modifier(trace, stacktrace).map(Heuristic::Hit);
+    }
+
+    let mut inferred_stacktrace = Cow::from(&stacktrace);
 
     let last_message_failed = match &last_submessage_data.message_trace {
         NestedTrace::Create(create) => create.exit.is_error(),
@@ -713,7 +724,7 @@ fn check_panic<HaltReasonT: HaltReasonTrait>(
     mut stacktrace: Vec<StackTraceEntry>,
     last_instruction: &Instruction,
 ) -> Result<Heuristic, InferrerError<HaltReasonT>> {
-    let return_data = ReturnData::new(trace.return_data().clone());
+    let return_data = ReturnData::new(trace.return_data());
 
     if !return_data.is_panic_return_data() {
         return Ok(Heuristic::Miss(stacktrace));
