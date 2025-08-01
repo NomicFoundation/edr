@@ -455,11 +455,11 @@ impl RuntimeSpec for L1ChainSpec {
         inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
-        Evm {
-            ctx: context,
+        Evm::new_with_inspector(
+            context,
             inspector,
-            instruction: EthInstructions::default(),
-            precompiles: precompile_provider,
-        }
+            EthInstructions::default(),
+            precompile_provider,
+        )
     }
 }
