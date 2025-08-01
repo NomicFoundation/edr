@@ -238,10 +238,13 @@ impl FsAccessPermission {
         #[allow(clippy::match_same_arms)]
         match (self, kind) {
             (FsAccessPermission::ReadWriteFile, FsAccessKind::Read | FsAccessKind::Write) => true,
-            (FsAccessPermission::None, _) => false,
+            (FsAccessPermission::None, FsAccessKind::Read | FsAccessKind::Write) => false,
             (FsAccessPermission::ReadFile, FsAccessKind::Read) => true,
             (FsAccessPermission::WriteFile, FsAccessKind::Write) => true,
-            (FsAccessPermission::DangerouslyReadWriteDirectory, _) => true,
+            (
+                FsAccessPermission::DangerouslyReadWriteDirectory,
+                FsAccessKind::Read | FsAccessKind::Write,
+            ) => true,
             (FsAccessPermission::ReadDirectory, FsAccessKind::Read) => true,
             (FsAccessPermission::DangerouslyWriteDirectory, FsAccessKind::Write) => true,
             _ => false,
