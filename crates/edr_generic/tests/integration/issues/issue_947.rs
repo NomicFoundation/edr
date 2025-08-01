@@ -87,7 +87,7 @@ async fn issue_947_generic_evm_should_default_excess_gas() -> anyhow::Result<()>
 // https://github.com/NomicFoundation/edr/issues/947
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
-async fn issue_947_should_missing_blob_gas_fail_on_l1_above_cancun() -> anyhow::Result<()> {
+async fn issue_947_should_fail_with_missing_blob_gas_on_l1_after_cancun() -> anyhow::Result<()> {
     let provider = get_provider::<L1ChainSpec>(l1::SpecId::CANCUN, CANCUN_BLOCK_NUMBER)?;
 
     let transaction_hash =
