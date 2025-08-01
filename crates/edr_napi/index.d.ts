@@ -982,11 +982,10 @@ export interface CallTrace {
   gasUsed: bigint
   /** The amount of native token that was included with the call. */
   value: bigint
-  /**
-   * The target of the call. Provided as a contract name if known, otherwise
-   * a checksum address.
-   */
-  contract: string
+  /** The target address of the call. */
+  address: string
+  /** The name of the contract that is the target of the call, if known. */
+  contract?: string
   /**
    * The input (calldata) to the call. If it encodes a known function call,
    * it will be decoded into the function name and a list of arguments.
@@ -1116,7 +1115,8 @@ export enum StackTraceEntryType {
   UNMAPPED_SOLC_0_6_3_REVERT_ERROR = 20,
   CONTRACT_TOO_LARGE_ERROR = 21,
   INTERNAL_FUNCTION_CALLSTACK_ENTRY = 22,
-  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23
+  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23,
+  CHEATCODE_ERROR = 24
 }
 export declare function stackTraceEntryTypeToString(val: StackTraceEntryType): string
 export const FALLBACK_FUNCTION_NAME: string
@@ -1246,6 +1246,11 @@ export interface ContractCallRunOutOfGasError {
   type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR
   sourceReference?: SourceReference
 }
+export interface CheatcodeErrorStackTraceEntry {
+  type: StackTraceEntryType.CHEATCODE_ERROR
+  message: string
+  sourceReference: SourceReference
+}
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Uint8Array
@@ -1337,6 +1342,12 @@ export declare class Response {
 }
 /** A JSON-RPC provider for Ethereum. */
 export declare class Provider {
+  /**
+   *Adds a compilation result to the instance.
+   *
+   *For internal use only. Support for this method may be removed in the future.
+   */
+  addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<boolean>
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>

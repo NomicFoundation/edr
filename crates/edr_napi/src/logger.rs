@@ -65,7 +65,9 @@ impl LoggerConfig {
             );
             assert_eq!(status, Status::Ok);
 
-            receiver.recv().unwrap()
+            receiver
+                .recv()
+                .expect("Receive can only fail if the channel is closed")
         });
 
         let mut print_line_callback: ThreadsafeFunction<_, ErrorStrategy::Fatal> = self

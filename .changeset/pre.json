@@ -10,8 +10,10 @@
     "solidity-tests": "1.0.0"
   },
   "changesets": [
+    "afraid-roses-begin",
     "angry-glasses-fail",
     "cool-turtles-obey",
+    "cuddly-pianos-matter",
     "dirty-melons-provide",
     "fluffy-bags-tickle",
     "four-melons-rhyme",
@@ -21,6 +23,8 @@
     "grumpy-jokes-sort",
     "hip-rings-allow",
     "honest-tools-dress",
+    "khaki-houses-float",
+    "lazy-dancers-hammer",
     "lazy-jobs-draw",
     "lemon-pumas-walk",
     "lemon-snails-approve",

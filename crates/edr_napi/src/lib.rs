@@ -26,7 +26,7 @@ pub mod log;
 pub mod logger;
 /// Types for mocking provider behavior.
 #[cfg(feature = "test-mock")]
-mod mock;
+pub mod mock;
 /// Types for precompiles.
 pub mod precompile;
 /// Types for Ethereum RPC providers.

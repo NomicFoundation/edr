@@ -13,7 +13,7 @@ pub trait Builder: Send {
     fn build(self: Box<Self>, runtime: runtime::Handle) -> napi::Result<Arc<dyn SyncProvider>>;
 }
 
-pub struct ProviderBuilder<ChainSpecT: SyncNapiSpec> {
+pub struct ProviderBuilder<ChainSpecT: SyncNapiSpec<CurrentTime>> {
     contract_decoder: Arc<ContractDecoder>,
     logger: Box<
         dyn SyncLogger<
@@ -26,7 +26,7 @@ pub struct ProviderBuilder<ChainSpecT: SyncNapiSpec> {
     subscription_callback: subscription::Callback<ChainSpecT>,
 }
 
-impl<ChainSpecT: SyncNapiSpec> ProviderBuilder<ChainSpecT> {
+impl<ChainSpecT: SyncNapiSpec<CurrentTime>> ProviderBuilder<ChainSpecT> {
     /// Constructs a new instance.
     pub fn new(
         contract_decoder: Arc<ContractDecoder>,
@@ -49,7 +49,7 @@ impl<ChainSpecT: SyncNapiSpec> ProviderBuilder<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: SyncNapiSpec> Builder for ProviderBuilder<ChainSpecT> {
+impl<ChainSpecT: SyncNapiSpec<CurrentTime>> Builder for ProviderBuilder<ChainSpecT> {
     fn build(self: Box<Self>, runtime: runtime::Handle) -> napi::Result<Arc<dyn SyncProvider>> {
         let builder = *self;
 

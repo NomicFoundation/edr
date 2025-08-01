@@ -131,12 +131,6 @@ pub fn get_stack_trace<
         )?;
         let trace = contract_decoder.try_to_decode_nested_trace(trace)?;
         let stack_trace = solidity_tracer::get_stack_trace(trace)?;
-        let stack_trace = stack_trace
-            .into_iter()
-            .filter(|stack_trace| {
-                !stack_trace.is_unrecognized_contract_call_error(&CHEATCODE_ADDRESS)
-            })
-            .collect();
         Ok(Some(stack_trace))
     } else {
         Ok(None)
