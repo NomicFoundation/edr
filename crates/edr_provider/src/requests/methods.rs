@@ -27,7 +27,6 @@ mod optional_block_spec {
 /// for an invoking a method on a remote ethereum node
 #[derive(Deserialize, Serialize)]
 #[derive_where(Clone, Debug, PartialEq; ChainSpecT::RpcCallRequest, ChainSpecT::RpcTransactionRequest)]
-#[serde(bound = "", tag = "method", content = "params")]
 pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     /// `eth_accounts`
     #[serde(rename = "eth_accounts", with = "edr_eth::serde::empty_params")]
