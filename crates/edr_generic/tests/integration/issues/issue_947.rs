@@ -116,7 +116,7 @@ async fn issue_947_should_missing_blob_gas_fail_on_l1_above_cancun() -> anyhow::
 // https://github.com/NomicFoundation/edr/issues/947
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
-async fn issue_947_should_succeed_on_generic_pre_cancun() -> anyhow::Result<()> {
+async fn issue_947_should_succeed_on_generic_before_cancun() -> anyhow::Result<()> {
     // Arbitrum block after shanghai activation
     let shanghai_arbitrum_block = 184_097_481;
     let provider = get_provider::<GenericChainSpec>(l1::SpecId::SHANGHAI, shanghai_arbitrum_block)?;

@@ -310,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    fn generic_block_constructor_should_default_excess_blob_gas_above_cancun() {
+    fn generic_block_constructor_should_default_excess_blob_gas_after_cancun() {
         let header = build_block_header(None); // No blob gas information
 
         let block = GenericChainSpec::new_block_env(&header, l1::SpecId::PRAGUE);
@@ -321,7 +321,7 @@ mod tests {
     }
 
     #[test]
-    fn generic_block_constructor_should_nor_default_excess_blob_gas_below_cancun() {
+    fn generic_block_constructor_should_not_default_excess_blob_gas_before_cancun() {
         let header = build_block_header(None); // No blob gas information
 
         let block = GenericChainSpec::new_block_env(&header, l1::SpecId::SHANGHAI);

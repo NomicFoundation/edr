@@ -549,7 +549,7 @@ mod l1_chain_spec_tests {
     }
 
     #[test]
-    fn generic_block_constructor_should_not_default_excess_blob_gas_for_cancun() {
+    fn l1_block_constructor_should_not_default_excess_blob_gas_for_cancun() {
         let header = build_block_header(None); // No blob gas information
 
         let block = L1ChainSpec::new_block_env(&header, l1::SpecId::CANCUN);
@@ -557,7 +557,7 @@ mod l1_chain_spec_tests {
     }
 
     #[test]
-    fn generic_block_constructor_should_not_default_excess_blob_gas_below_cancun() {
+    fn l1_block_constructor_should_not_default_excess_blob_gas_before_cancun() {
         let header = build_block_header(None); // No blob gas information
 
         let block = L1ChainSpec::new_block_env(&header, l1::SpecId::SHANGHAI);
@@ -565,7 +565,7 @@ mod l1_chain_spec_tests {
     }
 
     #[test]
-    fn generic_block_constructor_should_not_default_excess_blob_gas_above_cancun() {
+    fn l1_block_constructor_should_not_default_excess_blob_gas_after_cancun() {
         let header = build_block_header(None); // No blob gas information
 
         let block = L1ChainSpec::new_block_env(&header, l1::SpecId::PRAGUE);
@@ -573,7 +573,7 @@ mod l1_chain_spec_tests {
     }
 
     #[test]
-    fn generic_block_constructor_should_use_existing_excess_blob_gas() {
+    fn l1_block_constructor_should_use_existing_excess_blob_gas() {
         let excess_gas = 0x80000u64;
         let blob_gas = BlobGas {
             excess_gas,
