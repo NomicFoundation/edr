@@ -281,7 +281,6 @@ impl Cheatcode for copyFileCall {
         let Self { from, to } = self;
         let from = state.config.ensure_path_allowed(from, FsAccessKind::Read)?;
         let to = state.config.ensure_path_allowed(to, FsAccessKind::Write)?;
-        state.config.ensure_not_foundry_toml(&to)?;
 
         let n = fs::copy(from, to)?;
         Ok(n.abi_encode())
@@ -602,7 +601,6 @@ impl Cheatcode for removeFileCall {
         let path = state
             .config
             .ensure_path_allowed(path, FsAccessKind::Write)?;
-        state.config.ensure_not_foundry_toml(&path)?;
 
         // also remove from the set if opened previously
         state.context.opened_read_files.remove(&path);
@@ -695,7 +693,6 @@ impl Cheatcode for writeLineCall {
         let path = state
             .config
             .ensure_path_allowed(path, FsAccessKind::Write)?;
-        state.config.ensure_not_foundry_toml(&path)?;
 
         if state.fs_commit {
             let mut file = std::fs::OpenOptions::new()
@@ -1111,8 +1108,6 @@ pub(super) fn write_file<
     let path = state
         .config
         .ensure_path_allowed(path, FsAccessKind::Write)?;
-    // write access to foundry.toml is not allowed
-    state.config.ensure_not_foundry_toml(&path)?;
 
     if state.fs_commit {
         fs::write(path, contents)?;

@@ -37,7 +37,7 @@ mod remote {
     async fn test_cheats_fork() {
         let runner = TEST_DATA_DEFAULT
             .runner_with_fs_permissions(
-                FsPermissions::new(vec![PathPermission::read("./fixtures")]),
+                FsPermissions::new(vec![PathPermission::read_directory("./fixtures")]),
                 TEST_DATA_DEFAULT.config_with_remote_rpc(),
             )
             .await;
@@ -55,7 +55,7 @@ mod remote {
     async fn test_get_logs_fork() {
         let runner = TEST_DATA_DEFAULT
             .runner_with_fs_permissions(
-                FsPermissions::new(vec![PathPermission::read("./fixtures")]),
+                FsPermissions::new(vec![PathPermission::read_directory("./fixtures")]),
                 TEST_DATA_DEFAULT.config_with_remote_rpc(),
             )
             .await;
@@ -73,7 +73,7 @@ mod remote {
     async fn test_rpc_fork() {
         let runner = TEST_DATA_DEFAULT
             .runner_with_fs_permissions(
-                FsPermissions::new(vec![PathPermission::read("./fixtures")]),
+                FsPermissions::new(vec![PathPermission::read_directory("./fixtures")]),
                 TEST_DATA_DEFAULT.config_with_remote_rpc(),
             )
             .await;

@@ -20,7 +20,7 @@ async fn test_fs_disabled() {
 async fn test_fs_default() {
     let runner = TEST_DATA_DEFAULT
         .runner_with_fs_permissions(
-            FsPermissions::new(vec![PathPermission::read("./fixtures")]),
+            FsPermissions::new(vec![PathPermission::read_directory("./fixtures")]),
             TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
