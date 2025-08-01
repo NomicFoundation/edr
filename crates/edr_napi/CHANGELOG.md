@@ -1,5 +1,12 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.3
+
+### Minor Changes
+
+- 6ea800c: Removed deprecated JSON-RPC methods: `eth_mining`, `net_listening`, `net_peerCount`, `hardhat_addCompilationResult`, `hardhat_intervalMine`, and `hardhat_reset`.
+- a5cc346: Added cheatcode error stack trace entry. This fixes stack traces for errors from expect revert cheatcodes and improves stack traces for other cheatcode errors.
+
 ## 0.12.0-next.2
 
 ### Patch Changes
