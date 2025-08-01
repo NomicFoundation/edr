@@ -10,15 +10,15 @@ describe("Provider", () => {
     const parsedJson = JSON.parse(fileContent);
     const structLog = parsedJson.structLogs[0];
 
-    // This creates a JSON of length ~950 000 000 characters.
+    // This creates a JSON of length ~570 000 000 characters.
     // JSON.stringify() crashes at ~500 000 000 characters.
-    for (let i = 1; i < 20000; i++) {
+    for (let i = 1; i < 12000; i++) {
       parsedJson.structLogs.push(structLog);
     }
 
     // Increased timeout is needed to allow the large JSON to be processed.
     // Local tests indicate <100.000ms timeout is enough, but CI may be slower.
-    this.timeout(500_000);
+    this.timeout(300_000);
 
     // Ignore this on testNoBuild
     // @ts-ignore
