@@ -143,12 +143,12 @@ impl RuntimeSpec for OpChainSpec {
         inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
-        OpEvm(Evm {
-            ctx: context,
+        OpEvm(Evm::new_with_inspector(
+            context,
             inspector,
-            instruction: EthInstructions::new_mainnet(),
-            precompiles: precompile_provider,
-        })
+            EthInstructions::new_mainnet(),
+            precompile_provider,
+        ))
     }
 }
 
