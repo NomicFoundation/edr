@@ -330,4 +330,145 @@ mod tests {
             )]),
         ));
     }
+
+    #[test]
+    fn file_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_file("./out/contracts/ReadContract.sol"),
+            PathPermission::read_write_file("./out/contracts/ReadWriteContract.sol"),
+        ]);
+
+        let root = "/my/project/root/";
+        let config = config(root, permissions);
+
+        assert!(config
+            .ensure_path_allowed("./out/contracts/ReadContract.sol", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/contracts/ReadWriteContract.sol", FsAccessKind::Write)
+            .is_ok());
+        assert!(
+            config
+                .ensure_path_allowed(
+                    "./out/contracts/NoPermissionContract.sol",
+                    FsAccessKind::Read
+                )
+                .is_err()
+                && config
+                    .ensure_path_allowed(
+                        "./out/contracts/NoPermissionContract.sol",
+                        FsAccessKind::Write
+                    )
+                    .is_err()
+        );
+    }
+
+    #[test]
+    fn directory_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_directory("./out/contracts"),
+            PathPermission::read_write_directory("./out/contracts/readwrite/"),
+        ]);
+
+        let root = "/my/project/root/";
+        let config = config(root, permissions);
+
+        assert!(config
+            .ensure_path_allowed("./out/contracts", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/contracts", FsAccessKind::Write)
+            .is_err());
+
+        assert!(config
+            .ensure_path_allowed("./out/contracts/readwrite", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/contracts/readwrite", FsAccessKind::Write)
+            .is_ok());
+
+        assert!(config
+            .ensure_path_allowed("./out", FsAccessKind::Read)
+            .is_err());
+        assert!(config
+            .ensure_path_allowed("./out", FsAccessKind::Write)
+            .is_err());
+    }
+
+    #[test]
+    fn file_and_directory_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_directory("./out"),
+            PathPermission::write_file("./out/WriteContract.sol"),
+        ]);
+
+        let root = "/my/project/root/";
+        let config = config(root, permissions);
+
+        assert!(config
+            .ensure_path_allowed("./out", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/WriteContract.sol", FsAccessKind::Write)
+            .is_ok());
+
+        // Inherited read from directory
+        assert!(config
+            .ensure_path_allowed("./out/ReadContract.sol", FsAccessKind::Read)
+            .is_ok());
+        // No permission for writing
+        assert!(config
+            .ensure_path_allowed("./out/ReadContract.sol", FsAccessKind::Write)
+            .is_err());
+    }
+
+    #[test]
+    fn nested_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_directory("./"),
+            PathPermission::write_directory("./out"),
+            PathPermission::read_write_directory("./out/contracts"),
+        ]);
+
+        let root = "/my/project/root/";
+        let config = config(root, permissions);
+
+        assert!(config
+            .ensure_path_allowed("./out/contracts/MyContract.sol", FsAccessKind::Write)
+            .is_ok());
+
+        assert!(config
+            .ensure_path_allowed("./out/contracts/MyContract.sol", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/MyContract.sol", FsAccessKind::Write)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/MyContract.sol", FsAccessKind::Read)
+            .is_err());
+    }
+
+    #[test]
+    fn exclude_file() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_write_directory("./out"),
+            PathPermission::none("./out/Config.toml"),
+        ]);
+
+        let root = "/my/project/root/";
+        let config = config(root, permissions);
+
+        assert!(config
+            .ensure_path_allowed("./out/Config.toml", FsAccessKind::Read)
+            .is_err());
+        assert!(config
+            .ensure_path_allowed("./out/Config.toml", FsAccessKind::Write)
+            .is_err());
+        assert!(config
+            .ensure_path_allowed("./out/OtherFile.sol", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/OtherFile.sol", FsAccessKind::Write)
+            .is_ok());
+    }
 }

@@ -237,7 +237,7 @@ impl FsAccessPermission {
     pub fn is_granted(&self, kind: FsAccessKind) -> bool {
         #[allow(clippy::match_same_arms)]
         match (self, kind) {
-            (FsAccessPermission::ReadWriteFile, _) => true,
+            (FsAccessPermission::ReadWriteFile, FsAccessKind::Read | FsAccessKind::Write) => true,
             (FsAccessPermission::None, _) => false,
             (FsAccessPermission::ReadFile, FsAccessKind::Read) => true,
             (FsAccessPermission::WriteFile, FsAccessKind::Write) => true,
@@ -246,110 +246,5 @@ impl FsAccessPermission {
             (FsAccessPermission::DangerouslyWriteDirectory, FsAccessKind::Write) => true,
             _ => false,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn file_permissions() {
-        let permissions = FsPermissions::new(vec![
-            PathPermission::read_file("./out/contracts/ReadContract.sol"),
-            PathPermission::read_write_file("./out/contracts/ReadWriteContract.sol"),
-        ]);
-
-        assert!(permissions.is_path_allowed(
-            Path::new("./out/contracts/ReadContract.sol"),
-            FsAccessKind::Read
-        ));
-        assert!(permissions.is_path_allowed(
-            Path::new("./out/contracts/ReadWriteContract.sol"),
-            FsAccessKind::Write
-        ));
-        assert!(
-            !permissions.is_path_allowed(
-                Path::new("./out/contracts/NoPermissionContract.sol"),
-                FsAccessKind::Write
-            ) && !permissions.is_path_allowed(
-                Path::new("./out/contracts/NoPermissionContract.sol"),
-                FsAccessKind::Read
-            )
-        );
-    }
-
-    #[test]
-    fn directory_permissions() {
-        let permissions = FsPermissions::new(vec![
-            PathPermission::read_directory("./out/contracts"),
-            PathPermission::read_write_directory("./out/contracts/readwrite/"),
-        ]);
-
-        assert!(permissions.is_path_allowed(Path::new("./out/contracts"), FsAccessKind::Read));
-        assert!(!permissions.is_path_allowed(Path::new("./out/contracts"), FsAccessKind::Write));
-
-        assert!(
-            permissions.is_path_allowed(Path::new("./out/contracts/readwrite"), FsAccessKind::Read)
-        );
-        assert!(permissions
-            .is_path_allowed(Path::new("./out/contracts/readwrite"), FsAccessKind::Write));
-
-        assert!(!permissions.is_path_allowed(Path::new("./out"), FsAccessKind::Read));
-        assert!(!permissions.is_path_allowed(Path::new("./out"), FsAccessKind::Write));
-    }
-
-    #[test]
-    fn file_and_directory_permissions() {
-        let permissions = FsPermissions::new(vec![
-            PathPermission::read_directory("./out"),
-            PathPermission::write_file("./out/WriteContract.sol"),
-        ]);
-
-        assert!(permissions.is_path_allowed(Path::new("./out"), FsAccessKind::Read));
-        assert!(
-            permissions.is_path_allowed(Path::new("./out/WriteContract.sol"), FsAccessKind::Write)
-        );
-        // Inherited read from directory
-        assert!(
-            permissions.is_path_allowed(Path::new("./out/ReadContract.sol"), FsAccessKind::Read)
-        );
-        // No permission for writing
-        assert!(
-            !permissions.is_path_allowed(Path::new("./out/ReadContract.sol"), FsAccessKind::Write)
-        );
-    }
-
-    #[test]
-    fn nested_permissions() {
-        let permissions = FsPermissions::new(vec![
-            PathPermission::read_directory("./"),
-            PathPermission::write_directory("./out"),
-            PathPermission::read_write_directory("./out/contracts"),
-        ]);
-
-        assert!(permissions.is_path_allowed(
-            Path::new("./out/contracts/MyContract.sol"),
-            FsAccessKind::Write
-        ));
-        assert!(permissions.is_path_allowed(
-            Path::new("./out/contracts/MyContract.sol"),
-            FsAccessKind::Read
-        ));
-        assert!(permissions.is_path_allowed(Path::new("./out/MyContract.sol"), FsAccessKind::Write));
-        assert!(!permissions.is_path_allowed(Path::new("./out/MyContract.sol"), FsAccessKind::Read));
-    }
-
-    #[test]
-    fn exclude_file() {
-        let permissions = FsPermissions::new(vec![
-            PathPermission::read_write_directory("./out"),
-            PathPermission::none("./out/Config.toml"),
-        ]);
-
-        assert!(!permissions.is_path_allowed(Path::new("./out/Config.toml"), FsAccessKind::Read));
-        assert!(!permissions.is_path_allowed(Path::new("./out/Config.toml"), FsAccessKind::Write));
-        assert!(permissions.is_path_allowed(Path::new("./out/OtherFile.sol"), FsAccessKind::Read));
-        assert!(permissions.is_path_allowed(Path::new("./out/OtherFile.sol"), FsAccessKind::Write));
     }
 }

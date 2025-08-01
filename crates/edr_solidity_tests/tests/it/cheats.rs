@@ -21,7 +21,7 @@ async fn test_cheats_local(test_data: &L1ForgeTestData) {
 
     let runner = test_data
         .runner_with_fs_permissions(
-            FsPermissions::new(vec![PathPermission::read_write_directory("./")]),
+            FsPermissions::new(vec![PathPermission::read_write_directory("./fixtures")]),
             test_data.config_with_mock_rpc(),
         )
         .await;
