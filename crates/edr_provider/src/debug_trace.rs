@@ -320,7 +320,7 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
 
     fn step(&mut self, interpreter: &mut Interpreter<EthInterpreter>, _context: &mut ContextT) {
         self.contract_address = interpreter.input.target_address();
-        self.gas_remaining = interpreter.control.gas().remaining();
+        self.gas_remaining = interpreter.gas.remaining();
 
         if !self.config.disable_stack {
             self.stack.clone_from(interpreter.stack.data());
@@ -396,7 +396,7 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
 
         let gas_cost = self
             .gas_remaining
-            .saturating_sub(interpreter.control.gas().remaining());
+            .saturating_sub(interpreter.gas.remaining());
         let log_item = DebugTraceLogItem {
             pc: self.pc as u64,
             op: self.opcode,
