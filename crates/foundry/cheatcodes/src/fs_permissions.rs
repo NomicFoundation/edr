@@ -339,4 +339,17 @@ mod tests {
         assert!(permissions.is_path_allowed(Path::new("./out/MyContract.sol"), FsAccessKind::Write));
         assert!(!permissions.is_path_allowed(Path::new("./out/MyContract.sol"), FsAccessKind::Read));
     }
+
+    #[test]
+    fn exclude_file() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_write_directory("./out"),
+            PathPermission::none("./out/Config.toml"),
+        ]);
+
+        assert!(!permissions.is_path_allowed(Path::new("./out/Config.toml"), FsAccessKind::Read));
+        assert!(!permissions.is_path_allowed(Path::new("./out/Config.toml"), FsAccessKind::Write));
+        assert!(permissions.is_path_allowed(Path::new("./out/OtherFile.sol"), FsAccessKind::Read));
+        assert!(permissions.is_path_allowed(Path::new("./out/OtherFile.sol"), FsAccessKind::Write));
+    }
 }
