@@ -43,6 +43,7 @@ pub use self::{
     },
     data::{CallResult, ProviderData},
     debug_mine::{DebugMineBlockResult, DebugMineBlockResultForChainSpec},
+    debug_trace::DebugTraceError,
     error::{
         EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, TransactionFailure,
         TransactionFailureReason,

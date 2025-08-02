@@ -17,5 +17,6 @@ pub const CHAIN_TYPE: &str = "generic";
 /// - it allows unknown transaction types (treats them as legacy
 ///   [`Eip155`](edr_eth::transaction::signed::Eip155) transactions)
 /// - it allows remote blocks with missing `nonce` and `mix_hash` fields
+/// - it allows missing `blob_gas` fields in Cancun or above
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, alloy_rlp::RlpEncodable)]
 pub struct GenericChainSpec;
