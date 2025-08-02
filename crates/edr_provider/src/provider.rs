@@ -108,7 +108,9 @@ impl<
                 BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
             >,
         >,
-        subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
+        subscriber_callback: Box<
+            dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
+        >,
         config: ProviderConfig<<ChainSpecT as ChainHardfork>::Hardfork>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,

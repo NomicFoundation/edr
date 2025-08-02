@@ -1,11 +1,16 @@
 use std::sync::Arc;
 
+use edr_eth::B256;
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use edr_provider::{time::CurrentTime, SyncLogger};
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::tokio::runtime;
 
-use crate::{provider::SyncProvider, spec::SyncNapiSpec, subscription};
+use crate::{
+    provider::SyncProvider,
+    spec::SyncNapiSpec,
+    subscription::{self, SubscriptionEvent},
+};
 
 /// A builder for creating a new provider.
 pub trait Builder: Send {
@@ -23,7 +28,7 @@ pub struct ProviderBuilder<ChainSpecT: SyncNapiSpec<CurrentTime>> {
         >,
     >,
     provider_config: edr_provider::ProviderConfig<ChainSpecT::Hardfork>,
-    subscription_callback: subscription::Callback<ChainSpecT>,
+    subscription_callback: subscription::Callback,
 }
 
 impl<ChainSpecT: SyncNapiSpec<CurrentTime>> ProviderBuilder<ChainSpecT> {
@@ -38,7 +43,7 @@ impl<ChainSpecT: SyncNapiSpec<CurrentTime>> ProviderBuilder<ChainSpecT> {
             >,
         >,
         provider_config: edr_provider::ProviderConfig<ChainSpecT::Hardfork>,
-        subscription_callback: subscription::Callback<ChainSpecT>,
+        subscription_callback: subscription::Callback,
     ) -> Self {
         Self {
             contract_decoder,
@@ -56,7 +61,15 @@ impl<ChainSpecT: SyncNapiSpec<CurrentTime>> Builder for ProviderBuilder<ChainSpe
         let provider = edr_provider::Provider::<ChainSpecT>::new(
             runtime.clone(),
             builder.logger,
-            Box::new(move |event| builder.subscription_callback.call(event)),
+            Box::new(move |event| {
+                let event = SubscriptionEvent::new::<
+                    ChainSpecT::Block,
+                    ChainSpecT::RpcBlock<B256>,
+                    ChainSpecT::SignedTransaction,
+                >(event);
+
+                builder.subscription_callback.call(event);
+            }),
             builder.provider_config,
             builder.contract_decoder,
             CurrentTime,

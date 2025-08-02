@@ -223,7 +223,8 @@ pub struct ProviderData<
         >,
     >,
     impersonated_accounts: HashSet<Address>,
-    subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
+    subscriber_callback:
+        Box<dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>>,
     timer: TimerT,
     // We need the Arc to let us avoid returning references to the cache entries which need &mut
     // self to get.
@@ -598,7 +599,9 @@ where
                 BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
             >,
         >,
-        subscriber_callback: Box<dyn SyncSubscriberCallback<ChainSpecT>>,
+        subscriber_callback: Box<
+            dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
+        >,
         config: ProviderConfig<ChainSpecT::Hardfork>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
