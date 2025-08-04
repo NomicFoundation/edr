@@ -10,11 +10,14 @@ use edr_eth::{
     spec::HaltReasonTrait,
 };
 use edr_solidity_tests::{
-    result::TestStatus, revm::context::TxEnv, IncludeTraces, SolidityTestRunnerConfig,
+    result::{TestKind, TestStatus},
+    revm::context::TxEnv,
+    IncludeTraces, SolidityTestRunnerConfig,
 };
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 use foundry_evm::{
     constants::HARDHAT_CONSOLE_ADDRESS,
+    decode::decode_console_logs,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, L1EvmBuilder, TransactionEnvTr,
         TransactionErrorTrait,
@@ -114,8 +117,8 @@ async fn runner_config<
     };
 
     config.cheats_config_options.fs_permissions = FsPermissions::new(vec![
-        PathPermission::read("./fixtures"),
-        PathPermission::read("out"),
+        PathPermission::read_directory("./fixtures"),
+        PathPermission::read_directory("out"),
     ]);
     if let Some(sender) = sender {
         config.evm_opts.sender = sender;
@@ -257,6 +260,26 @@ test_repro!(3792);
 // https://github.com/foundry-rs/foundry/issues/4402
 test_repro!(4402);
 
+// https://github.com/foundry-rs/foundry/issues/4523
+test_repro!(4523, false, None, |res| {
+    let mut res = res
+        .remove("default/repros/Issue4523.t.sol:Issue4523Test")
+        .unwrap();
+
+    let test = res.test_results.remove("test_GasMeter()").unwrap();
+    assert!(matches!(test.status, TestStatus::Success));
+    // forge@56b806a3ba reports 53097 gas for this test
+    assert!(matches!(test.kind, TestKind::Standard(44590)));
+
+    let test = res.test_results.remove("test_GasLeft()").unwrap();
+    assert!(matches!(test.status, TestStatus::Success));
+    // forge@56b806a3ba reports 50068 gas for this test
+    assert_eq!(
+        decode_console_logs(&test.logs),
+        vec!["Gas cost: 41568".to_string()]
+    );
+});
+
 // https://github.com/foundry-rs/foundry/issues/4586
 remote_test_repro!(4586);
 
@@ -272,6 +295,36 @@ remote_test_repro!(4640);
 
 // https://github.com/foundry-rs/foundry/issues/5038
 test_repro!(5038);
+
+// https://github.com/foundry-rs/foundry/issues/5491
+test_repro!(5491, false, None, |res| {
+    let mut res = res
+        .remove("default/repros/Issue5491.t.sol:Issue5491Test")
+        .unwrap();
+
+    let test = res.test_results.remove("testWeirdGas1()").unwrap();
+    assert!(matches!(test.status, TestStatus::Success));
+    // forge@56b806a3ba reports 3148 gas for this test
+    assert!(matches!(test.kind, TestKind::Standard(2962)));
+
+    let test = res.test_results.remove("testWeirdGas2()").unwrap();
+    assert!(matches!(test.status, TestStatus::Success));
+    // forge@56b806a3ba reports 3213 gas for this test
+    assert!(matches!(test.kind, TestKind::Standard(3070)));
+
+    let test = res.test_results.remove("testNormalGas()").unwrap();
+    assert!(matches!(test.status, TestStatus::Success));
+    // forge@56b806a3ba reports 3148 gas for this test
+    assert!(matches!(test.kind, TestKind::Standard(3124)));
+
+    let test = res.test_results.remove("testWithAssembly()").unwrap();
+    assert!(matches!(test.status, TestStatus::Success));
+    // forge@56b806a3ba reports 3029 gas for this test
+    assert!(matches!(test.kind, TestKind::Standard(3006)));
+});
+
+// https://github.com/foundry-rs/foundry/issues/5564
+test_repro!(5564);
 
 // https://github.com/foundry-rs/foundry/issues/5739
 remote_test_repro!(5739);
@@ -389,7 +442,7 @@ remote_test_repro!(6538);
 test_repro!(6554; |config| {
     let path = config.project_root.join("out/default/Issue6554.t.sol");
 
-    config.cheats_config_options.fs_permissions.add(PathPermission::read_write(path));
+    config.cheats_config_options.fs_permissions.add(PathPermission::read_write_directory(path));
 });
 
 // https://github.com/foundry-rs/foundry/issues/6616

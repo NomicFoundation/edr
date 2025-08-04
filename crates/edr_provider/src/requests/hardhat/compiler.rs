@@ -3,10 +3,7 @@ use edr_solidity::{
     compiler::create_models_and_decode_bytecodes,
 };
 
-use crate::{
-    data::ProviderData, time::TimeSinceEpoch, ProviderError, ProviderErrorForChainSpec,
-    ProviderSpec,
-};
+use crate::{data::ProviderData, time::TimeSinceEpoch, ProviderSpec};
 
 pub fn handle_add_compilation_result<
     ChainSpecT: ProviderSpec<TimerT>,
@@ -16,34 +13,10 @@ pub fn handle_add_compilation_result<
     solc_version: String,
     compiler_input: CompilerInput,
     compiler_output: CompilerOutput,
-) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
-    if let Err(error) = add_compilation_result_inner::<ChainSpecT, TimerT>(
-        data,
-        solc_version,
-        compiler_input,
-        compiler_output,
-    ) {
-        data.logger_mut()
-            .print_contract_decoding_error(&error.to_string())
-            .map_err(ProviderError::Logger)?;
-        Ok(false)
-    } else {
-        Ok(true)
-    }
-}
-
-fn add_compilation_result_inner<
-    ChainSpecT: ProviderSpec<TimerT>,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    data: &mut ProviderData<ChainSpecT, TimerT>,
-    solc_version: String,
-    compiler_input: CompilerInput,
-    compiler_output: CompilerOutput,
-) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<(), String> {
     let contracts =
         create_models_and_decode_bytecodes(solc_version, &compiler_input, &compiler_output)
-            .map_err(|err| ProviderError::SolcDecoding(err.to_string()))?;
+            .map_err(|err| err.to_string())?;
 
     let contract_decoder = data.contract_decoder();
     for contract in contracts {

@@ -5,7 +5,12 @@ import {
   assertStackTraces,
   TestContext,
 } from "./testContext.js";
-import { L1_CHAIN_TYPE, OP_CHAIN_TYPE } from "@nomicfoundation/edr";
+import {
+  L1_CHAIN_TYPE,
+  OP_CHAIN_TYPE,
+  SuiteResult,
+  TestStatus,
+} from "@nomicfoundation/edr";
 
 describe("Unit tests", () => {
   let testContext: TestContext;
@@ -30,7 +35,7 @@ describe("Unit tests", () => {
 
   it("Latest global fork stack trace", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests, stackTraces } =
@@ -127,7 +132,7 @@ describe("Unit tests", () => {
 
   it("GlobalFork", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
@@ -144,7 +149,7 @@ describe("Unit tests", () => {
 
   it("ForkCheatcode", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests } = await testContext.runTestsWithStats(
@@ -162,7 +167,7 @@ describe("Unit tests", () => {
 
   it("Latest fork cheatcode", async function (t) {
     if (testContext.rpcUrl === undefined) {
-      t.skip();
+      return t.skip();
     }
 
     const { totalTests, failedTests, stackTraces } =
@@ -250,6 +255,8 @@ describe("Unit tests", () => {
         {
           contract: "UnsupportedCheatcodeTest",
           function: "testUnsupportedCheatcode",
+          message: "cheatcode 'broadcast()' is not supported",
+          line: 9,
         },
       ]
     );
@@ -387,5 +394,117 @@ describe("Unit tests", () => {
         "call didn't revert at a lower depth than cheatcode call depth"
       );
     });
+  });
+
+  // Test that test suite results are returned in the order of completion and immediately after they're done.
+  it("StreamingResults", async function () {
+    const chainType = L1_CHAIN_TYPE;
+    const testSuites = [
+      "FirstReturnTest",
+      "SecondReturnTest",
+      "ThirdReturnTest",
+    ];
+    const testSuiteIds = testContext.matchingTests(new Set(testSuites));
+    const config = testContext.defaultConfig(chainType);
+
+    const results: {
+      testResults: { testSuiteResult: SuiteResult; time: bigint }[];
+      start: bigint;
+    } = await new Promise((resolve, reject) => {
+      const testResults: { testSuiteResult: SuiteResult; time: bigint }[] = [];
+      const start = process.hrtime.bigint();
+      testContext.edrContext
+        .runSolidityTests(
+          chainType,
+          testContext.artifacts,
+          testSuiteIds,
+          config,
+          testContext.tracingConfig,
+          (testSuiteResult) => {
+            testResults.push({
+              testSuiteResult,
+              time: process.hrtime.bigint(),
+            });
+            // Test timeout will handle it if this is never hit
+            if (testResults.length == testSuiteIds.length) {
+              resolve({ testResults, start });
+            }
+          }
+        )
+        .catch(reject);
+    });
+    const elapsed = process.hrtime.bigint() - results.start;
+
+    assert.equal(results.testResults.length, 3);
+
+    assert(
+      Number(results.testResults[0].time) / Number(elapsed) > 2,
+      `Time for first test is not more than 2x of starting test execution: first test ${results.testResults[0].time} vs prevTime ${elapsed}`
+    );
+
+    for (let i = 0; i < results.testResults.length; i++) {
+      const suiteResult = results.testResults[i].testSuiteResult;
+
+      assert.equal(suiteResult.id.name, testSuites[i]);
+      assert.equal(suiteResult.testResults.length, 1);
+      assert.equal(suiteResult.testResults[0].status, TestStatus.Success);
+
+      if (i > 0) {
+        const time = results.testResults[i].time - results.start;
+        const prevTime = results.testResults[i - 1].time - results.start;
+        assert(
+          Number(time) / Number(prevTime) > 2,
+          `Time for test ${i} is not greater than 2x: time ${time} vs prevTime ${prevTime}`
+        );
+      }
+    }
+  });
+
+  it("ExpectRevertError", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("ExpectRevertErrorTest");
+
+    assert.equal(failedTests, 3);
+    assert.equal(totalTests, 3);
+
+    assertStackTraces(
+      stackTraces.get("testFunctionDoesntRevertAsExpected()"),
+      "next call did not revert as expected",
+      [
+        {
+          contract: "ExpectRevertErrorTest",
+          function: "testFunctionDoesntRevertAsExpected",
+          line: 19, // foo.f();
+          message: "next call did not revert as expected",
+        },
+      ]
+    );
+
+    assertStackTraces(
+      stackTraces.get("testFunctionRevertsWithDifferentMessage()"),
+      "Error != expected error: revert with a different message != expected message",
+      [
+        {
+          contract: "ExpectRevertErrorTest",
+          function: "testFunctionRevertsWithDifferentMessage",
+          line: 25, // foo.g();
+          message:
+            "Error != expected error: revert with a different message != expected message",
+        },
+      ]
+    );
+
+    assertStackTraces(
+      stackTraces.get("testFunctionRevertCountMismatch()"),
+      "next call did not revert as expected",
+      [
+        {
+          contract: "ExpectRevertErrorTest",
+          function: "testFunctionRevertCountMismatch",
+          line: 32, // foo.f();
+          message: "next call did not revert as expected",
+        },
+      ]
+    );
   });
 });

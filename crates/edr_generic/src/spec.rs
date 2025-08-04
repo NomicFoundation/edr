@@ -1,12 +1,17 @@
 use std::sync::Arc;
 
 use edr_eth::{
-    eips::eip1559::BaseFeeParams,
-    l1::{self, InvalidTransaction, L1ChainSpec},
+    block::{self, BlobGas, Header, PartialHeader},
+    eips::{
+        eip1559::BaseFeeParams,
+        eip4844::{self, BlobExcessGasAndPrice},
+    },
+    l1::{self, BlockEnv, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
     receipt::BlockReceipt,
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
+    Bytes,
 };
 use edr_evm::{
     evm::{EthFrame, Evm},
@@ -14,27 +19,123 @@ use edr_evm::{
     inspector::{Inspector, NoOpInspector},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::{EthPrecompiles, PrecompileProvider},
-    spec::{ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec, RuntimeSpec},
+    spec::{
+        BlockEnvConstructor, ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec,
+        GenesisBlockFactory, RuntimeSpec, EXTRA_DATA,
+    },
     state::{Database, DatabaseComponentError},
     transaction::{TransactionError, TransactionErrorForChainSpec},
-    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, RemoteBlock, SyncBlock,
+    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock,
+    EthLocalBlockForChainSpec, RemoteBlock, SyncBlock,
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
 use crate::GenericChainSpec;
 
+impl ChainHardfork for GenericChainSpec {
+    type Hardfork = l1::SpecId;
+}
+
 impl ChainSpec for GenericChainSpec {
     type BlockEnv = l1::BlockEnv;
     type Context = ();
     type HaltReason = l1::HaltReason;
-    type Hardfork = l1::SpecId;
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
+}
+
+fn blob_excess_gas_and_price(
+    blob_gas: &Option<BlobGas>,
+    hardfork: l1::SpecId,
+) -> Option<BlobExcessGasAndPrice> {
+    let is_prague: bool = hardfork >= l1::SpecId::PRAGUE;
+
+    blob_gas
+        .as_ref()
+        .map(|BlobGas { excess_gas, .. }| {
+            eip4844::BlobExcessGasAndPrice::new(*excess_gas, is_prague)
+        })
+        .or_else(|| {
+            // If the hardfork requires it, set ExcessGasAndPrice default value
+            // see https://github.com/NomicFoundation/edr/issues/947
+            if hardfork >= l1::SpecId::CANCUN {
+                Some(eip4844::BlobExcessGasAndPrice::new(0u64, is_prague))
+            } else {
+                None
+            }
+        })
+}
+
+impl BlockEnvConstructor<block::Header> for GenericChainSpec {
+    fn new_block_env(header: &Header, hardfork: l1::SpecId) -> Self::BlockEnv {
+        BlockEnv {
+            number: header.number,
+            beneficiary: header.beneficiary,
+            timestamp: header.timestamp,
+            difficulty: header.difficulty,
+            basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
+                base_fee.try_into().expect("base fee is too large")
+            }),
+            gas_limit: header.gas_limit,
+            prevrandao: if hardfork >= l1::SpecId::MERGE {
+                Some(header.mix_hash)
+            } else {
+                None
+            },
+            blob_excess_gas_and_price: blob_excess_gas_and_price(&header.blob_gas, hardfork),
+        }
+    }
+}
+
+impl BlockEnvConstructor<PartialHeader> for GenericChainSpec {
+    fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self::BlockEnv {
+        BlockEnv {
+            number: header.number,
+            beneficiary: header.beneficiary,
+            timestamp: header.timestamp,
+            difficulty: header.difficulty,
+            basefee: header.base_fee.map_or(0u64, |base_fee| {
+                base_fee.try_into().expect("base fee is too large")
+            }),
+            gas_limit: header.gas_limit,
+            prevrandao: if hardfork >= l1::SpecId::MERGE {
+                Some(header.mix_hash)
+            } else {
+                None
+            },
+            blob_excess_gas_and_price: blob_excess_gas_and_price(&header.blob_gas, hardfork),
+        }
+    }
 }
 
 impl EthHeaderConstants for GenericChainSpec {
     const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork> = L1ChainSpec::BASE_FEE_PARAMS;
 
     const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
+}
+
+impl GenesisBlockFactory for GenericChainSpec {
+    type CreationError = <L1ChainSpec as GenesisBlockFactory>::CreationError;
+
+    type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
+
+    fn genesis_block(
+        genesis_diff: edr_evm::state::StateDiff,
+        hardfork: Self::Hardfork,
+        mut options: edr_evm::GenesisBlockOptions,
+    ) -> Result<Self::LocalBlock, Self::CreationError> {
+        // If no option is provided, use the default extra data for L1 Ethereum.
+        options.extra_data = Some(
+            options
+                .extra_data
+                .unwrap_or(Bytes::copy_from_slice(EXTRA_DATA)),
+        );
+
+        EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
+            genesis_diff,
+            hardfork,
+            options,
+        )
+    }
 }
 
 impl RuntimeSpec for GenericChainSpec {
@@ -157,5 +258,89 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
         <L1ChainSpec as ProviderSpec<TimerT>>::cast_halt_reason(reason)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use edr_eth::{
+        block::{BlobGas, Header},
+        eips::eip4844,
+        l1, Address, Bloom, Bytes, B256, B64, U256,
+    };
+    use edr_evm::spec::BlockEnvConstructor as _;
+
+    use crate::spec::GenericChainSpec;
+
+    fn build_block_header(blob_gas: Option<BlobGas>) -> Header {
+        Header {
+            parent_hash: B256::default(),
+            ommers_hash: B256::default(),
+            beneficiary: Address::default(),
+            state_root: B256::default(),
+            transactions_root: B256::default(),
+            receipts_root: B256::default(),
+            logs_bloom: Bloom::default(),
+            difficulty: U256::default(),
+            number: 124,
+            gas_limit: u64::default(),
+            gas_used: 1337,
+            timestamp: 0,
+            extra_data: Bytes::default(),
+            mix_hash: B256::default(),
+            nonce: B64::from(99u64),
+            base_fee_per_gas: None,
+            withdrawals_root: None,
+            blob_gas,
+            parent_beacon_block_root: None,
+            requests_hash: Some(B256::random()),
+        }
+    }
+
+    #[test]
+    fn generic_block_constructor_should_default_excess_blob_gas_for_cancun() {
+        let header = build_block_header(None); // No blob gas information
+
+        let block = GenericChainSpec::new_block_env(&header, l1::SpecId::CANCUN);
+        assert_eq!(
+            block.blob_excess_gas_and_price,
+            Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))
+        );
+    }
+
+    #[test]
+    fn generic_block_constructor_should_default_excess_blob_gas_after_cancun() {
+        let header = build_block_header(None); // No blob gas information
+
+        let block = GenericChainSpec::new_block_env(&header, l1::SpecId::PRAGUE);
+        assert_eq!(
+            block.blob_excess_gas_and_price,
+            Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))
+        );
+    }
+
+    #[test]
+    fn generic_block_constructor_should_not_default_excess_blob_gas_before_cancun() {
+        let header = build_block_header(None); // No blob gas information
+
+        let block = GenericChainSpec::new_block_env(&header, l1::SpecId::SHANGHAI);
+        assert_eq!(block.blob_excess_gas_and_price, None);
+    }
+
+    #[test]
+    fn generic_block_constructor_should_use_existing_excess_blob_gas() {
+        let excess_gas = 0x80000u64;
+        let blob_gas = BlobGas {
+            excess_gas,
+            gas_used: 0x80000u64,
+        };
+        let header = build_block_header(Some(blob_gas)); // blob gas present
+
+        let block = GenericChainSpec::new_block_env(&header, l1::SpecId::CANCUN);
+
+        let blob_excess_gas = block
+            .blob_excess_gas_and_price
+            .expect("Blob excess gas should be set");
+        assert_eq!(blob_excess_gas.excess_blob_gas, excess_gas);
     }
 }

@@ -6,11 +6,10 @@ use edr_eth::{
     Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U128, U256, U64,
 };
 use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
-use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
 use serde::{Deserialize, Serialize};
 
 use super::serde::{RpcAddress, Timestamp};
-use crate::requests::{debug::DebugTraceConfig, hardhat::rpc_types::ResetProviderConfig};
+use crate::requests::debug::DebugTraceConfig;
 
 mod optional_block_spec {
     use super::BlockSpec;
@@ -184,15 +183,6 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
         with = "edr_eth::serde::empty_params"
     )]
     MaxPriorityFeePerGas(()),
-    /// `eth_mining`
-    #[serde(rename = "eth_mining", with = "edr_eth::serde::empty_params")]
-    Mining(()),
-    /// `net_listening`
-    #[serde(rename = "net_listening", with = "edr_eth::serde::empty_params")]
-    NetListening(()),
-    /// `net_peerCount`
-    #[serde(rename = "net_peerCount", with = "edr_eth::serde::empty_params")]
-    NetPeerCount(()),
     /// `net_version`
     #[serde(rename = "net_version", with = "edr_eth::serde::empty_params")]
     NetVersion(()),
@@ -296,14 +286,6 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     #[serde(rename = "debug_traceTransaction")]
     DebugTraceTransaction(B256, #[serde(default)] Option<DebugTraceConfig>),
 
-    /// `hardhat_addCompilationResult`
-    #[serde(rename = "hardhat_addCompilationResult")]
-    AddCompilationResult(
-        /// solc version:
-        String,
-        Box<CompilerInput>,
-        CompilerOutput,
-    ),
     /// `hardhat_dropTransaction`
     #[serde(rename = "hardhat_dropTransaction", with = "edr_eth::serde::sequence")]
     DropTransaction(B256),
@@ -316,9 +298,6 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
         with = "edr_eth::serde::sequence"
     )]
     ImpersonateAccount(RpcAddress),
-    /// `hardhat_intervalMine`
-    #[serde(rename = "hardhat_intervalMine", with = "edr_eth::serde::empty_params")]
-    IntervalMine(()),
     /// `hardhat_metadata`
     #[serde(rename = "hardhat_metadata", with = "edr_eth::serde::empty_params")]
     Metadata(()),
@@ -336,13 +315,6 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
         )]
         Option<u64>,
     ),
-    /// `hardhat_reset`
-    #[serde(
-        rename = "hardhat_reset",
-        serialize_with = "optional_single_to_sequence",
-        deserialize_with = "sequence_to_optional_single"
-    )]
-    Reset(Option<ResetProviderConfig>),
     /// `hardhat_setBalance`
     #[serde(rename = "hardhat_setBalance")]
     SetBalance(
@@ -439,9 +411,6 @@ impl<ChainSpecT: RpcSpec> MethodInvocation<ChainSpecT> {
             MethodInvocation::GetTransactionCount(_, _) => "eth_getTransactionCount",
             MethodInvocation::GetTransactionReceipt(_) => "eth_getTransactionReceipt",
             MethodInvocation::MaxPriorityFeePerGas(_) => "eth_maxPriorityFeePerGas",
-            MethodInvocation::Mining(_) => "eth_mining",
-            MethodInvocation::NetListening(_) => "net_listening",
-            MethodInvocation::NetPeerCount(_) => "net_peerCount",
             MethodInvocation::NetVersion(_) => "net_version",
             MethodInvocation::NewBlockFilter(_) => "eth_newBlockFilter",
             MethodInvocation::NewFilter(_) => "eth_newFilter",
@@ -467,14 +436,11 @@ impl<ChainSpecT: RpcSpec> MethodInvocation<ChainSpecT> {
             MethodInvocation::EvmSnapshot(_) => "evm_snapshot",
             MethodInvocation::DebugTraceCall(_, _, _) => "debug_traceCall",
             MethodInvocation::DebugTraceTransaction(_, _) => "debug_traceTransaction",
-            MethodInvocation::AddCompilationResult(_, _, _) => "hardhat_addCompilationResult",
             MethodInvocation::DropTransaction(_) => "hardhat_dropTransaction",
             MethodInvocation::GetAutomine(_) => "hardhat_getAutomine",
             MethodInvocation::ImpersonateAccount(_) => "hardhat_impersonateAccount",
-            MethodInvocation::IntervalMine(_) => "hardhat_intervalMine",
             MethodInvocation::Metadata(_) => "hardhat_metadata",
             MethodInvocation::Mine(_, _) => "hardhat_mine",
-            MethodInvocation::Reset(_) => "hardhat_reset",
             MethodInvocation::SetBalance(_, _) => "hardhat_setBalance",
             MethodInvocation::SetCode(_, _) => "hardhat_setCode",
             MethodInvocation::SetCoinbase(_) => "hardhat_setCoinbase",

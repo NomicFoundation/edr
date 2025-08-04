@@ -812,14 +812,36 @@ export interface PathPermission {
   /** The targeted path guarded by the permission */
   path: string
 }
-/** Determines the status of file system access */
+/**
+ * Determines the level of file system access for the given path.
+ *
+ * Exact path matching is used for file permissions. Prefix matching is used
+ * for directory permissions.
+ *
+ * Giving write access to configuration files, source files or executables
+ * in a project is considered dangerous, because it can be used by malicious
+ * Solidity dependencies to escape the EVM sandbox. It is therefore
+ * recommended to give write access to specific safe files only. If write
+ * access to a directory is needed, please make sure that it doesn't contain
+ * configuration files, source files or executables neither in the top level
+ * directory, nor in any subdirectories.
+*/
 export enum FsAccessPermission {
-  /** FS access is allowed with `read` + `write` permission */
-  ReadWrite = 0,
-  /** Only reading is allowed */
-  Read = 1,
-  /** Only writing is allowed */
-  Write = 2
+  /** Allows reading and writing the file */
+  ReadWriteFile = 0,
+  /** Only allows reading the file */
+  ReadFile = 1,
+  /** Only allows writing the file */
+  WriteFile = 2,
+  /**
+   * Allows reading and writing all files in the directory and its
+   * subdirectories
+   */
+  DangerouslyReadWriteDirectory = 3,
+  /** Allows reading all files in the directory and its subdirectories */
+  ReadDirectory = 4,
+  /** Allows writing all files in the directory and its subdirectories */
+  DangerouslyWriteDirectory = 5
 }
 export interface AddressLabel {
   /** The address to label */
@@ -982,11 +1004,10 @@ export interface CallTrace {
   gasUsed: bigint
   /** The amount of native token that was included with the call. */
   value: bigint
-  /**
-   * The target of the call. Provided as a contract name if known, otherwise
-   * a checksum address.
-   */
-  contract: string
+  /** The target address of the call. */
+  address: string
+  /** The name of the contract that is the target of the call, if known. */
+  contract?: string
   /**
    * The input (calldata) to the call. If it encodes a known function call,
    * it will be decoded into the function name and a list of arguments.
@@ -1116,7 +1137,8 @@ export enum StackTraceEntryType {
   UNMAPPED_SOLC_0_6_3_REVERT_ERROR = 20,
   CONTRACT_TOO_LARGE_ERROR = 21,
   INTERNAL_FUNCTION_CALLSTACK_ENTRY = 22,
-  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23
+  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23,
+  CHEATCODE_ERROR = 24
 }
 export declare function stackTraceEntryTypeToString(val: StackTraceEntryType): string
 export const FALLBACK_FUNCTION_NAME: string
@@ -1246,6 +1268,11 @@ export interface ContractCallRunOutOfGasError {
   type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR
   sourceReference?: SourceReference
 }
+export interface CheatcodeErrorStackTraceEntry {
+  type: StackTraceEntryType.CHEATCODE_ERROR
+  message: string
+  sourceReference: SourceReference
+}
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Uint8Array
@@ -1337,6 +1364,12 @@ export declare class Response {
 }
 /** A JSON-RPC provider for Ethereum. */
 export declare class Provider {
+  /**
+   *Adds a compilation result to the instance.
+   *
+   *For internal use only. Support for this method may be removed in the future.
+   */
+  addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<boolean>
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>

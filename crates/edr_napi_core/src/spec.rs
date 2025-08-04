@@ -8,7 +8,7 @@ use edr_eth::{
 use edr_evm::trace::Trace;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
-    time::CurrentTime, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,
+    time::TimeSinceEpoch, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -49,9 +49,9 @@ pub struct SolidityTraceData<HaltReasonT: HaltReasonTrait> {
 }
 
 /// Trait for a defining a chain's associated type in the N-API.
-pub trait SyncNapiSpec:
+pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
     SyncProviderSpec<
-    CurrentTime,
+    TimerT,
     BlockEnv: Clone + Default,
     PooledTransaction: IsEip155,
     SignedTransaction: Default
@@ -75,8 +75,8 @@ pub trait SyncNapiSpec:
     ) -> napi::Result<Response<l1::HaltReason>>;
 }
 
-impl SyncNapiSpec for L1ChainSpec {
-    const CHAIN_TYPE: &'static str = "L1";
+impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
+    const CHAIN_TYPE: &'static str = edr_eth::l1::CHAIN_TYPE;
 
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
@@ -127,8 +127,8 @@ impl SyncNapiSpec for L1ChainSpec {
     }
 }
 
-impl SyncNapiSpec for GenericChainSpec {
-    const CHAIN_TYPE: &'static str = "generic";
+impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
+    const CHAIN_TYPE: &'static str = edr_generic::CHAIN_TYPE;
 
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,

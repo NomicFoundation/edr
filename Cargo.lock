@@ -2465,6 +2465,7 @@ dependencies = [
  "edr_op",
  "edr_provider",
  "edr_rpc_client",
+ "edr_rpc_eth",
  "edr_scenarios",
  "edr_solidity",
  "edr_solidity_tests",
@@ -2507,6 +2508,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tokio",
 ]
 
 [[package]]

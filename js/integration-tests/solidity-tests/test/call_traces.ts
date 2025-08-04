@@ -28,6 +28,7 @@ describe("Call traces - IncludeTraces.All", () => {
       isCheatcode: false,
       gasUsed: trace[0].gasUsed, // avoid coupling test to specific gas costs
       value: 0n,
+      address: '0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496',
       contract: "CallTraces",
       inputs: {
         name: "testNoChildren",
@@ -228,6 +229,7 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.equal(child.kind, CallKind.Create);
     assert.equal(child.success, true);
     assert.equal(child.contract, "CreateMe");
+    assert.equal(child.address, "0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f");
     assert(typeof child.outputs === "string");
     assert.match(child.outputs, /^\d+ bytes of code$/);
   });
@@ -312,8 +314,9 @@ describe("Call traces - IncludeTraces.All", () => {
     const unlabeledCall = trace[0].children[0];
     assert.equal(unlabeledCall.kind, CallKind.Call);
     assert.equal(unlabeledCall.success, true);
+    assert.equal(unlabeledCall.contract, undefined);
     assert.equal(
-      unlabeledCall.contract,
+      unlabeledCall.address,
       "0xaBcDef1234567890123456789012345678901234"
     );
   });
@@ -340,10 +343,7 @@ describe("Call traces - IncludeTraces.All", () => {
     const emptyCall3 = trace[0].children[3];
     assert.equal(emptyCall3.kind, CallKind.Call);
     assert.equal(emptyCall3.success, true);
-    assert.equal(
-      emptyCall3.contract,
-      "0x1000000000000000000000000000000000000000"
-    );
+    assert.equal(emptyCall3.contract, undefined);
     assert.deepEqual(emptyCall3.inputs, { name: "fallback", arguments: [] });
   });
 

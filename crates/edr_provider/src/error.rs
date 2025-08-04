@@ -10,13 +10,13 @@ use edr_eth::{
     filter::SubscriptionType,
     hex, l1,
     result::ExecutionResult,
-    spec::{ChainSpec, HaltReasonTrait},
+    spec::{ChainHardfork, ChainSpec, HaltReasonTrait},
     transaction::TransactionValidation,
     Address, BlockSpec, BlockTag, Bytes, B256, U256,
 };
 use edr_evm::{
-    blockchain::{BlockchainError, ForkedCreationError, LocalCreationError},
-    spec::RuntimeSpec,
+    blockchain::{BlockchainError, ForkedCreationError, InvalidGenesisBlock},
+    spec::{GenesisBlockFactory, RuntimeSpec},
     state::{AccountOverrideConversionError, StateError},
     trace::Trace,
     transaction::{self, TransactionError},
@@ -34,21 +34,30 @@ use crate::{
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
-    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as GenesisBlockFactory>::CreationError,
+    <ChainSpecT as ChainHardfork>::Hardfork,
     <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
 >;
 
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError<BlockConversionError, HardforkT: Debug, ReceiptConversionError> {
+pub enum CreationError<
+    BlockConversionErrorT,
+    GenesisBlockCreationErrorT,
+    HardforkT: Debug,
+    ReceiptConversionError,
+> {
     /// A blockchain error
     #[error(transparent)]
-    Blockchain(BlockchainError<BlockConversionError, HardforkT, ReceiptConversionError>),
+    Blockchain(BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionError>),
     /// A contract decoder error
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
     /// An error that occurred while constructing a forked blockchain.
     #[error(transparent)]
     ForkedBlockchainCreation(#[from] ForkedCreationError<HardforkT>),
+    /// Invalid genesis block.
+    #[error(transparent)]
+    InvalidGenesisBlock(InvalidGenesisBlock),
     #[error("Invalid HTTP header name: {0}")]
     InvalidHttpHeaders(HttpError),
     /// Invalid initial date
@@ -60,7 +69,7 @@ pub enum CreationError<BlockConversionError, HardforkT: Debug, ReceiptConversion
     InvalidMaxCachedStates(OsString),
     /// An error that occurred while constructing a local blockchain.
     #[error(transparent)]
-    LocalBlockchainCreation(#[from] LocalCreationError),
+    LocalBlockchainCreation(GenesisBlockCreationErrorT),
     /// An error that occured while querying the remote state.
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),
@@ -69,8 +78,9 @@ pub enum CreationError<BlockConversionError, HardforkT: Debug, ReceiptConversion
 /// Helper type for a chain-specific [`ProviderError`].
 pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
+    <ChainSpecT as GenesisBlockFactory>::CreationError,
     <ChainSpecT as ChainSpec>::HaltReason,
-    <ChainSpecT as ChainSpec>::Hardfork,
+    <ChainSpecT as ChainHardfork>::Hardfork,
     <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
@@ -78,6 +88,7 @@ pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError<
     BlockConversionErrorT,
+    GenesisBlockCreationErrorT,
     HaltReasonT: HaltReasonTrait,
     HardforkT: Debug,
     ReceiptConversionErrorT,
@@ -126,7 +137,15 @@ pub enum ProviderError<
     #[error(transparent)]
     Blockchain(#[from] BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>),
     #[error(transparent)]
-    Creation(#[from] CreationError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>),
+    Creation(
+        #[from]
+        CreationError<
+            BlockConversionErrorT,
+            GenesisBlockCreationErrorT,
+            HardforkT,
+            ReceiptConversionErrorT,
+        >,
+    ),
     #[error(transparent)]
     DebugTrace(
         #[from]
@@ -370,6 +389,7 @@ pub enum ProviderError<
 
 impl<
         BlockConversionErrorT,
+        GenesisBlockCreationErrorT,
         HaltReasonT: HaltReasonTrait,
         HardforkT: Debug,
         ReceiptConversionErrorT,
@@ -377,6 +397,7 @@ impl<
     >
     ProviderError<
         BlockConversionErrorT,
+        GenesisBlockCreationErrorT,
         HaltReasonT,
         HardforkT,
         ReceiptConversionErrorT,
@@ -397,6 +418,7 @@ impl<
 
 impl<
         BlockConversionErrorT: std::error::Error,
+        GenesisBlockCreationErrorT: std::error::Error,
         HaltReasonT: HaltReasonTrait + Serialize,
         HardforkT: Debug,
         ReceiptConversionErrorT: std::error::Error,
@@ -405,6 +427,7 @@ impl<
     From<
         ProviderError<
             BlockConversionErrorT,
+            GenesisBlockCreationErrorT,
             HaltReasonT,
             HardforkT,
             ReceiptConversionErrorT,
@@ -415,6 +438,7 @@ impl<
     fn from(
         value: ProviderError<
             BlockConversionErrorT,
+            GenesisBlockCreationErrorT,
             HaltReasonT,
             HardforkT,
             ReceiptConversionErrorT,

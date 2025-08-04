@@ -1,6 +1,6 @@
 use edr_eth::{
     block::PartialHeader, eips::eip1559::ConstantBaseFeeParams, spec::EthHeaderConstants,
-    trie::KECCAK_NULL_RLP, Address, Bytes, HashMap, U256,
+    trie::KECCAK_NULL_RLP, Address, HashMap, U256,
 };
 use edr_evm::{
     blockchain::SyncBlockchain,
@@ -15,7 +15,10 @@ use edr_evm::{
 use op_revm::{L1BlockInfo, OpHaltReason};
 
 use crate::{
-    block::LocalBlock, predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS, receipt::BlockReceiptFactory,
+    block::LocalBlock,
+    eip1559::{encode_dynamic_base_fee_params, DYNAMIC_BASE_FEE_PARAM_VERSION},
+    predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
+    receipt::BlockReceiptFactory,
     transaction, OpChainSpec, OpSpecId,
 };
 
@@ -74,8 +77,6 @@ where
         }
 
         if cfg.spec >= OpSpecId::HOLOCENE {
-            const DYNAMIC_BASE_FEE_PARAM_VERSION: u8 = 0x0;
-
             let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<ConstantBaseFeeParams, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>> {
                 let parent_block_number = blockchain.last_block_number();
                 let parent_hardfork = blockchain
@@ -126,22 +127,9 @@ where
                 }
             }, Ok)?;
 
-            let extra_data = overrides.extra_data.unwrap_or_else(|| {
-                let denominator: [u8; 4] = u32::try_from(base_fee_params.max_change_denominator)
-                    .expect("Base fee denominators can only be up to u32::MAX")
-                    .to_be_bytes();
-                let elasticity: [u8; 4] = u32::try_from(base_fee_params.elasticity_multiplier)
-                    .expect("Base fee elasticity can only be up to u32::MAX")
-                    .to_be_bytes();
-
-                let mut extra_data = [0u8; 9];
-                extra_data[0] = DYNAMIC_BASE_FEE_PARAM_VERSION;
-                extra_data[1..=4].copy_from_slice(&denominator);
-                extra_data[5..=8].copy_from_slice(&elasticity);
-
-                let bytes: Box<[u8]> = Box::new(extra_data);
-                Bytes::from(bytes)
-            });
+            let extra_data = overrides
+                .extra_data
+                .unwrap_or_else(|| encode_dynamic_base_fee_params(&base_fee_params));
 
             overrides.base_fee_params = Some(base_fee_params);
             overrides.extra_data = Some(extra_data);

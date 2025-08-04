@@ -20,9 +20,9 @@ pub use self::{
     builder::{
         BlockBuilder, BlockBuilderCreationError, BlockBuilderCreationErrorForChainSpec,
         BlockInputs, BlockTransactionError, BlockTransactionErrorForChainSpec, EthBlockBuilder,
-        EthBlockReceiptFactory,
+        EthBlockReceiptFactory, GenesisBlockOptions,
     },
-    local::{EthLocalBlock, EthLocalBlockForChainSpec},
+    local::{CreationError as LocalCreationError, EthLocalBlock, EthLocalBlockForChainSpec},
     remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
 };
 use crate::spec::RuntimeSpec;

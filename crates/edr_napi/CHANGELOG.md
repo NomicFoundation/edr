@@ -1,5 +1,31 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.3
+
+### Minor Changes
+
+- 6ea800c: Removed deprecated JSON-RPC methods: `eth_mining`, `net_listening`, `net_peerCount`, `hardhat_addCompilationResult`, `hardhat_intervalMine`, and `hardhat_reset`.
+- a5cc346: Added cheatcode error stack trace entry. This fixes stack traces for errors from expect revert cheatcodes and improves stack traces for other cheatcode errors.
+
+## 0.12.0-next.2
+
+### Patch Changes
+
+- bf9b55b: Improved parallelism in test suite execution for better error reporting and improved performance
+- 0e0619e: Added support for function-level gas-tracking in Solidity tests.
+- 3f822d8: Fixed panic when using the `pauseGasMetering` cheatcode
+- 74b1f05: Made the `contract` field in `CallTrace` optional, and added a separate `address` field that is always present. (Breaking change)
+
+## 0.12.0-next.1
+
+### Minor Changes
+
+- ffd2deb: Added value snapshots to Solidity test runner using gas & value cheatcodes
+
+### Patch Changes
+
+- adbba3d: Fixed mining of local blocks for OP
+
 ## 0.12.0-next.0
 
 ### Minor Changes

@@ -1,7 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use edr_eth::{l1, transaction::TransactionValidation};
-use edr_evm::spec::RuntimeSpec;
 use tokio::{
     runtime,
     sync::{oneshot, Mutex},
@@ -11,21 +10,21 @@ use tokio::{
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, IntervalConfig,
+    time::TimeSinceEpoch, IntervalConfig, ProviderSpec,
 };
 
 /// Type for interval mining on a separate thread.
-pub struct IntervalMiner<ChainSpecT: RuntimeSpec, TimerT> {
-    inner: Option<Inner<ChainSpecT>>,
+pub struct IntervalMiner<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
+    inner: Option<Inner<ChainSpecT, TimerT>>,
     runtime: runtime::Handle,
-    phantom: PhantomData<TimerT>,
 }
 
 /// Inner type for interval mining on a separate thread, required for
 /// implementation of `Drop`.
-struct Inner<ChainSpecT: RuntimeSpec> {
+struct Inner<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
     cancellation_sender: oneshot::Sender<()>,
     background_task: JoinHandle<Result<(), ProviderErrorForChainSpec<ChainSpecT>>>,
+    _phantom: PhantomData<fn() -> TimerT>,
 }
 
 impl<
@@ -53,9 +52,9 @@ impl<
             inner: Some(Inner {
                 cancellation_sender,
                 background_task,
+                _phantom: PhantomData,
             }),
             runtime,
-            phantom: PhantomData,
         }
     }
 }
@@ -103,12 +102,15 @@ async fn interval_mining_loop<
     }
 }
 
-impl<ChainSpecT: RuntimeSpec, TimerT> Drop for IntervalMiner<ChainSpecT, TimerT> {
+impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> Drop
+    for IntervalMiner<ChainSpecT, TimerT>
+{
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn drop(&mut self) {
         if let Some(Inner {
             cancellation_sender,
             background_task: task,
+            _phantom,
         }) = self.inner.take()
         {
             if let Ok(()) = cancellation_sender.send(()) {
