@@ -259,6 +259,7 @@ mod tests {
                 &get_alchemy_url(),
                 tempdir.path().to_path_buf(),
                 None,
+                runtime.clone(),
             )
             .expect("url ok");
 
