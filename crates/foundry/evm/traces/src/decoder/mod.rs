@@ -337,10 +337,10 @@ impl CallTraceDecoder {
                     signature: "create2".to_string(),
                     args: vec![],
                 }),
-                return_data: trace.status.is_some_and(|s| !s.is_ok()).then(|| {
-                    self.revert_decoder
-                        .decode(&trace.output, trace.status)
-                }),
+                return_data: trace
+                    .status
+                    .is_some_and(|s| !s.is_ok())
+                    .then(|| self.revert_decoder.decode(&trace.output, trace.status)),
             };
         }
 
@@ -392,10 +392,7 @@ impl CallTraceDecoder {
                 label,
                 call_data: Some(DecodedCallData { signature, args }),
                 return_data: if !trace.success {
-                    Some(
-                        self.revert_decoder
-                            .decode(&trace.output, trace.status),
-                    )
+                    Some(self.revert_decoder.decode(&trace.output, trace.status))
                 } else {
                     None
                 },

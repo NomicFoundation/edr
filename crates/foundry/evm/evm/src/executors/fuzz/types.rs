@@ -53,7 +53,7 @@ pub struct CounterExampleOutcome<
         TransactionErrorT,
     >,
     /// The status of the call.
-    pub exit_reason: InstructionResult,
+    pub exit_reason: Option<InstructionResult>,
 }
 
 #[derive_where(Debug, Default; BlockT, HardforkT, TxT)]

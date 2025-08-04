@@ -30,20 +30,20 @@ pub struct LogCollector {
 }
 
 impl LogCollector {
-    fn hardhat_log(&mut self, mut input: Vec<u8>) -> (InstructionResult, Bytes) {
+    fn hardhat_log(&mut self, mut input: Vec<u8>) -> (Option<InstructionResult>, Bytes) {
         // Patch the Hardhat-style selector (`uint` instead of `uint256`)
         patch_hh_console_selector(&mut input);
 
         // Decode the call
         let decoded = match HardhatConsole::HardhatConsoleCalls::abi_decode(&input) {
             Ok(inner) => inner,
-            Err(err) => return (InstructionResult::Revert, err.abi_encode_revert()),
+            Err(err) => return (Some(InstructionResult::Revert), err.abi_encode_revert()),
         };
 
         // Convert the decoded call to a DS `log(string)` event
         self.logs.push(convert_hh_log_to_event(decoded));
 
-        (InstructionResult::Continue, Bytes::new())
+        (None, Bytes::new())
     }
 }
 
@@ -89,7 +89,7 @@ impl<
     ) -> Option<CallOutcome> {
         if inputs.target_address == HARDHAT_CONSOLE_ADDRESS {
             let (res, out) = self.hardhat_log(inputs.input.bytes(context).to_vec());
-            if res != InstructionResult::Continue {
+            if let Some(res) = res {
                 return Some(CallOutcome {
                     result: InterpreterResult {
                         result: res,

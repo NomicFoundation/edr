@@ -191,6 +191,8 @@ fn convert_node_to_nested_trace<HaltReasonT: HaltReasonTr>(
         }
     }
 
+    let trace_status = trace.status.expect("unfinished trace");
+
     // Convert based on call type and precompile status
     if node.is_precompile() {
         let precompile: U160 = trace.address.into();
@@ -202,7 +204,7 @@ fn convert_node_to_nested_trace<HaltReasonT: HaltReasonTr>(
             calldata: trace.data.clone(),
             value: trace.value,
             return_data: trace.output.clone(),
-            exit: convert_instruction_result_to_exit_code(trace.status),
+            exit: convert_instruction_result_to_exit_code(trace_status),
             gas_used: trace.gas_used,
             depth: trace.depth,
         }))
@@ -218,7 +220,7 @@ fn convert_node_to_nested_trace<HaltReasonT: HaltReasonTr>(
                 .expect("Create must have code"),
             value: trace.value,
             return_data: trace.output.clone(),
-            exit: convert_instruction_result_to_exit_code(trace.status),
+            exit: convert_instruction_result_to_exit_code(trace_status),
             gas_used: trace.gas_used,
             depth: trace.depth,
         }))
@@ -244,7 +246,7 @@ fn convert_node_to_nested_trace<HaltReasonT: HaltReasonTr>(
             code,
             value: trace.value,
             return_data: trace.output.clone(),
-            exit: convert_instruction_result_to_exit_code(trace.status),
+            exit: convert_instruction_result_to_exit_code(trace_status),
             gas_used: trace.gas_used,
             depth: trace.depth,
         }))
@@ -261,8 +263,6 @@ fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTr>(
         SuccessOrHalt::Halt(halt) => ExitCode::Halt(halt),
         SuccessOrHalt::FatalExternalError => ExitCode::FatalExternalError,
         SuccessOrHalt::Internal(result) => match result {
-            InternalResult::InternalContinue => ExitCode::InternalContinue,
-            InternalResult::InternalCallOrCreate => ExitCode::InternalCallOrCreate,
             InternalResult::CreateInitCodeStartingEF00 => ExitCode::CreateInitCodeStartingEF00,
             InternalResult::InvalidExtDelegateCallTarget => ExitCode::InvalidExtDelegateCallTarget,
         },

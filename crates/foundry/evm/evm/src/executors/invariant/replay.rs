@@ -167,7 +167,9 @@ pub fn replay_run<
 
         // If this call failed, but didn't revert, this is terminal for sure.
         // If this call reverted, only exit if `fail_on_revert` is true.
-        if !call_result.exit_reason.is_ok() && (fail_on_revert || !call_result.reverted) {
+        if !call_result.exit_reason.is_some_and(|r| r.is_ok())
+            && (fail_on_revert || !call_result.reverted)
+        {
             let stack_trace_result =
                 if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
                     Some(indeterminism_reasons.into())
@@ -176,8 +178,8 @@ pub fn replay_run<
                         .and_then(|decoder| get_stack_trace(decoder, traces).transpose())
                         .map(StackTraceResult::from)
                 };
-            let revert_reason = revert_decoder
-                .maybe_decode(call_result.result.as_ref(), Some(call_result.exit_reason));
+            let revert_reason =
+                revert_decoder.maybe_decode(call_result.result.as_ref(), call_result.exit_reason);
             return Ok(ReplayResult {
                 counterexample_sequence,
                 stack_trace_result,
@@ -240,7 +242,7 @@ pub fn replay_run<
 
     let revert_reason = revert_decoder.maybe_decode(
         invariant_result.result.as_ref(),
-        Some(invariant_result.exit_reason),
+        invariant_result.exit_reason,
     );
 
     Ok(ReplayResult {

@@ -31,7 +31,7 @@ use revm::{
     bytecode::opcode,
     context::{result::HaltReasonTr, BlockEnv, CfgEnv, Context as EvmContext, JournalTr},
     interpreter::{
-        interpreter_types::{Jumps, MemoryTr},
+        interpreter_types::{Jumps, LoopControl, MemoryTr},
         CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, Host,
         InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
     },
@@ -1805,10 +1805,13 @@ impl<
             ChainContextT,
         >,
     ) {
-        if matches!(
-            interpreter.control.instruction_result,
-            InstructionResult::Continue
-        ) {
+        if interpreter
+            .bytecode
+            .action
+            .as_ref()
+            .and_then(|i| i.instruction_result())
+            .is_none()
+        {
             self.gas_metering.gas_records.iter_mut().for_each(|record| {
                 let curr_depth = ecx.journaled_state.depth();
                 if curr_depth == record.depth {
@@ -1833,8 +1836,10 @@ impl<
     #[cold]
     fn meter_gas_end(&mut self, interpreter: &mut Interpreter) {
         // Remove recorded gas if we exit frame.
-        if will_exit(interpreter.control.instruction_result) {
-            self.gas_metering.paused_frames.pop();
+        if let Some(interpreter_action) = interpreter.bytecode.action.as_ref() {
+            if will_exit(interpreter_action) {
+                self.gas_metering.paused_frames.pop();
+            }
         }
     }
 
@@ -1846,14 +1851,16 @@ impl<
 
     #[cold]
     fn meter_gas_check(interpreter: &mut Interpreter) {
-        if will_exit(interpreter.control.instruction_result) {
-            // Reset gas if spent is less than refunded.
-            // This can happen if gas was paused / resumed or reset.
-            // https://github.com/foundry-rs/foundry/issues/4370
-            if interpreter.gas.spent()
-                < u64::try_from(interpreter.gas.refunded()).unwrap_or_default()
-            {
-                interpreter.gas = Gas::new(interpreter.gas.limit());
+        if let Some(interpreter_action) = interpreter.bytecode.action.as_ref() {
+            if will_exit(interpreter_action) {
+                // Reset gas if spent is less than refunded.
+                // This can happen if gas was paused / resumed or reset.
+                // https://github.com/foundry-rs/foundry/issues/4370
+                if interpreter.gas.spent()
+                    < u64::try_from(interpreter.gas.refunded()).unwrap_or_default()
+                {
+                    interpreter.gas = Gas::new(interpreter.gas.limit());
+                }
             }
         }
     }
@@ -1881,14 +1888,13 @@ fn disallowed_mem_write(
             .join(" U ")
     );
 
-    interpreter.control.instruction_result = InstructionResult::Revert;
-    interpreter.control.next_action = InterpreterAction::Return {
-        result: InterpreterResult {
-            output: Error::encode(revert_string),
-            gas: interpreter.gas,
-            result: InstructionResult::Revert,
-        },
-    };
+    interpreter
+        .bytecode
+        .set_action(InterpreterAction::new_return(
+            InstructionResult::Revert,
+            Bytes::from(revert_string.into_bytes()),
+            interpreter.gas,
+        ));
 }
 
 /// Dispatches the cheatcode call to the appropriate function.
@@ -2007,9 +2013,11 @@ fn find_upstream_cheatcode_signature(selector: alloy_primitives::FixedBytes<4>) 
 }
 
 /// Helper function to check if frame execution will exit.
-fn will_exit(ir: InstructionResult) -> bool {
-    !matches!(
-        ir,
-        InstructionResult::Continue | InstructionResult::CallOrCreate
-    )
+fn will_exit(action: &InterpreterAction) -> bool {
+    match action {
+        InterpreterAction::Return(result) => {
+            result.result.is_ok_or_revert() || result.result.is_error()
+        }
+        _ => false,
+    }
 }

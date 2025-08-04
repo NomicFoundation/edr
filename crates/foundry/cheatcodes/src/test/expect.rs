@@ -16,7 +16,9 @@ use foundry_evm_core::evm_context::{
 use revm::{
     context::result::HaltReasonTr,
     context_interface::JournalTr,
-    interpreter::{InstructionResult, Interpreter, InterpreterAction, InterpreterResult},
+    interpreter::{
+        interpreter_types::LoopControl, InstructionResult, Interpreter, InterpreterAction,
+    },
 };
 
 use super::revert_handlers::RevertParameters;
@@ -2368,14 +2370,13 @@ pub(crate) fn handle_expect_emit<
                 .expected_emits
                 .insert(index_to_fill_or_check, (event_to_fill_or_check, count_map));
         } else {
-            interpreter.control.instruction_result = InstructionResult::Revert;
-            interpreter.control.next_action = InterpreterAction::Return {
-                result: InterpreterResult {
-                    output: Error::encode("use vm.expectEmitAnonymous to match anonymous events"),
-                    gas: interpreter.gas,
-                    result: InstructionResult::Revert,
-                },
-            };
+            interpreter
+                .bytecode
+                .set_action(InterpreterAction::new_return(
+                    InstructionResult::Revert,
+                    Error::encode("use vm.expectEmitAnonymous to match anonymous events"),
+                    interpreter.gas,
+                ));
         }
         return;
     };
