@@ -47,7 +47,7 @@ use edr_evm::{
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
     precompile::PrecompileFn,
-    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
         StateOverrides, StateRefOverrider, SyncState,
@@ -2492,7 +2492,7 @@ where
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec.into());
+                let block_env = ChainSpecT::new_block_env(header, cfg_env.spec.into());
 
                 debug_trace_transaction(
                     blockchain,
