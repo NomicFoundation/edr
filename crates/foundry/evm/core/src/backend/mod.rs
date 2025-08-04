@@ -2521,6 +2521,7 @@ mod tests {
         drop(backend);
 
         let meta = BlockchainDbMeta {
+            chain: None,
             block_env: env.block,
             hosts: BTreeSet::default(),
         };

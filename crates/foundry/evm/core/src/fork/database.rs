@@ -308,6 +308,7 @@ mod tests {
         let rpc = edr_test_utils::env::get_alchemy_url();
         let provider = get_http_provider(rpc.clone());
         let meta = BlockchainDbMeta {
+            chain: None,
             block_env: BlockEnv::default(),
             hosts: BTreeSet::from([rpc]),
         };
