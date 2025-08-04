@@ -6,12 +6,20 @@ import "cheats/Vm.sol";
 
 contract FsTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
-    bytes constant FOUNDRY_TOML_ACCESS_ERR = "access to foundry.toml is not allowed";
-    bytes constant FOUNDRY_READ_ERR = "the path /etc/hosts is not allowed to be accessed for read operations";
-    bytes constant FOUNDRY_READ_DIR_ERR = "the path /etc is not allowed to be accessed for read operations";
-    bytes constant FOUNDRY_WRITE_ERR = "the path /etc/hosts is not allowed to be accessed for write operations";
+    bytes constant FOUNDRY_TOML_ACCESS_ERR =
+        "access to foundry.toml is not allowed";
+    bytes constant FOUNDRY_READ_ERR =
+        "the path /etc/hosts is not allowed to be accessed for read operations";
+    bytes constant FOUNDRY_READ_DIR_ERR =
+        "the path /etc is not allowed to be accessed for read operations";
+    bytes constant FOUNDRY_WRITE_ERR =
+        "the path /etc/hosts is not allowed to be accessed for write operations";
 
-    function assertEntry(Vm.DirEntry memory entry, uint64 depth, bool dir) private {
+    function assertEntry(
+        Vm.DirEntry memory entry,
+        uint64 depth,
+        bool dir
+    ) private {
         assertEq(entry.errorMessage, "");
         assertEq(entry.depth, depth);
         assertEq(entry.isDir, dir);
@@ -21,7 +29,10 @@ contract FsTest is DSTest {
     function testReadFile() public {
         string memory path = "fixtures/File/read.txt";
 
-        assertEq(vm.readFile(path), "hello readable world\nthis is the second line!");
+        assertEq(
+            vm.readFile(path),
+            "hello readable world\nthis is the second line!"
+        );
 
         vm._expectCheatcodeRevert(FOUNDRY_READ_ERR);
         vm.readFile("/etc/hosts");
@@ -105,40 +116,6 @@ contract FsTest is DSTest {
 
         vm._expectCheatcodeRevert(FOUNDRY_WRITE_ERR);
         vm.removeFile("/etc/hosts");
-    }
-
-    function testWriteLineFoundrytoml() public {
-        string memory root = vm.projectRoot();
-        string memory foundryToml = string.concat(root, "/", "foundry.toml");
-
-        vm._expectCheatcodeRevert();
-        vm.writeLine(foundryToml, "\nffi = true\n");
-
-        vm._expectCheatcodeRevert();
-        vm.writeLine("foundry.toml", "\nffi = true\n");
-
-        vm._expectCheatcodeRevert();
-        vm.writeLine("./foundry.toml", "\nffi = true\n");
-
-        vm._expectCheatcodeRevert();
-        vm.writeLine("./Foundry.toml", "\nffi = true\n");
-    }
-
-    function testWriteFoundrytoml() public {
-        string memory root = vm.projectRoot();
-        string memory foundryToml = string.concat(root, "/", "foundry.toml");
-
-        vm._expectCheatcodeRevert();
-        vm.writeFile(foundryToml, "\nffi = true\n");
-
-        vm._expectCheatcodeRevert();
-        vm.writeFile("foundry.toml", "\nffi = true\n");
-
-        vm._expectCheatcodeRevert();
-        vm.writeFile("./foundry.toml", "\nffi = true\n");
-
-        vm._expectCheatcodeRevert();
-        vm.writeFile("./Foundry.toml", "\nffi = true\n");
     }
 
     function testReadDir() public {
@@ -239,7 +216,13 @@ contract FsTest is DSTest {
             emit log("Error: reading /etc/hosts should revert");
             fail();
         } catch (bytes memory err) {
-            assertEq(err, abi.encodeWithSignature("CheatcodeError(string)", FOUNDRY_READ_ERR));
+            assertEq(
+                err,
+                abi.encodeWithSignature(
+                    "CheatcodeError(string)",
+                    FOUNDRY_READ_ERR
+                )
+            );
         }
     }
 

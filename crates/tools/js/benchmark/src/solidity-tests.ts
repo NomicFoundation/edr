@@ -344,7 +344,7 @@ async function createSolidityTestsInput(repoPath: string) {
   solidityTestsConfig.rpcCachePath = RPC_CACHE_PATH;
   const rootPermission = {
     path: repoPath,
-    access: FsAccessPermission.ReadWrite,
+    access: FsAccessPermission.DangerouslyReadWriteDirectory,
   };
   if (solidityTestsConfig.fsPermissions !== undefined) {
     solidityTestsConfig.fsPermissions.push(rootPermission);

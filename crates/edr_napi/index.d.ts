@@ -812,14 +812,36 @@ export interface PathPermission {
   /** The targeted path guarded by the permission */
   path: string
 }
-/** Determines the status of file system access */
+/**
+ * Determines the level of file system access for the given path.
+ *
+ * Exact path matching is used for file permissions. Prefix matching is used
+ * for directory permissions.
+ *
+ * Giving write access to configuration files, source files or executables
+ * in a project is considered dangerous, because it can be used by malicious
+ * Solidity dependencies to escape the EVM sandbox. It is therefore
+ * recommended to give write access to specific safe files only. If write
+ * access to a directory is needed, please make sure that it doesn't contain
+ * configuration files, source files or executables neither in the top level
+ * directory, nor in any subdirectories.
+*/
 export enum FsAccessPermission {
-  /** FS access is allowed with `read` + `write` permission */
-  ReadWrite = 0,
-  /** Only reading is allowed */
-  Read = 1,
-  /** Only writing is allowed */
-  Write = 2
+  /** Allows reading and writing the file */
+  ReadWriteFile = 0,
+  /** Only allows reading the file */
+  ReadFile = 1,
+  /** Only allows writing the file */
+  WriteFile = 2,
+  /**
+   * Allows reading and writing all files in the directory and its
+   * subdirectories
+   */
+  DangerouslyReadWriteDirectory = 3,
+  /** Allows reading all files in the directory and its subdirectories */
+  ReadDirectory = 4,
+  /** Allows writing all files in the directory and its subdirectories */
+  DangerouslyWriteDirectory = 5
 }
 export interface AddressLabel {
   /** The address to label */
