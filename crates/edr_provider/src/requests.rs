@@ -26,6 +26,7 @@ pub use crate::requests::{
 /// JSON-RPC request for the provider.
 #[derive(Serialize)]
 #[derive_where(Clone, Debug; ChainSpecT::RpcCallRequest, ChainSpecT::RpcTransactionRequest)]
+#[serde(bound = "")]
 pub enum ProviderRequest<ChainSpecT: RpcSpec> {
     /// A single JSON-RPC request
     Single(Box<MethodInvocation<ChainSpecT>>),

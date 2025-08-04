@@ -16,7 +16,7 @@ use edr_evm::{
     inspector::{DualInspector, Inspector},
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, InputsTr as _,
-        Interpreter, InterpreterResult, Jumps as _,
+        Interpreter, InterpreterResult, Jumps as _, LoopControl as _,
     },
     journal::{JournalEntry, JournalExt, JournalTrait as _},
     runtime::{dry_run_with_inspector, run},
