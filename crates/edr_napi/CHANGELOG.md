@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.4
+
+### Minor Changes
+
+- 6640dda: Changed the file system permission config interface for Solidity tests, to mitigate EVM sandbox escape through cheatcodes.
+
 ## 0.12.0-next.3
 
 ### Minor Changes
