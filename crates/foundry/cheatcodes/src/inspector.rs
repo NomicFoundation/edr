@@ -1809,7 +1809,7 @@ impl<
             .bytecode
             .action
             .as_ref()
-            .and_then(|i| i.instruction_result())
+            .and_then(InterpreterAction::instruction_result)
             .is_none()
         {
             self.gas_metering.gas_records.iter_mut().for_each(|record| {
@@ -2014,6 +2014,7 @@ fn find_upstream_cheatcode_signature(selector: alloy_primitives::FixedBytes<4>) 
 
 /// Helper function to check if frame execution will exit.
 fn will_exit(action: &InterpreterAction) -> bool {
+    #[allow(clippy::match_wildcard_for_single_variants)]
     match action {
         InterpreterAction::Return(result) => {
             result.result.is_ok_or_revert() || result.result.is_error()

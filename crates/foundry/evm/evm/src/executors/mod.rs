@@ -1459,7 +1459,7 @@ impl<
             TransactionErrorT,
         >,
     > {
-        if self.exit_reason.is_some_and(|r| r.is_ok()) {
+        if self.exit_reason.is_some_and(InstructionResult::is_ok) {
             Ok(self)
         } else {
             Err(self.into_evm_error(rd))

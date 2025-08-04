@@ -83,7 +83,7 @@ pub fn apply_chain_and_block_specific_env_changes<N: Network>(
     }
 }
 
-//// Returns the blob base fee update fraction based on the spec id.
+/// Returns the blob base fee update fraction based on the spec id.
 pub fn get_blob_base_fee_update_fraction_by_spec_id(spec: SpecId) -> u64 {
     if spec >= SpecId::PRAGUE {
         BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE
