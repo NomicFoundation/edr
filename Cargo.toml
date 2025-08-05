@@ -301,3 +301,6 @@ useless_transmute = "warn"
 verbose_file_reads = "warn"
 wildcard-imports = "warn"
 zero_sized_map_values = "warn"
+
+[patch.crates-io]
+derive-where = { git = "https://github.com/ModProg/derive-where", rev = "61ce4350f0cdd8ecc422c063b911314a3ca5b710" }
