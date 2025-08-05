@@ -22,7 +22,9 @@ use foundry_evm_traces::{load_contracts, TraceKind, Traces};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::{
-    context::result::{HaltReason, HaltReasonTr}, interpreter::InstructionResult, primitives::U256
+    context::result::{HaltReason, HaltReasonTr},
+    interpreter::InstructionResult,
+    primitives::U256,
 };
 
 use super::{
@@ -166,7 +168,9 @@ pub fn replay_run<
 
         // If this call failed, but didn't revert, this is terminal for sure.
         // If this call reverted, only exit if `fail_on_revert` is true.
-        if !call_result.exit_reason.is_some_and(InstructionResult::is_ok)
+        if !call_result
+            .exit_reason
+            .is_some_and(InstructionResult::is_ok)
             && (fail_on_revert || !call_result.reverted)
         {
             let stack_trace_result =
