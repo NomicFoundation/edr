@@ -1236,7 +1236,7 @@ impl Cheatcode for expectRevert_0Call {
             false,
             None,
             1,
-            false,
+            true,
         )
     }
 }
@@ -1282,7 +1282,7 @@ impl Cheatcode for expectRevert_1Call {
             false,
             None,
             1,
-            false,
+            true,
         )
     }
 }
@@ -1328,7 +1328,7 @@ impl Cheatcode for expectRevert_2Call {
             false,
             None,
             1,
-            false,
+            true,
         )
     }
 }
@@ -1374,7 +1374,7 @@ impl Cheatcode for expectRevert_3Call {
             false,
             Some(*reverter),
             1,
-            false,
+            true,
         )
     }
 }
@@ -1423,7 +1423,7 @@ impl Cheatcode for expectRevert_4Call {
             false,
             Some(*reverter),
             1,
-            false,
+            true,
         )
     }
 }
@@ -1472,7 +1472,7 @@ impl Cheatcode for expectRevert_5Call {
             false,
             Some(*reverter),
             1,
-            false,
+            true,
         )
     }
 }
@@ -1518,7 +1518,7 @@ impl Cheatcode for expectRevert_6Call {
             false,
             None,
             *count,
-            false,
+            true,
         )
     }
 }
@@ -1564,7 +1564,7 @@ impl Cheatcode for expectRevert_7Call {
             false,
             None,
             *count,
-            false,
+            true,
         )
     }
 }
@@ -1610,7 +1610,7 @@ impl Cheatcode for expectRevert_8Call {
             false,
             None,
             *count,
-            false,
+            true,
         )
     }
 }
@@ -1656,7 +1656,7 @@ impl Cheatcode for expectRevert_9Call {
             false,
             Some(*reverter),
             *count,
-            false,
+            true,
         )
     }
 }
@@ -1706,7 +1706,7 @@ impl Cheatcode for expectRevert_10Call {
             false,
             Some(*reverter),
             *count,
-            false,
+            true,
         )
     }
 }
@@ -1756,7 +1756,7 @@ impl Cheatcode for expectRevert_11Call {
             false,
             Some(*reverter),
             *count,
-            false,
+            true,
         )
     }
 }
@@ -1802,7 +1802,7 @@ impl Cheatcode for expectPartialRevert_0Call {
             true,
             None,
             1,
-            false,
+            true,
         )
     }
 }
@@ -1851,7 +1851,7 @@ impl Cheatcode for expectPartialRevert_1Call {
             true,
             Some(*reverter),
             1,
-            false,
+            true,
         )
     }
 }
@@ -1896,7 +1896,7 @@ impl Cheatcode for _expectCheatcodeRevert_0Call {
             false,
             None,
             1,
-            false,
+            true,
         )
     }
 }
@@ -1942,7 +1942,7 @@ impl Cheatcode for _expectCheatcodeRevert_1Call {
             false,
             None,
             1,
-            false,
+            true,
         )
     }
 }
@@ -1988,7 +1988,7 @@ impl Cheatcode for _expectCheatcodeRevert_2Call {
             false,
             None,
             1,
-            false,
+            true,
         )
     }
 }
