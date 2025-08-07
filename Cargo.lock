@@ -2284,6 +2284,7 @@ dependencies = [
  "dunce",
  "serde",
  "serde_json",
+ "similar-asserts",
  "thiserror 1.0.69",
  "tokio",
  "walkdir",

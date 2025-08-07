@@ -1,9 +1,11 @@
 //! Common utilities for building and using foundry's tools.
 
 #![warn(missing_docs, unused_crate_dependencies)]
+#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
 
 pub mod calc;
 pub mod errors;
+pub mod fmt;
 pub mod fs;
 
 /// Block on a future using the current tokio runtime on the current thread.

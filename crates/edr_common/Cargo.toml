@@ -16,6 +16,7 @@ walkdir = "2"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+similar-asserts.workspace = true
 
 [lints]
 workspace = true
