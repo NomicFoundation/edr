@@ -35,6 +35,8 @@ import {
   StandardTestKind,
   FuzzTestKind,
   InvariantTestKind,
+  L1_CHAIN_TYPE,
+  l1SolidityTestRunnerFactory,
 } from "@nomicfoundation/edr";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import { solidityTestConfigToSolidityTestRunnerConfigArgs } from "hardhat/internal/builtin-plugins/solidity-test/helpers";
@@ -65,12 +67,28 @@ interface RepoData {
 export const REPOS: Record<string, RepoData> = {
   "forge-std": {
     url: "https://github.com/NomicFoundation/forge-std.git",
-    commit: "b1602425405d8709cddeb2c92448fa49a92042d6",
+    commit: "a3dca253700f19f15b1837c57c67b9388f5cc3fb",
+    patchFile: "forge-std.patch",
+  },
+  "morpho-blue": {
+    url: "https://github.com/morpho-org/morpho-blue.git",
+    commit: "8eb9c89d3b24866ce9fef7c1d18b34427e937843",
+    patchFile: "morpho-blue.patch",
   },
   "prb-math": {
     url: "https://github.com/PaulRBerg/prb-math.git",
     commit: "aad73cfc6cdc2c9b660199b5b1e9db391ea48640",
     patchFile: "prb-math.patch",
+  },
+  solady: {
+    url: "https://github.com/Vectorized/solady.git",
+    commit: "271807270b1e14e541a231ff76a869accca7546d",
+    patchFile: "solady.patch",
+  },
+  "uniswap-v4-core": {
+    url: "https://github.com/Uniswap/v4-core.git",
+    commit: "59d3ecf53afa9264a16bba0e38f4c5d2231f80bc",
+    patchFile: "uniswap-v4-core.patch",
   },
 };
 
@@ -113,12 +131,15 @@ export async function runSolidityTests(
 }
 
 /// Run Solidity test benchmarks in the `forge-std` at v3 repo
-export async function runForgeStdTests(
-  context: EdrContext,
-  chainType: string,
-  resultsPath: string
-) {
-  const repoPath = await setupRepo(REPOS["forge-std"]);
+export async function runSolidityTestsBenchmark(resultsPath: string) {
+  const context = new EdrContext();
+  const chainType = L1_CHAIN_TYPE;
+  await context.registerSolidityTestRunnerFactory(
+    chainType,
+    l1SolidityTestRunnerFactory()
+  );
+
+  const repoPath = await setupRepo(REPOS["forge-std"], "hardhat");
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath);
 
@@ -211,7 +232,7 @@ function generateCsvResults(
   // Individual test results
   for (const suiteResult of results) {
     const testSuiteName = suiteResult.id.name;
-    const testSuiteSource = suiteResult.id.source;
+    const testSuiteSource = normalizeSuiteResultSource(suiteResult.id.source);
 
     for (const testResult of suiteResult.testResults) {
       const testType = getTestType(testResult.kind);
@@ -234,7 +255,7 @@ function generateCsvResults(
   // Test suite totals
   for (const suiteResult of results) {
     const testSuiteName = suiteResult.id.name;
-    const testSuiteSource = suiteResult.id.source;
+    const testSuiteSource = normalizeSuiteResultSource(suiteResult.id.source);
     csvData.push({
       repo: repoName,
       test_suite_name: testSuiteName,
@@ -263,6 +284,21 @@ function generateCsvResults(
 
   // Convert to CSV string using papaparse
   return Papa.unparse(csvData);
+}
+
+function normalizeSuiteResultSource(source: string): string {
+  // Hardhat adds this prefix to source files in the repo
+  const HARDHAT_PROJECT_PREFIX = "project/";
+  // Hardhat adds this prefix to npm dependencies
+  const HARDHAT_NPM_PREFIX = "npm/";
+
+  if (source.startsWith(HARDHAT_PROJECT_PREFIX)) {
+    return source.slice(HARDHAT_PROJECT_PREFIX.length);
+  } else if (source.startsWith(HARDHAT_NPM_PREFIX)) {
+    return source.slice(HARDHAT_NPM_PREFIX.length);
+  } else {
+    return source;
+  }
 }
 
 /// Run forge test --json and generate CSV results
@@ -408,6 +444,10 @@ function parseForgeTestDuration(duration: string): bigint {
       totalNs += BigInt(Math.round(parseFloat(part.slice(0, -2)) * 1000));
     } else if (part.endsWith("ns")) {
       totalNs += BigInt(Math.round(parseFloat(part.slice(0, -2))));
+    } else if (part.endsWith("s")) {
+      totalNs += BigInt(Math.round(parseFloat(part.slice(0, -1)) * 1000000000));
+    } else {
+      throw new Error(`Unknown duration unit: ${part}`);
     }
   }
 
@@ -464,21 +504,31 @@ function displaySec(delta: number) {
   return Math.round(sec * 100) / 100;
 }
 
-function hexStringToBuffer(hexString: string): Buffer {
-  return Buffer.from(hexStringToBytes(hexString));
-}
-
-export async function setupRepo(repoData: RepoData): Promise<string> {
+export async function setupRepo(
+  repoData: RepoData,
+  tool: "hardhat" | "forge"
+): Promise<string> {
   const repoNameRegex = /\/([^\/]+)\.git$/;
   const match = repoData.url.match(repoNameRegex);
   if (match === null) {
     throw new Error(`Invalid repo URL: ${repoData.url}`);
   }
 
-  const repoPath = path.join(dirName(import.meta.url), "..", "repos", match[1]);
+  // Use separate directories for the different tools, as both can modify the artifacts directory
+  const repoPath = path.join(
+    dirName(import.meta.url),
+    "..",
+    "repos",
+    tool,
+    match[1]
+  );
   // Ensure directory exists
   if (!fs.existsSync(repoPath)) {
-    await simpleGit().clone(repoData.url, repoPath, ["--depth", "1"]);
+    await simpleGit().clone(repoData.url, repoPath, [
+      "--recurse-submodules",
+      "--depth",
+      "1",
+    ]);
   }
 
   const git = simpleGit(repoPath);
@@ -508,6 +558,11 @@ export async function setupRepo(repoData: RepoData): Promise<string> {
 }
 
 async function createSolidityTestsInput(repoPath: string) {
+  if (!path.isAbsolute(repoPath)) {
+    // If repo path is not absolute, assume it's relative to the current working directory
+    repoPath = path.join(process.cwd(), repoPath);
+  }
+
   const configPath = path.join(repoPath, "hardhat.config.js");
   const userConfig = (await import(configPath)).default;
   if (userConfig.solidityTest === undefined) {

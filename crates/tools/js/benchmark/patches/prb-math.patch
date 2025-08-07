@@ -42,3 +42,10 @@ index 0000000..8d431f0
 +}
 +};
 +
+diff --git a/remappings.txt b/remappings.txt
+index bcc8cde..6931a1a 100644
+--- a/remappings.txt
++++ b/remappings.txt
+@@ -1 +1,2 @@
+ forge-std/=node_modules/forge-std/
++src/=src/

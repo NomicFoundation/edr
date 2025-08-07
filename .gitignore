@@ -112,4 +112,4 @@ Brewfile.lock.json
 .ipynb_checkpoints
 
 # Benchmark
-benchmark-output.json
+benchmark-output.json.json

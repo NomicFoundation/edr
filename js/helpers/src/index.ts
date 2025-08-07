@@ -78,7 +78,7 @@ export async function buildSolidityTestsInput(
   // NOTE: We run the compile task first to ensure all the artifacts for them are generated
   // Then, we compile just the test sources. We don't do it in one go because the user
   // is likely to use different compilation options for the tests and the sources.
-  await hre.tasks.getTask("compile").run();
+  await hre.tasks.getTask("compile").run({ quiet: true });
 
   // NOTE: A test file is either a file with a `.sol` extension in the `tests.solidity`
   // directory or a file with a `.t.sol` extension in the `sources.solidity` directory

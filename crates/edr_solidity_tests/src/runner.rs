@@ -1366,7 +1366,6 @@ impl<
                 self.known_contracts,
             )
         });
-        let start = Instant::now();
         let test_results = functions
             .par_iter()
             .map(|&func| {

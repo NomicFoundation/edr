@@ -1,0 +1,140 @@
+diff --git a/.husky/post-checkout b/.husky/post-checkout
+deleted file mode 100755
+index 00af394..0000000
+--- a/.husky/post-checkout
++++ /dev/null
+@@ -1,5 +0,0 @@
+-#!/bin/sh
+-. "$(dirname "$0")/_/husky.sh"
+-
+-forge install
+-yarn
+diff --git a/foundry.toml b/foundry.toml
+index 7242cf4..0fe538b 100644
+--- a/foundry.toml
++++ b/foundry.toml
+@@ -2,9 +2,9 @@
+ libs = ["lib"]
+ names = true
+ sizes = true
+-via_ir = true
++via_ir = false
+ optimizer = true
+-optimizer_runs = 999999
++optimizer_runs = 10000
+ bytecode_hash = "none"
+ evm_version = "paris"
+ 
+@@ -12,6 +12,7 @@ evm_version = "paris"
+ runs = 16
+ depth = 256
+ fail_on_revert = true
++seed = "1234"
+ 
+ [profile.default.fmt]
+ wrap_comments = true
+diff --git a/hardhat.config.js b/hardhat.config.js
+new file mode 100644
+index 0000000..8db4914
+--- /dev/null
++++ b/hardhat.config.js
+@@ -0,0 +1,28 @@
++module.exports = {
++"paths": {
++  "sources": "src",
++  "tests": {
++    "solidity": "test"
++  }
++},
++"solidity": {
++  "version": "0.8.19",
++  "settings": {
++    "optimizer": {
++      "enabled": true,
++      "runs": 10000,
++    },
++    "viaIR": false,
++    "evmVersion": "paris"
++  }
++},
++"solidityTest": {
++  "invariant": {
++    "runs": 16,
++    "depth": 256,
++    "failOnRevert": true,
++    "seed": "1234",
++  },
++}
++};
++
+diff --git a/hardhat.config.ts b/hardhat.config.ts
+deleted file mode 100644
+index 72682a7..0000000
+--- a/hardhat.config.ts
++++ /dev/null
+@@ -1,56 +0,0 @@
+-import "@nomicfoundation/hardhat-chai-matchers";
+-import "@nomicfoundation/hardhat-ethers";
+-import "@nomicfoundation/hardhat-foundry";
+-import "@nomicfoundation/hardhat-network-helpers";
+-import "@typechain/hardhat";
+-import * as dotenv from "dotenv";
+-import "ethers-maths";
+-import "hardhat-gas-reporter";
+-import "hardhat-tracer";
+-import { HardhatUserConfig } from "hardhat/config";
+-import "solidity-coverage";
+-
+-dotenv.config();
+-
+-const config: HardhatUserConfig = {
+-  defaultNetwork: "hardhat",
+-  networks: {
+-    hardhat: {
+-      chainId: 1,
+-      gasPrice: 0,
+-      initialBaseFeePerGas: 0,
+-      allowBlocksWithSameTimestamp: true,
+-      accounts: {
+-        count: 202, // must be even
+-      },
+-    },
+-  },
+-  solidity: {
+-    compilers: [
+-      {
+-        version: "0.8.19",
+-        settings: {
+-          optimizer: {
+-            enabled: true,
+-            runs: 4294967295,
+-          },
+-          viaIR: true,
+-        },
+-      },
+-    ],
+-  },
+-  mocha: {
+-    timeout: 3000000,
+-  },
+-  typechain: {
+-    target: "ethers-v6",
+-    outDir: "types/",
+-    externalArtifacts: ["deps/**/*.json"],
+-  },
+-  tracer: {
+-    defaultVerbosity: 1,
+-    gasCost: true,
+-  },
+-};
+-
+-export default config;
+diff --git a/remappings.txt b/remappings.txt
+new file mode 100644
+index 0000000..689c8ee
+--- /dev/null
++++ b/remappings.txt
+@@ -0,0 +1,3 @@
++forge-std/=lib/forge-std/src/
++ds-test/=lib/forge-std/lib/ds-test/src/
++halmos-cheatcodes/=lib/halmos-cheatcodes/src/
