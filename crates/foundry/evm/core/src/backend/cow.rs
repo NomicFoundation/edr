@@ -14,7 +14,7 @@ use revm::{
     database::DatabaseRef,
     primitives::HashMap as Map,
     state::{Account, AccountInfo},
-    Database, DatabaseCommit, ExecuteEvm, JournalEntry,
+    Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 
 use super::{BackendError, CheatcodeInspectorTr};
@@ -134,7 +134,7 @@ impl<
         let env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
         let mut evm = EvmBuilderT::evm_with_inspector(self, env_with_chain, inspector);
 
-        let res = evm.transact(env.tx.clone()).wrap_err("EVM error")?;
+        let res = evm.inspect_tx(env.tx.clone()).wrap_err("EVM error")?;
 
         *env = EvmEnv::from(evm.into_evm_context());
 

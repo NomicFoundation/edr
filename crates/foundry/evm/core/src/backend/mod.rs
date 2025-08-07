@@ -23,7 +23,7 @@ use revm::{
     precompile::{PrecompileSpecId, Precompiles},
     primitives::{hardfork::SpecId, HashMap as Map, Log, KECCAK_EMPTY},
     state::{Account, AccountInfo, EvmState, EvmStorageSlot},
-    Database, DatabaseCommit, ExecuteEvm, InspectEvm, Inspector, Journal, JournalEntry,
+    Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
 use serde::{Deserialize, Serialize};
 
@@ -1058,7 +1058,7 @@ impl<
         let env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
         let mut evm = EvmBuilderT::evm_with_inspector(self, env_with_chain, inspector);
 
-        let res = evm.transact(env.tx.clone()).wrap_err("EVM error")?;
+        let res = evm.inspect_tx(env.tx.clone()).wrap_err("EVM error")?;
 
         *env = EvmEnv::from(evm.into_evm_context());
 
