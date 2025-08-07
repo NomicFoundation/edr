@@ -9,9 +9,6 @@ on:
       - "**"
   workflow_dispatch:
 
-env:
-  RUSTFLAGS: -Dwarnings
-
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: true
@@ -20,6 +17,8 @@ jobs:
   check-edr:
     name: Check EDR
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Dwarnings
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-rust
@@ -28,9 +27,9 @@ jobs:
       - uses: taiki-e/install-action@cargo-hack
 
       - name: Cargo check no default features for all crates
-        run: cargo check --all --no-default-features
+        run: cargo check --workspace --all-targets --no-default-features
 
-      - name: Cargo hack for EDR crates
+      - name: Cargo hack check for EDR crates
         run: |
           chmod +x ./.github/scripts/cargo-hack-edr.sh
           ./.github/scripts/cargo-hack-edr.sh
