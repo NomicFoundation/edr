@@ -15,8 +15,8 @@ use edr_evm::{
     config::CfgEnv,
     inspector::{DualInspector, Inspector},
     interpreter::{
-        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, EthInterpreter,
-        InputsTr as _, Interpreter, InterpreterResult, Jumps as _, LoopControl as _,
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, InputsTr as _,
+        Interpreter, InterpreterResult, Jumps as _,
     },
     journal::{JournalEntry, JournalExt, JournalTrait as _},
     runtime::{dry_run_with_inspector, run},
@@ -184,7 +184,7 @@ pub enum DebugTraceError<BlockchainErrorT, StateErrorT, TransactionValidationErr
         /// The transaction hash.
         transaction_hash: B256,
         /// The block number.
-        block_number: u64,
+        block_number: U256,
     },
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
     #[error(transparent)]
@@ -318,18 +318,9 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
         self.on_inner_frame_result(&outcome.result);
     }
 
-    fn eofcreate_end(
-        &mut self,
-        _context: &mut ContextT,
-        _inputs: &EOFCreateInputs,
-        outcome: &mut CreateOutcome,
-    ) {
-        self.on_inner_frame_result(&outcome.result);
-    }
-
     fn step(&mut self, interpreter: &mut Interpreter<EthInterpreter>, _context: &mut ContextT) {
         self.contract_address = interpreter.input.target_address();
-        self.gas_remaining = interpreter.control.gas().remaining();
+        self.gas_remaining = interpreter.gas.remaining();
 
         if !self.config.disable_stack {
             self.stack.clone_from(interpreter.stack.data());
@@ -405,7 +396,7 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
 
         let gas_cost = self
             .gas_remaining
-            .saturating_sub(interpreter.control.gas().remaining());
+            .saturating_sub(interpreter.gas.remaining());
         let log_item = DebugTraceLogItem {
             pc: self.pc as u64,
             op: self.opcode,

@@ -235,6 +235,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                                     info: beacon_roots_contract(),
                                     status: AccountStatus::Created | AccountStatus::Touched,
                                     storage: HashMap::new(),
+                                    transaction_id: 0,
                                 },
                             ),
                             (
@@ -243,6 +244,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                                     info: history_storage_contract(),
                                     status: AccountStatus::Created | AccountStatus::Touched,
                                     storage: HashMap::new(),
+                                    transaction_id: 0,
                                 },
                             ),
                         ]
@@ -271,6 +273,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
                                 info: beacon_roots_contract(),
                                 status: AccountStatus::Created | AccountStatus::Touched,
                                 storage: HashMap::new(),
+                                transaction_id: 0,
                             },
                         )]
                         .into_iter()

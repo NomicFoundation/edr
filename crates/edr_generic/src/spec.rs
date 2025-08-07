@@ -4,17 +4,17 @@ use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
     eips::{
         eip1559::BaseFeeParams,
-        eip4844::{self, BlobExcessGasAndPrice},
+        eip4844::{self, blob_base_fee_update_fraction, BlobExcessGasAndPrice},
     },
     l1::{self, BlockEnv, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
     receipt::BlockReceipt,
     spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
-    Bytes,
+    Bytes, U256,
 };
 use edr_evm::{
-    evm::Evm,
+    evm::{EthFrame, Evm},
     hardfork::Activations,
     inspector::{Inspector, NoOpInspector},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
@@ -47,18 +47,18 @@ fn blob_excess_gas_and_price(
     blob_gas: &Option<BlobGas>,
     hardfork: l1::SpecId,
 ) -> Option<BlobExcessGasAndPrice> {
-    let is_prague: bool = hardfork >= l1::SpecId::PRAGUE;
+    let update_fraction = blob_base_fee_update_fraction(hardfork);
 
     blob_gas
         .as_ref()
         .map(|BlobGas { excess_gas, .. }| {
-            eip4844::BlobExcessGasAndPrice::new(*excess_gas, is_prague)
+            eip4844::BlobExcessGasAndPrice::new(*excess_gas, update_fraction)
         })
         .or_else(|| {
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
             if hardfork >= l1::SpecId::CANCUN {
-                Some(eip4844::BlobExcessGasAndPrice::new(0u64, is_prague))
+                Some(eip4844::BlobExcessGasAndPrice::new(0u64, update_fraction))
             } else {
                 None
             }
@@ -68,9 +68,9 @@ fn blob_excess_gas_and_price(
 impl BlockEnvConstructor<block::Header> for GenericChainSpec {
     fn new_block_env(header: &Header, hardfork: l1::SpecId) -> Self::BlockEnv {
         BlockEnv {
-            number: header.number,
+            number: U256::from(header.number),
             beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
+            timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
                 base_fee.try_into().expect("base fee is too large")
@@ -89,9 +89,9 @@ impl BlockEnvConstructor<block::Header> for GenericChainSpec {
 impl BlockEnvConstructor<PartialHeader> for GenericChainSpec {
     fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self::BlockEnv {
         BlockEnv {
-            number: header.number,
+            number: U256::from(header.number),
             beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
+            timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee.map_or(0u64, |base_fee| {
                 base_fee.try_into().expect("base fee is too large")
@@ -166,6 +166,7 @@ impl RuntimeSpec for GenericChainSpec {
         InspectorT,
         EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT,
+        EthFrame<EthInterpreter>,
     >;
 
     type LocalBlock = EthLocalBlock<
@@ -242,12 +243,12 @@ impl RuntimeSpec for GenericChainSpec {
         inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
-        Evm {
-            ctx: context,
+        Evm::new_with_inspector(
+            context,
             inspector,
-            instruction: EthInstructions::default(),
-            precompiles: precompile_provider,
-        }
+            EthInstructions::default(),
+            precompile_provider,
+        )
     }
 }
 
@@ -299,22 +300,30 @@ mod tests {
     #[test]
     fn generic_block_constructor_should_default_excess_blob_gas_for_cancun() {
         let header = build_block_header(None); // No blob gas information
+        let spec_id = l1::SpecId::CANCUN;
 
-        let block = GenericChainSpec::new_block_env(&header, l1::SpecId::CANCUN);
+        let block = GenericChainSpec::new_block_env(&header, spec_id);
         assert_eq!(
             block.blob_excess_gas_and_price,
-            Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))
+            Some(eip4844::BlobExcessGasAndPrice::new(
+                0u64,
+                eip4844::blob_base_fee_update_fraction(spec_id)
+            ))
         );
     }
 
     #[test]
     fn generic_block_constructor_should_default_excess_blob_gas_after_cancun() {
         let header = build_block_header(None); // No blob gas information
+        let spec_id = l1::SpecId::PRAGUE;
 
-        let block = GenericChainSpec::new_block_env(&header, l1::SpecId::PRAGUE);
+        let block = GenericChainSpec::new_block_env(&header, spec_id);
         assert_eq!(
             block.blob_excess_gas_and_price,
-            Some(eip4844::BlobExcessGasAndPrice::new(0u64, false))
+            Some(eip4844::BlobExcessGasAndPrice::new(
+                0u64,
+                eip4844::blob_base_fee_update_fraction(spec_id)
+            ))
         );
     }
 
@@ -334,8 +343,9 @@ mod tests {
             gas_used: 0x80000u64,
         };
         let header = build_block_header(Some(blob_gas)); // blob gas present
+        let spec_id = l1::SpecId::CANCUN;
 
-        let block = GenericChainSpec::new_block_env(&header, l1::SpecId::CANCUN);
+        let block = GenericChainSpec::new_block_env(&header, spec_id);
 
         let blob_excess_gas = block
             .blob_excess_gas_and_price

@@ -250,7 +250,7 @@ impl<
                     // since that input represents the last run case, which may not correspond with
                     // our failure - when a fuzz case fails, proptest will try to run at least one
                     // more case to find a minimal failure case.
-                    let reason = rd.maybe_decode(&outcome.call.result, Some(status));
+                    let reason = rd.maybe_decode(&outcome.call.result, status);
                     execution_data
                         .borrow_mut()
                         .logs

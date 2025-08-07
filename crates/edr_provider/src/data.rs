@@ -870,7 +870,7 @@ where
         let mut modified_state = (*self.current_state()?).clone();
         let old_value = modified_state.set_account_storage_slot(address, index, value)?;
 
-        let slot = EvmStorageSlot::new_changed(old_value, value);
+        let slot = EvmStorageSlot::new_changed(old_value, value, 0);
         let account_info = modified_state.basic(address).and_then(|mut account_info| {
             // Retrieve the code if it's not empty. This is needed for the irregular state.
             if let Some(account_info) = &mut account_info {
@@ -2811,6 +2811,7 @@ fn create_blockchain_and_state<
                         // TODO: https://github.com/NomicFoundation/edr/issues/911
                         storage: HashMap::new(),
                         status: AccountStatus::Created | AccountStatus::Touched,
+                        transaction_id: 0,
                     };
 
                     Ok((*address, account))
@@ -2923,6 +2924,7 @@ fn create_blockchain_and_state<
                     info,
                     storage: account_override.storage.clone().unwrap_or(HashMap::new()),
                     status: AccountStatus::Created | AccountStatus::Touched,
+                    transaction_id: 0,
                 };
 
                 (*address, account)

@@ -2,19 +2,19 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
-    eips::eip4844,
+    eips::eip4844::{self, blob_base_fee_update_fraction},
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
-    result::ResultAndState,
+    result::ExecutionResult,
     spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
-    Bytes, B256,
+    Bytes, B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
 use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector};
 pub use revm_context_interface::ContextTr as ContextTrait;
-use revm_handler::{instructions::EthInstructions, PrecompileProvider};
+use revm_handler::{instructions::EthInstructions, EthFrame, PrecompileProvider};
 use revm_interpreter::{interpreter::EthInterpreter, InterpreterResult};
 
 use crate::{
@@ -26,7 +26,7 @@ use crate::{
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
     result::EVMErrorForChain,
-    state::{Database, DatabaseComponentError, StateDiff},
+    state::{Database, DatabaseComponentError, EvmState, StateDiff},
     transaction::{
         remote::EthRpcTransaction, ExecutableTransaction, TransactionError,
         TransactionErrorForChainSpec, TransactionType, TransactionValidation,
@@ -217,13 +217,12 @@ pub trait RuntimeSpec:
         InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
-    >: ExecuteEvm<Output = Result<
-        ResultAndState<Self::HaltReason>,
-        EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
-    >> + InspectEvm<Inspector = InspectorT, Output = Result<
-        ResultAndState<Self::HaltReason>,
-        EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
-    >>;
+    >: ExecuteEvm<
+        ExecutionResult = ExecutionResult<Self::HaltReason>,
+        State = EvmState,
+        Error = EVMErrorForChain<Self, BlockchainErrorT, StateErrorT>,
+        Tx = Self::SignedTransaction,
+    > + InspectEvm<Inspector = InspectorT>;
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction> +
@@ -394,6 +393,7 @@ impl RuntimeSpec for L1ChainSpec {
         InspectorT,
         EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT,
+        EthFrame<EthInterpreter>,
     >;
 
     type LocalBlock = EthLocalBlock<
@@ -454,21 +454,21 @@ impl RuntimeSpec for L1ChainSpec {
         inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
-        Evm {
-            ctx: context,
+        Evm::new_with_inspector(
+            context,
             inspector,
-            instruction: EthInstructions::default(),
-            precompiles: precompile_provider,
-        }
+            EthInstructions::default(),
+            precompile_provider,
+        )
     }
 }
 
 impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
     fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self::BlockEnv {
         BlockEnv {
-            number: header.number,
+            number: U256::from(header.number),
             beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
+            timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee.map_or(0u64, |base_fee| {
                 base_fee.try_into().expect("base fee is too large")
@@ -481,7 +481,10 @@ impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                    eip4844::BlobExcessGasAndPrice::new(
+                        *excess_gas,
+                        blob_base_fee_update_fraction(hardfork),
+                    )
                 },
             ),
         }
@@ -491,9 +494,9 @@ impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
 impl BlockEnvConstructor<Header> for L1ChainSpec {
     fn new_block_env(header: &Header, hardfork: l1::SpecId) -> Self::BlockEnv {
         BlockEnv {
-            number: header.number,
+            number: U256::from(header.number),
             beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
+            timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
                 base_fee.try_into().expect("base fee is too large")
@@ -506,7 +509,10 @@ impl BlockEnvConstructor<Header> for L1ChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                    eip4844::BlobExcessGasAndPrice::new(
+                        *excess_gas,
+                        blob_base_fee_update_fraction(hardfork),
+                    )
                 },
             ),
         }

@@ -10,6 +10,7 @@ use edr_eth::{
     },
     l1::{self, BlockEnv},
     spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
+    U256,
 };
 use edr_evm::{
     evm::Evm,
@@ -186,12 +187,12 @@ impl RuntimeSpec for OpChainSpec {
         inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
     ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
-        OpEvm(Evm {
-            ctx: context,
+        OpEvm(Evm::new_with_inspector(
+            context,
             inspector,
-            instruction: EthInstructions::new_mainnet(),
-            precompiles: precompile_provider,
-        })
+            EthInstructions::new_mainnet(),
+            precompile_provider,
+        ))
     }
 }
 
@@ -250,9 +251,9 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OpChainSpec {
 impl BlockEnvConstructor<PartialHeader> for OpChainSpec {
     fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self::BlockEnv {
         BlockEnv {
-            number: header.number,
+            number: U256::from(header.number),
             beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
+            timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee.map_or(0u64, |base_fee| {
                 base_fee.try_into().expect("base fee is too large")
@@ -265,7 +266,10 @@ impl BlockEnvConstructor<PartialHeader> for OpChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                    eip4844::BlobExcessGasAndPrice::new(
+                        *excess_gas,
+                        eip4844::blob_base_fee_update_fraction(hardfork),
+                    )
                 },
             ),
         }
@@ -275,9 +279,9 @@ impl BlockEnvConstructor<PartialHeader> for OpChainSpec {
 impl BlockEnvConstructor<Header> for OpChainSpec {
     fn new_block_env(header: &Header, hardfork: l1::SpecId) -> Self::BlockEnv {
         BlockEnv {
-            number: header.number,
+            number: U256::from(header.number),
             beneficiary: header.beneficiary,
-            timestamp: header.timestamp,
+            timestamp: U256::from(header.timestamp),
             difficulty: header.difficulty,
             basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
                 base_fee.try_into().expect("base fee is too large")
@@ -290,7 +294,10 @@ impl BlockEnvConstructor<Header> for OpChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(*excess_gas, hardfork >= l1::SpecId::PRAGUE)
+                    eip4844::BlobExcessGasAndPrice::new(
+                        *excess_gas,
+                        eip4844::blob_base_fee_update_fraction(hardfork),
+                    )
                 },
             ),
         }

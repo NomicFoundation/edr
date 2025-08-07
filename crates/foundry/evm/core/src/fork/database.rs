@@ -294,8 +294,6 @@ impl DatabaseRef for ForkDbStateSnapshot {
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-    use std::collections::BTreeSet;
-
     use revm::context::BlockEnv;
 
     use super::*;
@@ -307,10 +305,7 @@ mod tests {
     async fn fork_db_insert_basic_default() {
         let rpc = edr_test_utils::env::get_alchemy_url();
         let provider = get_http_provider(rpc.clone());
-        let meta = BlockchainDbMeta {
-            block_env: BlockEnv::default(),
-            hosts: BTreeSet::from([rpc]),
-        };
+        let meta = BlockchainDbMeta::new(BlockEnv::default(), rpc);
         let db = BlockchainDb::new(meta, None);
 
         let backend = SharedBackend::spawn_backend(Arc::new(provider), db.clone(), None).await;

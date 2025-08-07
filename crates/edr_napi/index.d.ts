@@ -405,8 +405,7 @@ export enum SuccessReason {
   /** The opcode `RETURN` was called */
   Return = 1,
   /** The opcode `SELFDESTRUCT` was called */
-  SelfDestruct = 2,
-  EofReturnContract = 3
+  SelfDestruct = 2
 }
 export interface CallOutput {
   /** Return value */
@@ -459,15 +458,7 @@ export enum ExceptionalHalt {
   /** Error on created contract that begins with EF */
   CreateContractStartingWithEF = 12,
   /** EIP-3860: Limit and meter initcode. Initcode size limit exceeded. */
-  CreateInitCodeSizeLimit = 13,
-  /** Aux data overflow, new aux data is larger tha u16 max size. */
-  EofAuxDataOverflow = 14,
-  /** Aud data is smaller then already present data size. */
-  EofAuxDataTooSmall = 15,
-  /** EOF Subroutine stack overflow */
-  SubRoutineStackOverflow = 16,
-  /** Check for target address validity is only done inside subcall. */
-  InvalidEXTCALLTarget = 17
+  CreateInitCodeSizeLimit = 13
 }
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
