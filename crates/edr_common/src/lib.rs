@@ -4,6 +4,7 @@
 
 pub mod calc;
 pub mod errors;
+pub mod fmt;
 pub mod fs;
 
 /// Block on a future using the current tokio runtime on the current thread.
