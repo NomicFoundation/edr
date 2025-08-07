@@ -96,7 +96,7 @@ where
 
     let context = revm::Context {
         block,
-        tx: transaction.clone(),
+        tx: ChainSpecT::SignedTransaction::default(),
         journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
