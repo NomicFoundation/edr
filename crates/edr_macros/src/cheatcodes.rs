@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, quote_spanned};
+use quote::quote;
 use syn::{Attribute, Data, DataStruct, DeriveInput, Error, Result};
 
 pub fn derive_cheatcode(input: &DeriveInput) -> Result<TokenStream> {
@@ -24,10 +24,7 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
     let mut safety = None::<Ident>;
     for attr in attrs.iter().filter(|a| a.path().is_ident("cheatcode")) {
         attr.meta.require_list()?.parse_nested_meta(|meta| {
-            let path = meta
-                .path
-                .get_ident()
-                .ok_or_else(|| meta.error("expected ident"))?;
+            let path = meta.path.get_ident().ok_or_else(|| meta.error("expected ident"))?;
             let path_s = path.to_string();
             match path_s.as_str() {
                 "group" if group.is_none() => group = Some(meta.value()?.parse()?),
@@ -45,13 +42,10 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
     let safety = if let Some(safety) = safety {
         quote!(Safety::#safety)
     } else {
-        let panic = quote_spanned! {name.span()=>
-            panic!("cannot determine safety from the group, add a `#[cheatcode(safety = ...)]` attribute")
-        };
         quote! {
             match Group::#group.safety() {
                 Some(s) => s,
-                None => #panic,
+                None => panic_unknown_safety(),
             }
         }
     };
@@ -59,19 +53,28 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
     check_named_fields(data, name);
 
     let id = name.to_string();
-    let id = id
-        .strip_suffix("Call")
-        .expect("function struct ends in Call");
+    let id = id.strip_suffix("Call").expect("function struct ends in Call");
 
     let doc = get_docstring(attrs);
     let (signature, selector, declaration, description) = func_docstring(&doc);
+
+    let mut params = declaration;
+    if let Some(ret) = params.find(" returns ") {
+        params = &params[..ret];
+    }
+    if params.contains(" memory ") {
+        emit_warning!(
+            name.span(),
+            "parameter data locations must be `calldata` instead of `memory`"
+        );
+    }
 
     let (visibility, mutability) = parse_function_attrs(declaration, name.span())?;
     let visibility = Ident::new(visibility, Span::call_site());
     let mutability = Ident::new(mutability, Span::call_site());
 
     if description.is_empty() {
-        emit_warning!(name.span(), "missing documentation for a cheatcode");
+        emit_warning!(name.span(), "missing documentation for a cheatcode")
     }
     let description = description.replace("\n ", "\n");
 
@@ -96,14 +99,10 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
     })
 }
 
-/// Generates the `CHEATCODES` constant and implements `CheatcodeImpl` dispatch
-/// for an enum.
+/// Generates the `CHEATCODES` constant and implements `CheatcodeImpl` dispatch for an enum.
 fn derive_calls_enum(name: &Ident, input: &syn::DataEnum) -> Result<TokenStream> {
     if input.variants.iter().any(|v| v.fields.len() != 1) {
-        return Err(syn::Error::new(
-            name.span(),
-            "expected all variants to have a single field",
-        ));
+        return Err(syn::Error::new(name.span(), "expected all variants to have a single field"));
     }
 
     // keep original order for matching
@@ -136,10 +135,7 @@ fn derive_errors_events_enum(
     events: bool,
 ) -> Result<TokenStream> {
     if input.variants.iter().any(|v| v.fields.len() != 1) {
-        return Err(syn::Error::new(
-            name.span(),
-            "expected all variants to have a single field",
-        ));
+        return Err(syn::Error::new(name.span(), "expected all variants to have a single field"));
     }
 
     let (ident, ty_assoc_name, ty, doc) = if events {
@@ -193,14 +189,11 @@ fn derive_struct(
 
     if doc.is_empty() {
         let n = match kind {
-            StructKind::Error | StructKind::Event => "n",
+            StructKind::Error => "n",
+            StructKind::Event => "n",
             StructKind::Struct => "",
         };
-        emit_warning!(
-            name.span(),
-            "missing documentation for a{n} {}",
-            kind.as_str()
-        );
+        emit_warning!(name.span(), "missing documentation for a{n} {}", kind.as_str());
     }
 
     if kind == StructKind::Struct {
@@ -215,13 +208,11 @@ fn derive_struct(
                 let to_find = format!("{name};");
                 let ty_end = def.find(&to_find).expect("field not found in def");
                 let ty = &def[..ty_end];
-                let ty_start = ty
-                    .rfind(';')
-                    .or_else(|| ty.find('{'))
-                    .expect("bad struct def")
-                    + 1;
+                let ty_start = ty.rfind(';').or_else(|| ty.find('{')).expect("bad struct def") + 1;
                 let ty = ty[ty_start..].trim();
-                assert!(!ty.is_empty(), "bad struct def: {def:?}");
+                if ty.is_empty() {
+                    panic!("bad struct def: {def:?}")
+                }
 
                 let doc = get_docstring(&f.attrs);
                 let doc = doc.trim();
@@ -295,24 +286,20 @@ fn derive_enum(name: &Ident, input: &syn::DataEnum, attrs: &[Attribute]) -> Resu
     if doc.is_empty() {
         emit_warning!(name.span(), "missing documentation for an enum");
     }
-    let variants = input
-        .variants
-        .iter()
-        .filter(|v| v.discriminant.is_none())
-        .map(|v| {
-            let name = v.ident.to_string();
-            let doc = get_docstring(&v.attrs);
-            let doc = doc.trim();
-            if doc.is_empty() {
-                emit_warning!(v.ident.span(), "missing documentation for a variant");
+    let variants = input.variants.iter().filter(|v| v.discriminant.is_none()).map(|v| {
+        let name = v.ident.to_string();
+        let doc = get_docstring(&v.attrs);
+        let doc = doc.trim();
+        if doc.is_empty() {
+            emit_warning!(v.ident.span(), "missing documentation for a variant");
+        }
+        quote! {
+            EnumVariant {
+                name: #name,
+                description: #doc,
             }
-            quote! {
-                EnumVariant {
-                    name: #name,
-                    description: #doc,
-                }
-            }
-        });
+        }
+    });
     Ok(quote! {
         impl #name {
             /// The enum definition.
@@ -326,7 +313,7 @@ fn derive_enum(name: &Ident, input: &syn::DataEnum, attrs: &[Attribute]) -> Resu
 }
 
 fn check_named_fields(data: &DataStruct, ident: &Ident) {
-    for field in data.fields.iter() {
+    for field in &data.fields {
         if field.ident.is_none() {
             emit_warning!(ident, "all params must be named");
         }
@@ -341,11 +328,7 @@ fn get_docstring(attrs: &[Attribute]) -> String {
             continue;
         }
         let syn::Meta::NameValue(syn::MetaNameValue {
-            value:
-                syn::Expr::Lit(syn::ExprLit {
-                    lit: syn::Lit::Str(s),
-                    ..
-                }),
+            value: syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), .. }),
             ..
         }) = &attr.meta
         else {
@@ -363,8 +346,8 @@ fn get_docstring(attrs: &[Attribute]) -> String {
     doc
 }
 
-/// Returns `(signature, hex_selector, declaration, description)` from a given
-/// `sol!`-generated docstring for a function.
+/// Returns `(signature, hex_selector, declaration, description)` from a given `sol!`-generated
+/// docstring for a function.
 ///
 /// # Examples
 ///
@@ -408,9 +391,7 @@ fn func_docstring(doc: &str) -> (&str, &str, &str, &str) {
     assert!(!sig.starts_with('`') && !sig.ends_with('`'));
 
     let selector_end = sig_line.rfind('`').unwrap();
-    let selector = sig_line[sig_end..selector_end]
-        .strip_prefix("` and selector `")
-        .unwrap();
+    let selector = sig_line[sig_end..selector_end].strip_prefix("` and selector `").unwrap();
     assert!(!selector.starts_with('`') && !selector.ends_with('`'));
     assert!(selector.starts_with("0x"));
 
@@ -422,14 +403,10 @@ fn func_docstring(doc: &str) -> (&str, &str, &str, &str) {
     (sig, selector, declaration, description.trim())
 }
 
-/// Returns `(visibility, mutability)` from a given Solidity function
-/// declaration.
+/// Returns `(visibility, mutability)` from a given Solidity function declaration.
 fn parse_function_attrs(f: &str, span: Span) -> Result<(&str, &str)> {
     let Some(ext_start) = f.find("external") else {
-        return Err(Error::new(
-            span,
-            "functions must have `external` visibility",
-        ));
+        return Err(Error::new(span, "functions must have `external` visibility"));
     };
     let visibility = "External";
 

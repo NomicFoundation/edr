@@ -2176,3 +2176,8 @@ interface Vm {
     function ensNamehash(string calldata name) external pure returns (bytes32);
 }
 }
+
+#[track_caller]
+const fn panic_unknown_safety() -> ! {
+    panic!("cannot determine safety from the group, add a `#[cheatcode(safety = ...)]` attribute")
+}
