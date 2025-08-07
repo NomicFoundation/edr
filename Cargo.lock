@@ -2448,7 +2448,7 @@ dependencies = [
 name = "edr_macros"
 version = "0.3.8"
 dependencies = [
- "proc-macro-error",
+ "proc-macro-error2",
  "proc-macro2",
  "quote",
  "syn 2.0.100",
