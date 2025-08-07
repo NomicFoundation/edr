@@ -79,6 +79,11 @@ export const REPOS: Record<string, RepoData> = {
     commit: "aad73cfc6cdc2c9b660199b5b1e9db391ea48640",
     patchFile: "prb-math.patch",
   },
+  "uniswap-v4-core": {
+    url: "https://github.com/Uniswap/v4-core.git",
+    commit: "59d3ecf53afa9264a16bba0e38f4c5d2231f80bc",
+    patchFile: "uniswap-v4-core.patch",
+  },
 };
 
 /// Run Solidity tests in a Hardhat v3 project. Optionally filter paths with grep

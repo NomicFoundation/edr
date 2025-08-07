@@ -755,7 +755,7 @@ async function generateForgeReport(csvInputPath: string): Promise<string> {
     } else if (row.executor === "forge") {
       group.forge.push(duration);
     } else {
-      throw new Error(`Unknown executor: '${row.executor}'`);
+      throw new Error(`Unknown executor for row: '${row}'`);
     }
   }
 
