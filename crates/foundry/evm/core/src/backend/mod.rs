@@ -1055,10 +1055,12 @@ impl<
         InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'a mut Self, ChainContextT>,
     {
         self.initialize(env);
-        let env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
+        
+        let mut env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
+        let tx = std::mem::take(&mut env_with_chain.tx);
         let mut evm = EvmBuilderT::evm_with_inspector(self, env_with_chain, inspector);
 
-        let res = evm.inspect_tx(env.tx.clone()).wrap_err("EVM error")?;
+        let res = evm.inspect_tx(tx).wrap_err("EVM error")?;
 
         *env = EvmEnv::from(evm.into_evm_context());
 
