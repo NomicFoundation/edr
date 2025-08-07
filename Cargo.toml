@@ -184,7 +184,7 @@ chrono = { version = "0.4", default-features = false, features = [
 ] }
 color-eyre = "0.6"
 derive_more = { version = "2", default-features = false }
-derive-where = { version = "1.2.7", default-features = false }
+derive-where = { version = "1.6.0", default-features = false }
 evm-disassembler = "0.5"
 eyre = "0.6"
 hex = { package = "const-hex", version = "1.6", features = ["hex"] }
@@ -301,6 +301,3 @@ useless_transmute = "warn"
 verbose_file_reads = "warn"
 wildcard-imports = "warn"
 zero_sized_map_values = "warn"
-
-[patch.crates-io]
-derive-where = { git = "https://github.com/ModProg/derive-where", rev = "61ce4350f0cdd8ecc422c063b911314a3ca5b710" }
