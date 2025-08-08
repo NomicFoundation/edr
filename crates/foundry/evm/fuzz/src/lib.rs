@@ -100,12 +100,12 @@ impl BaseCounterExample {
                         func_name: Some(func.name.clone()),
                         signature: Some(func.signature()),
                         args: Some(
-                            foundry_evm_core::abi::fmt::format_tokens(&args)
+                            edr_common::fmt::format_tokens(&args)
                                 .format(", ")
                                 .to_string(),
                         ),
                         raw_args: Some(
-                            foundry_evm_core::abi::fmt::format_tokens_raw(&args)
+                            edr_common::fmt::format_tokens_raw(&args)
                                 .format(", ")
                                 .to_string(),
                         ),
@@ -147,12 +147,12 @@ impl BaseCounterExample {
             func_name: None,
             signature: None,
             args: Some(
-                foundry_evm_core::abi::fmt::format_tokens(&args)
+                edr_common::fmt::format_tokens(&args)
                     .format(", ")
                     .to_string(),
             ),
             raw_args: Some(
-                foundry_evm_core::abi::fmt::format_tokens_raw(&args)
+                edr_common::fmt::format_tokens_raw(&args)
                     .format(", ")
                     .to_string(),
             ),

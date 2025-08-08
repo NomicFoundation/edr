@@ -24,7 +24,6 @@ alloy-provider.workspace = true
 alloy-pubsub.workspace = true
 alloy-rpc-client.workspace = true
 alloy-rpc-types = { workspace = true, features = ["eth", "engine", "k256"] }
-alloy-serde.workspace = true
 alloy-sol-types.workspace = true
 alloy-transport.workspace = true
 alloy-transport-http = { workspace = true, features = ["reqwest", "reqwest-rustls-tls"] }
@@ -54,8 +53,6 @@ tokio = { workspace = true, features = ["time", "macros"] }
 tower.workspace = true
 tracing = "0.1"
 url = "2"
-yansi.workspace = true
-chrono = "0.4.40"
 
 [dev-dependencies]
 edr_test_utils.workspace = true

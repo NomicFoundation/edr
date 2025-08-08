@@ -1,10 +1,8 @@
 use alloy_primitives::{Address, Bytes, Log};
 use alloy_sol_types::{SolEvent, SolInterface, SolValue};
+use edr_common::fmt::{ConsoleFmt, FormatSpec};
 use foundry_evm_core::{
-    abi::{
-        fmt::{ConsoleFmt, FormatSpec},
-        patch_hh_console_selector, Console, HardhatConsole,
-    },
+    abi::{patch_hh_console_selector, Console, HardhatConsole},
     backend::DatabaseError,
     constants::HARDHAT_CONSOLE_ADDRESS,
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},

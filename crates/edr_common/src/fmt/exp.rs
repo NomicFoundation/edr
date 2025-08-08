@@ -1,5 +1,3 @@
-//! Helpers for formatting Ethereum types.
-
 use alloy_primitives::{Sign, U256};
 
 /// Returns the number expressed as a string in exponential notation

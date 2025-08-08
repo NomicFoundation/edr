@@ -1504,10 +1504,8 @@ checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
- "js-sys",
  "num-traits",
  "serde",
- "wasm-bindgen",
  "windows-link",
 ]
 
@@ -2280,14 +2278,24 @@ dependencies = [
 name = "edr_common"
 version = "0.3.8"
 dependencies = [
+ "alloy-consensus",
+ "alloy-dyn-abi",
+ "alloy-network",
  "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-serde",
+ "chrono",
  "dunce",
+ "edr_macros",
+ "eyre",
  "serde",
  "serde_json",
  "similar-asserts",
  "thiserror 1.0.69",
  "tokio",
  "walkdir",
+ "yansi",
 ]
 
 [[package]]
@@ -3172,6 +3180,7 @@ dependencies = [
  "alloy-sol-types",
  "const-hex",
  "derive-where",
+ "edr_common",
  "edr_coverage",
  "edr_solidity",
  "eyre",
@@ -3207,14 +3216,12 @@ dependencies = [
  "alloy-pubsub",
  "alloy-rpc-client",
  "alloy-rpc-types",
- "alloy-serde",
  "alloy-sol-types",
  "alloy-transport",
  "alloy-transport-http",
  "alloy-transport-ipc",
  "alloy-transport-ws",
  "auto_impl",
- "chrono",
  "const-hex",
  "derive-where",
  "derive_more 2.0.1",
@@ -3244,7 +3251,6 @@ dependencies = [
  "tower 0.4.13",
  "tracing",
  "url",
- "yansi",
 ]
 
 [[package]]

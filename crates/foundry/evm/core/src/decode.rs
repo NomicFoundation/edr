@@ -211,7 +211,7 @@ impl RevertDecoder {
                         error.name,
                         decoded
                             .iter()
-                            .map(crate::abi::fmt::format_token)
+                            .map(edr_common::fmt::format_token)
                             .format(", ")
                     ));
                 }

@@ -1,7 +1,6 @@
 //! Helpers for formatting Ethereum types.
 
 use alloy_primitives::{Sign, I256, U256};
-use edr_common::calc::to_exp_notation;
 use yansi::Paint;
 
 mod console;
@@ -10,7 +9,9 @@ pub use console::{console_format, ConsoleFmt, FormatSpec};
 mod dynamic;
 pub use dynamic::{format_token, format_token_raw, format_tokens, format_tokens_raw, parse_tokens};
 
-mod transactions;
+mod exp;
+pub use exp::to_exp_notation;
+
 mod ui;
 
 pub use ui::{get_pretty_block_attr, get_pretty_tx_attr, UIfmt};
