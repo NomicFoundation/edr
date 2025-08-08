@@ -57,10 +57,17 @@ impl ReturnData {
             return Ok(String::new());
         }
 
+        if !self.is_error_return_data() {
+            return Err(napi::Error::new(
+                napi::Status::InvalidArg,
+                "VM Exception while processing transaction: Expected return data to be a Error(string)",
+            ));
+        }
+
         let result = Error::abi_decode(&self.value[..]).map_err(|_err| {
             napi::Error::new(
                 napi::Status::InvalidArg,
-                "Expected return data to be a Error(string) and contain a valid string",
+                "VM Exception while processing transaction: Expected return data to contain a valid string",
             )
         })?;
 
@@ -69,10 +76,17 @@ impl ReturnData {
 
     #[napi(catch_unwind)]
     pub fn decode_panic(&self) -> napi::Result<BigInt> {
+        if !self.is_panic_return_data() {
+            return Err(napi::Error::new(
+                napi::Status::InvalidArg,
+                "VM Exception while processing transaction: Expected return data to be a Panic(uint256)",
+            ));
+        }
+
         let result = Panic::abi_decode(&self.value[..]).map_err(|_err| {
             napi::Error::new(
                 napi::Status::InvalidArg,
-                "Expected return data to be a Error(string) and contain a valid string",
+                "VM Exception while processing transaction: Expected return data to contain a valid uint256",
             )
         })?;
 
