@@ -2,12 +2,30 @@ use std::sync::Arc;
 
 use edr_eth::{filter::LogOutput, B256, U256};
 use edr_evm::BlockAndTotalDifficulty;
+use edr_provider::{time::TimeSinceEpoch, ProviderSpec, SyncSubscriberCallback};
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
     JsFunction, JsUnknown,
 };
+
+pub fn subscriber_callback_for_chain_spec<
+    ChainSpecT: ProviderSpec<TimerT, Block: 'static, SignedTransaction: 'static>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
+    subscription_callback: Callback,
+) -> Box<dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>> {
+    Box::new(move |event| {
+        let event = SubscriptionEvent::new::<
+            ChainSpecT::Block,
+            ChainSpecT::RpcBlock<B256>,
+            ChainSpecT::SignedTransaction,
+        >(event);
+
+        subscription_callback.call(event);
+    })
+}
 
 /// A chain-agnostic version of [`edr_provider::SubscriptionEvent`].
 pub struct SubscriptionEvent {
