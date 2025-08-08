@@ -1,6 +1,6 @@
 import { JsonStreamStringify } from "json-stream-stringify";
 import fs from "fs";
-import { getContext, isCI } from "./helpers";
+import { getContext } from "./helpers";
 
 describe("Provider (Mock)", () => {
   const context = getContext();
