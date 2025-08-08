@@ -103,7 +103,7 @@
       ],
       "properties": {
         "description": {
-          "description": "The description of the enum. This is a markdown string derived from the `NatSpec` documentation.",
+          "description": "The description of the enum. This is a markdown string derived from the NatSpec documentation.",
           "type": "string"
         },
         "name": {
@@ -128,7 +128,7 @@
       ],
       "properties": {
         "description": {
-          "description": "The description of the variant. This is a markdown string derived from the `NatSpec` documentation.",
+          "description": "The description of the variant. This is a markdown string derived from the NatSpec documentation.",
           "type": "string"
         },
         "name": {
@@ -151,7 +151,7 @@
           "type": "string"
         },
         "description": {
-          "description": "The description of the error. This is a markdown string derived from the `NatSpec` documentation.",
+          "description": "The description of the error. This is a markdown string derived from the NatSpec documentation.",
           "type": "string"
         },
         "name": {
@@ -174,7 +174,7 @@
           "type": "string"
         },
         "description": {
-          "description": "The description of the event. This is a markdown string derived from the `NatSpec` documentation.",
+          "description": "The description of the event. This is a markdown string derived from the NatSpec documentation.",
           "type": "string"
         },
         "name": {
@@ -202,7 +202,7 @@
           "type": "string"
         },
         "description": {
-          "description": "The description of the function. This is a markdown string derived from the `NatSpec` documentation.",
+          "description": "The description of the function. This is a markdown string derived from the NatSpec documentation.",
           "type": "string"
         },
         "id": {
@@ -418,7 +418,7 @@
       ],
       "properties": {
         "description": {
-          "description": "The description of the struct. This is a markdown string derived from the `NatSpec` documentation.",
+          "description": "The description of the struct. This is a markdown string derived from the NatSpec documentation.",
           "type": "string"
         },
         "fields": {
@@ -444,7 +444,7 @@
       ],
       "properties": {
         "description": {
-          "description": "The description of the field. This is a markdown string derived from the `NatSpec` documentation.",
+          "description": "The description of the field. This is a markdown string derived from the NatSpec documentation.",
           "type": "string"
         },
         "name": {
