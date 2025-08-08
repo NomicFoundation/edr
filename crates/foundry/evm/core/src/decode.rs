@@ -1,7 +1,6 @@
 //! Various utilities to decode test results.
 
-use std::{fmt, sync::OnceLock};
-
+use crate::abi::{Vm, console};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::{Error, JsonAbi};
 use alloy_primitives::{Log, Selector};
@@ -9,8 +8,7 @@ use alloy_sol_types::{SolCall, SolError, SolEventInterface, SolInterface, SolVal
 use itertools::Itertools;
 use revm::interpreter::InstructionResult;
 use rustc_hash::FxHashMap;
-
-use crate::abi::{Console, Vm};
+use std::{fmt, sync::OnceLock};
 
 /// A skip reason.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -65,9 +63,7 @@ pub fn decode_console_logs(logs: &[Log]) -> Vec<String> {
 /// This function returns [None] if it is not a `DSTest` log or the result of a
 /// Hardhat `console.log`.
 pub fn decode_console_log(log: &Log) -> Option<String> {
-    Console::ConsoleEvents::decode_log(log)
-        .ok()
-        .map(|decoded| decoded.to_string())
+    console::Console::ConsoleEvents::decode_log(log).ok().map(|decoded| decoded.to_string())
 }
 
 /// Decodes revert data.
@@ -154,7 +150,7 @@ impl RevertDecoder {
 
     /// Tries to decode an error message from the given revert bytes.
     ///
-    /// See [`decode_revert`] for more information.
+    /// See [`decode`](Self::decode) for more information.
     pub fn maybe_decode(&self, err: &[u8], status: Option<InstructionResult>) -> Option<String> {
         if err.len() < edr_defaults::SELECTOR_LEN {
             if let Some(status) = status {
@@ -246,7 +242,7 @@ fn trimmed_hex(s: &[u8]) -> String {
             "{}…{} ({} bytes)",
             &hex::encode(&s[..n / 2]),
             &hex::encode(&s[s.len() - n / 2..]),
-            s.len()
+            s.len(),
         )
     }
 }
@@ -254,6 +250,7 @@ fn trimmed_hex(s: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_trimmed_hex() {
         assert_eq!(

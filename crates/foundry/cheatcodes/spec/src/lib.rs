@@ -105,21 +105,17 @@ impl Cheatcodes<'static> {
 }
 
 #[cfg(test)]
+#[expect(clippy::disallowed_macros)]
 mod tests {
-    use std::{fs, path::Path};
-
     use super::*;
+    use std::{fs, path::Path};
 
     const JSON_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/cheatcodes.json");
     #[cfg(feature = "schema")]
-    const SCHEMA_PATH: &str = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../assets/cheatcodes.schema.json"
-    );
-    const IFACE_PATH: &str = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../edr_solidity_tests/tests/testdata/cheats/Vm.sol"
-    );
+    const SCHEMA_PATH: &str =
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/cheatcodes.schema.json");
+    const IFACE_PATH: &str =
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../../../testdata/cheats/Vm.sol");
 
     /// Generates the `cheatcodes.json` file contents.
     fn json_cheatcodes() -> String {
@@ -134,7 +130,7 @@ mod tests {
 
     fn sol_iface() -> String {
         let mut cheats = Cheatcodes::new();
-        cheats.errors = Cow::default(); // Skip errors to allow <0.8.4.
+        cheats.errors = Default::default(); // Skip errors to allow <0.8.4.
         let cheats = cheats.to_string().trim().replace('\n', "\n    ");
         format!(
             "\
@@ -178,10 +174,7 @@ interface Vm {{
             }
         }
 
-        eprintln!(
-            "\n\x1b[31;1merror\x1b[0m: {} was not up-to-date, updating\n",
-            file.display()
-        );
+        eprintln!("\n\x1b[31;1merror\x1b[0m: {} was not up-to-date, updating\n", file.display());
         if std::env::var("CI").is_ok() {
             eprintln!("    NOTE: run `cargo generate-cheats-interface` locally and commit the updated files\n");
         }
