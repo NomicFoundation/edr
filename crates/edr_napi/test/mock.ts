@@ -5,15 +5,12 @@ import { getContext, isCI } from "./helpers";
 describe("Provider (Mock)", () => {
   const context = getContext();
 
-  it("issue 543", async function () {
-    // This test tends to time out on Ubuntu and MacOS.
-    if (
-      isCI() &&
-      (process.platform === "linux" || process.platform === "darwin")
-    ) {
-      return this.skip();
-    }
-
+  // This test is disabled because it frequently times out.
+  //
+  // TODO: Find alternative strategy to test this kind of issue that consumes a
+  // large amount of memory.
+  // https://github.com/NomicFoundation/edr/issues/1052
+  it.skip("issue 543", async function () {
     const fileContent = fs.readFileSync("test/data/issue-543.json", "utf-8");
     const parsedJson = JSON.parse(fileContent);
     const structLog = parsedJson.structLogs[0];
