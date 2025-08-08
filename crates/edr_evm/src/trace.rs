@@ -217,7 +217,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
         self.validate_before_message();
 
-        let WrapDatabaseRef(DatabaseComponents { state, .. }) = journal.db_ref();
+        let WrapDatabaseRef(DatabaseComponents { state, .. }) = journal.db();
 
         // This needs to be split into two functions to avoid borrow checker issues
         #[allow(clippy::map_unwrap_or)]
@@ -330,7 +330,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         &mut self,
         journal: &impl JournalTrait<
             Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            FinalOutput = FinalOutputT,
+            State = FinalOutputT,
         >,
         inputs: &CreateInputs,
     ) {
@@ -421,7 +421,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         interpreter: &Interpreter<EthInterpreter>,
         journal: &impl JournalTrait<
             Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            FinalOutput = FinalOutputT,
+            State = FinalOutputT,
         >,
     ) {
         // Skip the step
@@ -507,22 +507,5 @@ impl<
 
     fn step(&mut self, interpreter: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
         self.notify_step_start(interpreter, context.journal());
-    }
-
-    fn eofcreate(
-        &mut self,
-        _context: &mut ContextT,
-        _inputs: &mut revm_interpreter::EOFCreateInputs,
-    ) -> Option<CreateOutcome> {
-        unreachable!("EOF create not supported in trace collector")
-    }
-
-    fn eofcreate_end(
-        &mut self,
-        _context: &mut ContextT,
-        _inputs: &revm_interpreter::EOFCreateInputs,
-        _outcome: &mut CreateOutcome,
-    ) {
-        unreachable!("EOF create not supported in trace collector");
     }
 }

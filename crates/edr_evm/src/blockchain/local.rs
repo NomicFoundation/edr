@@ -324,6 +324,7 @@ mod tests {
                         info: info.clone(),
                         storage: HashMap::new(),
                         status: AccountStatus::Created | AccountStatus::Touched,
+                        transaction_id: 0,
                     },
                 )
             })

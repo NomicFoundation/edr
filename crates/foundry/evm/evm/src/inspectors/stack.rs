@@ -990,9 +990,7 @@ impl<
             |inspector| {
                 let mut out = None;
                 if let Some(output) = Inspector::<_, EthInterpreter>::call(inspector, ecx, call) {
-                    if output.result.result != InstructionResult::Continue {
-                        out = Some(Some(output));
-                    }
+                    out = Some(Some(output));
                 }
                 out
             },

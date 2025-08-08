@@ -38,4 +38,7 @@ jobs:
           title: "edr-${{ steps.get-version.outputs.version }}"
           commit: "edr-${{ steps.get-version.outputs.version }}"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # If the default GITHUB_TOKEN is used, checks will not run in release PRs.
+          # To have checks run, set up CHANGESETS_TOKEN in repo secrets with read/write
+          # permission for Contents and Pull requests scopes.
+          GITHUB_TOKEN: ${{ secrets.CHANGESETS_TOKEN || secrets.GITHUB_TOKEN }}

@@ -96,7 +96,7 @@ where
 
     let context = revm::Context {
         block,
-        tx: transaction,
+        tx: ChainSpecT::SignedTransaction::default(),
         journaled_state: Journal::new(database),
         cfg,
         chain: ChainSpecT::Context::default(),
@@ -110,7 +110,7 @@ where
     );
 
     let mut evm = ChainSpecT::evm_with_inspector(context, inspector, precompile_provider);
-    evm.inspect_replay().map_err(|error| match error {
+    evm.inspect_tx(transaction).map_err(|error| match error {
         EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
         EVMError::Header(error) => TransactionError::InvalidHeader(error),
         EVMError::Database(error) => error.into(),

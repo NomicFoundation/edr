@@ -8,7 +8,7 @@ use edr_evm::{
     inspector::Inspector,
     precompile::PrecompileFn,
     runtime::guaranteed_dry_run_with_inspector,
-    spec::{BlockEnvConstructor as _, ContextForChainSpec},
+    spec::ContextForChainSpec,
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
 };
 
@@ -44,7 +44,7 @@ where
     let mut header = header.clone();
     header.base_fee_per_gas = header.base_fee_per_gas.map(|_| 0);
 
-    let block = ChainSpecT::BlockEnv::new_block_env(&header, cfg_env.spec.into());
+    let block = ChainSpecT::new_block_env(&header, cfg_env.spec.into());
 
     guaranteed_dry_run_with_inspector::<_, ChainSpecT, _, _>(
         blockchain,

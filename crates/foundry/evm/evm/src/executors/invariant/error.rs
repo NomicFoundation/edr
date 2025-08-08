@@ -112,7 +112,7 @@ impl FailedInvariantCaseData {
                     .map(|(_, c)| &c.abi),
             )
             .with_abi(invariant_contract.abi)
-            .decode(call_result.result.as_ref(), Some(call_result.exit_reason));
+            .decode(call_result.result.as_ref(), call_result.exit_reason);
 
         let func = invariant_contract.invariant_function;
         debug_assert!(func.inputs.is_empty());

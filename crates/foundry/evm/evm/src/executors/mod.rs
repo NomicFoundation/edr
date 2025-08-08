@@ -1261,7 +1261,7 @@ pub struct RawCallResult<
     TransactionErrorT: TransactionErrorTrait,
 > {
     /// The status of the call
-    pub exit_reason: InstructionResult,
+    pub exit_reason: Option<InstructionResult>,
     /// Whether the call reverted or not
     pub reverted: bool,
     /// Whether the call includes a state snapshot failure
@@ -1327,7 +1327,7 @@ impl<
 {
     fn default() -> Self {
         Self {
-            exit_reason: InstructionResult::Continue,
+            exit_reason: None,
             reverted: false,
             has_state_snapshot_failure: false,
             result: Bytes::new(),
@@ -1422,7 +1422,7 @@ impl<
         }
         let reason = rd
             .unwrap_or_default()
-            .decode(&self.result, Some(self.exit_reason));
+            .decode(&self.result, self.exit_reason);
         EvmError::Execution(Box::new(self.into_execution_error(reason)))
     }
 
@@ -1459,7 +1459,7 @@ impl<
             TransactionErrorT,
         >,
     > {
-        if self.exit_reason.is_ok() {
+        if self.exit_reason.is_some_and(InstructionResult::is_ok) {
             Ok(self)
         } else {
             Err(self.into_evm_error(rd))
@@ -1679,7 +1679,7 @@ fn convert_executed_result<
     } = inspector.collect()?;
 
     Ok(RawCallResult {
-        exit_reason,
+        exit_reason: Some(exit_reason),
         reverted: !matches!(exit_reason, return_ok!()),
         has_state_snapshot_failure,
         result,

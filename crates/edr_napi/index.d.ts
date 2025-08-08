@@ -405,8 +405,7 @@ export enum SuccessReason {
   /** The opcode `RETURN` was called */
   Return = 1,
   /** The opcode `SELFDESTRUCT` was called */
-  SelfDestruct = 2,
-  EofReturnContract = 3
+  SelfDestruct = 2
 }
 export interface CallOutput {
   /** Return value */
@@ -459,15 +458,7 @@ export enum ExceptionalHalt {
   /** Error on created contract that begins with EF */
   CreateContractStartingWithEF = 12,
   /** EIP-3860: Limit and meter initcode. Initcode size limit exceeded. */
-  CreateInitCodeSizeLimit = 13,
-  /** Aux data overflow, new aux data is larger tha u16 max size. */
-  EofAuxDataOverflow = 14,
-  /** Aud data is smaller then already present data size. */
-  EofAuxDataTooSmall = 15,
-  /** EOF Subroutine stack overflow */
-  SubRoutineStackOverflow = 16,
-  /** Check for target address validity is only done inside subcall. */
-  InvalidEXTCALLTarget = 17
+  CreateInitCodeSizeLimit = 13
 }
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
@@ -812,14 +803,36 @@ export interface PathPermission {
   /** The targeted path guarded by the permission */
   path: string
 }
-/** Determines the status of file system access */
+/**
+ * Determines the level of file system access for the given path.
+ *
+ * Exact path matching is used for file permissions. Prefix matching is used
+ * for directory permissions.
+ *
+ * Giving write access to configuration files, source files or executables
+ * in a project is considered dangerous, because it can be used by malicious
+ * Solidity dependencies to escape the EVM sandbox. It is therefore
+ * recommended to give write access to specific safe files only. If write
+ * access to a directory is needed, please make sure that it doesn't contain
+ * configuration files, source files or executables neither in the top level
+ * directory, nor in any subdirectories.
+*/
 export enum FsAccessPermission {
-  /** FS access is allowed with `read` + `write` permission */
-  ReadWrite = 0,
-  /** Only reading is allowed */
-  Read = 1,
-  /** Only writing is allowed */
-  Write = 2
+  /** Allows reading and writing the file */
+  ReadWriteFile = 0,
+  /** Only allows reading the file */
+  ReadFile = 1,
+  /** Only allows writing the file */
+  WriteFile = 2,
+  /**
+   * Allows reading and writing all files in the directory and its
+   * subdirectories
+   */
+  DangerouslyReadWriteDirectory = 3,
+  /** Allows reading all files in the directory and its subdirectories */
+  ReadDirectory = 4,
+  /** Allows writing all files in the directory and its subdirectories */
+  DangerouslyWriteDirectory = 5
 }
 export interface AddressLabel {
   /** The address to label */

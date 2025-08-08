@@ -16,6 +16,7 @@ use foundry_evm_core::{
         split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
+    utils::get_blob_base_fee_update_fraction_by_spec_id,
 };
 use revm::{
     bytecode::Bytecode,
@@ -1210,9 +1211,10 @@ impl Cheatcode for blobBaseFeeCall {
             "`blobBaseFee` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
-        ccx.ecx
-            .block
-            .set_blob_excess_gas_and_price((*newBlobBaseFee).to(), spec_id >= SpecId::PRAGUE);
+        ccx.ecx.block.set_blob_excess_gas_and_price(
+            (*newBlobBaseFee).to(),
+            get_blob_base_fee_update_fraction_by_spec_id(spec_id),
+        );
         Ok(Vec::default())
     }
 }

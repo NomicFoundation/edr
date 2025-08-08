@@ -292,9 +292,9 @@ impl From<BlockEnvOpts> for BlockEnv {
         } = value;
 
         Self {
-            number,
+            number: U256::from(number),
             beneficiary,
-            timestamp,
+            timestamp: U256::from(timestamp),
             difficulty,
             prevrandao,
             basefee,

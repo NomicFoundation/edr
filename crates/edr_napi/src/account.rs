@@ -53,7 +53,7 @@ impl TryFrom<AccountOverride> for (edr_eth::Address, edr_provider::AccountOverri
                     .into_iter()
                     .map(|StorageSlot { index, value }| {
                         let value = value.try_cast()?;
-                        let slot = edr_evm::state::EvmStorageSlot::new(value);
+                        let slot = edr_evm::state::EvmStorageSlot::new(value, 0);
 
                         let index: edr_eth::U256 = index.try_cast()?;
                         Ok((index, slot))

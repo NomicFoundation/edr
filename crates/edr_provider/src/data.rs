@@ -47,7 +47,7 @@ use edr_evm::{
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
     precompile::PrecompileFn,
-    spec::{BlockEnvConstructor as _, RuntimeSpec, SyncRuntimeSpec},
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
         StateOverrides, StateRefOverrider, SyncState,
@@ -870,7 +870,7 @@ where
         let mut modified_state = (*self.current_state()?).clone();
         let old_value = modified_state.set_account_storage_slot(address, index, value)?;
 
-        let slot = EvmStorageSlot::new_changed(old_value, value);
+        let slot = EvmStorageSlot::new_changed(old_value, value, 0);
         let account_info = modified_state.basic(address).and_then(|mut account_info| {
             // Retrieve the code if it's not empty. This is needed for the irregular state.
             if let Some(account_info) = &mut account_info {
@@ -2492,7 +2492,7 @@ where
         self.execute_in_block_context(
             prev_block_spec.as_ref(),
             |blockchain, _prev_block, state| {
-                let block_env = ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec.into());
+                let block_env = ChainSpecT::new_block_env(header, cfg_env.spec.into());
 
                 debug_trace_transaction(
                     blockchain,
@@ -2811,6 +2811,7 @@ fn create_blockchain_and_state<
                         // TODO: https://github.com/NomicFoundation/edr/issues/911
                         storage: HashMap::new(),
                         status: AccountStatus::Created | AccountStatus::Touched,
+                        transaction_id: 0,
                     };
 
                     Ok((*address, account))
@@ -2923,6 +2924,7 @@ fn create_blockchain_and_state<
                     info,
                     storage: account_override.storage.clone().unwrap_or(HashMap::new()),
                     status: AccountStatus::Created | AccountStatus::Touched,
+                    transaction_id: 0,
                 };
 
                 (*address, account)

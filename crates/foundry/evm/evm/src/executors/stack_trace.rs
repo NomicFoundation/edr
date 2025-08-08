@@ -246,8 +246,11 @@ fn convert_node_to_nested_trace<HaltReasonT: HaltReasonTr>(
 }
 
 fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTr>(
-    result: revm::interpreter::InstructionResult,
+    result: Option<revm::interpreter::InstructionResult>,
 ) -> ExitCode<HaltReasonT> {
+    let Some(result) = result else {
+        return ExitCode::InternalContinue;
+    };
     let success_or_halt: revm::interpreter::SuccessOrHalt<HaltReasonT> = result.into();
     match success_or_halt {
         SuccessOrHalt::Success(_) => ExitCode::Success,
@@ -255,8 +258,6 @@ fn convert_instruction_result_to_exit_code<HaltReasonT: HaltReasonTr>(
         SuccessOrHalt::Halt(halt) => ExitCode::Halt(halt),
         SuccessOrHalt::FatalExternalError => ExitCode::FatalExternalError,
         SuccessOrHalt::Internal(result) => match result {
-            InternalResult::InternalContinue => ExitCode::InternalContinue,
-            InternalResult::InternalCallOrCreate => ExitCode::InternalCallOrCreate,
             InternalResult::CreateInitCodeStartingEF00 => ExitCode::CreateInitCodeStartingEF00,
             InternalResult::InvalidExtDelegateCallTarget => ExitCode::InvalidExtDelegateCallTarget,
         },

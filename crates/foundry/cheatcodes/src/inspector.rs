@@ -31,7 +31,7 @@ use revm::{
     bytecode::opcode,
     context::{result::HaltReasonTr, BlockEnv, CfgEnv, Context as EvmContext, JournalTr},
     interpreter::{
-        interpreter_types::{Jumps, MemoryTr},
+        interpreter_types::{Jumps, LoopControl, MemoryTr},
         CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, Host,
         InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
     },
@@ -534,9 +534,7 @@ impl<
 
         // Record gas for current frame.
         if self.gas_metering.paused {
-            self.gas_metering
-                .paused_frames
-                .push(interpreter.control.gas);
+            self.gas_metering.paused_frames.push(interpreter.gas);
         }
 
         // `expectRevert`: track the max call depth during `expectRevert`
@@ -1141,14 +1139,10 @@ impl<
                 .map(|account| (account.info.exists(), account.info.balance))
                 .unwrap_or_default();
             let kind = match call.scheme {
-                CallScheme::Call | CallScheme::ExtCall => crate::Vm::AccountAccessKind::Call,
+                CallScheme::Call => crate::Vm::AccountAccessKind::Call,
                 CallScheme::CallCode => crate::Vm::AccountAccessKind::CallCode,
-                CallScheme::DelegateCall | CallScheme::ExtDelegateCall => {
-                    crate::Vm::AccountAccessKind::DelegateCall
-                }
-                CallScheme::StaticCall | CallScheme::ExtStaticCall => {
-                    crate::Vm::AccountAccessKind::StaticCall
-                }
+                CallScheme::DelegateCall => crate::Vm::AccountAccessKind::DelegateCall,
+                CallScheme::StaticCall => crate::Vm::AccountAccessKind::StaticCall,
             };
             // Record this call by pushing it to a new pending vector; all subsequent calls
             // at that depth will be pushed to the same vector. When the call
@@ -1778,15 +1772,13 @@ impl<
             // Keep gas constant if paused.
             // Make sure we record the memory changes so that memory expansion is not
             // paused.
-            let memory = *interpreter.control.gas.memory();
-            interpreter.control.gas = *paused_gas;
-            interpreter.control.gas.memory_mut().words_num = memory.words_num;
-            interpreter.control.gas.memory_mut().expansion_cost = memory.expansion_cost;
+            let memory = *interpreter.gas.memory();
+            interpreter.gas = *paused_gas;
+            interpreter.gas.memory_mut().words_num = memory.words_num;
+            interpreter.gas.memory_mut().expansion_cost = memory.expansion_cost;
         } else {
             // Record frame paused gas.
-            self.gas_metering
-                .paused_frames
-                .push(interpreter.control.gas);
+            self.gas_metering.paused_frames.push(interpreter.gas);
         }
     }
 
@@ -1813,10 +1805,13 @@ impl<
             ChainContextT,
         >,
     ) {
-        if matches!(
-            interpreter.control.instruction_result,
-            InstructionResult::Continue
-        ) {
+        if interpreter
+            .bytecode
+            .action
+            .as_ref()
+            .and_then(InterpreterAction::instruction_result)
+            .is_none()
+        {
             self.gas_metering.gas_records.iter_mut().for_each(|record| {
                 let curr_depth = ecx.journaled_state.depth();
                 if curr_depth == record.depth {
@@ -1824,7 +1819,6 @@ impl<
                     // creating the snapshot.
                     if self.gas_metering.last_gas_used != 0 {
                         let gas_diff = interpreter
-                            .control
                             .gas
                             .spent()
                             .saturating_sub(self.gas_metering.last_gas_used);
@@ -1833,7 +1827,7 @@ impl<
 
                     // Update `last_gas_used` to the current spent gas for the next iteration to
                     // compare against.
-                    self.gas_metering.last_gas_used = interpreter.control.gas.spent();
+                    self.gas_metering.last_gas_used = interpreter.gas.spent();
                 }
             });
         }
@@ -1842,27 +1836,31 @@ impl<
     #[cold]
     fn meter_gas_end(&mut self, interpreter: &mut Interpreter) {
         // Remove recorded gas if we exit frame.
-        if will_exit(interpreter.control.instruction_result) {
-            self.gas_metering.paused_frames.pop();
+        if let Some(interpreter_action) = interpreter.bytecode.action.as_ref() {
+            if will_exit(interpreter_action) {
+                self.gas_metering.paused_frames.pop();
+            }
         }
     }
 
     #[cold]
     fn meter_gas_reset(&mut self, interpreter: &mut Interpreter) {
-        interpreter.control.gas = Gas::new(interpreter.control.gas.limit());
+        interpreter.gas = Gas::new(interpreter.gas.limit());
         self.gas_metering.reset = false;
     }
 
     #[cold]
     fn meter_gas_check(interpreter: &mut Interpreter) {
-        if will_exit(interpreter.control.instruction_result) {
-            // Reset gas if spent is less than refunded.
-            // This can happen if gas was paused / resumed or reset.
-            // https://github.com/foundry-rs/foundry/issues/4370
-            if interpreter.control.gas.spent()
-                < u64::try_from(interpreter.control.gas.refunded()).unwrap_or_default()
-            {
-                interpreter.control.gas = Gas::new(interpreter.control.gas.limit());
+        if let Some(interpreter_action) = interpreter.bytecode.action.as_ref() {
+            if will_exit(interpreter_action) {
+                // Reset gas if spent is less than refunded.
+                // This can happen if gas was paused / resumed or reset.
+                // https://github.com/foundry-rs/foundry/issues/4370
+                if interpreter.gas.spent()
+                    < u64::try_from(interpreter.gas.refunded()).unwrap_or_default()
+                {
+                    interpreter.gas = Gas::new(interpreter.gas.limit());
+                }
             }
         }
     }
@@ -1890,14 +1888,13 @@ fn disallowed_mem_write(
             .join(" U ")
     );
 
-    interpreter.control.instruction_result = InstructionResult::Revert;
-    interpreter.control.next_action = InterpreterAction::Return {
-        result: InterpreterResult {
-            output: Error::encode(revert_string),
-            gas: interpreter.control.gas,
-            result: InstructionResult::Revert,
-        },
-    };
+    interpreter
+        .bytecode
+        .set_action(InterpreterAction::new_return(
+            InstructionResult::Revert,
+            Bytes::from(revert_string.into_bytes()),
+            interpreter.gas,
+        ));
 }
 
 /// Dispatches the cheatcode call to the appropriate function.
@@ -2016,9 +2013,12 @@ fn find_upstream_cheatcode_signature(selector: alloy_primitives::FixedBytes<4>) 
 }
 
 /// Helper function to check if frame execution will exit.
-fn will_exit(ir: InstructionResult) -> bool {
-    !matches!(
-        ir,
-        InstructionResult::Continue | InstructionResult::CallOrCreate
-    )
+fn will_exit(action: &InterpreterAction) -> bool {
+    #[allow(clippy::match_wildcard_for_single_variants)]
+    match action {
+        InterpreterAction::Return(result) => {
+            result.result.is_ok_or_revert() || result.result.is_error()
+        }
+        _ => false,
+    }
 }
