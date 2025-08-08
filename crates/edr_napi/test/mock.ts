@@ -2,10 +2,15 @@ import { JsonStreamStringify } from "json-stream-stringify";
 import fs from "fs";
 import { getContext } from "./helpers";
 
-describe("Provider", () => {
+describe("Provider (Mock)", () => {
   const context = getContext();
 
-  it("issue 543", async function () {
+  // This test is disabled because it frequently times out.
+  //
+  // TODO: Find alternative strategy to test this kind of issue that consumes a
+  // large amount of memory.
+  // https://github.com/NomicFoundation/edr/issues/1052
+  it.skip("issue 543", async function () {
     const fileContent = fs.readFileSync("test/data/issue-543.json", "utf-8");
     const parsedJson = JSON.parse(fileContent);
     const structLog = parsedJson.structLogs[0];
