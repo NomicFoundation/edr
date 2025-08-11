@@ -1,6 +1,9 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
-use edr_eth::{block::BlobGas, Address, Bytecode, ChainId, HashMap, B256, U256};
+use edr_eth::{
+    block::BlobGas, eips::eip1559::ConstantBaseFeeParams, Address, Bytecode, ChainId, HashMap,
+    B256, U256,
+};
 use edr_evm::{hardfork::ChainOverride, precompile::PrecompileFn, state::EvmStorage, MineOrdering};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -110,6 +113,7 @@ pub struct Provider<HardforkT> {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
+    pub base_fee_params: Option<ConstantBaseFeeParams>,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,

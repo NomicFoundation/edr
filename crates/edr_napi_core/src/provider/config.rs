@@ -3,6 +3,7 @@ use std::{str::FromStr, time::SystemTime};
 
 use edr_eth::{
     block::BlobGas,
+    eips::eip1559::ConstantBaseFeeParams,
     l1::{self, hardfork::UnknownHardfork},
     signature::SecretKey,
     Address, ChainId, HashMap, B256,
@@ -22,6 +23,7 @@ pub struct Config {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
+    pub base_fee_params: Option<ConstantBaseFeeParams>,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,
@@ -116,6 +118,7 @@ where
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
+            base_fee_params: value.base_fee_params,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,

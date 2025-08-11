@@ -8,6 +8,7 @@ use std::{
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eth::{
+    eips::eip1559::ConstantBaseFeeParams,
     signature::{secret_key_from_str, SecretKey},
     Bytes, HashMap, HashSet,
 };
@@ -26,6 +27,13 @@ use crate::{
     account::AccountOverride, block::BlobGas, cast::TryCast, logger::LoggerConfig,
     precompile::Precompile, subscription::SubscriptionConfig,
 };
+
+/// Configuration for eip-1559 parameters
+#[napi(object)]
+pub struct BaseFeeConfig {
+    pub max_change_denominator: BigInt,
+    pub elasticity_multiplier: BigInt,
+}
 
 /// Specification of a chain with possible overrides.
 #[napi(object)]
@@ -142,6 +150,8 @@ pub struct ProviderConfig {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
+    /// The chain eip-1559 configurable parameters
+    pub base_fee_config: Option<BaseFeeConfig>,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
     /// The chain ID of the blockchain
@@ -443,6 +453,20 @@ impl ProviderConfig {
             })
             .collect::<napi::Result<Vec<_>>>()?;
 
+        let base_fee_params = self
+            .base_fee_config
+            .map(|config| -> Result<ConstantBaseFeeParams, napi::Error> {
+                let max_change_denominator: u128 =
+                    TryCast::try_cast(config.max_change_denominator)?;
+                let elasticity_multiplier: u128 = TryCast::try_cast(config.elasticity_multiplier)?;
+
+                Ok(ConstantBaseFeeParams {
+                    max_change_denominator,
+                    elasticity_multiplier,
+                })
+            })
+            .transpose()?;
+
         let block_gas_limit =
             NonZeroU64::new(self.block_gas_limit.try_cast()?).ok_or_else(|| {
                 napi::Error::new(
@@ -468,6 +492,7 @@ impl ProviderConfig {
             allow_unlimited_contract_size: self.allow_unlimited_contract_size,
             bail_on_call_failure: self.bail_on_call_failure,
             bail_on_transaction_failure: self.bail_on_transaction_failure,
+            base_fee_params,
             block_gas_limit,
             chain_id: self.chain_id.try_cast()?,
             coinbase: self.coinbase.try_cast()?,
