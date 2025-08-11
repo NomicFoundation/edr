@@ -162,6 +162,11 @@ export const FJORD: string
 export const GRANITE: string
 export const HOLOCENE: string
 export const ISTHMUS: string
+/** Configuration for eip-1559 parameters */
+export interface BaseFeeConfig {
+  maxChangeDenominator: bigint
+  elasticityMultiplier: bigint
+}
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
   /** The chain ID */
@@ -255,6 +260,8 @@ export interface ProviderConfig {
   bailOnCallFailure: boolean
   /** Whether to return an `Err` when a `eth_sendTransaction` fails */
   bailOnTransactionFailure: boolean
+  /** The chain eip-1559 configurable parameters */
+  baseFeeConfig?: BaseFeeConfig
   /** The gas limit of each block */
   blockGasLimit: bigint
   /** The chain ID of the blockchain */
