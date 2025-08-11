@@ -1,4 +1,3 @@
-mod builder;
 mod config;
 mod factory;
 
@@ -12,11 +11,7 @@ use edr_solidity::{
     contract_decoder::ContractDecoder,
 };
 
-pub use self::{
-    builder::{Builder, ProviderBuilder},
-    config::Config,
-    factory::SyncProviderFactory,
-};
+pub use self::{config::Config, factory::SyncProviderFactory};
 use crate::spec::{Response, SyncNapiSpec};
 
 /// Trait for a synchronous N-API provider that can be used for dynamic trait
