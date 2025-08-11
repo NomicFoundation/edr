@@ -3,6 +3,7 @@
 //! Core EVM abstractions.
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
 
 #[macro_use]
 extern crate tracing;

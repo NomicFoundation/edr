@@ -1,7 +1,5 @@
-//! Runtime transport that connects on first request, which can take either of
-//! an HTTP, `WebSocket`, or IPC transport and supports retries based on CUPS
-//! logic.
-use std::{path::PathBuf, str::FromStr, sync::Arc};
+//! Runtime transport that connects on first request, which can take either of an HTTP,
+//! WebSocket, or IPC transport and supports retries based on CUPS logic.
 
 use alloy_json_rpc::{RequestPacket, ResponsePacket};
 use alloy_pubsub::{PubSubConnect, PubSubFrontend};
@@ -13,6 +11,7 @@ use alloy_transport_http::Http;
 use alloy_transport_ipc::IpcConnect;
 use alloy_transport_ws::WsConnect;
 use reqwest::header::{HeaderName, HeaderValue};
+use std::{path::PathBuf, str::FromStr, sync::Arc};
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tower::Service;
@@ -20,13 +19,13 @@ use url::Url;
 
 use super::REQUEST_TIMEOUT;
 
-/// An enum representing the different transports that can be used to connect to
-/// a runtime. Only meant to be used internally by [`RuntimeTransport`].
+/// An enum representing the different transports that can be used to connect to a runtime.
+/// Only meant to be used internally by [RuntimeTransport].
 #[derive(Clone, Debug)]
 pub enum InnerTransport {
     /// HTTP transport
     Http(Http<reqwest::Client>),
-    /// `WebSocket` transport
+    /// WebSocket transport
     Ws(PubSubFrontend),
     /// IPC transport
     Ipc(PubSubFrontend),
@@ -64,11 +63,12 @@ pub enum RuntimeTransportError {
     InvalidJwt(String),
 }
 
-/// A runtime transport is a custom [`alloy_transport::Transport`] that only
-/// connects when the *first* request is made. When the first request is made,
-/// it will connect to the runtime using either an HTTP `WebSocket`, or IPC
-/// transport depending on the URL used. It also supports retries for
-/// rate-limiting and timeout-related errors.
+/// Runtime transport that only connects on first request.
+///
+/// A runtime transport is a custom [`alloy_transport::Transport`] that only connects when the
+/// *first* request is made. When the first request is made, it will connect to the runtime using
+/// either an HTTP WebSocket, or IPC transport depending on the URL used.
+/// It also supports retries for rate-limiting and timeout-related errors.
 #[derive(Clone, Debug, Error)]
 pub struct RuntimeTransport {
     /// The inner actual transport used.
@@ -83,7 +83,7 @@ pub struct RuntimeTransport {
     timeout: std::time::Duration,
 }
 
-/// A builder for [`RuntimeTransport`].
+/// A builder for [RuntimeTransport].
 #[derive(Debug)]
 pub struct RuntimeTransportBuilder {
     url: Url,
@@ -121,7 +121,7 @@ impl RuntimeTransportBuilder {
         self
     }
 
-    /// Builds the [`RuntimeTransport`] and returns it in a disconnected state.
+    /// Builds the [RuntimeTransport] and returns it in a disconnected state.
     /// The runtime transport will then connect when the first request happens.
     pub fn build(self) -> RuntimeTransport {
         RuntimeTransport {
@@ -147,9 +147,7 @@ impl RuntimeTransport {
             "http" | "https" => self.connect_http().await,
             "ws" | "wss" => self.connect_ws().await,
             "file" => self.connect_ipc().await,
-            _ => Err(RuntimeTransportError::BadScheme(
-                self.url.scheme().to_string(),
-            )),
+            _ => Err(RuntimeTransportError::BadScheme(self.url.scheme().to_string())),
         }
     }
 
@@ -179,29 +177,22 @@ impl RuntimeTransport {
             let (key, val) = header.split_once(':').ok_or_else(make_err)?;
 
             headers.insert(
-                HeaderName::from_str(key.trim()).map_err(|_err| make_err())?,
-                HeaderValue::from_str(val.trim()).map_err(|_err| make_err())?,
+                HeaderName::from_str(key.trim()).map_err(|_| make_err())?,
+                HeaderValue::from_str(val.trim()).map_err(|_| make_err())?,
             );
         }
 
         client_builder = client_builder.default_headers(headers);
 
-        let client = client_builder
-            .build()
-            .map_err(RuntimeTransportError::HttpConstructionError)?;
+        let client =
+            client_builder.build().map_err(RuntimeTransportError::HttpConstructionError)?;
 
-        Ok(InnerTransport::Http(Http::with_client(
-            client,
-            self.url.clone(),
-        )))
+        Ok(InnerTransport::Http(Http::with_client(client, self.url.clone())))
     }
 
     /// Connects to a WS transport.
     async fn connect_ws(&self) -> Result<InnerTransport, RuntimeTransportError> {
-        let auth = self
-            .jwt
-            .as_ref()
-            .and_then(|jwt| build_auth(jwt.clone()).ok());
+        let auth = self.jwt.as_ref().and_then(|jwt| build_auth(jwt.clone()).ok());
         let mut ws = WsConnect::new(self.url.to_string());
         if let Some(auth) = auth {
             ws = ws.with_auth(auth);
@@ -216,7 +207,7 @@ impl RuntimeTransport {
     /// Connects to an IPC transport.
     async fn connect_ipc(&self) -> Result<InnerTransport, RuntimeTransportError> {
         let path = url_to_file_path(&self.url)
-            .map_err(|_err| RuntimeTransportError::BadPath(self.url.to_string()))?;
+            .map_err(|_| RuntimeTransportError::BadPath(self.url.to_string()))?;
         let ipc_connector = IpcConnect::new(path.clone());
         let ipc = ipc_connector.into_service().await.map_err(|e| {
             RuntimeTransportError::TransportError(e, path.clone().display().to_string())
@@ -225,13 +216,12 @@ impl RuntimeTransport {
     }
 
     /// Sends a request using the underlying transport.
-    /// If this is the first request, it will connect to the appropriate
-    /// transport depending on the URL scheme. When sending the request,
-    /// retries will be automatically handled depending on the parameters
-    /// set on the [`RuntimeTransport`]. For sending the actual request, this
-    /// action is delegated down to the underlying transport through Tower's
-    /// [`tower::Service::call`]. See tower's [`tower::Service`] trait for more
-    /// information.
+    /// If this is the first request, it will connect to the appropriate transport depending on the
+    /// URL scheme. When sending the request, retries will be automatically handled depending
+    /// on the parameters set on the [RuntimeTransport].
+    /// For sending the actual request, this action is delegated down to the
+    /// underlying transport through Tower's [tower::Service::call]. See tower's [tower::Service]
+    /// trait for more information.
     pub fn request(&self, req: RequestPacket) -> TransportFut<'static> {
         let this = self.clone();
         Box::pin(async move {

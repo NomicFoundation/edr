@@ -158,19 +158,13 @@ impl TestFunctionKind {
     /// Returns `true` if this function is a unit, fuzz, or invariant test.
     #[inline]
     pub const fn is_any_test(&self) -> bool {
-        matches!(
-            self,
-            Self::UnitTest { .. } | Self::FuzzTest { .. } | Self::InvariantTest
-        )
+        matches!(self, Self::UnitTest { .. } | Self::FuzzTest { .. } | Self::InvariantTest)
     }
 
     /// Returns `true` if this function is a test that should fail.
     #[inline]
     pub const fn is_any_test_fail(&self) -> bool {
-        matches!(
-            self,
-            Self::UnitTest { should_fail: true } | Self::FuzzTest { should_fail: true }
-        )
+        matches!(self, Self::UnitTest { should_fail: true } | Self::FuzzTest { should_fail: true })
     }
 
     /// Returns `true` if this function is a unit test.

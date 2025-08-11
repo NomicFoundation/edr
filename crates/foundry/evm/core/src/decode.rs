@@ -1,7 +1,6 @@
 //! Various utilities to decode test results.
 
-use std::{fmt, sync::OnceLock};
-
+use crate::abi::{Vm, Console};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::{Error, JsonAbi};
 use alloy_primitives::{Log, Selector};
@@ -9,8 +8,7 @@ use alloy_sol_types::{SolCall, SolError, SolEventInterface, SolInterface, SolVal
 use itertools::Itertools;
 use revm::interpreter::InstructionResult;
 use rustc_hash::FxHashMap;
-
-use crate::abi::{Console, Vm};
+use std::{fmt, sync::OnceLock};
 
 /// A skip reason.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -19,21 +17,17 @@ pub struct SkipReason(pub Option<String>);
 impl SkipReason {
     /// Decodes a skip reason, if any.
     pub fn decode(raw_result: &[u8]) -> Option<Self> {
-        raw_result
-            .strip_prefix(crate::constants::MAGIC_SKIP)
-            .map(|reason| {
-                let reason = String::from_utf8_lossy(reason).into_owned();
-                Self((!reason.is_empty()).then_some(reason))
-            })
+        raw_result.strip_prefix(crate::constants::MAGIC_SKIP).map(|reason| {
+            let reason = String::from_utf8_lossy(reason).into_owned();
+            Self((!reason.is_empty()).then_some(reason))
+        })
     }
 
-    /// Decodes a skip reason from a string that was obtained by formatting
-    /// `Self`.
+    /// Decodes a skip reason from a string that was obtained by formatting `Self`.
     ///
     /// This is a hack to support re-decoding a skip reason in proptest.
     pub fn decode_self(s: &str) -> Option<Self> {
-        s.strip_prefix("skipped")
-            .map(|rest| Self(rest.strip_prefix(": ").map(ToString::to_string)))
+        s.strip_prefix("skipped").map(|rest| Self(rest.strip_prefix(": ").map(ToString::to_string)))
     }
 }
 
@@ -54,20 +48,17 @@ impl From<SkipReason> for Option<String> {
     }
 }
 
-/// Decode a set of logs, only returning logs from `DSTest` logging events and
-/// Hardhat's `console.log`
+/// Decode a set of logs, only returning logs from DSTest logging events and Hardhat's `console.log`
 pub fn decode_console_logs(logs: &[Log]) -> Vec<String> {
     logs.iter().filter_map(decode_console_log).collect()
 }
 
 /// Decode a single log.
 ///
-/// This function returns [None] if it is not a `DSTest` log or the result of a
-/// Hardhat `console.log`.
+/// This function returns [None] if it is not a DSTest log or the result of a Hardhat
+/// `console.log`.
 pub fn decode_console_log(log: &Log) -> Option<String> {
-    Console::ConsoleEvents::decode_log(log)
-        .ok()
-        .map(|decoded| decoded.to_string())
+    Console::ConsoleEvents::decode_log(log).ok().map(|decoded| decoded.to_string())
 }
 
 /// Decodes revert data.
@@ -92,8 +83,7 @@ impl RevertDecoder {
 
     /// Sets the ABIs to use for error decoding.
     ///
-    /// Note that this is decently expensive as it will hash all errors for
-    /// faster indexing.
+    /// Note that this is decently expensive as it will hash all errors for faster indexing.
     pub fn with_abis<'a>(mut self, abi: impl IntoIterator<Item = &'a JsonAbi>) -> Self {
         self.extend_from_abis(abi);
         self
@@ -101,8 +91,7 @@ impl RevertDecoder {
 
     /// Sets the ABI to use for error decoding.
     ///
-    /// Note that this is decently expensive as it will hash all errors for
-    /// faster indexing.
+    /// Note that this is decently expensive as it will hash all errors for faster indexing.
     pub fn with_abi(mut self, abi: &JsonAbi) -> Self {
         self.extend_from_abi(abi);
         self
@@ -110,8 +99,7 @@ impl RevertDecoder {
 
     /// Sets the ABI to use for error decoding, if it is present.
     ///
-    /// Note that this is decently expensive as it will hash all errors for
-    /// faster indexing.
+    /// Note that this is decently expensive as it will hash all errors for faster indexing.
     pub fn with_abi_opt(mut self, abi: Option<&JsonAbi>) -> Self {
         if let Some(abi) = abi {
             self.extend_from_abi(abi);
@@ -140,21 +128,17 @@ impl RevertDecoder {
 
     /// Tries to decode an error message from the given revert bytes.
     ///
-    /// Note that this is just a best-effort guess, and should not be relied
-    /// upon for anything other than user output.
+    /// Note that this is just a best-effort guess, and should not be relied upon for anything other
+    /// than user output.
     pub fn decode(&self, err: &[u8], status: Option<InstructionResult>) -> String {
         self.maybe_decode(err, status).unwrap_or_else(|| {
-            if err.is_empty() {
-                "<empty revert data>".to_string()
-            } else {
-                trimmed_hex(err)
-            }
+            if err.is_empty() { "<empty revert data>".to_string() } else { trimmed_hex(err) }
         })
     }
 
     /// Tries to decode an error message from the given revert bytes.
     ///
-    /// See [`decode_revert`] for more information.
+    /// See [`decode`](Self::decode) for more information.
     pub fn maybe_decode(&self, err: &[u8], status: Option<InstructionResult>) -> Option<String> {
         if err.len() < edr_defaults::SELECTOR_LEN {
             if let Some(status) = status {
@@ -209,10 +193,7 @@ impl RevertDecoder {
                     return Some(format!(
                         "{}({})",
                         error.name,
-                        decoded
-                            .iter()
-                            .map(edr_common::fmt::format_token)
-                            .format(", ")
+                        decoded.iter().map(edr_common::fmt::format_token).format(", ")
                     ));
                 }
             }
@@ -246,7 +227,7 @@ fn trimmed_hex(s: &[u8]) -> String {
             "{}…{} ({} bytes)",
             &hex::encode(&s[..n / 2]),
             &hex::encode(&s[s.len() - n / 2..]),
-            s.len()
+            s.len(),
         )
     }
 }
@@ -254,12 +235,10 @@ fn trimmed_hex(s: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_trimmed_hex() {
-        assert_eq!(
-            trimmed_hex(&hex::decode("1234567890").unwrap()),
-            "1234567890"
-        );
+        assert_eq!(trimmed_hex(&hex::decode("1234567890").unwrap()), "1234567890");
         assert_eq!(
             trimmed_hex(&hex::decode("492077697368207275737420737570706F72746564206869676865722D6B696E646564207479706573").unwrap()),
             "49207769736820727573742073757070…6865722d6b696e646564207479706573 (41 bytes)"

@@ -15,9 +15,7 @@ pub struct PcIcMap {
 impl PcIcMap {
     /// Creates a new `PcIcMap` for the given code.
     pub fn new(code: &[u8]) -> Self {
-        Self {
-            inner: make_map::<true>(code),
-        }
+        Self { inner: make_map::<true>(code) }
     }
 
     /// Returns the length of the map.
@@ -46,9 +44,7 @@ pub struct IcPcMap {
 impl IcPcMap {
     /// Creates a new `IcPcMap` for the given code.
     pub fn new(code: &[u8]) -> Self {
-        Self {
-            inner: make_map::<false>(code),
-        }
+        Self { inner: make_map::<false>(code) }
     }
 
     /// Returns the length of the map.
@@ -68,12 +64,9 @@ impl IcPcMap {
 }
 
 fn make_map<const PC_FIRST: bool>(code: &[u8]) -> FxHashMap<u32, u32> {
-    assert!(u32::try_from(code.len()).is_ok(), "bytecode is too big");
+    assert!(code.len() <= u32::MAX as usize, "bytecode is too big");
 
-    let mut map = FxHashMap::with_capacity_and_hasher(
-        code.len(),
-        alloy_primitives::map::rustc_hash::FxBuildHasher,
-    );
+    let mut map = FxHashMap::with_capacity_and_hasher(code.len(), Default::default());
 
     let mut pc = 0usize;
     let mut cumulative_push_size = 0usize;
@@ -100,8 +93,7 @@ fn make_map<const PC_FIRST: bool>(code: &[u8]) -> FxHashMap<u32, u32> {
     map
 }
 
-/// Represents a single instruction consisting of the opcode and its immediate
-/// data.
+/// Represents a single instruction consisting of the opcode and its immediate data.
 pub struct Instruction<'a> {
     /// `OpCode`, if it could be decoded.
     pub op: Option<OpCode>,
@@ -127,11 +119,7 @@ pub fn decode_instructions(code: &[u8]) -> Result<Vec<Instruction<'_>>> {
             eyre::bail!("incomplete sequence of bytecode");
         }
 
-        steps.push(Instruction {
-            op,
-            pc: pc as u32,
-            immediate: &code[pc..pc + immediate_size],
-        });
+        steps.push(Instruction { op, pc: pc as u32, immediate: &code[pc..pc + immediate_size] });
 
         pc += immediate_size;
     }
