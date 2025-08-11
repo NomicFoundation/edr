@@ -1,6 +1,6 @@
 use edr_eth::{
-    block::PartialHeader, eips::eip1559::ConstantBaseFeeParams, spec::EthHeaderConstants,
-    trie::KECCAK_NULL_RLP, Address, HashMap, U256,
+    block::PartialHeader, eips::eip1559::ConstantBaseFeeParams, trie::KECCAK_NULL_RLP, Address,
+    HashMap, U256,
 };
 use edr_evm::{
     blockchain::SyncBlockchain,
@@ -77,7 +77,7 @@ where
         }
 
         if cfg.spec >= OpSpecId::HOLOCENE {
-            let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<ConstantBaseFeeParams, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>> {
+            let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<Option<ConstantBaseFeeParams>, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>> {
                 let parent_block_number = blockchain.last_block_number();
                 let parent_hardfork = blockchain
                     .spec_at_block_number(parent_block_number)
@@ -116,23 +116,25 @@ where
                         )
                     };
 
-                    Ok(base_fee_params)
+                    Ok(Some(base_fee_params))
                 } else {
+                    // TODO: I think setting a default here is unnecessary. 
+                    // since it's what PartialHeader will default to when calling`calculate_next_base_fee_per_gas_for_chain_spec`
                     // Use the prior EIP-1559 constants.
-                    let base_fee_params = *OpChainSpec::BASE_FEE_PARAMS
-                        .at_hardfork(cfg.spec)
-                        .expect("Chain spec must have base fee params for post-London hardforks");
-
-                    Ok(base_fee_params)
+                    // let base_fee_params = *OpChainSpec::BASE_FEE_PARAMS
+                    //     .at_hardfork(cfg.spec)
+                    //     .expect("Chain spec must have base fee params for post-London hardforks");
+                    // Ok(base_fee_params)
+                    Ok(None)
                 }
-            }, Ok)?;
+            }, |params| Ok(Some(params)))?;
 
             let extra_data = overrides
                 .extra_data
-                .unwrap_or_else(|| encode_dynamic_base_fee_params(&base_fee_params));
+                .or_else(|| base_fee_params.map(|params| encode_dynamic_base_fee_params(&params)));
 
-            overrides.base_fee_params = Some(base_fee_params);
-            overrides.extra_data = Some(extra_data);
+            overrides.base_fee_params = base_fee_params;
+            overrides.extra_data = extra_data;
         }
 
         let eth = EthBlockBuilder::new(
