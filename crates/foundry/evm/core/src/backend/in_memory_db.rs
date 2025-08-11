@@ -1,25 +1,24 @@
-//! The in memory DB
+//! In-memory database.
+
+use crate::state_snapshot::StateSnapshots;
 use alloy_primitives::{Address, B256, U256};
 use foundry_fork_db::DatabaseError;
 use revm::{
+    Database, DatabaseCommit,
     bytecode::Bytecode,
     database::{CacheDB, DatabaseRef, EmptyDB},
     primitives::HashMap as Map,
     state::{Account, AccountInfo},
-    Database, DatabaseCommit,
 };
 
-use crate::state_snapshot::StateSnapshots;
-
-/// Type alias for an in memory database
+/// Type alias for an in-memory database.
 ///
-/// See `EmptyDBWrapper`
+/// See [`EmptyDBWrapper`].
 pub type FoundryEvmInMemoryDB = CacheDB<EmptyDBWrapper>;
 
-/// In memory Database for anvil
+/// In-memory [`Database`] for Anvil.
 ///
-/// This acts like a wrapper type for [`InMemoryDB`] but is capable of applying
-/// snapshots
+/// This acts like a wrapper type for [`FoundryEvmInMemoryDB`] but is capable of applying snapshots.
 #[derive(Debug)]
 pub struct MemDb {
     pub inner: FoundryEvmInMemoryDB,
@@ -28,15 +27,13 @@ pub struct MemDb {
 
 impl Default for MemDb {
     fn default() -> Self {
-        Self {
-            inner: CacheDB::new(EmptyDBWrapper::default()),
-            state_snapshots: StateSnapshots::default(),
-        }
+        Self { inner: CacheDB::new(Default::default()), state_snapshots: Default::default() }
     }
 }
 
 impl DatabaseRef for MemDb {
     type Error = DatabaseError;
+
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         DatabaseRef::basic_ref(&self.inner, address)
     }
@@ -77,30 +74,27 @@ impl Database for MemDb {
 
 impl DatabaseCommit for MemDb {
     fn commit(&mut self, changes: Map<Address, Account>) {
-        DatabaseCommit::commit(&mut self.inner, changes);
+        DatabaseCommit::commit(&mut self.inner, changes)
     }
 }
 
 /// An empty database that always returns default values when queried.
 ///
-/// This is just a simple wrapper for `revm::EmptyDB` but implements
-/// `DatabaseError` instead, this way we can unify all different `Database`
-/// impls
+/// This is just a simple wrapper for `revm::EmptyDB` but implements `DatabaseError` instead, this
+/// way we can unify all different `Database` impls
 ///
 /// This will also _always_ return `Some(AccountInfo)`:
 ///
-/// The [`Database`](revm::Database) implementation for `CacheDB` manages an
-/// `AccountState` for the `DbAccount`, this will be set to
-/// `AccountState::NotExisting` if the account does not exist yet.
+/// The [`Database`] implementation for `CacheDB` manages an `AccountState` for the
+/// `DbAccount`, this will be set to `AccountState::NotExisting` if the account does not exist yet.
 /// This is because there's a distinction between "non-existing" and "empty",
 /// see <https://github.com/bluealloy/revm/blob/8f4348dc93022cffb3730d9db5d3ab1aad77676a/crates/revm/src/db/in_memory_db.rs#L81-L83>.
-/// If an account is `NotExisting`, `Database::basic_ref` will always return
-/// `None` for the requested `AccountInfo`.
+/// If an account is `NotExisting`, `Database::basic_ref` will always return `None` for the
+/// requested `AccountInfo`.
 ///
-/// To prevent this, we ensure that a missing account is never marked as
-/// `NotExisting` by always returning `Some` with this type, which will then
-/// insert a default [`AccountInfo`] instead of one marked as
-/// `AccountState::NotExisting`.
+/// To prevent this, we ensure that a missing account is never marked as `NotExisting` by always
+/// returning `Some` with this type, which will then insert a default [`AccountInfo`] instead
+/// of one marked as `AccountState::NotExisting`.
 #[derive(Clone, Debug, Default)]
 pub struct EmptyDBWrapper(EmptyDB);
 
@@ -108,8 +102,7 @@ impl DatabaseRef for EmptyDBWrapper {
     type Error = DatabaseError;
 
     fn basic_ref(&self, _address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        // Note: this will always return `Some(AccountInfo)`, for the reason explained
-        // above
+        // Note: this will always return `Some(AccountInfo)`, for the reason explained above
         Ok(Some(AccountInfo::default()))
     }
 
@@ -127,15 +120,12 @@ impl DatabaseRef for EmptyDBWrapper {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use alloy_primitives::b256;
 
-    use super::*;
-
-    /// Ensures the `Database(Ref)` implementation for `revm::CacheDB` works as
-    /// expected
+    /// Ensures the `Database(Ref)` implementation for `revm::CacheDB` works as expected
     ///
-    /// Demonstrates how calling `Database::basic` works if an account does not
-    /// exist
+    /// Demonstrates how calling `Database::basic` works if an account does not exist
     #[test]
     fn cache_db_insert_basic_non_existing() {
         let mut db = CacheDB::new(EmptyDB::default());
@@ -161,8 +151,7 @@ mod tests {
         let mut db = CacheDB::new(EmptyDB::default());
         let address = Address::random();
 
-        // We use `basic_ref` here to ensure that the account is not marked as
-        // `NotExisting`.
+        // We use `basic_ref` here to ensure that the account is not marked as `NotExisting`.
         let info = DatabaseRef::basic_ref(&db, address).unwrap();
         assert!(info.is_none());
         let mut info = info.unwrap_or_default();
@@ -173,16 +162,15 @@ mod tests {
 
         let loaded = Database::basic(&mut db, address).unwrap();
         assert!(loaded.is_some());
-        assert_eq!(loaded.unwrap(), info);
+        assert_eq!(loaded.unwrap(), info)
     }
 
-    /// Demonstrates that `Database::basic` for `MemDb` will always return the
-    /// `AccountInfo`
+    /// Demonstrates that `Database::basic` for `MemDb` will always return the `AccountInfo`
     #[test]
     fn mem_db_insert_basic_default() {
         let mut db = MemDb::default();
         let address = Address::from_word(b256!(
-            "000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"
+            "0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"
         ));
 
         let info = Database::basic(&mut db, address).unwrap();
@@ -197,6 +185,6 @@ mod tests {
 
         let loaded = Database::basic(&mut db, address).unwrap();
         assert!(loaded.is_some());
-        assert_eq!(loaded.unwrap(), info);
+        assert_eq!(loaded.unwrap(), info)
     }
 }

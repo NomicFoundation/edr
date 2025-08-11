@@ -262,9 +262,7 @@ impl ProviderBuilder {
             .with_headers(headers)
             .with_jwt(jwt)
             .build();
-        let client = ClientBuilder::default()
-            .layer(retry_layer)
-            .transport(transport, is_local);
+        let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
 
         let provider = AlloyProviderBuilder::<_, _, AnyNetwork>::default()
             .connect_provider(RootProvider::new(client));
@@ -296,9 +294,7 @@ impl ProviderBuilder {
             .with_jwt(jwt)
             .build();
 
-        let client = ClientBuilder::default()
-            .layer(retry_layer)
-            .transport(transport, is_local);
+        let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
 
         let provider = AlloyProviderBuilder::<_, _, AnyNetwork>::default()
             .with_recommended_fillers()

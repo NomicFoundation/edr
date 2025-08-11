@@ -1,16 +1,14 @@
-use alloy_consensus::BlockHeader;
-use alloy_network::BlockResponse;
-use alloy_primitives::Address;
-use alloy_provider::{Network, Provider};
-use alloy_rpc_types::BlockNumberOrTag;
-use eyre::WrapErr;
-use revm::context::CfgEnv;
-
 use crate::{
     evm_context::EvmEnv,
     opts::{BlockEnvOpts, TxEnvOpts},
     utils::apply_chain_and_block_specific_env_changes,
 };
+use alloy_consensus::BlockHeader;
+use alloy_primitives::Address;
+use alloy_provider::{Network, Provider, network::BlockResponse};
+use alloy_rpc_types::BlockNumberOrTag;
+use eyre::WrapErr;
+use revm::context::CfgEnv;
 
 /// Logged when an error is indicative that the user is trying to fork from a
 /// non-archive node.
@@ -28,10 +26,7 @@ pub async fn environment<NetworkT, ProviderT, BlockT, TxT, HardforkT>(
     pin_block: Option<u64>,
     origin: Address,
     disable_block_gas_limit: bool,
-) -> eyre::Result<(
-    EvmEnv<BlockT, TxT, HardforkT>,
-    <NetworkT as Network>::BlockResponse,
-)>
+) -> eyre::Result<(EvmEnv<BlockT, TxT, HardforkT>, <NetworkT as Network>::BlockResponse)>
 where
     NetworkT: Network,
     ProviderT: Provider<NetworkT>,
@@ -42,15 +37,12 @@ where
     let block_number = if let Some(pin_block) = pin_block {
         pin_block
     } else {
-        provider
-            .get_block_number()
-            .await
-            .wrap_err("Failed to get latest block number")?
+        provider.get_block_number().await.wrap_err("failed to get latest block number")?
     };
     let (fork_gas_price, rpc_chain_id, block) = tokio::try_join!(
         provider.get_gas_price(),
         provider.get_chain_id(),
-        provider.get_block_by_number(BlockNumberOrTag::Number(block_number),)
+        provider.get_block_by_number(BlockNumberOrTag::Number(block_number))
     )?;
     let block = if let Some(block) = block {
         block
@@ -63,12 +55,11 @@ where
                 error!("{NON_ARCHIVE_NODE_WARNING}");
             }
             eyre::bail!(
-                "Failed to get block for block number: {}\nlatest block number: {}",
-                block_number,
-                latest_block
+                "failed to get block for block number: {block_number}; \
+                 latest block number: {latest_block}"
             );
         }
-        eyre::bail!("Failed to get block for block number: {}", block_number)
+        eyre::bail!("failed to get block for block number: {block_number}")
     };
 
     // Not using `..Default::default()` pattern, because `CfgEnv` is non-exhaustive.
@@ -77,8 +68,8 @@ where
     cfg.memory_limit = memory_limit;
     cfg.limit_contract_code_size = Some(usize::MAX);
     // EIP-3607 rejects transactions from senders with deployed code.
-    // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if the
-    // caller is a contract. So we disable the check by default.
+    // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if the caller
+    // is a contract. So we disable the check by default.
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
     cfg.disable_nonce_check = true;
@@ -106,11 +97,7 @@ where
         &mut block_env_opts,
     );
 
-    let evm_env = EvmEnv {
-        block: block_env_opts.into(),
-        tx: tx_env_opts.into(),
-        cfg,
-    };
+    let evm_env = EvmEnv { block: block_env_opts.into(), tx: tx_env_opts.into(), cfg };
 
     Ok((evm_env, block))
 }

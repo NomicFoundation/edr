@@ -16,14 +16,12 @@ use crate::{evm_context::TransactionEnvTr, opts::BlockEnvOpts};
 /// Transaction identifier of System transaction types
 pub const SYSTEM_TRANSACTION_TYPE: u8 = 126;
 
-/// Depending on the configured chain id and block number this should apply any
-/// specific changes
+/// Depending on the configured chain id and block number this should apply any specific changes
 ///
 /// - checks for prevrandao mixhash after merge
 /// - applies chain specifics: on Arbitrum `block.number` is the L1 block
 ///
-/// Should be called with proper chain id (retrieved from provider if not
-/// provided).
+/// Should be called with proper chain id (retrieved from provider if not provided).
 pub fn apply_chain_and_block_specific_env_changes<N: Network>(
     chain_id: u64,
     block: &N::BlockResponse,
@@ -92,7 +90,7 @@ pub fn get_blob_base_fee_update_fraction_by_spec_id(spec: SpecId) -> u64 {
     }
 }
 
-// Given an ABI and selector, it tries to find the respective function.
+/// Given an ABI and selector, it tries to find the respective function.
 pub fn get_function<'a>(
     contract_name: &str,
     selector: Selector,
@@ -186,10 +184,6 @@ pub fn configure_tx_req_env<TxT: TransactionEnvTr>(
 
 /// Get the gas used, accounting for refunds
 pub fn gas_used(spec: SpecId, spent: u64, refunded: u64) -> u64 {
-    let refund_quotient = if SpecId::is_enabled_in(spec, SpecId::LONDON) {
-        5
-    } else {
-        2
-    };
+    let refund_quotient = if SpecId::is_enabled_in(spec, SpecId::LONDON) { 5 } else { 2 };
     spent - (refunded).min(spent / refund_quotient)
 }

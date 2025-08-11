@@ -3,13 +3,13 @@
 //! Core EVM abstractions.
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
 
 #[macro_use]
 extern crate tracing;
 
-mod ic;
-
 pub mod abi;
+
 pub mod backend;
 pub mod constants;
 pub mod contracts;
@@ -17,6 +17,7 @@ pub mod decode;
 pub mod evm_context;
 pub mod fork;
 pub mod opcodes;
+pub mod ic;
 pub mod opts;
 pub mod precompiles;
 pub mod state_snapshot;
