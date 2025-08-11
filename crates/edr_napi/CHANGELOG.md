@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.5
+
+### Patch Changes
+
+- c498e40: Upgraded revm to v27
+
 ## 0.12.0-next.4
 
 ### Minor Changes
