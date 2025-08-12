@@ -2,26 +2,39 @@
 
 pub mod runtime_transport;
 
+use edr_defaults::ALCHEMY_FREE_TIER_CUPS;
+use runtime_transport::RuntimeTransportBuilder;
+use alloy_provider::{
+    Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
+    fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
+    network::{AnyNetwork, EthereumWallet},
+};
+use alloy_rpc_client::ClientBuilder;
+use alloy_transport::{layers::RetryBackoffLayer, utils::guess_local_url};
+use eyre::{Result, WrapErr};
+use alloy_chains::NamedChain;
+use reqwest::Url;
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
     time::Duration,
 };
-
-use alloy_chains::NamedChain;
-use alloy_provider::{
-    fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
-    network::{AnyNetwork, EthereumWallet},
-    Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
-};
-use alloy_rpc_client::ClientBuilder;
-use alloy_transport::{layers::RetryBackoffLayer, utils::guess_local_url};
-use eyre::{Result, WrapErr};
-use reqwest::Url;
 use url::ParseError;
 
-use crate::fork::provider::runtime_transport::RuntimeTransportBuilder;
+/// Default request timeout for http requests
+///
+/// Note: this is only used so that connections, that are discarded on the server side won't stay
+/// open forever. We assume some nodes may have some backoff baked into them and will delay some
+/// responses. This timeout should be a reasonable amount of time to wait for a request.
+pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
+
+/// The assumed block time for unknown chains.
+/// We assume that these are chains have a faster block time.
+const DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME: Duration = Duration::from_secs(3);
+
+/// The factor to scale the block time by to get the poll interval.
+const POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR: f32 = 0.6;
 
 /// Helper type alias for a retry provider
 pub type RetryProvider<N = AnyNetwork> = RootProvider<N>;
@@ -45,17 +58,8 @@ pub type RetryProviderWithSigner<N = AnyNetwork> = FillProvider<
     N,
 >;
 
-/// Default request timeout for http requests
-///
-/// Note: this is only used so that connections, that are discarded on the
-/// server side won't stay open forever. We assume some nodes may have some
-/// backoff baked into them and will delay some responses. This timeout should
-/// be a reasonable amount of time to wait for a request.
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
-
-/// Constructs a provider with a 100 millisecond interval poll if it's a
-/// localhost URL (most likely an anvil or other dev node) and with the default,
-/// or 7 second otherwise.
+/// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
+/// an anvil or other dev node) and with the default, or 7 second otherwise.
 ///
 /// See [`try_get_http_provider`] for more details.
 ///
@@ -66,7 +70,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
 /// # Examples
 ///
 /// ```
-/// use foundry_evm_core::fork::provider::get_http_provider;
+/// use foundry_common::provider::get_http_provider;
 ///
 /// let retry_provider = get_http_provider("http://localhost:8545");
 /// ```
@@ -76,9 +80,8 @@ pub fn get_http_provider(builder: impl AsRef<str>) -> RetryProvider {
     try_get_http_provider(builder).unwrap()
 }
 
-/// Constructs a provider with a 100 millisecond interval poll if it's a
-/// localhost URL (most likely an anvil or other dev node) and with the default,
-/// or 7 second otherwise.
+/// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
+/// an anvil or other dev node) and with the default, or 7 second otherwise.
 #[inline]
 pub fn try_get_http_provider(builder: impl AsRef<str>) -> Result<RetryProvider> {
     ProviderBuilder::new(builder.as_ref()).build()
@@ -99,6 +102,8 @@ pub struct ProviderBuilder {
     jwt: Option<String>,
     headers: Vec<String>,
     is_local: bool,
+    /// Whether to accept invalid certificates.
+    accept_invalid_certs: bool,
 }
 
 impl ProviderBuilder {
@@ -107,8 +112,8 @@ impl ProviderBuilder {
         // a copy is needed for the next lines to work
         let mut url_str = url_str;
 
-        // invalid url: non-prefixed URL scheme is not allowed, so we prepend the
-        // default http prefix
+        // invalid url: non-prefixed URL scheme is not allowed, so we prepend the default http
+        // prefix
         let storage;
         if url_str.starts_with("localhost:") {
             storage = format!("http://{url_str}");
@@ -144,10 +149,11 @@ impl ProviderBuilder {
             initial_backoff: 800,
             timeout: REQUEST_TIMEOUT,
             // alchemy max cpus <https://docs.alchemy.com/reference/compute-units#what-are-cups-compute-units-per-second>
-            compute_units_per_second: edr_defaults::ALCHEMY_FREE_TIER_CUPS,
+            compute_units_per_second: ALCHEMY_FREE_TIER_CUPS,
             jwt: None,
             headers: vec![],
             is_local,
+            accept_invalid_certs: false,
         }
     }
 
@@ -174,15 +180,14 @@ impl ProviderBuilder {
         self
     }
 
-    /// How often to retry a failed request. If `None`, defaults to the
-    /// already-set value.
+    /// How often to retry a failed request. If `None`, defaults to the already-set value.
     pub fn maybe_max_retry(mut self, max_retry: Option<u32>) -> Self {
         self.max_retry = max_retry.unwrap_or(self.max_retry);
         self
     }
 
-    /// The starting backoff delay to use after the first failed request. If
-    /// `None`, defaults to the already-set value.
+    /// The starting backoff delay to use after the first failed request. If `None`, defaults to
+    /// the already-set value.
     pub fn maybe_initial_backoff(mut self, initial_backoff: Option<u64>) -> Self {
         self.initial_backoff = initial_backoff.unwrap_or(self.initial_backoff);
         self
@@ -240,11 +245,23 @@ impl ProviderBuilder {
         self
     }
 
+    /// Sets http headers. If `None`, defaults to the already-set value.
+    pub fn maybe_headers(mut self, headers: Option<Vec<String>>) -> Self {
+        self.headers = headers.unwrap_or(self.headers);
+        self
+    }
+
+    /// Sets whether to accept invalid certificates.
+    pub fn accept_invalid_certs(mut self, accept_invalid_certs: bool) -> Self {
+        self.accept_invalid_certs = accept_invalid_certs;
+        self
+    }
+
     /// Constructs the `RetryProvider` taking all configs into account.
     pub fn build(self) -> Result<RetryProvider> {
-        let ProviderBuilder {
+        let Self {
             url,
-            chain: _,
+            chain,
             max_retry,
             initial_backoff,
             timeout,
@@ -252,17 +269,32 @@ impl ProviderBuilder {
             jwt,
             headers,
             is_local,
+            accept_invalid_certs,
         } = self;
         let url = url?;
 
         let retry_layer =
             RetryBackoffLayer::new(max_retry, initial_backoff, compute_units_per_second);
-        let transport = RuntimeTransportBuilder::new(url.clone())
+
+        let transport = RuntimeTransportBuilder::new(url)
             .with_timeout(timeout)
             .with_headers(headers)
             .with_jwt(jwt)
+            .accept_invalid_certs(accept_invalid_certs)
             .build();
         let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
+
+        if !is_local {
+            client.set_poll_interval(
+                chain
+                    .average_blocktime_hint()
+                    // we cap the poll interval because if not provided, chain would default to
+                    // mainnet
+                    .map(|hint| hint.min(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME))
+                    .unwrap_or(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME)
+                    .mul_f32(POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR),
+            );
+        }
 
         let provider = AlloyProviderBuilder::<_, _, AnyNetwork>::default()
             .connect_provider(RootProvider::new(client));
@@ -270,11 +302,11 @@ impl ProviderBuilder {
         Ok(provider)
     }
 
-    /// Constructs the `RetryProvider` with a signer
-    pub fn build_with_signer(self, wallet: EthereumWallet) -> Result<RetryProviderWithSigner> {
-        let ProviderBuilder {
+    /// Constructs the `RetryProvider` with a wallet.
+    pub fn build_with_wallet(self, wallet: EthereumWallet) -> Result<RetryProviderWithSigner> {
+        let Self {
             url,
-            chain: _,
+            chain,
             max_retry,
             initial_backoff,
             timeout,
@@ -282,19 +314,30 @@ impl ProviderBuilder {
             jwt,
             headers,
             is_local,
+            accept_invalid_certs,
         } = self;
         let url = url?;
 
         let retry_layer =
             RetryBackoffLayer::new(max_retry, initial_backoff, compute_units_per_second);
 
-        let transport = RuntimeTransportBuilder::new(url.clone())
+        let transport = RuntimeTransportBuilder::new(url)
             .with_timeout(timeout)
             .with_headers(headers)
             .with_jwt(jwt)
+            .accept_invalid_certs(accept_invalid_certs)
             .build();
 
         let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
+
+        if !is_local {
+            client.set_poll_interval(
+                chain
+                    .average_blocktime_hint()
+                    .unwrap_or(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME)
+                    .mul_f32(POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR),
+            );
+        }
 
         let provider = AlloyProviderBuilder::<_, _, AnyNetwork>::default()
             .with_recommended_fillers()
