@@ -255,6 +255,8 @@ export interface ProviderConfig {
   bailOnCallFailure: boolean
   /** Whether to return an `Err` when a `eth_sendTransaction` fails */
   bailOnTransactionFailure: boolean
+  /** The chain type specific configuration */
+  chainSpecificConfig?: Record<string, any>
   /** The gas limit of each block */
   blockGasLimit: bigint
   /** The chain ID of the blockchain */

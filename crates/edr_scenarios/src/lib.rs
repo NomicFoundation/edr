@@ -72,6 +72,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
+            chain_specific_config: None,
             coinbase: value.coinbase,
             fork,
             genesis_state: value.genesis_state,

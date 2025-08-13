@@ -103,7 +103,7 @@ pub struct Mining {
 
 /// Configuration for the provider
 #[derive(Clone, Debug)]
-pub struct Provider<HardforkT> {
+pub struct Provider<HardforkT, ChainConfig> {
     pub allow_blocks_with_same_timestamp: bool,
     pub allow_unlimited_contract_size: bool,
     /// Whether to return an `Err` when `eth_call` fails
@@ -112,6 +112,7 @@ pub struct Provider<HardforkT> {
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
+    pub chain_config: Option<ChainConfig>,
     pub coinbase: Address,
     pub fork: Option<Fork<HardforkT>>,
     pub genesis_state: HashMap<Address, AccountOverride>,

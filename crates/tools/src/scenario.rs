@@ -106,7 +106,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         }
     }
 
-    let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::try_from(
+    let provider_config = edr_provider::ProviderConfig::<l1::SpecId, ()>::try_from(
         edr_napi_core::provider::Config::from(config.provider_config),
     )?;
 

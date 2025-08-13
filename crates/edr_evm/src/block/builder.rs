@@ -175,6 +175,7 @@ where
         inputs: BlockInputs,
         overrides: HeaderOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        chain_configuration: Option<ChainSpecT::Configuration>,
     ) -> Result<
         Self,
         BlockBuilderCreationErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,

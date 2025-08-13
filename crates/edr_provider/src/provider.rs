@@ -111,7 +111,7 @@ impl<
         subscriber_callback: Box<
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
-        config: ProviderConfig<<ChainSpecT as ChainHardfork>::Hardfork>,
+        config: ProviderConfig<<ChainSpecT as ChainHardfork>::Hardfork, ChainSpecT::Configuration>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {

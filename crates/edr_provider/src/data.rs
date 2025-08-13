@@ -186,6 +186,7 @@ pub struct ProviderData<
     bail_on_transaction_failure: bool,
     blockchain:
         Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
+    chain_config: Option<ChainSpecT::Configuration>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_config: MiningConfig,
@@ -602,7 +603,7 @@ where
         subscriber_callback: Box<
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
-        config: ProviderConfig<ChainSpecT::Hardfork>,
+        config: ProviderConfig<ChainSpecT::Hardfork, ChainSpecT::Configuration>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
@@ -659,6 +660,7 @@ where
             bail_on_call_failure: config.bail_on_call_failure,
             bail_on_transaction_failure: config.bail_on_transaction_failure,
             blockchain,
+            chain_config: config.chain_config,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit),
             mining_config: config.mining,
@@ -2283,6 +2285,7 @@ where
             reward,
             Some(runtime_observer),
             &self.precompile_overrides,
+            self.chain_config,
         )?;
 
         Ok(result)
@@ -2316,6 +2319,7 @@ where
             reward,
             Some(runtime_observer),
             &self.precompile_overrides,
+            self.chain_config,
         )?;
 
         Ok(result)
@@ -2692,7 +2696,7 @@ impl StateId {
 }
 
 fn block_time_offset_seconds<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::Hardfork, ChainSpecT::Configuration>,
     timer: &TimerT,
 ) -> Result<i64, CreationErrorForChainSpec<ChainSpecT>> {
     config.initial_date.map_or(Ok(0), |initial_date| {
@@ -2728,7 +2732,7 @@ fn create_blockchain_and_state<
     TimerT: Clone + TimeSinceEpoch,
 >(
     runtime: runtime::Handle,
-    config: &ProviderConfig<ChainSpecT::Hardfork>,
+    config: &ProviderConfig<ChainSpecT::Hardfork, ChainSpecT::Configuration>,
     timer: &TimerT,
 ) -> Result<BlockchainAndState<ChainSpecT>, CreationErrorForChainSpec<ChainSpecT>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);

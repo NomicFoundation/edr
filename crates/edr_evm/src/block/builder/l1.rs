@@ -407,6 +407,7 @@ where
         inputs: BlockInputs,
         overrides: HeaderOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        _chain_config: Option<ChainSpecT::Configuration>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,

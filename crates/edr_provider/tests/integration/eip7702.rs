@@ -48,7 +48,7 @@ fn assert_code_at(provider: &Provider<L1ChainSpec>, address: Address, expected: 
 }
 
 fn new_provider(
-    mut config: ProviderConfig<l1::SpecId>,
+    mut config: ProviderConfig<l1::SpecId, ()>,
     owned_accounts: Vec<SecretKey>,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
     set_genesis_state_with_owned_accounts(&mut config, owned_accounts, one_ether());

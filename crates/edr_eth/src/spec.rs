@@ -1,6 +1,7 @@
 use core::fmt::Debug;
 
 pub use revm_context_interface::result::HaltReasonTr as HaltReasonTrait;
+use serde::Deserialize;
 
 use crate::{
     block::Block,
@@ -13,6 +14,11 @@ use crate::{
 pub trait ChainHardfork {
     /// The chain's hardfork type.
     type Hardfork: Copy + Into<l1::SpecId>;
+}
+/// Trait for specifying the configuration specific to the chain type
+pub trait ChainConfiguration {
+    /// The chain's hardfork type.
+    type Configuration: Copy + for<'a> Deserialize<'a> + Send;
 }
 
 /// Trait for chain specifications.

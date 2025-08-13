@@ -236,6 +236,7 @@ pub async fn run_full_block<
         },
         header_overrides_constructor(replay_header),
         &custom_precompiles,
+        None,
     )?;
 
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);

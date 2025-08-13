@@ -9,7 +9,7 @@ use edr_eth::{
         eip4844,
     },
     l1::{self, BlockEnv},
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
+    spec::{ChainConfiguration, ChainHardfork, ChainSpec, EthHeaderConstants},
     U256,
 };
 use edr_evm::{
@@ -30,7 +30,7 @@ use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason}
 use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
 use edr_solidity::contract_decoder::ContractDecoder;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{
     block::{self, LocalBlock},
@@ -227,6 +227,25 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
     }
 }
 
+/// OP Stack specific config
+#[derive(Clone, Copy, Deserialize)]
+pub struct OpChainConfig {
+    /// `SystemConfig` L1 contract representation
+    pub system_config: SystemConfig,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+pub struct SystemConfig {
+    pub eip1559_params: Eip1559Params,
+}
+
+/// definition of Eip-1559 parameters
+#[derive(Clone, Copy, Deserialize)]
+pub struct Eip1559Params {
+    pub max_change_denominator: u128,
+    pub elasticity_multiplier: u128,
+}
+
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OpChainSpec {
     type PooledTransaction = transaction::Pooled;
     type TransactionRequest = transaction::Request;
@@ -246,6 +265,10 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OpChainSpec {
             remainder @ OpHaltReason::FailedDeposit => TransactionFailureReason::Inner(remainder),
         }
     }
+}
+
+impl ChainConfiguration for OpChainSpec {
+    type Configuration = OpChainConfig;
 }
 
 impl BlockEnvConstructor<PartialHeader> for OpChainSpec {

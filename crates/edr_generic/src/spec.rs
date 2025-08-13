@@ -9,7 +9,7 @@ use edr_eth::{
     l1::{self, BlockEnv, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
     receipt::BlockReceipt,
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
+    spec::{ChainConfiguration, ChainHardfork, ChainSpec, EthHeaderConstants},
     transaction::TransactionValidation,
     Bytes, U256,
 };
@@ -259,6 +259,10 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
         <L1ChainSpec as ProviderSpec<TimerT>>::cast_halt_reason(reason)
     }
+}
+
+impl ChainConfiguration for GenericChainSpec {
+    type Configuration = ();
 }
 
 #[cfg(test)]

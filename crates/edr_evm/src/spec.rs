@@ -7,7 +7,7 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ExecutionResult,
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
+    spec::{ChainConfiguration, ChainHardfork, ChainSpec, EthHeaderConstants},
     Bytes, B256, U256,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
@@ -164,6 +164,7 @@ pub trait RuntimeSpec:
           + TransactionType
           + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
     >
+    + ChainConfiguration
     + BlockEnvConstructor<block::PartialHeader> + BlockEnvConstructor<block::Header>
     // Defines an RPC spec and conversion between RPC <-> EVM types
     + RpcSpec<

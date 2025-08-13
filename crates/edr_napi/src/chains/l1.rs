@@ -35,7 +35,7 @@ impl SyncProviderFactory for L1ProviderFactory {
             Logger::<L1ChainSpec, CurrentTime>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config =
-            edr_provider::ProviderConfig::<l1::SpecId>::try_from(provider_config)?;
+            edr_provider::ProviderConfig::<l1::SpecId, ()>::try_from(provider_config)?;
 
         let provider = edr_provider::Provider::<L1ChainSpec>::new(
             runtime.clone(),

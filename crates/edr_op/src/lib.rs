@@ -31,7 +31,7 @@ pub mod transaction;
 use edr_eth::U256;
 pub use op_revm::{OpHaltReason, OpSpecId};
 
-pub use self::spec::OpChainSpec;
+pub use self::spec::{OpChainConfig, OpChainSpec};
 
 /// OP Stack chain type
 pub const CHAIN_TYPE: &str = "op";

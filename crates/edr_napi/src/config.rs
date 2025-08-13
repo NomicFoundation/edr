@@ -21,6 +21,7 @@ use napi::{
     Either, JsFunction, JsString, JsStringUtf8,
 };
 use napi_derive::napi;
+use serde_json::{Map, Value};
 
 use crate::{
     account::AccountOverride, block::BlobGas, cast::TryCast, logger::LoggerConfig,
@@ -142,6 +143,8 @@ pub struct ProviderConfig {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
+    /// The chain type specific configuration
+    pub chain_specific_config: Option<Map<String, Value>>,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
     /// The chain ID of the blockchain
@@ -470,6 +473,7 @@ impl ProviderConfig {
             bail_on_transaction_failure: self.bail_on_transaction_failure,
             block_gas_limit,
             chain_id: self.chain_id.try_cast()?,
+            chain_specific_config: self.chain_specific_config,
             coinbase: self.coinbase.try_cast()?,
             fork: self.fork.map(TryInto::try_into).transpose()?,
             genesis_state,

@@ -7,7 +7,7 @@ pub use revm_primitives::hardfork::{self, SpecId};
 
 use crate::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
+    spec::{ChainConfiguration, ChainHardfork, ChainSpec, EthHeaderConstants},
     transaction,
 };
 
@@ -27,6 +27,10 @@ impl ChainSpec for L1ChainSpec {
     type Context = ();
     type HaltReason = HaltReason;
     type SignedTransaction = transaction::Signed;
+}
+
+impl ChainConfiguration for L1ChainSpec {
+    type Configuration = ();
 }
 
 impl EthHeaderConstants for L1ChainSpec {

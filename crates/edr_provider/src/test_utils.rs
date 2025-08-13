@@ -36,7 +36,8 @@ pub const TEST_SECRET_KEY_SIGN_TYPED_DATA_V4: &str =
 pub const FORK_BLOCK_NUMBER: u64 = 18_725_000;
 
 /// Constructs a test config with a single account with 1 ether
-pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
+pub fn create_test_config<HardforkT: Default, ChainConfig>(
+) -> ProviderConfig<HardforkT, ChainConfig> {
     create_test_config_with_fork(None)
 }
 
@@ -59,8 +60,8 @@ pub fn one_ether() -> U256 {
 
 /// Sets the [`ProviderConfig`]'s owned accounts and genesis state - computed by
 /// funding each account with the provided `balance`.
-pub fn set_genesis_state_with_owned_accounts<HardforkT>(
-    config: &mut ProviderConfig<HardforkT>,
+pub fn set_genesis_state_with_owned_accounts<HardforkT, ChainConfig>(
+    config: &mut ProviderConfig<HardforkT, ChainConfig>,
     owned_accounts: Vec<SecretKey>,
     balance: U256,
 ) {
@@ -68,9 +69,9 @@ pub fn set_genesis_state_with_owned_accounts<HardforkT>(
     config.owned_accounts = owned_accounts;
 }
 
-pub fn create_test_config_with_fork<HardforkT: Default>(
+pub fn create_test_config_with_fork<HardforkT: Default, ChainConfig>(
     fork: Option<ForkConfig<HardforkT>>,
-) -> ProviderConfig<HardforkT> {
+) -> ProviderConfig<HardforkT, ChainConfig> {
     // This is test code, it's ok to use `DangerousSecretKeyStr`
     #[allow(deprecated)]
     use edr_eth::signature::DangerousSecretKeyStr;
@@ -95,6 +96,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         // SAFETY: literal is non-zero
         block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
         chain_id: 123,
+        chain_config: None,
         coinbase: Address::from(U160::from(1)),
         fork,
         genesis_state,
@@ -171,7 +173,7 @@ where
 /// Fixture for testing `ProviderData`.
 pub struct ProviderTestFixture<ChainSpecT: ProviderSpec<CurrentTime>> {
     _runtime: runtime::Runtime,
-    pub config: ProviderConfig<ChainSpecT::Hardfork>,
+    pub config: ProviderConfig<ChainSpecT::Hardfork, ChainSpecT::Configuration>,
     pub provider_data: ProviderData<ChainSpecT, CurrentTime>,
     pub impersonated_account: Address,
 }
@@ -215,7 +217,7 @@ where
 
     pub fn new(
         runtime: tokio::runtime::Runtime,
-        mut config: ProviderConfig<ChainSpecT::Hardfork>,
+        mut config: ProviderConfig<ChainSpecT::Hardfork, ChainSpecT::Configuration>,
     ) -> anyhow::Result<Self> {
         let logger = Box::<NoopLogger<ChainSpecT, CurrentTime>>::default();
         let subscription_callback_noop = Box::new(|_| ());

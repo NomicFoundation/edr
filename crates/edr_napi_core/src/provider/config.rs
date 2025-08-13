@@ -12,6 +12,8 @@ use edr_evm::{
     precompile::PrecompileFn,
 };
 use edr_provider::{config, AccountOverride, ForkConfig};
+use serde::Deserialize;
+use serde_json::{Map, Value};
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]
@@ -24,6 +26,7 @@ pub struct Config {
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
+    pub chain_specific_config: Option<Map<String, Value>>,
     pub coinbase: Address,
     pub fork: Option<ForkConfig<String>>,
     pub genesis_state: HashMap<Address, AccountOverride>,
@@ -41,9 +44,12 @@ pub struct Config {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
 }
 
-impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
+// TODO: see if we can simplify the generic and just have the ChainSpecT here
+impl<HardforkT, ChainConfig> TryFrom<Config>
+    for edr_provider::ProviderConfig<HardforkT, ChainConfig>
 where
     HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId>,
+    ChainConfig: for<'a> Deserialize<'a>,
 {
     type Error = napi::Error;
 
@@ -111,6 +117,11 @@ where
             )
         })?;
 
+        let chain_config: Option<ChainConfig> = value
+            .chain_specific_config
+            .clone()
+            .and_then(|config| serde_json::from_value::<ChainConfig>(Value::Object(config)).ok());
+
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
@@ -118,6 +129,7 @@ where
             bail_on_transaction_failure: value.bail_on_transaction_failure,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
+            chain_config,
             coinbase: value.coinbase,
             fork,
             genesis_state: value.genesis_state,

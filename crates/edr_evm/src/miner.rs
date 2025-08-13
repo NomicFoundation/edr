@@ -102,6 +102,7 @@ pub fn mine_block<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
     reward: u128,
     mut inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
+    chain_config: Option<ChainSpecT::Configuration>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
@@ -133,6 +134,7 @@ where
         BlockInputs::new(cfg.spec),
         overrides,
         custom_precompiles,
+        chain_config,
     )?;
 
     let mut pending_transactions = {
@@ -305,6 +307,7 @@ pub fn mine_block_with_single_transaction<BlockchainErrorT, ChainSpecT, Inspecto
     reward: u128,
     inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
+    chain_config: Option<ChainSpecT::Configuration>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
@@ -403,6 +406,7 @@ where
         BlockInputs::new(cfg.spec),
         overrides,
         custom_precompiles,
+        chain_config,
     )?;
 
     let beneficiary = block_builder.header().beneficiary;
