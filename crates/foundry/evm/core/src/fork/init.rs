@@ -4,7 +4,7 @@ use crate::{
     utils::apply_chain_and_block_specific_env_changes,
 };
 use alloy_consensus::BlockHeader;
-use alloy_primitives::Address;
+use alloy_primitives::{Address, U256};
 use alloy_provider::{Network, Provider, network::BlockResponse};
 use alloy_rpc_types::BlockNumberOrTag;
 use eyre::WrapErr;
@@ -75,8 +75,8 @@ where
     cfg.disable_nonce_check = true;
 
     let mut block_env_opts = BlockEnvOpts {
-        number: block.header().number(),
-        timestamp: block.header().timestamp(),
+        number: U256::from(block.header().number()),
+        timestamp: U256::from(block.header().timestamp()),
         beneficiary: block.header().beneficiary(),
         difficulty: block.header().difficulty(),
         prevrandao: block.header().mix_hash(),
@@ -100,4 +100,22 @@ where
     let evm_env = EvmEnv { block: block_env_opts.into(), tx: tx_env_opts.into(), cfg };
 
     Ok((evm_env, block))
+}
+
+/// Configures the environment for the given chain id and memory limit.
+pub fn configure_env<HardforkT>(chain_id: u64, memory_limit: u64, disable_block_gas_limit: bool) -> CfgEnv<HardforkT>
+where
+    HardforkT: Default,
+{
+    let mut cfg = CfgEnv::default();
+    cfg.chain_id = chain_id;
+    cfg.memory_limit = memory_limit;
+    cfg.limit_contract_code_size = Some(usize::MAX);
+    // EIP-3607 rejects transactions from senders with deployed code.
+    // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if the caller
+    // is a contract. So we disable the check by default.
+    cfg.disable_eip3607 = true;
+    cfg.disable_block_gas_limit = disable_block_gas_limit;
+    cfg.disable_nonce_check = true;
+    cfg
 }

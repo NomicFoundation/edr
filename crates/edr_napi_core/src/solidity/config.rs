@@ -225,7 +225,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
         }
 
         if let Some(block_number) = block_number {
-            evm_opts.env.block_number = block_number;
+            evm_opts.env.block_number = U256::from(block_number);
         }
 
         if let Some(block_difficulty) = block_difficulty {
@@ -235,7 +235,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
         evm_opts.env.block_gas_limit = block_gas_limit;
 
         if let Some(block_timestamp) = block_timestamp {
-            evm_opts.env.block_timestamp = block_timestamp;
+            evm_opts.env.block_timestamp = U256::from(block_timestamp);
         }
 
         if let Some(block_coinbase) = block_coinbase {

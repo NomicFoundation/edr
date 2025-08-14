@@ -4,7 +4,7 @@ use super::opts::EvmOpts;
 
 mod init;
 use alloy_chains::Chain;
-pub use init::environment;
+pub use init::{configure_env, environment};
 
 pub mod database;
 

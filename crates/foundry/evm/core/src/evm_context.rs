@@ -415,7 +415,7 @@ impl TransactionEnvMut for OpTransaction<TxEnv> {
 pub trait BlockEnvMut {
     fn set_basefee(&mut self, basefee: u64);
     fn set_beneficiary(&mut self, beneficiary: Address);
-    fn set_block_number(&mut self, block_number: u64);
+    fn set_block_number(&mut self, block_number: U256);
     fn set_blob_excess_gas_and_price(
         &mut self,
         excess_blob_gas: u64,
@@ -424,7 +424,7 @@ pub trait BlockEnvMut {
     fn set_difficulty(&mut self, difficulty: U256);
     fn set_gas_limit(&mut self, gas_limit: u64);
     fn set_prevrandao(&mut self, prevrandao: B256);
-    fn set_timestamp(&mut self, timestamp: u64);
+    fn set_timestamp(&mut self, timestamp: U256);
 }
 
 impl BlockEnvMut for BlockEnv {
@@ -452,12 +452,12 @@ impl BlockEnvMut for BlockEnv {
         self.prevrandao = Some(prevrandao);
     }
 
-    fn set_block_number(&mut self, block_number: u64) {
-        self.number = U256::from(block_number);
+    fn set_block_number(&mut self, block_number: U256) {
+        self.number = block_number;
     }
 
-    fn set_timestamp(&mut self, timestamp: u64) {
-        self.timestamp = U256::from(timestamp);
+    fn set_timestamp(&mut self, timestamp: U256) {
+        self.timestamp = timestamp;
     }
 
     fn set_gas_limit(&mut self, gas_limit: u64) {

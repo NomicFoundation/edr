@@ -98,8 +98,8 @@ impl ForgeTestProfile {
                 gas_limit: u64::MAX,
                 chain_id: None,
                 tx_origin: CALLER,
-                block_number: 1,
-                block_timestamp: 1,
+                block_number: U256::from(1),
+                block_timestamp: U256::from(1),
                 ..Env::default()
             },
             sender: CALLER,

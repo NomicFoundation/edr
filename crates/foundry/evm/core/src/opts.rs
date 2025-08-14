@@ -1,16 +1,19 @@
 use super::fork::{environment, provider::ProviderBuilder};
-use crate::evm_context::{EvmEnv, HardforkTr};
 use alloy_chains::Chain;
-use alloy_network::AnyRpcBlock;
+use crate::{
+    fork::configure_env,
+};
 use alloy_primitives::{Address, B256, U256};
-use alloy_provider::Provider;
+use alloy_provider::{Provider, network::AnyRpcBlock};
 use eyre::WrapErr;
 use op_revm::{transaction::deposit::DepositTransactionParts, OpTransaction};
-use revm::context::{BlockEnv, CfgEnv, TxEnv};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserializer, Serializer, Deserialize, Serialize};
+use edr_defaults::ALCHEMY_FREE_TIER_CUPS;
+use revm::context::{BlockEnv, TxEnv};
+use std::fmt::Write;
 use url::Url;
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EvmOpts<HardforkT> {
     /// The EVM environment configuration.
     #[serde(flatten)]
@@ -31,6 +34,9 @@ pub struct EvmOpts<HardforkT> {
 
     /// Initial retry backoff.
     pub fork_retry_backoff: Option<u64>,
+
+    /// Headers to use with `fork_url`
+    pub fork_headers: Option<Vec<String>>,
 
     /// The available compute units per second.
     ///
@@ -60,7 +66,32 @@ pub struct EvmOpts<HardforkT> {
     pub disable_block_gas_limit: bool,
 }
 
-impl<HardforkT: HardforkTr> EvmOpts<HardforkT>
+impl<HardforkT> Default for EvmOpts<HardforkT>
+where
+    HardforkT: Default,
+{
+    fn default() -> Self {
+        Self {
+            env: Env::default(),
+            spec: HardforkT::default(),
+            fork_url: None,
+            fork_block_number: None,
+            fork_retries: None,
+            fork_retry_backoff: None,
+            fork_headers: None,
+            compute_units_per_second: None,
+            no_rpc_rate_limit: false,
+            initial_balance: U256::default(),
+            sender: Address::default(),
+            ffi: false,
+            memory_limit: 0,
+            isolate: false,
+            disable_block_gas_limit: false,
+        }
+    }
+}
+
+impl<HardforkT> EvmOpts<HardforkT>
 where
     HardforkT: Default,
 {
@@ -70,7 +101,7 @@ where
     /// id, )
     pub async fn evm_env<BlockT: From<BlockEnvOpts>, TxT: From<TxEnvOpts>>(
         &self,
-    ) -> eyre::Result<EvmEnv<BlockT, TxT, HardforkT>> {
+    ) -> eyre::Result<crate::Env<BlockT, TxT, HardforkT>> {
         if let Some(ref fork_url) = self.fork_url {
             Ok(self.fork_evm_env(fork_url).await?.0)
         } else {
@@ -83,7 +114,7 @@ where
     pub async fn fork_evm_env<BlockT: From<BlockEnvOpts>, TxT: From<TxEnvOpts>>(
         &self,
         fork_url: impl AsRef<str>,
-    ) -> eyre::Result<(EvmEnv<BlockT, TxT, HardforkT>, AnyRpcBlock)> {
+    ) -> eyre::Result<(crate::Env<BlockT, TxT, HardforkT>, AnyRpcBlock)> {
         let fork_url = fork_url.as_ref();
         let provider = ProviderBuilder::new(fork_url)
             .compute_units_per_second(self.get_compute_units_per_second())
@@ -91,7 +122,7 @@ where
         environment(
             &provider,
             self.memory_limit,
-            self.env.gas_price.map(u128::from),
+            self.env.gas_price.map(|v| v as u128),
             self.env.chain_id,
             self.fork_block_number,
             self.sender,
@@ -99,56 +130,48 @@ where
         )
         .await
         .wrap_err_with(|| {
-            if let Some(host) =
-                fork_url.parse::<Url>().ok().and_then(|url| url.host().map(|host| host.to_string()))
-            {
-                // Avoid logging the url as it can have secret api keys.
-                format!("Could not instantiate forked environment. Fork host: '{host}'")
-            } else {
-                // If the url is invalid, because it's malformed, it might still have secrets.
-                "Could not instantiate forked environment. Received invalid url.".to_string()
+            let mut msg = "could not instantiate forked environment".to_string();
+            if let Ok(url) = Url::parse(fork_url) {
+                if let Some(provider) = url.host() {
+                    write!(msg, " with provider {provider}").unwrap();
+                }
             }
+            msg
         })
     }
 
     /// Returns the `revm::Env` configured with only local settings
-    pub fn local_evm_env<BlockT: From<BlockEnvOpts>, TxT: From<TxEnvOpts>>(
-        &self,
-    ) -> EvmEnv<BlockT, TxT, HardforkT> {
-        // Not using `..Default::default()` pattern, because `CfgEnv` is non-exhaustive.
-        let mut cfg = CfgEnv::<HardforkT>::default();
-        cfg.chain_id = self.env.chain_id.unwrap_or(edr_defaults::DEV_CHAIN_ID);
-        cfg.limit_contract_code_size = self.env.code_size_limit.or(Some(usize::MAX));
-        cfg.memory_limit = self.memory_limit;
-        // EIP-3607 rejects transactions from senders with deployed code.
-        // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if the
-        // caller is a contract. So we disable the check by default.
-        cfg.disable_eip3607 = true;
-        cfg.disable_block_gas_limit = self.disable_block_gas_limit;
-        cfg.disable_nonce_check = true;
+    pub fn local_evm_env<BlockT, TxT>(&self) -> crate::Env<BlockT, TxT, HardforkT>
+    where
+        BlockT: From<BlockEnvOpts>,
+        TxT: From<TxEnvOpts>,
+    {
+        let cfg = configure_env(
+            self.env.chain_id.unwrap_or(edr_defaults::DEV_CHAIN_ID),
+            self.memory_limit,
+            self.disable_block_gas_limit,
+        );
 
-        let block_env_opts = BlockEnvOpts {
-            number: self.env.block_number,
-            beneficiary: self.env.block_coinbase,
-            timestamp: self.env.block_timestamp,
-            difficulty: U256::from(self.env.block_difficulty),
-            prevrandao: Some(self.env.block_prevrandao),
-            basefee: self.env.block_base_fee_per_gas,
-            gas_limit: self.gas_limit(),
-        };
-
-        let tx_env_opts = TxEnvOpts {
-            gas_price: self.env.gas_price.unwrap_or_default().into(),
-            gas_limit: self.gas_limit(),
-            chain_id: None,
-            caller: self.sender,
-        };
-
-        EvmEnv { block: block_env_opts.into(), tx: tx_env_opts.into(), cfg }
+        crate::Env {
+            cfg,
+            block: BlockEnvOpts {
+                number: self.env.block_number,
+                beneficiary: self.env.block_coinbase,
+                timestamp: self.env.block_timestamp,
+                difficulty: U256::from(self.env.block_difficulty),
+                prevrandao: Some(self.env.block_prevrandao),
+                basefee: self.env.block_base_fee_per_gas,
+                gas_limit: self.gas_limit(),
+            }.into(),
+            tx: TxEnvOpts {
+                gas_price: self.env.gas_price.unwrap_or_default().into(),
+                gas_limit: self.gas_limit(),
+                caller: self.sender,
+                chain_id: self.env.chain_id,
+            }.into(),
+        }
     }
-}
 
-impl<HardforkT: HardforkTr> EvmOpts<HardforkT> {
     /// Returns the gas limit to use
     pub fn gas_limit(&self) -> u64 {
         self.env.block_gas_limit.unwrap_or(self.env.gas_limit)
@@ -174,19 +197,15 @@ impl<HardforkT: HardforkTr> EvmOpts<HardforkT> {
         if self.no_rpc_rate_limit {
             u64::MAX
         } else if let Some(cups) = self.compute_units_per_second {
-            return cups;
+            cups
         } else {
-            edr_defaults::ALCHEMY_FREE_TIER_CUPS
+            ALCHEMY_FREE_TIER_CUPS
         }
     }
 
     /// Returns the chain ID from the RPC, if any.
     pub async fn get_remote_chain_id(&self) -> Option<Chain> {
         if let Some(ref url) = self.fork_url {
-            if url.contains("mainnet") {
-                trace!(?url, "auto detected mainnet chain");
-                return Some(Chain::mainnet());
-            }
             trace!(?url, "retrieving chain via eth_chainId");
             let provider = ProviderBuilder::new(url.as_str())
                 .compute_units_per_second(self.get_compute_units_per_second())
@@ -196,6 +215,14 @@ impl<HardforkT: HardforkTr> EvmOpts<HardforkT> {
 
             if let Ok(id) = provider.get_chain_id().await {
                 return Some(Chain::from(id));
+            }
+
+            // Provider URLs could be of the format `{CHAIN_IDENTIFIER}-mainnet`
+            // (e.g. Alchemy `opt-mainnet`, `arb-mainnet`), fallback to this method only
+            // if we're not able to retrieve chain id from `RetryProvider`.
+            if url.contains("mainnet") {
+                trace!(?url, "auto detected mainnet chain");
+                return Some(Chain::mainnet());
             }
         }
 
@@ -229,10 +256,18 @@ pub struct Env {
     pub block_coinbase: Address,
 
     /// the block.timestamp value during EVM execution
-    pub block_timestamp: u64,
+    #[serde(
+        deserialize_with = "deserialize_u64_to_u256",
+        serialize_with = "serialize_u64_or_u256"
+    )]
+    pub block_timestamp: U256,
 
     /// the block.number value during EVM execution"
-    pub block_number: u64,
+    #[serde(
+        deserialize_with = "deserialize_u64_to_u256",
+        serialize_with = "serialize_u64_or_u256"
+    )]
+    pub block_number: U256,
 
     /// the block.difficulty value during EVM execution
     pub block_difficulty: u64,
@@ -254,9 +289,9 @@ pub struct Env {
 }
 
 pub struct BlockEnvOpts {
-    pub number: u64,
+    pub number: U256,
     pub beneficiary: Address,
-    pub timestamp: u64,
+    pub timestamp: U256,
     pub difficulty: U256,
     pub prevrandao: Option<B256>,
     pub basefee: u64,
@@ -349,5 +384,43 @@ where
             Gas::Text(s) => s.parse().map(Some).map_err(D::Error::custom),
         },
         _ => Ok(None),
+    }
+}
+
+/// Deserialize into `U256` from either a `u64` or a `U256` hex string.
+pub fn deserialize_u64_to_u256<'de, D>(deserializer: D) -> Result<U256, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum NumericValue {
+        U256(U256),
+        U64(u64),
+    }
+
+    match NumericValue::deserialize(deserializer)? {
+        NumericValue::U64(n) => Ok(U256::from(n)),
+        NumericValue::U256(n) => Ok(n),
+    }
+}
+
+/// Serialize `U256` as `u64` if it fits, otherwise as a hex string.
+/// If the number fits into a i64, serialize it as number without quotation marks.
+/// If the number fits into a u64, serialize it as a stringified number with quotation marks.
+/// Otherwise, serialize it as a hex string with quotation marks.
+pub fn serialize_u64_or_u256<S>(n: &U256, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    // The TOML specification handles integers as i64 so the number representation is limited to
+    // i64. If the number is larger than `i64::MAX` and up to `u64::MAX`, we serialize it as a
+    // string to avoid losing precision.
+    if let Ok(n_i64) = i64::try_from(*n) {
+        serializer.serialize_i64(n_i64)
+    } else if let Ok(n_u64) = u64::try_from(*n) {
+        serializer.serialize_str(&n_u64.to_string())
+    } else {
+        serializer.serialize_str(&format!("{n:#x}"))
     }
 }
