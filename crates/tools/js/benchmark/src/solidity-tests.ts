@@ -24,19 +24,13 @@ import {
   runAllSolidityTests,
 } from "@nomicfoundation/edr-helpers";
 import {
-  SolidityTestRunnerConfigArgs,
   FsAccessPermission,
-  type PathPermission,
-  type AddressLabel,
-  type StorageCachingConfig,
-  type CachedChains,
-  type CachedEndpoints,
   SuiteResult,
   EdrContext,
+  L1_CHAIN_TYPE,
 } from "@nomicfoundation/edr";
-import { hexStringToBytes } from "@nomicfoundation/hardhat-utils/hex";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
-import { SolidityTestUserConfig } from "hardhat/types/config";
+import { solidityTestConfigToSolidityTestRunnerConfigArgs } from "hardhat/internal/builtin-plugins/solidity-test/helpers";
 
 // This is automatically cached in CI
 const RPC_CACHE_PATH = "./edr-cache";
@@ -57,7 +51,7 @@ export const FORGE_STD_SAMPLES = {
 
 const REPO_DIR = "forge-std";
 const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
-const BRANCH_NAME = "js-benchmark-config-hh-v3";
+const BRANCH_NAME = "js-benchmark-config-hh-v3-release";
 
 /// Run Solidity tests in a Hardhat v3 project. Optionally filter paths with grep
 export async function runSolidityTests(
@@ -222,90 +216,6 @@ function displaySec(delta: number) {
   return Math.round(sec * 100) / 100;
 }
 
-// From Hardhat repo
-function solidityTestConfigToSolidityTestRunnerConfigArgs(
-  projectRoot: string,
-  config: SolidityTestUserConfig
-): SolidityTestRunnerConfigArgs {
-  const fsPermissions: PathPermission[] | undefined = [
-    config.fsPermissions?.readWrite?.map((p) => ({ access: 0, path: p })) ?? [],
-    config.fsPermissions?.read?.map((p) => ({ access: 0, path: p })) ?? [],
-    config.fsPermissions?.write?.map((p) => ({ access: 0, path: p })) ?? [],
-  ].flat(1);
-
-  const labels: AddressLabel[] | undefined = config.labels?.map(
-    ({ address, label }) => ({
-      address: hexStringToBuffer(address),
-      label,
-    })
-  );
-
-  let rpcStorageCaching: StorageCachingConfig | undefined;
-  if (config.rpcStorageCaching !== undefined) {
-    let chains: CachedChains | string[];
-    if (Array.isArray(config.rpcStorageCaching.chains)) {
-      chains = config.rpcStorageCaching.chains;
-    } else {
-      const rpcStorageCachingChains: "All" | "None" =
-        config.rpcStorageCaching.chains;
-      switch (rpcStorageCachingChains) {
-        case "All":
-          chains = 0;
-          break;
-        case "None":
-          chains = 1;
-          break;
-      }
-    }
-    let endpoints: CachedEndpoints | string;
-    if (config.rpcStorageCaching.endpoints instanceof RegExp) {
-      endpoints = config.rpcStorageCaching.endpoints.source;
-    } else {
-      const rpcStorageCachingEndpoints: "All" | "Remote" =
-        config.rpcStorageCaching.endpoints;
-      switch (rpcStorageCachingEndpoints) {
-        case "All":
-          endpoints = 0;
-          break;
-        case "Remote":
-          endpoints = 1;
-          break;
-      }
-    }
-    rpcStorageCaching = {
-      chains,
-      endpoints,
-    };
-  }
-
-  const sender: Buffer | undefined =
-    config.sender === undefined ? undefined : hexStringToBuffer(config.sender);
-  const txOrigin: Buffer | undefined =
-    config.txOrigin === undefined
-      ? undefined
-      : hexStringToBuffer(config.txOrigin);
-  const blockCoinbase: Buffer | undefined =
-    config.blockCoinbase === undefined
-      ? undefined
-      : hexStringToBuffer(config.blockCoinbase);
-
-  return {
-    observability: {},
-    projectRoot,
-    ...config,
-    fsPermissions,
-    labels,
-    sender,
-    txOrigin,
-    blockCoinbase,
-    rpcStorageCaching,
-  };
-}
-
-function hexStringToBuffer(hexString: string): Buffer {
-  return Buffer.from(hexStringToBytes(hexString));
-}
-
 async function setupForgeStdRepo() {
   const repoPath = path.join(dirName(import.meta.url), "..", REPO_DIR);
   // Ensure directory exists
@@ -335,11 +245,17 @@ async function createSolidityTestsInput(repoPath: string) {
 
   const { artifacts, testSuiteIds, tracingConfig } =
     await buildSolidityTestsInput(hre);
-
   const solidityTestsConfig = solidityTestConfigToSolidityTestRunnerConfigArgs(
+    L1_CHAIN_TYPE,
     repoPath,
-    userConfig.solidityTest
+    userConfig.solidityTest,
+    /* verbosity */ 0,
+    /* observability */ undefined,
+    /* testPattern */ undefined
   );
+  // Temporary workaround for `testFuzz_AssumeNotPrecompile` in forge-std which assumes no predeploys on mainnet.
+  solidityTestsConfig.localPredeploys = undefined;
+
   solidityTestsConfig.projectRoot = repoPath;
   solidityTestsConfig.rpcCachePath = RPC_CACHE_PATH;
   const rootPermission = {
