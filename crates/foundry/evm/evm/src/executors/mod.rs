@@ -1339,7 +1339,7 @@ impl<
             traces: None,
             coverage: None,
             state_changeset: HashMap::default(),
-            env: EvmEnv::new_with_spec_id(HardforkT::default()),
+            env: EvmEnv::default_with_spec_id(HardforkT::default()),
             cheatcodes: Option::default(),
             out: None,
         }

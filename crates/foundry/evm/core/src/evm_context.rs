@@ -592,13 +592,7 @@ where
     }
 }
 
-/// EVM execution environment
-#[derive(Clone, Debug, Default)]
-pub struct EvmEnv<BlockT, TxT, HardforkT> {
-    pub block: BlockT,
-    pub tx: TxT,
-    pub cfg: CfgEnv<HardforkT>,
-}
+pub use crate::Env as EvmEnv;
 
 impl<BlockT, TxT, HardforkT, DatabaseT, JournalT, ChainT>
     From<revm::context::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, JournalT, ChainT>>
@@ -615,16 +609,6 @@ where
             tx: value.tx,
             cfg: value.cfg,
         }
-    }
-}
-
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
-    EvmEnv<BlockT, TxT, HardforkT>
-{
-    pub fn new_with_spec_id(spec_id: HardforkT) -> Self {
-        let mut env = Self::default();
-        env.cfg.spec = spec_id;
-        env
     }
 }
 

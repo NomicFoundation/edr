@@ -10,6 +10,8 @@ extern crate tracing;
 
 pub mod abi;
 
+pub mod env;
+pub use env::*;
 pub mod backend;
 pub mod constants;
 pub mod contracts;
