@@ -13,7 +13,7 @@ use edr_evm::{
 };
 use edr_provider::{config, AccountOverride, ForkConfig};
 use serde::Deserialize;
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]
@@ -26,7 +26,7 @@ pub struct Config {
     pub bail_on_transaction_failure: bool,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
-    pub chain_specific_config: Option<Map<String, Value>>,
+    pub chain_specific_config: Option<Value>,
     pub coinbase: Address,
     pub fork: Option<ForkConfig<String>>,
     pub genesis_state: HashMap<Address, AccountOverride>,
@@ -44,7 +44,6 @@ pub struct Config {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
 }
 
-// TODO: see if we can simplify the generic and just have the ChainSpecT here
 impl<HardforkT, ChainConfig> TryFrom<Config>
     for edr_provider::ProviderConfig<HardforkT, ChainConfig>
 where
@@ -120,7 +119,7 @@ where
         let chain_config: Option<ChainConfig> = value
             .chain_specific_config
             .clone()
-            .and_then(|config| serde_json::from_value::<ChainConfig>(Value::Object(config)).ok());
+            .and_then(|config| serde_json::from_value::<ChainConfig>(config).ok());
 
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,

@@ -21,7 +21,7 @@ use napi::{
     Either, JsFunction, JsString, JsStringUtf8,
 };
 use napi_derive::napi;
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use crate::{
     account::AccountOverride, block::BlobGas, cast::TryCast, logger::LoggerConfig,
@@ -143,12 +143,12 @@ pub struct ProviderConfig {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
-    /// The chain type specific configuration
-    pub chain_specific_config: Option<Map<String, Value>>,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
     /// The chain ID of the blockchain
     pub chain_id: BigInt,
+    /// The chain type specific configuration
+    pub chain_specific_config: Option<Value>,
     /// The address of the coinbase
     pub coinbase: Uint8Array,
     /// The configuration for forking a blockchain. If not provided, a local
