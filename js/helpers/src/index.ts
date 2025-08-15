@@ -15,11 +15,12 @@ import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import { BuildOptions } from "hardhat/types/solidity";
 import { Abi } from "hardhat/types/artifacts";
 
+import { resolveFromRoot } from "@nomicfoundation/hardhat-utils/path";
 import {
-  getArtifacts,
   getBuildInfos,
-  throwIfSolidityBuildFailed,
-} from "./build-results.js";
+  getEdrArtifacts,
+} from "hardhat/internal/builtin-plugins/solidity-test/edr-artifacts";
+import { throwIfSolidityBuildFailed } from "hardhat/internal/builtin-plugins/solidity/build-results";
 
 let BUILD_MUTEX: MultiProcessMutex | undefined;
 
@@ -65,7 +66,7 @@ export async function runAllSolidityTests(
 
 /*
  Build Solidity tests in a Hardhat v3 project.
- Based on https://github.com/NomicFoundation/hardhat/blob/6acdfa0a7e332e26a3f0fbda61edb4a4971a542e/v-next/hardhat/src/internal/builtin-plugins/solidity-test/task-action.ts
+ Based on https://github.com/NomicFoundation/hardhat/blob/c1e3202e7dbcf39588e687a7263d035751a074df/v-next/hardhat/src/internal/builtin-plugins/solidity-test/task-action.ts
  */
 export async function buildSolidityTestsInput(
   hre: HardhatRuntimeEnvironment
@@ -74,14 +75,20 @@ export async function buildSolidityTestsInput(
   testSuiteIds: ArtifactId[];
   tracingConfig: TracingConfigWithBuffers;
 }> {
+  // NOTE: We run the compile task first to ensure all the artifacts for them are generated
+  // Then, we compile just the test sources. We don't do it in one go because the user
+  // is likely to use different compilation options for the tests and the sources.
+  await hre.tasks.getTask("compile").run();
+
+  // NOTE: A test file is either a file with a `.sol` extension in the `tests.solidity`
+  // directory or a file with a `.t.sol` extension in the `sources.solidity` directory
   let rootFilePaths = (
     await Promise.all([
       getAllFilesMatching(hre.config.paths.tests.solidity, (f) =>
         f.endsWith(".sol")
       ),
       ...hre.config.paths.sources.solidity.map(async (dir) => {
-        // This is changed from Hardhat: it currently filters for ".t.sol" which is probably a mistake.
-        return getAllFilesMatching(dir, (f) => f.endsWith(".sol"));
+        return getAllFilesMatching(dir, (f) => f.endsWith(".t.sol"));
       }),
     ])
   ).flat(1);
@@ -90,7 +97,7 @@ export async function buildSolidityTestsInput(
   rootFilePaths = Array.from(new Set(rootFilePaths));
   const buildOptions: BuildOptions = {
     force: false,
-    buildProfile: hre.globalOptions.buildProfile,
+    buildProfile: hre.globalOptions.buildProfile ?? "default",
     quiet: true,
   };
 
@@ -98,19 +105,25 @@ export async function buildSolidityTestsInput(
   const results = await buildMutex().use(() =>
     hre.solidity.build(rootFilePaths, buildOptions)
   );
-
   throwIfSolidityBuildFailed(results);
 
-  const buildInfos = await getBuildInfos(results, hre.artifacts);
-  const artifacts = await getArtifacts(results);
-  const testSuiteIds = artifacts
-    .filter(isTestSuiteArtifact)
-    .map((artifact) => artifact.id);
+  const buildInfos = await getBuildInfos(hre.artifacts);
+  const edrArtifacts = await getEdrArtifacts(hre.artifacts);
+  const testSuiteIds = edrArtifacts
+    .filter(({ userSourceName }) =>
+      rootFilePaths.includes(
+        resolveFromRoot(hre.config.paths.root, userSourceName)
+      )
+    )
+    .filter(({ edrAtifact }) => isTestSuiteArtifact(edrAtifact))
+    .map(({ edrAtifact }) => edrAtifact.id);
 
   const tracingConfig: TracingConfigWithBuffers = {
     buildInfos,
     ignoreContracts: false,
   };
+
+  const artifacts = edrArtifacts.map(({ edrAtifact }) => edrAtifact);
 
   return { artifacts, testSuiteIds, tracingConfig };
 }
