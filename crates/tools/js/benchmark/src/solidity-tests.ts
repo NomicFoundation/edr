@@ -27,7 +27,6 @@ import {
   FsAccessPermission,
   SuiteResult,
   EdrContext,
-  L1_CHAIN_TYPE,
 } from "@nomicfoundation/edr";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import { solidityTestConfigToSolidityTestRunnerConfigArgs } from "hardhat/internal/builtin-plugins/solidity-test/helpers";
@@ -246,7 +245,7 @@ async function createSolidityTestsInput(repoPath: string) {
   const { artifacts, testSuiteIds, tracingConfig } =
     await buildSolidityTestsInput(hre);
   const solidityTestsConfig = solidityTestConfigToSolidityTestRunnerConfigArgs(
-    L1_CHAIN_TYPE,
+    "l1",
     repoPath,
     userConfig.solidityTest,
     /* verbosity */ 0,
