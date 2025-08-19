@@ -5,7 +5,7 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     block::{BlobGas, Header, PartialHeader},
     eips::{
-        eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
+        eip1559::{BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams},
         eip4844,
     },
     l1::{self, BlockEnv},
@@ -80,14 +80,22 @@ impl GenesisBlockFactory for OpChainSpec {
         hardfork: Self::Hardfork,
         mut options: edr_evm::GenesisBlockOptions,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
+        let config_base_fee_params = options.base_fee_params.as_ref();
         if hardfork >= OpSpecId::HOLOCENE {
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
             let extra_data = options.extra_data.unwrap_or_else(|| {
                 // TODO: https://github.com/NomicFoundation/edr/issues/887
                 // Add support for configuring the dynamic base fee parameters.
-                let base_fee_params = *Self::BASE_FEE_PARAMS
-                    .at_hardfork(hardfork)
+                let base_fee_params = config_base_fee_params
+                    .or_else(|| {
+                        Self::BASE_FEE_PARAMS
+                            .at_condition(BaseFeeCondition {
+                                hardfork: Some(hardfork),
+                                timestamp: options.timestamp,
+                                block_number: None,
+                            })
+                    })
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
                 encode_dynamic_base_fee_params(&base_fee_params)
@@ -198,9 +206,9 @@ impl RuntimeSpec for OpChainSpec {
 
 impl EthHeaderConstants for OpChainSpec {
     const BASE_FEE_PARAMS: BaseFeeParams<OpSpecId> =
-        BaseFeeParams::Variable(ForkBaseFeeParams::new(&[
-            (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
-            (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
+        BaseFeeParams::Variable(VariableBaseFeeParams::new(&[
+            (DynamicBaseFeeCondition::Hardfork(OpSpecId::BEDROCK), ConstantBaseFeeParams::new(50, 6)),
+            (DynamicBaseFeeCondition::Hardfork(OpSpecId::CANYON), ConstantBaseFeeParams::new(250, 6)),
         ]));
 
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
