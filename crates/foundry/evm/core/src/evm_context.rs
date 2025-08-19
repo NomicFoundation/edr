@@ -289,9 +289,10 @@ pub trait ChainContextTr: Clone + std::fmt::Debug + Default {}
 impl<T> ChainContextTr for T where T: Clone + std::fmt::Debug + Default {}
 
 pub trait TransactionEnvMut {
+    fn set_tx_type(&mut self, tx_type: u8);
     fn set_access_list(&mut self, access_list: AccessList);
     fn set_authorization_list(&mut self, authorization_list: Vec<SignedAuthorization>);
-    fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>);
+    fn set_blob_hashes(&mut self, blob_hashes: Vec<B256>);
     fn set_caller(&mut self, caller: Address);
     fn set_chain_id(&mut self, chain_id: Option<u64>);
     fn set_gas_limit(&mut self, gas_limit: u64);
@@ -299,12 +300,16 @@ pub trait TransactionEnvMut {
     fn set_gas_priority_fee(&mut self, gas_priority_fee: Option<u128>);
     fn set_max_fee_per_blob_gas(&mut self, max_fee_per_blob_gas: u128);
     fn set_nonce(&mut self, nonce: u64);
-    fn set_input(&mut self, input: Bytes);
-    fn set_transact_to(&mut self, kind: TxKind);
+    fn set_data(&mut self, data: Bytes);
+    fn set_kind(&mut self, kind: TxKind);
     fn set_value(&mut self, value: U256);
 }
 
 impl TransactionEnvMut for TxEnv {
+    fn set_tx_type(&mut self, tx_type: u8) {
+        self.tx_type = tx_type;
+    }
+
     fn set_access_list(&mut self, access_list: AccessList) {
         self.access_list = access_list;
     }
@@ -313,7 +318,7 @@ impl TransactionEnvMut for TxEnv {
         self.authorization_list = authorization_list.into_iter().map(Either::Left).collect();
     }
 
-    fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {
+    fn set_blob_hashes(&mut self, blob_hashes: Vec<B256>) {
         self.blob_hashes = blob_hashes;
     }
 
@@ -345,11 +350,11 @@ impl TransactionEnvMut for TxEnv {
         self.nonce = nonce;
     }
 
-    fn set_input(&mut self, input: Bytes) {
-        self.data = input;
+    fn set_data(&mut self, data: Bytes) {
+        self.data = data;
     }
 
-    fn set_transact_to(&mut self, kind: TxKind) {
+    fn set_kind(&mut self, kind: TxKind) {
         self.kind = kind;
     }
 
@@ -359,6 +364,10 @@ impl TransactionEnvMut for TxEnv {
 }
 
 impl TransactionEnvMut for OpTransaction<TxEnv> {
+    fn set_tx_type(&mut self, tx_type: u8) {
+        self.base.tx_type = tx_type;
+    }
+
     fn set_access_list(&mut self, access_list: AccessList) {
         self.base.access_list = access_list;
     }
@@ -367,7 +376,7 @@ impl TransactionEnvMut for OpTransaction<TxEnv> {
         self.base.authorization_list = authorization_list.into_iter().map(Either::Left).collect();
     }
 
-    fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {
+    fn set_blob_hashes(&mut self, blob_hashes: Vec<B256>) {
         self.base.blob_hashes = blob_hashes;
     }
 
@@ -399,11 +408,11 @@ impl TransactionEnvMut for OpTransaction<TxEnv> {
         self.base.nonce = nonce;
     }
 
-    fn set_input(&mut self, input: Bytes) {
-        self.base.data = input;
+    fn set_data(&mut self, data: Bytes) {
+        self.base.data = data;
     }
 
-    fn set_transact_to(&mut self, kind: TxKind) {
+    fn set_kind(&mut self, kind: TxKind) {
         self.base.kind = kind;
     }
 
@@ -415,7 +424,7 @@ impl TransactionEnvMut for OpTransaction<TxEnv> {
 pub trait BlockEnvMut {
     fn set_basefee(&mut self, basefee: u64);
     fn set_beneficiary(&mut self, beneficiary: Address);
-    fn set_block_number(&mut self, block_number: U256);
+    fn set_number(&mut self, block_number: U256);
     fn set_blob_excess_gas_and_price(
         &mut self,
         excess_blob_gas: u64,
@@ -423,7 +432,7 @@ pub trait BlockEnvMut {
     );
     fn set_difficulty(&mut self, difficulty: U256);
     fn set_gas_limit(&mut self, gas_limit: u64);
-    fn set_prevrandao(&mut self, prevrandao: B256);
+    fn set_prevrandao(&mut self, prevrandao: Option<B256>);
     fn set_timestamp(&mut self, timestamp: U256);
 }
 
@@ -448,11 +457,11 @@ impl BlockEnvMut for BlockEnv {
         self.difficulty = difficulty;
     }
 
-    fn set_prevrandao(&mut self, prevrandao: B256) {
-        self.prevrandao = Some(prevrandao);
+    fn set_prevrandao(&mut self, prevrandao: Option<B256>) {
+        self.prevrandao = prevrandao;
     }
 
-    fn set_block_number(&mut self, block_number: U256) {
+    fn set_number(&mut self, block_number: U256) {
         self.number = block_number;
     }
 

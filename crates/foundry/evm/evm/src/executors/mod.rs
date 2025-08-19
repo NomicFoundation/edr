@@ -275,8 +275,8 @@ impl<
 
         let mut tx = self.env.tx.clone();
         tx.set_caller(caller);
-        tx.set_transact_to(transact_to);
-        tx.set_input(data);
+        tx.set_kind(transact_to);
+        tx.set_data(data);
         tx.set_value(value);
         // As above, we set the gas price to 0.
         tx.set_gas_price(0);

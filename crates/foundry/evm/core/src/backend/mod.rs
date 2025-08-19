@@ -2260,10 +2260,10 @@ fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBl
     block_env.set_timestamp(U256::from(block.header.timestamp));
     block_env.set_beneficiary(block.header.beneficiary);
     block_env.set_difficulty(block.header.difficulty);
-    block_env.set_prevrandao(block.header.mix_hash.unwrap_or_default());
+    block_env.set_prevrandao(Some(block.header.mix_hash.unwrap_or_default()));
     block_env.set_basefee(block.header.base_fee_per_gas.unwrap_or_default());
     block_env.set_gas_limit(block.header.gas_limit);
-    block_env.set_block_number(U256::from(block.header.number));
+    block_env.set_number(U256::from(block.header.number));
     if let Some(excess_blob_gas) = block.header.excess_blob_gas {
         block_env.set_blob_excess_gas_and_price(
             excess_blob_gas,
