@@ -2959,6 +2959,7 @@ fn create_blockchain_and_state<
                 }),
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
+                base_fee_params: config.base_fee_params,
                 blob_gas: config.initial_blob_gas.clone(),
             },
         )

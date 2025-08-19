@@ -24,7 +24,7 @@ pub use self::{
 use crate::{
     b256,
     eips::{
-        eip1559::ConstantBaseFeeParams,
+        eip1559::{BaseFeeCondition, ConstantBaseFeeParams},
         eip4844::{self, blob_base_fee_update_fraction},
         eip7691,
     },
@@ -397,7 +397,7 @@ pub fn calculate_next_base_fee_per_gas_for_chain_spec<ChainSpecT: EthHeaderConst
     parent: &Header,
 ) -> u128 {
     let base_fee_params = ChainSpecT::BASE_FEE_PARAMS
-        .at_hardfork(hardfork)
+        .at_condition(BaseFeeCondition{hardfork: Some(hardfork), block_number: Some(parent.number), timestamp: Some(parent.timestamp)}) //TODO: should we use next block number since we are calculating the `next_base_fee`? the same goes for timestamp
         .expect("Chain spec must have base fee params for post-London hardforks");
 
     calculate_next_base_fee_per_gas(parent, base_fee_params)

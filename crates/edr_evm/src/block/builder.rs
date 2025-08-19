@@ -3,11 +3,7 @@ mod l1;
 use std::fmt::Debug;
 
 use edr_eth::{
-    block::{self, BlobGas, HeaderOverrides, PartialHeader},
-    spec::{ChainHardfork, ChainSpec},
-    transaction::TransactionValidation,
-    withdrawal::Withdrawal,
-    Address, Bytes, HashMap, B256,
+    block::{self, BlobGas, HeaderOverrides, PartialHeader}, eips::eip1559::ConstantBaseFeeParams, spec::{ChainHardfork, ChainSpec}, transaction::TransactionValidation, withdrawal::Withdrawal, Address, Bytes, HashMap, B256
 };
 use revm::{precompile::PrecompileFn, Inspector};
 
@@ -125,6 +121,8 @@ pub struct GenesisBlockOptions {
     pub mix_hash: Option<B256>,
     /// The block's base gas fee
     pub base_fee: Option<u128>,
+    /// Base fee params to calculate base_fee if not set
+    pub base_fee_params: Option<ConstantBaseFeeParams>,
     /// The block's blob gas (for post-Cancun blockchains)
     pub blob_gas: Option<BlobGas>,
 }
@@ -137,6 +135,7 @@ impl From<GenesisBlockOptions> for HeaderOverrides {
             timestamp,
             mix_hash,
             base_fee,
+            base_fee_params,
             blob_gas,
         } = value;
 
@@ -146,6 +145,7 @@ impl From<GenesisBlockOptions> for HeaderOverrides {
             timestamp,
             mix_hash,
             base_fee,
+            base_fee_params,
             blob_gas,
             ..HeaderOverrides::default()
         }
