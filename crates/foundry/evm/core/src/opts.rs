@@ -1,7 +1,7 @@
 use super::fork::{environment, provider::ProviderBuilder};
 use alloy_chains::Chain;
 use crate::{
-    fork::configure_env,
+    evm_context::BlockEnvMut, fork::configure_env
 };
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{Provider, network::AnyRpcBlock};
@@ -9,7 +9,10 @@ use eyre::WrapErr;
 use op_revm::{transaction::deposit::DepositTransactionParts, OpTransaction};
 use serde::{Deserializer, Serializer, Deserialize, Serialize};
 use edr_defaults::ALCHEMY_FREE_TIER_CUPS;
-use revm::context::{BlockEnv, TxEnv};
+use revm::{
+    context::{BlockEnv, TxEnv},
+    context_interface::Block,
+};
 use std::fmt::Write;
 use url::Url;
 
@@ -99,9 +102,13 @@ where
     ///
     /// If a `fork_url` is set, it gets configured with settings fetched from the endpoint (chain
     /// id, )
-    pub async fn evm_env<BlockT: From<BlockEnvOpts>, TxT: From<TxEnvOpts>>(
+    pub async fn evm_env<BlockT, TxT>(
         &self,
-    ) -> eyre::Result<crate::Env<BlockT, TxT, HardforkT>> {
+    ) -> eyre::Result<crate::Env<BlockT, TxT, HardforkT>>
+    where
+        BlockT: From<BlockEnvOpts> + Block + BlockEnvMut,
+        TxT: From<TxEnvOpts>,
+    {
         if let Some(ref fork_url) = self.fork_url {
             Ok(self.fork_evm_env(fork_url).await?.0)
         } else {
@@ -111,10 +118,14 @@ where
 
     /// Returns the `revm::Env` that is configured with settings retrieved from the endpoint.
     /// And the block that was used to configure the environment.
-    pub async fn fork_evm_env<BlockT: From<BlockEnvOpts>, TxT: From<TxEnvOpts>>(
+    pub async fn fork_evm_env<BlockT, TxT>(
         &self,
         fork_url: impl AsRef<str>,
-    ) -> eyre::Result<(crate::Env<BlockT, TxT, HardforkT>, AnyRpcBlock)> {
+    ) -> eyre::Result<(crate::Env<BlockT, TxT, HardforkT>, AnyRpcBlock)>
+    where
+        BlockT: From<BlockEnvOpts> + Block + BlockEnvMut,
+        TxT: From<TxEnvOpts>,
+    {
         let fork_url = fork_url.as_ref();
         let provider = ProviderBuilder::new(fork_url)
             .compute_units_per_second(self.get_compute_units_per_second())

@@ -1,14 +1,14 @@
 use crate::{
-    evm_context::EvmEnv,
+    evm_context::{BlockEnvMut, EvmEnv},
     opts::{BlockEnvOpts, TxEnvOpts},
-    utils::apply_chain_and_block_specific_env_changes,
+    utils::apply_chain_and_block_specific_env_changes, AsEnvMut,
 };
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Network, Provider, network::BlockResponse};
 use alloy_rpc_types::BlockNumberOrTag;
 use eyre::WrapErr;
-use revm::context::CfgEnv;
+use revm::context::{Block, CfgEnv};
 
 /// Logged when an error is indicative that the user is trying to fork from a
 /// non-archive node.
@@ -30,7 +30,7 @@ pub async fn environment<NetworkT, ProviderT, BlockT, TxT, HardforkT>(
 where
     NetworkT: Network,
     ProviderT: Provider<NetworkT>,
-    BlockT: From<BlockEnvOpts>,
+    BlockT: From<BlockEnvOpts> + Block + BlockEnvMut,
     TxT: From<TxEnvOpts>,
     HardforkT: Default,
 {
@@ -74,7 +74,7 @@ where
     cfg.disable_block_gas_limit = disable_block_gas_limit;
     cfg.disable_nonce_check = true;
 
-    let mut block_env_opts = BlockEnvOpts {
+    let block_env_opts = BlockEnvOpts {
         number: U256::from(block.header().number()),
         timestamp: U256::from(block.header().timestamp()),
         beneficiary: block.header().beneficiary(),
@@ -91,13 +91,12 @@ where
         gas_limit: block.header().gas_limit(),
     };
 
-    apply_chain_and_block_specific_env_changes::<NetworkT>(
-        cfg.chain_id,
-        &block,
-        &mut block_env_opts,
-    );
+    let mut evm_env = EvmEnv { block: block_env_opts.into(), tx: tx_env_opts.into(), cfg };
 
-    let evm_env = EvmEnv { block: block_env_opts.into(), tx: tx_env_opts.into(), cfg };
+    apply_chain_and_block_specific_env_changes::<NetworkT, BlockT, TxT, HardforkT>(
+        evm_env.as_env_mut(),
+        &block,
+    );
 
     Ok((evm_env, block))
 }
