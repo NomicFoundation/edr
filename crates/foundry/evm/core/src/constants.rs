@@ -67,6 +67,11 @@ pub const DEFAULT_CREATE2_DEPLOYER_CODEHASH: B256 =
 /// `address(uint160(uint256(keccak256("foundry library deployer"))))`
 pub const LIBRARY_DEPLOYER: Address = address!("1F95D37F27EA0dEA9C252FC09D5A6eaA97647353");
 
+/// Logged when an error is indicative that the user is trying to fork from a non-archive node.
+pub const NON_ARCHIVE_NODE_WARNING: &str = "\
+It looks like you're trying to fork from an older block with a non-archive node which is not \
+supported. Please try to change your RPC url to an archive node if the issue persists.";
+
 #[cfg(test)]
 mod tests {
     use super::*;
