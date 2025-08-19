@@ -1,20 +1,17 @@
 use crate::{
-    evm_context::{BlockEnvMut, EvmEnv},
+    AsEnvMut,
+    utils::apply_chain_and_block_specific_env_changes,
+    constants::NON_ARCHIVE_NODE_WARNING,
     opts::{BlockEnvOpts, TxEnvOpts},
-    utils::apply_chain_and_block_specific_env_changes, AsEnvMut,
+    evm_context::{BlockEnvMut, EvmEnv},
 };
+use revm::context_interface::Block;
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Network, Provider, network::BlockResponse};
 use alloy_rpc_types::BlockNumberOrTag;
 use eyre::WrapErr;
-use revm::context::{Block, CfgEnv};
-
-/// Logged when an error is indicative that the user is trying to fork from a
-/// non-archive node.
-const NON_ARCHIVE_NODE_WARNING: &str = "\
-It looks like you're trying to fork from an older block with a non-archive node which is not \
-supported. Please try to change your RPC url to an archive node if the issue persists.";
+use revm::context::CfgEnv;
 
 /// Initializes a REVM block environment based on a forked
 /// ethereum provider.
@@ -62,43 +59,34 @@ where
         eyre::bail!("failed to get block for block number: {block_number}")
     };
 
-    // Not using `..Default::default()` pattern, because `CfgEnv` is non-exhaustive.
-    let mut cfg = CfgEnv::<HardforkT>::default();
-    cfg.chain_id = override_chain_id.unwrap_or(rpc_chain_id);
-    cfg.memory_limit = memory_limit;
-    cfg.limit_contract_code_size = Some(usize::MAX);
-    // EIP-3607 rejects transactions from senders with deployed code.
-    // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if the caller
-    // is a contract. So we disable the check by default.
-    cfg.disable_eip3607 = true;
-    cfg.disable_block_gas_limit = disable_block_gas_limit;
-    cfg.disable_nonce_check = true;
-
-    let block_env_opts = BlockEnvOpts {
-        number: U256::from(block.header().number()),
-        timestamp: U256::from(block.header().timestamp()),
-        beneficiary: block.header().beneficiary(),
-        difficulty: block.header().difficulty(),
-        prevrandao: block.header().mix_hash(),
-        basefee: block.header().base_fee_per_gas().unwrap_or_default(),
-        gas_limit: block.header().gas_limit(),
-    };
-
-    let tx_env_opts = TxEnvOpts {
-        caller: origin,
-        gas_price: gas_price.unwrap_or(fork_gas_price),
-        chain_id: Some(override_chain_id.unwrap_or(rpc_chain_id)),
-        gas_limit: block.header().gas_limit(),
-    };
-
-    let mut evm_env = EvmEnv { block: block_env_opts.into(), tx: tx_env_opts.into(), cfg };
-
-    apply_chain_and_block_specific_env_changes::<NetworkT, BlockT, TxT, HardforkT>(
-        evm_env.as_env_mut(),
-        &block,
+    let cfg = configure_env(
+        override_chain_id.unwrap_or(rpc_chain_id),
+        memory_limit,
+        disable_block_gas_limit,
     );
 
-    Ok((evm_env, block))
+    let mut env = EvmEnv {
+        cfg,
+        block: BlockEnvOpts {
+            number: U256::from(block.header().number()),
+            timestamp: U256::from(block.header().timestamp()),
+            beneficiary: block.header().beneficiary(),
+            difficulty: block.header().difficulty(),
+            prevrandao: block.header().mix_hash(),
+            basefee: block.header().base_fee_per_gas().unwrap_or_default(),
+            gas_limit: block.header().gas_limit(),
+        }.into(),
+        tx: TxEnvOpts {
+            caller: origin,
+            gas_price: gas_price.unwrap_or(fork_gas_price),
+            chain_id: Some(override_chain_id.unwrap_or(rpc_chain_id)),
+            gas_limit: block.header().gas_limit() as u64,
+        }.into(),
+    };
+
+    apply_chain_and_block_specific_env_changes::<NetworkT, BlockT, TxT, HardforkT>(env.as_env_mut(), &block);
+
+    Ok((env, block))
 }
 
 /// Configures the environment for the given chain id and memory limit.
