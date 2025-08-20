@@ -5,7 +5,10 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     block::{BlobGas, Header, PartialHeader},
     eips::{
-        eip1559::{BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams},
+        eip1559::{
+            BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition,
+            VariableBaseFeeParams,
+        },
         eip4844,
     },
     l1::{self, BlockEnv},
@@ -89,12 +92,11 @@ impl GenesisBlockFactory for OpChainSpec {
                 // Add support for configuring the dynamic base fee parameters.
                 let base_fee_params = config_base_fee_params
                     .or_else(|| {
-                        Self::BASE_FEE_PARAMS
-                            .at_condition(BaseFeeCondition {
-                                hardfork: Some(hardfork),
-                                timestamp: options.timestamp,
-                                block_number: None,
-                            })
+                        Self::BASE_FEE_PARAMS.at_condition(BaseFeeCondition {
+                            hardfork: Some(hardfork),
+                            timestamp: options.timestamp,
+                            block_number: None,
+                        })
                     })
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
@@ -207,8 +209,14 @@ impl RuntimeSpec for OpChainSpec {
 impl EthHeaderConstants for OpChainSpec {
     const BASE_FEE_PARAMS: BaseFeeParams<OpSpecId> =
         BaseFeeParams::Variable(VariableBaseFeeParams::new(&[
-            (DynamicBaseFeeCondition::Hardfork(OpSpecId::BEDROCK), ConstantBaseFeeParams::new(50, 6)),
-            (DynamicBaseFeeCondition::Hardfork(OpSpecId::CANYON), ConstantBaseFeeParams::new(250, 6)),
+            (
+                DynamicBaseFeeCondition::Hardfork(OpSpecId::BEDROCK),
+                ConstantBaseFeeParams::new(50, 6),
+            ),
+            (
+                DynamicBaseFeeCondition::Hardfork(OpSpecId::CANYON),
+                ConstantBaseFeeParams::new(250, 6),
+            ),
         ]));
 
     const MIN_ETHASH_DIFFICULTY: u64 = 0;

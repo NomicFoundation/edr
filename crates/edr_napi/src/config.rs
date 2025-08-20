@@ -487,7 +487,9 @@ impl ProviderConfig {
             .base_fee_config
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<napi::Result<HashMap<DynamicBaseFeeCondition<String>, ConstantBaseFeeParams>>>()?;
+            .collect::<napi::Result<
+            HashMap<DynamicBaseFeeCondition<String>, ConstantBaseFeeParams>,
+        >>()?;
 
         let block_gas_limit =
             NonZeroU64::new(self.block_gas_limit.try_cast()?).ok_or_else(|| {

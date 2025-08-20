@@ -1,8 +1,9 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{
-    block::BlobGas, eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition}, Address, Bytecode, ChainId, HashMap,
-    B256, U256,
+    block::BlobGas,
+    eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition},
+    Address, Bytecode, ChainId, HashMap, B256, U256,
 };
 use edr_evm::{hardfork::ChainOverride, precompile::PrecompileFn, state::EvmStorage, MineOrdering};
 use rand::Rng;
