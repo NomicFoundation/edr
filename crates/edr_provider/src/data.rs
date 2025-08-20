@@ -17,7 +17,7 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas_for_chain_spec,
         miner_reward, HeaderOverrides,
     },
-    eips::eip1559::ConstantBaseFeeParams,
+    eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition},
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
@@ -205,7 +205,7 @@ pub struct ProviderData<
     instance_id: B256,
     is_auto_mining: bool,
     next_block_base_fee_per_gas: Option<u128>,
-    base_fee_params: Option<ConstantBaseFeeParams>,
+    base_fee_params: HashMap<DynamicBaseFeeCondition<ChainSpecT::Hardfork>, ConstantBaseFeeParams>,
     next_block_timestamp: Option<u64>,
     next_snapshot_id: u64,
     snapshots: BTreeMap<u64, Snapshot<ChainSpecT::SignedTransaction>>,
@@ -617,7 +617,6 @@ where
             prev_randao_generator,
             block_time_offset_seconds,
             next_block_base_fee_per_gas,
-            base_fee_params,
         } = create_blockchain_and_state(runtime_handle.clone(), &config, &timer)?;
 
         let max_cached_states = get_max_cached_states_from_env::<ChainSpecT, TimerT>()?;
@@ -661,7 +660,7 @@ where
             runtime_handle,
             bail_on_call_failure: config.bail_on_call_failure,
             bail_on_transaction_failure: config.bail_on_transaction_failure,
-            base_fee_params,
+            base_fee_params: config.base_fee_params,
             blockchain,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit),
@@ -1404,7 +1403,7 @@ where
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
-        options.base_fee_params = options.base_fee_params.or(self.base_fee_params);
+        // options.base_fee_params = options.base_fee_params.or(self.base_fee_params); // FIXME
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
@@ -2726,7 +2725,6 @@ struct BlockchainAndState<ChainSpecT: SyncRuntimeSpec> {
     prev_randao_generator: RandomHashGenerator,
     block_time_offset_seconds: i64,
     next_block_base_fee_per_gas: Option<u128>,
-    base_fee_params: Option<ConstantBaseFeeParams>,
 }
 
 fn create_blockchain_and_state<
@@ -2885,12 +2883,12 @@ fn create_blockchain_and_state<
             None
         };
 
-        let base_fee_params = if config.hardfork.into() >= l1::SpecId::LONDON {
-            // TODO: should we prevent this if L1?
-            config.base_fee_params
-        } else {
-            None
-        };
+        // TODO: review if we need to limit before london
+        // let base_fee_params = if config.hardfork.into() >= l1::SpecId::LONDON {
+        //     config.base_fee_params
+        // } else {
+        //     None
+        // };
 
         Ok(BlockchainAndState {
             fork_metadata: Some(ForkMetadata {
@@ -2909,7 +2907,6 @@ fn create_blockchain_and_state<
             prev_randao_generator,
             block_time_offset_seconds,
             next_block_base_fee_per_gas,
-            base_fee_params,
         })
     } else {
         let mix_hash = if config.hardfork.into() >= l1::SpecId::MERGE {
@@ -2959,7 +2956,7 @@ fn create_blockchain_and_state<
                 }),
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: config.base_fee_params,
+                base_fee_params: None, // TODO: select the right option from config.base_fee_params if any
                 blob_gas: config.initial_blob_gas.clone(),
             },
         )
@@ -2981,11 +2978,6 @@ fn create_blockchain_and_state<
         let block_time_offset_seconds =
             block_time_offset_seconds::<ChainSpecT, TimerT>(config, timer)?;
 
-        let base_fee_params = if config.hardfork.into() >= l1::SpecId::LONDON {
-            config.base_fee_params
-        } else {
-            None
-        };
 
         Ok(BlockchainAndState {
             fork_metadata: None,
@@ -2998,7 +2990,6 @@ fn create_blockchain_and_state<
             // For local blockchain the initial base fee per gas config option is incorporated as
             // part of the genesis block.
             next_block_base_fee_per_gas: None,
-            base_fee_params,
         })
     }
 }

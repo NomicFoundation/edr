@@ -1,5 +1,5 @@
 pub use alloy_eips::eip1559::BaseFeeParams as ConstantBaseFeeParams;
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 /// Criteria for indicating the different activation of different base fee parameters
 pub enum DynamicBaseFeeCondition<HardforkT> {
     /// block number

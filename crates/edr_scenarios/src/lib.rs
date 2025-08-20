@@ -8,7 +8,7 @@ pub mod old;
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use chrono::{DateTime, Utc};
-use edr_eth::{block::BlobGas, Address, ChainId, HashMap, B256};
+use edr_eth::{block::BlobGas, hash_map::HashMap, Address, ChainId, B256};
 use edr_evm::hardfork::ChainOverride;
 use edr_napi_core::provider::Config as ProviderConfig;
 use edr_provider::{AccountOverride, ForkConfig, MiningConfig};
@@ -70,7 +70,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
-            base_fee_params: None,
+            base_fee_params: HashMap::new(),
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,

@@ -8,7 +8,7 @@ use std::{
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eth::{
-    eips::eip1559::ConstantBaseFeeParams,
+    eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition},
     signature::{secret_key_from_str, SecretKey},
     Bytes, HashMap, HashSet,
 };
@@ -31,8 +31,38 @@ use crate::{
 /// Configuration for eip-1559 parameters
 #[napi(object)]
 pub struct BaseFeeConfig {
+    pub key_type: BaseFeeConfigType,
+    pub activation: BigInt,
     pub max_change_denominator: BigInt,
     pub elasticity_multiplier: BigInt,
+}
+
+impl<T> TryFrom<BaseFeeConfig> for (DynamicBaseFeeCondition<T>, ConstantBaseFeeParams) {
+    type Error = napi::Error;
+
+    fn try_from(value: BaseFeeConfig) -> Result<Self, Self::Error> {
+        let activation: u64 = value.activation.try_cast()?;
+        let base_fee_params = ConstantBaseFeeParams {
+            max_change_denominator: value.max_change_denominator.try_cast()?,
+            elasticity_multiplier: value.elasticity_multiplier.try_cast()?,
+        };
+        match value.key_type {
+            BaseFeeConfigType::BlockNumber => Ok((
+                DynamicBaseFeeCondition::BlockNumber(activation),
+                base_fee_params,
+            )),
+            BaseFeeConfigType::Timestamp => Ok((
+                DynamicBaseFeeCondition::Timestamp(activation),
+                base_fee_params,
+            )),
+        }
+    }
+}
+
+#[napi]
+pub enum BaseFeeConfigType {
+    Timestamp,
+    BlockNumber,
 }
 
 /// Specification of a chain with possible overrides.
@@ -151,7 +181,7 @@ pub struct ProviderConfig {
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     /// The chain eip-1559 configurable parameters
-    pub base_fee_config: Option<BaseFeeConfig>,
+    pub base_fee_config: Vec<BaseFeeConfig>,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
     /// The chain ID of the blockchain
@@ -455,17 +485,9 @@ impl ProviderConfig {
 
         let base_fee_params = self
             .base_fee_config
-            .map(|config| -> Result<ConstantBaseFeeParams, napi::Error> {
-                let max_change_denominator: u128 =
-                    TryCast::try_cast(config.max_change_denominator)?;
-                let elasticity_multiplier: u128 = TryCast::try_cast(config.elasticity_multiplier)?;
-
-                Ok(ConstantBaseFeeParams {
-                    max_change_denominator,
-                    elasticity_multiplier,
-                })
-            })
-            .transpose()?;
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<napi::Result<HashMap<DynamicBaseFeeCondition<String>, ConstantBaseFeeParams>>>()?;
 
         let block_gas_limit =
             NonZeroU64::new(self.block_gas_limit.try_cast()?).ok_or_else(|| {
