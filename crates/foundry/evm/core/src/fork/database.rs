@@ -226,15 +226,16 @@ impl DatabaseRef for ForkDbStateSnapshot {
     type Error = DatabaseError;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        if let Some(account) = self.local.cache.accounts.get(&address) {
-            Ok(Some(account.info.clone()))
-        } else {
-            let mut acc = self.state_snapshot.accounts.get(&address).cloned();
+        match self.local.cache.accounts.get(&address) {
+            Some(account) => Ok(Some(account.info.clone())),
+            None => {
+                let mut acc = self.state_snapshot.accounts.get(&address).cloned();
 
-            if acc.is_none() {
-                acc = self.local.basic_ref(address)?;
+                if acc.is_none() {
+                    acc = self.local.basic_ref(address)?;
+                }
+                Ok(acc)
             }
-            Ok(acc)
         }
     }
 
