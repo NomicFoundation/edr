@@ -3,10 +3,11 @@ use std::{str::FromStr, time::SystemTime};
 
 use edr_eth::{
     block::BlobGas,
-    eips::eip1559::ConstantBaseFeeParams,
+    eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition},
+    hash_map::HashMap,
     l1::{self, hardfork::UnknownHardfork},
     signature::SecretKey,
-    Address, ChainId, HashMap, B256,
+    Address, ChainId, B256,
 };
 use edr_evm::{
     hardfork::{self, ChainOverride},
@@ -23,7 +24,7 @@ pub struct Config {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
-    pub base_fee_params: Option<ConstantBaseFeeParams>,
+    pub base_fee_params: HashMap<DynamicBaseFeeCondition<String>, ConstantBaseFeeParams>,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,
@@ -43,9 +44,18 @@ pub struct Config {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
 }
 
+fn parse_hardfork<HardforkT>(hardfork: String) -> Result<HardforkT, napi::Error> where HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId> {
+    hardfork.parse().map_err(|UnknownHardfork| {
+        napi::Error::new(
+            napi::Status::InvalidArg,
+            format!("Unknown hardfork: {}", hardfork),
+        )
+    })
+}
+
 impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId>,
+    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId> + Eq + std::hash::Hash,
 {
     type Error = napi::Error;
 
@@ -68,13 +78,7 @@ where
                                              condition,
                                              hardfork,
                                          }| {
-                                            let hardfork =
-                                                hardfork.parse().map_err(|UnknownHardfork| {
-                                                    napi::Error::new(
-                                                        napi::Status::InvalidArg,
-                                                        format!("Unknown hardfork: {hardfork}"),
-                                                    )
-                                                })?;
+                                            let hardfork = parse_hardfork(hardfork)?;
 
                                             Ok(hardfork::Activation {
                                                 condition,
@@ -106,19 +110,30 @@ where
             })
             .transpose()?;
 
-        let hardfork = value.hardfork.parse().map_err(|UnknownHardfork| {
-            napi::Error::new(
-                napi::Status::InvalidArg,
-                format!("Unknown hardfork: {}", value.hardfork),
-            )
-        })?;
+        let hardfork = parse_hardfork(value.hardfork)?;
+
+        let base_fee_params: HashMap<DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams> =
+            value
+                .base_fee_params
+                .into_iter()
+                .map(|(key, value)| -> Result<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams), Self::Error> {
+                    let new_key = match key {
+                        DynamicBaseFeeCondition::Hardfork(hardfork_str) => {
+                            let hardfork = parse_hardfork(hardfork_str)?;
+                            DynamicBaseFeeCondition::Hardfork(hardfork)
+                        },
+                        DynamicBaseFeeCondition::BlockNumber(number) => DynamicBaseFeeCondition::BlockNumber(number),
+                        DynamicBaseFeeCondition::Timestamp(timestamp) => DynamicBaseFeeCondition::Timestamp(timestamp)
+                    };
+                    Ok((new_key, value))
+                }).collect::<Result<HashMap<DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams>, Self::Error>>()?;
 
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
-            base_fee_params: value.base_fee_params,
+            base_fee_params,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,
