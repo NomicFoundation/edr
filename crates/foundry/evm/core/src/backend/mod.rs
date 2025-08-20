@@ -98,6 +98,8 @@ const SYSTEM_TRANSACTION_TYPE: u8 = 126;
 pub const GLOBAL_FAIL_SLOT: U256 =
     uint!(0x6661696c65640000000000000000000000000000000000000000000000000000_U256);
 
+pub type JournaledState = JournalInner<JournalEntry>;
+
 /// Helper trait to reduce typing generics for `revm::Inspector`
 pub trait CheatcodeInspectorTr<BlockT, TxT, HardforkT, DatabaseT, ChainContextT>:
     Inspector<
