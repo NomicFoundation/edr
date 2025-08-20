@@ -3,11 +3,14 @@
 use crate::abi::{Vm, console};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::{Error, JsonAbi};
-use alloy_primitives::{Log, Selector};
-use alloy_sol_types::{SolCall, SolError, SolEventInterface, SolInterface, SolValue};
+use alloy_primitives::{Log, Selector, hex, map::HashMap};
+use alloy_sol_types::{
+    ContractError::Revert, RevertReason, RevertReason::ContractError, SolEventInterface,
+    SolInterface, SolValue,
+};
+use edr_defaults::SELECTOR_LEN;
 use itertools::Itertools;
 use revm::interpreter::InstructionResult;
-use rustc_hash::FxHashMap;
 use std::{fmt, sync::OnceLock};
 
 /// A skip reason.
@@ -42,12 +45,6 @@ impl fmt::Display for SkipReason {
     }
 }
 
-impl From<SkipReason> for Option<String> {
-    fn from(value: SkipReason) -> Self {
-        value.0
-    }
-}
-
 /// Decode a set of logs, only returning logs from DSTest logging events and Hardhat's `console.log`
 pub fn decode_console_logs(logs: &[Log]) -> Vec<String> {
     logs.iter().filter_map(decode_console_log).collect()
@@ -59,14 +56,13 @@ pub fn decode_console_logs(logs: &[Log]) -> Vec<String> {
 /// `console.log`.
 pub fn decode_console_log(log: &Log) -> Option<String> {
     console::ds::ConsoleEvents::decode_log(log).ok().map(|decoded| decoded.to_string())
-
 }
 
 /// Decodes revert data.
 #[derive(Clone, Debug, Default)]
 pub struct RevertDecoder {
     /// The custom errors to use for decoding.
-    pub errors: FxHashMap<Selector, Vec<Error>>,
+    pub errors: HashMap<Selector, Vec<Error>>,
 }
 
 impl Default for &RevertDecoder {
@@ -141,82 +137,91 @@ impl RevertDecoder {
     ///
     /// See [`decode`](Self::decode) for more information.
     pub fn maybe_decode(&self, err: &[u8], status: Option<InstructionResult>) -> Option<String> {
-        if err.len() < edr_defaults::SELECTOR_LEN {
-            if let Some(status) = status {
-                if !status.is_ok() {
-                    return Some(format!("EvmError: {status:?}"));
-                }
-            }
-            return if err.is_empty() {
-                None
-            } else {
-                Some(format!("custom error bytes {}", hex::encode_prefixed(err)))
-            };
+        if let Some(reason) = SkipReason::decode(err) {
+            return Some(reason.to_string());
         }
 
-        if err == crate::constants::MAGIC_SKIP {
-            // Also used in edr_solidity_tests fuzz runner
-            return Some("SKIPPED".to_string());
+        // Solidity's `Error(string)` (handled separately in order to strip revert: prefix)
+        if let Some(ContractError(Revert(revert))) = RevertReason::decode(err) {
+            return Some(revert.reason);
         }
 
-        // Solidity's `Error(string)` or `Panic(uint256)`
-        if let Ok(e) = alloy_sol_types::GenericContractError::abi_decode(err) {
+        // Solidity's `Panic(uint256)` and `Vm`'s custom errors.
+        if let Ok(e) = alloy_sol_types::ContractError::<Vm::VmErrors>::abi_decode(err) {
             return Some(e.to_string());
         }
 
-        let (selector, data) = err.split_at(edr_defaults::SELECTOR_LEN);
-        let selector: &[u8; 4] = selector.try_into().unwrap();
+        let string_decoded = decode_as_non_empty_string(err);
 
-        match *selector {
-            // `CheatcodeError(string)`
-            Vm::CheatcodeError::SELECTOR => {
-                let e = Vm::CheatcodeError::abi_decode_raw(data).ok()?;
-                return Some(e.message);
-            }
-            // `expectRevert(bytes)`
-            Vm::expectRevert_2Call::SELECTOR => {
-                let e = Vm::expectRevert_2Call::abi_decode_raw(data).ok()?;
-                return self.maybe_decode(&e.revertData[..], status);
-            }
-            // `expectRevert(bytes4)`
-            Vm::expectRevert_1Call::SELECTOR => {
-                let e = Vm::expectRevert_1Call::abi_decode_raw(data).ok()?;
-                return self.maybe_decode(&e.revertData[..], status);
-            }
-            _ => {}
-        }
-
-        // Custom errors.
-        if let Some(errors) = self.errors.get(selector) {
-            for error in errors {
-                // If we don't decode, don't return an error, try to decode as a string later.
-                if let Ok(decoded) = error.abi_decode_input(data) {
-                    return Some(format!(
-                        "{}({})",
-                        error.name,
-                        decoded.iter().map(edr_common::fmt::format_token).format(", ")
-                    ));
+        if let Some((selector, data)) = err.split_first_chunk::<SELECTOR_LEN>() {
+            // Custom errors.
+            if let Some(errors) = self.errors.get(selector) {
+                for error in errors {
+                    // If we don't decode, don't return an error, try to decode as a string
+                    // later.
+                    if let Ok(decoded) = error.abi_decode_input(data) {
+                        return Some(format!(
+                            "{}({})",
+                            error.name,
+                            decoded.iter().map(edr_common::fmt::format_token).format(", ")
+                        ));
+                    }
                 }
             }
+
+            if string_decoded.is_some() {
+                return string_decoded;
+            }
+
+            // Generic custom error.
+            return Some({
+                let mut s = format!("custom error {}", hex::encode_prefixed(selector));
+                if !data.is_empty() {
+                    s.push_str(": ");
+                    match std::str::from_utf8(data) {
+                        Ok(data) => s.push_str(data),
+                        Err(_) => s.push_str(&hex::encode(data)),
+                    }
+                }
+                s
+            });
         }
 
-        // ABI-encoded `string`.
-        if let Ok(s) = String::abi_decode(err) {
+        if string_decoded.is_some() {
+            return string_decoded;
+        }
+
+        if let Some(status) = status {
+            if !status.is_ok() {
+                return Some(format!("EvmError: {status:?}"));
+            }
+        }
+        if err.is_empty() {
+            None
+        } else {
+            Some(format!("custom error bytes {}", hex::encode_prefixed(err)))
+        }
+    }
+}
+
+/// Helper function that decodes provided error as an ABI encoded or an ASCII string (if not empty).
+fn decode_as_non_empty_string(err: &[u8]) -> Option<String> {
+    // ABI-encoded `string`.
+    if let Ok(s) = String::abi_decode(err) {
+        if !s.is_empty() {
             return Some(s);
         }
-
-        // UTF-8-encoded string.
-        if let Ok(s) = std::str::from_utf8(err) {
-            return Some(s.to_string());
-        }
-
-        // Generic custom error.
-        Some(format!(
-            "custom error {}:{}",
-            hex::encode(selector),
-            std::str::from_utf8(data).map_or_else(|_err| trimmed_hex(data), String::from)
-        ))
     }
+
+    // ASCII string.
+    if err.is_ascii() {
+        let msg = std::str::from_utf8(err).unwrap().to_string();
+        if !msg.is_empty() {
+            return Some(msg);
+        }
+    }
+
+    None
 }
 
 fn trimmed_hex(s: &[u8]) -> String {
@@ -244,5 +249,39 @@ mod tests {
             trimmed_hex(&hex::decode("492077697368207275737420737570706F72746564206869676865722D6B696E646564207479706573").unwrap()),
             "49207769736820727573742073757070…6865722d6b696e646564207479706573 (41 bytes)"
         );
+    }
+
+    // https://github.com/foundry-rs/foundry/issues/10162
+    #[test]
+    fn partial_decode() {
+        /*
+        error ValidationFailed(bytes);
+        error InvalidNonce();
+        */
+        let mut decoder = RevertDecoder::default();
+        decoder.push_error("ValidationFailed(bytes)".parse().unwrap());
+
+        /*
+        abi.encodeWithSelector(ValidationFailed.selector, InvalidNonce.selector)
+        */
+        let data = &hex!(
+            "0xe17594de"
+            "756688fe00000000000000000000000000000000000000000000000000000000"
+        );
+        assert_eq!(
+            decoder.decode(data, None),
+            "custom error 0xe17594de: 756688fe00000000000000000000000000000000000000000000000000000000"
+        );
+
+        /*
+        abi.encodeWithSelector(ValidationFailed.selector, abi.encodeWithSelector(InvalidNonce.selector))
+        */
+        let data = &hex!(
+            "0xe17594de"
+            "0000000000000000000000000000000000000000000000000000000000000020"
+            "0000000000000000000000000000000000000000000000000000000000000004"
+            "756688fe00000000000000000000000000000000000000000000000000000000"
+        );
+        assert_eq!(decoder.decode(data, None), "ValidationFailed(0x756688fe)");
     }
 }
