@@ -23,14 +23,14 @@ pub struct BaseFeeCondition<HardforkT> {
 /// A mapping of hardfork to [`ConstantBaseFeeParams`]. This is used to specify
 /// dynamic EIP-1559 parameters for chains like OP.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VariableBaseFeeParams<HardforkT: 'static> {
-    activations: &'static [(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)],
+pub struct VariableBaseFeeParams<'a, HardforkT: 'static> {
+    activations: &'a [(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)],
 }
 
-impl<HardforkT: PartialOrd> VariableBaseFeeParams<HardforkT> {
+impl<'a, HardforkT: PartialOrd> VariableBaseFeeParams<'a, HardforkT> {
     /// Constructs a new instance from the provided mapping.
     pub const fn new(
-        activations: &'static [(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)],
+        activations: &'a [(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)],
     ) -> Self {
         Self { activations }
     }
@@ -71,7 +71,7 @@ pub enum BaseFeeParams<HardforkT: 'static> {
     Constant(ConstantBaseFeeParams),
     /// Variable [`ConstantBaseFeeParams`]; used for chains that have dynamic
     /// EIP-1559 parameters like OP
-    Variable(VariableBaseFeeParams<HardforkT>),
+    Variable(VariableBaseFeeParams<'static, HardforkT>),
 }
 
 impl<HardforkT: PartialOrd> BaseFeeParams<HardforkT> {
@@ -94,8 +94,8 @@ impl<HardforkT> From<ConstantBaseFeeParams> for BaseFeeParams<HardforkT> {
     }
 }
 
-impl<HardforkT> From<VariableBaseFeeParams<HardforkT>> for BaseFeeParams<HardforkT> {
-    fn from(params: VariableBaseFeeParams<HardforkT>) -> Self {
+impl<HardforkT> From<VariableBaseFeeParams<'static, HardforkT>> for BaseFeeParams<HardforkT> {
+    fn from(params: VariableBaseFeeParams<'static, HardforkT>) -> Self {
         Self::Variable(params)
     }
 }

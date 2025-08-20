@@ -17,7 +17,9 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas_for_chain_spec,
         miner_reward, HeaderOverrides,
     },
-    eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition},
+    eips::eip1559::{
+        BaseFeeCondition, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams,
+    },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
@@ -61,7 +63,7 @@ use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
 use edr_solidity::contract_decoder::ContractDecoder;
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
-use itertools::izip;
+use itertools::{izip, Itertools};
 use lru::LruCache;
 use rpds::HashTrieMapSync;
 use tokio::runtime;
@@ -2944,21 +2946,28 @@ fn create_blockchain_and_state<
             .collect();
 
         let genesis_diff = StateDiff::from(genesis_state);
+        let timestamp = config.initial_date.map(|d| {
+            d.duration_since(UNIX_EPOCH)
+                .expect("initial date must be after UNIX epoch")
+                .as_secs()
+        });
+        let base_fee_activations = config.base_fee_params.clone().into_iter().collect_vec();
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
             config.hardfork,
             GenesisBlockOptions {
                 extra_data: None,
                 gas_limit: Some(config.block_gas_limit.get()),
-                timestamp: config.initial_date.map(|d| {
-                    d.duration_since(UNIX_EPOCH)
-                        .expect("initial date must be after UNIX epoch")
-                        .as_secs()
-                }),
+                timestamp,
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: None, /* TODO: select the right option from
-                                        * config.base_fee_params if any */
+                base_fee_params: VariableBaseFeeParams::new(&base_fee_activations)
+                    .at_condition(BaseFeeCondition {
+                        timestamp,
+                        hardfork: Some(config.hardfork),
+                        block_number: Some(0),
+                    })
+                    .copied(),
                 blob_gas: config.initial_blob_gas.clone(),
             },
         )
