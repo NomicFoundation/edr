@@ -32,7 +32,7 @@ pub struct HeaderOverrides {
     ///
     /// These only override the default base fee parameters if
     /// [`HeaderOverrides::base_fee`] is not set.
-    pub base_fee_params: Option<ConstantBaseFeeParams>, //TODO: this should be a edr_eth::eips::eip1559::BaseFeeParams<Hardfork> to allow dynamic override
+    pub base_fee_params: Option<ConstantBaseFeeParams>, /* TODO: this should be a edr_eth::eips::eip1559::BaseFeeParams<Hardfork> to allow dynamic override */
     /// The block's withdrawals root, which is the hash tree root of the
     /// withdrawals trie.
     pub withdrawals_root: Option<B256>,

@@ -1403,7 +1403,8 @@ where
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
-        // options.base_fee_params = options.base_fee_params.or(self.base_fee_params); // FIXME
+        // options.base_fee_params = options.base_fee_params.or(self.base_fee_params);
+        // // FIXME
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
@@ -2956,7 +2957,8 @@ fn create_blockchain_and_state<
                 }),
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: None, // TODO: select the right option from config.base_fee_params if any
+                base_fee_params: None, /* TODO: select the right option from
+                                        * config.base_fee_params if any */
                 blob_gas: config.initial_blob_gas.clone(),
             },
         )
@@ -2977,7 +2979,6 @@ fn create_blockchain_and_state<
 
         let block_time_offset_seconds =
             block_time_offset_seconds::<ChainSpecT, TimerT>(config, timer)?;
-
 
         Ok(BlockchainAndState {
             fork_metadata: None,

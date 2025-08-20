@@ -1,6 +1,7 @@
 pub use alloy_eips::eip1559::BaseFeeParams as ConstantBaseFeeParams;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-/// Criteria for indicating the different activation of different base fee parameters
+/// Criteria for indicating the different activation of different base fee
+/// parameters
 pub enum DynamicBaseFeeCondition<HardforkT> {
     /// block number
     BlockNumber(u64),
@@ -34,7 +35,8 @@ impl<HardforkT: PartialOrd> VariableBaseFeeParams<HardforkT> {
         Self { activations }
     }
 
-    /// Selects the right [`ConstantBaseFeeParams`] for the given conditions, if any.
+    /// Selects the right [`ConstantBaseFeeParams`] for the given conditions, if
+    /// any.
     pub fn at_condition(
         &self,
         condition: BaseFeeCondition<HardforkT>,
@@ -43,9 +45,19 @@ impl<HardforkT: PartialOrd> VariableBaseFeeParams<HardforkT> {
             .iter()
             .rev()
             .find(|(activation, _)| match activation {
-                DynamicBaseFeeCondition::BlockNumber(activation_number) => condition.block_number.filter(|condition_number| *activation_number <= *condition_number).is_some(),
-                DynamicBaseFeeCondition::Timestamp(activation_timestamp) => condition.timestamp.filter(|condition_timestamp| *activation_timestamp <= *condition_timestamp).is_some(),
-                DynamicBaseFeeCondition::Hardfork(activation_hardfork) => condition.hardfork.as_ref().filter(|condition_hardfork| *activation_hardfork <= **condition_hardfork).is_some(),
+                DynamicBaseFeeCondition::BlockNumber(activation_number) => condition
+                    .block_number
+                    .filter(|condition_number| *activation_number <= *condition_number)
+                    .is_some(),
+                DynamicBaseFeeCondition::Timestamp(activation_timestamp) => condition
+                    .timestamp
+                    .filter(|condition_timestamp| *activation_timestamp <= *condition_timestamp)
+                    .is_some(),
+                DynamicBaseFeeCondition::Hardfork(activation_hardfork) => condition
+                    .hardfork
+                    .as_ref()
+                    .filter(|condition_hardfork| *activation_hardfork <= **condition_hardfork)
+                    .is_some(),
             })
             .map(|(_, params)| params)
     }
@@ -63,8 +75,8 @@ pub enum BaseFeeParams<HardforkT: 'static> {
 }
 
 impl<HardforkT: PartialOrd> BaseFeeParams<HardforkT> {
-            
-    /// Retrieves the right [`ConstantBaseFeeParams`] for the given conditions, if any.
+    /// Retrieves the right [`ConstantBaseFeeParams`] for the given conditions,
+    /// if any.
     pub fn at_condition(
         &self,
         condition: BaseFeeCondition<HardforkT>,
