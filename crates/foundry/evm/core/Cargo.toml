@@ -42,7 +42,6 @@ eyre = "0.6"
 futures = "0.3"
 hex.workspace = true
 itertools.workspace = true
-once_cell = "1"
 parking_lot = "0.12"
 reqwest.workspace = true
 rustc-hash.workspace = true

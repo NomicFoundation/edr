@@ -3291,7 +3291,6 @@ dependencies = [
  "foundry-fork-db",
  "futures",
  "itertools 0.12.1",
- "once_cell",
  "op-revm",
  "parking_lot 0.12.3",
  "reqwest 0.12.15",

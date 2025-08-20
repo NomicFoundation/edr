@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 
 use alloy_primitives::{I256, U256};
 use foundry_evm_core::{
-    abi::{format_units_int, format_units_uint},
+    abi::console::{format_units_int, format_units_uint},
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
