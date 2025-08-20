@@ -1,9 +1,10 @@
 use crate::evm_context::EvmEnv;
+use super::JournaledState;
 use alloy_primitives::{
     B256, U256,
     map::{AddressHashMap, HashMap},
 };
-use revm::{context::JournalInner, state::AccountInfo, JournalEntry};
+use revm::state::AccountInfo;
 use serde::{Deserialize, Serialize};
 
 /// A minimal abstraction of a state at a certain point in time
@@ -19,18 +20,16 @@ pub struct StateSnapshot {
 pub struct BackendStateSnapshot<DatabaseT, BlockT, TxT, HardforkT> {
     pub db: DatabaseT,
     /// The journaled_state state at a specific point
-    pub journaled_state: JournalInner<JournalEntry>,
+    pub journaled_state: JournaledState,
     /// Contains the env at the time of the snapshot
     pub env: EvmEnv<BlockT, TxT, HardforkT>,
 }
-
-// === impl BackendSnapshot ===
 
 impl<DatabaseT, BlockT, TxT, HardforkT> BackendStateSnapshot<DatabaseT, BlockT, TxT, HardforkT> {
     /// Takes a new state snapshot.
     pub fn new(
         db: DatabaseT,
-        journaled_state: JournalInner<JournalEntry>,
+        journaled_state: JournaledState,
         env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> Self {
         Self { db, journaled_state, env }
@@ -43,7 +42,7 @@ impl<DatabaseT, BlockT, TxT, HardforkT> BackendStateSnapshot<DatabaseT, BlockT, 
     /// those logs that are missing in the snapshot's journaled_state, since the current
     /// journaled_state includes the same logs, we can simply replace use that See also
     /// `DatabaseExt::revert`.
-    pub fn merge(&mut self, current: &JournalInner<JournalEntry>) {
+    pub fn merge(&mut self, current: &JournaledState) {
         self.journaled_state.logs.clone_from(&current.logs);
     }
 }
