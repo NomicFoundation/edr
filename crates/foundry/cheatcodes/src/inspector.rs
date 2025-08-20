@@ -1428,7 +1428,8 @@ impl<
         // then we can return a better error here
         if outcome.result.is_revert() {
             if let Some(err) = diag {
-                outcome.result.output = Error::encode(err.to_error_msg(&self.labels));
+                // TODO: Change labels field to use AddressHashMap to avoid this conversion
+                outcome.result.output = Error::encode(err.to_error_msg(&self.labels.clone().into_iter().collect()));
                 return;
             }
         }
