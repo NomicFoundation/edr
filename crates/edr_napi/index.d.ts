@@ -164,8 +164,16 @@ export const HOLOCENE: string
 export const ISTHMUS: string
 /** Configuration for eip-1559 parameters */
 export interface BaseFeeConfig {
+  keyType: BaseFeeConfigType
+  activation: bigint | string
   maxChangeDenominator: bigint
   elasticityMultiplier: bigint
+}
+/** Alternative types to define variable `base_fee_params` */
+export enum BaseFeeConfigType {
+  Timestamp = 0,
+  BlockNumber = 1,
+  Hardfork = 2
 }
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
@@ -261,7 +269,7 @@ export interface ProviderConfig {
   /** Whether to return an `Err` when a `eth_sendTransaction` fails */
   bailOnTransactionFailure: boolean
   /** The chain eip-1559 configurable parameters */
-  baseFeeConfig?: BaseFeeConfig
+  baseFeeConfig?: Array<BaseFeeConfig>
   /** The gas limit of each block */
   blockGasLimit: bigint
   /** The chain ID of the blockchain */
