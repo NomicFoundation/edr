@@ -1192,7 +1192,7 @@ fn ffi<
 ) -> Result<FfiResult> {
     ensure!(
         state.config.ffi,
-        "FFI is disabled; add the `--ffi` flag to allow tests to call external commands"
+        "FFI is disabled. Please enable the FFI cheatcode in the config"
     );
     ensure!(
         !input.is_empty() && !input[0].is_empty(),
