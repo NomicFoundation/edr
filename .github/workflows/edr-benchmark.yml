@@ -63,13 +63,13 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Run benchmark
-        run: pnpm run benchmark
+        run: pnpm run providerBenchmark
 
       - name: Validate regressions
-        run: pnpm run verify
+        run: pnpm run verifyProviderBenchmark
 
       - name: Generate report for github-action-benchmark
-        run: pnpm run --silent report | tee scenario-report.json
+        run: pnpm run --silent reportProviderBenchmark | tee scenario-report.json
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
@@ -123,7 +123,7 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Run benchmark and generate report for github-action-benchmark
-        run: pnpm run --silent soltests --benchmark-output soltest-report.json
+        run: pnpm run --silent soltestsBenchmark --benchmark-output soltest-report.json
 
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1

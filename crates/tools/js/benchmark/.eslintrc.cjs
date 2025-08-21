@@ -4,7 +4,7 @@ module.exports = {
     project: `${__dirname}/tsconfig.json`,
     sourceType: "module",
   },
-  ignorePatterns: ["forge-std/**"],
+  ignorePatterns: ["repos/**"],
   rules: {
     "@typescript-eslint/restrict-template-expressions": "off",
     "import/no-extraneous-dependencies": [

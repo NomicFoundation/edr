@@ -1,0 +1,68 @@
+diff --git a/foundry.toml b/foundry.toml
+index ef26ef2..8fce0c5 100644
+--- a/foundry.toml
++++ b/foundry.toml
+@@ -10,7 +10,8 @@ bytecode_hash = "none"
+ allow_internal_expect_revert = true
+ 
+ [profile.default.fuzz]
+-runs = 1000
++# Due to lack of inline config support in Hardhat
++runs = 10
+ seed = "0x4444"
+ 
+ [profile.pr.fuzz]
+diff --git a/hardhat.config.js b/hardhat.config.js
+new file mode 100644
+index 0000000..981b154
+--- /dev/null
++++ b/hardhat.config.js
+@@ -0,0 +1,38 @@
++module.exports = {
++"paths": {
++  "sources": "src",
++  "tests": {
++    "solidity": "test"
++  }
++},
++"solidity": {
++  "version": "0.8.26",
++  "settings": {
++    "optimizer": {
++      "enabled": true,
++      "runs": 44444444
++    },
++    "viaIR": true,
++    "evmVersion": "cancun",
++    "metadata": {
++      "bytecodeHash": "none"
++    }
++  }
++},
++"solidityTest": {
++  "ffi": true,
++  "fsPermissions": {
++    "readWrite": [
++      ".forge-snapshots/"
++    ],
++    "read": ["./out", "./test/bin"],
++  },
++  "allowInternalExpectRevert": true,
++  "gasLimit": 300000000n,
++  "fuzz": {
++    "runs": 10,
++    "seed":"0x4444"
++  }
++}
++};
++
+diff --git a/remappings.txt b/remappings.txt
+index c1dfc15..1e0f86a 100644
+--- a/remappings.txt
++++ b/remappings.txt
+@@ -4,3 +4,5 @@ ds-test/=lib/forge-std/lib/ds-test/src/
+ forge-std/=lib/forge-std/src/
+ hardhat/=node_modules/hardhat/
+ solmate/=lib/solmate/
++test/=test/
++src/=src/

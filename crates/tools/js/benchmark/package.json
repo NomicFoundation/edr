@@ -2,7 +2,8 @@
   "name": "benchmark",
   "version": "1.0.0",
   "dependencies": {
-    "@nomicfoundation/hardhat-utils": "3.0.0-next.0"
+    "@nomicfoundation/hardhat-utils": "3.0.0-next.0",
+    "papaparse": "^5.5.3"
   },
   "devDependencies": {
     "@ethereumjs/util": "^9.1.0",
@@ -11,6 +12,7 @@
     "@types/argparse": "^2.0.16",
     "@types/lodash": "^4.14.123",
     "@types/node": "^20.0.0",
+    "@types/papaparse": "^5.3.16",
     "@typescript-eslint/eslint-plugin": "5.61.0",
     "@typescript-eslint/parser": "5.61.0",
     "argparse": "^2.0.1",
@@ -31,21 +33,26 @@
   "license": "ISC",
   "private": true,
   "scripts": {
-    "benchmark": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts benchmark",
     "build": "pnpm run build:dev",
     "build:dev": "tsc --build --incremental .",
+    "compareForge": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts compare-forge",
     "eslint": "eslint \"**/*.ts\"",
     "help": "tsx src/index.ts -h",
     "lint": "pnpm run prettier && pnpm run eslint",
     "lint:fix": "pnpm run prettier --write",
-    "prebenchmark": "cd ../../../../crates/edr_napi && pnpm build && cd ../../js/helpers && pnpm build",
-    "presoltests": "pnpm run prebenchmark",
+    "precompareForge": "pnpm run preproviderBenchmark",
+    "preproviderBenchmark": "cd ../../../../crates/edr_napi && pnpm build && cd ../../js/helpers && pnpm build",
+    "presoltests": "pnpm run preproviderBenchmark",
+    "presoltestsBenchmark": "pnpm run preproviderBenchmark",
     "pretest": "cd ../../.. && pnpm build:dev",
     "prettier": "prettier --check \"**/*.{js,ts}\"",
+    "providerBenchmark": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts provider-benchmark",
     "report": "tsx src/index.ts report",
+    "reportForge": "tsx src/index.ts report-forge",
     "soltests": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts solidity-tests",
+    "soltestsBenchmark": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts solidity-tests-benchmark",
     "test": "node --import tsx/esm --test \"test/*.ts\"",
-    "verify": "tsx src/index.ts verify"
+    "verifyProviderBenchmark": "tsx src/index.ts verify-provider-benchmark"
   },
   "type": "module"
 }
