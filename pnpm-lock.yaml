@@ -15,7 +15,7 @@ patchedDependencies:
     hash: c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c
     path: patches/hardhat@2.26.1.patch
   hardhat@3.0.0:
-    hash: ny7u4rvpwnk3chjdvlsvdjvygm
+    hash: 950b098f6868249e5ae36de5ebca5c48d9fc7dd75ed85ccc5b495bbb6056d782
     path: patches/hardhat@3.0.0.patch
 
 importers:
