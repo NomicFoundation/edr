@@ -151,7 +151,7 @@ importers:
         version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
       hardhat:
         specifier: 3.0.0
-        version: 3.0.0(patch_hash=ny7u4rvpwnk3chjdvlsvdjvygm)
+        version: 3.0.0(patch_hash=950b098f6868249e5ae36de5ebca5c48d9fc7dd75ed85ccc5b495bbb6056d782)
       hardhat2:
         specifier: npm:hardhat@2.26.1
         version: hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
@@ -385,7 +385,7 @@ importers:
         version: 7.0.1
       hardhat:
         specifier: 3.0.0
-        version: 3.0.0(patch_hash=ny7u4rvpwnk3chjdvlsvdjvygm)
+        version: 3.0.0(patch_hash=950b098f6868249e5ae36de5ebca5c48d9fc7dd75ed85ccc5b495bbb6056d782)
       prettier:
         specifier: ^3.2.5
         version: 3.2.5
@@ -415,7 +415,7 @@ importers:
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/b93cf4bc34ff214c099dc970b153f85ade8c9f66
       hardhat:
         specifier: 3.0.0
-        version: 3.0.0(patch_hash=ny7u4rvpwnk3chjdvlsvdjvygm)
+        version: 3.0.0(patch_hash=950b098f6868249e5ae36de5ebca5c48d9fc7dd75ed85ccc5b495bbb6056d782)
       prettier:
         specifier: ^3.2.5
         version: 3.2.5
@@ -5359,7 +5359,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  hardhat@3.0.0(patch_hash=ny7u4rvpwnk3chjdvlsvdjvygm):
+  hardhat@3.0.0(patch_hash=950b098f6868249e5ae36de5ebca5c48d9fc7dd75ed85ccc5b495bbb6056d782):
     dependencies:
       '@nomicfoundation/edr': link:crates/edr_napi
       '@nomicfoundation/hardhat-errors': 3.0.0
