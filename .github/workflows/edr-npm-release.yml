@@ -100,7 +100,7 @@ jobs:
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
       - name: Setup node
         uses: actions/setup-node@v3
         if: ${{ !matrix.settings.docker }}
