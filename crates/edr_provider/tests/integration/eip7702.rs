@@ -12,12 +12,11 @@ use std::sync::Arc;
 
 use edr_eth::{
     address,
-    eips::eip7702,
     l1::{self, L1ChainSpec},
     signature::public_key_to_address,
-    transaction::{self, ExecutableTransaction as _},
-    Address, Bytes, B256, U256,
+    transaction, Address, Bytes, B256, U256,
 };
+use edr_evm_spec::ExecutableTransaction as _;
 use edr_provider::{
     test_utils::{
         create_test_config, one_ether, set_genesis_state_with_owned_accounts, sign_authorization,
@@ -79,7 +78,7 @@ async fn trace_transaction() -> anyhow::Result<()> {
         from: sender,
         to: Some(sender),
         authorization_list: Some(vec![sign_authorization(
-            eip7702::Authorization {
+            edr_eip7702::Authorization {
                 chain_id: U256::from(CHAIN_ID),
                 address: address!("0x1234567890123456789012345678901234567890"),
                 nonce: 0x1,
@@ -123,7 +122,7 @@ async fn get_transaction() -> anyhow::Result<()> {
         from: sender,
         to: Some(sender),
         authorization_list: Some(vec![sign_authorization(
-            eip7702::Authorization {
+            edr_eip7702::Authorization {
                 chain_id: U256::from(CHAIN_ID),
                 address: address!("0x1234567890123456789012345678901234567890"),
                 nonce: 0x1,

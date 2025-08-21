@@ -8,6 +8,7 @@ mod legacy;
 use std::sync::OnceLock;
 
 use alloy_rlp::{Buf, BufMut};
+use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
 use k256::SecretKey;
 
 pub use self::{
@@ -19,11 +20,11 @@ pub use self::{
     legacy::{Legacy, PreOrPostEip155},
 };
 use super::{
-    ExecutableTransaction, IsEip155, IsEip4844, IsLegacy, IsSupported, Signed, SignedTransaction,
-    TransactionMut, TransactionType, TransactionValidation, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
+    IsEip155, IsEip4844, IsLegacy, IsSupported, Signed, SignedTransaction, TransactionMut,
+    TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 use crate::{
-    eips, impl_revm_transaction_trait, l1,
+    impl_revm_transaction_trait, l1,
     signature::{Fakeable, Signature, SignatureError},
     Address, Bytes, B256, U256,
 };
@@ -312,7 +313,7 @@ impl ExecutableTransaction for Signed {
         }
     }
 
-    fn access_list(&self) -> Option<&[eips::eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.access_list(),
             Signed::PostEip155Legacy(tx) => tx.access_list(),
@@ -389,7 +390,7 @@ impl ExecutableTransaction for Signed {
         }
     }
 
-    fn authorization_list(&self) -> Option<&[eips::eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.authorization_list(),
             Signed::PostEip155Legacy(tx) => tx.authorization_list(),
@@ -477,7 +478,6 @@ mod tests {
 
     use super::*;
     use crate::{
-        eips::eip7702,
         signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
         transaction, Bytes,
     };
@@ -611,8 +611,8 @@ mod tests {
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![],
                 authorization_list: vec![
-                    eip7702::SignedAuthorization::new_unchecked(
-                        eip7702::Authorization {
+                    edr_eip7702::SignedAuthorization::new_unchecked(
+                        edr_eip7702::Authorization {
                             chain_id: U256::from(1),
                             address: Address::random(),
                             nonce: 0,
@@ -746,7 +746,7 @@ mod tests {
             )),
             value: U256::from(3000000000000000000u64),
             input: Bytes::default(),
-            access_list: eips::eip2930::AccessList::default(),
+            access_list: edr_eip2930::AccessList::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
                 signature::Fakeable::with_address_unchecked(

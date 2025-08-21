@@ -9,11 +9,11 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, TransactionReceipt},
     result::{ExecutionResult, ExecutionResultAndState},
-    transaction::ExecutableTransaction as _,
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, HashMap, B256, U256,
 };
+use edr_evm_spec::ExecutableTransaction as _;
 use revm::{precompile::PrecompileFn, Inspector};
 
 use super::{BlockBuilder, BlockTransactionError, BlockTransactionErrorForChainSpec};

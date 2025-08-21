@@ -1,6 +1,7 @@
 use std::num::NonZeroU64;
 
-use edr_eth::{block::HeaderOverrides, l1, transaction::TransactionValidation, U64};
+use edr_eth::{block::HeaderOverrides, l1, U64};
+use edr_evm_spec::TransactionValidation;
 
 use crate::{
     data::ProviderData,

@@ -1,7 +1,8 @@
 use std::{borrow::Cow, collections::HashSet, mem, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
-use edr_eth::{bytecode::opcode::OpCode, hex, spec::HaltReasonTrait, U256};
+use edr_eth::{bytecode::opcode::OpCode, hex, U256};
+use edr_evm_spec::HaltReasonTrait;
 use semver::{Version, VersionReq};
 
 use crate::{

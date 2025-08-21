@@ -8,6 +8,7 @@ ansi_term = { version = "0.12.1", default-features = false }
 derive-where.workspace = true
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
+edr_evm_spec.workspace = true
 edr_generic = { path = "../edr_generic" }
 edr_provider = { path = "../edr_provider" }
 edr_solidity = { path = "../edr_solidity" }

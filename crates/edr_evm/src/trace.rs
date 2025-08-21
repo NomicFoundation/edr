@@ -4,9 +4,9 @@ use derive_where::derive_where;
 use edr_eth::{
     bytecode::opcode,
     result::{ExecutionResult, Output},
-    spec::HaltReasonTrait,
     Address, Bytecode, Bytes, U256,
 };
+use edr_evm_spec::HaltReasonTrait;
 use revm::Inspector;
 
 use crate::{

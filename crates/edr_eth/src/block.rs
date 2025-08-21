@@ -10,7 +10,8 @@ mod reorg;
 mod reward;
 
 use alloy_rlp::{BufMut, Decodable, RlpDecodable, RlpEncodable};
-pub use revm_context_interface::Block;
+use edr_eip1559::ConstantBaseFeeParams;
+use edr_evm_spec::EthHeaderConstants;
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{
@@ -24,12 +25,10 @@ pub use self::{
 use crate::{
     b256,
     eips::{
-        eip1559::ConstantBaseFeeParams,
         eip4844::{self, blob_base_fee_update_fraction},
         eip7691,
     },
     keccak256, l1,
-    spec::EthHeaderConstants,
     trie::{self, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,

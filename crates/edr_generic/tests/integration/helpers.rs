@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use edr_eth::{l1, transaction::TransactionValidation};
+use edr_eth::l1;
 use edr_evm::hardfork::ChainOverride;
+use edr_evm_spec::TransactionValidation;
 use edr_provider::{
     test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, NoopLogger, Provider,
     ProviderSpec, SyncProviderSpec,

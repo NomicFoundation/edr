@@ -1,9 +1,9 @@
 use edr_eth::{
     l1,
     result::{ExecutionResult, ExecutionResultAndState},
-    transaction::TransactionValidation,
     Address, HashMap,
 };
+use edr_evm_spec::TransactionValidation;
 use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
 use revm_context::{JournalTr as _, LocalContext};
 

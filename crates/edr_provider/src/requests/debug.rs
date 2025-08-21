@@ -1,5 +1,6 @@
-use edr_eth::{l1, transaction::TransactionValidation, BlockSpec, B256};
+use edr_eth::{l1, BlockSpec, B256};
 use edr_evm::state::StateOverrides;
+use edr_evm_spec::TransactionValidation;
 use serde::{Deserialize, Deserializer};
 
 use crate::{

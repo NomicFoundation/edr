@@ -7,10 +7,11 @@ use edr_eth::{
     l1,
     log::FilterLog,
     receipt::{AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _},
-    transaction::{TransactionValidation, TxKind},
+    transaction::TxKind,
     withdrawal::Withdrawal,
     Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
 };
+use edr_evm_spec::TransactionValidation;
 use edr_rpc_eth::client::EthRpcClient;
 
 use crate::{

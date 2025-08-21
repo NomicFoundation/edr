@@ -2,10 +2,11 @@ use edr_eth::{
     fee_history::FeeHistoryResult,
     l1,
     reward_percentile::RewardPercentile,
-    transaction::{signed::FakeSign as _, TransactionMut, TransactionValidation},
+    transaction::{signed::FakeSign as _, TransactionMut},
     BlockSpec, U256, U64,
 };
 use edr_evm::{state::StateOverrides, transaction, Block as _};
+use edr_evm_spec::TransactionValidation;
 
 use crate::{
     data::ProviderData,
@@ -188,7 +189,8 @@ fn resolve_estimate_gas_request<
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction::ExecutableTransaction as _, BlockTag};
+    use edr_eth::BlockTag;
+    use edr_evm_spec::ExecutableTransaction as _;
     use edr_rpc_eth::CallRequest;
     use l1::L1ChainSpec;
 

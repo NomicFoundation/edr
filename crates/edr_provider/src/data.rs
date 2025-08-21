@@ -25,12 +25,10 @@ use edr_eth::{
     result::ExecutionResult,
     reward_percentile::RewardPercentile,
     signature::{self, RecoveryMessage},
-    spec::{ChainSpec, HaltReasonTrait},
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
-        ExecutableTransaction, IsEip4844, IsSupported as _, TransactionMut, TransactionType,
-        TransactionValidation,
+        IsEip4844, IsSupported as _, TransactionMut, TransactionType,
     },
     Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet, B256,
     KECCAK_EMPTY, U256,
@@ -56,6 +54,7 @@ use edr_evm::{
     transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, GenesisBlockOptions, MemPool,
     MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
 };
+use edr_evm_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait, TransactionValidation};
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
 use edr_solidity::contract_decoder::ContractDecoder;
 use gas::gas_used_ratio;
@@ -3007,7 +3006,7 @@ fn get_max_cached_states_from_env<
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{hex, l1::L1ChainSpec, transaction::ExecutableTransaction as _};
+    use edr_eth::{hex, l1::L1ChainSpec};
     use edr_evm::MineOrdering;
     use serde_json::json;
 

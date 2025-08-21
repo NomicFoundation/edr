@@ -2310,6 +2310,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip1559"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+]
+
+[[package]]
+name = "edr_eip2930"
+version = "0.3.8"
+dependencies = [
+ "revm-context-interface",
+]
+
+[[package]]
+name = "edr_eip7702"
+version = "0.3.8"
+dependencies = [
+ "revm-context-interface",
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_eth"
 version = "0.3.8"
 dependencies = [
@@ -2322,6 +2344,10 @@ dependencies = [
  "c-kzg",
  "derive-where",
  "edr_defaults",
+ "edr_eip1559",
+ "edr_eip2930",
+ "edr_eip7702",
+ "edr_evm_spec",
  "edr_rpc_eth",
  "edr_test_utils",
  "hash-db",
@@ -2365,6 +2391,7 @@ dependencies = [
  "dyn-clone",
  "edr_defaults",
  "edr_eth",
+ "edr_evm_spec",
  "edr_generic",
  "edr_rpc_eth",
  "edr_test_utils",
@@ -2396,6 +2423,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_evm_spec"
+version = "0.3.8"
+dependencies = [
+ "edr_eip1559",
+ "edr_eip2930",
+ "edr_eip7702",
+ "revm-context-interface",
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_generic"
 version = "0.3.8"
 dependencies = [
@@ -2404,8 +2442,12 @@ dependencies = [
  "anyhow",
  "derive-where",
  "edr_defaults",
+ "edr_eip1559",
+ "edr_eip2930",
+ "edr_eip7702",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "edr_provider",
  "edr_rpc_client",
  "edr_rpc_eth",
@@ -2459,6 +2501,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "edr_generic",
  "edr_instrument",
  "edr_napi_core",
@@ -2498,6 +2541,7 @@ dependencies = [
  "derive-where",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "edr_generic",
  "edr_provider",
  "edr_rpc_client",
@@ -2519,8 +2563,12 @@ dependencies = [
  "alloy-serde",
  "anyhow",
  "edr_defaults",
+ "edr_eip1559",
+ "edr_eip2930",
+ "edr_eip7702",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "edr_generic",
  "edr_napi_core",
  "edr_provider",
@@ -2554,8 +2602,11 @@ dependencies = [
  "dyn-clone",
  "edr_coverage",
  "edr_defaults",
+ "edr_eip2930",
+ "edr_eip7702",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "edr_rpc_eth",
  "edr_solidity",
  "edr_test_utils",
@@ -2620,8 +2671,11 @@ dependencies = [
  "anyhow",
  "assert-json-diff",
  "derive-where",
+ "edr_eip2930",
+ "edr_eip7702",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "edr_rpc_client",
  "edr_test_utils",
  "futures",
@@ -2669,6 +2723,7 @@ dependencies = [
  "derive-where",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "foundry-compilers",
  "indexmap 2.9.0",
  "itertools 0.10.5",
@@ -2697,6 +2752,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "edr_solidity",
  "edr_test_utils",
  "evm-disassembler",
@@ -7449,6 +7505,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "edr_generic",
  "edr_napi_core",
  "edr_op",

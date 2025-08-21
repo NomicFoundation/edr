@@ -1,18 +1,21 @@
+//! Ethereum Virtual Machine (EVM) specification types
+
+mod transaction;
+
 use core::fmt::Debug;
 
-pub use revm_context_interface::result::HaltReasonTr as HaltReasonTrait;
+use edr_eip1559::BaseFeeParams;
+pub use revm_context_interface::{result::HaltReasonTr as HaltReasonTrait, Block};
 
-use crate::{
-    block::Block,
-    eips::eip1559::BaseFeeParams,
-    l1,
-    transaction::{ExecutableTransaction, TransactionValidation},
-};
+pub use self::transaction::{ExecutableTransaction, TransactionValidation};
+
+/// The identifier type for a specification used by the EVM.
+pub type EvmSpecId = revm_primitives::hardfork::SpecId;
 
 /// Trait for specifying the hardfork type of a chain.
 pub trait ChainHardfork {
     /// The chain's hardfork type.
-    type Hardfork: Copy + Into<l1::SpecId>;
+    type Hardfork: Copy + Into<EvmSpecId>;
 }
 
 /// Trait for chain specifications.

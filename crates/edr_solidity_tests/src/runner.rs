@@ -13,7 +13,8 @@ use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, U256};
 use derive_where::derive_where;
-use edr_eth::{l1, spec::HaltReasonTrait};
+use edr_eth::l1;
+use edr_evm_spec::HaltReasonTrait;
 use edr_solidity::{
     contract_decoder::{NestedTraceDecoder, SyncNestedTraceDecoder},
     solidity_stack_trace::StackTraceEntry,

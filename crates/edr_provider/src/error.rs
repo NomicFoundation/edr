@@ -7,12 +7,8 @@ use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
-    filter::SubscriptionType,
-    hex, l1,
-    result::ExecutionResult,
-    spec::{ChainHardfork, ChainSpec, HaltReasonTrait},
-    transaction::TransactionValidation,
-    Address, BlockSpec, BlockTag, Bytes, B256, U256,
+    filter::SubscriptionType, hex, l1, result::ExecutionResult, Address, BlockSpec, BlockTag,
+    Bytes, B256, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, ForkedCreationError, InvalidGenesisBlock},
@@ -22,6 +18,7 @@ use edr_evm::{
     transaction::{self, TransactionError},
     MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
+use edr_evm_spec::{ChainHardfork, ChainSpec, HaltReasonTrait, TransactionValidation};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;

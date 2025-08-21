@@ -1,3 +1,5 @@
+//! Types related to EIP-1559.
+
 pub use alloy_eips::eip1559::BaseFeeParams as ConstantBaseFeeParams;
 
 /// A mapping of hardfork to [`ConstantBaseFeeParams`]. This is used to specify

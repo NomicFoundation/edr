@@ -3,7 +3,8 @@ mod factory;
 
 use std::sync::Arc;
 
-use edr_eth::{l1, spec::HaltReasonTrait};
+use edr_eth::l1;
+use edr_evm_spec::HaltReasonTrait;
 use edr_solidity::contract_decoder::SyncNestedTraceDecoder;
 use edr_solidity_tests::{
     evm_context::{

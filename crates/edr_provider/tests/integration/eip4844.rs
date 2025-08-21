@@ -6,9 +6,10 @@ use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     eips::eip4844::{self, GAS_PER_BLOB},
     l1::{self, L1ChainSpec},
-    transaction::{self, ExecutableTransaction as _, TransactionType as _},
+    transaction::{self, TransactionType as _},
     Address, Blob, Bytes, PreEip1898BlockSpec, B256, U256,
 };
+use edr_evm_spec::ExecutableTransaction as _;
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
@@ -45,7 +46,7 @@ fn fake_call_request() -> CallRequest {
         data: Some(transaction.data().clone()),
         access_list: transaction
             .access_list()
-            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec),
+            .map(<[edr_eip2930::AccessListItem]>::to_vec),
         blobs,
         blob_hashes,
         ..CallRequest::default()
@@ -77,7 +78,7 @@ fn fake_transaction_request() -> TransactionRequest {
         chain_id: transaction.chain_id(),
         access_list: transaction
             .access_list()
-            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec),
+            .map(<[edr_eip2930::AccessListItem]>::to_vec),
         transaction_type: Some(transaction.transaction_type().into()),
         blobs,
         blob_hashes,

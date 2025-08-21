@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use edr_eth::{
     l1::{self, L1ChainSpec},
-    spec::ChainSpec,
     transaction::SignedTransaction as _,
 };
+use edr_evm_spec::ChainSpec;
 use edr_rpc_eth::RpcTypeFrom;
 
 use crate::spec::RuntimeSpec;

@@ -4,8 +4,8 @@ use edr_eth::{
     l1,
     rlp::Decodable,
     transaction::{
-        request::TransactionRequestAndSender, ExecutableTransaction as _, IsEip155, IsEip4844,
-        TransactionType, TransactionValidation, INVALID_TX_TYPE_ERROR_MESSAGE,
+        request::TransactionRequestAndSender, IsEip155, IsEip4844, TransactionType,
+        INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     Bytes, PreEip1898BlockSpec, B256, U256,
 };
@@ -14,6 +14,7 @@ use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
     transaction, Block,
 };
+use edr_evm_spec::{ExecutableTransaction as _, TransactionValidation};
 use edr_rpc_eth::RpcTypeFrom as _;
 
 use crate::{

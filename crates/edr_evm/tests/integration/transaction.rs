@@ -10,10 +10,11 @@ mod alchemy {
                     async fn [<transaction_remote_ $name _hash>]() {
                         use edr_eth::{
                             l1::L1ChainSpec,
-                            transaction::{self, ExecutableTransaction as _},
+                            transaction,
                             PreEip1898BlockSpec,
                             B256
                         };
+                        use edr_evm_spec::ExecutableTransaction;
                         use edr_rpc_eth::client::EthRpcClient;
                         use edr_test_utils::env::get_alchemy_url;
 

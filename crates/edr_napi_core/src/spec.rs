@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use edr_eth::{
     l1::{self, L1ChainSpec},
-    spec::HaltReasonTrait,
-    transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
+    transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType},
 };
 use edr_evm::trace::Trace;
+use edr_evm_spec::{HaltReasonTrait, TransactionValidation};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,

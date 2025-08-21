@@ -1,13 +1,10 @@
 use edr_eth::{
-    eips::{eip2930, eip7702},
     impl_revm_transaction_trait,
     signature::Signature,
-    transaction::{
-        self, ExecutableTransaction, IsSupported, SignedTransaction, TransactionMut,
-        TransactionType, TransactionValidation, TxKind,
-    },
+    transaction::{self, IsSupported, SignedTransaction, TransactionMut, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
+use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
 
 /// The type of transaction.
 #[repr(u8)]
@@ -165,7 +162,7 @@ impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
         self.inner.chain_id()
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         self.inner.access_list()
     }
 
@@ -193,7 +190,7 @@ impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
         self.inner.total_blob_gas()
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         self.inner.authorization_list()
     }
 

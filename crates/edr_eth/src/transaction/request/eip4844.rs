@@ -4,7 +4,6 @@ use alloy_rlp::RlpEncodable;
 use k256::SecretKey;
 
 use crate::{
-    eips::eip2930,
     keccak256,
     signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction,
@@ -23,7 +22,7 @@ pub struct Eip4844 {
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: Vec<eip2930::AccessListItem>,
+    pub access_list: Vec<edr_eip2930::AccessListItem>,
     pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
 }

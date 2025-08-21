@@ -1,6 +1,6 @@
 // Re-export `edr_eth` types.
 pub use edr_eth::result::*;
-use edr_eth::{spec::ChainSpec, transaction::TransactionValidation};
+use edr_evm_spec::{ChainSpec, TransactionValidation};
 pub use revm_context_interface::result::EVMError;
 
 use crate::state::DatabaseComponentError;

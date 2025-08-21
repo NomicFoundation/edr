@@ -10,11 +10,10 @@ use auto_impl::auto_impl;
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
     receipt::ReceiptTrait,
-    spec::ChainSpec,
-    transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     B256, U256,
 };
+use edr_evm_spec::{ChainSpec, ExecutableTransaction};
 
 pub use self::{
     builder::{

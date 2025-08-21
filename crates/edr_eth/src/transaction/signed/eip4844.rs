@@ -1,12 +1,13 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
+use edr_evm_spec::ExecutableTransaction;
 use revm_primitives::keccak256;
 
 use crate::{
-    eips::{eip2930, eip4844::GAS_PER_BLOB, eip7702},
+    eips::eip4844::GAS_PER_BLOB,
     signature::{self, Fakeable},
-    transaction::{self, ExecutableTransaction, TxKind},
+    transaction::{self, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
@@ -28,7 +29,7 @@ pub struct Eip4844 {
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: eip2930::AccessList,
+    pub access_list: edr_eip2930::AccessList,
     #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
     pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
@@ -83,7 +84,7 @@ impl ExecutableTransaction for Eip4844 {
         Some(self.chain_id)
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         Some(&self.access_list)
     }
 
@@ -114,7 +115,7 @@ impl ExecutableTransaction for Eip4844 {
         Some(total_blob_gas(self))
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         None
     }
 
@@ -159,7 +160,7 @@ struct Decodable {
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: eip2930::AccessList,
+    pub access_list: edr_eip2930::AccessList,
     pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
     pub signature: signature::SignatureWithYParity,

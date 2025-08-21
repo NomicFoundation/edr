@@ -1,4 +1,6 @@
-use crate::{block::Header, l1, spec::EthHeaderConstants, trie::KECCAK_RLP_EMPTY_ARRAY, U256};
+use edr_evm_spec::EthHeaderConstants;
+
+use crate::{block::Header, l1, trie::KECCAK_RLP_EMPTY_ARRAY, U256};
 
 fn bomb_delay(spec_id: l1::SpecId) -> u64 {
     match spec_id {

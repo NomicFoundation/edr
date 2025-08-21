@@ -2,14 +2,11 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
+use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams};
 use edr_eth::{
     block::{BlobGas, Header, PartialHeader},
-    eips::{
-        eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
-        eip4844,
-    },
+    eips::eip4844,
     l1::{self, BlockEnv},
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     U256,
 };
 use edr_evm::{
@@ -18,10 +15,11 @@ use edr_evm::{
     precompile::PrecompileProvider,
     spec::{BlockEnvConstructor, ContextForChainSpec, GenesisBlockFactory, RuntimeSpec},
     state::Database,
-    transaction::{TransactionError, TransactionErrorForChainSpec, TransactionValidation},
+    transaction::{TransactionError, TransactionErrorForChainSpec},
     BlockReceipts, EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock,
     RemoteBlockConversionError, SyncBlock,
 };
+use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, TransactionValidation};
 use edr_napi_core::{
     napi,
     spec::{marshal_response_data, Response, SyncNapiSpec},

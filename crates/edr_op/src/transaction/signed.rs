@@ -7,16 +7,15 @@ use std::sync::OnceLock;
 use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
 pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
-    eips::{eip2930, eip7702},
     impl_revm_transaction_trait,
     signature::{Fakeable, Signature},
     transaction::{
-        ExecutableTransaction, IsEip4844, IsLegacy, IsSupported, MaybeSignedTransaction,
-        TransactionMut, TransactionType, TransactionValidation, TxKind,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
+        IsEip4844, IsLegacy, IsSupported, MaybeSignedTransaction, TransactionMut, TransactionType,
+        TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     Address, Bytes, B256, U256,
 };
+use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
 
 use super::Signed;
 use crate::transaction::{InvalidTransaction, OpTxTrait};
@@ -331,7 +330,7 @@ impl ExecutableTransaction for Signed {
         }
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.access_list(),
             Signed::PostEip155Legacy(tx) => tx.access_list(),
@@ -415,7 +414,7 @@ impl ExecutableTransaction for Signed {
         }
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         match self {
             Signed::PreEip155Legacy(tx) => tx.authorization_list(),
             Signed::PostEip155Legacy(tx) => tx.authorization_list(),

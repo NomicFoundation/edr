@@ -1,9 +1,6 @@
-use edr_eth::{
-    l1,
-    transaction::{signed::FakeSign as _, TransactionValidation},
-    BlockSpec, Bytes,
-};
+use edr_eth::{l1, transaction::signed::FakeSign as _, BlockSpec, Bytes};
 use edr_evm::{state::StateOverrides, trace::Trace, transaction};
+use edr_evm_spec::TransactionValidation;
 use edr_rpc_eth::StateOverrideOptions;
 
 use crate::{

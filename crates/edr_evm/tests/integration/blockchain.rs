@@ -9,7 +9,6 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
-    transaction::ExecutableTransaction as _,
     Address, Bytes, HashSet, B256, U256,
 };
 use edr_evm::{
@@ -21,6 +20,7 @@ use edr_evm::{
     transaction, EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
     GenesisBlockOptions, RemoteBlockConversionError,
 };
+use edr_evm_spec::ExecutableTransaction as _;
 use edr_rpc_eth::TransactionConversionError;
 use serial_test::serial;
 
@@ -392,7 +392,7 @@ async fn block_by_number_some() {
 async fn block_by_number_with_create() -> anyhow::Result<()> {
     use std::str::FromStr;
 
-    use edr_eth::transaction::{ExecutableTransaction as _, TxKind};
+    use edr_eth::transaction::TxKind;
 
     const DAI_CREATION_BLOCK_NUMBER: u64 = 4_719_568;
     const DAI_CREATION_TRANSACTION_INDEX: usize = 85;

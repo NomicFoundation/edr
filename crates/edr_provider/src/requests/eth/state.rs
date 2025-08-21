@@ -1,7 +1,5 @@
-use edr_eth::{
-    l1, transaction::TransactionValidation, utils::u256_to_padded_hex, Address, BlockSpec, Bytes,
-    U256,
-};
+use edr_eth::{l1, utils::u256_to_padded_hex, Address, BlockSpec, Bytes, U256};
+use edr_evm_spec::TransactionValidation;
 
 use crate::{
     data::ProviderData, requests::validation::validate_post_merge_block_tags,

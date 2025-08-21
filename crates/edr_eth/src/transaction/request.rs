@@ -15,11 +15,11 @@ use super::{
     signed::{FakeSign, Sign},
     Request, Signed,
 };
-use crate::{eips, signature::SignatureError, Address};
+use crate::{signature::SignatureError, Address};
 
 impl Request {
     /// Retrieves the instance's authorization list (EIP-7702).
-    pub fn authorization_list(&self) -> Option<&[eips::eip7702::SignedAuthorization]> {
+    pub fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         match self {
             Request::Eip7702(transaction) => Some(&transaction.authorization_list),
             Request::Legacy(_)
