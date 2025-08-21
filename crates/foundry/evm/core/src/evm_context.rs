@@ -4,14 +4,15 @@ use op_revm::{OpEvm, OpTransaction};
 use revm::{
     context::{
         either::Either,
-        result::{EVMError, HaltReasonTr, InvalidTransaction, ResultAndState},
+        result::{EVMError, ExecutionResult, HaltReasonTr, InvalidTransaction},
         transaction::SignedAuthorization,
         BlockEnv, CfgEnv, Evm, JournalInner, LocalContext, TxEnv,
     },
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
-    handler::{instructions::EthInstructions, EthPrecompiles, PrecompileProvider},
+    handler::{instructions::EthInstructions, EthFrame, EthPrecompiles, PrecompileProvider},
     interpreter::{interpreter::EthInterpreter, InterpreterResult},
     primitives::hardfork::SpecId,
+    state::EvmState,
     Database, InspectEvm, Inspector, Journal, JournalEntry,
 };
 
@@ -84,9 +85,14 @@ pub trait EvmBuilderTrait<
             EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
             EthInterpreter,
         >,
-    >: InspectEvm<Block = BlockT, Inspector = InspectorT, Tx = TransactionT, Output = Result<
-        ResultAndState<HaltReasonT>, EVMError<DatabaseT::Error, TransactionErrorT>
-    >> + IntoEvmContext<
+    >: InspectEvm<
+        Block = BlockT,
+        Inspector = InspectorT,
+        Tx = TransactionT,
+        ExecutionResult = ExecutionResult<HaltReasonT>,
+        State = EvmState,
+        Error = EVMError<DatabaseT::Error, TransactionErrorT>,
+    > + IntoEvmContext<
         BlockT,
         ChainContextT,
         DatabaseT,
@@ -137,6 +143,7 @@ impl
             EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>,
         >,
         Self::PrecompileProvider<DatabaseT>,
+        EthFrame<EthInterpreter>,
     >;
 
     type PrecompileProvider<DatabaseT: Database> = EthPrecompiles;
@@ -203,6 +210,7 @@ impl<
             EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
         >,
         PrecompileProviderT,
+        EthFrame<EthInterpreter>,
     >
 {
     fn into_evm_context(
@@ -408,7 +416,11 @@ pub trait BlockEnvMut {
     fn set_basefee(&mut self, basefee: u64);
     fn set_beneficiary(&mut self, beneficiary: Address);
     fn set_block_number(&mut self, block_number: u64);
-    fn set_blob_excess_gas_and_price(&mut self, excess_blob_gas: u64, is_prague: bool);
+    fn set_blob_excess_gas_and_price(
+        &mut self,
+        excess_blob_gas: u64,
+        base_fee_update_fraction: u64,
+    );
     fn set_difficulty(&mut self, difficulty: U256);
     fn set_gas_limit(&mut self, gas_limit: u64);
     fn set_prevrandao(&mut self, prevrandao: B256);
@@ -420,8 +432,12 @@ impl BlockEnvMut for BlockEnv {
         self.basefee = basefee;
     }
 
-    fn set_blob_excess_gas_and_price(&mut self, excess_blob_gas: u64, is_prague: bool) {
-        self.set_blob_excess_gas_and_price(excess_blob_gas, is_prague);
+    fn set_blob_excess_gas_and_price(
+        &mut self,
+        excess_blob_gas: u64,
+        base_fee_update_fraction: u64,
+    ) {
+        self.set_blob_excess_gas_and_price(excess_blob_gas, base_fee_update_fraction);
     }
 
     fn set_beneficiary(&mut self, coinbase: Address) {
@@ -437,11 +453,11 @@ impl BlockEnvMut for BlockEnv {
     }
 
     fn set_block_number(&mut self, block_number: u64) {
-        self.number = block_number;
+        self.number = U256::from(block_number);
     }
 
     fn set_timestamp(&mut self, timestamp: u64) {
-        self.timestamp = timestamp;
+        self.timestamp = U256::from(timestamp);
     }
 
     fn set_gas_limit(&mut self, gas_limit: u64) {

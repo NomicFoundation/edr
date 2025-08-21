@@ -125,6 +125,43 @@ export const MERGE: string
 export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
+/** Enumeration of supported OP hardforks. */
+export enum OpHardfork {
+  Bedrock = 100,
+  Regolith = 101,
+  Canyon = 102,
+  Ecotone = 103,
+  Fjord = 104,
+  Granite = 105,
+  Holocene = 106,
+  Isthmus = 107
+}
+/**
+ * Tries to parse the provided string to create an [`OpHardfork`]
+ * instance.
+ *
+ * Returns an error if the string does not match any known hardfork.
+ */
+export declare function opHardforkFromString(hardfork: string): OpHardfork
+/** Returns the string representation of the provided OP hardfork. */
+export declare function opHardforkToString(hardfork: OpHardfork): string
+/**
+ * Returns the latest supported OP hardfork.
+ *
+ * The returned value will be updated after each network upgrade.
+ */
+export declare function opLatestHardfork(): OpHardfork
+export const OP_CHAIN_TYPE: string
+export declare function opGenesisState(hardfork: OpHardfork): Array<AccountOverride>
+export declare function opProviderFactory(): ProviderFactory
+export const BEDROCK: string
+export const REGOLITH: string
+export const CANYON: string
+export const ECOTONE: string
+export const FJORD: string
+export const GRANITE: string
+export const HOLOCENE: string
+export const ISTHMUS: string
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
   /** The chain ID */
@@ -142,11 +179,10 @@ export interface CodeCoverageConfig {
    * The callback receives an array of unique coverage hit markers (i.e. no
    * repetition) per transaction.
    *
-   * # Safety
-   *
-   * Errors should not be thrown inside the callback.
+   * Exceptions thrown in the callback will be propagated to the original
+   * caller.
    */
-  onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => void
+  onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => Promise<void>
 }
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
@@ -369,8 +405,7 @@ export enum SuccessReason {
   /** The opcode `RETURN` was called */
   Return = 1,
   /** The opcode `SELFDESTRUCT` was called */
-  SelfDestruct = 2,
-  EofReturnContract = 3
+  SelfDestruct = 2
 }
 export interface CallOutput {
   /** Return value */
@@ -423,15 +458,7 @@ export enum ExceptionalHalt {
   /** Error on created contract that begins with EF */
   CreateContractStartingWithEF = 12,
   /** EIP-3860: Limit and meter initcode. Initcode size limit exceeded. */
-  CreateInitCodeSizeLimit = 13,
-  /** Aux data overflow, new aux data is larger tha u16 max size. */
-  EofAuxDataOverflow = 14,
-  /** Aud data is smaller then already present data size. */
-  EofAuxDataTooSmall = 15,
-  /** EOF Subroutine stack overflow */
-  SubRoutineStackOverflow = 16,
-  /** Check for target address validity is only done inside subcall. */
-  InvalidEXTCALLTarget = 17
+  CreateInitCodeSizeLimit = 13
 }
 /** The result when the EVM terminates due to an exceptional halt. */
 export interface HaltResult {
@@ -520,6 +547,11 @@ export interface SolidityTestRunnerConfigArgs {
    * Defaults to false.
    */
   ffi?: boolean
+  /**
+   * Allow expecting reverts with `expectRevert` at the same callstack depth
+   * as the test. Defaults to false.
+   */
+  allowInternalExpectRevert?: boolean
   /**
    * The value of `msg.sender` in tests as hex string.
    * Defaults to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
@@ -771,14 +803,36 @@ export interface PathPermission {
   /** The targeted path guarded by the permission */
   path: string
 }
-/** Determines the status of file system access */
+/**
+ * Determines the level of file system access for the given path.
+ *
+ * Exact path matching is used for file permissions. Prefix matching is used
+ * for directory permissions.
+ *
+ * Giving write access to configuration files, source files or executables
+ * in a project is considered dangerous, because it can be used by malicious
+ * Solidity dependencies to escape the EVM sandbox. It is therefore
+ * recommended to give write access to specific safe files only. If write
+ * access to a directory is needed, please make sure that it doesn't contain
+ * configuration files, source files or executables neither in the top level
+ * directory, nor in any subdirectories.
+*/
 export enum FsAccessPermission {
-  /** FS access is allowed with `read` + `write` permission */
-  ReadWrite = 0,
-  /** Only reading is allowed */
-  Read = 1,
-  /** Only writing is allowed */
-  Write = 2
+  /** Allows reading and writing the file */
+  ReadWriteFile = 0,
+  /** Only allows reading the file */
+  ReadFile = 1,
+  /** Only allows writing the file */
+  WriteFile = 2,
+  /**
+   * Allows reading and writing all files in the directory and its
+   * subdirectories
+   */
+  DangerouslyReadWriteDirectory = 3,
+  /** Allows reading all files in the directory and its subdirectories */
+  ReadDirectory = 4,
+  /** Allows writing all files in the directory and its subdirectories */
+  DangerouslyWriteDirectory = 5
 }
 export interface AddressLabel {
   /** The address to label */
@@ -799,6 +853,21 @@ export enum IncludeTraces {
   All = 2
 }
 export declare function l1SolidityTestRunnerFactory(): SolidityTestRunnerFactory
+export declare function opSolidityTestRunnerFactory(): SolidityTestRunnerFactory
+/** A grouping of value snapshot entries for a test. */
+export interface ValueSnapshotGroup {
+  /** The group name. */
+  name: string
+  /** The entries in the group. */
+  entries: Array<ValueSnapshotEntry>
+}
+/** An entry in a value snapshot group. */
+export interface ValueSnapshotEntry {
+  /** The name of the entry. */
+  name: string
+  /** The value of the entry. */
+  value: string
+}
 /** The stack trace result */
 export interface StackTrace {
   /** Enum tag for JS. */
@@ -926,11 +995,10 @@ export interface CallTrace {
   gasUsed: bigint
   /** The amount of native token that was included with the call. */
   value: bigint
-  /**
-   * The target of the call. Provided as a contract name if known, otherwise
-   * a checksum address.
-   */
-  contract: string
+  /** The target address of the call. */
+  address: string
+  /** The name of the contract that is the target of the call, if known. */
+  contract?: string
   /**
    * The input (calldata) to the call. If it encodes a known function call,
    * it will be decoded into the function name and a list of arguments.
@@ -1060,7 +1128,8 @@ export enum StackTraceEntryType {
   UNMAPPED_SOLC_0_6_3_REVERT_ERROR = 20,
   CONTRACT_TOO_LARGE_ERROR = 21,
   INTERNAL_FUNCTION_CALLSTACK_ENTRY = 22,
-  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23
+  CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR = 23,
+  CHEATCODE_ERROR = 24
 }
 export declare function stackTraceEntryTypeToString(val: StackTraceEntryType): string
 export const FALLBACK_FUNCTION_NAME: string
@@ -1190,6 +1259,11 @@ export interface ContractCallRunOutOfGasError {
   type: StackTraceEntryType.CONTRACT_CALL_RUN_OUT_OF_GAS_ERROR
   sourceReference?: SourceReference
 }
+export interface CheatcodeErrorStackTraceEntry {
+  type: StackTraceEntryType.CHEATCODE_ERROR
+  message: string
+  sourceReference: SourceReference
+}
 export interface TracingMessage {
   /** Sender address */
   readonly caller: Uint8Array
@@ -1281,6 +1355,12 @@ export declare class Response {
 }
 /** A JSON-RPC provider for Ethereum. */
 export declare class Provider {
+  /**
+   *Adds a compilation result to the instance.
+   *
+   *For internal use only. Support for this method may be removed in the future.
+   */
+  addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<boolean>
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>
@@ -1301,7 +1381,7 @@ export declare class SuiteResult {
    */
   readonly id: ArtifactId
   /** See [edr_solidity_tests::result::SuiteResult::duration] */
-  readonly durationMs: bigint
+  readonly durationNs: bigint
   /** See [edr_solidity_tests::result::SuiteResult::test_results] */
   readonly testResults: Array<TestResult>
   /** See [edr_solidity_tests::result::SuiteResult::warnings] */
@@ -1322,7 +1402,14 @@ export declare class TestResult {
   /** See [edr_solidity_tests::result::TestResult::kind] */
   readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
   /** See [edr_solidity_tests::result::TestResult::duration] */
-  readonly durationMs: bigint
+  readonly durationNs: bigint
+  /**
+   * Groups of value snapshot entries (incl. gas).
+   *
+   * Only present if the test runner collected scoped snapshots. Currently,
+   * this is always the case.
+   */
+  readonly valueSnapshotGroups?: Array<ValueSnapshotGroup>
   /**
    * Compute the error stack trace.
    * The result is either the stack trace or the reason why we couldn't

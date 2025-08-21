@@ -6,10 +6,9 @@ use std::{
 
 use alloy_dyn_abi::TypedData;
 use edr_eth::{Address, Bytes, U256, U64};
-use edr_evm::spec::RuntimeSpec;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{error::ProviderErrorForChainSpec, ProviderError};
+use crate::{error::ProviderErrorForChainSpec, time::TimeSinceEpoch, ProviderError, ProviderSpec};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[repr(transparent)]
@@ -102,7 +101,7 @@ impl<'a> InvalidRequestReason<'a> {
     }
 
     /// Converts the invalid request reason into a provider error.
-    pub fn provider_error<ChainSpecT: RuntimeSpec>(
+    pub fn provider_error<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
         &self,
     ) -> Option<(&str, ProviderErrorForChainSpec<ChainSpecT>)> {
         match self {

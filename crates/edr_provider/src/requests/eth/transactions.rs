@@ -12,7 +12,6 @@ use edr_eth::{
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainErrorForChainSpec,
-    spec::RuntimeSpec,
     transaction, Block,
 };
 use edr_rpc_eth::RpcTypeFrom as _;
@@ -26,7 +25,7 @@ use crate::{
     },
     spec::{FromRpcType, Sender as _, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
-    ProviderError, ProviderResultWithTraces, TransactionFailure,
+    ProviderError, ProviderResultWithTraces, ProviderSpec, TransactionFailure,
 };
 
 pub fn handle_get_transaction_by_block_hash_and_index<
@@ -37,7 +36,7 @@ pub fn handle_get_transaction_by_block_hash_and_index<
     block_hash: B256,
     index: U256,
 ) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderErrorForChainSpec<ChainSpecT>> {
-    let index = rpc_index_to_usize::<ChainSpecT>(&index)?;
+    let index = rpc_index_to_usize::<ChainSpecT, TimerT>(&index)?;
 
     let transaction = data
         .block_by_hash(&block_hash)?
@@ -64,9 +63,9 @@ pub fn handle_get_transaction_by_block_spec_and_index<
     block_spec: PreEip1898BlockSpec,
     index: U256,
 ) -> Result<Option<ChainSpecT::RpcTransaction>, ProviderErrorForChainSpec<ChainSpecT>> {
-    validate_post_merge_block_tags::<ChainSpecT>(data.hardfork(), &block_spec)?;
+    validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), &block_spec)?;
 
-    let index = rpc_index_to_usize::<ChainSpecT>(&index)?;
+    let index = rpc_index_to_usize::<ChainSpecT, TimerT>(&index)?;
 
     let transaction = match data.block_by_block_spec(&block_spec.into()) {
         Ok(Some(block)) => Some((block, false)),
@@ -109,7 +108,7 @@ pub fn handle_pending_transactions<
     Ok(transactions)
 }
 
-fn rpc_index_to_usize<ChainSpecT: RuntimeSpec>(
+fn rpc_index_to_usize<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     index: &U256,
 ) -> Result<usize, ProviderErrorForChainSpec<ChainSpecT>> {
     index
@@ -357,15 +356,15 @@ fn validate_send_raw_transaction_request<
         }
     }
 
-    validate_eip3860_max_initcode_size::<ChainSpecT>(
+    validate_eip3860_max_initcode_size::<ChainSpecT, TimerT>(
         data.evm_spec_id(),
         data.allow_unlimited_initcode_size(),
         transaction.kind().to(),
         transaction.data(),
     )?;
 
-    validate_transaction_and_call_request::<ChainSpecT>(data.hardfork(), transaction).map_err(
-        |err| match err {
+    validate_transaction_and_call_request::<ChainSpecT, TimerT>(data.hardfork(), transaction)
+        .map_err(|err| match err {
             ProviderError::UnsupportedEIP1559Parameters {
                 minimum_hardfork, ..
             } => ProviderError::InvalidArgument(format!(
@@ -375,8 +374,7 @@ Trying to send an EIP-1559 transaction but they are not supported by the current
 You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?} or later."
             )),
             err => err,
-        },
-    )
+        })
 }
 
 #[cfg(test)]

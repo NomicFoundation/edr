@@ -4,9 +4,18 @@ use edr_eth::{Bytes, HashSet};
 
 use crate::CoverageHitCollector;
 
-pub trait SyncOnCollectedCoverageCallback: Fn(HashSet<Bytes>) + DynClone + Send + Sync {}
+pub trait SyncOnCollectedCoverageCallback:
+    Fn(HashSet<Bytes>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> + DynClone + Send + Sync
+{
+}
 
-impl<F> SyncOnCollectedCoverageCallback for F where F: Fn(HashSet<Bytes>) + DynClone + Send + Sync {}
+impl<F> SyncOnCollectedCoverageCallback for F where
+    F: Fn(HashSet<Bytes>) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+        + DynClone
+        + Send
+        + Sync
+{
+}
 
 dyn_clone::clone_trait_object!(SyncOnCollectedCoverageCallback);
 
@@ -29,8 +38,8 @@ impl CodeCoverageReporter {
     }
 
     /// Reports the collected coverage hits to the callback.
-    pub fn report(self) {
+    pub fn report(self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let hits = self.collector.into_hits();
-        (self.callback)(hits);
+        (self.callback)(hits)
     }
 }

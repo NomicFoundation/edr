@@ -50,8 +50,10 @@ pub use revm_bytecode::{self as bytecode, Bytecode};
 pub use revm_primitives::{
     address,
     alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
-    b256, bytes, hash_map, hash_set, hex, hex_literal, keccak256, Address, Bytes, HashMap, HashSet,
-    B256, KECCAK_EMPTY, MAX_INITCODE_SIZE, U256,
+    b256, bytes,
+    eip3860::MAX_INITCODE_SIZE,
+    hash_map, hash_set, hex, hex_literal, keccak256, Address, Bytes, HashMap, HashSet, B256,
+    KECCAK_EMPTY, U256,
 };
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};

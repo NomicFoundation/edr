@@ -2,6 +2,7 @@ use core::fmt::{Debug, Display};
 use std::{
     num::NonZeroU64,
     path::PathBuf,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -10,16 +11,21 @@ use edr_eth::{
     signature::{secret_key_from_str, SecretKey},
     Bytes, HashMap, HashSet,
 };
+use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
-    bindgen_prelude::{BigInt, Reference, Uint8Array},
+    bindgen_prelude::{BigInt, Promise, Reference, Uint8Array},
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,
     },
+    tokio::runtime,
     Either, JsFunction, JsString, JsStringUtf8,
 };
 use napi_derive::napi;
 
-use crate::{account::AccountOverride, block::BlobGas, cast::TryCast, precompile::Precompile};
+use crate::{
+    account::AccountOverride, block::BlobGas, cast::TryCast, logger::LoggerConfig,
+    precompile::Precompile, subscription::SubscriptionConfig,
+};
 
 /// Specification of a chain with possible overrides.
 #[napi(object)]
@@ -40,10 +46,9 @@ pub struct CodeCoverageConfig {
     /// The callback receives an array of unique coverage hit markers (i.e. no
     /// repetition) per transaction.
     ///
-    /// # Safety
-    ///
-    /// Errors should not be thrown inside the callback.
-    #[napi(ts_type = "(coverageHits: Uint8Array[]) => void")]
+    /// Exceptions thrown in the callback will be propagated to the original
+    /// caller.
+    #[napi(ts_type = "(coverageHits: Uint8Array[]) => Promise<void>")]
     pub on_collected_coverage_callback: JsFunction,
 }
 
@@ -322,7 +327,11 @@ impl TryFrom<MiningConfig> for edr_provider::MiningConfig {
 impl ObservabilityConfig {
     /// Resolves the instance, converting it to a
     /// [`edr_provider::observability::Config`].
-    pub fn resolve(self, env: &napi::Env) -> napi::Result<edr_provider::observability::Config> {
+    pub fn resolve(
+        self,
+        env: &napi::Env,
+        runtime: runtime::Handle,
+    ) -> napi::Result<edr_provider::observability::Config> {
         let on_collected_coverage_fn = self
             .code_coverage
             .map(
@@ -362,21 +371,30 @@ impl ObservabilityConfig {
 
                     let on_collected_coverage_fn: Box<dyn SyncOnCollectedCoverageCallback> =
                         Box::new(move |hits| {
+                            let runtime = runtime.clone();
+
                             let (sender, receiver) = std::sync::mpsc::channel();
 
                             let status = on_collected_coverage_callback
-                                .call_with_return_value(hits, ThreadsafeFunctionCallMode::Blocking, move |()| {
-                                    sender.send(()).map_err(|_error| {
-                                        napi::Error::new(
-                                            napi::Status::GenericFailure,
-                                            "Failed to send result from on_collected_coverage_callback",
-                                        )
-                                    })
+                                .call_with_return_value(hits, ThreadsafeFunctionCallMode::Blocking, move |result: Promise<()>| {
+                                    // We spawn a background task to handle the async callback
+                                    runtime.spawn(async move {
+                                        let result = result.await;
+                                        sender.send(result).map_err(|_error| {
+                                            napi::Error::new(
+                                                napi::Status::GenericFailure,
+                                                "Failed to send result from on_collected_coverage_callback",
+                                            )
+                                        })
+                                    });
+                                    Ok(())
                                 });
 
-                            let () = receiver.recv().expect("Receive can only fail if the channel is closed");
-
                             assert_eq!(status, napi::Status::Ok);
+
+                            let () = receiver.recv().expect("Receive can only fail if the channel is closed")?;
+
+                            Ok(())
                         });
 
                     Ok(on_collected_coverage_fn)
@@ -393,7 +411,11 @@ impl ObservabilityConfig {
 
 impl ProviderConfig {
     /// Resolves the instance to a [`edr_napi_core::provider::Config`].
-    pub fn resolve(self, env: &napi::Env) -> napi::Result<edr_napi_core::provider::Config> {
+    pub fn resolve(
+        self,
+        env: &napi::Env,
+        runtime: runtime::Handle,
+    ) -> napi::Result<edr_napi_core::provider::Config> {
         let owned_accounts = self
             .owned_accounts
             .into_iter()
@@ -471,7 +493,7 @@ impl ProviderConfig {
             mining: self.mining.try_into()?,
             min_gas_price: self.min_gas_price.try_cast()?,
             network_id: self.network_id.try_cast()?,
-            observability: self.observability.resolve(env)?,
+            observability: self.observability.resolve(env, runtime)?,
             owned_accounts,
             precompile_overrides,
         })
@@ -523,4 +545,47 @@ impl From<BuildInfoAndOutput> for edr_napi_core::solidity::config::BuildInfoAndO
             output: value.output,
         }
     }
+}
+
+/// Result of [`resolve_configs`].
+pub struct ConfigResolution {
+    pub contract_decoder: Arc<ContractDecoder>,
+    pub logger_config: edr_napi_core::logger::Config,
+    pub provider_config: edr_napi_core::provider::Config,
+    pub subscription_callback: edr_napi_core::subscription::Callback,
+}
+
+/// Helper function for resolving the provided N-API configs.
+pub fn resolve_configs(
+    env: &napi::Env,
+    runtime: runtime::Handle,
+    provider_config: ProviderConfig,
+    logger_config: LoggerConfig,
+    subscription_config: SubscriptionConfig,
+    tracing_config: TracingConfigWithBuffers,
+) -> napi::Result<ConfigResolution> {
+    let provider_config = provider_config.resolve(env, runtime)?;
+    let logger_config = logger_config.resolve(env)?;
+
+    // TODO: https://github.com/NomicFoundation/edr/issues/760
+    let build_info_config = edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers(
+        (&edr_napi_core::solidity::config::TracingConfigWithBuffers::from(tracing_config)).into(),
+    )
+    .map_err(|error| napi::Error::from_reason(error.to_string()))?;
+
+    let contract_decoder = ContractDecoder::new(&build_info_config).map_or_else(
+        |error| Err(napi::Error::from_reason(error.to_string())),
+        |contract_decoder| Ok(Arc::new(contract_decoder)),
+    )?;
+
+    let subscription_config = edr_napi_core::subscription::Config::from(subscription_config);
+    let subscription_callback =
+        edr_napi_core::subscription::Callback::new(env, subscription_config.subscription_callback)?;
+
+    Ok(ConfigResolution {
+        contract_decoder,
+        logger_config,
+        provider_config,
+        subscription_callback,
+    })
 }

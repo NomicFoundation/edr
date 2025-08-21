@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "author": "Nomic Foundation",
   "devDependencies": {
-    "@changesets/cli": "^2.27.1",
+    "@changesets/cli": "^2.29.5",
     "prettier": "^3.2.5",
     "syncpack": "^12.4.0"
   },
@@ -17,7 +17,7 @@
     },
     "patchedDependencies": {
       "@defi-wonderland/smock@2.4.0": "patches/@defi-wonderland__smock@2.4.0.patch",
-      "hardhat@2.23.1-alpha.0": "patches/hardhat@2.23.1-alpha.0.patch"
+      "hardhat@2.26.1": "patches/hardhat@2.26.1.patch"
     }
   },
   "private": true,

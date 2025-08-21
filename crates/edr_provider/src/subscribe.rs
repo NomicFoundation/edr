@@ -1,34 +1,33 @@
 use std::sync::Arc;
 
-use derive_where::derive_where;
 use dyn_clone::DynClone;
 use edr_eth::{filter::LogOutput, B256, U256};
-use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty};
+use edr_evm::BlockAndTotalDifficulty;
 
 /// Subscription event.
-#[derive_where(Clone, Debug)]
-pub struct SubscriptionEvent<ChainSpecT: RuntimeSpec> {
+#[derive(Clone, Debug)]
+pub struct SubscriptionEvent<BlockT: ?Sized, SignedTransactionT> {
     pub filter_id: U256,
-    pub result: SubscriptionEventData<ChainSpecT>,
+    pub result: SubscriptionEventData<BlockT, SignedTransactionT>,
 }
 
 /// Subscription event data.
-#[derive_where(Clone, Debug)]
-pub enum SubscriptionEventData<ChainSpecT: RuntimeSpec> {
+#[derive(Clone, Debug)]
+pub enum SubscriptionEventData<BlockT: ?Sized, SignedTransactionT> {
     Logs(Vec<LogOutput>),
-    NewHeads(BlockAndTotalDifficulty<Arc<ChainSpecT::Block>, ChainSpecT::SignedTransaction>),
+    NewHeads(BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>),
     NewPendingTransactions(B256),
 }
 
 /// Supertrait for subscription callbacks.
-pub trait SyncSubscriberCallback<ChainSpecT: RuntimeSpec>:
-    Fn(SubscriptionEvent<ChainSpecT>) + DynClone + Send + Sync
+pub trait SyncSubscriberCallback<BlockT: ?Sized, SignedTransactionT>:
+    Fn(SubscriptionEvent<BlockT, SignedTransactionT>) + DynClone + Send + Sync
 {
 }
 
-impl<ChainSpecT: RuntimeSpec, F> SyncSubscriberCallback<ChainSpecT> for F where
-    F: Fn(SubscriptionEvent<ChainSpecT>) + DynClone + Send + Sync
+impl<BlockT: ?Sized, SignedTransactionT, F> SyncSubscriberCallback<BlockT, SignedTransactionT> for F where
+    F: Fn(SubscriptionEvent<BlockT, SignedTransactionT>) + DynClone + Send + Sync
 {
 }
 
-dyn_clone::clone_trait_object!(<ChainSpecT> SyncSubscriberCallback<ChainSpecT> where ChainSpecT: RuntimeSpec);
+dyn_clone::clone_trait_object!(<BlockT: ?Sized, SignedTransactionT> SyncSubscriberCallback<BlockT, SignedTransactionT>);

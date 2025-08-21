@@ -1,18 +1,7 @@
-use std::{
-    collections::BTreeMap,
-    fmt::Debug,
-    num::NonZeroU64,
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{
-    block::{BlobGas, HeaderOverrides, PartialHeader},
-    l1,
-    log::FilterLog,
-    Address, Bytes, HashSet, B256, U256,
-};
+use edr_eth::{l1, log::FilterLog, Address, HashSet, B256, U256};
 
 use super::{
     compute_state_at_block,
@@ -21,57 +10,23 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    block::EmptyBlock as _,
     spec::SyncRuntimeSpec,
-    state::{
-        StateCommit as _, StateDebug, StateDiff, StateError, StateOverride, SyncState, TrieState,
-    },
+    state::{StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError {
-    /// Missing prevrandao for post-merge blockchain
-    #[error("Missing prevrandao for post-merge blockchain")]
-    MissingPrevrandao,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum InsertBlockError {
-    #[error("Invalid block number: {actual}. Expected: {expected}")]
-    InvalidBlockNumber { actual: u64, expected: u64 },
+pub enum InvalidGenesisBlock {
+    /// Invalid block number in the genesis block.
+    #[error("Invalid block number: {actual}. Expected: 0")]
+    InvalidBlockNumber {
+        /// The actual block number.
+        actual: u64,
+    },
     /// Missing withdrawals for post-Shanghai blockchain
     #[error("Missing withdrawals for post-Shanghai blockchain")]
     MissingWithdrawals,
-}
-
-/// Options for creating a genesis block.
-#[derive(Default)]
-pub struct GenesisBlockOptions {
-    /// The block's gas limit
-    pub gas_limit: Option<u64>,
-    /// The block's timestamp
-    pub timestamp: Option<u64>,
-    /// The block's mix hash (or prevrandao for post-merge blockchains)
-    pub mix_hash: Option<B256>,
-    /// The block's base gas fee
-    pub base_fee: Option<u128>,
-    /// The block's blob gas (for post-Cancun blockchains)
-    pub blob_gas: Option<BlobGas>,
-}
-
-impl From<GenesisBlockOptions> for HeaderOverrides {
-    fn from(value: GenesisBlockOptions) -> Self {
-        Self {
-            gas_limit: value.gas_limit,
-            timestamp: value.timestamp,
-            mix_hash: value.mix_hash,
-            base_fee: value.base_fee,
-            blob_gas: value.blob_gas,
-            ..HeaderOverrides::default()
-        }
-    }
 }
 
 /// A blockchain consisting of locally created blocks.
@@ -94,124 +49,39 @@ where
         >,
     >,
 {
-    /// Constructs a new instance using the provided arguments to build a
-    /// genesis block.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        genesis_diff: StateDiff,
-        chain_id: u64,
-        hardfork: ChainSpecT::Hardfork,
-        options: GenesisBlockOptions,
-    ) -> Result<Self, CreationError> {
-        const EXTRA_DATA: &[u8] = b"\x12\x34";
-
-        let mut genesis_state = TrieState::default();
-        genesis_state.commit(genesis_diff.clone().into());
-
-        let evm_spec_id = hardfork.into();
-        if evm_spec_id >= l1::SpecId::MERGE && options.mix_hash.is_none() {
-            return Err(CreationError::MissingPrevrandao);
-        }
-
-        let mut options = HeaderOverrides::from(options);
-        options.state_root = Some(
-            genesis_state
-                .state_root()
-                .expect("TrieState is guaranteed to successfully compute the state root"),
-        );
-
-        if options.timestamp.is_none() {
-            options.timestamp = Some(
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("Current time must be after unix epoch")
-                    .as_secs(),
-            );
-        }
-
-        options.extra_data = Some(Bytes::from(EXTRA_DATA));
-
-        // No ommers in the genesis block
-        let ommers = Vec::new();
-
-        let withdrawals = if evm_spec_id >= l1::SpecId::SHANGHAI {
-            // Empty withdrawals for genesis block
-            Some(Vec::new())
-        } else {
-            None
-        };
-
-        let partial_header = PartialHeader::new::<ChainSpecT>(
-            hardfork,
-            options,
-            None,
-            &ommers,
-            withdrawals.as_ref(),
-        );
-
-        Ok(unsafe {
-            Self::with_genesis_block_unchecked(
-                ChainSpecT::LocalBlock::empty(hardfork, partial_header),
-                genesis_diff,
-                chain_id,
-                hardfork,
-            )
-        })
-    }
-
     /// Constructs a new instance with the provided genesis block, validating a
     /// zero block number.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn with_genesis_block(
+    pub fn new(
         genesis_block: ChainSpecT::LocalBlock,
         genesis_diff: StateDiff,
         chain_id: u64,
         hardfork: ChainSpecT::Hardfork,
-    ) -> Result<Self, InsertBlockError> {
+    ) -> Result<Self, InvalidGenesisBlock> {
         let genesis_header = genesis_block.header();
 
         if genesis_header.number != 0 {
-            return Err(InsertBlockError::InvalidBlockNumber {
+            return Err(InvalidGenesisBlock::InvalidBlockNumber {
                 actual: genesis_header.number,
-                expected: 0,
             });
         }
 
         if hardfork.into() >= l1::SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
-            return Err(InsertBlockError::MissingWithdrawals);
+            return Err(InvalidGenesisBlock::MissingWithdrawals);
         }
 
-        Ok(unsafe {
-            Self::with_genesis_block_unchecked(genesis_block, genesis_diff, chain_id, hardfork)
-        })
-    }
-
-    /// Constructs a new instance with the provided genesis block, without
-    /// validating the provided block's number.
-    ///
-    /// # Safety
-    ///
-    /// Ensure that the genesis block's number is zero.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub unsafe fn with_genesis_block_unchecked(
-        genesis_block: ChainSpecT::LocalBlock,
-        genesis_diff: StateDiff,
-        chain_id: u64,
-        hardfork: ChainSpecT::Hardfork,
-    ) -> Self {
-        let total_difficulty = genesis_block.header().difficulty;
+        let total_difficulty = genesis_header.difficulty;
         let storage = ReservableSparseBlockchainStorage::with_genesis_block(
             Arc::new(genesis_block),
             genesis_diff,
             total_difficulty,
         );
 
-        Self {
+        Ok(Self {
             storage,
             chain_id,
             hardfork,
-        }
+        })
     }
 }
 
@@ -432,7 +302,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::state::IrregularState;
+    use crate::{spec::GenesisBlockFactory as _, state::IrregularState, GenesisBlockOptions};
 
     #[test]
     fn compute_state_after_reserve() -> anyhow::Result<()> {
@@ -445,7 +315,7 @@ mod tests {
             },
         )];
 
-        let genesis_diff = accounts
+        let genesis_diff: StateDiff = accounts
             .iter()
             .map(|(address, info)| {
                 (
@@ -454,21 +324,28 @@ mod tests {
                         info: info.clone(),
                         storage: HashMap::new(),
                         status: AccountStatus::Created | AccountStatus::Touched,
+                        transaction_id: 0,
                     },
                 )
             })
             .collect::<HashMap<_, _>>()
             .into();
 
-        let mut blockchain = LocalBlockchain::<L1ChainSpec>::new(
-            genesis_diff,
-            123,
+        let genesis_block = L1ChainSpec::genesis_block(
+            genesis_diff.clone(),
             l1::SpecId::SHANGHAI,
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),
                 ..GenesisBlockOptions::default()
             },
+        )?;
+
+        let mut blockchain = LocalBlockchain::<L1ChainSpec>::new(
+            genesis_block,
+            genesis_diff,
+            123,
+            l1::SpecId::SHANGHAI,
         )
         .unwrap();
 

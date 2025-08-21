@@ -21,7 +21,7 @@ use revm::{
     database::{CacheDB, DatabaseRef},
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
-    primitives::{HashMap as Map, Log, KECCAK_EMPTY},
+    primitives::{hardfork::SpecId, HashMap as Map, Log, KECCAK_EMPTY},
     state::{Account, AccountInfo, EvmState, EvmStorageSlot},
     Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
@@ -32,7 +32,7 @@ use crate::{
     evm_context::{EvmBuilderTrait, IntoEvmContext as _, TransactionErrorTrait},
     fork::{CreateFork, ForkId, MultiFork},
     state_snapshot::StateSnapshots,
-    utils::configure_tx_env,
+    utils::{configure_tx_env, get_blob_base_fee_update_fraction_by_spec_id},
 };
 
 mod diagnostic;
@@ -1055,12 +1055,11 @@ impl<
         InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'a mut Self, ChainContextT>,
     {
         self.initialize(env);
-        let env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
+        let mut env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
+        let tx = std::mem::take(&mut env_with_chain.tx);
         let mut evm = EvmBuilderT::evm_with_inspector(self, env_with_chain, inspector);
 
-        let res = evm
-            .inspect_replay()
-            .wrap_err("backend: failed while inspecting")?;
+        let res = evm.inspect_tx(tx).wrap_err("EVM error")?;
 
         *env = EvmEnv::from(evm.into_evm_context());
 
@@ -1173,7 +1172,10 @@ impl<
 
         let env = self.env_with_handler_cfg(env);
         let fork = self.inner.get_fork_by_id_mut(id)?;
-        let full_block = fork.db.db.get_full_block(env.block.number())?;
+        let full_block = fork
+            .db
+            .db
+            .get_full_block(env.block.number().saturating_to::<u64>())?;
 
         for tx in full_block.inner.transactions.txns() {
             // System transactions such as on L2s don't contain any pricing info so we skip
@@ -1552,7 +1554,7 @@ impl<
         // roll the fork to the transaction's block or latest if it's pending
         self.roll_fork(Some(id), fork_block, context)?;
 
-        update_env_block(context.block, &block);
+        update_env_block(context.block, &block, context.cfg.spec.into());
 
         let env_with_chain =
             EvmEnvWithChainContext::new(context.to_owned_env(), context.chain_context.clone());
@@ -1602,7 +1604,7 @@ impl<
         // So we modify the env to match the transaction's block
         let (_fork_block, block) =
             self.get_block_number_and_block_for_transaction(id, transaction)?;
-        update_env_block(&mut env.block, &block);
+        update_env_block(&mut env.block, &block, env.cfg.spec.into());
         let env = self.env_with_handler_cfg(env);
 
         let fork = self.inner.get_fork_by_id_mut(id)?;
@@ -1730,6 +1732,7 @@ impl<
                                     .map(|s| s.present_value)
                                     .unwrap_or_default(),
                                 U256::from_be_bytes(value.0),
+                                0,
                             ),
                         )
                     })
@@ -2323,7 +2326,7 @@ fn is_contract_in_state(journaled_state: &JournalInner<JournalEntry>, acc: Addre
 }
 
 /// Updates the env's block with the block's data
-fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBlock) {
+fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBlock, spec: SpecId) {
     block_env.set_timestamp(block.header.timestamp);
     block_env.set_beneficiary(block.header.beneficiary);
     block_env.set_difficulty(block.header.difficulty);
@@ -2332,7 +2335,10 @@ fn update_env_block<BlockT: BlockEnvTr>(block_env: &mut BlockT, block: &AnyRpcBl
     block_env.set_gas_limit(block.header.gas_limit);
     block_env.set_block_number(block.header.number);
     if let Some(excess_blob_gas) = block.header.excess_blob_gas {
-        block_env.set_blob_excess_gas_and_price(excess_blob_gas, false);
+        block_env.set_blob_excess_gas_and_price(
+            excess_blob_gas,
+            get_blob_base_fee_update_fraction_by_spec_id(spec),
+        );
     }
 }
 
@@ -2372,9 +2378,10 @@ where
         let fork = fork.clone();
         let journaled_state = journaled_state.clone();
         let db = Backend::new_with_fork(fork_id, fork, journaled_state);
+        let tx = std::mem::take(&mut env.tx);
 
         EvmBuilderT::evm_with_inspector(db, env, inspector)
-            .inspect_replay()
+            .inspect_tx(tx)
             .wrap_err("backend: failed committing transaction")?
     };
     trace!(elapsed = ?now.elapsed(), "transacted transaction");
@@ -2441,6 +2448,7 @@ fn is_known_system_sender(sender: Address) -> bool {
 }
 
 #[cfg(test)]
+#[cfg(feature = "test-remote")]
 mod tests {
     use std::collections::BTreeSet;
 
@@ -2514,6 +2522,7 @@ mod tests {
         drop(backend);
 
         let meta = BlockchainDbMeta {
+            chain: None,
             block_env: env.block,
             hosts: BTreeSet::default(),
         };

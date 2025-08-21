@@ -83,7 +83,7 @@ async fn test_successful_fuzz_cases() {
 #[ignore]
 async fn test_fuzz_collection() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzCollection.t.sol");
-    let mut config = TEST_DATA_DEFAULT.base_runner_config();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.invariant.depth = 100;
     config.invariant.runs = 1000;
     config.fuzz.runs = 1000;

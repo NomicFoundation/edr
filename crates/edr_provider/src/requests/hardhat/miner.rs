@@ -1,25 +1,9 @@
 use edr_eth::{l1, transaction::TransactionValidation};
 
 use crate::{
-    data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, ProviderError, ProviderResultWithTraces,
+    data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
+    ProviderResultWithTraces,
 };
-
-pub fn handle_interval_mine_request<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
-        >,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
->(
-    data: &mut ProviderData<ChainSpecT, TimerT>,
-) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
-    data.interval_mine()
-}
 
 pub fn handle_mine<
     ChainSpecT: SyncProviderSpec<

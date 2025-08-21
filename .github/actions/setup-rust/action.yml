@@ -7,6 +7,9 @@ inputs:
   components:
     description: Comma-separated list of components to install
     required: false
+  cache:
+    description: Automatically configure Rust cache
+    default: true
 
 runs:
   using: composite
@@ -17,7 +20,7 @@ runs:
         # Empty string means rust-toolchain if it exists, otherwise stable
         toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
-        cache: true
+        cache: ${{ inputs.cache }}
         # Do not override the RUSTFLAGS by default and instead do that per job,
         # if needed. Setting RUSTFLAGS via env var, config, etc. is mutually
         # exclusive and often a source of bugs.

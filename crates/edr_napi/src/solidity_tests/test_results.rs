@@ -22,6 +22,26 @@ use crate::{
     trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
 };
 
+/// A grouping of value snapshot entries for a test.
+#[napi(object)]
+#[derive(Clone, Debug)]
+pub struct ValueSnapshotGroup {
+    /// The group name.
+    pub name: String,
+    /// The entries in the group.
+    pub entries: Vec<ValueSnapshotEntry>,
+}
+
+/// An entry in a value snapshot group.
+#[napi(object)]
+#[derive(Clone, Debug)]
+pub struct ValueSnapshotEntry {
+    /// The name of the entry.
+    pub name: String,
+    /// The value of the entry.
+    pub value: String,
+}
+
 /// See [edr_solidity_tests::result::SuiteResult]
 #[napi]
 #[derive(Clone, Debug)]
@@ -32,7 +52,7 @@ pub struct SuiteResult {
     pub id: ArtifactId,
     /// See [edr_solidity_tests::result::SuiteResult::duration]
     #[napi(readonly)]
-    pub duration_ms: BigInt,
+    pub duration_ns: BigInt,
     /// See [edr_solidity_tests::result::SuiteResult::test_results]
     #[napi(readonly)]
     pub test_results: Vec<TestResult>,
@@ -49,7 +69,7 @@ impl SuiteResult {
     ) -> Self {
         Self {
             id: id.into(),
-            duration_ms: BigInt::from(suite_result.duration.as_millis()),
+            duration_ns: BigInt::from(suite_result.duration.as_nanos()),
             test_results: suite_result
                 .test_results
                 .into_iter()
@@ -84,7 +104,13 @@ pub struct TestResult {
     pub kind: Either3<StandardTestKind, FuzzTestKind, InvariantTestKind>,
     /// See [edr_solidity_tests::result::TestResult::duration]
     #[napi(readonly)]
-    pub duration_ms: BigInt,
+    pub duration_ns: BigInt,
+    /// Groups of value snapshot entries (incl. gas).
+    ///
+    /// Only present if the test runner collected scoped snapshots. Currently,
+    /// this is always the case.
+    #[napi(readonly)]
+    pub value_snapshot_groups: Option<Vec<ValueSnapshotGroup>>,
 
     stack_trace_result: Option<Arc<StackTraceResult<String>>>,
     call_trace_arenas: Vec<(traces::TraceKind, SparsedTraceArena)>,
@@ -263,7 +289,20 @@ impl TestResult {
                     reverts: BigInt::from(reverts as u64),
                 }),
             },
-            duration_ms: BigInt::from(test_result.duration.as_millis()),
+            duration_ns: BigInt::from(test_result.duration.as_nanos()),
+            value_snapshot_groups: Some(
+                test_result
+                    .value_snapshots
+                    .into_iter()
+                    .map(|(group_name, entries)| ValueSnapshotGroup {
+                        name: group_name,
+                        entries: entries
+                            .into_iter()
+                            .map(|(name, value)| ValueSnapshotEntry { name, value })
+                            .collect(),
+                    })
+                    .collect(),
+            ),
             stack_trace_result: test_result.stack_trace_result.map(Arc::new),
             call_trace_arenas: if include_trace {
                 test_result.traces
@@ -431,9 +470,10 @@ pub struct CallTrace {
     pub gas_used: BigInt,
     /// The amount of native token that was included with the call.
     pub value: BigInt,
-    /// The target of the call. Provided as a contract name if known, otherwise
-    /// a checksum address.
-    pub contract: String,
+    /// The target address of the call.
+    pub address: String,
+    /// The name of the contract that is the target of the call, if known.
+    pub contract: Option<String>,
     /// The input (calldata) to the call. If it encodes a known function call,
     /// it will be decoded into the function name and a list of arguments.
     /// For example, `{ name: "ownerOf", arguments: ["1"] }`. Note that the
@@ -502,12 +542,8 @@ impl CallTrace {
     /// Instantiates a `CallTrace` with the details from a node and the supplied
     /// children.
     fn new(node: &traces::CallTraceNode, children: Vec<Either<CallTrace, LogTrace>>) -> Self {
-        let contract = node
-            .trace
-            .decoded
-            .label
-            .clone()
-            .unwrap_or(node.trace.address.to_checksum(None));
+        let contract = node.trace.decoded.label.clone();
+        let address = node.trace.address.to_checksum(None);
 
         let inputs = match &node.trace.decoded.call_data {
             Some(traces::DecodedCallData { signature, args }) => {
@@ -540,6 +576,7 @@ impl CallTrace {
             gas_used: node.trace.gas_used.into(),
             value: u256_to_bigint(&node.trace.value),
             contract,
+            address,
             inputs,
             outputs,
             children,

@@ -13,6 +13,7 @@ use alloy_primitives::{Bytes, U256};
 use alloy_sol_types::SolValue;
 use dialoguer::{Input, Password};
 use edr_common::fs;
+use edr_solidity::artifacts::ArtifactId;
 use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
     TransactionErrorTrait,
@@ -280,7 +281,6 @@ impl Cheatcode for copyFileCall {
         let Self { from, to } = self;
         let from = state.config.ensure_path_allowed(from, FsAccessKind::Read)?;
         let to = state.config.ensure_path_allowed(to, FsAccessKind::Write)?;
-        state.config.ensure_not_foundry_toml(&to)?;
 
         let n = fs::copy(from, to)?;
         Ok(n.abi_encode())
@@ -601,7 +601,6 @@ impl Cheatcode for removeFileCall {
         let path = state
             .config
             .ensure_path_allowed(path, FsAccessKind::Write)?;
-        state.config.ensure_not_foundry_toml(&path)?;
 
         // also remove from the set if opened previously
         state.context.opened_read_files.remove(&path);
@@ -694,7 +693,6 @@ impl Cheatcode for writeLineCall {
         let path = state
             .config
             .ensure_path_allowed(path, FsAccessKind::Write)?;
-        state.config.ensure_not_foundry_toml(&path)?;
 
         if state.fs_commit {
             let mut file = std::fs::OpenOptions::new()
@@ -763,6 +761,81 @@ impl Cheatcode for getDeployedCodeCall {
     }
 }
 
+struct ArtifactIdQuery<'a> {
+    file: Option<PathBuf>,
+    contract_name: Option<&'a str>,
+    version: Option<Version>,
+}
+
+impl<'a> ArtifactIdQuery<'a> {
+    fn new(path: &'a str) -> Result<Self> {
+        let mut parts = path.split(':');
+
+        let mut file = None;
+        let mut contract_name = None;
+        let mut version = None;
+
+        let path_or_name = parts
+            .next()
+            .expect("split always returns at least one element");
+        if path_or_name.ends_with(".sol") {
+            file = Some(PathBuf::from(path_or_name));
+            if let Some(name_or_version) = parts.next() {
+                if name_or_version.contains('.') {
+                    version = Some(name_or_version);
+                } else {
+                    contract_name = Some(name_or_version);
+                    version = parts.next();
+                }
+            }
+        } else {
+            contract_name = Some(path_or_name);
+            version = parts.next();
+        }
+
+        let version = if let Some(version) = version {
+            Some(Version::parse(version).map_err(|_err| fmt_err!("Error parsing version"))?)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            file,
+            contract_name,
+            version,
+        })
+    }
+
+    fn artifact_id_matches(&self, id: &ArtifactId) -> bool {
+        // name might be in the form of "Counter.0.8.23"
+        let id_name = id
+            .name
+            .split('.')
+            .next()
+            .expect("split always returns at least one element");
+
+        if let Some(path) = &self.file {
+            if !id.source.ends_with(path) {
+                return false;
+            }
+        }
+        if let Some(name) = self.contract_name {
+            if id_name != name {
+                return false;
+            }
+        }
+        if let Some(version) = &self.version {
+            if id.version.minor != version.minor
+                || id.version.major != version.major
+                || id.version.patch != version.patch
+            {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 /// Returns the artifact code from known artifacts
 ///
 /// Can parse following input formats:
@@ -794,86 +867,39 @@ fn get_artifact_code<
     path: &str,
     deployed: bool,
 ) -> Result<Bytes> {
-    const NO_MATCHING_ARTIFACT: &str = "No matching artifact found";
-
-    let mut parts = path.split(':');
-
-    let mut file = None;
-    let mut contract_name = None;
-    let mut version = None;
-
-    let path_or_name = parts.next().unwrap();
-    if path_or_name.ends_with(".sol") {
-        file = Some(PathBuf::from(path_or_name));
-        if let Some(name_or_version) = parts.next() {
-            if name_or_version.contains('.') {
-                version = Some(name_or_version);
-            } else {
-                contract_name = Some(name_or_version);
-                version = parts.next();
-            }
-        }
-    } else {
-        contract_name = Some(path_or_name);
-        version = parts.next();
-    }
-
-    let version = if let Some(version) = version {
-        Some(Version::parse(version).map_err(|_err| fmt_err!("Error parsing version"))?)
-    } else {
-        None
-    };
+    let query = ArtifactIdQuery::new(path)?;
 
     let filtered = state
         .config
         .available_artifacts
         .iter()
-        .filter(|(id, _)| {
-            // name might be in the form of "Counter.0.8.23"
-            let id_name = id.name.split('.').next().unwrap();
-
-            if let Some(path) = &file {
-                if !id.source.ends_with(path) {
-                    return false;
-                }
-            }
-            if let Some(name) = contract_name {
-                if id_name != name {
-                    return false;
-                }
-            }
-            if let Some(ref version) = version {
-                if id.version.minor != version.minor
-                    || id.version.major != version.major
-                    || id.version.patch != version.patch
-                {
-                    return false;
-                }
-            }
-            true
-        })
+        .filter(|(id, _)| query.artifact_id_matches(id))
         .collect::<Vec<_>>();
 
-    let artifact = match filtered.as_slice() {
-        [] => Err(fmt_err!(NO_MATCHING_ARTIFACT)),
-        [(_id, artifact)] => Ok(*artifact),
+    let artifact = match &filtered[..] {
+        [] => Err(fmt_err!("no matching artifact found")),
+        [artifact] => Ok(*artifact),
         filtered => {
+            let mut filtered = filtered.to_vec();
             // If we know the current script/test contract solc version, try to filter by it
-            let mut result = None;
-            if let Some(version) = state.config.running_version.as_ref() {
-                for (id, artifact) in filtered {
-                    if id.version == *version {
-                        if result.is_some() {
-                            return Err(fmt_err!("Multiple matching artifacts found"));
-                        } else {
-                            result = Some(*artifact);
-                        }
+            state
+                .config
+                .running_artifact
+                .as_ref()
+                .and_then(|running| {
+                    // Firstly filter by version
+                    filtered.retain(|(id, _)| id.version == running.version);
+
+                    if filtered.len() == 1 {
+                        Some(filtered[0])
+                    } else {
+                        None
                     }
-                }
-            }
-            result.ok_or_else(|| fmt_err!(NO_MATCHING_ARTIFACT))
+                })
+                .ok_or_else(|| fmt_err!("multiple matching artifacts found"))
         }
-    }?;
+    }?
+    .1;
 
     let maybe_bytecode = if deployed {
         artifact.deployed_bytecode.clone()
@@ -1082,8 +1108,6 @@ pub(super) fn write_file<
     let path = state
         .config
         .ensure_path_allowed(path, FsAccessKind::Write)?;
-    // write access to foundry.toml is not allowed
-    state.config.ensure_not_foundry_toml(&path)?;
 
     if state.fs_commit {
         fs::write(path, contents)?;
@@ -1325,5 +1349,24 @@ mod tests {
 
         let artifact: ContractObject = serde_json::from_str(s).unwrap();
         assert!(artifact.deployed_bytecode.is_some());
+    }
+
+    #[test]
+    fn test_artifact_id_matches_hardhat_input_source_names() {
+        let query = ArtifactIdQuery::new("contracts/Counter.sol").unwrap();
+
+        let project_id = ArtifactId {
+            name: "Counter".into(),
+            source: "project/contracts/Counter.sol".into(),
+            version: Version::new(1, 2, 3),
+        };
+        assert!(query.artifact_id_matches(&project_id));
+
+        let npm_id = ArtifactId {
+            name: "Counter".into(),
+            source: "npm/contracts/Counter.sol".into(),
+            version: Version::new(1, 2, 3),
+        };
+        assert!(query.artifact_id_matches(&npm_id));
     }
 }

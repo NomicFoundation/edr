@@ -7,9 +7,9 @@ use std::{
 
 use alloy_primitives::Address;
 use edr_common::fs::normalize_path;
+use edr_solidity::artifacts::ArtifactId;
 use foundry_compilers::utils::canonicalize;
 use foundry_evm_core::{contracts::ContractsByArtifact, evm_context::HardforkTr, opts::EvmOpts};
-use semver::Version;
 
 use super::{FsAccessKind, FsPermissions, Result, RpcEndpoints};
 use crate::{cache::StorageCachingConfig, Vm::Rpc};
@@ -47,8 +47,10 @@ pub struct CheatsConfig<HardforkT> {
     pub labels: HashMap<Address, String>,
     /// Solidity compilation artifacts.
     pub available_artifacts: Arc<ContractsByArtifact>,
-    /// Version of the script/test contract which is currently running.
-    pub running_version: Option<Version>,
+    /// Currently running artifact.
+    pub running_artifact: Option<ArtifactId>,
+    /// Whether to allow `expectRevert` to work for internal calls.
+    pub internal_expect_revert: bool,
 }
 
 /// Solidity test execution contexts.
@@ -88,6 +90,9 @@ pub struct CheatsConfigOptions {
     pub prompt_timeout: u64,
     /// Address labels
     pub labels: HashMap<Address, String>,
+    /// Allow expecting reverts with `expectRevert` at the same callstack depth
+    /// as the test.
+    pub allow_internal_expect_revert: bool,
 }
 
 impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
@@ -97,7 +102,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         config: CheatsConfigOptions,
         evm_opts: EvmOpts<HardforkT>,
         available_artifacts: Arc<ContractsByArtifact>,
-        running_version: Option<Version>,
+        running_artifact: Option<ArtifactId>,
     ) -> Self {
         let CheatsConfigOptions {
             execution_context,
@@ -107,6 +112,7 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             rpc_storage_caching,
             fs_permissions,
             labels,
+            allow_internal_expect_revert,
         } = config;
 
         let fs_permissions = fs_permissions.joined(&project_root);
@@ -123,7 +129,8 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             evm_opts,
             labels,
             available_artifacts,
-            running_version,
+            running_artifact,
+            internal_expect_revert: allow_internal_expect_revert,
         }
     }
 
@@ -171,32 +178,6 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
                 .display()
         );
         Ok(normalized)
-    }
-
-    /// Returns true if the given `path` is the project's foundry.toml file
-    ///
-    /// Note: this should be called with normalized path
-    pub fn is_foundry_toml(&self, path: impl AsRef<Path>) -> bool {
-        const FILE_NAME: &str = "foundry.toml";
-
-        // path methods that do not access the filesystem are such as
-        // [`Path::starts_with`], are case-sensitive no matter the platform or
-        // filesystem. to make this case-sensitive we convert the underlying
-        // `OssStr` to lowercase checking that `path` and `foundry.toml` are the
-        // same file by comparing the FD, because it may not exist
-        let foundry_toml = self.project_root.join(FILE_NAME);
-        Path::new(&foundry_toml.to_string_lossy().to_lowercase())
-            .starts_with(Path::new(&path.as_ref().to_string_lossy().to_lowercase()))
-    }
-
-    /// Same as [`Self::is_foundry_toml`] but returns an `Err` if
-    /// [`Self::is_foundry_toml`] returns true
-    pub fn ensure_not_foundry_toml(&self, path: impl AsRef<Path>) -> Result<()> {
-        ensure!(
-            !self.is_foundry_toml(path),
-            "access to `foundry.toml` is not allowed"
-        );
-        Ok(())
     }
 
     /// Returns the RPC to use
@@ -267,7 +248,8 @@ impl<HardforkT: HardforkTr> Default for CheatsConfig<HardforkT> {
             evm_opts: EvmOpts::default(),
             labels: HashMap::default(),
             available_artifacts: Arc::<ContractsByArtifact>::default(),
-            running_version: Option::default(),
+            running_artifact: None,
+            internal_expect_revert: false,
         }
     }
 }
@@ -288,6 +270,7 @@ mod tests {
             fs_permissions,
             prompt_timeout: 0,
             labels: HashMap::default(),
+            allow_internal_expect_revert: false,
         };
 
         CheatsConfig::new(
@@ -337,30 +320,155 @@ mod tests {
 
         test_cases(config(
             root,
-            FsPermissions::new(vec![PathPermission::read_write("./")]),
+            FsPermissions::new(vec![PathPermission::read_write_directory("./")]),
         ));
 
         test_cases(config(
             root,
-            FsPermissions::new(vec![PathPermission::read_write("/my/project/root")]),
+            FsPermissions::new(vec![PathPermission::read_write_directory(
+                "/my/project/root",
+            )]),
         ));
     }
 
     #[test]
-    fn test_is_foundry_toml() {
+    fn file_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_file("./out/contracts/ReadContract.sol"),
+            PathPermission::read_write_file("./out/contracts/ReadWriteContract.sol"),
+        ]);
+
         let root = "/my/project/root/";
-        let config = config(
-            root,
-            FsPermissions::new(vec![PathPermission::read_write("./")]),
+        let config = config(root, permissions);
+
+        assert!(config
+            .ensure_path_allowed("./out/contracts/ReadContract.sol", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/contracts/ReadWriteContract.sol", FsAccessKind::Write)
+            .is_ok());
+        assert!(
+            config
+                .ensure_path_allowed(
+                    "./out/contracts/NoPermissionContract.sol",
+                    FsAccessKind::Read
+                )
+                .is_err()
+                && config
+                    .ensure_path_allowed(
+                        "./out/contracts/NoPermissionContract.sol",
+                        FsAccessKind::Write
+                    )
+                    .is_err()
         );
+    }
 
-        let f = format!("{root}foundry.toml");
-        assert!(config.is_foundry_toml(f));
+    #[test]
+    fn directory_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_directory("./out/contracts"),
+            PathPermission::read_write_directory("./out/contracts/readwrite/"),
+        ]);
 
-        let f = format!("{root}Foundry.toml");
-        assert!(config.is_foundry_toml(f));
+        let root = "/my/project/root/";
+        let config = config(root, permissions);
 
-        let f = format!("{root}lib/other/foundry.toml");
-        assert!(!config.is_foundry_toml(f));
+        assert!(config
+            .ensure_path_allowed("./out/contracts", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/contracts", FsAccessKind::Write)
+            .is_err());
+
+        assert!(config
+            .ensure_path_allowed("./out/contracts/readwrite", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/contracts/readwrite", FsAccessKind::Write)
+            .is_ok());
+
+        assert!(config
+            .ensure_path_allowed("./out", FsAccessKind::Read)
+            .is_err());
+        assert!(config
+            .ensure_path_allowed("./out", FsAccessKind::Write)
+            .is_err());
+    }
+
+    #[test]
+    fn file_and_directory_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_directory("./out"),
+            PathPermission::write_file("./out/WriteContract.sol"),
+        ]);
+
+        let root = "/my/project/root/";
+        let config = config(root, permissions);
+
+        assert!(config
+            .ensure_path_allowed("./out", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/WriteContract.sol", FsAccessKind::Write)
+            .is_ok());
+
+        // Inherited read from directory
+        assert!(config
+            .ensure_path_allowed("./out/ReadContract.sol", FsAccessKind::Read)
+            .is_ok());
+        // No permission for writing
+        assert!(config
+            .ensure_path_allowed("./out/ReadContract.sol", FsAccessKind::Write)
+            .is_err());
+    }
+
+    #[test]
+    fn nested_permissions() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_directory("./"),
+            PathPermission::write_directory("./out"),
+            PathPermission::read_write_directory("./out/contracts"),
+        ]);
+
+        let root = "/my/project/root/";
+        let config = config(root, permissions);
+
+        assert!(config
+            .ensure_path_allowed("./out/contracts/MyContract.sol", FsAccessKind::Write)
+            .is_ok());
+
+        assert!(config
+            .ensure_path_allowed("./out/contracts/MyContract.sol", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/MyContract.sol", FsAccessKind::Write)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/MyContract.sol", FsAccessKind::Read)
+            .is_err());
+    }
+
+    #[test]
+    fn exclude_file() {
+        let permissions = FsPermissions::new(vec![
+            PathPermission::read_write_directory("./out"),
+            PathPermission::none("./out/Config.toml"),
+        ]);
+
+        let root = "/my/project/root/";
+        let config = config(root, permissions);
+
+        assert!(config
+            .ensure_path_allowed("./out/Config.toml", FsAccessKind::Read)
+            .is_err());
+        assert!(config
+            .ensure_path_allowed("./out/Config.toml", FsAccessKind::Write)
+            .is_err());
+        assert!(config
+            .ensure_path_allowed("./out/OtherFile.sol", FsAccessKind::Read)
+            .is_ok());
+        assert!(config
+            .ensure_path_allowed("./out/OtherFile.sol", FsAccessKind::Write)
+            .is_ok());
     }
 }

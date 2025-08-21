@@ -25,6 +25,7 @@ impl StateDiff {
                 info: account_info,
                 storage: HashMap::new(),
                 status: AccountStatus::Touched,
+                transaction_id: 0,
             });
     }
 
@@ -53,6 +54,7 @@ impl StateDiff {
                     info: account_info.unwrap_or_default(),
                     storage,
                     status: AccountStatus::Created | AccountStatus::Touched,
+                    transaction_id: 0,
                 }
             });
     }

@@ -364,3 +364,23 @@ pub struct ContractData {
     /// Contract runtime code.
     pub deployed_bytecode: Option<Bytes>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serde_compiler_input() {
+        // these were taken from a run of TypeScript function compileLiteral
+        let compiler_input_json = include_str!("../fixtures/compiler_input.json");
+
+        let _compiler_input: CompilerInput = serde_json::from_str(compiler_input_json).unwrap();
+    }
+
+    #[test]
+    fn serde_compiler_output() {
+        // these were taken from a run of TypeScript function compileLiteral
+        let compiler_output_json = include_str!("../fixtures/compiler_output.json");
+        let _compiler_output: CompilerOutput = serde_json::from_str(compiler_output_json).unwrap();
+    }
+}

@@ -7,12 +7,15 @@ use edr_evm::eips::{
 };
 use edr_napi_core::{
     logger::Logger,
-    provider::{self, ProviderBuilder, SyncProviderFactory},
-    spec::SyncNapiSpec as _,
-    subscription,
+    provider::{SyncProvider, SyncProviderFactory},
+    subscription::subscriber_callback_for_chain_spec,
 };
+use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
-use napi::bindgen_prelude::{BigInt, Uint8Array};
+use napi::{
+    bindgen_prelude::{BigInt, Uint8Array},
+    tokio::runtime,
+};
 use napi_derive::napi;
 
 use crate::{account::AccountOverride, provider::ProviderFactory};
@@ -20,33 +23,36 @@ use crate::{account::AccountOverride, provider::ProviderFactory};
 pub struct L1ProviderFactory;
 
 impl SyncProviderFactory for L1ProviderFactory {
-    fn create_provider_builder(
+    fn create_provider(
         &self,
-        env: &napi::Env,
+        runtime: runtime::Handle,
         provider_config: edr_napi_core::provider::Config,
         logger_config: edr_napi_core::logger::Config,
-        subscription_config: edr_napi_core::subscription::Config,
+        subscription_callback: edr_napi_core::subscription::Callback,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder>> {
-        let logger = Logger::<L1ChainSpec>::new(logger_config, Arc::clone(&contract_decoder))?;
+    ) -> napi::Result<Arc<dyn SyncProvider>> {
+        let logger =
+            Logger::<L1ChainSpec, CurrentTime>::new(logger_config, Arc::clone(&contract_decoder))?;
 
         let provider_config =
             edr_provider::ProviderConfig::<l1::SpecId>::try_from(provider_config)?;
 
-        let subscription_callback =
-            subscription::Callback::new(env, subscription_config.subscription_callback)?;
-
-        Ok(Box::new(ProviderBuilder::new(
-            contract_decoder,
+        let provider = edr_provider::Provider::<L1ChainSpec>::new(
+            runtime.clone(),
             Box::new(logger),
+            subscriber_callback_for_chain_spec::<L1ChainSpec, CurrentTime>(subscription_callback),
             provider_config,
-            subscription_callback,
-        )))
+            contract_decoder,
+            CurrentTime,
+        )
+        .map_err(|error| napi::Error::new(napi::Status::GenericFailure, error.to_string()))?;
+
+        Ok(Arc::new(provider))
     }
 }
 
 #[napi]
-pub const L1_CHAIN_TYPE: &str = L1ChainSpec::CHAIN_TYPE;
+pub const L1_CHAIN_TYPE: &str = edr_eth::l1::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
 pub fn l1_genesis_state(hardfork: SpecId) -> Vec<AccountOverride> {

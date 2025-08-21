@@ -63,10 +63,10 @@ pub struct FuzzTestData<
     pub coverage: Option<HitMaps>,
     // Stores logs for all fuzz cases
     pub logs: Vec<Log>,
-    // Deprecated cheatcodes mapped to their replacements.
-    pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
     // Stores gas snapshots for all fuzz cases
     pub gas_snapshots: BTreeMap<String, BTreeMap<String, String>>,
+    // Deprecated cheatcodes mapped to their replacements.
+    pub deprecated_cheatcodes: HashMap<&'static str, Option<&'static str>>,
 }
 
 /// Wrapper around an [`Executor`] which provides fuzzing support using
@@ -250,7 +250,7 @@ impl<
                     // since that input represents the last run case, which may not correspond with
                     // our failure - when a fuzz case fails, proptest will try to run at least one
                     // more case to find a minimal failure case.
-                    let reason = rd.maybe_decode(&outcome.call.result, Some(status));
+                    let reason = rd.maybe_decode(&outcome.call.result, status);
                     execution_data
                         .borrow_mut()
                         .logs

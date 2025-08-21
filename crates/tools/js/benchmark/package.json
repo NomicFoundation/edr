@@ -1,8 +1,6 @@
 {
   "name": "benchmark",
-  "description": "",
   "version": "1.0.0",
-  "author": "",
   "dependencies": {
     "@nomicfoundation/hardhat-utils": "3.0.0-next.0"
   },
@@ -21,7 +19,7 @@
     "eslint-plugin-import": "2.27.5",
     "eslint-plugin-prettier": "5.2.1",
     "hardhat": "3.0.0-next.4",
-    "hardhat2": "npm:hardhat@2.23.1-alpha.0",
+    "hardhat2": "npm:hardhat@2.26.1",
     "lodash": "^4.17.11",
     "prettier": "^3.2.5",
     "simple-git": "^3.25.0",

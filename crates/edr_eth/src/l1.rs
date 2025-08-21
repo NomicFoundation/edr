@@ -7,19 +7,25 @@ pub use revm_primitives::hardfork::{self, SpecId};
 
 use crate::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
-    spec::{ChainSpec, EthHeaderConstants},
+    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     transaction,
 };
+
+/// L1 Ethereum chain type
+pub const CHAIN_TYPE: &str = "L1";
 
 /// The chain specification for Ethereum Layer 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct L1ChainSpec;
 
+impl ChainHardfork for L1ChainSpec {
+    type Hardfork = SpecId;
+}
+
 impl ChainSpec for L1ChainSpec {
     type BlockEnv = BlockEnv;
     type Context = ();
     type HaltReason = HaltReason;
-    type Hardfork = SpecId;
     type SignedTransaction = transaction::Signed;
 }
 

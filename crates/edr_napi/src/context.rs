@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
 use edr_eth::HashMap;
-use edr_napi_core::{
-    provider::{self, SyncProviderFactory},
-    solidity,
-};
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_napi_core::{provider::SyncProviderFactory, solidity};
 use edr_solidity_tests::{
     decode::RevertDecoder,
     multi_runner::{SuiteResultAndArtifactId, TestContract, TestContracts},
@@ -22,7 +18,7 @@ use napi_derive::napi;
 use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
-    config::{ProviderConfig, TracingConfigWithBuffers},
+    config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
     logger::LoggerConfig,
     provider::{Provider, ProviderFactory},
     solidity_tests::{
@@ -77,26 +73,21 @@ impl EdrContext {
             };
         }
 
-        let provider_config = try_or_reject_promise!(provider_config.resolve(&env));
-
-        let logger_config = try_or_reject_promise!(logger_config.resolve(&env));
-
-        // TODO: https://github.com/NomicFoundation/edr/issues/760
-        let build_info_config = try_or_reject_promise!(
-            edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers(
-                (&edr_napi_core::solidity::config::TracingConfigWithBuffers::from(tracing_config))
-                    .into(),
-            )
-            .map_err(|error| napi::Error::from_reason(error.to_string()))
-        );
-
-        let contract_decoder = try_or_reject_promise!(ContractDecoder::new(&build_info_config)
-            .map_or_else(
-                |error| Err(napi::Error::from_reason(error.to_string())),
-                |contract_decoder| Ok(Arc::new(contract_decoder))
-            ));
-
         let runtime = runtime::Handle::current();
+
+        let ConfigResolution {
+            contract_decoder,
+            logger_config,
+            provider_config,
+            subscription_callback,
+        } = try_or_reject_promise!(resolve_configs(
+            &env,
+            runtime.clone(),
+            provider_config,
+            logger_config,
+            subscription_config,
+            tracing_config
+        ));
 
         #[cfg(feature = "scenarios")]
         let scenario_file =
@@ -106,31 +97,32 @@ impl EdrContext {
                 logger_config.enable,
             )));
 
-        let builder = {
+        let factory = {
             // TODO: https://github.com/NomicFoundation/edr/issues/760
             // TODO: Don't block the JS event loop
             let context = runtime.block_on(async { self.inner.lock().await });
 
-            try_or_reject_promise!(context.create_provider_builder(
-                &env,
-                &chain_type,
-                provider_config,
-                logger_config,
-                subscription_config.into(),
-                &contract_decoder,
-            ))
+            try_or_reject_promise!(context.get_provider_factory(&chain_type))
         };
 
         runtime.clone().spawn_blocking(move || {
-            let result = builder.build(runtime.clone()).map(|provider| {
-                Provider::new(
-                    provider,
-                    runtime,
-                    contract_decoder,
-                    #[cfg(feature = "scenarios")]
-                    scenario_file,
+            let result = factory
+                .create_provider(
+                    runtime.clone(),
+                    provider_config,
+                    logger_config,
+                    subscription_callback,
+                    Arc::clone(&contract_decoder),
                 )
-            });
+                .map(|provider| {
+                    Provider::new(
+                        provider,
+                        runtime,
+                        contract_decoder,
+                        #[cfg(feature = "scenarios")]
+                        scenario_file,
+                    )
+                });
 
             deferred.resolve(|_env| result);
         });
@@ -204,15 +196,14 @@ impl EdrContext {
                 }
             });
 
-        let config = match config_args.resolve(&env) {
+        let runtime = runtime::Handle::current();
+        let config = match config_args.resolve(&env, runtime.clone()) {
             Ok(config) => config,
             Err(error) => {
                 deferred.reject(error);
                 return Ok(promise);
             }
         };
-
-        let runtime = runtime::Handle::current();
 
         let context = self.inner.clone();
         runtime.clone().spawn(async move {
@@ -282,11 +273,12 @@ impl EdrContext {
 
             let include_traces = config.include_traces.into();
 
+            let runtime_for_factory = runtime.clone();
             let test_runner = try_or_reject_deferred!(runtime
                 .clone()
                 .spawn_blocking(move || {
                     factory.create_test_runner(
-                        runtime,
+                        runtime_for_factory,
                         config,
                         contracts,
                         linking_output.known_contracts,
@@ -298,28 +290,38 @@ impl EdrContext {
                 .await
                 .expect("Failed to join test runner factory thread"));
 
-            let () = try_or_reject_deferred!(test_runner.run_tests(
-                test_filter,
-                Arc::new(
-                    move |SuiteResultAndArtifactId {
-                              artifact_id,
-                              result,
-                          }| {
-                        let suite_result = SuiteResult::new(artifact_id, result, include_traces);
+            let runtime_for_runner = runtime.clone();
+            let () = try_or_reject_deferred!(runtime
+                .clone()
+                .spawn_blocking(move || {
+                    test_runner.run_tests(
+                        runtime_for_runner,
+                        test_filter,
+                        Arc::new(
+                            move |SuiteResultAndArtifactId {
+                                      artifact_id,
+                                      result,
+                                  }| {
+                                let suite_result =
+                                    SuiteResult::new(artifact_id, result, include_traces);
 
-                        let status = on_test_suite_completed_callback
-                            .call(suite_result, ThreadsafeFunctionCallMode::Blocking);
+                                let status = on_test_suite_completed_callback
+                                    .call(suite_result, ThreadsafeFunctionCallMode::Blocking);
 
-                        // This should always succeed since we're using an unbounded queue. We add
-                        // an assertion for completeness.
-                        assert_eq!(
+                                // This should always succeed since we're using an unbounded queue.
+                                // We add an assertion for
+                                // completeness.
+                                assert_eq!(
                             status,
                             napi::Status::Ok,
                             "Failed to call on_test_suite_completed_callback with status: {status}"
                         );
-                    }
-                ),
-            ));
+                            },
+                        ),
+                    )
+                })
+                .await
+                .expect("Failed to join test runner thread"));
 
             deferred.resolve(move |_env| Ok(()));
         });
@@ -400,23 +402,12 @@ impl Context {
 
     /// Tries to create a new provider for the provided chain type and
     /// configuration.
-    pub fn create_provider_builder(
+    pub fn get_provider_factory(
         &self,
-        env: &napi::Env,
         chain_type: &str,
-        provider_config: edr_napi_core::provider::Config,
-        logger_config: edr_napi_core::logger::Config,
-        subscription_config: edr_napi_core::subscription::Config,
-        contract_decoder: &Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder>> {
+    ) -> napi::Result<Arc<dyn SyncProviderFactory>> {
         if let Some(factory) = self.provider_factories.get(chain_type) {
-            factory.create_provider_builder(
-                env,
-                provider_config,
-                logger_config,
-                subscription_config,
-                contract_decoder.clone(),
-            )
+            Ok(Arc::clone(factory))
         } else {
             Err(napi::Error::new(
                 napi::Status::GenericFailure,

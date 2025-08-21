@@ -1,46 +1,7 @@
 use edr_eth::{l1::L1ChainSpec, Address, Bytes, B256, U128, U160, U256};
-use edr_provider::{
-    hardhat_rpc_types::{ResetForkConfig, ResetProviderConfig},
-    MethodInvocation,
-};
-use edr_solidity::artifacts::{CompilerInput, CompilerOutput};
+use edr_provider::MethodInvocation;
 
 use crate::common::help_test_method_invocation_serde;
-
-#[test]
-fn serde_hardhat_compiler() {
-    // these were taken from a run of TypeScript function compileLiteral
-    let compiler_input_json = include_str!("../fixtures/compiler_input.json");
-    let compiler_output_json = include_str!("../fixtures/compiler_output.json");
-
-    let call = MethodInvocation::<L1ChainSpec>::AddCompilationResult(
-        String::from("0.8.0"),
-        Box::new(serde_json::from_str::<CompilerInput>(compiler_input_json).unwrap()),
-        serde_json::from_str::<CompilerOutput>(compiler_output_json).unwrap(),
-    );
-
-    help_test_method_invocation_serde(call.clone());
-
-    match call {
-        MethodInvocation::AddCompilationResult(_, ref input, ref output) => {
-            assert_eq!(
-                serde_json::to_value(input).unwrap(),
-                serde_json::to_value(
-                    serde_json::from_str::<CompilerInput>(compiler_input_json).unwrap()
-                )
-                .unwrap(),
-            );
-            assert_eq!(
-                serde_json::to_value(output).unwrap(),
-                serde_json::to_value(
-                    serde_json::from_str::<CompilerOutput>(compiler_output_json).unwrap()
-                )
-                .unwrap(),
-            );
-        }
-        _ => panic!("method invocation should have been AddCompilationResult"),
-    }
-}
 
 #[test]
 fn serde_hardhat_drop_transaction() {
@@ -62,11 +23,6 @@ fn serde_hardhat_impersonate_account() {
 }
 
 #[test]
-fn serde_hardhat_interval_mine() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::IntervalMine(()));
-}
-
-#[test]
 fn serde_hardhat_metadata() {
     help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::Metadata(()));
 }
@@ -82,19 +38,6 @@ fn serde_hardhat_mine() {
     let deserialized: MethodInvocation<L1ChainSpec> = serde_json::from_str(json)
         .unwrap_or_else(|_| panic!("should have successfully deserialized json {json}"));
     assert_eq!(MethodInvocation::Mine(None, None), deserialized);
-}
-
-#[test]
-fn serde_hardhat_reset() {
-    help_test_method_invocation_serde(MethodInvocation::<L1ChainSpec>::Reset(Some(
-        ResetProviderConfig {
-            forking: Some(ResetForkConfig {
-                json_rpc_url: String::from("http://whatever.com/whatever"),
-                block_number: Some(123456),
-                http_headers: None,
-            }),
-        },
-    )));
 }
 
 #[test]

@@ -17,6 +17,7 @@ import {
   UnexpectedError,
   UnsafeToReplay,
   opSolidityTestRunnerFactory,
+  SuiteResult,
 } from "@nomicfoundation/edr";
 import {
   buildSolidityTestsInput,
@@ -133,7 +134,7 @@ export class TestContext {
         }
       }
     }
-    return { totalTests, failedTests, stackTraces, callTraces };
+    return { totalTests, failedTests, stackTraces, callTraces, suiteResults };
   }
 
   matchingTest(contractName: string): ArtifactId[] {
@@ -158,6 +159,7 @@ interface SolidityTestsRunResult {
     }
   >;
   callTraces: Map<string, CallTrace[]>;
+  suiteResults: SuiteResult[];
 }
 
 type ActualStackTraceResult =
@@ -171,6 +173,8 @@ export function assertStackTraces(
   expectedEntries: {
     function: string;
     contract: string;
+    message?: string;
+    line?: number;
   }[]
 ) {
   if (
@@ -181,6 +185,13 @@ export function assertStackTraces(
   ) {
     throw new Error("Stack trace is undefined");
   }
+
+  if (actual.reason === undefined || !actual.reason.includes(expectedReason)) {
+    throw new Error(
+      `Expected stack trace reason to include '${expectedReason}', but got '${actual.reason}'`
+    );
+  }
+
   if (actual.stackTrace.kind === "HeuristicFailed") {
     throw new Error("Stack trace result is 'HeuristicFailed'");
   }
@@ -211,6 +222,19 @@ export function assertStackTraces(
     assert.equal(sourceReference.contract, expected.contract);
     assert.equal(sourceReference.function, expected.function);
     assert(sourceReference.sourceContent.includes(expected.function));
+    if (expected.line !== undefined) {
+      assert.equal(sourceReference.line, expected.line);
+    }
+    if (expected.message !== undefined) {
+      assert(
+        stackTrace.entries[i].message == expected.message,
+        `Expected message '${expected.message}' not found in entry: ${JSON.stringify(
+          stackTrace.entries[i],
+          null,
+          2
+        )}`
+      );
+    }
   }
 }
 

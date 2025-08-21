@@ -1,7 +1,6 @@
 {
   "name": "hardhat-edr-tests",
-  "version": "1.0.0",
-  "author": "Nomic Foundation",
+  "version": "0.0.0",
   "devDependencies": {
     "@metamask/eth-sig-util": "^4.0.0",
     "@nomicfoundation/edr": "workspace:*",
@@ -39,7 +38,7 @@
     "ethereumjs-abi": "^0.6.8",
     "ethers": "^6.1.0",
     "fs-extra": "^7.0.1",
-    "hardhat": "2.23.1-alpha.0",
+    "hardhat": "2.26.1",
     "mocha": "^10.0.0",
     "prettier": "^3.2.5",
     "rimraf": "^3.0.2",
@@ -51,6 +50,7 @@
   },
   "homepage": "https://hardhat.org",
   "license": "MIT",
+  "private": true,
   "repository": "github:NomicFoundation/edr",
   "scripts": {
     "build": "pnpm run build:dev",

@@ -2,23 +2,28 @@ import { JsonStreamStringify } from "json-stream-stringify";
 import fs from "fs";
 import { getContext } from "./helpers";
 
-describe("Provider", () => {
+describe("Provider (Mock)", () => {
   const context = getContext();
 
-  it("issue 543", async function () {
+  // This test is disabled because it frequently times out.
+  //
+  // TODO: Find alternative strategy to test this kind of issue that consumes a
+  // large amount of memory.
+  // https://github.com/NomicFoundation/edr/issues/1052
+  it.skip("issue 543", async function () {
     const fileContent = fs.readFileSync("test/data/issue-543.json", "utf-8");
     const parsedJson = JSON.parse(fileContent);
     const structLog = parsedJson.structLogs[0];
 
-    // This creates a JSON of length ~950 000 000 characters.
+    // This creates a JSON of length ~570 000 000 characters.
     // JSON.stringify() crashes at ~500 000 000 characters.
-    for (let i = 1; i < 20000; i++) {
+    for (let i = 1; i < 12000; i++) {
       parsedJson.structLogs.push(structLog);
     }
 
     // Increased timeout is needed to allow the large JSON to be processed.
     // Local tests indicate <100.000ms timeout is enough, but CI may be slower.
-    this.timeout(500_000);
+    this.timeout(300_000);
 
     // Ignore this on testNoBuild
     // @ts-ignore

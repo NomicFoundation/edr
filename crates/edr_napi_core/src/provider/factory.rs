@@ -1,18 +1,23 @@
 use std::sync::Arc;
 
 use edr_solidity::contract_decoder::ContractDecoder;
+use tokio::runtime;
 
-use crate::{logger, provider, subscription};
+use crate::{
+    logger,
+    provider::{self, SyncProvider},
+    subscription,
+};
 
-/// Trait for creating a new provider using the builder pattern.
+/// Trait for creating a new provider.
 pub trait SyncProviderFactory: Send + Sync {
-    /// Creates a `ProviderBuilder` that.
-    fn create_provider_builder(
+    /// Creates a new provider.
+    fn create_provider(
         &self,
-        env: &napi::Env,
+        runtime: runtime::Handle,
         provider_config: provider::Config,
         logger_config: logger::Config,
-        subscription_config: subscription::Config,
+        subscription_callback: subscription::Callback,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Box<dyn provider::Builder>>;
+    ) -> napi::Result<Arc<dyn SyncProvider>>;
 }

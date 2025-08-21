@@ -45,16 +45,14 @@ const RPC_CACHE_PATH = "./edr-cache";
 const TOTAL_NAME = "Total";
 const TOTAL_EXPECTED_RESULTS = 15;
 
-const DEFAULT_SAMPLES = 5;
-
 // Map of test suites to benchmark individually to number of samples (how many times to run the test suite)
 export const FORGE_STD_SAMPLES = {
-  [TOTAL_NAME]: DEFAULT_SAMPLES,
-  StdCheatsTest: DEFAULT_SAMPLES,
+  [TOTAL_NAME]: 5,
+  StdCheatsTest: 25,
   StdCheatsForkTest: 45,
-  StdMathTest: 45,
-  StdStorageTest: DEFAULT_SAMPLES,
-  StdUtilsForkTest: 15,
+  StdMathTest: 65,
+  StdStorageTest: 5,
+  StdUtilsForkTest: 25,
 };
 
 const REPO_DIR = "forge-std";
@@ -94,12 +92,12 @@ export async function runSolidityTests(
     throw new Error(`Didn't run any tests for ${repoPath}`);
   }
 
-  results.sort((a, b) => Number(a.durationMs - b.durationMs));
+  results.sort((a, b) => Number(a.durationNs - b.durationNs));
   for (const result of results) {
-    console.log(result.id.name, result.durationMs, result.id.source);
+    console.log(result.id.name, result.durationNs / 1000000n, result.id.source);
     for (const test of result.testResults) {
       // @ts-ignore
-      console.log("  ", test.name, test.durationMs, test.kind.runs);
+      console.log("  ", test.name, test.durationNs / 1000000n, test.kind.runs);
     }
   }
 
@@ -346,7 +344,7 @@ async function createSolidityTestsInput(repoPath: string) {
   solidityTestsConfig.rpcCachePath = RPC_CACHE_PATH;
   const rootPermission = {
     path: repoPath,
-    access: FsAccessPermission.ReadWrite,
+    access: FsAccessPermission.DangerouslyReadWriteDirectory,
   };
   if (solidityTestsConfig.fsPermissions !== undefined) {
     solidityTestsConfig.fsPermissions.push(rootPermission);

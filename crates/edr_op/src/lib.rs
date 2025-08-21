@@ -7,6 +7,8 @@
 
 /// Types for OP blocks.
 pub mod block;
+/// Types for OP's EIP-1559 base fee parameters.
+pub mod eip1559;
 /// Types for OP's EIP-2718 envelope.
 pub mod eip2718;
 /// OP harforks.
