@@ -10,7 +10,6 @@ mod reorg;
 mod reward;
 
 use alloy_rlp::{BufMut, Decodable, RlpDecodable, RlpEncodable};
-pub use revm_context_interface::Block;
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
 pub use self::{

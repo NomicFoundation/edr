@@ -1,0 +1,11 @@
+[package]
+name = "edr_eip7702"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+revm-context-interface.workspace = true
+revm-primitives.workspace = true
+
+[lints]
+workspace = true

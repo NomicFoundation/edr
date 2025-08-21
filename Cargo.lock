@@ -2310,6 +2310,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip1559"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+]
+
+[[package]]
+name = "edr_eip2930"
+version = "0.3.8"
+dependencies = [
+ "revm-context-interface",
+]
+
+[[package]]
+name = "edr_eip7702"
+version = "0.3.8"
+dependencies = [
+ "revm-context-interface",
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_eth"
 version = "0.3.8"
 dependencies = [
@@ -2322,6 +2344,7 @@ dependencies = [
  "c-kzg",
  "derive-where",
  "edr_defaults",
+ "edr_evm_spec",
  "edr_rpc_eth",
  "edr_test_utils",
  "hash-db",
@@ -2336,7 +2359,6 @@ dependencies = [
  "paste",
  "revm-bytecode",
  "revm-context",
- "revm-context-interface",
  "revm-primitives",
  "revm-state",
  "serde",
@@ -2393,6 +2415,17 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "edr_evm_spec"
+version = "0.3.8"
+dependencies = [
+ "edr_eip1559",
+ "edr_eip2930",
+ "edr_eip7702",
+ "revm-context-interface",
+ "revm-primitives",
 ]
 
 [[package]]

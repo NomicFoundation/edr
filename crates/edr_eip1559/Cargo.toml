@@ -1,0 +1,10 @@
+[package]
+name = "edr_eip1559"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-eips.workspace = true
+
+[lints]
+workspace = true

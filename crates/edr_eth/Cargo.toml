@@ -11,6 +11,7 @@ alloy-serde.workspace = true
 auto_impl = { version = "1.2", default-features = false }
 c-kzg.workspace = true
 derive-where.workspace = true
+edr_evm_spec.workspace = true
 hash-db = { version = "0.15.2", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
 hashbrown = { version = "0.14.3", default-features = false, features = ["ahash", "allocator-api2", "inline-more"] }
@@ -21,7 +22,6 @@ log = { version = "0.4.17", default-features = false }
 once_cell = { version = "1.19.0", default-features = false, features = ["alloc", "race", "std"] }
 revm-bytecode.workspace = true
 revm-context.workspace = true
-revm-context-interface.workspace = true
 revm-primitives.workspace = true
 revm-state.workspace = true
 serde = { workspace = true, optional = true }
