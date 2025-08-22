@@ -2,14 +2,11 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    eips::eip1559::{
-        BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams,
-    },
+    eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition},
     l1,
     log::FilterLog,
     Address, HashSet, B256, U256,
 };
-use itertools::Itertools;
 
 use super::{
     compute_state_at_block,
@@ -18,6 +15,7 @@ use super::{
     BlockchainMut,
 };
 use crate::{
+    blockchain::base_fee_params_for_chain,
     spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
@@ -92,14 +90,9 @@ where
             total_difficulty,
         );
 
-        let base_fee_params = chain_base_fee_params_override.map_or(
-            (*ChainSpecT::base_fee_params()).clone(),
-            |params| {
-                BaseFeeParams::Variable(VariableBaseFeeParams::new(
-                    params.clone().into_iter().collect_vec(),
-                ))
-            },
-        );
+        let base_fee_params =
+            base_fee_params_for_chain::<ChainSpecT>(chain_base_fee_params_override);
+
         Ok(Self {
             storage,
             chain_id,

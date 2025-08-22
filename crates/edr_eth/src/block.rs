@@ -389,27 +389,6 @@ impl From<Header> for PartialHeader {
     }
 }
 
-/// Calculates the next base fee per gas for a post-London block, given the
-/// parent's header and the base fee parameters provided by
-/// [`EthHeaderConstants`].
-///
-/// # Panics
-///
-/// Panics if the parent header does not contain a base fee.
-pub fn calculate_next_base_fee_per_gas_for_chain_spec<ChainSpecT: EthHeaderConstants>(
-    hardfork: ChainSpecT::Hardfork,
-    parent: &Header,
-) -> u128 {
-    let base_fee_params = ChainSpecT::base_fee_params()
-        .at_condition(BaseFeeCondition {
-            hardfork: Some(hardfork),
-            block_number: Some(parent.number), // TODO: should we use next block number since we are calculating the `next_base_fee`?
-            timestamp: Some(parent.timestamp), // TODO: same as block_number
-        }) 
-        .expect("Chain spec must have base fee params for post-London hardforks");
-    calculate_next_base_fee_per_gas(parent, base_fee_params)
-}
-
 /// Calculates the next base fee for a post-London block, given the parent's
 /// header.
 ///

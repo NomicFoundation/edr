@@ -4,7 +4,7 @@ use derive_where::derive_where;
 use edr_eth::{
     account::{Account, AccountStatus},
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
-    eips::eip1559::{BaseFeeParams, VariableBaseFeeParams},
+    eips::eip1559::BaseFeeParams,
     l1,
     log::FilterLog,
     Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
@@ -13,7 +13,6 @@ use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
 };
-use itertools::Itertools;
 use parking_lot::Mutex;
 use tokio::runtime;
 
@@ -28,6 +27,7 @@ use super::{
 };
 use crate::{
     block::EthRpcBlock,
+    blockchain::base_fee_params_for_chain,
     eips::{
         eip2935::{
             add_history_storage_contract_to_state_diff, history_storage_contract,
@@ -290,16 +290,11 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
             }
         }
 
-        let base_fee_params = chain_overrides
-            .get(&remote_chain_id)
-            .and_then(|chain_override| {
-                chain_override.base_fee_params.as_ref().map(|params| {
-                    BaseFeeParams::Variable(VariableBaseFeeParams::new(
-                        params.clone().into_iter().collect_vec(),
-                    ))
-                })
-            })
-            .unwrap_or((*ChainSpecT::base_fee_params()).clone());
+        let base_fee_params = base_fee_params_for_chain::<ChainSpecT>(
+            chain_overrides
+                .get(&remote_chain_id)
+                .and_then(|chain_override| chain_override.base_fee_params.clone()),
+        );
         Ok(Self {
             local_storage: ReservableSparseBlockchainStorage::empty(fork_block_number),
             remote: RemoteBlockchain::new(rpc_client, runtime),

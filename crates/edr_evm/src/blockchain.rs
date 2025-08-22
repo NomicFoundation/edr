@@ -8,9 +8,16 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    eips::eip1559::BaseFeeParams, l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainHardfork,
+    eips::eip1559::{
+        BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams,
+    },
+    l1,
+    log::FilterLog,
+    receipt::ReceiptTrait,
+    spec::{ChainHardfork, EthHeaderConstants},
     Address, HashSet, B256, U256,
 };
+use itertools::Itertools;
 
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
@@ -192,7 +199,23 @@ where
     fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError>;
 
     /// chain base fee eip-1559 parameters
+    // TODO: does it make sense to expose this? or should it only be
+    // `base_fee_params_at` that checks the value at condition?
     fn base_fee_params(&self) -> &BaseFeeParams<ChainSpecT::Hardfork>;
+}
+
+/// build base fee params based on override and chain defaults
+pub fn base_fee_params_for_chain<ChainSpecT: ChainHardfork + EthHeaderConstants>(
+    override_params: Option<
+        Vec<(
+            DynamicBaseFeeCondition<ChainSpecT::Hardfork>,
+            ConstantBaseFeeParams,
+        )>,
+    >,
+) -> BaseFeeParams<ChainSpecT::Hardfork> {
+    override_params.map_or((*ChainSpecT::base_fee_params()).clone(), |params| {
+        BaseFeeParams::Variable(VariableBaseFeeParams::new(params.into_iter().collect_vec()))
+    })
 }
 
 /// Trait for implementations of a mutable Ethereum blockchain
