@@ -64,15 +64,19 @@ interface RepoData {
   patchFile?: string;
 }
 
+// The external repos are patched with a Hardhat 3 config and to make sure that results are comparable (e.g. by setting fuzz seeds for both HH3 and Foundry or explicitly setting the solc version).
 export const REPOS: Record<string, RepoData> = {
   "forge-std": {
     url: "https://github.com/NomicFoundation/forge-std.git",
     commit: "a3dca253700f19f15b1837c57c67b9388f5cc3fb",
+    // Some tests for cheatcodes not supported by EDR have been commented out.
+    // Tests that write files on disk have been edited for improved reliability.
     patchFile: "forge-std.patch",
   },
   "morpho-blue": {
     url: "https://github.com/morpho-org/morpho-blue.git",
     commit: "8eb9c89d3b24866ce9fef7c1d18b34427e937843",
+    // Inline `allow_internal_expect_revert = true` config was replaced by the global one, as HH3 doesn't support inline configuration yet.
     patchFile: "morpho-blue.patch",
   },
   "prb-math": {
@@ -83,11 +87,14 @@ export const REPOS: Record<string, RepoData> = {
   solady: {
     url: "https://github.com/Vectorized/solady.git",
     commit: "271807270b1e14e541a231ff76a869accca7546d",
+    // Deleted files specified in the `skip` option in foundry.toml as HH3 doesn't support this option.
+    // Removed remappings from foundry.toml and created remappings.txt as HH3 only supports the latter.
     patchFile: "solady.patch",
   },
   "uniswap-v4-core": {
     url: "https://github.com/Uniswap/v4-core.git",
     commit: "59d3ecf53afa9264a16bba0e38f4c5d2231f80bc",
+    // Global fuzz runs config was reduced to 10 to match the inline config for one test, as HH3 doesn't support inline configuration yet.
     patchFile: "uniswap-v4-core.patch",
   },
 };

@@ -13,10 +13,10 @@ index 4bedfa5..925c6cf 100644
    fuzz = { runs = 10_000, max_test_rejects = 100_000 }
 diff --git a/hardhat.config.js b/hardhat.config.js
 new file mode 100644
-index 0000000..8d431f0
+index 0000000..66f3aa0
 --- /dev/null
 +++ b/hardhat.config.js
-@@ -0,0 +1,25 @@
+@@ -0,0 +1,26 @@
 +module.exports = {
 +"paths": {
 +  "sources": "src",
@@ -35,6 +35,7 @@ index 0000000..8d431f0
 +  }
 +},
 +"solidityTest": {
++  "allowInternalExpectRevert": true,
 +  "fuzz": {
 +    "runs": 256
 +  },

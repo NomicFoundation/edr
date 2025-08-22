@@ -318,7 +318,7 @@ index 03fea9c..0000000
 -The most intended usage pattern is to place it at the end of an `execute` function.
 \ No newline at end of file
 diff --git a/foundry.toml b/foundry.toml
-index 6afdd63..f9bff14 100644
+index 6afdd63..3b103e2 100644
 --- a/foundry.toml
 +++ b/foundry.toml
 @@ -5,16 +5,13 @@
@@ -326,7 +326,7 @@ index 6afdd63..f9bff14 100644
  [profile.default]
  solc_version = "0.8.30"
 -evm_version = "paris" # Cancun will be tested in the CI.
-+evm_version = "cancun" # Changed to Cancun as Hardhat doesn't support the skip option
++evm_version = "paris"
  auto_detect_solc = false
  optimizer = true
  optimizer_runs = 1_000
@@ -341,10 +341,10 @@ index 6afdd63..f9bff14 100644
  skip = ["*/g/*", "*/*7702*", "*/*Transient*", "*/ext/ithaca/*", "*/ext/zksync/*"]
 diff --git a/hardhat.config.js b/hardhat.config.js
 new file mode 100644
-index 0000000..2bf52c4
+index 0000000..a46a72f
 --- /dev/null
 +++ b/hardhat.config.js
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,34 @@
 +module.exports = {
 +"paths": {
 +  "sources": "src",
@@ -359,8 +359,7 @@ index 0000000..2bf52c4
 +      "enabled": true,
 +      "runs": 1000
 +    },
-+    "evmVersion": "cancun",
-+    "viaIR": true
++    "evmVersion": "paris"
 +  }
 +},
 +"solidityTest": {
