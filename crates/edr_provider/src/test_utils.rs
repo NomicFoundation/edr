@@ -4,14 +4,14 @@ use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 use anyhow::anyhow;
 use edr_eth::{
     block::{self, BlobGas},
-    eips::eip7702,
     l1::{self, L1ChainSpec},
     signature::{public_key_to_address, secret_key_from_str, SignatureWithYParity},
-    transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
+    transaction::{self, request::TransactionRequestAndSender, TxKind},
     trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, U160, U256,
 };
 use edr_evm::Block as _;
+use edr_evm_spec::TransactionValidation;
 use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use k256::SecretKey;
@@ -302,9 +302,9 @@ impl ProviderTestFixture<L1ChainSpec> {
 
 /// Signs an authorization with the provided secret key.
 pub fn sign_authorization(
-    authorization: eip7702::Authorization,
+    authorization: edr_eip7702::Authorization,
     secret_key: &SecretKey,
-) -> anyhow::Result<eip7702::SignedAuthorization> {
+) -> anyhow::Result<edr_eip7702::SignedAuthorization> {
     let signature = SignatureWithYParity::with_message(authorization.signature_hash(), secret_key)?;
 
     Ok(authorization.into_signed(signature.into_inner()))

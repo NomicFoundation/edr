@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use edr_eth::{
     l1,
-    spec::ChainHardfork,
-    transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
+    transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType},
 };
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
+use edr_evm_spec::{ChainHardfork, TransactionValidation};
 use edr_solidity::{
     artifacts::{CompilerInput, CompilerOutput},
     contract_decoder::ContractDecoder,

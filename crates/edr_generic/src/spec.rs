@@ -1,16 +1,12 @@
 use std::sync::Arc;
 
+use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
-    eips::{
-        eip1559::BaseFeeParams,
-        eip4844::{self, blob_base_fee_update_fraction, BlobExcessGasAndPrice},
-    },
+    eips::eip4844::{self, blob_base_fee_update_fraction, BlobExcessGasAndPrice},
     l1::{self, BlockEnv, InvalidTransaction, L1ChainSpec},
     log::FilterLog,
     receipt::BlockReceipt,
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
-    transaction::TransactionValidation,
     Bytes, U256,
 };
 use edr_evm::{
@@ -28,6 +24,7 @@ use edr_evm::{
     BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock,
     EthLocalBlockForChainSpec, RemoteBlock, SyncBlock,
 };
+use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, TransactionValidation};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 
 use crate::GenericChainSpec;

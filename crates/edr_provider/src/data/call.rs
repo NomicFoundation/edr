@@ -1,7 +1,4 @@
-use edr_eth::{
-    block::Header, l1, result::ExecutionResult, transaction::TransactionValidation, Address,
-    HashMap,
-};
+use edr_eth::{block::Header, l1, result::ExecutionResult, Address, HashMap};
 use edr_evm::{
     blockchain::{BlockHash, BlockchainErrorForChainSpec},
     config::CfgEnv,
@@ -11,6 +8,7 @@ use edr_evm::{
     spec::ContextForChainSpec,
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
 };
+use edr_evm_spec::TransactionValidation;
 
 use crate::{
     error::ProviderErrorForChainSpec, time::TimeSinceEpoch, ProviderError, SyncProviderSpec,

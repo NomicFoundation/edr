@@ -5,9 +5,9 @@ use std::sync::Arc;
 use edr_eth::{
     eips::eip4844::GAS_PER_BLOB,
     l1::{self, L1ChainSpec},
-    transaction::ExecutableTransaction as _,
     PreEip1898BlockSpec, B256,
 };
+use edr_evm_spec::ExecutableTransaction as _;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,

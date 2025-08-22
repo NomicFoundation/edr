@@ -1,7 +1,5 @@
-use edr_eth::{
-    block::PartialHeader, eips::eip1559::ConstantBaseFeeParams, spec::EthHeaderConstants,
-    trie::KECCAK_NULL_RLP, Address, HashMap, U256,
-};
+use edr_eip1559::ConstantBaseFeeParams;
+use edr_eth::{block::PartialHeader, trie::KECCAK_NULL_RLP, Address, HashMap, U256};
 use edr_evm::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -12,6 +10,7 @@ use edr_evm::{
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionErrorForChainSpec,
     EthBlockBuilder, MineBlockResultAndState,
 };
+use edr_evm_spec::EthHeaderConstants as _;
 use op_revm::{L1BlockInfo, OpHaltReason};
 
 use crate::{

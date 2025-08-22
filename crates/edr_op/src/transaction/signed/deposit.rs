@@ -1,11 +1,6 @@
 use alloy_rlp::Encodable;
-use edr_eth::{
-    eips::{eip2930, eip7702},
-    keccak256,
-    transaction::{ExecutableTransaction, TxKind},
-    utils::enveloped,
-    Address, Bytes, B256, U256,
-};
+use edr_eth::{keccak256, transaction::TxKind, utils::enveloped, Address, Bytes, B256, U256};
+use edr_evm_spec::ExecutableTransaction;
 
 use super::Deposit;
 
@@ -66,7 +61,7 @@ impl ExecutableTransaction for Deposit {
         None
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         Some(&[])
     }
 
@@ -96,7 +91,7 @@ impl ExecutableTransaction for Deposit {
         None
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         None
     }
 
@@ -117,11 +112,8 @@ impl ExecutableTransaction for Deposit {
 mod tests {
     use std::{str::FromStr as _, sync::OnceLock};
 
-    use edr_eth::{
-        address, b256,
-        transaction::{ExecutableTransaction as _, TxKind},
-        Bytes, U256,
-    };
+    use edr_eth::{address, b256, transaction::TxKind, Bytes, U256};
+    use edr_evm_spec::ExecutableTransaction as _;
 
     use super::*;
     use crate::transaction;

@@ -8,7 +8,7 @@ use std::{
 
 use alloy_primitives::{map::AddressHashMap, Address, Log};
 use derive_where::derive_where;
-use edr_eth::spec::HaltReasonTrait;
+use edr_evm_spec::HaltReasonTrait;
 use foundry_evm::{
     coverage::HitMaps,
     evm_context::{

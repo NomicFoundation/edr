@@ -1,20 +1,17 @@
 //! Test helpers for Forge integration tests.
 
 mod config;
+mod tracing;
+
 pub use config::{assert_multiple, TestConfig};
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
-use edr_eth::{
-    l1::{self, BlockEnv},
-    spec::HaltReasonTrait,
-};
-pub use solidity_test_filter::SolidityTestFilter;
-mod tracing;
-
 use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf};
 
 use alloy_primitives::{Bytes, U256};
+use edr_eth::l1::{self, BlockEnv};
+use edr_evm_spec::HaltReasonTrait;
 use edr_solidity::{
     artifacts::ArtifactId,
     linker::{LinkOutput, Linker},
@@ -50,6 +47,7 @@ use foundry_evm::{
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+pub use solidity_test_filter::SolidityTestFilter;
 
 use crate::helpers::{
     config::NoOpContractDecoder, integration_test_config::IntegrationTestConfig,

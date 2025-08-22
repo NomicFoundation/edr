@@ -6,8 +6,12 @@ edition.workspace = true
 [dependencies]
 alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
+edr_eip1559.workspace = true
+edr_eip2930.workspace = true
+edr_eip7702.workspace = true
 edr_eth = { path = "../edr_eth", features = ["serde", "std"] }
 edr_evm = { path = "../edr_evm" }
+edr_evm_spec.workspace = true
 edr_generic = { path = "../edr_generic" }
 edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { path = "../edr_provider" }

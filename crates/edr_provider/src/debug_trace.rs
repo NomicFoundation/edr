@@ -1,12 +1,9 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use edr_eth::{
-    block::Block as _,
     bytecode::opcode::{self, OpCode},
     hex, l1,
     result::{ExecutionResult, ExecutionResultAndState},
-    spec::{ChainSpec, HaltReasonTrait},
-    transaction::{ExecutableTransaction as _, TransactionValidation},
     utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
 };
@@ -24,6 +21,9 @@ use edr_evm::{
     state::SyncState,
     trace::{Trace, TraceCollector},
     transaction::TransactionError,
+};
+use edr_evm_spec::{
+    Block as _, ChainSpec, ExecutableTransaction as _, HaltReasonTrait, TransactionValidation,
 };
 
 use crate::observability::{self, RuntimeObserver};

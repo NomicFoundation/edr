@@ -1,4 +1,5 @@
-use edr_eth::{l1, transaction::TransactionValidation};
+use edr_eth::l1;
+use edr_evm_spec::TransactionValidation;
 
 use crate::{
     data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,

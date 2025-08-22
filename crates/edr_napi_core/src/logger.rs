@@ -3,13 +3,14 @@ use std::{fmt::Display, marker::PhantomData, sync::Arc};
 
 use ansi_term::{Color, Style};
 use derive_where::derive_where;
-use edr_eth::{result::ExecutionResult, transaction::ExecutableTransaction, Bytes, B256, U256};
+use edr_eth::{result::ExecutionResult, Bytes, B256, U256};
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
     precompile::{self, Precompiles},
     trace::{AfterMessage, Trace, TraceMessage},
     Block as _,
 };
+use edr_evm_spec::ExecutableTransaction;
 use edr_provider::{
     time::TimeSinceEpoch, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
     EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,

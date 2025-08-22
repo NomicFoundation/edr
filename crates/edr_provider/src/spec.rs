@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
-pub use edr_eth::spec::EthHeaderConstants;
 use edr_eth::{
-    eips::{eip2930, eip7702},
     l1::L1ChainSpec,
     rlp,
     transaction::{
         signed::{FakeSign, Sign},
-        ExecutableTransaction, IsSupported,
+        IsSupported,
     },
     Address, Blob, BlockSpec, B256,
 };
@@ -18,6 +16,7 @@ use edr_evm::{
     state::StateOverrides,
     transaction, BlockAndTotalDifficulty, BlockReceipts,
 };
+use edr_evm_spec::ExecutableTransaction;
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
@@ -100,7 +99,7 @@ pub trait HardforkValidationData {
     fn max_priority_fee_per_gas(&self) -> Option<&u128>;
 
     /// Returns the access list of the transaction.
-    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>>;
+    fn access_list(&self) -> Option<&Vec<edr_eip2930::AccessListItem>>;
 
     /// Returns the blobs of the transaction.
     fn blobs(&self) -> Option<&Vec<Blob>>;
@@ -109,7 +108,7 @@ pub trait HardforkValidationData {
     fn blob_hashes(&self) -> Option<&Vec<B256>>;
 
     /// Returns the authorization list of the transaction.
-    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>>;
+    fn authorization_list(&self) -> Option<&Vec<edr_eip7702::SignedAuthorization>>;
 }
 
 /// Trait for retrieving the sender of a request, if any.

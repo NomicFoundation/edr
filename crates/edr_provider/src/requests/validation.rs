@@ -1,10 +1,9 @@
 use edr_eth::{
-    eips::{eip2930, eip7702},
-    l1,
-    transaction::{pooled::PooledTransaction, ExecutableTransaction},
-    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
+    l1, transaction::pooled::PooledTransaction, Address, Blob, BlockSpec, BlockTag, Bytes,
+    PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
 };
 use edr_evm::transaction;
+use edr_evm_spec::ExecutableTransaction;
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
@@ -29,7 +28,7 @@ impl HardforkValidationData for TransactionRequest {
         self.max_priority_fee_per_gas.as_ref()
     }
 
-    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
+    fn access_list(&self) -> Option<&Vec<edr_eip2930::AccessListItem>> {
         self.access_list.as_ref()
     }
 
@@ -41,7 +40,7 @@ impl HardforkValidationData for TransactionRequest {
         self.blob_hashes.as_ref()
     }
 
-    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
+    fn authorization_list(&self) -> Option<&Vec<edr_eip7702::SignedAuthorization>> {
         self.authorization_list.as_ref()
     }
 }
@@ -63,7 +62,7 @@ impl HardforkValidationData for CallRequest {
         self.max_priority_fee_per_gas.as_ref()
     }
 
-    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
+    fn access_list(&self) -> Option<&Vec<edr_eip2930::AccessListItem>> {
         self.access_list.as_ref()
     }
 
@@ -75,7 +74,7 @@ impl HardforkValidationData for CallRequest {
         self.blob_hashes.as_ref()
     }
 
-    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
+    fn authorization_list(&self) -> Option<&Vec<edr_eip7702::SignedAuthorization>> {
         self.authorization_list.as_ref()
     }
 }
@@ -104,7 +103,7 @@ impl HardforkValidationData for PooledTransaction {
         ExecutableTransaction::max_priority_fee_per_gas(self)
     }
 
-    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
+    fn access_list(&self) -> Option<&Vec<edr_eip2930::AccessListItem>> {
         match self {
             PooledTransaction::PreEip155Legacy(_) | PooledTransaction::PostEip155Legacy(_) => None,
             PooledTransaction::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
@@ -128,7 +127,7 @@ impl HardforkValidationData for PooledTransaction {
         }
     }
 
-    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
+    fn authorization_list(&self) -> Option<&Vec<edr_eip7702::SignedAuthorization>> {
         match self {
             PooledTransaction::Eip7702(tx) => Some(tx.authorization_list.as_ref()),
             _ => None,
@@ -677,8 +676,8 @@ mod tests {
             max_fee_per_gas: Some(0),
             max_priority_fee_per_gas: Some(0),
             access_list: Some(Vec::new()),
-            authorization_list: Some(vec![eip7702::SignedAuthorization::new_unchecked(
-                eip7702::Authorization {
+            authorization_list: Some(vec![edr_eip7702::SignedAuthorization::new_unchecked(
+                edr_eip7702::Authorization {
                     chain_id: U256::ZERO,
                     address: Address::ZERO,
                     nonce: 1,

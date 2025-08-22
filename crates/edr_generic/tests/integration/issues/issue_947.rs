@@ -4,13 +4,13 @@ use std::str::FromStr as _;
 use edr_eth::{
     address,
     l1::{self, InvalidHeader, L1ChainSpec},
-    transaction::TransactionValidation,
     B256,
 };
 use edr_evm::{
     hardfork::{self, ChainOverride},
     transaction::TransactionError,
 };
+use edr_evm_spec::TransactionValidation;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
     time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, ProviderRequest,

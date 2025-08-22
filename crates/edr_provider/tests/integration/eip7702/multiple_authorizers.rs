@@ -1,6 +1,5 @@
 use edr_eth::{
     address, bytes,
-    eips::eip7702,
     l1::{self, L1ChainSpec},
     signature::public_key_to_address,
     Address, Bytes, U256,
@@ -25,9 +24,9 @@ fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<L1Chain
 fn signed_authorization(
     address: Address,
     secret_key: &SecretKey,
-) -> anyhow::Result<eip7702::SignedAuthorization> {
+) -> anyhow::Result<edr_eip7702::SignedAuthorization> {
     sign_authorization(
-        eip7702::Authorization {
+        edr_eip7702::Authorization {
             chain_id: U256::from(CHAIN_ID),
             address,
             nonce: 0,

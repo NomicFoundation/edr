@@ -1,12 +1,9 @@
 pub use edr_eth::transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
-    eips::{eip2930, eip7702},
-    transaction::{
-        signed::PreOrPostEip155, ExecutableTransaction, IsEip155, TxKind,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
-    },
+    transaction::{signed::PreOrPostEip155, IsEip155, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE},
     Address, Blob, Bytes, B256, U256,
 };
+use edr_evm_spec::ExecutableTransaction;
 use edr_provider::spec::HardforkValidationData;
 
 use super::{Pooled, Signed};
@@ -127,7 +124,7 @@ impl HardforkValidationData for Pooled {
         ExecutableTransaction::max_priority_fee_per_gas(self)
     }
 
-    fn access_list(&self) -> Option<&Vec<eip2930::AccessListItem>> {
+    fn access_list(&self) -> Option<&Vec<edr_eip2930::AccessListItem>> {
         match self {
             Pooled::PreEip155Legacy(_) | Pooled::PostEip155Legacy(_) | Pooled::Deposit(_) => None,
             Pooled::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
@@ -151,7 +148,7 @@ impl HardforkValidationData for Pooled {
         }
     }
 
-    fn authorization_list(&self) -> Option<&Vec<eip7702::SignedAuthorization>> {
+    fn authorization_list(&self) -> Option<&Vec<edr_eip7702::SignedAuthorization>> {
         match self {
             Pooled::Eip7702(tx) => Some(&tx.authorization_list),
             _ => None,
@@ -262,7 +259,7 @@ impl ExecutableTransaction for Pooled {
         }
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         match self {
             Pooled::PreEip155Legacy(tx) => tx.access_list(),
             Pooled::PostEip155Legacy(tx) => tx.access_list(),
@@ -346,7 +343,7 @@ impl ExecutableTransaction for Pooled {
         }
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         match self {
             Pooled::PreEip155Legacy(tx) => tx.authorization_list(),
             Pooled::PostEip155Legacy(tx) => tx.authorization_list(),

@@ -1,9 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{
-    receipt::ReceiptTrait as _, transaction::ExecutableTransaction as _, HashSet, B256, U256,
-};
+use edr_eth::{receipt::ReceiptTrait as _, HashSet, B256, U256};
 use edr_evm::{
     blockchain::{
         BlockHash, Blockchain, BlockchainErrorForChainSpec, BlockchainMut, SyncBlockchain,
@@ -12,6 +10,7 @@ use edr_evm::{
     state::{StateDiff, StateError, StateOverride, SyncState},
     Block as _, BlockAndTotalDifficulty, BlockReceipts,
 };
+use edr_evm_spec::ExecutableTransaction as _;
 
 /// A blockchain with a pending block.
 ///

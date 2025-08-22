@@ -235,7 +235,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{eips::eip7702, Address, BlockSpec};
+    use edr_eth::{Address, BlockSpec};
     use edr_evm::state::StateOverrides;
     use edr_rpc_eth::CallRequest;
 
@@ -313,8 +313,8 @@ mod tests {
 
         let max_fee_per_gas = pending_base_fee(&mut fixture.provider_data)?;
         let max_priority_fee_per_gas = Some(max_fee_per_gas / 2);
-        let authorization_list = Some(vec![eip7702::SignedAuthorization::new_unchecked(
-            eip7702::Authorization {
+        let authorization_list = Some(vec![edr_eip7702::SignedAuthorization::new_unchecked(
+            edr_eip7702::Authorization {
                 chain_id: U256::from(1),
                 address: Address::random(),
                 nonce: 0,
@@ -356,7 +356,7 @@ mod tests {
         assert_eq!(
             resolved
                 .authorization_list()
-                .map(<[edr_eth::eips::eip7702::SignedAuthorization]>::to_vec),
+                .map(<[edr_eip7702::SignedAuthorization]>::to_vec),
             authorization_list
         );
 

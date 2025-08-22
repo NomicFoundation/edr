@@ -2,13 +2,8 @@ use core::cmp;
 use std::sync::Arc;
 
 use edr_eth::{
-    block::Header,
-    l1,
-    receipt::ReceiptTrait as _,
-    result::ExecutionResult,
-    reward_percentile::RewardPercentile,
-    transaction::{ExecutableTransaction as _, TransactionMut, TransactionValidation},
-    Address, HashMap, U256,
+    block::Header, l1, receipt::ReceiptTrait as _, result::ExecutionResult,
+    reward_percentile::RewardPercentile, transaction::TransactionMut, Address, HashMap, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
@@ -19,6 +14,7 @@ use edr_evm::{
     trace::TraceCollector,
     Block as _, BlockReceipts,
 };
+use edr_evm_spec::{ExecutableTransaction as _, TransactionValidation};
 use itertools::Itertools;
 
 use crate::{data::call, error::ProviderErrorForChainSpec, time::TimeSinceEpoch, SyncProviderSpec};
