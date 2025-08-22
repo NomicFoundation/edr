@@ -1,5 +1,5 @@
 use edr_eth::{
-    eips::{eip2718::TypedEnvelope, eip7702},
+    eips::eip2718::TypedEnvelope,
     l1,
     log::FilterLog,
     receipt::{
@@ -78,7 +78,7 @@ pub struct Block {
     /// code which the signer desires to execute in the context of their
     /// EOA.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
+    pub authorization_list: Option<Vec<edr_eip7702::SignedAuthorization>>,
 }
 
 impl RpcTypeFrom<receipt::BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>> for Block {

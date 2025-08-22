@@ -5,10 +5,9 @@ use edr_eth::{
     block::{HeaderOverrides, PartialHeader},
     log::FilterLog,
     receipt::{ExecutionReceipt, ReceiptTrait},
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
-    transaction::ExecutableTransaction,
     Address, HashMap, HashSet, B256, U256,
 };
+use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};

@@ -7,9 +7,9 @@ use edr_eth::{
     log::{self, ExecutionLog},
     receipt,
     result::ExecutionResult,
-    spec::HaltReasonTrait,
-    transaction::{self, ExecutableTransaction, TransactionType as _, TransactionValidation},
+    transaction::{self, TransactionType as _},
 };
+use edr_evm_spec::{ExecutableTransaction, HaltReasonTrait, TransactionValidation};
 
 use crate::state::State;
 

@@ -3,13 +3,12 @@ mod request;
 use std::{ops::Deref, sync::OnceLock};
 
 use edr_eth::{
-    block,
-    eips::{eip2930, eip7702},
-    l1,
+    block, l1,
     signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
-    transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
+    transaction::{self, IsEip4844, IsLegacy, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
+use edr_evm_spec::ExecutableTransaction;
 
 pub use self::request::TransactionRequest;
 
@@ -62,7 +61,7 @@ pub struct Transaction {
     pub transaction_type: Option<u8>,
     /// access list
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub access_list: Option<Vec<eip2930::AccessListItem>>,
+    pub access_list: Option<Vec<edr_eip2930::AccessListItem>>,
     /// max fee per gas
     #[serde(
         default,
@@ -93,7 +92,7 @@ pub struct Transaction {
     /// the code referenced by `address`. These also include a `chain_id` (which
     /// can be set to zero and not evaluated) as well as an optional `nonce`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
+    pub authorization_list: Option<Vec<edr_eip7702::SignedAuthorization>>,
 }
 
 impl Transaction {
@@ -143,7 +142,7 @@ impl Transaction {
 
         let access_list = transaction
             .access_list()
-            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec);
+            .map(<[edr_eip2930::AccessListItem]>::to_vec);
 
         let blob_versioned_hashes = if transaction.is_eip4844() {
             Some(transaction.blob_hashes().to_vec())
@@ -172,7 +171,7 @@ impl Transaction {
             blob_versioned_hashes,
             authorization_list: transaction
                 .authorization_list()
-                .map(<[eip7702::SignedAuthorization]>::to_vec),
+                .map(<[edr_eip7702::SignedAuthorization]>::to_vec),
         }
     }
 }

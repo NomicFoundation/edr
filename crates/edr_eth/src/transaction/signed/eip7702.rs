@@ -1,11 +1,11 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
+use edr_evm_spec::ExecutableTransaction;
 
 use crate::{
-    eips::{eip2930, eip7702},
     keccak256, signature,
-    transaction::{self, request, ComputeTransactionHash as _, ExecutableTransaction, TxKind},
+    transaction::{self, request, ComputeTransactionHash as _, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
@@ -27,8 +27,8 @@ pub struct Eip7702 {
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: eip2930::AccessList,
-    pub authorization_list: Vec<eip7702::SignedAuthorization>,
+    pub access_list: edr_eip2930::AccessList,
+    pub authorization_list: Vec<edr_eip7702::SignedAuthorization>,
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithYParity>,
     /// Cached transaction hash
@@ -78,7 +78,7 @@ impl ExecutableTransaction for Eip7702 {
         Some(self.chain_id)
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         Some(&self.access_list)
     }
 
@@ -109,7 +109,7 @@ impl ExecutableTransaction for Eip7702 {
         None
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         Some(&self.authorization_list)
     }
 
@@ -153,8 +153,8 @@ struct Decodable {
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: eip2930::AccessList,
-    pub authorization_list: Vec<eip7702::SignedAuthorization>,
+    pub access_list: edr_eip2930::AccessList,
+    pub authorization_list: Vec<edr_eip7702::SignedAuthorization>,
     pub signature: signature::SignatureWithYParity,
 }
 
@@ -220,9 +220,9 @@ mod tests {
         pub const TRANSACTION_HASH: B256 =
             b256!("235bb5a9856798eee27ec065a3aef0dc294a02713fce10c79321e436c98e1aab");
 
-        pub fn signed_authorization() -> eip7702::SignedAuthorization {
-            eip7702::SignedAuthorization::new_unchecked(
-                eip7702::Authorization {
+        pub fn signed_authorization() -> edr_eip7702::SignedAuthorization {
+            edr_eip7702::SignedAuthorization::new_unchecked(
+                edr_eip7702::Authorization {
                     chain_id: U256::from(CHAIN_ID),
                     address: address!("0x1234567890123456789012345678901234567890"),
                     nonce: 1,

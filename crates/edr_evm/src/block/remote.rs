@@ -1,9 +1,8 @@
 use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
-use edr_eth::{
-    block::Header, transaction::ExecutableTransaction as _, withdrawal::Withdrawal, B256, U256,
-};
+use edr_eth::{block::Header, withdrawal::Withdrawal, B256, U256};
+use edr_evm_spec::ExecutableTransaction as _;
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 

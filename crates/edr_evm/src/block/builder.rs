@@ -4,11 +4,10 @@ use std::fmt::Debug;
 
 use edr_eth::{
     block::{self, BlobGas, HeaderOverrides, PartialHeader},
-    spec::{ChainHardfork, ChainSpec},
-    transaction::TransactionValidation,
     withdrawal::Withdrawal,
     Address, Bytes, HashMap, B256,
 };
+use edr_evm_spec::{ChainHardfork, ChainSpec, TransactionValidation};
 use revm::{precompile::PrecompileFn, Inspector};
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};

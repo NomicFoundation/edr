@@ -1,11 +1,11 @@
 use alloy_rlp::BufMut;
+use edr_evm_spec::{ExecutableTransaction, HaltReasonTrait};
 
 use super::{AsExecutionReceipt, ExecutionReceipt, MapReceiptLogs};
 use crate::{
     l1,
     result::{ExecutionResult, Output},
-    spec::HaltReasonTrait,
-    transaction::{ExecutableTransaction, TransactionType},
+    transaction::TransactionType,
     Address, Bloom, B256,
 };
 

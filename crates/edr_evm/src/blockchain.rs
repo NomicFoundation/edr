@@ -7,9 +7,8 @@ pub mod storage;
 use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
-use edr_eth::{
-    l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainHardfork, Address, HashSet, B256, U256,
-};
+use edr_eth::{l1, log::FilterLog, receipt::ReceiptTrait, Address, HashSet, B256, U256};
+use edr_evm_spec::ChainHardfork;
 
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{

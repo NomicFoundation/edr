@@ -15,15 +15,12 @@ pub mod signed;
 use core::fmt::Debug;
 use std::str::FromStr;
 
+use edr_evm_spec::ExecutableTransaction;
 pub use revm_context_interface::Transaction;
 pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::{ruint, B256};
 
-use crate::{
-    eips::{eip2930, eip7702},
-    signature::Signature,
-    Address, Bytes, U256, U8,
-};
+use crate::{signature::Signature, U256, U8};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
@@ -186,72 +183,71 @@ impl serde::Serialize for Type {
 macro_rules! impl_revm_transaction_trait {
     ($ty:ty) => {
         impl $crate::transaction::Transaction for $ty {
-            type AccessListItem<'a> = &'a $crate::eips::eip2930::AccessListItem;
-            type Authorization<'a> = &'a $crate::eips::eip7702::SignedAuthorization;
+            type AccessListItem<'a> = &'a edr_eip2930::AccessListItem;
+            type Authorization<'a> = &'a edr_eip7702::SignedAuthorization;
 
             fn tx_type(&self) -> u8 {
                 $crate::transaction::TransactionType::transaction_type(self).into()
             }
 
             fn caller(&self) -> $crate::Address {
-                $crate::transaction::ExecutableTransaction::caller(self).clone()
+                edr_evm_spec::ExecutableTransaction::caller(self).clone()
             }
             fn gas_limit(&self) -> u64 {
-                $crate::transaction::ExecutableTransaction::gas_limit(self)
+                edr_evm_spec::ExecutableTransaction::gas_limit(self)
             }
 
             fn value(&self) -> $crate::U256 {
-                $crate::transaction::ExecutableTransaction::value(self).clone()
+                edr_evm_spec::ExecutableTransaction::value(self).clone()
             }
 
             fn input(&self) -> &$crate::Bytes {
-                $crate::transaction::ExecutableTransaction::data(self)
+                edr_evm_spec::ExecutableTransaction::data(self)
             }
 
             fn nonce(&self) -> u64 {
-                $crate::transaction::ExecutableTransaction::nonce(self)
+                edr_evm_spec::ExecutableTransaction::nonce(self)
             }
 
             fn kind(&self) -> $crate::transaction::TxKind {
-                $crate::transaction::ExecutableTransaction::kind(self)
+                edr_evm_spec::ExecutableTransaction::kind(self)
             }
 
             fn chain_id(&self) -> Option<u64> {
-                $crate::transaction::ExecutableTransaction::chain_id(self)
+                edr_evm_spec::ExecutableTransaction::chain_id(self)
             }
 
             fn gas_price(&self) -> u128 {
-                $crate::transaction::ExecutableTransaction::gas_price(self).clone()
+                edr_evm_spec::ExecutableTransaction::gas_price(self).clone()
             }
 
             fn access_list(&self) -> Option<impl Iterator<Item = Self::AccessListItem<'_>>> {
-                $crate::transaction::ExecutableTransaction::access_list(self)
-                    .map(|list| list.iter())
+                edr_evm_spec::ExecutableTransaction::access_list(self).map(|list| list.iter())
             }
 
             fn blob_versioned_hashes(&self) -> &[$crate::B256] {
-                $crate::transaction::ExecutableTransaction::blob_hashes(self)
+                edr_evm_spec::ExecutableTransaction::blob_hashes(self)
             }
 
             fn max_fee_per_blob_gas(&self) -> u128 {
-                $crate::transaction::ExecutableTransaction::max_fee_per_blob_gas(self)
+                edr_evm_spec::ExecutableTransaction::max_fee_per_blob_gas(self)
                     .cloned()
                     .unwrap_or(0u128)
             }
 
             fn authorization_list_len(&self) -> usize {
-                $crate::transaction::ExecutableTransaction::authorization_list(self)
+                edr_evm_spec::ExecutableTransaction::authorization_list(self)
                     .map_or(0, |list| list.len())
             }
 
             fn authorization_list(&self) -> impl Iterator<Item = Self::Authorization<'_>> {
-                $crate::transaction::ExecutableTransaction::authorization_list(self)
+                edr_evm_spec::ExecutableTransaction::authorization_list(self)
                     .unwrap_or(&[])
                     .iter()
             }
 
             fn max_priority_fee_per_gas(&self) -> Option<u128> {
-                $crate::transaction::ExecutableTransaction::max_priority_fee_per_gas(self).cloned()
+                edr_evm_spec::ExecutableTransaction::max_priority_fee_per_gas(self).cloned()
             }
         }
     };

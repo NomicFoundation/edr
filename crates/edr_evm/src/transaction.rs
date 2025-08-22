@@ -6,7 +6,8 @@ use std::fmt::Debug;
 
 // Re-export the transaction types from `edr_eth`.
 pub use edr_eth::transaction::*;
-use edr_eth::{l1, spec::ChainSpec, U256};
+use edr_eth::{l1, U256};
+use edr_evm_spec::{ChainSpec, TransactionValidation};
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 

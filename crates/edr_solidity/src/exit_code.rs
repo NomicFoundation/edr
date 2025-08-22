@@ -1,6 +1,7 @@
 //! Exit code of the EVM.
 
-use edr_eth::{l1, spec::HaltReasonTrait};
+use edr_eth::l1;
+use edr_evm_spec::HaltReasonTrait;
 
 /// Represents the exit code of the EVM.
 #[derive(Clone, Debug)]

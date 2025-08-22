@@ -12,9 +12,9 @@ macro_rules! impl_execution_receipt_tests {
                     use edr_eth::{
                         log::{FilterLog, FullBlockLog, ReceiptLog},
                         receipt::{MapReceiptLogs as _, ReceiptFactory as _, TransactionReceipt},
-                        spec::ChainSpec,
                         Address, B256,
                     };
+                    use edr_evm_spec::ChainSpec;
 
                     use $crate::{RpcTypeFrom as _, spec::RpcSpec};
 

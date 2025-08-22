@@ -1,11 +1,11 @@
 mod eip4844;
 
+use edr_evm_spec::ExecutableTransaction;
+
 pub use self::eip4844::Eip4844;
 use crate::{
-    eips::{eip2930, eip7702},
     transaction::{
-        signed::PreOrPostEip155, ExecutableTransaction, IsEip155, Signed, TxKind,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
+        signed::PreOrPostEip155, IsEip155, Signed, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
     },
     utils::enveloped,
     Address, Bytes, B256, U256,
@@ -224,7 +224,7 @@ impl ExecutableTransaction for PooledTransaction {
         }
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.access_list(),
             PooledTransaction::PostEip155Legacy(tx) => tx.access_list(),
@@ -301,7 +301,7 @@ impl ExecutableTransaction for PooledTransaction {
         }
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         match self {
             PooledTransaction::PreEip155Legacy(tx) => tx.authorization_list(),
             PooledTransaction::PostEip155Legacy(tx) => tx.authorization_list(),
@@ -402,7 +402,6 @@ mod tests {
     use super::*;
     use crate::{
         address,
-        eips::eip7702,
         signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
         transaction::{self, TxKind},
         Address, Bytes, B256, U256,
@@ -580,8 +579,8 @@ mod tests {
             input: Bytes::new(),
             access_list: Vec::new().into(),
             authorization_list: vec![
-                eip7702::SignedAuthorization::new_unchecked(
-                    eip7702::Authorization {
+                edr_eip7702::SignedAuthorization::new_unchecked(
+                    edr_eip7702::Authorization {
                         chain_id: U256::from(31337),
                         address: address!("0x1234567890123456789012345678901234567890"),
                         nonce: 0,

@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
+use edr_evm_spec::ExecutableTransaction;
 
 use crate::{
-    eips::{eip2930, eip7702},
     keccak256,
     signature::{self, Fakeable},
-    transaction::{self, ExecutableTransaction, TxKind},
+    transaction::{self, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
 };
@@ -28,7 +28,7 @@ pub struct Eip1559 {
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: eip2930::AccessList,
+    pub access_list: edr_eip2930::AccessList,
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: signature::Fakeable<signature::SignatureWithYParity>,
     /// Cached transaction hash
@@ -80,7 +80,7 @@ impl ExecutableTransaction for Eip1559 {
         Some(self.chain_id)
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         Some(&self.access_list)
     }
 
@@ -111,7 +111,7 @@ impl ExecutableTransaction for Eip1559 {
         None
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         None
     }
 
@@ -154,7 +154,7 @@ struct Decodable {
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: eip2930::AccessList,
+    pub access_list: edr_eip2930::AccessList,
     pub signature: signature::SignatureWithYParity,
 }
 
@@ -224,7 +224,7 @@ mod tests {
             kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
-            access_list: vec![eip2930::AccessListItem {
+            access_list: vec![edr_eip2930::AccessListItem {
                 address: Address::ZERO,
                 storage_keys: vec![B256::ZERO, B256::from(U256::from(1))],
             }],

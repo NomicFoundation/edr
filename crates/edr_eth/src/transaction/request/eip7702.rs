@@ -4,7 +4,6 @@ use alloy_rlp::RlpEncodable;
 use revm_primitives::keccak256;
 
 use crate::{
-    eips::{eip2930, eip7702},
     signature::{self, public_key_to_address, SecretKey, SignatureError, SignatureWithYParity},
     transaction::{self, ComputeTransactionHash},
     utils::envelop_bytes,
@@ -23,8 +22,8 @@ pub struct Eip7702 {
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: Vec<eip2930::AccessListItem>,
-    pub authorization_list: Vec<eip7702::SignedAuthorization>,
+    pub access_list: Vec<edr_eip2930::AccessListItem>,
+    pub authorization_list: Vec<edr_eip7702::SignedAuthorization>,
 }
 
 impl Eip7702 {
@@ -133,8 +132,8 @@ mod tests {
                 value: U256::ZERO,
                 input: Bytes::new(),
                 access_list: Vec::new(),
-                authorization_list: vec![eip7702::SignedAuthorization::new_unchecked(
-                    eip7702::Authorization {
+                authorization_list: vec![edr_eip7702::SignedAuthorization::new_unchecked(
+                    edr_eip7702::Authorization {
                         chain_id: U256::from(CHAIN_ID),
                         address: address!("0x1234567890123456789012345678901234567890"),
                         nonce: 1,

@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
+use edr_evm_spec::ExecutableTransaction;
 
 use crate::{
-    eips::{eip2930, eip7702},
     keccak256,
     signature::{self, Signature},
-    transaction::{self, ExecutableTransaction, TxKind},
+    transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
 
@@ -74,7 +74,7 @@ impl ExecutableTransaction for Eip155 {
         Some(v_to_chain_id(self.signature.v()))
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         None
     }
 
@@ -102,7 +102,7 @@ impl ExecutableTransaction for Eip155 {
         None
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         None
     }
 

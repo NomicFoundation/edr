@@ -1,15 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::Encodable as _;
+use edr_evm_spec::ExecutableTransaction;
 use sha2::Digest;
 
 use crate::{
-    eips::{
-        eip2930,
-        eip4844::{KzgSettings, VERSIONED_HASH_VERSION_KZG},
-        eip7702,
-    },
-    transaction::{self, ExecutableTransaction, TxKind},
+    eips::eip4844::{KzgSettings, VERSIONED_HASH_VERSION_KZG},
+    transaction::{self, TxKind},
     utils::enveloped,
     Address, Blob, Bytes, Bytes48, B256, U256,
 };
@@ -232,7 +229,7 @@ impl ExecutableTransaction for Eip4844 {
         self.payload.chain_id()
     }
 
-    fn access_list(&self) -> Option<&[eip2930::AccessListItem]> {
+    fn access_list(&self) -> Option<&[edr_eip2930::AccessListItem]> {
         self.payload.access_list()
     }
 
@@ -260,7 +257,7 @@ impl ExecutableTransaction for Eip4844 {
         self.payload.total_blob_gas()
     }
 
-    fn authorization_list(&self) -> Option<&[eip7702::SignedAuthorization]> {
+    fn authorization_list(&self) -> Option<&[edr_eip7702::SignedAuthorization]> {
         self.payload.authorization_list()
     }
 

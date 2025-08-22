@@ -7,8 +7,10 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ExecutionResult,
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     Bytes, B256, U256,
+};
+use edr_evm_spec::{
+    ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction, TransactionValidation,
 };
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
 use edr_utils::types::TypeConstructor;
@@ -28,8 +30,7 @@ use crate::{
     result::EVMErrorForChain,
     state::{Database, DatabaseComponentError, EvmState, StateDiff},
     transaction::{
-        remote::EthRpcTransaction, ExecutableTransaction, TransactionError,
-        TransactionErrorForChainSpec, TransactionType, TransactionValidation,
+        remote::EthRpcTransaction, TransactionError, TransactionErrorForChainSpec, TransactionType,
     },
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
     EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, EthRpcBlock,

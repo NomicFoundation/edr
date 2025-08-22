@@ -15,6 +15,7 @@ edr_coverage = { path = "../edr_coverage" }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
+edr_evm_spec.workspace = true
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils", optional = true }

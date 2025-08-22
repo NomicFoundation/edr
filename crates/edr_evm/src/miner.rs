@@ -5,9 +5,10 @@ use edr_eth::{
     l1,
     result::ExecutionResult,
     signature::SignatureError,
-    spec::{ChainHardfork, ChainSpec, HaltReasonTrait},
-    transaction::{ExecutableTransaction, TransactionValidation},
     Address, HashMap,
+};
+use edr_evm_spec::{
+    ChainHardfork, ChainSpec, ExecutableTransaction, HaltReasonTrait, TransactionValidation,
 };
 use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};

@@ -12,12 +12,11 @@ use edr_eth::{
     l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     receipt::{MapReceiptLogs, ReceiptTrait, TransactionReceipt},
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
-    transaction::ExecutableTransaction,
     trie,
     withdrawal::Withdrawal,
     B256, KECCAK_EMPTY,
 };
+use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
 use edr_utils::types::TypeConstructor;
 use itertools::izip;
 

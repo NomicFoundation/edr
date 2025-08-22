@@ -1,15 +1,13 @@
 use alloy_rlp::RlpEncodable;
+use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams};
+use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants};
 pub use revm_context::{BlockEnv, TxEnv};
 pub use revm_context_interface::result::{
     HaltReason, InvalidHeader, InvalidTransaction, OutOfGasError,
 };
 pub use revm_primitives::hardfork::{self, SpecId};
 
-use crate::{
-    eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
-    transaction,
-};
+use crate::transaction;
 
 /// L1 Ethereum chain type
 pub const CHAIN_TYPE: &str = "L1";
