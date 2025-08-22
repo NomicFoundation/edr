@@ -160,6 +160,7 @@ where
             Some(parent_header),
             &inputs.ommers,
             inputs.withdrawals.as_ref(),
+            blockchain.base_fee_params(),
         );
 
         Ok(Self {

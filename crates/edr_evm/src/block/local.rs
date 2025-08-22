@@ -9,6 +9,7 @@ use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_eth::{
     block::{self, Header, HeaderOverrides, PartialHeader},
+    eips::eip1559::BaseFeeParams,
     l1,
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     receipt::{MapReceiptLogs, ReceiptTrait, TransactionReceipt},
@@ -214,6 +215,7 @@ impl<
         genesis_diff: StateDiff,
         hardfork: HardforkT,
         options: GenesisBlockOptions,
+        base_fee_params: &BaseFeeParams<HardforkT>,
     ) -> Result<Self, CreationError> {
         let mut genesis_state = TrieState::default();
         genesis_state.commit(genesis_diff.clone().into());
@@ -255,6 +257,7 @@ impl<
             None,
             &ommers,
             withdrawals.as_ref(),
+            base_fee_params,
         );
 
         Ok(Self::empty(hardfork, partial_header))

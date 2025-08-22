@@ -1,7 +1,15 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{l1, log::FilterLog, Address, HashSet, B256, U256};
+use edr_eth::{
+    eips::eip1559::{
+        BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams,
+    },
+    l1,
+    log::FilterLog,
+    Address, HashSet, B256, U256,
+};
+use itertools::Itertools;
 
 use super::{
     compute_state_at_block,
@@ -38,6 +46,7 @@ where
     storage: ReservableSparseBlockchainStorageForChainSpec<ChainSpecT>,
     chain_id: u64,
     hardfork: ChainSpecT::Hardfork,
+    base_fee_params: BaseFeeParams<ChainSpecT::Hardfork>,
 }
 
 impl<ChainSpecT> LocalBlockchain<ChainSpecT>
@@ -57,6 +66,12 @@ where
         genesis_diff: StateDiff,
         chain_id: u64,
         hardfork: ChainSpecT::Hardfork,
+        chain_base_fee_params_override: Option<
+            Vec<(
+                DynamicBaseFeeCondition<ChainSpecT::Hardfork>,
+                ConstantBaseFeeParams,
+            )>,
+        >,
     ) -> Result<Self, InvalidGenesisBlock> {
         let genesis_header = genesis_block.header();
 
@@ -77,10 +92,19 @@ where
             total_difficulty,
         );
 
+        let base_fee_params = chain_base_fee_params_override.map_or(
+            (*ChainSpecT::base_fee_params()).clone(),
+            |params| {
+                BaseFeeParams::Variable(VariableBaseFeeParams::new(
+                    params.clone().into_iter().collect_vec(),
+                ))
+            },
+        );
         Ok(Self {
             storage,
             chain_id,
             hardfork,
+            base_fee_params,
         })
     }
 }
@@ -206,6 +230,10 @@ where
     fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError> {
         Ok(self.storage.total_difficulty_by_hash(hash))
     }
+
+    fn base_fee_params(&self) -> &BaseFeeParams<ChainSpecT::Hardfork> {
+        &self.base_fee_params
+    }
 }
 
 impl<ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
@@ -298,6 +326,7 @@ mod tests {
     use edr_eth::{
         account::{Account, AccountInfo, AccountStatus},
         l1::L1ChainSpec,
+        spec::EthHeaderConstants,
         HashMap,
     };
 
@@ -339,6 +368,7 @@ mod tests {
                 mix_hash: Some(B256::random()),
                 ..GenesisBlockOptions::default()
             },
+            L1ChainSpec::base_fee_params(),
         )?;
 
         let mut blockchain = LocalBlockchain::<L1ChainSpec>::new(
@@ -346,6 +376,7 @@ mod tests {
             genesis_diff,
             123,
             l1::SpecId::SHANGHAI,
+            None,
         )
         .unwrap();
 

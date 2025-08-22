@@ -24,7 +24,7 @@ pub struct Config {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
-    pub base_fee_params: HashMap<DynamicBaseFeeCondition<String>, ConstantBaseFeeParams>,
+    pub base_fee_params: Vec<(DynamicBaseFeeCondition<String>, ConstantBaseFeeParams)>,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,
@@ -51,18 +51,40 @@ where
     hardfork.parse().map_err(|UnknownHardfork| {
         napi::Error::new(
             napi::Status::InvalidArg,
-            format!("Unknown hardfork: {}", hardfork),
+            format!("Unknown hardfork: {hardfork}"),
         )
     })
 }
 
 impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId> + Eq + std::hash::Hash,
+    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId> + Clone,
 {
     type Error = napi::Error;
 
     fn try_from(value: Config) -> Result<Self, Self::Error> {
+        let base_fee_params: Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)> = value
+            .base_fee_params
+            .into_iter()
+            .map(|(key, value)| {
+                let new_key = match key {
+                    DynamicBaseFeeCondition::Hardfork(hardfork_str) => {
+                        let hardfork = parse_hardfork(hardfork_str)?;
+                        DynamicBaseFeeCondition::Hardfork(hardfork)
+                    }
+                    DynamicBaseFeeCondition::BlockNumber(number) => {
+                        DynamicBaseFeeCondition::BlockNumber(number)
+                    }
+                    DynamicBaseFeeCondition::Timestamp(timestamp) => {
+                        DynamicBaseFeeCondition::Timestamp(timestamp)
+                    }
+                };
+                Ok((new_key, value))
+            })
+            .collect::<napi::Result<
+                Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>
+            >>()?;
+
         let fork = value
             .fork
             .map(|fork| -> napi::Result<ForkConfig<HardforkT>> {
@@ -97,8 +119,8 @@ where
                         let chain_config = ChainOverride {
                             name: chain_config.name,
                             hardfork_activation_overrides,
+                            base_fee_params: Some(base_fee_params.clone()),
                         };
-
                         Ok((chain_id, chain_config))
                     })
                     .collect::<napi::Result<_>>()?;
@@ -114,28 +136,6 @@ where
             .transpose()?;
 
         let hardfork = parse_hardfork(value.hardfork)?;
-
-        let base_fee_params = value
-            .base_fee_params
-            .into_iter()
-            .map(|(key, value)| {
-                let new_key = match key {
-                    DynamicBaseFeeCondition::Hardfork(hardfork_str) => {
-                        let hardfork = parse_hardfork(hardfork_str)?;
-                        DynamicBaseFeeCondition::Hardfork(hardfork)
-                    }
-                    DynamicBaseFeeCondition::BlockNumber(number) => {
-                        DynamicBaseFeeCondition::BlockNumber(number)
-                    }
-                    DynamicBaseFeeCondition::Timestamp(timestamp) => {
-                        DynamicBaseFeeCondition::Timestamp(timestamp)
-                    }
-                };
-                Ok((new_key, value))
-            })
-            .collect::<napi::Result<
-                HashMap<DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams>
-            >>()?;
 
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
