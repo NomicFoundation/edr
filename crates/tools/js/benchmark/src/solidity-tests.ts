@@ -110,7 +110,7 @@ export async function runSolidityTests(
     });
   }
 
-  const start = performance.now();
+  const start = process.hrtime.bigint();
   const results = await runAllSolidityTests(
     context,
     chainType,
@@ -119,7 +119,7 @@ export async function runSolidityTests(
     tracingConfig,
     solidityTestsConfig
   );
-  const elapsed = performance.now() - start;
+  const elapsedNs = process.hrtime.bigint() - start;
 
   if (results.length === 0) {
     throw new Error(`Didn't run any tests for ${repoPath}`);
@@ -127,7 +127,7 @@ export async function runSolidityTests(
 
   assertNoFailures(results);
 
-  return generateCsvResults(results, repoPath, elapsed * 1000000);
+  return generateCsvResults(results, repoPath, elapsedNs);
 }
 
 /// Run Solidity test benchmarks in the `forge-std` at v3 repo
@@ -224,7 +224,7 @@ function getMeasurements(runs: Map<string, number[]>) {
 function generateCsvResults(
   results: SuiteResult[],
   repoPath: string,
-  totalElapsed: number
+  totalElapsedNs: bigint
 ): string {
   const repoName = path.basename(repoPath);
   const csvData: any[] = [];
@@ -277,7 +277,7 @@ function generateCsvResults(
     testName: "",
     testType: "total",
     outcome: "",
-    durationNs: BigInt(Math.round(totalElapsed)).toString(),
+    durationNs: totalElapsedNs.toString(),
     runs: "",
     executor: "edr",
   });
@@ -313,7 +313,7 @@ export async function runForgeTests(
     cwd: repoPath,
   });
 
-  const start = performance.now();
+  const start = process.hrtime.bigint();
 
   // Execute forge test --json
   const { stdout } = await execAsync(`${forgeCmd} test --json`, {
@@ -322,17 +322,17 @@ export async function runForgeTests(
   });
 
   // Total time is not exactly the same as for EDR, as it contains process initialization, reading config from disk, checking the build cache, and then piping the results.
-  const elapsed = performance.now() - start;
+  const elapsedNs = process.hrtime.bigint() - start;
 
   const testResults = JSON.parse(stdout);
 
-  return generateForgeTestCsvResults(testResults, repoPath, elapsed * 1000000);
+  return generateForgeTestCsvResults(testResults, repoPath, elapsedNs);
 }
 
 function generateForgeTestCsvResults(
   testResults: any,
   repoPath: string,
-  totalElapsed: number
+  totalElapsedNs: bigint
 ): string {
   const repoName = path.basename(repoPath);
   const csvData: any[] = [];
@@ -390,7 +390,7 @@ function generateForgeTestCsvResults(
     testName: "",
     testType: "total",
     outcome: "",
-    durationNs: BigInt(Math.round(totalElapsed)).toString(),
+    durationNs: totalElapsedNs.toString(),
     runs: "",
     executor: "forge",
   });

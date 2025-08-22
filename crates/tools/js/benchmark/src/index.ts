@@ -45,7 +45,7 @@ interface ParsedArguments {
     | "report-forge";
   grep?: string;
   repo?: string;
-  count?: number;
+  count: number;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   benchmark_output: string;
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -198,7 +198,7 @@ async function main() {
     if (args.repo !== undefined) {
       await runCompareTests(
         args.repo,
-        args.count!,
+        args.count,
         args.csv_output,
         /* append */ false,
         args.forge_path
@@ -208,7 +208,7 @@ async function main() {
       for (const repo of Object.keys(REPOS)) {
         await runCompareTests(
           repo,
-          args.count!,
+          args.count,
           args.csv_output,
           /* append */ i > 0,
           args.forge_path
@@ -761,7 +761,7 @@ async function generateForgeReport(csvInputPath: string): Promise<string> {
     );
   }
 
-  // Parse data rows and filter only actual tests (rows with test names) that succeeded
+  // Parse data rows and filter only actual tests (rows with test names)
   const testRows = parseResult.data.filter((row) => {
     // Only include rows that have a test name (exclude suite totals and overall totals)
     // and where the test succeeded

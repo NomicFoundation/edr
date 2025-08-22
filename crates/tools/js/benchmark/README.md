@@ -31,7 +31,7 @@ The Solidity test benchmarks consist of third-party repos that use Foundry Forge
 
 This was the first iteration of Solidity test benchmarks. It currently runs select test suites from the `forge-std` library. `forge-std` was initially selected as it has the largest coverage of cheatcodes. The benchmark also doubles as integration testing for `forge-std`.
 
-The benchmark measures the wall clock time elapsed when invoking the EDR Solidity test runner from NodeJS. It's important to not to rely on the durations reported in the test results for this benchmark, as those durations don't include the FFI overhead.
+The benchmark measures the wall clock time elapsed when invoking the EDR Solidity test runner from NodeJS. It's important not to rely on the durations reported in the test results for this benchmark, as those durations don't include the FFI overhead.
 
 The benchmark collects measurements from running all the selected test suites and then each test suite in isolation. The rationale for running each test suite in isolation is that some cheatcode test suites take signficantly longer than others and they could mask regressions in cheatcodes with faster test suites.
 
