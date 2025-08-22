@@ -100,7 +100,7 @@ jobs:
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
       - name: Setup node
         uses: actions/setup-node@v3
         if: ${{ !matrix.settings.docker }}
@@ -237,8 +237,7 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Install dependencies
         run: |
-          pnpm config set supportedArchitectures.libc "musl"
-          pnpm install --frozen-lockfile --prefer-offline
+          pnpm install --frozen-lockfile --prefer-offline --libc=musl
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -264,7 +263,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -275,9 +274,7 @@ jobs:
         shell: bash
       - name: Install dependencies
         run: |
-          pnpm config set supportedArchitectures.cpu "arm64"
-          pnpm config set supportedArchitectures.libc "glibc"
-          pnpm install --frozen-lockfile --prefer-offline
+          pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=glibc
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
@@ -308,7 +305,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -319,9 +316,7 @@ jobs:
         shell: bash
       - name: Install dependencies
         run: |
-          pnpm config set supportedArchitectures.cpu "arm64"
-          pnpm config set supportedArchitectures.libc "musl"
-          pnpm install --frozen-lockfile --prefer-offline
+          pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=musl
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:

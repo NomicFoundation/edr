@@ -8,7 +8,7 @@
     "syncpack": "^12.4.0"
   },
   "engines": {
-    "pnpm": ">=9"
+    "pnpm": ">=10"
   },
   "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
   "pnpm": {
