@@ -36,7 +36,7 @@
     "build": "pnpm run build:dev",
     "build:dev": "tsc --build --incremental .",
     "compareForge": "node --noconcurrent_sweeping --noconcurrent_recompilation --max-old-space-size=28000 --import tsx src/index.ts compare-forge",
-    "eslint": "eslint \"**/*.ts\"",
+    "eslint": "eslint \"src/**/*.ts\"",
     "help": "tsx src/index.ts -h",
     "lint": "pnpm run prettier && pnpm run eslint",
     "lint:fix": "pnpm run prettier --write",

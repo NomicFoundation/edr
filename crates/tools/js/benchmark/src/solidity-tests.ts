@@ -439,22 +439,40 @@ function getForgeTestRuns(kind: ForgeTestKind): string {
   return "";
 }
 
-function parseForgeTestDuration(duration: string): bigint {
+export function parseForgeTestDuration(duration: string): bigint {
+  if (duration.length === 0) {
+    throw new Error("Expected duration, got empty string");
+  }
   // Parse duration like "5ms 287µs 747ns" into nanoseconds
   const parts = duration.split(" ");
   let totalNs = 0n;
 
   for (const part of parts) {
-    if (part.endsWith("ms")) {
-      totalNs += BigInt(Math.round(parseFloat(part.slice(0, -2)) * 1000000));
-    } else if (part.endsWith("µs")) {
-      totalNs += BigInt(Math.round(parseFloat(part.slice(0, -2)) * 1000));
-    } else if (part.endsWith("ns")) {
-      totalNs += BigInt(Math.round(parseFloat(part.slice(0, -2))));
-    } else if (part.endsWith("s")) {
-      totalNs += BigInt(Math.round(parseFloat(part.slice(0, -1)) * 1000000000));
-    } else {
-      throw new Error(`Unknown duration unit: ${part}`);
+    // Use regex to split number and unit exactly
+    const match = part.match(/^(\d+(?:\.\d+)?)([a-zA-Zµ]+)$/);
+    if (match === null) {
+      throw new Error(`Invalid duration format: ${part}`);
+    }
+
+    const [, numberStr, unit] = match;
+    const value = parseFloat(numberStr);
+
+    // Exact unit matching
+    switch (unit) {
+      case "ms":
+        totalNs += BigInt(Math.round(value * 1000000));
+        break;
+      case "µs":
+        totalNs += BigInt(Math.round(value * 1000));
+        break;
+      case "ns":
+        totalNs += BigInt(Math.round(value));
+        break;
+      case "s":
+        totalNs += BigInt(Math.round(value * 1000000000));
+        break;
+      default:
+        throw new Error(`Unknown duration unit: ${unit}`);
     }
   }
 
