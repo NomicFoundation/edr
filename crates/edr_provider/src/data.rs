@@ -2904,13 +2904,6 @@ fn create_blockchain_and_state<
             None
         };
 
-        // TODO: review if we need to limit before london
-        // let base_fee_params = if config.hardfork.into() >= l1::SpecId::LONDON {
-        //     config.base_fee_params
-        // } else {
-        //     None
-        // };
-
         Ok(BlockchainAndState {
             fork_metadata: Some(ForkMetadata {
                 chain_id: blockchain.remote_chain_id(),
@@ -2979,7 +2972,7 @@ fn create_blockchain_and_state<
                 timestamp,
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: VariableBaseFeeParams::new(base_fee_activations.clone()) // TODO: receive reference
+                base_fee_params: VariableBaseFeeParams::new(base_fee_activations.clone()) // TODO: Ani: receive reference
                     .at_condition(BaseFeeCondition {
                         timestamp,
                         hardfork: Some(config.hardfork),

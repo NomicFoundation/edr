@@ -26,7 +26,7 @@ fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L
             mix_hash: Some(prev_randao_generator.generate_next()),
             ..GenesisBlockOptions::default()
         },
-        L1ChainSpec::base_fee_params(), // TODO: validate
+        L1ChainSpec::base_fee_params(), // TODO: Ani: validate
     )?;
 
     let blockchain = LocalBlockchain::new(
