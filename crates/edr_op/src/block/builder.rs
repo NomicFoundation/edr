@@ -118,13 +118,6 @@ where
 
                     Ok(Some(base_fee_params))
                 } else {
-                    // TODO: I think setting a default here is unnecessary. 
-                    // since it's what PartialHeader will default to when calling`calculate_next_base_fee_per_gas_for_chain_spec`
-                    // Use the prior EIP-1559 constants.
-                    // let base_fee_params = *OpChainSpec::BASE_FEE_PARAMS
-                    //     .at_hardfork(cfg.spec)
-                    //     .expect("Chain spec must have base fee params for post-London hardforks");
-                    // Ok(base_fee_params)
                     Ok(None)
                 }
             }, |params| Ok(Some(params)))?;
