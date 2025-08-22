@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use alloy_rlp::RlpEncodable;
 use edr_eth::{
@@ -46,6 +46,19 @@ use crate::{
     OpHaltReason, OpSpecId,
 };
 
+static _BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpSpecId>> = LazyLock::new(|| {
+    BaseFeeParams::Variable(VariableBaseFeeParams::new(vec![
+        (
+            DynamicBaseFeeCondition::Hardfork(OpSpecId::BEDROCK),
+            ConstantBaseFeeParams::new(50, 6),
+        ),
+        (
+            DynamicBaseFeeCondition::Hardfork(OpSpecId::CANYON),
+            ConstantBaseFeeParams::new(250, 6),
+        ),
+    ]))
+});
+
 /// Chain specification for the Ethereum JSON-RPC API.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct OpChainSpec;
@@ -82,6 +95,7 @@ impl GenesisBlockFactory for OpChainSpec {
         genesis_diff: edr_evm::state::StateDiff,
         hardfork: Self::Hardfork,
         mut options: edr_evm::GenesisBlockOptions,
+        base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         let config_base_fee_params = options.base_fee_params.as_ref();
         if hardfork >= OpSpecId::HOLOCENE {
@@ -92,7 +106,7 @@ impl GenesisBlockFactory for OpChainSpec {
                 // Add support for configuring the dynamic base fee parameters.
                 let base_fee_params = config_base_fee_params
                     .or_else(|| {
-                        Self::BASE_FEE_PARAMS.at_condition(BaseFeeCondition {
+                        Self::base_fee_params().at_condition(BaseFeeCondition {
                             hardfork: Some(hardfork),
                             timestamp: options.timestamp,
                             block_number: None,
@@ -100,7 +114,7 @@ impl GenesisBlockFactory for OpChainSpec {
                     })
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
-                encode_dynamic_base_fee_params(&base_fee_params)
+                encode_dynamic_base_fee_params(base_fee_params)
             });
 
             options.extra_data = Some(extra_data);
@@ -110,6 +124,7 @@ impl GenesisBlockFactory for OpChainSpec {
             genesis_diff,
             hardfork,
             options,
+            base_fee_params,
         )
     }
 }
@@ -207,17 +222,9 @@ impl RuntimeSpec for OpChainSpec {
 }
 
 impl EthHeaderConstants for OpChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<OpSpecId> =
-        BaseFeeParams::Variable(VariableBaseFeeParams::new(&[
-            (
-                DynamicBaseFeeCondition::Hardfork(OpSpecId::BEDROCK),
-                ConstantBaseFeeParams::new(50, 6),
-            ),
-            (
-                DynamicBaseFeeCondition::Hardfork(OpSpecId::CANYON),
-                ConstantBaseFeeParams::new(250, 6),
-            ),
-        ]));
+    fn base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+        &_BASE_FEE_PARAMS
+    }
 
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
 }

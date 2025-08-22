@@ -92,7 +92,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         allow_unlimited_contract_size: false,
         bail_on_call_failure: false,
         bail_on_transaction_failure: false,
-        base_fee_params: HashMap::new(),
+        base_fee_params: vec![],
         // SAFETY: literal is non-zero
         block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
         chain_id: 123,

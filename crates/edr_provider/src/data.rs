@@ -207,7 +207,10 @@ pub struct ProviderData<
     instance_id: B256,
     is_auto_mining: bool,
     next_block_base_fee_per_gas: Option<u128>,
-    base_fee_params: HashMap<DynamicBaseFeeCondition<ChainSpecT::Hardfork>, ConstantBaseFeeParams>,
+    base_fee_params: Vec<(
+        DynamicBaseFeeCondition<ChainSpecT::Hardfork>,
+        ConstantBaseFeeParams,
+    )>,
     next_block_timestamp: Option<u64>,
     next_snapshot_id: u64,
     snapshots: BTreeMap<u64, Snapshot<ChainSpecT::SignedTransaction>>,
@@ -1654,6 +1657,7 @@ where
                     let last_block = self.last_block()?;
 
                     Ok(
+                        // FIXME: this is not contemplating the configured variable eip-1559 params
                         calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
                             self.blockchain.hardfork(),
                             last_block.header(),
@@ -1940,6 +1944,7 @@ where
                 result
                     .base_fee_per_gas
                     .push(
+                        // FIXME: this is not contemplating the configured variable eip-1559 params
                         calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
                             self.blockchain.hardfork(),
                             block.header(),
@@ -2252,8 +2257,12 @@ where
             // Block spec is pending
             let result = self.mine_pending_block()?;
 
-            let blockchain =
-                BlockchainWithPending::new(&*self.blockchain, result.block, result.state_diff);
+            let blockchain = BlockchainWithPending::new(
+                &*self.blockchain,
+                result.block,
+                result.state_diff,
+                Some(self.base_fee_params.clone()),
+            );
 
             let block = blockchain
                 .last_block()
@@ -2961,7 +2970,7 @@ fn create_blockchain_and_state<
                 timestamp,
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: VariableBaseFeeParams::new(&base_fee_activations)
+                base_fee_params: VariableBaseFeeParams::new(base_fee_activations.clone()) // TODO: receive reference
                     .at_condition(BaseFeeCondition {
                         timestamp,
                         hardfork: Some(config.hardfork),
@@ -2970,6 +2979,7 @@ fn create_blockchain_and_state<
                     .copied(),
                 blob_gas: config.initial_blob_gas.clone(),
             },
+            ChainSpecT::base_fee_params(),
         )
         .map_err(CreationError::LocalBlockchainCreation)?;
 
@@ -2978,6 +2988,7 @@ fn create_blockchain_and_state<
             genesis_diff,
             config.chain_id,
             config.hardfork,
+            Some(base_fee_activations),
         )
         .map_err(CreationError::InvalidGenesisBlock)?;
 

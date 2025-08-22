@@ -2,7 +2,10 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
-    eips::eip4844::{self, blob_base_fee_update_fraction},
+    eips::{
+        eip1559::BaseFeeParams,
+        eip4844::{self, blob_base_fee_update_fraction},
+    },
     l1::{self, BlockEnv, L1ChainSpec},
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
@@ -105,6 +108,7 @@ pub trait GenesisBlockFactory: ChainHardfork {
         genesis_diff: StateDiff,
         hardfork: Self::Hardfork,
         options: GenesisBlockOptions,
+        base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError>;
 }
 
@@ -129,6 +133,7 @@ impl GenesisBlockFactory for L1ChainSpec {
         genesis_diff: StateDiff,
         hardfork: Self::Hardfork,
         mut options: GenesisBlockOptions,
+        base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
         options.extra_data = Some(
@@ -141,6 +146,7 @@ impl GenesisBlockFactory for L1ChainSpec {
             genesis_diff,
             hardfork,
             options,
+            base_fee_params,
         )
     }
 }

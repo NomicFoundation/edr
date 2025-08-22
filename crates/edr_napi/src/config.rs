@@ -330,6 +330,7 @@ impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
                             let chain_config = edr_evm::hardfork::ChainOverride {
                                 name,
                                 hardfork_activation_overrides,
+                                base_fee_params: None, // TODO: validate
                             };
 
                             let chain_id = chain_id.try_cast()?;
@@ -532,8 +533,8 @@ impl ProviderConfig {
             })
             .collect::<napi::Result<Vec<_>>>()?;
 
-        let base_fee_params: HashMap<DynamicBaseFeeCondition<String>, ConstantBaseFeeParams> =
-            self.base_fee_config.map_or(Ok(HashMap::new()), |vec| {
+        let base_fee_params: Vec<(DynamicBaseFeeCondition<String>, ConstantBaseFeeParams)> =
+            self.base_fee_config.map_or(Ok(vec![]), |vec| {
                 vec.into_iter().map(TryInto::try_into).collect()
             })?;
 

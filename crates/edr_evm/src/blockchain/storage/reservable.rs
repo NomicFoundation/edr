@@ -360,6 +360,7 @@ impl<
                         None,
                         &Vec::new(),
                         None,
+                        ChainSpecT::base_fee_params(), //TODO: validate
                     ),
                 );
 

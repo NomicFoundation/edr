@@ -24,7 +24,7 @@ pub use self::{
 use crate::{
     b256,
     eips::{
-        eip1559::{BaseFeeCondition, ConstantBaseFeeParams},
+        eip1559::{BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams},
         eip4844::{self, blob_base_fee_update_fraction},
         eip7691,
     },
@@ -221,6 +221,7 @@ impl PartialHeader {
         parent: Option<&Header>,
         ommers: &Vec<Header>,
         withdrawals: Option<&Vec<Withdrawal>>,
+        base_fee_params: &BaseFeeParams<ChainSpecT::Hardfork>,
     ) -> Self {
         let timestamp = overrides.timestamp.unwrap_or_default();
         let number = overrides.number.unwrap_or({
@@ -276,13 +277,16 @@ impl PartialHeader {
             base_fee: overrides.base_fee.or_else(|| {
                 if hardfork.into() >= l1::SpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        if let Some(base_fee_params) = &overrides.base_fee_params {
-                            calculate_next_base_fee_per_gas(parent, base_fee_params)
-                        } else {
-                            calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
-                                hardfork, parent,
-                            )
-                        }
+                        let base_fee_params = overrides.base_fee_params.unwrap_or(
+                            *base_fee_params
+                                .at_condition(BaseFeeCondition {
+                                    hardfork: Some(hardfork),
+                                    timestamp: Some(timestamp),
+                                    block_number: Some(number),
+                                })
+                                .expect("Chain should have a valid default value"),
+                        );
+                        calculate_next_base_fee_per_gas(parent, &base_fee_params)
                     } else {
                         u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
                     })
@@ -396,15 +400,13 @@ pub fn calculate_next_base_fee_per_gas_for_chain_spec<ChainSpecT: EthHeaderConst
     hardfork: ChainSpecT::Hardfork,
     parent: &Header,
 ) -> u128 {
-    let base_fee_params = ChainSpecT::BASE_FEE_PARAMS
+    let base_fee_params = ChainSpecT::base_fee_params()
         .at_condition(BaseFeeCondition {
             hardfork: Some(hardfork),
-            block_number: Some(parent.number),
-            timestamp: Some(parent.timestamp),
-        }) //TODO: should we use next block number since we are calculating the `next_base_fee`? the
-        // same goes for timestamp
+            block_number: Some(parent.number), // TODO: should we use next block number since we are calculating the `next_base_fee`?
+            timestamp: Some(parent.timestamp), // TODO: same as block_number
+        }) 
         .expect("Chain spec must have base fee params for post-London hardforks");
-
     calculate_next_base_fee_per_gas(parent, base_fee_params)
 }
 
