@@ -25,7 +25,6 @@ pub struct BaseFeeCondition<HardforkT> {
 /// dynamic EIP-1559 parameters for chains like OP.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VariableBaseFeeParams<HardforkT> {
-    // TODO: can it be &'a[(,)] instead now?
     activations: Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>,
 }
 

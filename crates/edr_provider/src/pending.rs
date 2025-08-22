@@ -2,9 +2,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    eips::eip1559::{
-        BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams,
-    },
+    eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition},
     receipt::ReceiptTrait as _,
     spec::ChainHardfork,
     transaction::ExecutableTransaction as _,
@@ -12,13 +10,13 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{
-        BlockHash, Blockchain, BlockchainErrorForChainSpec, BlockchainMut, SyncBlockchain,
+        base_fee_params_for_chain, BlockHash, Blockchain, BlockchainErrorForChainSpec,
+        BlockchainMut, SyncBlockchain,
     },
     spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState},
     Block as _, BlockAndTotalDifficulty, BlockReceipts,
 };
-use itertools::Itertools;
 
 /// A blockchain with a pending block.
 ///
@@ -60,14 +58,8 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain
             )>,
         >,
     ) -> Self {
-        let base_fee_params = chain_base_fee_params_override.map_or(
-            (*ChainSpecT::base_fee_params()).clone(),
-            |params| {
-                BaseFeeParams::Variable(VariableBaseFeeParams::new(
-                    params.clone().into_iter().collect_vec(),
-                ))
-            },
-        );
+        let base_fee_params =
+            base_fee_params_for_chain::<ChainSpecT>(chain_base_fee_params_override);
         Self {
             blockchain,
             pending_block: pending_block.into(),

@@ -14,8 +14,8 @@ use alloy_dyn_abi::eip712::TypedData;
 use edr_eth::{
     account::{Account, AccountInfo, AccountStatus},
     block::{
-        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas_for_chain_spec,
-        miner_reward, HeaderOverrides,
+        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
+        HeaderOverrides,
     },
     eips::eip1559::{
         BaseFeeCondition, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams,
@@ -1408,8 +1408,6 @@ where
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         options.base_fee = options.base_fee.or(self.next_block_base_fee_per_gas);
-        // options.base_fee_params = options.base_fee_params.or(self.base_fee_params);
-        // // FIXME
         options.beneficiary = Some(options.beneficiary.unwrap_or(self.beneficiary));
         options.gas_limit = Some(options.gas_limit.unwrap_or_else(|| self.block_gas_limit()));
 
@@ -1655,14 +1653,19 @@ where
             .map_or_else(
                 || {
                     let last_block = self.last_block()?;
-
-                    Ok(
-                        // FIXME: this is not contemplating the configured variable eip-1559 params
-                        calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
-                            self.blockchain.hardfork(),
-                            last_block.header(),
-                        ),
-                    )
+                    Ok(calculate_next_base_fee_per_gas(
+                        last_block.header(),
+                        self.blockchain
+                            .base_fee_params()
+                            .at_condition(BaseFeeCondition {
+                                hardfork: Some(self.hardfork()),
+                                timestamp: Some(last_block.header().timestamp),
+                                block_number: Some(last_block.header().number + 1),
+                            })
+                            .expect(
+                                "Chain spec must have base fee params for post-London hardforks",
+                            ),
+                    ))
                 },
                 Ok,
             )
@@ -1943,13 +1946,19 @@ where
                 let block = pending_block.as_ref().expect("We mined the pending block");
                 result
                     .base_fee_per_gas
-                    .push(
-                        // FIXME: this is not contemplating the configured variable eip-1559 params
-                        calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
-                            self.blockchain.hardfork(),
-                            block.header(),
-                        ),
-                    );
+                    .push(calculate_next_base_fee_per_gas(
+                        block.header(),
+                        self.blockchain
+                            .base_fee_params()
+                            .at_condition(BaseFeeCondition {
+                                hardfork: Some(self.hardfork()),
+                                timestamp: Some(block.header().timestamp),
+                                block_number: Some(block.header().number),
+                            })
+                            .expect(
+                                "Chain spec must have base fee params for post-London hardforks",
+                            ),
+                    ));
             }
         }
 
