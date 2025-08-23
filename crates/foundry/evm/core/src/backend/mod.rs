@@ -307,6 +307,32 @@ pub trait CheatcodeBackend<
         >,
         Self: Sized;
 
+    /// Executes a given TransactionRequest, commits the new state to the DB
+    fn transact_from_tx<InspectorT>(
+        &mut self,
+        transaction: &alloy_rpc_types::TransactionRequest,
+        inspector: &mut InspectorT,
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()>
+    where
+        InspectorT: CheatcodeInspectorTr<
+            BlockT,
+            TxT,
+            HardforkT,
+            Backend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            >,
+            ChainContextT,
+        >,
+        Self: Sized;
+
     fn active_fork_id(&self) -> Option<LocalForkId>;
 
     /// Returns the Fork url that's currently used in the database, if fork mode is on
@@ -374,6 +400,17 @@ pub trait CheatcodeBackend<
         journaled_state: &mut JournalInner<JournalEntry>,
     ) -> Result<(), BackendError>;
 
+    /// Copies bytecode, storage, nonce and balance from the given genesis account to the target
+    /// address.
+    ///
+    /// Returns [Ok] if data was successfully inserted into the journal, [Err] otherwise.
+    fn clone_account(
+        &mut self,
+        source: &GenesisAccount,
+        target: &Address,
+        journaled_state: &mut JournaledState,
+    ) -> Result<(), BackendError>;
+
     /// Returns true if the given account is currently marked as persistent.
     fn is_persistent(&self, acc: &Address) -> bool;
 
@@ -438,6 +475,22 @@ pub trait CheatcodeBackend<
     // Can't take generic cheatcode as argument as this trait needs to be
     // object-safe.
     fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool);
+
+    /// Set the blockhash for a given block number.
+    ///
+    /// # Arguments
+    ///
+    /// * `number` - The block number to set the blockhash for
+    /// * `hash` - The blockhash to set
+    ///
+    /// # Note
+    ///
+    /// This function mimics the EVM limits of the `blockhash` operation:
+    /// - It sets the blockhash for blocks where `block.number - 256 <= number < block.number`
+    /// - Setting a blockhash for the current block (number == block.number) has no effect
+    /// - Setting a blockhash for future blocks (number > block.number) has no effect
+    /// - Setting a blockhash for blocks older than `block.number - 256` has no effect
+    fn set_blockhash(&mut self, block_number: U256, block_hash: B256);
 }
 
 struct _ObjectSafe<
@@ -1569,6 +1622,34 @@ impl<
         )
     }
 
+    fn transact_from_tx<InspectorT>(
+        &mut self,
+        _transaction: &alloy_rpc_types::TransactionRequest,
+        _inspector: &mut InspectorT,
+        _env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        _journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()>
+    where
+        InspectorT: CheatcodeInspectorTr<
+            BlockT,
+            TxT,
+            HardforkT,
+            Backend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            >,
+            ChainContextT,
+        >,
+    {
+        // TODO: Implement transact_from_tx
+        todo!("transact_from_tx not implemented yet")
+    }
+
     fn active_fork_id(&self) -> Option<LocalForkId> {
         self.active_fork_ids.map(|(id, _)| id)
     }
@@ -1707,6 +1788,16 @@ impl<
         self.inner.persistent_accounts.remove(account)
     }
 
+    fn clone_account(
+        &mut self,
+        _source: &GenesisAccount,
+        _target: &Address,
+        _journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> Result<(), BackendError> {
+        // TODO: Implement clone_account
+        todo!("clone_account not implemented yet")
+    }
+
     fn is_persistent(&self, acc: &Address) -> bool {
         self.inner.persistent_accounts.contains(acc)
     }
@@ -1730,6 +1821,11 @@ impl<
         if !is_pure {
             self.inner.impure_cheatcodes.insert(cheatcode_name);
         }
+    }
+
+    fn set_blockhash(&mut self, _block_number: U256, _block_hash: B256) {
+        // TODO: Implement set_blockhash
+        todo!("set_blockhash not implemented yet")
     }
 }
 
