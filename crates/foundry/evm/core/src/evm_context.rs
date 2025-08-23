@@ -6,7 +6,7 @@ use revm::{
         either::Either,
         result::{EVMError, ExecutionResult, HaltReasonTr, InvalidTransaction},
         transaction::SignedAuthorization,
-        BlockEnv, CfgEnv, Evm, JournalInner, LocalContext, TxEnv,
+        BlockEnv, CfgEnv, Evm, LocalContext, TxEnv,
     },
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
     handler::{instructions::EthInstructions, EthFrame, EthPrecompiles, PrecompileProvider},
@@ -17,7 +17,7 @@ use revm::{
 };
 
 use crate::{
-    backend::CheatcodeBackend,
+    backend::{CheatcodeBackend, JournaledState},
     opts::{BlockEnvOpts, TxEnvOpts},
 };
 
@@ -532,7 +532,7 @@ pub struct EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT> {
     pub block: &'a mut BlockT,
     pub tx: &'a mut TxT,
     pub cfg: &'a mut CfgEnv<HardforkT>,
-    pub journaled_state: &'a mut JournalInner<JournalEntry>,
+    pub journaled_state: &'a mut JournaledState,
     pub chain_context: &'a mut ChainContextT,
 }
 
