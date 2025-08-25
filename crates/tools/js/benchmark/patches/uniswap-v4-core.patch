@@ -1,0 +1,102 @@
+diff --git a/foundry.toml b/foundry.toml
+index ef26ef2..8fce0c5 100644
+--- a/foundry.toml
++++ b/foundry.toml
+@@ -10,7 +10,8 @@ bytecode_hash = "none"
+ allow_internal_expect_revert = true
+ 
+ [profile.default.fuzz]
+-runs = 1000
++# Due to lack of inline config support in Hardhat
++runs = 10
+ seed = "0x4444"
+ 
+ [profile.pr.fuzz]
+diff --git a/hardhat.config.js b/hardhat.config.js
+new file mode 100644
+index 0000000..981b154
+--- /dev/null
++++ b/hardhat.config.js
+@@ -0,0 +1,38 @@
++module.exports = {
++"paths": {
++  "sources": "src",
++  "tests": {
++    "solidity": "test"
++  }
++},
++"solidity": {
++  "version": "0.8.26",
++  "settings": {
++    "optimizer": {
++      "enabled": true,
++      "runs": 44444444
++    },
++    "viaIR": true,
++    "evmVersion": "cancun",
++    "metadata": {
++      "bytecodeHash": "none"
++    }
++  }
++},
++"solidityTest": {
++  "ffi": true,
++  "fsPermissions": {
++    "readWrite": [
++      ".forge-snapshots/"
++    ],
++    "read": ["./out", "./test/bin"],
++  },
++  "allowInternalExpectRevert": true,
++  "gasLimit": 300000000n,
++  "fuzz": {
++    "runs": 10,
++    "seed":"0x4444"
++  }
++}
++};
++
+diff --git a/package-lock.json b/package-lock.json
+new file mode 100644
+index 0000000..2635f31
+--- /dev/null
++++ b/package-lock.json
+@@ -0,0 +1,13 @@
++{
++  "name": "@uniswap/v4-core",
++  "version": "1.0.2",
++  "lockfileVersion": 3,
++  "requires": true,
++  "packages": {
++    "": {
++      "name": "@uniswap/v4-core",
++      "version": "1.0.2",
++      "license": "BUSL-1.1"
++    }
++  }
++}
+diff --git a/remappings.txt b/remappings.txt
+index c1dfc15..1e0f86a 100644
+--- a/remappings.txt
++++ b/remappings.txt
+@@ -4,3 +4,5 @@ ds-test/=lib/forge-std/lib/ds-test/src/
+ forge-std/=lib/forge-std/src/
+ hardhat/=node_modules/hardhat/
+ solmate/=lib/solmate/
++test/=test/
++src/=src/
+diff --git a/test/ModifyLiquidity.t.sol b/test/ModifyLiquidity.t.sol
+index 5e07f99..2ae660a 100644
+--- a/test/ModifyLiquidity.t.sol
++++ b/test/ModifyLiquidity.t.sol
+@@ -47,10 +47,6 @@ contract ModifyLiquidityTest is Test, Logger, Deployers, JavascriptFfi, Fuzzers
+                             Fuzz Add Liquidity
+     //////////////////////////////////////////////////////////////*/
+ 
+-    /// forge-config: default.fuzz.runs = 10
+-    /// forge-config: pr.fuzz.runs = 10
+-    /// forge-config: ci.fuzz.runs = 500
+-    /// forge-config: debug.fuzz.runs = 10
+     function test_ffi_fuzz_addLiquidity_defaultPool_ReturnsCorrectLiquidityDelta(ModifyLiquidityParams memory paramSeed)
+         public
+     {

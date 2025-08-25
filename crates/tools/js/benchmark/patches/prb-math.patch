@@ -1,0 +1,52 @@
+diff --git a/foundry.toml b/foundry.toml
+index 4bedfa5..925c6cf 100644
+--- a/foundry.toml
++++ b/foundry.toml
+@@ -12,6 +12,8 @@
+   solc = "0.8.26"
+   src = "src"
+   test = "test"
++  [fuzz]
++  seed = "1234"
+ 
+ [profile.ci]
+   fuzz = { runs = 10_000, max_test_rejects = 100_000 }
+diff --git a/hardhat.config.js b/hardhat.config.js
+new file mode 100644
+index 0000000..66f3aa0
+--- /dev/null
++++ b/hardhat.config.js
+@@ -0,0 +1,26 @@
++module.exports = {
++"paths": {
++  "sources": "src",
++  "tests": {
++    "solidity": "test"
++  }
++},
++"solidity": {
++  "version": "0.8.26",
++  "settings": {
++    "optimizer": {
++      "enabled": true,
++      "runs": 10000
++    },
++    "evmVersion": "shanghai"
++  }
++},
++"solidityTest": {
++  "allowInternalExpectRevert": true,
++  "fuzz": {
++    "runs": 256
++  },
++	"seed": "1234"
++}
++};
++
+diff --git a/remappings.txt b/remappings.txt
+index bcc8cde..6931a1a 100644
+--- a/remappings.txt
++++ b/remappings.txt
+@@ -1 +1,2 @@
+ forge-std/=node_modules/forge-std/
++src/=src/

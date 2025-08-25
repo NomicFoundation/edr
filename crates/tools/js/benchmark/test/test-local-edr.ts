@@ -30,14 +30,10 @@ function checkHardhatEdrVersion(hardhatPackageName: string) {
   assert.equal(edrPath, expectedPath);
 }
 
-// False positive
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
 test("Hardhat 2 uses the workspace version of EDR", function () {
   checkHardhatEdrVersion("hardhat2");
 });
 
-// False positive
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
 test("Hardhat 3 uses the workspace version of EDR", function () {
   checkHardhatEdrVersion("hardhat");
 });

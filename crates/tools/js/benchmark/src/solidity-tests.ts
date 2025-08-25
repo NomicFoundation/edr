@@ -18,6 +18,11 @@ forge test --fuzz-seed 0x1234567890123456789012345678901234567890 --match-contra
 import fs from "fs";
 import path from "path";
 import { simpleGit } from "simple-git";
+import { exec } from "child_process";
+import { promisify } from "util";
+import Papa from "papaparse";
+
+const execAsync = promisify(exec);
 import {
   buildSolidityTestsInput,
   dirName,
@@ -27,6 +32,11 @@ import {
   FsAccessPermission,
   SuiteResult,
   EdrContext,
+  StandardTestKind,
+  FuzzTestKind,
+  InvariantTestKind,
+  L1_CHAIN_TYPE,
+  l1SolidityTestRunnerFactory,
 } from "@nomicfoundation/edr";
 import { createHardhatRuntimeEnvironment } from "hardhat/hre";
 import { solidityTestConfigToSolidityTestRunnerConfigArgs } from "hardhat/internal/builtin-plugins/solidity-test/helpers";
@@ -48,9 +58,46 @@ export const FORGE_STD_SAMPLES = {
   StdUtilsForkTest: 25,
 };
 
-const REPO_DIR = "forge-std";
-const REPO_URL = "https://github.com/NomicFoundation/forge-std.git";
-const BRANCH_NAME = "js-benchmark-config-hh-v3-release";
+interface RepoData {
+  url: string;
+  commit: string;
+  patchFile?: string;
+}
+
+// The external repos are patched with a Hardhat 3 config and to make sure that results are comparable (e.g. by setting fuzz seeds for both HH3 and Foundry or explicitly setting the solc version).
+export const REPOS: Record<string, RepoData> = {
+  "forge-std": {
+    url: "https://github.com/NomicFoundation/forge-std.git",
+    commit: "a3dca253700f19f15b1837c57c67b9388f5cc3fb",
+    // Some tests for cheatcodes not supported by EDR have been commented out.
+    // Tests that write files on disk have been edited for improved reliability.
+    patchFile: "forge-std.patch",
+  },
+  "morpho-blue": {
+    url: "https://github.com/morpho-org/morpho-blue.git",
+    commit: "8eb9c89d3b24866ce9fef7c1d18b34427e937843",
+    // Inline `allow_internal_expect_revert = true` config was replaced by the global one, as HH3 doesn't support inline configuration yet.
+    patchFile: "morpho-blue.patch",
+  },
+  "prb-math": {
+    url: "https://github.com/PaulRBerg/prb-math.git",
+    commit: "aad73cfc6cdc2c9b660199b5b1e9db391ea48640",
+    patchFile: "prb-math.patch",
+  },
+  solady: {
+    url: "https://github.com/Vectorized/solady.git",
+    commit: "271807270b1e14e541a231ff76a869accca7546d",
+    // Deleted files specified in the `skip` option in foundry.toml as HH3 doesn't support this option.
+    // Removed remappings from foundry.toml and created remappings.txt as HH3 only supports the latter.
+    patchFile: "solady.patch",
+  },
+  "uniswap-v4-core": {
+    url: "https://github.com/Uniswap/v4-core.git",
+    commit: "59d3ecf53afa9264a16bba0e38f4c5d2231f80bc",
+    // Global fuzz runs config was reduced to 10 to match the inline config for one test, as HH3 doesn't support inline configuration yet.
+    patchFile: "uniswap-v4-core.patch",
+  },
+};
 
 /// Run Solidity tests in a Hardhat v3 project. Optionally filter paths with grep
 export async function runSolidityTests(
@@ -58,7 +105,7 @@ export async function runSolidityTests(
   chainType: string,
   repoPath: string,
   grep?: string
-) {
+): Promise<string> {
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath);
 
@@ -70,7 +117,7 @@ export async function runSolidityTests(
     });
   }
 
-  const start = performance.now();
+  const start = process.hrtime.bigint();
   const results = await runAllSolidityTests(
     context,
     chainType,
@@ -79,33 +126,27 @@ export async function runSolidityTests(
     tracingConfig,
     solidityTestsConfig
   );
-  const elapsed = performance.now() - start;
+  const elapsedNs = process.hrtime.bigint() - start;
 
   if (results.length === 0) {
     throw new Error(`Didn't run any tests for ${repoPath}`);
   }
 
-  results.sort((a, b) => Number(a.durationNs - b.durationNs));
-  for (const result of results) {
-    console.log(result.id.name, result.durationNs / 1000000n, result.id.source);
-    for (const test of result.testResults) {
-      // @ts-ignore
-      console.log("  ", test.name, test.durationNs / 1000000n, test.kind.runs);
-    }
-  }
-
-  console.log(`Ran ${results.length} tests for ${repoPath} in ${elapsed}ms`);
-
   assertNoFailures(results);
+
+  return generateCsvResults(results, repoPath, elapsedNs);
 }
 
 /// Run Solidity test benchmarks in the `forge-std` at v3 repo
-export async function runForgeStdTests(
-  context: EdrContext,
-  chainType: string,
-  resultsPath: string
-) {
-  const repoPath = await setupForgeStdRepo();
+export async function runSolidityTestsBenchmark(resultsPath: string) {
+  const context = new EdrContext();
+  const chainType = L1_CHAIN_TYPE;
+  await context.registerSolidityTestRunnerFactory(
+    chainType,
+    l1SolidityTestRunnerFactory()
+  );
+
+  const repoPath = await setupRepo(REPOS["forge-std"], "hardhat");
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath);
 
@@ -187,6 +228,286 @@ function getMeasurements(runs: Map<string, number[]>) {
   return results;
 }
 
+function generateCsvResults(
+  results: SuiteResult[],
+  repoPath: string,
+  totalElapsedNs: bigint
+): string {
+  const repoName = path.basename(repoPath);
+  const csvData: any[] = [];
+
+  // Individual test results
+  for (const suiteResult of results) {
+    const testSuiteName = suiteResult.id.name;
+    const testSuiteSource = normalizeSuiteResultSource(suiteResult.id.source);
+
+    for (const testResult of suiteResult.testResults) {
+      const testType = getTestType(testResult.kind);
+      const outcome = testResult.status.toLowerCase();
+      const runs = getTestRuns(testResult.kind);
+      csvData.push({
+        repo: repoName,
+        testSuiteName,
+        testSuiteSource,
+        testName: testResult.name,
+        testType,
+        outcome,
+        durationNs: testResult.durationNs.toString(),
+        runs,
+        executor: "edr",
+      });
+    }
+  }
+
+  // Test suite totals
+  for (const suiteResult of results) {
+    const testSuiteName = suiteResult.id.name;
+    const testSuiteSource = normalizeSuiteResultSource(suiteResult.id.source);
+    csvData.push({
+      repo: repoName,
+      testSuiteName,
+      testSuiteSource,
+      testName: "",
+      testType: "suite_total",
+      outcome: "",
+      durationNs: suiteResult.durationNs.toString(),
+      runs: "",
+      executor: "edr",
+    });
+  }
+
+  // Overall total
+  csvData.push({
+    repo: repoName,
+    testSuiteName: "",
+    testSuiteSource: "",
+    testName: "",
+    testType: "total",
+    outcome: "",
+    durationNs: totalElapsedNs.toString(),
+    runs: "",
+    executor: "edr",
+  });
+
+  // Convert to CSV string using papaparse
+  return Papa.unparse(csvData);
+}
+
+function normalizeSuiteResultSource(source: string): string {
+  // Hardhat adds this prefix to source files in the repo
+  const HARDHAT_PROJECT_PREFIX = "project/";
+  // Hardhat adds this prefix to npm dependencies
+  const HARDHAT_NPM_PREFIX = "npm/";
+
+  if (source.startsWith(HARDHAT_PROJECT_PREFIX)) {
+    return source.slice(HARDHAT_PROJECT_PREFIX.length);
+  } else if (source.startsWith(HARDHAT_NPM_PREFIX)) {
+    return source.slice(HARDHAT_NPM_PREFIX.length);
+  } else {
+    return source;
+  }
+}
+
+/// Run forge test --json and generate CSV results
+export async function runForgeTests(
+  repoPath: string,
+  forgePath: string
+): Promise<string> {
+  const forgeCmd = forgePath;
+
+  // Build the project first (not timed)
+  await execAsync(`${forgeCmd} build`, {
+    cwd: repoPath,
+  });
+
+  const start = process.hrtime.bigint();
+
+  // Execute forge test --json
+  const { stdout } = await execAsync(`${forgeCmd} test --json`, {
+    cwd: repoPath,
+    maxBuffer: 1024 * 1024 * 100, // 100MB buffer for large outputs
+  });
+
+  // Total time is not exactly the same as for EDR, as it contains process initialization, reading config from disk, checking the build cache, and then piping the results.
+  const elapsedNs = process.hrtime.bigint() - start;
+
+  const testResults = JSON.parse(stdout);
+
+  return generateForgeTestCsvResults(testResults, repoPath, elapsedNs);
+}
+
+function generateForgeTestCsvResults(
+  testResults: any,
+  repoPath: string,
+  totalElapsedNs: bigint
+): string {
+  const repoName = path.basename(repoPath);
+  const csvData: any[] = [];
+
+  // Individual test results
+  for (const [suitePath, suiteData] of Object.entries(testResults)) {
+    const testSuiteName = extractTestSuiteName(suitePath);
+    const testSuiteSource = extractTestSuiteSource(suitePath);
+    const suiteResults = (suiteData as any).test_results;
+
+    for (const [testName, testData] of Object.entries(suiteResults)) {
+      const testType = getForgeTestType((testData as any).kind);
+      const outcome = (testData as any).status.toLowerCase();
+      const runs = getForgeTestRuns((testData as any).kind);
+      const duration = parseForgeTestDuration((testData as any).duration);
+
+      csvData.push({
+        repo: repoName,
+        testSuiteName,
+        testSuiteSource,
+        testName,
+        testType,
+        outcome,
+        durationNs: duration.toString(),
+        runs,
+        executor: "forge",
+      });
+    }
+  }
+
+  // Test suite totals
+  for (const [suitePath, suiteData] of Object.entries(testResults)) {
+    const testSuiteName = extractTestSuiteName(suitePath);
+    const testSuiteSource = extractTestSuiteSource(suitePath);
+    const suiteDuration = parseForgeTestDuration((suiteData as any).duration);
+
+    csvData.push({
+      repo: repoName,
+      testSuiteName,
+      testSuiteSource,
+      testName: "",
+      testType: "suite_total",
+      outcome: "",
+      durationNs: suiteDuration.toString(),
+      runs: "",
+      executor: "forge",
+    });
+  }
+
+  // Overall total
+  csvData.push({
+    repo: repoName,
+    testSuiteName: "",
+    testSuiteSource: "",
+    testName: "",
+    testType: "total",
+    outcome: "",
+    durationNs: totalElapsedNs.toString(),
+    runs: "",
+    executor: "forge",
+  });
+
+  // Convert to CSV string using papaparse
+  return Papa.unparse(csvData);
+}
+
+function extractTestSuiteName(suitePath: string): string {
+  // Extract test suite name from path like "test/fuzz/casting/CastingUint128.t.sol:CastingUint128_Test"
+  const parts = suitePath.split(":");
+  return parts[parts.length - 1];
+}
+
+function extractTestSuiteSource(suitePath: string): string {
+  // Extract source file path from path like "test/fuzz/casting/CastingUint128.t.sol:CastingUint128_Test"
+  const parts = suitePath.split(":");
+  return parts[0];
+}
+
+interface ForgeTestKind {
+  Fuzz?: { runs: number };
+  Invariant?: { runs: number };
+  Standard?: {};
+  Unit?: {};
+}
+
+function getForgeTestType(kind: ForgeTestKind): string {
+  if (kind.Fuzz !== undefined) {
+    return "fuzz";
+  } else if (kind.Invariant !== undefined) {
+    return "invariant";
+  } else if (kind.Standard !== undefined || kind.Unit !== undefined) {
+    return "unit";
+  } else {
+    throw new Error(`Unknown test type: ${kind}`);
+  }
+}
+
+function getForgeTestRuns(kind: ForgeTestKind): string {
+  if (kind.Fuzz !== undefined) {
+    return kind.Fuzz.runs.toString();
+  } else if (kind.Invariant !== undefined) {
+    return kind.Invariant.runs.toString();
+  }
+  return "";
+}
+
+export function parseForgeTestDuration(duration: string): bigint {
+  if (duration.length === 0) {
+    throw new Error("Expected duration, got empty string");
+  }
+  // Parse duration like "5ms 287µs 747ns" into nanoseconds
+  const parts = duration.split(" ");
+  let totalNs = 0n;
+
+  for (const part of parts) {
+    // Use regex to split number and unit exactly
+    const match = part.match(/^(\d+(?:\.\d+)?)([a-zA-Zµ]+)$/);
+    if (match === null) {
+      throw new Error(`Invalid duration format: ${part}`);
+    }
+
+    const [, numberStr, unit] = match;
+    const value = parseFloat(numberStr);
+
+    // Exact unit matching
+    switch (unit) {
+      case "ms":
+        totalNs += BigInt(Math.round(value * 1000000));
+        break;
+      case "µs":
+        totalNs += BigInt(Math.round(value * 1000));
+        break;
+      case "ns":
+        totalNs += BigInt(Math.round(value));
+        break;
+      case "s":
+        totalNs += BigInt(Math.round(value * 1000000000));
+        break;
+      default:
+        throw new Error(`Unknown duration unit: ${unit}`);
+    }
+  }
+
+  return totalNs;
+}
+
+function getTestType(
+  kind: StandardTestKind | FuzzTestKind | InvariantTestKind
+): string {
+  if ("consumedGas" in kind) {
+    return "unit";
+  } else if ("runs" in kind && "meanGas" in kind) {
+    return "fuzz";
+  } else if ("runs" in kind && "calls" in kind) {
+    return "invariant";
+  }
+  return "unknown";
+}
+
+function getTestRuns(
+  kind: StandardTestKind | FuzzTestKind | InvariantTestKind
+): string {
+  if ("runs" in kind) {
+    return kind.runs.toString();
+  }
+  return "";
+}
+
 function medianMs(values: number[]) {
   if (values.length % 2 === 0) {
     throw new Error("Expected odd number of values");
@@ -215,22 +536,67 @@ function displaySec(delta: number) {
   return Math.round(sec * 100) / 100;
 }
 
-async function setupForgeStdRepo() {
-  const repoPath = path.join(dirName(import.meta.url), "..", REPO_DIR);
+export async function setupRepo(
+  repoData: RepoData,
+  tool: "hardhat" | "forge"
+): Promise<string> {
+  const repoNameRegex = /\/([^\/]+)\.git$/;
+  const match = repoData.url.match(repoNameRegex);
+  if (match === null) {
+    throw new Error(`Invalid repo URL: ${repoData.url}`);
+  }
+
+  // Use separate directories for the different tools, as both can modify the artifacts directory
+  const repoPath = path.join(
+    dirName(import.meta.url),
+    "..",
+    "repos",
+    tool,
+    match[1]
+  );
   // Ensure directory exists
   if (!fs.existsSync(repoPath)) {
-    await simpleGit().clone(REPO_URL, repoPath);
+    await simpleGit().clone(repoData.url, repoPath, [
+      "--recurse-submodules",
+      "--depth",
+      "1",
+    ]);
   }
 
   const git = simpleGit(repoPath);
-  await git.fetch();
-  await git.checkout(BRANCH_NAME);
-  await git.pull();
+  await git.fetch(["--depth", "1", "origin", repoData.commit]);
+  await git.checkout(repoData.commit);
+
+  if (repoData.patchFile !== undefined) {
+    const patchFile = path.join(
+      dirName(import.meta.url),
+      "..",
+      "patches",
+      repoData.patchFile
+    );
+    try {
+      await git.raw(["apply", patchFile]);
+    } catch (e) {
+      if (
+        !(e instanceof Error) ||
+        !e.toString().toLowerCase().includes("patch failed")
+      ) {
+        throw e;
+      }
+    }
+  }
+
+  await execAsync("npm install", { cwd: repoPath });
 
   return repoPath;
 }
 
 async function createSolidityTestsInput(repoPath: string) {
+  if (!path.isAbsolute(repoPath)) {
+    // If repo path is not absolute, assume it's relative to the current working directory
+    repoPath = path.join(process.cwd(), repoPath);
+  }
+
   const configPath = path.join(repoPath, "hardhat.config.js");
   const userConfig = (await import(configPath)).default;
   if (userConfig.solidityTest === undefined) {
