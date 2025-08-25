@@ -1,5 +1,12 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.5
+
+### Patch Changes
+
+- c498e40: Upgraded revm to v27
+- 381643b: Removed reference to cli flag from ffi cheatcode error message.
+
 ## 0.12.0-next.4
 
 ### Minor Changes
