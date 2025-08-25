@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use k256::SecretKey;
+use edr_signer::SecretKey;
 
 use crate::{
     keccak256,

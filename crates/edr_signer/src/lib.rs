@@ -4,86 +4,52 @@
 // - https://github.com/gakonst/ethers-rs/blob/cba6f071aedafb766e82e4c2f469ed5e4638337d/LICENSE-MIT
 // For the original context see: https://github.com/gakonst/ethers-rs/blob/cba6f071aedafb766e82e4c2f469ed5e4638337d/ethers-core/src/types/signature.rs
 
+//! Ethereum signature types
+
 mod fakeable;
 mod recovery_id;
+mod utils;
 mod y_parity;
 
 pub use k256::SecretKey;
 use k256::{elliptic_curve::sec1::ToEncodedPoint, FieldBytes, PublicKey};
+pub use revm_primitives::{Address, B256, U256};
 use sha3::{Digest, Keccak256};
 
 pub use self::{
+    fakeable::FakeableSignature,
     recovery_id::SignatureWithRecoveryId,
     y_parity::{Args as SignatureWithYParityArgs, SignatureWithYParity},
 };
-use crate::{Address, B256, U256};
 
 /// An error involving a signature.
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[derive(Debug, thiserror::Error)]
 pub enum SignatureError {
     /// Invalid length, ECDSA secp256k1 signatures with recovery are 65 bytes
-    #[cfg_attr(
-        feature = "std",
-        error("invalid signature length, got {0}, expected 65")
-    )]
+    #[error("invalid signature length, got {0}, expected 65")]
     InvalidLength(usize),
     /// Invalid secret key.
-    #[cfg_attr(feature = "std", error("Expected 32 byte secret key"))]
+    #[error("Expected 32 byte secret key")]
     InvalidSecretKeyLength,
     /// When parsing a secret key from string to hex
-    #[cfg_attr(feature = "std", error("Invalid hex"))]
+    #[error("Invalid hex")]
     InvalidSecretKeyHex,
     /// When parsing a signature from string to hex
-    #[cfg_attr(feature = "std", error(transparent))]
-    DecodingError(#[cfg_attr(feature = "std", from)] hex::FromHexError),
+    #[error(transparent)]
+    DecodingError(#[from] hex::FromHexError),
     /// Thrown when signature verification failed (i.e. when the address that
     /// produced the signature did not match the expected address)
-    #[cfg_attr(
-        feature = "std",
-        error("Signature verification failed. Expected {0}, got {1}")
-    )]
+    #[error("Signature verification failed. Expected {0}, got {1}")]
     VerificationError(Address, Address),
     /// ECDSA error
-    #[cfg_attr(feature = "std", error(transparent))]
-    ECDSAError(#[cfg_attr(feature = "std", from)] k256::ecdsa::signature::Error),
+    #[error(transparent)]
+    ECDSAError(#[from] k256::ecdsa::signature::Error),
     /// Elliptic curve error
-    #[cfg_attr(feature = "std", error(transparent))]
-    EllipticCurveError(#[cfg_attr(feature = "std", from)] k256::elliptic_curve::Error),
+    #[error(transparent)]
+    EllipticCurveError(#[from] k256::elliptic_curve::Error),
     /// Error in recovering public key from signature
-    #[cfg_attr(feature = "std", error("Public key recovery error"))]
+    #[error("Public key recovery error")]
     RecoveryError,
-}
-
-/// A fakeable signature which can either be a fake signature or a real ECDSA
-/// signature.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Fakeable<SignatureT: Signature> {
-    data: FakeableData<SignatureT>,
-    address: Address,
-}
-
-/// Signature with a recoverable caller address.
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum FakeableData<SignatureT: Signature> {
-    /// Fake signature, used for impersonation.
-    /// Contains the caller address.
-    ///
-    /// The only requirements on a fake signature are that when it is encoded as
-    /// part of a transaction, it produces the same hash for the same
-    /// transaction from a sender, and it produces different hashes for
-    /// different senders. We achieve this by setting the `r` and `s` values
-    /// to the sender's address. This is the simplest implementation and it
-    /// helps us recognize fake signatures in debug logs.
-    Fake {
-        /// The fake recovery ID.
-        ///
-        /// A recovery ID of 28 (1 + 27) signals that the signature uses a
-        /// `y_parity: bool` for encoding/decoding purposes instead of `v: u64`.
-        recovery_id: u64,
-    },
-    /// ECDSA signature with a recoverable caller address.
-    Recoverable { signature: SignatureT },
 }
 
 /// Trait for an ECDSA signature.

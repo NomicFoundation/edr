@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 
 use alloy_rlp::{Buf, BufMut};
 use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
-use k256::SecretKey;
+use edr_signer::SecretKey;
 
 pub use self::{
     eip155::Eip155,
@@ -23,11 +23,7 @@ use super::{
     IsEip155, IsEip4844, IsLegacy, IsSupported, Signed, SignedTransaction, TransactionMut,
     TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
-use crate::{
-    impl_revm_transaction_trait, l1,
-    signature::{Fakeable, Signature, SignatureError},
-    Address, Bytes, B256, U256,
-};
+use crate::{impl_revm_transaction_trait, l1, Address, Bytes, B256, U256};
 
 /// Trait for signing a transaction request with a fake signature.
 pub trait FakeSign {

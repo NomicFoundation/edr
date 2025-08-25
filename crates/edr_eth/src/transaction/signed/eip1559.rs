@@ -205,7 +205,7 @@ mod tests {
 
     use alloy_rlp::Decodable;
     use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_address};
-    use k256::SecretKey;
+    use edr_signer::SecretKey;
 
     use super::*;
 

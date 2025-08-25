@@ -5,8 +5,7 @@ use revm_primitives::alloy_primitives::Signature as PrimitiveSignature;
 use super::{Recoverable, RecoveryMessage, Signature, SignatureError, SignatureWithRecoveryId};
 use crate::{Address, U256};
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, serde::Serialize, serde::Deserialize)]
 /// An ECDSA signature with Y-parity.
 pub struct SignatureWithYParity(PrimitiveSignature);
 

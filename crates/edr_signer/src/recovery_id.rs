@@ -1,5 +1,4 @@
 use core::fmt;
-#[cfg(feature = "std")]
 use std::str::FromStr;
 
 use alloy_rlp::BufMut;
@@ -10,12 +9,12 @@ use k256::{
     },
     FieldBytes, SecretKey,
 };
+use revm_primitives::{Address, Bytes, B256, U256};
 
 use super::{public_key_to_address, Recoverable, RecoveryMessage, Signature, SignatureError};
-use crate::{utils::hash_message, Address, Bytes, B256, U256};
+use crate::utils::hash_message;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 /// An ECDSA signature with recovery ID.
 pub struct SignatureWithRecoveryId {
     /// R value
@@ -218,7 +217,6 @@ impl<'a> TryFrom<&'a [u8]> for SignatureWithRecoveryId {
     }
 }
 
-#[cfg(feature = "std")]
 impl FromStr for SignatureWithRecoveryId {
     type Err = SignatureError;
 

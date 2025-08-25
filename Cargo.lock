@@ -2349,13 +2349,13 @@ dependencies = [
  "edr_eip7702",
  "edr_evm_spec",
  "edr_rpc_eth",
+ "edr_signer",
  "edr_test_utils",
  "hash-db",
  "hash256-std-hasher",
  "hashbrown 0.14.5",
  "hex",
  "itertools 0.10.5",
- "k256",
  "lazy_static",
  "log",
  "once_cell",
@@ -2708,6 +2708,20 @@ dependencies = [
  "edr_test_utils",
  "k256",
  "serde",
+]
+
+[[package]]
+name = "edr_signer"
+version = "0.3.8"
+dependencies = [
+ "alloy-rlp",
+ "edr_test_utils",
+ "hex",
+ "k256",
+ "revm-primitives",
+ "serde",
+ "sha3",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

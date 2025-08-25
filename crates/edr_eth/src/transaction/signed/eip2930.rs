@@ -195,8 +195,8 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_rlp::Decodable;
+    use edr_signer::SecretKey;
     use edr_test_utils::secret_key::secret_key_from_str;
-    use k256::SecretKey;
 
     use super::*;
 

@@ -31,8 +31,6 @@ pub mod reward_percentile;
 pub mod rlp;
 #[cfg(feature = "serde")]
 pub mod serde;
-/// Ethereum signature types
-pub mod signature;
 /// Ethereum state types and functions
 pub mod state;
 /// Ethereum transaction types
