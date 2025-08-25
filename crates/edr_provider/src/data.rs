@@ -2972,13 +2972,12 @@ fn create_blockchain_and_state<
                 timestamp,
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: VariableBaseFeeParams::new(base_fee_activations.clone()) // TODO: Ani: receive reference
+                base_fee_params: VariableBaseFeeParams::new(base_fee_activations.clone())
                     .at_condition(BaseFeeCondition {
                         timestamp,
                         hardfork: Some(config.hardfork),
                         block_number: Some(0),
-                    })
-                    .copied(),
+                    }).map(|value| *value),
                 blob_gas: config.initial_blob_gas.clone(),
             },
             ChainSpecT::base_fee_params(),

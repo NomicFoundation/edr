@@ -10,7 +10,7 @@ use edr_eth::{
 };
 use edr_evm::{
     blockchain::{
-        base_fee_params_for_chain, BlockHash, Blockchain, BlockchainErrorForChainSpec,
+        base_fee_params_for_chain_spec, BlockHash, Blockchain, BlockchainErrorForChainSpec,
         BlockchainMut, SyncBlockchain,
     },
     spec::SyncRuntimeSpec,
@@ -59,7 +59,7 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain
         >,
     ) -> Self {
         let base_fee_params =
-            base_fee_params_for_chain::<ChainSpecT>(chain_base_fee_params_override);
+            base_fee_params_for_chain_spec::<ChainSpecT>(chain_base_fee_params_override);
         Self {
             blockchain,
             pending_block: pending_block.into(),
