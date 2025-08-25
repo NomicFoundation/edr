@@ -27,7 +27,7 @@ use super::{
 };
 use crate::{
     block::EthRpcBlock,
-    blockchain::base_fee_params_for_chain,
+    blockchain::base_fee_params_for_chain_spec,
     eips::{
         eip2935::{
             add_history_storage_contract_to_state_diff, history_storage_contract,
@@ -290,7 +290,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
             }
         }
 
-        let base_fee_params = base_fee_params_for_chain::<ChainSpecT>(
+        let base_fee_params = base_fee_params_for_chain_spec::<ChainSpecT>(
             chain_overrides
                 .get(&remote_chain_id)
                 .and_then(|chain_override| chain_override.base_fee_params.clone()),

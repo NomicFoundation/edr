@@ -15,7 +15,7 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    blockchain::base_fee_params_for_chain,
+    blockchain::base_fee_params_for_chain_spec,
     spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
@@ -91,7 +91,7 @@ where
         );
 
         let base_fee_params =
-            base_fee_params_for_chain::<ChainSpecT>(chain_base_fee_params_override);
+            base_fee_params_for_chain_spec::<ChainSpecT>(chain_base_fee_params_override);
 
         Ok(Self {
             storage,
