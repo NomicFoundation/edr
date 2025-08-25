@@ -22,7 +22,6 @@ use napi::{
     Either, JsFunction, JsString, JsStringUtf8,
 };
 use napi_derive::napi;
-use serde_json::Value;
 
 use crate::{
     account::AccountOverride, block::BlobGas, cast::TryCast, logger::LoggerConfig,
@@ -33,8 +32,7 @@ use crate::{
 #[napi(object)]
 pub struct BaseFeeConfig {
     pub key_type: BaseFeeConfigType,
-    #[napi(ts_type = "bigint | string")]
-    pub activation: Value,
+    pub activation: Either<BigInt, String>,
     pub max_change_denominator: BigInt,
     pub elasticity_multiplier: BigInt,
 }
@@ -49,39 +47,26 @@ impl TryFrom<BaseFeeConfig> for (DynamicBaseFeeCondition<String>, ConstantBaseFe
         };
         match value.key_type {
             BaseFeeConfigType::BlockNumber => {
-                let activation: Option<u64> = match value.activation {
-                    Value::Number(number) => number.as_u64(),
-                    _ => None,
-                };
-                let activation = match activation {
-                    Some(activation) => activation,
-                    None => {
-                        return Err(napi::Error::new(
-                            napi::Status::InvalidArg,
-                            "Invalid activation value for BlockNumber type",
-                        ))
-                    }
-                };
-
+                let activation: u64 = match value.activation {
+                    Either::A(number) => number.try_cast(),
+                    Either::B(_) => Err(napi::Error::new(
+                        napi::Status::InvalidArg,
+                        "Invalid activation value for BlockNumber type",
+                    )),
+                }?;
                 Ok((
                     DynamicBaseFeeCondition::BlockNumber(activation),
                     base_fee_params,
                 ))
             }
             BaseFeeConfigType::Timestamp => {
-                let activation: Option<u64> = match value.activation {
-                    Value::Number(number) => number.as_u64(),
-                    _ => None,
-                };
-                let activation = match activation {
-                    Some(activation) => activation,
-                    None => {
-                        return Err(napi::Error::new(
-                            napi::Status::InvalidArg,
-                            "Invalid activation value for Timestamp type",
-                        ))
-                    }
-                };
+                let activation: u64 = match value.activation {
+                    Either::A(number) => number.try_cast(),
+                    Either::B(_) => Err(napi::Error::new(
+                        napi::Status::InvalidArg,
+                        "Invalid activation value for Timestamp type",
+                    )),
+                }?;
                 Ok((
                     DynamicBaseFeeCondition::Timestamp(activation),
                     base_fee_params,
@@ -89,8 +74,8 @@ impl TryFrom<BaseFeeConfig> for (DynamicBaseFeeCondition<String>, ConstantBaseFe
             }
             BaseFeeConfigType::Hardfork => {
                 let activation: String = match value.activation {
-                    Value::String(hardfork) => hardfork,
-                    _ => {
+                    Either::B(hardfork) => hardfork,
+                    Either::A(_) => {
                         return Err(napi::Error::new(
                             napi::Status::InvalidArg,
                             "Invalid activation value for Hardfork type",

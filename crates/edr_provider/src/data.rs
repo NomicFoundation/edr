@@ -2977,7 +2977,8 @@ fn create_blockchain_and_state<
                         timestamp,
                         hardfork: Some(config.hardfork),
                         block_number: Some(0),
-                    }).map(|value| *value),
+                    })
+                    .copied(),
                 blob_gas: config.initial_blob_gas.clone(),
             },
             ChainSpecT::base_fee_params(),

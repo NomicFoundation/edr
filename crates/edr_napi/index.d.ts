@@ -169,7 +169,7 @@ export interface BaseFeeConfig {
   maxChangeDenominator: bigint
   elasticityMultiplier: bigint
 }
-/** Alternative types to define variable `base_fee_params` */
+/** Alternative types to define variable `base_fee_params` activations */
 export enum BaseFeeConfigType {
   Timestamp = 0,
   BlockNumber = 1,
