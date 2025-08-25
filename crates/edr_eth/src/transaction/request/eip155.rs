@@ -1,11 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{BufMut, Encodable};
-use k256::SecretKey;
+use edr_signer::{
+    public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithRecoveryId,
+};
 
 use crate::{
     keccak256,
-    signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -55,7 +56,7 @@ impl Eip155 {
     ) -> Result<transaction::signed::Eip155, SignatureError> {
         let hash = self.hash();
 
-        let mut signature = signature::SignatureWithRecoveryId::new(hash, secret_key)?;
+        let mut signature = SignatureWithRecoveryId::new(hash, secret_key)?;
         signature.v += self.v_value_adjustment();
 
         Ok(transaction::signed::Eip155 {
@@ -66,7 +67,7 @@ impl Eip155 {
             value: self.value,
             input: self.input,
             // SAFETY: The safety concern is propagated in the function signature.
-            signature: unsafe { Fakeable::with_address_unchecked(signature, caller) },
+            signature: unsafe { FakeableSignature::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         })
@@ -83,7 +84,7 @@ impl Eip155 {
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature: signature::Fakeable::fake(address, Some(v)),
+            signature: FakeableSignature::fake(address, Some(v)),
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         }

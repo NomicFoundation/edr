@@ -12,6 +12,7 @@ edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
 
 [dev-dependencies]
+edr_signer.workspace = true
 edr_test_utils = { path = "../edr_test_utils" }
 
 [lints]

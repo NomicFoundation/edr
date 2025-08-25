@@ -2,10 +2,10 @@ use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
 use edr_evm_spec::ExecutableTransaction;
+use edr_signer::{FakeableSignature, Signature as _, SignatureWithRecoveryId};
 
 use crate::{
     keccak256,
-    signature::{self, Signature},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -24,7 +24,7 @@ pub struct Eip155 {
     pub value: U256,
     pub input: Bytes,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Fakeable<signature::SignatureWithRecoveryId>,
+    pub signature: FakeableSignature<SignatureWithRecoveryId>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
@@ -154,8 +154,8 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_rlp::Decodable as _;
+    use edr_signer::SecretKey;
     use edr_test_utils::secret_key::secret_key_from_str;
-    use k256::SecretKey;
 
     use super::*;
     use crate::transaction::signed::PreOrPostEip155;

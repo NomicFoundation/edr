@@ -8,7 +8,6 @@ use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
 pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
     impl_revm_transaction_trait,
-    signature::{Fakeable, Signature},
     transaction::{
         IsEip4844, IsLegacy, IsSupported, MaybeSignedTransaction, TransactionMut, TransactionType,
         TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
@@ -16,6 +15,7 @@ use edr_eth::{
     Address, Bytes, B256, U256,
 };
 use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
+use edr_signer::{FakeableSignature, Signature};
 
 use super::Signed;
 use crate::transaction::{InvalidTransaction, OpTxTrait};
@@ -109,7 +109,7 @@ impl Default for Signed {
             kind: TxKind::Call(Address::ZERO), // will do nothing
             value: U256::ZERO,
             input: Bytes::new(),
-            signature: Fakeable::fake(Address::ZERO, Some(0)),
+            signature: FakeableSignature::fake(Address::ZERO, Some(0)),
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         })

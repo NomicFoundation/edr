@@ -25,6 +25,7 @@ edr_provider = { path = "../edr_provider" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
 edr_rpc_client = { path = "../edr_rpc_client" }
 edr_scenarios = { version = "0.3.5", path = "../edr_scenarios", optional = true }
+edr_signer.workspace = true
 edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
 k256 = { version = "0.13.1", default-features = false, features = [
     "arithmetic",

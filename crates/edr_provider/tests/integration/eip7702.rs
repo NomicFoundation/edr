@@ -13,7 +13,6 @@ use std::sync::Arc;
 use edr_eth::{
     address,
     l1::{self, L1ChainSpec},
-    signature::public_key_to_address,
     transaction, Address, Bytes, B256, U256,
 };
 use edr_evm_spec::ExecutableTransaction as _;
@@ -25,6 +24,7 @@ use edr_provider::{
     MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
 };
 use edr_rpc_eth::TransactionRequest;
+use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
 use k256::SecretKey;

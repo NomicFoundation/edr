@@ -1,12 +1,43 @@
 use alloy_rlp::BufMut;
 
 use super::{
-    Fakeable, FakeableData, Recoverable, RecoveryMessage, Signature, SignatureError,
-    SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
+    Recoverable, RecoveryMessage, Signature, SignatureError, SignatureWithRecoveryId,
+    SignatureWithYParity, SignatureWithYParityArgs,
 };
 use crate::{Address, U256};
 
-impl<SignatureT: Signature> Fakeable<SignatureT> {
+/// Signature with a recoverable caller address.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum FakeableData<SignatureT: Signature> {
+    /// Fake signature, used for impersonation.
+    /// Contains the caller address.
+    ///
+    /// The only requirements on a fake signature are that when it is encoded as
+    /// part of a transaction, it produces the same hash for the same
+    /// transaction from a sender, and it produces different hashes for
+    /// different senders. We achieve this by setting the `r` and `s` values
+    /// to the sender's address. This is the simplest implementation and it
+    /// helps us recognize fake signatures in debug logs.
+    Fake {
+        /// The fake recovery ID.
+        ///
+        /// A recovery ID of 28 (1 + 27) signals that the signature uses a
+        /// `y_parity: bool` for encoding/decoding purposes instead of `v: u64`.
+        recovery_id: u64,
+    },
+    /// ECDSA signature with a recoverable caller address.
+    Recoverable { signature: SignatureT },
+}
+
+/// A fakeable signature which can either be a fake signature or a real ECDSA
+/// signature.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FakeableSignature<SignatureT: Signature> {
+    data: FakeableData<SignatureT>,
+    address: Address,
+}
+
+impl<SignatureT: Signature> FakeableSignature<SignatureT> {
     /// Constructs an instance with a signature that has a recoverable address,
     /// as well as that address.
     ///
@@ -54,7 +85,7 @@ impl<SignatureT: Signature> Fakeable<SignatureT> {
     }
 }
 
-impl<SignatureT: Recoverable + Signature> Fakeable<SignatureT> {
+impl<SignatureT: Recoverable + Signature> FakeableSignature<SignatureT> {
     /// Constructs an instance with a signature that has a recoverable address.
     pub fn recover(
         signature: SignatureT,
@@ -72,7 +103,7 @@ impl<SignatureT: Recoverable + Signature> Fakeable<SignatureT> {
 // We need a custom implementation to avoid the struct being treated as an RLP
 // list.
 impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Encodable
-    for Fakeable<SignatureT>
+    for FakeableSignature<SignatureT>
 {
     fn encode(&self, out: &mut dyn BufMut) {
         match &self.data {
@@ -122,15 +153,13 @@ impl<SignatureT: alloy_rlp::Encodable + Recoverable + Signature> alloy_rlp::Enco
     }
 }
 
-#[cfg(feature = "serde")]
-impl<SignatureT: Recoverable + Signature> serde::Serialize for Fakeable<SignatureT> {
+impl<SignatureT: Recoverable + Signature> serde::Serialize for FakeableSignature<SignatureT> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        use revm_primitives::alloy_primitives::U64;
         use serde::ser::SerializeMap;
-
-        use crate::U64;
 
         let mut map = serializer.serialize_map(Some(3))?;
         map.serialize_entry("r", &self.r())?;
@@ -147,7 +176,7 @@ impl<SignatureT: Recoverable + Signature> serde::Serialize for Fakeable<Signatur
     }
 }
 
-impl<SignatureT: Recoverable + Signature> Signature for Fakeable<SignatureT> {
+impl<SignatureT: Recoverable + Signature> Signature for FakeableSignature<SignatureT> {
     fn r(&self) -> U256 {
         match &self.data {
             // We interpret the hash as a big endian U256 value.

@@ -2,14 +2,13 @@
 
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_eth::{
-    bytes, l1::L1ChainSpec, signature::public_key_to_address, Address, Bytes, HashSet, B256,
-};
+use edr_eth::{bytes, l1::L1ChainSpec, Address, Bytes, HashSet, B256};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::Mutex;
 use tokio::runtime;

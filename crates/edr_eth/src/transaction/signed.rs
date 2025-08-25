@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 
 use alloy_rlp::{Buf, BufMut};
 use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
-use k256::SecretKey;
+use edr_signer::{FakeableSignature, SecretKey, Signature};
 
 pub use self::{
     eip155::Eip155,
@@ -23,11 +23,7 @@ use super::{
     IsEip155, IsEip4844, IsLegacy, IsSupported, Signed, SignedTransaction, TransactionMut,
     TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
-use crate::{
-    impl_revm_transaction_trait, l1,
-    signature::{Fakeable, Signature, SignatureError},
-    Address, Bytes, B256, U256,
-};
+use crate::{impl_revm_transaction_trait, l1, Address, Bytes, B256, U256};
 
 /// Trait for signing a transaction request with a fake signature.
 pub trait FakeSign {
@@ -52,7 +48,7 @@ pub trait Sign {
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<Self::Signed, SignatureError>;
+    ) -> Result<Self::Signed, edr_signer::SignatureError>;
 }
 
 impl Signed {
@@ -145,7 +141,7 @@ impl Default for Signed {
             kind: TxKind::Call(Address::ZERO), // will do nothing
             value: U256::ZERO,
             input: Bytes::new(),
-            signature: Fakeable::fake(Address::ZERO, Some(0)),
+            signature: FakeableSignature::fake(Address::ZERO, Some(0)),
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         })
@@ -475,12 +471,10 @@ mod tests {
     use std::sync::OnceLock;
 
     use alloy_rlp::Decodable as _;
+    use edr_signer::{SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs};
 
     use super::*;
-    use crate::{
-        signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
-        transaction, Bytes,
-    };
+    use crate::{transaction, Bytes};
 
     #[test]
     fn can_recover_sender() {
@@ -641,8 +635,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae",
                         )
@@ -676,8 +670,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0xe24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0a",
                         )
@@ -711,8 +705,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0xce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071",
                         )
@@ -749,7 +743,7 @@ mod tests {
             access_list: edr_eip2930::AccessList::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: U256::from_str(
                             "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
@@ -784,8 +778,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0x35b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981",
                         )

@@ -1,11 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
-use k256::SecretKey;
+use edr_signer::{
+    public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithRecoveryId,
+};
 
 use crate::{
     keccak256,
-    signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -53,7 +54,7 @@ impl Legacy {
         caller: Address,
     ) -> Result<transaction::signed::Legacy, SignatureError> {
         let hash = self.hash();
-        let signature = signature::SignatureWithRecoveryId::new(hash, secret_key)?;
+        let signature = SignatureWithRecoveryId::new(hash, secret_key)?;
 
         Ok(transaction::signed::Legacy {
             nonce: self.nonce,
@@ -63,7 +64,7 @@ impl Legacy {
             value: self.value,
             input: self.input,
             // SAFETY: The safety concern is propagated in the function signature.
-            signature: unsafe { Fakeable::with_address_unchecked(signature, caller) },
+            signature: unsafe { FakeableSignature::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         })
@@ -78,7 +79,7 @@ impl Legacy {
             kind: self.kind,
             value: self.value,
             input: self.input,
-            signature: signature::Fakeable::fake(sender, Some(0)),
+            signature: FakeableSignature::fake(sender, Some(0)),
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         }

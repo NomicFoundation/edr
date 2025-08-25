@@ -2,10 +2,10 @@ use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 use edr_evm_spec::ExecutableTransaction;
+use edr_signer::{FakeableSignature, SignatureWithRecoveryId};
 
 use crate::{
     keccak256,
-    signature::{self, Fakeable},
     transaction::{self, TxKind},
     Address, Bytes, B256, U256,
 };
@@ -24,7 +24,7 @@ pub struct Legacy {
     pub value: U256,
     pub input: Bytes,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Fakeable<signature::SignatureWithRecoveryId>,
+    pub signature: FakeableSignature<SignatureWithRecoveryId>,
     /// Cached transaction hash
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -146,7 +146,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
             pub kind: TxKind,
             pub value: U256,
             pub input: Bytes,
-            pub signature: signature::SignatureWithRecoveryId,
+            pub signature: SignatureWithRecoveryId,
         }
 
         impl From<&Decodable> for transaction::request::Eip155 {
@@ -182,8 +182,9 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
         let transaction = if transaction.signature.v >= 35 {
             let request = transaction::request::Eip155::from(&transaction);
 
-            let signature = Fakeable::recover(transaction.signature, request.hash().into())
-                .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
+            let signature =
+                FakeableSignature::recover(transaction.signature, request.hash().into())
+                    .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
 
             Self::Post(transaction::signed::Eip155 {
                 nonce: transaction.nonce,
@@ -199,8 +200,9 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
         } else {
             let request = transaction::request::Legacy::from(&transaction);
 
-            let signature = Fakeable::recover(transaction.signature, request.hash().into())
-                .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
+            let signature =
+                FakeableSignature::recover(transaction.signature, request.hash().into())
+                    .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
 
             Self::Pre(Legacy {
                 nonce: request.nonce,
@@ -224,8 +226,8 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_rlp::Decodable as _;
+    use edr_signer::SecretKey;
     use edr_test_utils::secret_key::secret_key_from_str;
-    use k256::SecretKey;
 
     use super::*;
 

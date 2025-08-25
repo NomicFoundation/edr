@@ -4,7 +4,6 @@ use std::{str::FromStr, time::SystemTime};
 use edr_eth::{
     block::BlobGas,
     l1::{self, hardfork::UnknownHardfork},
-    signature::SecretKey,
     Address, ChainId, HashMap, B256,
 };
 use edr_evm::{
@@ -12,6 +11,7 @@ use edr_evm::{
     precompile::PrecompileFn,
 };
 use edr_provider::{config, AccountOverride, ForkConfig};
+use edr_signer::SecretKey;
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]

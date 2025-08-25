@@ -2,10 +2,10 @@ use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 use edr_evm_spec::ExecutableTransaction;
+use edr_signer::{FakeableSignature, SignatureWithYParity};
 
 use crate::{
     keccak256,
-    signature::{self, Fakeable},
     transaction::{self, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
@@ -28,7 +28,7 @@ pub struct Eip2930 {
     pub input: Bytes,
     pub access_list: edr_eip2930::AccessList,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Fakeable<signature::SignatureWithYParity>,
+    pub signature: FakeableSignature<SignatureWithYParity>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
@@ -148,7 +148,7 @@ struct Decodable {
     pub value: U256,
     pub input: Bytes,
     pub access_list: edr_eip2930::AccessList,
-    pub signature: signature::SignatureWithYParity,
+    pub signature: SignatureWithYParity,
 }
 
 impl alloy_rlp::Decodable for Eip2930 {
@@ -156,7 +156,7 @@ impl alloy_rlp::Decodable for Eip2930 {
         let transaction = Decodable::decode(buf)?;
         let request = transaction::request::Eip2930::from(&transaction);
 
-        let signature = Fakeable::recover(transaction.signature, request.hash().into())
+        let signature = FakeableSignature::recover(transaction.signature, request.hash().into())
             .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
 
         Ok(Self {
@@ -195,8 +195,8 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_rlp::Decodable;
+    use edr_signer::SecretKey;
     use edr_test_utils::secret_key::secret_key_from_str;
-    use k256::SecretKey;
 
     use super::*;
 

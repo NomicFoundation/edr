@@ -398,11 +398,13 @@ mod tests {
 
     use alloy_rlp::Decodable;
     use c_kzg::BYTES_PER_BLOB;
+    use edr_signer::{
+        FakeableSignature, SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
+    };
 
     use super::*;
     use crate::{
         address,
-        signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
         transaction::{self, TxKind},
         Address, Bytes, B256, U256,
     };
@@ -453,8 +455,8 @@ mod tests {
             input: Bytes::from(vec![1, 2]),
             // SAFETY: Signature and caller address have been precomputed based on
             // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
-            signature: unsafe { signature::Fakeable::with_address_unchecked(
-                signature::SignatureWithRecoveryId {
+            signature: unsafe { FakeableSignature::with_address_unchecked(
+                SignatureWithRecoveryId {
                     r: U256::from_str("0xf0407adecc60467f3293582a9e1d726db5bc6b64f230bfb6ff04f23a1bbfe8dc")?,
                     s: U256::from_str("0x2f68623b42c3b302b8b96035c30ca58c566fdfdc3421ddb4f41d61b485e1401b")?,
                     v: 27,
@@ -473,8 +475,8 @@ mod tests {
             input: Bytes::from(vec![1, 2]),
             // SAFETY: Signature and caller address have been precomputed based on
             // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
-            signature: unsafe { signature::Fakeable::with_address_unchecked(
-                signature::SignatureWithRecoveryId {
+            signature: unsafe { FakeableSignature::with_address_unchecked(
+                SignatureWithRecoveryId {
                     r: U256::from_str("0xed3a859fce13d142bba6051a91f934947f71c5f8ce8e3fe5bc7a845365309b90")?,
                     s: U256::from_str("0x1deb3bbf3fff7fba96e853ff1a19eabb117ef93b7704176893e4e9fff0e04576")?,
                     v: 2709,
@@ -495,7 +497,7 @@ mod tests {
             access_list: vec![].into(),
             // SAFETY: Signature and caller address have been precomputed based on
             // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
-            signature: unsafe { signature::Fakeable::with_address_unchecked(
+            signature: unsafe { FakeableSignature::with_address_unchecked(
                 SignatureWithYParity::new(
                     SignatureWithYParityArgs {
                         r: U256::from_str("0xa8d41ec812e66a7d80a1478f053cb8b627abb36191f53c2f7a153b4e4f90564d")?,
@@ -520,7 +522,7 @@ mod tests {
             access_list: vec![].into(),
             // SAFETY: Signature and caller address have been precomputed based on
             // `crate::edr_eth::transaction::signed::impl_test_signed_transaction_encoding_round_trip!`
-            signature: unsafe { signature::Fakeable::with_address_unchecked(
+            signature: unsafe { FakeableSignature::with_address_unchecked(
                 SignatureWithYParity::new(
                     SignatureWithYParityArgs {
                         r: U256::from_str("0x263b71578125bf86e9e842a920af2d941cd023893c4a452d158c87eabdf06bb9")?,
@@ -547,7 +549,7 @@ mod tests {
                 access_list: vec![].into(),
                 blob_hashes: vec![B256::from_str("0x01ae39c06daecb6a178655e3fab2e56bd61e81392027947529e4def3280c546e")?],
                 // SAFETY: Signature and caller address have been precomputed
-                signature: unsafe { signature::Fakeable::with_address_unchecked(
+                signature: unsafe { FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(
                         SignatureWithYParityArgs {
                             r: U256::from_str("0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082")?,
@@ -598,7 +600,7 @@ mod tests {
             ],
             // SAFETY: Signature and caller address have been precomputed from the test data in
             // `src/transaction/signed/eip7702.rs`.
-            signature: unsafe { signature::Fakeable::with_address_unchecked(
+            signature: unsafe { FakeableSignature::with_address_unchecked(
                 SignatureWithYParity::new(
                     SignatureWithYParityArgs {
                         r: U256::from_str("0xc6b497dd8d2b10eae25059ebc11b6228d15892c998856b04a1645cc932aad4c1")?,

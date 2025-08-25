@@ -2299,6 +2299,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm",
+ "edr_signer",
  "edr_test_utils",
 ]
 
@@ -2349,13 +2350,13 @@ dependencies = [
  "edr_eip7702",
  "edr_evm_spec",
  "edr_rpc_eth",
+ "edr_signer",
  "edr_test_utils",
  "hash-db",
  "hash256-std-hasher",
  "hashbrown 0.14.5",
  "hex",
  "itertools 0.10.5",
- "k256",
  "lazy_static",
  "log",
  "once_cell",
@@ -2394,6 +2395,7 @@ dependencies = [
  "edr_evm_spec",
  "edr_generic",
  "edr_rpc_eth",
+ "edr_signer",
  "edr_test_utils",
  "edr_utils",
  "futures",
@@ -2451,6 +2453,7 @@ dependencies = [
  "edr_provider",
  "edr_rpc_client",
  "edr_rpc_eth",
+ "edr_signer",
  "edr_solidity",
  "edr_test_utils",
  "log",
@@ -2510,6 +2513,7 @@ dependencies = [
  "edr_rpc_client",
  "edr_rpc_eth",
  "edr_scenarios",
+ "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
  "foundry-cheatcodes",
@@ -2545,6 +2549,7 @@ dependencies = [
  "edr_generic",
  "edr_provider",
  "edr_rpc_client",
+ "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
  "itertools 0.12.1",
@@ -2573,6 +2578,7 @@ dependencies = [
  "edr_napi_core",
  "edr_provider",
  "edr_rpc_eth",
+ "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
  "edr_test_utils",
@@ -2608,6 +2614,7 @@ dependencies = [
  "edr_evm",
  "edr_evm_spec",
  "edr_rpc_eth",
+ "edr_signer",
  "edr_solidity",
  "edr_test_utils",
  "edr_utils",
@@ -2677,6 +2684,7 @@ dependencies = [
  "edr_evm",
  "edr_evm_spec",
  "edr_rpc_client",
+ "edr_signer",
  "edr_test_utils",
  "futures",
  "hex",
@@ -2708,6 +2716,20 @@ dependencies = [
  "edr_test_utils",
  "k256",
  "serde",
+]
+
+[[package]]
+name = "edr_signer"
+version = "0.3.8"
+dependencies = [
+ "alloy-rlp",
+ "edr_test_utils",
+ "hex",
+ "k256",
+ "revm-primitives",
+ "serde",
+ "sha3",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2788,6 +2810,7 @@ version = "0.3.8"
 dependencies = [
  "edr_common",
  "edr_eth",
+ "edr_signer",
  "fd-lock",
  "foundry-compilers",
  "hex",

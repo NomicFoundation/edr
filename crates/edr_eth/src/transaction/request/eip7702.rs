@@ -1,10 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
+use edr_signer::{
+    public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithYParity,
+};
 use revm_primitives::keccak256;
 
 use crate::{
-    signature::{self, public_key_to_address, SecretKey, SignatureError, SignatureWithYParity},
     transaction::{self, ComputeTransactionHash},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -66,7 +68,7 @@ impl Eip7702 {
             access_list: self.access_list.into(),
             authorization_list: self.authorization_list,
             // SAFETY: The safety concern is propagated in the function signature.
-            signature: unsafe { signature::Fakeable::with_address_unchecked(signature, caller) },
+            signature: unsafe { FakeableSignature::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         })
@@ -84,7 +86,7 @@ impl Eip7702 {
             input: self.input,
             access_list: self.access_list.into(),
             authorization_list: self.authorization_list,
-            signature: signature::Fakeable::fake(address, None),
+            signature: FakeableSignature::fake(address, None),
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         }

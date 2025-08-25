@@ -5,7 +5,6 @@ use edr_eth::{
     bytes,
     l1::{self, L1ChainSpec},
     result::{ExecutionResult, Output},
-    signature::public_key_to_address,
     transaction::{self, TxKind},
     Address, Bytes, HashMap, HashSet, B256, U256,
 };
@@ -17,6 +16,7 @@ use edr_evm::{
     state::{AccountModifierFn, StateDiff, StateError, SyncState},
     GenesisBlockOptions,
 };
+use edr_signer::public_key_to_address;
 use edr_test_utils::secret_key::secret_key_from_str;
 
 const CHAIN_ID: u64 = 31337;

@@ -24,7 +24,6 @@ use edr_eth::{
     receipt::{ExecutionReceipt, ReceiptTrait as _},
     result::ExecutionResult,
     reward_percentile::RewardPercentile,
-    signature::{self, RecoveryMessage},
     transaction::{
         request::TransactionRequestAndSender,
         signed::{FakeSign as _, Sign as _},
@@ -56,6 +55,7 @@ use edr_evm::{
 };
 use edr_evm_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait, TransactionValidation};
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
+use edr_signer::{public_key_to_address, RecoveryMessage, SignatureWithRecoveryId};
 use edr_solidity::contract_decoder::ContractDecoder;
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
@@ -556,12 +556,9 @@ where
         &self,
         address: &Address,
         message: Bytes,
-    ) -> Result<signature::SignatureWithRecoveryId, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<SignatureWithRecoveryId, ProviderErrorForChainSpec<ChainSpecT>> {
         match self.local_accounts.get(address) {
-            Some(secret_key) => Ok(signature::SignatureWithRecoveryId::new(
-                &message[..],
-                secret_key,
-            )?),
+            Some(secret_key) => Ok(SignatureWithRecoveryId::new(&message[..], secret_key)?),
             None => Err(ProviderError::UnknownAddress { address: *address }),
         }
     }
@@ -570,11 +567,11 @@ where
         &self,
         address: &Address,
         message: &TypedData,
-    ) -> Result<signature::SignatureWithRecoveryId, ProviderErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<SignatureWithRecoveryId, ProviderErrorForChainSpec<ChainSpecT>> {
         match self.local_accounts.get(address) {
             Some(secret_key) => {
                 let hash = message.eip712_signing_hash()?;
-                Ok(signature::SignatureWithRecoveryId::new(
+                Ok(SignatureWithRecoveryId::new(
                     RecoveryMessage::Hash(hash),
                     secret_key,
                 )?)
@@ -635,7 +632,7 @@ where
             .owned_accounts
             .iter()
             .map(|secret_key| {
-                let address = edr_eth::signature::public_key_to_address(secret_key.public_key());
+                let address = public_key_to_address(secret_key.public_key());
 
                 (address, secret_key.clone())
             })

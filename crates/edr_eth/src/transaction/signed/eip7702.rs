@@ -2,9 +2,10 @@ use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 use edr_evm_spec::ExecutableTransaction;
+use edr_signer::{FakeableSignature, SignatureWithYParity};
 
 use crate::{
-    keccak256, signature,
+    keccak256,
     transaction::{self, request, ComputeTransactionHash as _, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
@@ -30,7 +31,7 @@ pub struct Eip7702 {
     pub access_list: edr_eip2930::AccessList,
     pub authorization_list: Vec<edr_eip7702::SignedAuthorization>,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Fakeable<signature::SignatureWithYParity>,
+    pub signature: FakeableSignature<SignatureWithYParity>,
     /// Cached transaction hash
     #[rlp(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -155,7 +156,7 @@ struct Decodable {
     pub input: Bytes,
     pub access_list: edr_eip2930::AccessList,
     pub authorization_list: Vec<edr_eip7702::SignedAuthorization>,
-    pub signature: signature::SignatureWithYParity,
+    pub signature: SignatureWithYParity,
 }
 
 impl alloy_rlp::Decodable for Eip7702 {
@@ -163,7 +164,7 @@ impl alloy_rlp::Decodable for Eip7702 {
         let transaction = Decodable::decode(buf)?;
         let request = transaction::request::Eip7702::from(&transaction);
 
-        let signature = signature::Fakeable::recover(
+        let signature = FakeableSignature::recover(
             transaction.signature,
             request.compute_transaction_hash().into(),
         )
@@ -277,9 +278,10 @@ mod tests {
     }
 
     use alloy_rlp::Decodable as _;
+    use edr_signer::public_key_to_address;
 
     use super::*;
-    use crate::{address, b256, signature::public_key_to_address};
+    use crate::{address, b256};
 
     #[test]
     fn decoding() -> anyhow::Result<()> {

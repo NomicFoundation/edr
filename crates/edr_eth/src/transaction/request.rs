@@ -5,7 +5,7 @@ mod eip4844;
 mod eip7702;
 mod legacy;
 
-use k256::SecretKey;
+use edr_signer::SecretKey;
 
 pub use self::{
     eip155::Eip155, eip1559::Eip1559, eip2930::Eip2930, eip4844::Eip4844, eip7702::Eip7702,
@@ -15,7 +15,7 @@ use super::{
     signed::{FakeSign, Sign},
     Request, Signed,
 };
-use crate::{signature::SignatureError, Address};
+use crate::Address;
 
 impl Request {
     /// Retrieves the instance's authorization list (EIP-7702).
@@ -86,7 +86,7 @@ impl Request {
         }
     }
 
-    pub fn sign(self, secret_key: &SecretKey) -> Result<Signed, SignatureError> {
+    pub fn sign(self, secret_key: &SecretKey) -> Result<Signed, edr_signer::SignatureError> {
         Ok(match self {
             Request::Legacy(transaction) => transaction.sign(secret_key)?.into(),
             Request::Eip155(transaction) => transaction.sign(secret_key)?.into(),
@@ -120,7 +120,7 @@ impl Sign for Request {
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<Signed, SignatureError> {
+    ) -> Result<Signed, edr_signer::SignatureError> {
         Ok(match self {
             Request::Legacy(transaction) => {
                 // SAFETY: The safety concern is propagated in the function signature.

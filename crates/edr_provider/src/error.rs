@@ -20,6 +20,7 @@ use edr_evm::{
 };
 use edr_evm_spec::{ChainHardfork, ChainSpec, HaltReasonTrait, TransactionValidation};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
+use edr_signer::SignatureError;
 use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;
 
@@ -301,7 +302,7 @@ pub enum ProviderError<
     SetNextPrevRandaoUnsupported { hardfork: HardforkT },
     /// An error occurred while recovering a signature.
     #[error(transparent)]
-    Signature(#[from] edr_eth::signature::SignatureError),
+    Signature(#[from] SignatureError),
     /// An error occurred while decoding the contract metadata.
     #[error("Error decoding contract metadata: {0}")]
     SolcDecoding(String),

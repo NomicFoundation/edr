@@ -4,12 +4,12 @@ use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, HeaderOverrides},
     l1,
     result::ExecutionResult,
-    signature::SignatureError,
     Address, HashMap,
 };
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, ExecutableTransaction, HaltReasonTrait, TransactionValidation,
 };
+use edr_signer::SignatureError;
 use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};
 

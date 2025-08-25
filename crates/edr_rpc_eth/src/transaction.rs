@@ -4,11 +4,13 @@ use std::{ops::Deref, sync::OnceLock};
 
 use edr_eth::{
     block, l1,
-    signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
     transaction::{self, IsEip4844, IsLegacy, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
 use edr_evm_spec::ExecutableTransaction;
+use edr_signer::{
+    FakeableSignature, SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
+};
 
 pub use self::request::TransactionRequest;
 
@@ -255,8 +257,8 @@ impl From<TransactionWithSignature> for transaction::signed::Legacy {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: value.r,
                         s: value.s,
                         v: value.v,
@@ -286,8 +288,8 @@ impl From<TransactionWithSignature> for transaction::signed::Eip155 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: value.r,
                         s: value.s,
                         v: value.v,
@@ -309,7 +311,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip2930 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
@@ -350,7 +352,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip1559 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
@@ -394,7 +396,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
@@ -441,7 +443,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip7702 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,

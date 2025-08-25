@@ -16,6 +16,7 @@ edr_generic = { path = "../edr_generic" }
 edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { path = "../edr_provider" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
+edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
 edr_solidity_tests.workspace = true
 log = { version = "0.4.17", default-features = false }

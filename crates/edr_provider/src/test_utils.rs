@@ -5,7 +5,6 @@ use anyhow::anyhow;
 use edr_eth::{
     block::{self, BlobGas},
     l1::{self, L1ChainSpec},
-    signature::{public_key_to_address, secret_key_from_str, SignatureWithYParity},
     transaction::{self, request::TransactionRequestAndSender, TxKind},
     trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, U160, U256,
@@ -13,6 +12,7 @@ use edr_eth::{
 use edr_evm::Block as _;
 use edr_evm_spec::TransactionValidation;
 use edr_rpc_eth::TransactionRequest;
+use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
 use k256::SecretKey;
 use tokio::runtime;
@@ -73,7 +73,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
 ) -> ProviderConfig<HardforkT> {
     // This is test code, it's ok to use `DangerousSecretKeyStr`
     #[allow(deprecated)]
-    use edr_eth::signature::DangerousSecretKeyStr;
+    use edr_signer::DangerousSecretKeyStr;
 
     // This is test code, it's ok to use `DangerousSecretKeyStr`
     // Can't use `edr_test_utils` as a dependency here.

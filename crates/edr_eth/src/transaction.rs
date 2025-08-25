@@ -16,11 +16,12 @@ use core::fmt::Debug;
 use std::str::FromStr;
 
 use edr_evm_spec::ExecutableTransaction;
+use edr_signer::Signature;
 pub use revm_context_interface::Transaction;
 pub use revm_primitives::alloy_primitives::TxKind;
 use revm_primitives::{ruint, B256};
 
-use crate::{signature::Signature, U256, U8};
+use crate::{U256, U8};
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 

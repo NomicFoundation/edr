@@ -1,10 +1,10 @@
 use edr_eth::{
     impl_revm_transaction_trait,
-    signature::Signature,
     transaction::{self, IsSupported, SignedTransaction, TransactionMut, TransactionType, TxKind},
     Address, Bytes, B256, U256,
 };
 use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
+use edr_signer::Signature;
 
 /// The type of transaction.
 #[repr(u8)]

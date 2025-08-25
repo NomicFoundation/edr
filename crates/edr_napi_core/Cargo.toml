@@ -11,6 +11,7 @@ edr_evm = { path = "../edr_evm" }
 edr_evm_spec.workspace = true
 edr_generic = { path = "../edr_generic" }
 edr_provider = { path = "../edr_provider" }
+edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
 edr_solidity_tests.workspace = true
 edr_rpc_client = { path = "../edr_rpc_client" }

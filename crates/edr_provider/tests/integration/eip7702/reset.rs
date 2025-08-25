@@ -1,11 +1,11 @@
 use edr_eth::{
     address, bytes,
     l1::{self, L1ChainSpec},
-    signature::public_key_to_address,
     Address, Bytes, U256,
 };
 use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
 use edr_rpc_eth::TransactionRequest;
+use edr_signer::public_key_to_address;
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
 use super::{assert_code_at, sign_authorization, CHAIN_ID};

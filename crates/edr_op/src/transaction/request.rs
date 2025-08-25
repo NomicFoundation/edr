@@ -1,7 +1,6 @@
 pub use edr_eth::transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_eth::{
     l1,
-    signature::{SecretKey, SignatureError},
     transaction::{
         signed::{FakeSign, Sign},
         TxKind,
@@ -16,6 +15,7 @@ use edr_provider::{
     ProviderError, ProviderErrorForChainSpec,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_signer::{SecretKey, SignatureError};
 
 use super::{Request, Signed};
 use crate::OpChainSpec;

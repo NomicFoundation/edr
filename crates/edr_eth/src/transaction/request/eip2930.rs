@@ -1,11 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
-use k256::SecretKey;
+use edr_signer::{
+    public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithYParity,
+};
 
 use crate::{
     keccak256,
-    signature::{self, public_key_to_address, Fakeable, SignatureError},
     transaction::{self, TxKind},
     utils::envelop_bytes,
     Address, Bytes, B256, U256,
@@ -58,7 +59,7 @@ impl Eip2930 {
         caller: Address,
     ) -> Result<transaction::signed::Eip2930, SignatureError> {
         let hash = self.hash();
-        let signature = signature::SignatureWithYParity::with_message(hash, secret_key)?;
+        let signature = SignatureWithYParity::with_message(hash, secret_key)?;
 
         Ok(transaction::signed::Eip2930 {
             chain_id: self.chain_id,
@@ -70,7 +71,7 @@ impl Eip2930 {
             input: self.input,
             access_list: self.access_list.into(),
             // SAFETY: The safety concern is propagated in the function signature.
-            signature: unsafe { Fakeable::with_address_unchecked(signature, caller) },
+            signature: unsafe { FakeableSignature::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         })
@@ -87,7 +88,7 @@ impl Eip2930 {
             value: self.value,
             input: self.input,
             access_list: self.access_list.into(),
-            signature: signature::Fakeable::fake(address, None),
+            signature: FakeableSignature::fake(address, None),
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         }

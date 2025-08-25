@@ -1,15 +1,11 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
-use k256::SecretKey;
-
-use crate::{
-    keccak256,
-    signature::{self, public_key_to_address, Fakeable, SignatureError},
-    transaction,
-    utils::envelop_bytes,
-    Address, Bytes, B256, U256,
+use edr_signer::{
+    public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithYParity,
 };
+
+use crate::{keccak256, transaction, utils::envelop_bytes, Address, Bytes, B256, U256};
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
 pub struct Eip4844 {
@@ -61,7 +57,7 @@ impl Eip4844 {
         caller: Address,
     ) -> Result<transaction::signed::Eip4844, SignatureError> {
         let hash = self.hash();
-        let signature = signature::SignatureWithYParity::with_message(hash, secret_key)?;
+        let signature = SignatureWithYParity::with_message(hash, secret_key)?;
 
         Ok(transaction::signed::Eip4844 {
             chain_id: self.chain_id,
@@ -76,7 +72,7 @@ impl Eip4844 {
             access_list: self.access_list.into(),
             blob_hashes: self.blob_hashes,
             // SAFETY: The safety concern is propagated in the function signature.
-            signature: unsafe { Fakeable::with_address_unchecked(signature, caller) },
+            signature: unsafe { FakeableSignature::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         })
@@ -95,7 +91,7 @@ impl Eip4844 {
             input: self.input,
             access_list: self.access_list.into(),
             blob_hashes: self.blob_hashes,
-            signature: signature::Fakeable::fake(address, None),
+            signature: FakeableSignature::fake(address, None),
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         }

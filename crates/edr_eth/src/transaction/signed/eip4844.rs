@@ -2,11 +2,11 @@ use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 use edr_evm_spec::ExecutableTransaction;
+use edr_signer::{FakeableSignature, SignatureWithYParity};
 use revm_primitives::keccak256;
 
 use crate::{
     eips::eip4844::GAS_PER_BLOB,
-    signature::{self, Fakeable},
     transaction::{self, TxKind},
     utils::enveloped,
     Address, Bytes, B256, U256,
@@ -34,7 +34,7 @@ pub struct Eip4844 {
     pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub signature: signature::Fakeable<signature::SignatureWithYParity>,
+    pub signature: FakeableSignature<SignatureWithYParity>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
@@ -163,7 +163,7 @@ struct Decodable {
     pub access_list: edr_eip2930::AccessList,
     pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
-    pub signature: signature::SignatureWithYParity,
+    pub signature: SignatureWithYParity,
 }
 
 impl alloy_rlp::Decodable for Eip4844 {
@@ -171,7 +171,7 @@ impl alloy_rlp::Decodable for Eip4844 {
         let transaction = Decodable::decode(buf)?;
         let request = transaction::request::Eip4844::from(&transaction);
 
-        let signature = Fakeable::recover(transaction.signature, request.hash().into())
+        let signature = FakeableSignature::recover(transaction.signature, request.hash().into())
             .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
 
         Ok(Self {
@@ -220,10 +220,10 @@ pub fn total_blob_gas(transaction: &Eip4844) -> u64 {
 mod tests {
     use std::str::FromStr;
 
+    use edr_signer::{SignatureWithYParity, SignatureWithYParityArgs};
     use revm_primitives::{address, b256};
 
     use super::*;
-    use crate::signature::{SignatureWithYParity, SignatureWithYParityArgs};
 
     // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68
     fn dummy_transaction() -> Eip4844 {
@@ -252,8 +252,8 @@ mod tests {
             .unwrap()],
         };
 
-        let signature =
-            Fakeable::recover(signature, request.hash().into()).expect("Failed to retrieve caller");
+        let signature = FakeableSignature::recover(signature, request.hash().into())
+            .expect("Failed to retrieve caller");
 
         Eip4844 {
             chain_id: request.chain_id,
@@ -317,7 +317,7 @@ mod tests {
             )],
         };
 
-        let signature = Fakeable::recover(
+        let signature = FakeableSignature::recover(
             SignatureWithYParity::new(SignatureWithYParityArgs {
                 r: U256::from_str(
                     "0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082",

@@ -1,6 +1,5 @@
 use edr_eth::{
     l1,
-    signature::{SecretKey, SignatureError},
     transaction::{
         self,
         signed::{FakeSign, Sign},
@@ -16,6 +15,7 @@ use edr_provider::{
     ProviderError, ProviderErrorForChainSpec,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_signer::{SecretKey, SignatureError};
 
 use crate::{transaction::SignedWithFallbackToPostEip155, GenericChainSpec};
 
