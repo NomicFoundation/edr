@@ -81,7 +81,7 @@ The ratio columns contain the ratio of the cumulative execution time of EDR over
 
 #### Patches
 
-The `pnpm compareForge` script will check out the supported repos to `./repos` and apply patches them from `./patches`. If you need to update the patch files, you can follow the following procedure:
+The `pnpm compareForge` script will check out the supported repos to `./repos` and apply patches to them from `./patches`. If you need to update the patch files, you can follow the following procedure:
 
 ```shell
 # E.g. to edit the patch file for `prb-math`
