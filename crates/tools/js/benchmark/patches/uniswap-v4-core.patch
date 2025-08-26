@@ -1,20 +1,23 @@
 diff --git a/foundry.toml b/foundry.toml
-index ef26ef2..8fce0c5 100644
+index ef26ef2..843f6e8 100644
 --- a/foundry.toml
 +++ b/foundry.toml
-@@ -10,7 +10,8 @@ bytecode_hash = "none"
+@@ -8,10 +8,8 @@ evm_version = "cancun"
+ gas_limit = "300000000"
+ bytecode_hash = "none"
  allow_internal_expect_revert = true
- 
- [profile.default.fuzz]
+-
+-[profile.default.fuzz]
 -runs = 1000
-+# Due to lack of inline config support in Hardhat
-+runs = 10
- seed = "0x4444"
+-seed = "0x4444"
++# Runs is 10 due to lack of inline config support in Hardhat
++fuzz = { runs = 10, seed = "0x4444" }
  
  [profile.pr.fuzz]
+ runs = 10000
 diff --git a/hardhat.config.js b/hardhat.config.js
 new file mode 100644
-index 0000000..981b154
+index 0000000..12dcdc4
 --- /dev/null
 +++ b/hardhat.config.js
 @@ -0,0 +1,38 @@
@@ -51,7 +54,7 @@ index 0000000..981b154
 +  "gasLimit": 300000000n,
 +  "fuzz": {
 +    "runs": 10,
-+    "seed":"0x4444"
++    "seed": "0x4444"
 +  }
 +}
 +};
