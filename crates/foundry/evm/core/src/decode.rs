@@ -137,6 +137,12 @@ impl RevertDecoder {
     ///
     /// See [`decode`](Self::decode) for more information.
     pub fn maybe_decode(&self, err: &[u8], status: Option<InstructionResult>) -> Option<String> {
+        // TODO: Should this change?
+        if err == crate::constants::MAGIC_SKIP {
+            // Used in edr_solidity_tests fuzz runner
+            return Some("SKIPPED".to_string());
+        }
+
         if let Some(reason) = SkipReason::decode(err) {
             return Some(reason.to_string());
         }
