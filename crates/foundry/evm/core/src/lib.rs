@@ -18,7 +18,6 @@ pub mod contracts;
 pub mod decode;
 pub mod evm_context;
 pub mod fork;
-pub mod opcodes;
 pub mod ic;
 pub mod opts;
 pub mod precompiles;
