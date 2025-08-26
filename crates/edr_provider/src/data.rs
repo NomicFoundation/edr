@@ -1946,6 +1946,7 @@ where
                         block.header(),
                         self.base_fee_params
                             .clone()
+                            // TODO: isn't this leaked responsibility from PartialHeader?
                             .unwrap_or((*ChainSpecT::base_fee_params()).clone())
                             .at_condition(self.hardfork(), block.header().number)
                             .expect(
@@ -2949,18 +2950,17 @@ fn create_blockchain_and_state<
             .collect();
 
         let genesis_diff = StateDiff::from(genesis_state);
-        let timestamp = config.initial_date.map(|d| {
-            d.duration_since(UNIX_EPOCH)
-                .expect("initial date must be after UNIX epoch")
-                .as_secs()
-        });
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
             config.hardfork,
             GenesisBlockOptions {
                 extra_data: None,
                 gas_limit: Some(config.block_gas_limit.get()),
-                timestamp,
+                timestamp: config.initial_date.map(|d| {
+                    d.duration_since(UNIX_EPOCH)
+                        .expect("initial date must be after UNIX epoch")
+                        .as_secs()
+                }),
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
                 base_fee_params: config

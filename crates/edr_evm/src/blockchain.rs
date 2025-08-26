@@ -8,16 +8,12 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    eips::eip1559::{
-        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, VariableBaseFeeParams,
-    },
     l1,
     log::FilterLog,
     receipt::ReceiptTrait,
-    spec::{ChainHardfork, EthHeaderConstants},
+    spec::ChainHardfork,
     Address, HashSet, B256, U256,
 };
-use itertools::Itertools;
 
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
@@ -197,20 +193,6 @@ where
 
     /// Retrieves the total difficulty at the block with the provided hash.
     fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError>;
-}
-
-/// build base fee params based on override and chain defaults
-pub fn base_fee_params_for_chain_spec<ChainSpecT: ChainHardfork + EthHeaderConstants>(
-    override_params: Option<
-        Vec<(
-            BaseFeeActivation<ChainSpecT::Hardfork>,
-            ConstantBaseFeeParams,
-        )>,
-    >,
-) -> BaseFeeParams<ChainSpecT::Hardfork> {
-    override_params.map_or((*ChainSpecT::base_fee_params()).clone(), |params| {
-        BaseFeeParams::Variable(VariableBaseFeeParams::new(params.into_iter().collect_vec()))
-    })
 }
 
 /// Trait for implementations of a mutable Ethereum blockchain
