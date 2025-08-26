@@ -1,6 +1,9 @@
 use edr_eth::{
-    block::PartialHeader, eips::eip1559::ConstantBaseFeeParams, trie::KECCAK_NULL_RLP, Address,
-    HashMap, U256,
+    block::PartialHeader,
+    eips::eip1559::{BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams},
+    spec::EthHeaderConstants,
+    trie::KECCAK_NULL_RLP,
+    Address, HashMap, U256,
 };
 use edr_evm::{
     blockchain::SyncBlockchain,
@@ -46,7 +49,7 @@ where
         state: Box<dyn edr_evm::state::SyncState<Self::StateError>>,
         cfg: CfgEnv<OpSpecId>,
         mut inputs: BlockInputs,
-        mut overrides: edr_eth::block::HeaderOverrides,
+        mut overrides: edr_eth::block::HeaderOverrides<OpSpecId>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>>
     {
@@ -75,9 +78,8 @@ where
 
             overrides.withdrawals_root = Some(withdrawals_root);
         }
-
         if cfg.spec >= OpSpecId::HOLOCENE {
-            let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<Option<ConstantBaseFeeParams>, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>> {
+            let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<BaseFeeParams<OpSpecId>, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>> {
                 let parent_block_number = blockchain.last_block_number();
                 let parent_hardfork = blockchain
                     .spec_at_block_number(parent_block_number)
@@ -105,29 +107,40 @@ where
                                 .try_into()
                                 .expect("The slice should be exactly 4 bytes");
 
-                            ConstantBaseFeeParams {
+                            BaseFeeParams::Constant(ConstantBaseFeeParams {
                                 max_change_denominator: u32::from_be_bytes(denominator_bytes)
                                     .into(),
                                 elasticity_multiplier: u32::from_be_bytes(elasticity_bytes).into(),
-                            }
+                            })
                         }
                         _ => panic!(
                             "Unsupported base fee params version: {version}. Expected {DYNAMIC_BASE_FEE_PARAM_VERSION}."
                         )
                     };
 
-                    Ok(Some(base_fee_params))
+                    Ok(base_fee_params)
                 } else {
-                    Ok(None)
+                    // Use the prior EIP-1559 constants.
+                    let base_fee_params = (*OpChainSpec::base_fee_params()).clone();
+
+                    Ok(base_fee_params)
                 }
-            }, |params| Ok(Some(params)))?;
+            }, Ok)?;
+
+            let block_base_fee_params = base_fee_params
+                .at_condition(BaseFeeCondition {
+                    hardfork: Some(cfg.spec),
+                    timestamp: None,
+                    block_number: Some(blockchain.last_block_number() + 1),
+                })
+                .expect("Chain spec must have base fee params for post-London hardforks");
 
             let extra_data = overrides
                 .extra_data
-                .or_else(|| base_fee_params.map(|params| encode_dynamic_base_fee_params(&params)));
+                .unwrap_or_else(|| encode_dynamic_base_fee_params(block_base_fee_params));
 
-            overrides.base_fee_params = base_fee_params;
-            overrides.extra_data = extra_data;
+            overrides.base_fee_params = Some(base_fee_params);
+            overrides.extra_data = Some(extra_data);
         }
 
         let eth = EthBlockBuilder::new(

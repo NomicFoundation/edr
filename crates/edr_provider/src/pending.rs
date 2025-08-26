@@ -2,16 +2,11 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition},
-    receipt::ReceiptTrait as _,
-    spec::ChainHardfork,
-    transaction::ExecutableTransaction as _,
-    HashSet, B256, U256,
+    receipt::ReceiptTrait as _, transaction::ExecutableTransaction as _, HashSet, B256, U256,
 };
 use edr_evm::{
     blockchain::{
-        base_fee_params_for_chain_spec, BlockHash, Blockchain, BlockchainErrorForChainSpec,
-        BlockchainMut, SyncBlockchain,
+        BlockHash, Blockchain, BlockchainErrorForChainSpec, BlockchainMut, SyncBlockchain,
     },
     spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState},
@@ -37,7 +32,6 @@ pub(crate) struct BlockchainWithPending<'blockchain, ChainSpecT: SyncRuntimeSpec
     >,
     pending_block: Arc<ChainSpecT::LocalBlock>,
     pending_state_diff: StateDiff,
-    base_fee_params: BaseFeeParams<<ChainSpecT as ChainHardfork>::Hardfork>,
 }
 
 impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain, ChainSpecT> {
@@ -51,20 +45,11 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain
         >,
         pending_block: ChainSpecT::LocalBlock,
         pending_state_diff: StateDiff,
-        chain_base_fee_params_override: Option<
-            Vec<(
-                DynamicBaseFeeCondition<ChainSpecT::Hardfork>,
-                ConstantBaseFeeParams,
-            )>,
-        >,
     ) -> Self {
-        let base_fee_params =
-            base_fee_params_for_chain_spec::<ChainSpecT>(chain_base_fee_params_override);
         Self {
             blockchain,
             pending_block: pending_block.into(),
             pending_state_diff,
-            base_fee_params,
         }
     }
 }
@@ -223,10 +208,6 @@ where
         } else {
             self.blockchain.total_difficulty_by_hash(hash)
         }
-    }
-
-    fn base_fee_params(&self) -> &BaseFeeParams<ChainSpecT::Hardfork> {
-        &self.base_fee_params
     }
 }
 

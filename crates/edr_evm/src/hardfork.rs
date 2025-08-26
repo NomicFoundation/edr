@@ -1,5 +1,3 @@
-use edr_eth::eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition};
-
 /// Ethereum L1 hardforks.
 pub mod l1;
 
@@ -99,6 +97,4 @@ pub struct ChainOverride<HardforkT> {
     pub name: String,
     /// Hardfork activations for the chain
     pub hardfork_activation_overrides: Option<Activations<HardforkT>>,
-    /// chain base fee parameters
-    pub base_fee_params: Option<Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>>,
 }

@@ -22,7 +22,6 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
         hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(
             l1::SpecId::CANCUN,
         )),
-        base_fee_params: None,
     };
     let url = get_alchemy_url().replace("eth-mainnet", "base-sepolia");
 

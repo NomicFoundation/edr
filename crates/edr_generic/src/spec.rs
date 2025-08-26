@@ -123,8 +123,7 @@ impl GenesisBlockFactory for GenericChainSpec {
     fn genesis_block(
         genesis_diff: edr_evm::state::StateDiff,
         hardfork: Self::Hardfork,
-        mut options: edr_evm::GenesisBlockOptions,
-        base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
         options.extra_data = Some(
@@ -137,7 +136,6 @@ impl GenesisBlockFactory for GenericChainSpec {
             genesis_diff,
             hardfork,
             options,
-            base_fee_params,
         )
     }
 }

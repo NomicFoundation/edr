@@ -315,7 +315,6 @@ impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
                             let chain_config = edr_evm::hardfork::ChainOverride {
                                 name,
                                 hardfork_activation_overrides,
-                                base_fee_params: None, // TODO: Ani: validate
                             };
 
                             let chain_id = chain_id.try_cast()?;

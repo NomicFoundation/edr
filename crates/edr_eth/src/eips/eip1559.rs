@@ -13,6 +13,7 @@ pub enum DynamicBaseFeeCondition<HardforkT> {
 }
 
 /// Chain condition for selecting the right base fee params
+#[derive(Clone)]
 pub struct BaseFeeCondition<HardforkT> {
     /// block current hardfork
     pub hardfork: Option<HardforkT>,

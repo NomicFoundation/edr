@@ -41,7 +41,9 @@ pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
 }
 
 /// Default header overrides for replaying L1 blocks.
-pub fn header_overrides(replay_header: &block::Header) -> block::HeaderOverrides {
+pub fn header_overrides<HardforkT: Default>(
+    replay_header: &block::Header,
+) -> block::HeaderOverrides<HardforkT> {
     block::HeaderOverrides {
         beneficiary: Some(replay_header.beneficiary),
         gas_limit: Some(replay_header.gas_limit),
@@ -49,7 +51,7 @@ pub fn header_overrides(replay_header: &block::Header) -> block::HeaderOverrides
         parent_beacon_block_root: replay_header.parent_beacon_block_root,
         state_root: Some(replay_header.state_root),
         timestamp: Some(replay_header.timestamp),
-        ..block::HeaderOverrides::default()
+        ..block::HeaderOverrides::<HardforkT>::default()
     }
 }
 

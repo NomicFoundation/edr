@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use edr_eth::{
     l1::{self, L1ChainSpec},
-    spec::EthHeaderConstants,
     Bytecode,
 };
 use edr_evm::{
@@ -26,16 +25,9 @@ fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L
             mix_hash: Some(prev_randao_generator.generate_next()),
             ..GenesisBlockOptions::default()
         },
-        L1ChainSpec::base_fee_params(),
     )?;
 
-    let blockchain = LocalBlockchain::new(
-        genesis_block,
-        genesis_diff,
-        0x7a69,
-        l1::SpecId::PRAGUE,
-        None,
-    )?;
+    let blockchain = LocalBlockchain::new(genesis_block, genesis_diff, 0x7a69, l1::SpecId::PRAGUE)?;
 
     Ok(blockchain)
 }

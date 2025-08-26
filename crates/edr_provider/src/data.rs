@@ -18,7 +18,8 @@ use edr_eth::{
         HeaderOverrides,
     },
     eips::eip1559::{
-        BaseFeeCondition, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams,
+        BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition,
+        VariableBaseFeeParams,
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -210,7 +211,8 @@ pub struct ProviderData<
     base_fee_params: Vec<(
         DynamicBaseFeeCondition<ChainSpecT::Hardfork>,
         ConstantBaseFeeParams,
-    )>,
+    )>, /* TODO: Ani Change this to be BaseFeeParams instead, and default to chain spec defeault
+         * on constructor */
     next_block_timestamp: Option<u64>,
     next_snapshot_id: u64,
     snapshots: BTreeMap<u64, Snapshot<ChainSpecT::SignedTransaction>>,
@@ -1326,7 +1328,7 @@ where
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
             &CfgEnv<ChainSpecT::Hardfork>,
-            HeaderOverrides,
+            HeaderOverrides<ChainSpecT::Hardfork>,
             &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<
@@ -1336,7 +1338,7 @@ where
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
-        mut options: HeaderOverrides,
+        mut options: HeaderOverrides<ChainSpecT::Hardfork>,
     ) -> Result<DebugMineBlockResultForChainSpec<ChainSpecT>, ProviderErrorForChainSpec<ChainSpecT>>
     {
         let (block_timestamp, new_offset) = self.next_block_timestamp(options.timestamp)?;
@@ -1388,7 +1390,7 @@ where
         mine_fn: impl FnOnce(
             &mut ProviderData<ChainSpecT, TimerT>,
             &CfgEnv<ChainSpecT::Hardfork>,
-            HeaderOverrides,
+            HeaderOverrides<ChainSpecT::Hardfork>,
             &mut RuntimeObserver<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<
@@ -1398,7 +1400,7 @@ where
             >,
             ProviderErrorForChainSpec<ChainSpecT>,
         >,
-        mut options: HeaderOverrides,
+        mut options: HeaderOverrides<ChainSpecT::Hardfork>,
     ) -> Result<
         DebugMineBlockResultAndState<
             ChainSpecT::HaltReason,
@@ -1655,8 +1657,8 @@ where
                     let last_block = self.last_block()?;
                     Ok(calculate_next_base_fee_per_gas(
                         last_block.header(),
-                        self.blockchain
-                            .base_fee_params()
+                        self.base_fee_params_for_chain_spec()
+                            .unwrap_or((*ChainSpecT::base_fee_params()).clone())
                             .at_condition(BaseFeeCondition {
                                 hardfork: Some(self.hardfork()),
                                 timestamp: Some(last_block.header().timestamp),
@@ -1713,6 +1715,17 @@ where
                 },
                 _ => ProviderError::Blockchain(err),
             })
+    }
+
+    // build base fee params based on override and chain defaults
+    fn base_fee_params_for_chain_spec(&self) -> Option<BaseFeeParams<ChainSpecT::Hardfork>> {
+        if self.base_fee_params.is_empty() {
+            None
+        } else {
+            Some(BaseFeeParams::Variable(VariableBaseFeeParams::new(
+                self.base_fee_params.clone(),
+            )))
+        }
     }
 }
 
@@ -1948,8 +1961,8 @@ where
                     .base_fee_per_gas
                     .push(calculate_next_base_fee_per_gas(
                         block.header(),
-                        self.blockchain
-                            .base_fee_params()
+                        self.base_fee_params_for_chain_spec()
+                            .unwrap_or((*ChainSpecT::base_fee_params()).clone())
                             .at_condition(BaseFeeCondition {
                                 hardfork: Some(self.hardfork()),
                                 timestamp: Some(block.header().timestamp),
@@ -2021,7 +2034,8 @@ where
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn interval_mine(&mut self) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
-        let result = self.mine_and_commit_block(HeaderOverrides::default())?;
+        let result =
+            self.mine_and_commit_block(HeaderOverrides::<ChainSpecT::Hardfork>::default())?;
 
         self.logger
             .log_interval_mined(self.hardfork(), &result)
@@ -2034,7 +2048,7 @@ where
     /// mempool, and commits it to the blockchain.
     pub fn mine_and_commit_block(
         &mut self,
-        options: HeaderOverrides,
+        options: HeaderOverrides<ChainSpecT::Hardfork>,
     ) -> Result<DebugMineBlockResultForChainSpec<ChainSpecT>, ProviderErrorForChainSpec<ChainSpecT>>
     {
         self.mine_and_commit_block_impl(Self::mine_block_with_mem_pool, options)
@@ -2089,7 +2103,8 @@ where
         );
 
         // we always mine the first block, and we don't apply the interval for it
-        mined_blocks.push(self.mine_and_commit_block(HeaderOverrides::default())?);
+        mined_blocks
+            .push(self.mine_and_commit_block(HeaderOverrides::<ChainSpecT::Hardfork>::default())?);
 
         while u64::try_from(mined_blocks.len()).expect("usize cannot be larger than u128")
             < number_of_blocks
@@ -2157,6 +2172,7 @@ where
             Self::mine_block_with_mem_pool,
             HeaderOverrides {
                 timestamp: Some(block_timestamp),
+                base_fee_params: self.base_fee_params_for_chain_spec(),
                 ..HeaderOverrides::default()
             },
         )
@@ -2266,12 +2282,8 @@ where
             // Block spec is pending
             let result = self.mine_pending_block()?;
 
-            let blockchain = BlockchainWithPending::new(
-                &*self.blockchain,
-                result.block,
-                result.state_diff,
-                Some(self.base_fee_params.clone()),
-            );
+            let blockchain =
+                BlockchainWithPending::new(&*self.blockchain, result.block, result.state_diff);
 
             let block = blockchain
                 .last_block()
@@ -2284,7 +2296,7 @@ where
     fn mine_block_with_mem_pool(
         &mut self,
         config: &CfgEnv<ChainSpecT::Hardfork>,
-        options: HeaderOverrides,
+        options: HeaderOverrides<ChainSpecT::Hardfork>,
         runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<
@@ -2317,7 +2329,7 @@ where
     fn mine_block_with_single_transaction(
         &mut self,
         config: &CfgEnv<ChainSpecT::Hardfork>,
-        options: HeaderOverrides,
+        options: HeaderOverrides<ChainSpecT::Hardfork>,
         transaction: ChainSpecT::SignedTransaction,
         runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
     ) -> Result<
@@ -2972,16 +2984,15 @@ fn create_blockchain_and_state<
                 timestamp,
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: VariableBaseFeeParams::new(base_fee_activations.clone())
-                    .at_condition(BaseFeeCondition {
-                        timestamp,
-                        hardfork: Some(config.hardfork),
-                        block_number: Some(0),
-                    })
-                    .copied(),
+                base_fee_params: if base_fee_activations.is_empty() {
+                    None
+                } else {
+                    Some(BaseFeeParams::Variable(VariableBaseFeeParams::new(
+                        base_fee_activations.clone(),
+                    )))
+                },
                 blob_gas: config.initial_blob_gas.clone(),
             },
-            ChainSpecT::base_fee_params(),
         )
         .map_err(CreationError::LocalBlockchainCreation)?;
 
@@ -2990,7 +3001,6 @@ fn create_blockchain_and_state<
             genesis_diff,
             config.chain_id,
             config.hardfork,
-            Some(base_fee_activations),
         )
         .map_err(CreationError::InvalidGenesisBlock)?;
 
@@ -4177,7 +4187,7 @@ mod tests {
             Ok(())
         }
 
-        fn l1_header_overrides(replay_header: &block::Header) -> HeaderOverrides {
+        fn l1_header_overrides(replay_header: &block::Header) -> HeaderOverrides<l1::SpecId> {
             HeaderOverrides {
                 beneficiary: Some(replay_header.beneficiary),
                 gas_limit: Some(replay_header.gas_limit),
@@ -4187,7 +4197,7 @@ mod tests {
                 parent_beacon_block_root: replay_header.parent_beacon_block_root,
                 state_root: Some(replay_header.state_root),
                 timestamp: Some(replay_header.timestamp),
-                ..HeaderOverrides::default()
+                ..HeaderOverrides::<l1::SpecId>::default()
             }
         }
 

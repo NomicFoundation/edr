@@ -24,7 +24,7 @@ pub use self::{
 use crate::{
     b256,
     eips::{
-        eip1559::{BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams},
+        eip1559::{BaseFeeCondition, ConstantBaseFeeParams},
         eip4844::{self, blob_base_fee_update_fraction},
         eip7691,
     },
@@ -217,11 +217,10 @@ impl PartialHeader {
     /// parent [`Header`] for the given [`l1::SpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
-        overrides: HeaderOverrides,
+        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         parent: Option<&Header>,
         ommers: &Vec<Header>,
         withdrawals: Option<&Vec<Withdrawal>>,
-        base_fee_params: &BaseFeeParams<ChainSpecT::Hardfork>,
     ) -> Self {
         let timestamp = overrides.timestamp.unwrap_or_default();
         let number = overrides.number.unwrap_or({
@@ -277,15 +276,17 @@ impl PartialHeader {
             base_fee: overrides.base_fee.or_else(|| {
                 if hardfork.into() >= l1::SpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        let base_fee_params = overrides.base_fee_params.unwrap_or(
-                            *base_fee_params
-                                .at_condition(BaseFeeCondition {
-                                    hardfork: Some(hardfork),
-                                    timestamp: Some(timestamp),
-                                    block_number: Some(number),
-                                })
-                                .expect("Chain should have a valid default value"),
-                        );
+                        let base_fee_params = overrides
+                            .base_fee_params
+                            .unwrap_or((*ChainSpecT::base_fee_params()).clone())
+                            .at_condition(BaseFeeCondition {
+                                hardfork: Some(hardfork),
+                                timestamp: Some(timestamp),
+                                block_number: Some(number),
+                            })
+                            .copied()
+                            .expect("Chain must have base fee params for post-London hardforks");
+
                         calculate_next_base_fee_per_gas(parent, &base_fee_params)
                     } else {
                         u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)

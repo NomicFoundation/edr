@@ -12,7 +12,7 @@ use crate::{
 /// Trait for specifying the hardfork type of a chain.
 pub trait ChainHardfork {
     /// The chain's hardfork type.
-    type Hardfork: Copy + Into<l1::SpecId>;
+    type Hardfork: Copy + Default + Into<l1::SpecId>;
 }
 
 /// Trait for chain specifications.
@@ -32,6 +32,7 @@ pub trait ChainSpec {
 /// Constants for constructing Ethereum headers.
 pub trait EthHeaderConstants: ChainHardfork<Hardfork: 'static + PartialOrd> {
     /// Parameters for the EIP-1559 base fee calculation.
+    // TODO: Ani rollback to constant?
     fn base_fee_params() -> &'static BaseFeeParams<Self::Hardfork>;
 
     /// The minimum difficulty for the Ethash proof-of-work algorithm.

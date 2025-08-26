@@ -263,7 +263,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
 impl<
         BlockReceiptT: Clone + ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT>,
-        HardforkT: Clone,
+        HardforkT: Clone + Default,
         SignedTransactionT: ExecutableTransaction,
     > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
@@ -355,12 +355,11 @@ impl<
                             state_root: Some(reservation.previous_state_root),
                             base_fee: reservation.previous_base_fee_per_gas,
                             timestamp: Some(timestamp),
-                            ..HeaderOverrides::default()
+                            ..HeaderOverrides::<ChainSpecT::Hardfork>::default()
                         },
                         None,
                         &Vec::new(),
                         None,
-                        ChainSpecT::base_fee_params(), //TODO: Ani: validate
                     ),
                 );
 

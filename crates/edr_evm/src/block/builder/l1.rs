@@ -131,7 +131,7 @@ where
         state: Box<dyn SyncState<StateErrorT>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
-        mut overrides: HeaderOverrides,
+        mut overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
     {
@@ -160,7 +160,6 @@ where
             Some(parent_header),
             &inputs.ommers,
             inputs.withdrawals.as_ref(),
-            blockchain.base_fee_params(),
         );
 
         Ok(Self {
@@ -406,7 +405,7 @@ where
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
-        overrides: HeaderOverrides,
+        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,

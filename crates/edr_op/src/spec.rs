@@ -94,23 +94,19 @@ impl GenesisBlockFactory for OpChainSpec {
     fn genesis_block(
         genesis_diff: edr_evm::state::StateDiff,
         hardfork: Self::Hardfork,
-        mut options: edr_evm::GenesisBlockOptions,
-        base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         let config_base_fee_params = options.base_fee_params.as_ref();
         if hardfork >= OpSpecId::HOLOCENE {
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
             let extra_data = options.extra_data.unwrap_or_else(|| {
-                // TODO: https://github.com/NomicFoundation/edr/issues/887
-                // Add support for configuring the dynamic base fee parameters.
                 let base_fee_params = config_base_fee_params
-                    .or_else(|| {
-                        Self::base_fee_params().at_condition(BaseFeeCondition {
-                            hardfork: Some(hardfork),
-                            timestamp: options.timestamp,
-                            block_number: None,
-                        })
+                    .unwrap_or(Self::base_fee_params())
+                    .at_condition(BaseFeeCondition {
+                        hardfork: Some(hardfork),
+                        timestamp: options.timestamp,
+                        block_number: Some(0),
                     })
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
@@ -124,7 +120,6 @@ impl GenesisBlockFactory for OpChainSpec {
             genesis_diff,
             hardfork,
             options,
-            base_fee_params,
         )
     }
 }

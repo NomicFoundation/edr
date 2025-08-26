@@ -9,7 +9,6 @@ use edr_eth::{
     log::{ExecutionLog, FilterLog},
     receipt::{BlockReceipt, ExecutionReceipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
-    spec::EthHeaderConstants,
     transaction::ExecutableTransaction as _,
     Address, Bytes, HashSet, B256, U256,
 };
@@ -91,12 +90,11 @@ async fn create_dummy_blockchains(
             base_fee: Some(DEFAULT_INITIAL_BASE_FEE),
             ..GenesisBlockOptions::default()
         },
-        L1ChainSpec::base_fee_params(),
     )
     .expect("Failed to create genesis block");
 
     let local_blockchain =
-        LocalBlockchain::new(genesis_block, genesis_diff, 1, l1::SpecId::default(), None)
+        LocalBlockchain::new(genesis_block, genesis_diff, 1, l1::SpecId::default())
             .expect("Should construct without issues");
 
     vec![
@@ -161,7 +159,6 @@ fn create_dummy_block_with_difficulty(
             None,
             &Vec::new(),
             None,
-            L1ChainSpec::base_fee_params(),
         ),
     )
 }
@@ -183,7 +180,6 @@ fn create_dummy_block_with_hash(
             None,
             &Vec::new(),
             None,
-            L1ChainSpec::base_fee_params(),
         ),
     )
 }
@@ -222,7 +218,6 @@ fn insert_dummy_block_with_transaction(
         Some(blockchain.last_block()?.header()),
         &Vec::new(),
         None,
-        L1ChainSpec::base_fee_params(),
     );
     header.gas_used = GAS_USED;
 

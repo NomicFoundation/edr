@@ -6,7 +6,6 @@ use edr_eth::{
     l1::{self, L1ChainSpec},
     result::{ExecutionResult, Output},
     signature::public_key_to_address,
-    spec::EthHeaderConstants,
     transaction::{self, TxKind},
     Address, Bytes, HashMap, HashSet, B256, U256,
 };
@@ -141,7 +140,6 @@ fn record_hits() -> anyhow::Result<()> {
             mix_hash: Some(B256::random()),
             ..GenesisBlockOptions::default()
         },
-        L1ChainSpec::base_fee_params(),
     )?;
 
     let blockchain = LocalBlockchain::<L1ChainSpec>::new(
@@ -149,7 +147,6 @@ fn record_hits() -> anyhow::Result<()> {
         genesis_diff,
         CHAIN_ID,
         l1::SpecId::CANCUN,
-        None,
     )?;
 
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;

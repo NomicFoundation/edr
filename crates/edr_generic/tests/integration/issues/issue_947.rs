@@ -46,7 +46,6 @@ fn get_provider<
     let chain_override = ChainOverride {
         name: "Arbitrum".to_owned(),
         hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(hardfork)),
-        base_fee_params: None,
     };
     let url = get_alchemy_url().replace("eth-mainnet", "arb-mainnet");
     // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK

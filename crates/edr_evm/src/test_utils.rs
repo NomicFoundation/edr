@@ -175,7 +175,7 @@ pub async fn run_full_block<
 >(
     url: String,
     block_number: u64,
-    header_overrides_constructor: impl FnOnce(&block::Header) -> HeaderOverrides,
+    header_overrides_constructor: impl FnOnce(&block::Header) -> HeaderOverrides<ChainSpecT::Hardfork>,
 ) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Handle::current();
 

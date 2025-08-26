@@ -4,7 +4,6 @@ use derive_where::derive_where;
 use edr_eth::{
     account::{Account, AccountStatus},
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
-    eips::eip1559::BaseFeeParams,
     l1,
     log::FilterLog,
     Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
@@ -27,7 +26,6 @@ use super::{
 };
 use crate::{
     block::EthRpcBlock,
-    blockchain::base_fee_params_for_chain_spec,
     eips::{
         eip2935::{
             add_history_storage_contract_to_state_diff, history_storage_contract,
@@ -130,7 +128,6 @@ where
     network_id: u64,
     hardfork: ChainSpecT::Hardfork,
     hardfork_activations: Option<hardfork::Activations<ChainSpecT::Hardfork>>,
-    base_fee_params: BaseFeeParams<ChainSpecT::Hardfork>,
 }
 
 impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
@@ -290,11 +287,6 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
             }
         }
 
-        let base_fee_params = base_fee_params_for_chain_spec::<ChainSpecT>(
-            chain_overrides
-                .get(&remote_chain_id)
-                .and_then(|chain_override| chain_override.base_fee_params.clone()),
-        );
         Ok(Self {
             local_storage: ReservableSparseBlockchainStorage::empty(fork_block_number),
             remote: RemoteBlockchain::new(rpc_client, runtime),
@@ -305,7 +297,6 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
             network_id,
             hardfork,
             hardfork_activations,
-            base_fee_params,
         })
     }
 
@@ -593,10 +584,6 @@ where
                     .block_on(self.remote.total_difficulty_by_hash(hash))
             })?)
         }
-    }
-
-    fn base_fee_params(&self) -> &BaseFeeParams<ChainSpecT::Hardfork> {
-        &self.base_fee_params
     }
 }
 

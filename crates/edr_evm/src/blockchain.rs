@@ -197,9 +197,6 @@ where
 
     /// Retrieves the total difficulty at the block with the provided hash.
     fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError>;
-
-    /// chain base fee eip-1559 parameters
-    fn base_fee_params(&self) -> &BaseFeeParams<ChainSpecT::Hardfork>;
 }
 
 /// build base fee params based on override and chain defaults

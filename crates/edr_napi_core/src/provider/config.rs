@@ -119,7 +119,6 @@ where
                         let chain_config = ChainOverride {
                             name: chain_config.name,
                             hardfork_activation_overrides,
-                            base_fee_params: Some(base_fee_params.clone()),
                         };
                         Ok((chain_id, chain_config))
                     })
