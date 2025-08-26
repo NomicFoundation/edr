@@ -3,13 +3,10 @@ use std::sync::OnceLock;
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 use edr_evm_spec::ExecutableTransaction;
 use edr_signer::{FakeableSignature, SignatureWithYParity};
+use revm_primitives::{keccak256, TxKind};
 
-use crate::{
-    keccak256,
-    transaction::{self, request, ComputeTransactionHash as _, TxKind},
-    utils::enveloped,
-    Address, Bytes, B256, U256,
-};
+use crate::{request, utils::enveloped, Address, Bytes, ComputeTransactionHash as _, B256, U256};
+// transaction::{self, request, ComputeTransactionHash as _, TxKind},
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -162,7 +159,7 @@ struct Decodable {
 impl alloy_rlp::Decodable for Eip7702 {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let transaction = Decodable::decode(buf)?;
-        let request = transaction::request::Eip7702::from(&transaction);
+        let request = request::Eip7702::from(&transaction);
 
         let signature = FakeableSignature::recover(
             transaction.signature,
@@ -188,7 +185,7 @@ impl alloy_rlp::Decodable for Eip7702 {
     }
 }
 
-impl From<&Decodable> for transaction::request::Eip7702 {
+impl From<&Decodable> for request::Eip7702 {
     fn from(value: &Decodable) -> Self {
         Self {
             chain_id: value.chain_id,
@@ -278,10 +275,9 @@ mod tests {
     }
 
     use alloy_rlp::Decodable as _;
-    use edr_signer::public_key_to_address;
 
     use super::*;
-    use crate::{address, b256};
+    use crate::{address, b256, signature::public_key_to_address};
 
     #[test]
     fn decoding() -> anyhow::Result<()> {

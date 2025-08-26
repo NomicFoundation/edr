@@ -17,8 +17,6 @@ pub mod eips;
 pub mod fee_history;
 /// Ethereum types for filter-based RPC methods
 pub mod filter;
-/// L1 chain specification.
-pub mod l1;
 /// Ethereum log types
 pub mod log;
 /// Ethereum receipt types
@@ -33,7 +31,6 @@ pub mod rlp;
 pub mod serde;
 /// Ethereum state types and functions
 pub mod state;
-/// Ethereum transaction types
 pub mod transaction;
 /// Ethereum trie functions
 pub mod trie;

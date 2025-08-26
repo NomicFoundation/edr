@@ -28,7 +28,7 @@ use crate::{
         eip4844::{self, blob_base_fee_update_fraction},
         eip7691,
     },
-    keccak256, l1,
+    keccak256,
     trie::{self, KECCAK_NULL_RLP},
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,

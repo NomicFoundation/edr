@@ -2277,6 +2277,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_chain_l1"
+version = "0.3.8"
+dependencies = [
+ "alloy-rlp",
+ "const-hex",
+ "edr_eip1559",
+ "edr_eip2930",
+ "edr_eip7702",
+ "edr_evm_spec",
+ "edr_signer",
+ "edr_test_utils",
+ "edr_transaction",
+ "paste",
+ "revm-context",
+ "revm-context-interface",
+ "serde",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "edr_common"
 version = "0.3.8"
 dependencies = [
@@ -2344,6 +2364,7 @@ dependencies = [
  "auto_impl",
  "c-kzg",
  "derive-where",
+ "edr_chain_l1",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2369,7 +2390,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
- "sha2 0.10.9",
  "sha3",
  "tempfile",
  "thiserror 1.0.69",
@@ -2819,6 +2839,29 @@ dependencies = [
  "rand 0.9.1",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "edr_transaction"
+version = "0.3.8"
+dependencies = [
+ "alloy-rlp",
+ "alloy-serde",
+ "anyhow",
+ "c-kzg",
+ "edr_eip2930",
+ "edr_eip7702",
+ "edr_evm_spec",
+ "edr_signer",
+ "edr_test_utils",
+ "hex",
+ "k256",
+ "paste",
+ "revm-context-interface",
+ "revm-primitives",
+ "serde",
+ "sha2 0.10.9",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

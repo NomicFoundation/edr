@@ -1,16 +1,11 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use edr_signer::{
-    public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithYParity,
-};
+use edr_signer::{public_key_to_address, FakeableSignature, SignatureError, SignatureWithYParity};
+use k256::SecretKey;
+use revm_primitives::{keccak256, TxKind};
 
-use crate::{
-    keccak256,
-    transaction::{self, TxKind},
-    utils::envelop_bytes,
-    Address, Bytes, B256, U256,
-};
+use crate::{signed, utils::envelop_bytes, Address, Bytes, B256, U256};
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpDecodable, RlpEncodable)]
 pub struct Eip1559 {
@@ -38,10 +33,7 @@ impl Eip1559 {
     }
 
     /// Signs the transaction with the provided secret key.
-    pub fn sign(
-        self,
-        secret_key: &SecretKey,
-    ) -> Result<transaction::signed::Eip1559, SignatureError> {
+    pub fn sign(self, secret_key: &SecretKey) -> Result<signed::Eip1559, SignatureError> {
         let caller = public_key_to_address(secret_key.public_key());
 
         // SAFETY: The caller is derived from the secret key.
@@ -58,11 +50,11 @@ impl Eip1559 {
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<transaction::signed::Eip1559, SignatureError> {
+    ) -> Result<signed::Eip1559, SignatureError> {
         let hash = self.hash();
         let signature = SignatureWithYParity::with_message(hash, secret_key)?;
 
-        Ok(transaction::signed::Eip1559 {
+        Ok(signed::Eip1559 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,
@@ -80,8 +72,8 @@ impl Eip1559 {
     }
 
     /// Creates a fake signature for an impersonated account.
-    pub fn fake_sign(self, sender: Address) -> transaction::signed::Eip1559 {
-        transaction::signed::Eip1559 {
+    pub fn fake_sign(self, sender: Address) -> signed::Eip1559 {
+        signed::Eip1559 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,

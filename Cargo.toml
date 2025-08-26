@@ -1,6 +1,7 @@
 [workspace]
 members = [
     # EDR
+    "crates/edr_chain_l1",
     "crates/edr_common",
     "crates/edr_coverage",
     "crates/edr_defaults",
@@ -22,6 +23,7 @@ members = [
     "crates/edr_solidity",
     "crates/edr_solidity_tests",
     "crates/edr_test_utils",
+    "crates/edr_transaction",
     "crates/tools",
     # Foundry
     "crates/foundry/cheatcodes",
@@ -88,6 +90,7 @@ scrypt.opt-level = 3
 
 
 [workspace.dependencies]
+edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
 edr_defaults = { path = "crates/edr_defaults" }
@@ -102,6 +105,7 @@ edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_test_utils = { path = "crates/edr_test_utils" }
+edr_transaction = { path = "crates/edr_transaction" }
 
 foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
 foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }

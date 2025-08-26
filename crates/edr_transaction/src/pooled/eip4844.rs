@@ -1,20 +1,17 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::Encodable as _;
+pub use c_kzg::{Blob, Bytes48, KzgSettings};
 use edr_evm_spec::ExecutableTransaction;
-use sha2::Digest;
+use revm_primitives::{eip4844::VERSIONED_HASH_VERSION_KZG, TxKind};
+use sha2::Digest as _;
 
-use crate::{
-    eips::eip4844::{KzgSettings, VERSIONED_HASH_VERSION_KZG},
-    transaction::{self, TxKind},
-    utils::enveloped,
-    Address, Blob, Bytes, Bytes48, B256, U256,
-};
+use crate::{signed, utils::enveloped, Address, Bytes, B256, U256};
 
 /// An EIP-4844 pooled transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Eip4844 {
-    payload: transaction::signed::Eip4844,
+    payload: signed::Eip4844,
     blobs: Vec<Blob>,
     commitments: Vec<Bytes48>,
     proofs: Vec<Bytes48>,
@@ -51,12 +48,12 @@ pub enum CreationError {
 
 impl Eip4844 {
     /// The type identifier for an EIP-4844 transaction.
-    pub const TYPE: u8 = transaction::signed::Eip4844::TYPE;
+    pub const TYPE: u8 = signed::Eip4844::TYPE;
 
     /// Creates a new EIP-4844 pooled transaction, if the provided blobs,
     /// commitments, and proofs are valid.
     pub fn new(
-        payload: transaction::signed::Eip4844,
+        payload: signed::Eip4844,
         blobs: Vec<Blob>,
         commitments: Vec<Bytes48>,
         proofs: Vec<Bytes48>,
@@ -149,24 +146,17 @@ impl Eip4844 {
     }
 
     /// Converts the pooled transaction into its inner components.
-    pub fn into_inner(
-        self,
-    ) -> (
-        transaction::signed::Eip4844,
-        Vec<Blob>,
-        Vec<Bytes48>,
-        Vec<Bytes48>,
-    ) {
+    pub fn into_inner(self) -> (signed::Eip4844, Vec<Blob>, Vec<Bytes48>, Vec<Bytes48>) {
         (self.payload, self.blobs, self.commitments, self.proofs)
     }
 
     /// Converts the pooled transaction into its payload.
-    pub fn into_payload(self) -> transaction::signed::Eip4844 {
+    pub fn into_payload(self) -> signed::Eip4844 {
         self.payload
     }
 
     /// Returns the payload of the pooled transaction.
-    pub fn payload(&self) -> &transaction::signed::Eip4844 {
+    pub fn payload(&self) -> &signed::Eip4844 {
         &self.payload
     }
 
@@ -328,7 +318,7 @@ impl alloy_rlp::Decodable for Eip4844 {
             return Err(alloy_rlp::Error::InputTooShort);
         }
 
-        let payload = transaction::signed::Eip4844::decode(buf)?;
+        let payload = signed::Eip4844::decode(buf)?;
 
         let blobs = Vec::<[u8; c_kzg::BYTES_PER_BLOB]>::decode(buf)?;
         let blobs = blobs.into_iter().map(Blob::from).collect::<Vec<_>>();

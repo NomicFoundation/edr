@@ -22,6 +22,32 @@ pub use self::{
     y_parity::{Args as SignatureWithYParityArgs, SignatureWithYParity},
 };
 
+/// Trait for signing a transaction request with a fake signature.
+pub trait FakeSign {
+    /// The type of the signed transaction.
+    type Signed;
+
+    /// Signs the transaction with a fake signature.
+    fn fake_sign(self, sender: Address) -> Self::Signed;
+}
+
+pub trait Sign {
+    /// The type of the signed transaction.
+    type Signed;
+
+    /// Signs the transaction with the provided secret key, belonging to the
+    /// provided sender's address.
+    ///
+    /// # Safety
+    ///
+    /// The `caller` and `secret_key` must correspond to the same account.
+    unsafe fn sign_for_sender_unchecked(
+        self,
+        secret_key: &SecretKey,
+        caller: Address,
+    ) -> Result<Self::Signed, SignatureError>;
+}
+
 /// An error involving a signature.
 #[derive(Debug, thiserror::Error)]
 pub enum SignatureError {

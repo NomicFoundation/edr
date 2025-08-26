@@ -2,14 +2,12 @@ use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
 use edr_signer::{
-    public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithRecoveryId,
+    public_key_to_address, FakeableSignature, SignatureError, SignatureWithRecoveryId,
 };
+use k256::SecretKey;
+use revm_primitives::{keccak256, TxKind};
 
-use crate::{
-    keccak256,
-    transaction::{self, TxKind},
-    Address, Bytes, B256, U256,
-};
+use crate::{signed, Address, Bytes, B256, U256};
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
 pub struct Legacy {
@@ -32,10 +30,7 @@ impl Legacy {
     }
 
     /// Signs the transaction with the provided secret key.
-    pub fn sign(
-        self,
-        secret_key: &SecretKey,
-    ) -> Result<transaction::signed::Legacy, SignatureError> {
+    pub fn sign(self, secret_key: &SecretKey) -> Result<signed::Legacy, SignatureError> {
         let caller = public_key_to_address(secret_key.public_key());
 
         // SAFETY: The caller is derived from the secret key.
@@ -52,11 +47,11 @@ impl Legacy {
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<transaction::signed::Legacy, SignatureError> {
+    ) -> Result<signed::Legacy, SignatureError> {
         let hash = self.hash();
         let signature = SignatureWithRecoveryId::new(hash, secret_key)?;
 
-        Ok(transaction::signed::Legacy {
+        Ok(signed::Legacy {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
@@ -71,8 +66,8 @@ impl Legacy {
     }
 
     /// Creates a fake signature for an impersonated account.
-    pub fn fake_sign(self, sender: Address) -> transaction::signed::Legacy {
-        transaction::signed::Legacy {
+    pub fn fake_sign(self, sender: Address) -> signed::Legacy {
+        signed::Legacy {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,

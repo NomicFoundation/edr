@@ -3,42 +3,38 @@ use std::sync::OnceLock;
 use alloy_rlp::RlpEncodable;
 use edr_evm_spec::ExecutableTransaction;
 use edr_signer::{FakeableSignature, Signature as _, SignatureWithRecoveryId};
+use revm_primitives::{keccak256, TxKind};
 
-use crate::{
-    keccak256,
-    transaction::{self, TxKind},
-    Address, Bytes, B256, U256,
-};
+use crate::{request, Address, Bytes, B256, U256};
 
-#[derive(Clone, Debug, Eq, RlpEncodable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone, Debug, Eq, serde::Serialize, RlpEncodable)]
 pub struct Eip155 {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_price: u128,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     pub signature: FakeableSignature<SignatureWithRecoveryId>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub hash: OnceLock<B256>,
     /// Cached RLP-encoding
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub rlp_encoding: OnceLock<Bytes>,
 }
 
 impl Eip155 {
     /// The type identifier for a post-EIP-155 transaction.
-    pub const TYPE: u8 = transaction::request::Eip155::TYPE;
+    pub const TYPE: u8 = request::Eip155::TYPE;
 }
 
 impl ExecutableTransaction for Eip155 {
@@ -116,8 +112,8 @@ impl ExecutableTransaction for Eip155 {
     }
 }
 
-impl From<transaction::signed::Legacy> for Eip155 {
-    fn from(tx: transaction::signed::Legacy) -> Self {
+impl From<super::Legacy> for Eip155 {
+    fn from(tx: super::Legacy) -> Self {
         Self {
             nonce: tx.nonce,
             gas_price: tx.gas_price,
@@ -154,8 +150,8 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_rlp::Decodable as _;
-    use edr_signer::SecretKey;
     use edr_test_utils::secret_key::secret_key_from_str;
+    use k256::SecretKey;
 
     use super::*;
     use crate::transaction::signed::PreOrPostEip155;

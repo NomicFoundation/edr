@@ -1,54 +1,34 @@
-mod eip155;
-mod eip1559;
-mod eip2930;
-mod eip4844;
-mod eip7702;
-mod legacy;
+//! Types for Ethereum L1 signed transactions.
 
 use std::sync::OnceLock;
 
-use alloy_rlp::{Buf, BufMut};
+use alloy_rlp::BufMut;
 use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
-use edr_signer::{FakeableSignature, SecretKey, Signature};
-
-pub use self::{
-    eip155::Eip155,
-    eip1559::Eip1559,
-    eip2930::Eip2930,
-    eip4844::Eip4844,
-    eip7702::Eip7702,
-    legacy::{Legacy, PreOrPostEip155},
+use edr_signer::{FakeableSignature, Signature};
+pub use edr_transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
+use edr_transaction::{
+    impl_revm_transaction_trait, signed::PreOrPostEip155, Address, Bytes, IsEip155, IsEip4844,
+    IsLegacy, IsSupported, SignedTransaction, TransactionMut, TransactionType, TxKind, B256,
+    INVALID_TX_TYPE_ERROR_MESSAGE, U256,
 };
-use super::{
-    IsEip155, IsEip4844, IsLegacy, IsSupported, Signed, SignedTransaction, TransactionMut,
-    TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
-};
-use crate::{impl_revm_transaction_trait, l1, Address, Bytes, B256, U256};
 
-/// Trait for signing a transaction request with a fake signature.
-pub trait FakeSign {
-    /// The type of the signed transaction.
-    type Signed;
+use crate::InvalidTransaction;
 
-    /// Signs the transaction with a fake signature.
-    fn fake_sign(self, sender: Address) -> Self::Signed;
-}
-
-pub trait Sign {
-    /// The type of the signed transaction.
-    type Signed;
-
-    /// Signs the transaction with the provided secret key, belonging to the
-    /// provided sender's address.
-    ///
-    /// # Safety
-    ///
-    /// The `caller` and `secret_key` must correspond to the same account.
-    unsafe fn sign_for_sender_unchecked(
-        self,
-        secret_key: &SecretKey,
-        caller: Address,
-    ) -> Result<Self::Signed, edr_signer::SignatureError>;
+/// Container type for various signed Ethereum transactions.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub enum Signed {
+    /// Legacy transaction
+    PreEip155Legacy(Legacy),
+    /// EIP-155 transaction
+    PostEip155Legacy(Eip155),
+    /// EIP-2930 transaction
+    Eip2930(Eip2930),
+    /// EIP-1559 transaction
+    Eip1559(Eip1559),
+    /// EIP-4844 transaction
+    Eip4844(Eip4844),
+    /// EIP-7702 transaction
+    Eip7702(Eip7702),
 }
 
 impl Signed {
@@ -67,7 +47,7 @@ impl Signed {
         matches!(self, Signed::Eip2930(_))
     }
 
-    pub fn as_legacy(&self) -> Option<&self::legacy::Legacy> {
+    pub fn as_legacy(&self) -> Option<&Legacy> {
         match self {
             Signed::PreEip155Legacy(tx) => Some(tx),
             _ => None,
@@ -102,7 +82,7 @@ impl alloy_rlp::Decodable for Signed {
             Eip7702::TYPE => {
                 buf.advance(1);
 
-                Ok(Signed::Eip7702(self::eip7702::Eip7702::decode(buf)?))
+                Ok(Signed::Eip7702(Eip7702::decode(buf)?))
             }
             byte if is_list(byte) => {
                 let transaction = PreOrPostEip155::decode(buf)?;
@@ -148,38 +128,38 @@ impl Default for Signed {
     }
 }
 
-impl From<self::legacy::Legacy> for Signed {
-    fn from(transaction: self::legacy::Legacy) -> Self {
+impl From<Legacy> for Signed {
+    fn from(transaction: Legacy) -> Self {
         Self::PreEip155Legacy(transaction)
     }
 }
 
-impl From<self::eip155::Eip155> for Signed {
-    fn from(transaction: self::eip155::Eip155) -> Self {
+impl From<Eip155> for Signed {
+    fn from(transaction: Eip155) -> Self {
         Self::PostEip155Legacy(transaction)
     }
 }
 
-impl From<self::eip2930::Eip2930> for Signed {
-    fn from(transaction: self::eip2930::Eip2930) -> Self {
+impl From<Eip2930> for Signed {
+    fn from(transaction: Eip2930) -> Self {
         Self::Eip2930(transaction)
     }
 }
 
-impl From<self::eip1559::Eip1559> for Signed {
-    fn from(transaction: self::eip1559::Eip1559) -> Self {
+impl From<Eip1559> for Signed {
+    fn from(transaction: Eip1559) -> Self {
         Self::Eip1559(transaction)
     }
 }
 
-impl From<self::eip4844::Eip4844> for Signed {
-    fn from(transaction: self::eip4844::Eip4844) -> Self {
+impl From<Eip4844> for Signed {
+    fn from(transaction: Eip4844) -> Self {
         Self::Eip4844(transaction)
     }
 }
 
-impl From<self::eip7702::Eip7702> for Signed {
-    fn from(transaction: self::eip7702::Eip7702) -> Self {
+impl From<Eip7702> for Signed {
+    fn from(transaction: Eip7702) -> Self {
         Self::Eip7702(transaction)
     }
 }
@@ -461,7 +441,7 @@ impl TransactionType for Signed {
 }
 
 impl TransactionValidation for Signed {
-    type ValidationError = l1::InvalidTransaction;
+    type ValidationError = InvalidTransaction;
 }
 
 impl_revm_transaction_trait!(Signed);
@@ -471,10 +451,8 @@ mod tests {
     use std::sync::OnceLock;
 
     use alloy_rlp::Decodable as _;
-    use edr_signer::{SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs};
 
     use super::*;
-    use crate::{transaction, Bytes};
 
     #[test]
     fn can_recover_sender() {
@@ -624,7 +602,7 @@ mod tests {
         use std::str::FromStr;
 
         let bytes_first = hex::decode("f86b02843b9aca00830186a094d3e8763675e4c425df46cc3b5c0f6cbdac39604687038d7ea4c68000802ba00eb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5aea03a456401896b1b6055311536bf00a718568c744d8c1f9df59879e8350220ca18").unwrap();
-        let expected = Signed::PostEip155Legacy(self::eip155::Eip155 {
+        let expected = Signed::PostEip155Legacy(Eip155 {
             nonce: 2u64,
             gas_price: 1000000000,
             gas_limit: 100000,
@@ -635,8 +613,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                FakeableSignature::with_address_unchecked(
-                    SignatureWithRecoveryId {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae",
                         )
@@ -659,7 +637,7 @@ mod tests {
         );
 
         let bytes_second = hex::decode("f86b01843b9aca00830186a094d3e8763675e4c425df46cc3b5c0f6cbdac3960468702769bb01b2a00802ba0e24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0aa05406ad177223213df262cb66ccbb2f46bfdccfdfbbb5ffdda9e2c02d977631da").unwrap();
-        let expected = Signed::PostEip155Legacy(self::eip155::Eip155 {
+        let expected = Signed::PostEip155Legacy(Eip155 {
             nonce: 1,
             gas_price: 1000000000,
             gas_limit: 100000,
@@ -670,8 +648,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                FakeableSignature::with_address_unchecked(
-                    SignatureWithRecoveryId {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0xe24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0a",
                         )
@@ -694,7 +672,7 @@ mod tests {
         );
 
         let bytes_third = hex::decode("f86b0384773594008398968094d3e8763675e4c425df46cc3b5c0f6cbdac39604687038d7ea4c68000802ba0ce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071a03ca3ae86580e94550d7c071e3a02eadb5a77830947c9225165cf9100901bee88").unwrap();
-        let expected = Signed::PostEip155Legacy(self::eip155::Eip155 {
+        let expected = Signed::PostEip155Legacy(Eip155 {
             nonce: 3,
             gas_price: 2000000000,
             gas_limit: 10000000,
@@ -705,8 +683,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                FakeableSignature::with_address_unchecked(
-                    SignatureWithRecoveryId {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0xce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071",
                         )
@@ -729,7 +707,7 @@ mod tests {
         );
 
         let bytes_fourth = hex::decode("02f872041a8459682f008459682f0d8252089461815774383099e24810ab832a5b2a5425c154d58829a2241af62c000080c001a059e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafda0016b83f4f980694ed2eee4d10667242b1f40dc406901b34125b008d334d47469").unwrap();
-        let expected = Signed::Eip1559(self::eip1559::Eip1559 {
+        let expected = Signed::Eip1559(Eip1559 {
             chain_id: 4,
             nonce: 26,
             max_priority_fee_per_gas: 1500000000,
@@ -743,7 +721,7 @@ mod tests {
             access_list: edr_eip2930::AccessList::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                FakeableSignature::with_address_unchecked(
+                signature::Fakeable::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: U256::from_str(
                             "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
@@ -767,7 +745,7 @@ mod tests {
         );
 
         let bytes_fifth = hex::decode("f8650f84832156008287fb94cf7f9e66af820a19257a2108375b180b0ec491678204d2802ca035b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981a0612638fb29427ca33b9a3be2a0a561beecfe0269655be160d35e72d366a6a860").unwrap();
-        let expected = Signed::PostEip155Legacy(self::eip155::Eip155 {
+        let expected = Signed::PostEip155Legacy(Eip155 {
             nonce: 15u64,
             gas_price: 2200000000,
             gas_limit: 34811,
@@ -778,8 +756,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                FakeableSignature::with_address_unchecked(
-                    SignatureWithRecoveryId {
+                signature::Fakeable::with_address_unchecked(
+                    signature::SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0x35b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981",
                         )

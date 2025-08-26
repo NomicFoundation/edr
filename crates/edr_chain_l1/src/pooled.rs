@@ -1,21 +1,15 @@
-mod eip4844;
+//! Types for L1 Ethereum transaction gossip (aka pooled transactions)
 
 use edr_evm_spec::ExecutableTransaction;
-
-pub use self::eip4844::Eip4844;
-use crate::{
-    transaction::{
-        signed::PreOrPostEip155, IsEip155, Signed, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
-    },
+pub use edr_transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
+use edr_transaction::{
+    pooled::eip4844::{Blob, Bytes48},
+    signed::PreOrPostEip155,
     utils::enveloped,
-    Address, Bytes, B256, U256,
+    Address, Bytes, IsEip155, TxKind, B256, INVALID_TX_TYPE_ERROR_MESSAGE, U256,
 };
 
-pub type Legacy = super::signed::Legacy;
-pub type Eip155 = super::signed::Eip155;
-pub type Eip2930 = super::signed::Eip2930;
-pub type Eip1559 = super::signed::Eip1559;
-pub type Eip7702 = super::signed::Eip7702;
+use crate::Signed;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PooledTransaction {
@@ -35,7 +29,7 @@ pub enum PooledTransaction {
 
 impl PooledTransaction {
     /// Returns the blobs of the EIP-4844 transaction, if any.
-    pub fn blobs(&self) -> Option<&[c_kzg::Blob]> {
+    pub fn blobs(&self) -> Option<&[Blob]> {
         match self {
             PooledTransaction::Eip4844(tx) => Some(tx.blobs()),
             _ => None,
@@ -43,7 +37,7 @@ impl PooledTransaction {
     }
 
     /// Returns the commitments of the EIP-4844 transaction, if any.
-    pub fn commitments(&self) -> Option<&[c_kzg::Bytes48]> {
+    pub fn commitments(&self) -> Option<&[Bytes48]> {
         match self {
             PooledTransaction::Eip4844(tx) => Some(tx.commitments()),
             _ => None,
@@ -63,7 +57,7 @@ impl PooledTransaction {
     }
 
     /// Returns the proofs of the EIP-4844 transaction, if any.
-    pub fn proofs(&self) -> Option<&[c_kzg::Bytes48]> {
+    pub fn proofs(&self) -> Option<&[Bytes48]> {
         match self {
             PooledTransaction::Eip4844(tx) => Some(tx.proofs()),
             _ => None,
@@ -97,7 +91,7 @@ impl alloy_rlp::Decodable for PooledTransaction {
 
                 Ok(PooledTransaction::Eip4844(Eip4844::decode(buf)?))
             }
-            0x04 => {
+            Eip7702::TYPE => {
                 buf.advance(1);
 
                 Ok(PooledTransaction::Eip7702(Eip7702::decode(buf)?))

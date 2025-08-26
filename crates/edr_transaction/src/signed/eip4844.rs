@@ -3,14 +3,10 @@ use std::sync::OnceLock;
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
 use edr_evm_spec::ExecutableTransaction;
 use edr_signer::{FakeableSignature, SignatureWithYParity};
-use revm_primitives::keccak256;
+use revm_primitives::{eip4844::GAS_PER_BLOB, keccak256, TxKind};
 
-use crate::{
-    eips::eip4844::GAS_PER_BLOB,
-    transaction::{self, TxKind},
-    utils::enveloped,
-    Address, Bytes, B256, U256,
-};
+use crate::{request, utils::enveloped, Address, Bytes, B256, U256};
+// eips::eip4844::GAS_PER_BLOB,
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -48,7 +44,7 @@ pub struct Eip4844 {
 
 impl Eip4844 {
     /// The type identifier for an EIP-4844 transaction.
-    pub const TYPE: u8 = transaction::request::Eip4844::TYPE;
+    pub const TYPE: u8 = request::Eip4844::TYPE;
 }
 
 impl ExecutableTransaction for Eip4844 {
@@ -169,7 +165,7 @@ struct Decodable {
 impl alloy_rlp::Decodable for Eip4844 {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
         let transaction = Decodable::decode(buf)?;
-        let request = transaction::request::Eip4844::from(&transaction);
+        let request = request::Eip4844::from(&transaction);
 
         let signature = FakeableSignature::recover(transaction.signature, request.hash().into())
             .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
@@ -193,7 +189,7 @@ impl alloy_rlp::Decodable for Eip4844 {
     }
 }
 
-impl From<&Decodable> for transaction::request::Eip4844 {
+impl From<&Decodable> for request::Eip4844 {
     fn from(value: &Decodable) -> Self {
         Self {
             chain_id: value.chain_id,
@@ -220,10 +216,10 @@ pub fn total_blob_gas(transaction: &Eip4844) -> u64 {
 mod tests {
     use std::str::FromStr;
 
-    use edr_signer::{SignatureWithYParity, SignatureWithYParityArgs};
     use revm_primitives::{address, b256};
 
     use super::*;
+    use crate::signature::{SignatureWithYParity, SignatureWithYParityArgs};
 
     // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68
     fn dummy_transaction() -> Eip4844 {
@@ -252,8 +248,8 @@ mod tests {
             .unwrap()],
         };
 
-        let signature = FakeableSignature::recover(signature, request.hash().into())
-            .expect("Failed to retrieve caller");
+        let signature =
+            Fakeable::recover(signature, request.hash().into()).expect("Failed to retrieve caller");
 
         Eip4844 {
             chain_id: request.chain_id,
@@ -317,7 +313,7 @@ mod tests {
             )],
         };
 
-        let signature = FakeableSignature::recover(
+        let signature = Fakeable::recover(
             SignatureWithYParity::new(SignatureWithYParityArgs {
                 r: U256::from_str(
                     "0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082",

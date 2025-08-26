@@ -3,9 +3,7 @@ use edr_evm_spec::{ExecutableTransaction, HaltReasonTrait};
 
 use super::{AsExecutionReceipt, ExecutionReceipt, MapReceiptLogs};
 use crate::{
-    l1,
     result::{ExecutionResult, Output},
-    transaction::TransactionType,
     Address, Bloom, B256,
 };
 

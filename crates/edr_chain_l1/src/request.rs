@@ -1,21 +1,26 @@
-mod eip155;
-mod eip1559;
-mod eip2930;
-mod eip4844;
-mod eip7702;
-mod legacy;
+//! Types for Ethereum L1 transaction requests.
 
-use edr_signer::SecretKey;
+use edr_signer::{Address, FakeSign, SecretKey, Sign, SignatureError};
+pub use edr_transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 
-pub use self::{
-    eip155::Eip155, eip1559::Eip1559, eip2930::Eip2930, eip4844::Eip4844, eip7702::Eip7702,
-    legacy::Legacy,
-};
-use super::{
-    signed::{FakeSign, Sign},
-    Request, Signed,
-};
-use crate::Address;
+use crate::Signed;
+
+/// Container type for various Ethereum transaction requests
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Request {
+    /// A legacy transaction request
+    Legacy(Legacy),
+    /// An EIP-155 transaction request
+    Eip155(Eip155),
+    /// An EIP-2930 transaction request
+    Eip2930(Eip2930),
+    /// An EIP-1559 transaction request
+    Eip1559(Eip1559),
+    /// An EIP-4844 transaction request
+    Eip4844(Eip4844),
+    /// An EIP-7702 transaction request
+    Eip7702(Eip7702),
+}
 
 impl Request {
     /// Retrieves the instance's authorization list (EIP-7702).
@@ -86,7 +91,7 @@ impl Request {
         }
     }
 
-    pub fn sign(self, secret_key: &SecretKey) -> Result<Signed, edr_signer::SignatureError> {
+    pub fn sign(self, secret_key: &SecretKey) -> Result<Signed, SignatureError> {
         Ok(match self {
             Request::Legacy(transaction) => transaction.sign(secret_key)?.into(),
             Request::Eip155(transaction) => transaction.sign(secret_key)?.into(),
@@ -120,7 +125,7 @@ impl Sign for Request {
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<Signed, edr_signer::SignatureError> {
+    ) -> Result<Signed, SignatureError> {
         Ok(match self {
             Request::Legacy(transaction) => {
                 // SAFETY: The safety concern is propagated in the function signature.
@@ -148,13 +153,4 @@ impl Sign for Request {
             }
         })
     }
-}
-
-/// A transaction request and the sender's address.
-#[derive(Clone, Debug)]
-pub struct TransactionRequestAndSender<RequestT> {
-    /// The transaction request.
-    pub request: RequestT,
-    /// The sender's address.
-    pub sender: Address,
 }

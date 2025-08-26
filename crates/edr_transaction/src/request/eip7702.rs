@@ -6,11 +6,7 @@ use edr_signer::{
 };
 use revm_primitives::keccak256;
 
-use crate::{
-    transaction::{self, ComputeTransactionHash},
-    utils::envelop_bytes,
-    Address, Bytes, B256, U256,
-};
+use crate::{signed, utils::envelop_bytes, Address, Bytes, ComputeTransactionHash, B256, U256};
 
 /// An [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) transaction.
 #[derive(Clone, Debug, Default, PartialEq, Eq, RlpEncodable)]
@@ -32,10 +28,7 @@ impl Eip7702 {
     pub const TYPE: u8 = 4;
 
     /// Signs the transaction with the provided secret key.
-    pub fn sign(
-        self,
-        secret_key: &SecretKey,
-    ) -> Result<transaction::signed::Eip7702, SignatureError> {
+    pub fn sign(self, secret_key: &SecretKey) -> Result<signed::Eip7702, SignatureError> {
         let caller = public_key_to_address(secret_key.public_key());
 
         // SAFETY: The caller is derived from the secret key.
@@ -52,11 +45,11 @@ impl Eip7702 {
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<transaction::signed::Eip7702, SignatureError> {
+    ) -> Result<signed::Eip7702, SignatureError> {
         let hash = self.compute_transaction_hash();
         let signature = SignatureWithYParity::with_message(hash, secret_key)?;
 
-        Ok(transaction::signed::Eip7702 {
+        Ok(signed::Eip7702 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,
@@ -74,8 +67,8 @@ impl Eip7702 {
         })
     }
 
-    pub fn fake_sign(self, address: Address) -> transaction::signed::Eip7702 {
-        transaction::signed::Eip7702 {
+    pub fn fake_sign(self, address: Address) -> signed::Eip7702 {
+        signed::Eip7702 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,

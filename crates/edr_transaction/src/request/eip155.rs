@@ -1,46 +1,37 @@
 use std::sync::OnceLock;
 
-use alloy_rlp::RlpEncodable;
+use alloy_rlp::{BufMut, Encodable};
 use edr_signer::{
-    public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithYParity,
+    public_key_to_address, FakeableSignature, SignatureError, SignatureWithRecoveryId,
 };
+use k256::SecretKey;
+use revm_primitives::{keccak256, TxKind};
 
-use crate::{
-    keccak256,
-    transaction::{self, TxKind},
-    utils::envelop_bytes,
-    Address, Bytes, B256, U256,
-};
+use crate::{signed, Address, Bytes, B256, U256};
 
-#[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
-pub struct Eip2930 {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Eip155 {
     // The order of these fields determines encoding order.
-    pub chain_id: u64,
     pub nonce: u64,
     pub gas_price: u128,
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    pub access_list: Vec<edr_eip2930::AccessListItem>,
+    pub chain_id: u64,
 }
 
-impl Eip2930 {
-    /// The type identifier for an EIP-2930 transaction.
-    pub const TYPE: u8 = 1;
+impl Eip155 {
+    /// The type identifier for a post-EIP-155 transaction.
+    pub const TYPE: u8 = super::Legacy::TYPE;
 
     /// Computes the hash of the transaction.
     pub fn hash(&self) -> B256 {
-        let encoded = alloy_rlp::encode(self);
-
-        keccak256(envelop_bytes(1, &encoded))
+        keccak256(alloy_rlp::encode(self))
     }
 
     /// Signs the transaction with the provided secret key.
-    pub fn sign(
-        self,
-        secret_key: &SecretKey,
-    ) -> Result<transaction::signed::Eip2930, SignatureError> {
+    pub fn sign(self, secret_key: &SecretKey) -> Result<signed::Eip155, SignatureError> {
         let caller = public_key_to_address(secret_key.public_key());
 
         // SAFETY: The caller is derived from the secret key.
@@ -57,19 +48,19 @@ impl Eip2930 {
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<transaction::signed::Eip2930, SignatureError> {
+    ) -> Result<signed::Eip155, SignatureError> {
         let hash = self.hash();
-        let signature = SignatureWithYParity::with_message(hash, secret_key)?;
 
-        Ok(transaction::signed::Eip2930 {
-            chain_id: self.chain_id,
+        let mut signature = SignatureWithRecoveryId::new(hash, secret_key)?;
+        signature.v += self.v_value_adjustment();
+
+        Ok(signed::Eip155 {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
             kind: self.kind,
             value: self.value,
             input: self.input,
-            access_list: self.access_list.into(),
             // SAFETY: The safety concern is propagated in the function signature.
             signature: unsafe { FakeableSignature::with_address_unchecked(signature, caller) },
             hash: OnceLock::new(),
@@ -78,20 +69,64 @@ impl Eip2930 {
     }
 
     /// Creates a fake signature for an impersonated account.
-    pub fn fake_sign(self, address: Address) -> transaction::signed::Eip2930 {
-        transaction::signed::Eip2930 {
-            chain_id: self.chain_id,
+    pub fn fake_sign(self, address: Address) -> signed::Eip155 {
+        let v = self.v_value_adjustment();
+
+        signed::Eip155 {
             nonce: self.nonce,
             gas_price: self.gas_price,
             gas_limit: self.gas_limit,
             kind: self.kind,
             value: self.value,
             input: self.input,
-            access_list: self.access_list.into(),
-            signature: FakeableSignature::fake(address, None),
+            signature: FakeableSignature::fake(address, Some(v)),
             hash: OnceLock::new(),
             rlp_encoding: OnceLock::new(),
         }
+    }
+
+    fn rlp_payload_length(&self) -> usize {
+        self.nonce.length()
+            + self.gas_price.length()
+            + self.gas_limit.length()
+            + self.kind.length()
+            + self.value.length()
+            + self.input.length()
+            + self.chain_id.length()
+            + 2
+    }
+
+    fn v_value_adjustment(&self) -> u64 {
+        // `CHAIN_ID * 2 + 35` comes from EIP-155 and we subtract the Bitcoin magic
+        // number 27, because `Signature::new` adds that.
+        self.chain_id * 2 + 35 - 27
+    }
+}
+
+impl Encodable for Eip155 {
+    fn length(&self) -> usize {
+        let payload_length = self.rlp_payload_length();
+        payload_length + alloy_rlp::length_of_length(payload_length)
+    }
+
+    fn encode(&self, out: &mut dyn BufMut) {
+        alloy_rlp::Header {
+            list: true,
+            payload_length: self.rlp_payload_length(),
+        }
+        .encode(out);
+
+        self.nonce.encode(out);
+        self.gas_price.encode(out);
+        self.gas_limit.encode(out);
+        self.kind.encode(out);
+        self.value.encode(out);
+        self.input.encode(out);
+        self.chain_id.encode(out);
+        // Appending these two values requires a custom implementation of
+        // `Encodable`
+        0u8.encode(out);
+        0u8.encode(out);
     }
 }
 
@@ -104,31 +139,25 @@ mod tests {
     use super::*;
     use crate::transaction::fake_signature::tests::test_fake_sign_properties;
 
-    fn dummy_request() -> Eip2930 {
+    fn dummy_request() -> Eip155 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        Eip2930 {
-            chain_id: 1,
+        Eip155 {
             nonce: 1,
             gas_price: 2,
             gas_limit: 3,
             kind: TxKind::Call(to),
             value: U256::from(4),
             input: Bytes::from(input),
-            access_list: vec![edr_eip2930::AccessListItem {
-                address: Address::ZERO,
-                storage_keys: vec![B256::ZERO, B256::from(U256::from(1))],
-            }],
+            chain_id: 1,
         }
     }
 
     #[test]
-    fn test_eip2930_transaction_request_encoding() {
+    fn test_eip155_transaction_request_encoding() {
         // Generated by Hardhat
-        // QUESTION: What is considered a valid RLP-encoding? With the prepending type?
-        // or without?
         let expected =
-            hex::decode("f87a0101020394c014ba5ec014ba5ec014ba5ec014ba5ec014ba5e04821234f85bf859940000000000000000000000000000000000000000f842a00000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000001")
+            hex::decode("df01020394c014ba5ec014ba5ec014ba5ec014ba5ec014ba5e04821234018080")
                 .unwrap();
 
         let request = dummy_request();
@@ -138,10 +167,10 @@ mod tests {
     }
 
     #[test]
-    fn test_eip2930_transaction_request_hash() {
+    fn test_eip155_transaction_request_hash() {
         // Generated by hardhat
         let expected = B256::from_slice(
-            &hex::decode("bc070f66a83bf3513c9db59e7ccaf68870b148cc40b3da9bf20a53918489cfc7")
+            &hex::decode("df5aea488af414bd517742f599bcba94ba801a581cf71d86a85777cecdbe6743")
                 .unwrap(),
         );
 
@@ -153,29 +182,22 @@ mod tests {
 
     #[test]
     fn test_fake_sign_test_vector() -> anyhow::Result<()> {
-        let transaction = Eip2930 {
-            chain_id: 123,
+        let transaction = Eip155 {
             nonce: 0,
-            gas_price: 1,
+            gas_price: 678_912,
             gas_limit: 30_000,
             kind: TxKind::Call("0xb5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?),
             value: U256::from(1),
             input: Bytes::default(),
-            access_list: vec![edr_eip2930::AccessListItem {
-                address: "0x57d7ad4d3f0c74e3766874cf06fa1dc23c21f7e8".parse()?,
-                storage_keys: vec![
-                    "0xa50e92910457911e0e22d6dd1672f440a37b590b231d8309101255290f5394ec".parse()?,
-                ],
-            }],
+            chain_id: 123,
         };
 
         let fake_sender: Address = "0xa5bc06d4548a3ac17d72b372ae1e416bf65b8ead".parse()?;
 
         let signed = transaction.fake_sign(fake_sender);
 
-        // Generated by Hardhat
         let expected_hash: B256 =
-            "b492d4d9e60ed496eeb16e90879048bb5c70db71fee359efe6b9985f54381dae".parse()?;
+            "bcdd3230665912079522dfbfe605e70443c81bf78db768a688a8d8007accf14b".parse()?;
         assert_eq!(signed.transaction_hash(), &expected_hash);
 
         Ok(())

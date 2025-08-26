@@ -3,12 +3,9 @@ use std::sync::OnceLock;
 use alloy_rlp::{RlpDecodable, RlpEncodable};
 use edr_evm_spec::ExecutableTransaction;
 use edr_signer::{FakeableSignature, SignatureWithRecoveryId};
+use revm_primitives::{keccak256, TxKind};
 
-use crate::{
-    keccak256,
-    transaction::{self, TxKind},
-    Address, Bytes, B256, U256,
-};
+use crate::{request, Address, Bytes, B256, U256};
 
 #[derive(Clone, Debug, Eq, RlpEncodable)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
@@ -37,7 +34,7 @@ pub struct Legacy {
 
 impl Legacy {
     /// The type identifier for a pre-EIP-155 legacy transaction.
-    pub const TYPE: u8 = transaction::request::Legacy::TYPE;
+    pub const TYPE: u8 = request::Legacy::TYPE;
 }
 
 impl ExecutableTransaction for Legacy {
@@ -132,7 +129,7 @@ impl PartialEq for Legacy {
 /// their decoding format is the same.
 pub enum PreOrPostEip155 {
     Pre(Legacy),
-    Post(transaction::signed::Eip155),
+    Post(super::Eip155),
 }
 
 impl alloy_rlp::Decodable for PreOrPostEip155 {
@@ -149,9 +146,9 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
             pub signature: SignatureWithRecoveryId,
         }
 
-        impl From<&Decodable> for transaction::request::Eip155 {
+        impl From<&Decodable> for request::Eip155 {
             fn from(value: &Decodable) -> Self {
-                let chain_id = transaction::signed::eip155::v_to_chain_id(value.signature.v);
+                let chain_id = super::eip155::v_to_chain_id(value.signature.v);
                 Self {
                     nonce: value.nonce,
                     gas_price: value.gas_price,
@@ -164,7 +161,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
             }
         }
 
-        impl From<&Decodable> for transaction::request::Legacy {
+        impl From<&Decodable> for request::Legacy {
             fn from(value: &Decodable) -> Self {
                 Self {
                     nonce: value.nonce,
@@ -180,13 +177,13 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
         let transaction = Decodable::decode(buf)?;
 
         let transaction = if transaction.signature.v >= 35 {
-            let request = transaction::request::Eip155::from(&transaction);
+            let request = request::Eip155::from(&transaction);
 
             let signature =
                 FakeableSignature::recover(transaction.signature, request.hash().into())
                     .map_err(|_error| alloy_rlp::Error::Custom("Invalid Signature"))?;
 
-            Self::Post(transaction::signed::Eip155 {
+            Self::Post(super::Eip155 {
                 nonce: transaction.nonce,
                 gas_price: transaction.gas_price,
                 gas_limit: transaction.gas_limit,
@@ -198,7 +195,7 @@ impl alloy_rlp::Decodable for PreOrPostEip155 {
                 rlp_encoding: OnceLock::new(),
             })
         } else {
-            let request = transaction::request::Legacy::from(&transaction);
+            let request = request::Legacy::from(&transaction);
 
             let signature =
                 FakeableSignature::recover(transaction.signature, request.hash().into())
@@ -226,8 +223,8 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_rlp::Decodable as _;
-    use edr_signer::SecretKey;
     use edr_test_utils::secret_key::secret_key_from_str;
+    use k256::SecretKey;
 
     use super::*;
 

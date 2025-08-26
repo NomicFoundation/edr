@@ -1,0 +1,25 @@
+[package]
+name = "edr_chain_l1"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-rlp.workspace = true
+edr_eip1559.workspace = true
+edr_eip2930.workspace = true
+edr_eip7702.workspace = true
+edr_evm_spec.workspace = true
+edr_signer.workspace = true
+edr_transaction.workspace = true
+revm-context.workspace = true
+revm-context-interface.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+edr_test_utils.workspace = true
+hex.workspace = true
+paste.workspace = true
+
+[lints]
+workspace = true

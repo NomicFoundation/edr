@@ -1,11 +1,11 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
-use edr_signer::{
-    public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithYParity,
-};
+use edr_signer::{public_key_to_address, FakeableSignature, SignatureError, SignatureWithYParity};
+use k256::SecretKey;
+use revm_primitives::keccak256;
 
-use crate::{keccak256, transaction, utils::envelop_bytes, Address, Bytes, B256, U256};
+use crate::{signed, utils::envelop_bytes, Address, Bytes, B256, U256};
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
 pub struct Eip4844 {
@@ -35,10 +35,7 @@ impl Eip4844 {
     }
 
     /// Signs the transaction with the provided secret key.
-    pub fn sign(
-        self,
-        secret_key: &SecretKey,
-    ) -> Result<transaction::signed::Eip4844, SignatureError> {
+    pub fn sign(self, secret_key: &SecretKey) -> Result<signed::Eip4844, SignatureError> {
         let caller = public_key_to_address(secret_key.public_key());
 
         // SAFETY: The caller is derived from the secret key.
@@ -55,11 +52,11 @@ impl Eip4844 {
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<transaction::signed::Eip4844, SignatureError> {
+    ) -> Result<signed::Eip4844, SignatureError> {
         let hash = self.hash();
         let signature = SignatureWithYParity::with_message(hash, secret_key)?;
 
-        Ok(transaction::signed::Eip4844 {
+        Ok(signed::Eip4844 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,
@@ -78,8 +75,8 @@ impl Eip4844 {
         })
     }
 
-    pub fn fake_sign(self, address: Address) -> transaction::signed::Eip4844 {
-        transaction::signed::Eip4844 {
+    pub fn fake_sign(self, address: Address) -> signed::Eip4844 {
+        signed::Eip4844 {
             chain_id: self.chain_id,
             nonce: self.nonce,
             max_priority_fee_per_gas: self.max_priority_fee_per_gas,
