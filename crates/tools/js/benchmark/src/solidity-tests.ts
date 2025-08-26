@@ -472,7 +472,7 @@ export function parseForgeTestDuration(
 
   for (const part of parts) {
     // Use regex to split number and unit exactly
-    const match = part.match(/^(\d+(?:\.\d+)?)([a-zA-Zµ]+)$/);
+    const match = part.match(/^(\d+)([a-zA-Zµ]+)$/);
     if (match === null) {
       throw new Error(`Invalid duration format: ${part}`);
     }

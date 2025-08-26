@@ -45,6 +45,7 @@ describe("parseForgeTestDuration", () => {
   });
 
   it("invalid formats should throw", () => {
+    assert.throws(() => parseForgeTestDuration("123.4ms"));
     assert.throws(() => parseForgeTestDuration("123"));
     assert.throws(() => parseForgeTestDuration("123 456ms"));
     assert.throws(() => parseForgeTestDuration("123456ms"));
