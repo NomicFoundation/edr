@@ -24,7 +24,7 @@ pub use self::{
 use crate::{
     b256,
     eips::{
-        eip1559::ConstantBaseFeeParams,
+        eip1559::BaseFeeParams,
         eip4844::{self, blob_base_fee_update_fraction},
         eip7691,
     },
@@ -276,14 +276,12 @@ impl PartialHeader {
             base_fee: overrides.base_fee.or_else(|| {
                 if hardfork.into() >= l1::SpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        let base_fee_params = overrides
-                            .base_fee_params
-                            .unwrap_or(ChainSpecT::base_fee_params())
-                            .at_condition(hardfork, number)
-                            .copied()
-                            .expect("Chain must have base fee params for post-London hardforks");
-
-                        calculate_next_base_fee_per_gas(parent, &base_fee_params)
+                        calculate_next_base_fee_per_gas::<ChainSpecT>(
+                            parent,
+                            overrides.base_fee_params,
+                            hardfork,
+                            number,
+                        )
                     } else {
                         u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
                     })
@@ -392,10 +390,18 @@ impl From<Header> for PartialHeader {
 /// # Panics
 ///
 /// Panics if the parent header does not contain a base fee.
-pub fn calculate_next_base_fee_per_gas(
+pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
     parent: &Header,
-    base_fee_params: &ConstantBaseFeeParams,
+    base_fee_params: Option<BaseFeeParams<ChainSpecT::Hardfork>>,
+    hardfork: ChainSpecT::Hardfork,
+    block_number: u64,
 ) -> u128 {
+    let base_fee_params = base_fee_params
+        .unwrap_or(ChainSpecT::base_fee_params())
+        .at_condition(hardfork, block_number)
+        .copied()
+        .expect("Chain must have base fee params for post-London hardforks");
+
     // Adapted from https://github.com/alloy-rs/alloy/blob/main/crates/eips/src/eip1559/helpers.rs#L41
     // modifying it to support `u128`.
     // TODO: Remove once https://github.com/alloy-rs/alloy/issues/2181 has been addressed.

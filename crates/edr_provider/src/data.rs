@@ -1652,15 +1652,11 @@ where
             .map_or_else(
                 || {
                     let last_block = self.last_block()?;
-                    Ok(calculate_next_base_fee_per_gas(
+                    Ok(calculate_next_base_fee_per_gas::<ChainSpecT>(
                         last_block.header(),
-                        self.base_fee_params
-                            .clone()
-                            .unwrap_or(ChainSpecT::base_fee_params())
-                            .at_condition(self.hardfork(), last_block.header().number + 1)
-                            .expect(
-                                "Chain spec must have base fee params for post-London hardforks",
-                            ),
+                        self.base_fee_params.clone(),
+                        self.hardfork(),
+                        last_block.header().number + 1,
                     ))
                 },
                 Ok,
@@ -1942,16 +1938,11 @@ where
                 let block = pending_block.as_ref().expect("We mined the pending block");
                 result
                     .base_fee_per_gas
-                    .push(calculate_next_base_fee_per_gas(
+                    .push(calculate_next_base_fee_per_gas::<ChainSpecT>(
                         block.header(),
-                        self.base_fee_params
-                            .clone()
-                            // TODO: isn't this leaked responsibility from PartialHeader?
-                            .unwrap_or(ChainSpecT::base_fee_params())
-                            .at_condition(self.hardfork(), block.header().number)
-                            .expect(
-                                "Chain spec must have base fee params for post-London hardforks",
-                            ),
+                        self.base_fee_params.clone(),
+                        self.hardfork(),
+                        block.header().number,
                     ));
             }
         }
