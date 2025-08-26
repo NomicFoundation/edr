@@ -34,6 +34,7 @@ foundry-compilers.workspace = true
 
 op-revm.workspace = true
 revm.workspace = true
+revm-primitives.workspace = true
 
 auto_impl = "1"
 derive_more.workspace = true
