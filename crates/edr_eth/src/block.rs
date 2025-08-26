@@ -24,7 +24,7 @@ pub use self::{
 use crate::{
     b256,
     eips::{
-        eip1559::{BaseFeeCondition, ConstantBaseFeeParams},
+        eip1559::ConstantBaseFeeParams,
         eip4844::{self, blob_base_fee_update_fraction},
         eip7691,
     },
@@ -279,11 +279,7 @@ impl PartialHeader {
                         let base_fee_params = overrides
                             .base_fee_params
                             .unwrap_or((*ChainSpecT::base_fee_params()).clone())
-                            .at_condition(BaseFeeCondition {
-                                hardfork: Some(hardfork),
-                                timestamp: Some(timestamp),
-                                block_number: Some(number),
-                            })
+                            .at_condition(hardfork, number)
                             .copied()
                             .expect("Chain must have base fee params for post-London hardforks");
 

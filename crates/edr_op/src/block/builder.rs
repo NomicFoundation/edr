@@ -1,6 +1,6 @@
 use edr_eth::{
     block::PartialHeader,
-    eips::eip1559::{BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams},
+    eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
     spec::EthHeaderConstants,
     trie::KECCAK_NULL_RLP,
     Address, HashMap, U256,
@@ -128,11 +128,7 @@ where
             }, Ok)?;
 
             let block_base_fee_params = base_fee_params
-                .at_condition(BaseFeeCondition {
-                    hardfork: Some(cfg.spec),
-                    timestamp: None,
-                    block_number: Some(blockchain.last_block_number() + 1),
-                })
+                .at_condition(cfg.spec, blockchain.last_block_number() + 1)
                 .expect("Chain spec must have base fee params for post-London hardforks");
 
             let extra_data = overrides

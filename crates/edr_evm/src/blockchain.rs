@@ -9,7 +9,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 use auto_impl::auto_impl;
 use edr_eth::{
     eips::eip1559::{
-        BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition, VariableBaseFeeParams,
+        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, VariableBaseFeeParams,
     },
     l1,
     log::FilterLog,
@@ -203,7 +203,7 @@ where
 pub fn base_fee_params_for_chain_spec<ChainSpecT: ChainHardfork + EthHeaderConstants>(
     override_params: Option<
         Vec<(
-            DynamicBaseFeeCondition<ChainSpecT::Hardfork>,
+            BaseFeeActivation<ChainSpecT::Hardfork>,
             ConstantBaseFeeParams,
         )>,
     >,

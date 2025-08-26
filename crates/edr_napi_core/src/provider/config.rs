@@ -3,7 +3,7 @@ use std::{str::FromStr, time::SystemTime};
 
 use edr_eth::{
     block::BlobGas,
-    eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition},
+    eips::eip1559::{BaseFeeActivation, ConstantBaseFeeParams},
     hash_map::HashMap,
     l1::{self, hardfork::UnknownHardfork},
     signature::SecretKey,
@@ -24,7 +24,7 @@ pub struct Config {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
-    pub base_fee_params: Option<Vec<(DynamicBaseFeeCondition<String>, ConstantBaseFeeParams)>>,
+    pub base_fee_params: Option<Vec<(BaseFeeActivation<String>, ConstantBaseFeeParams)>>,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,
@@ -63,31 +63,27 @@ where
     type Error = napi::Error;
 
     fn try_from(value: Config) -> Result<Self, Self::Error> {
-        let base_fee_params: Option<
-            Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>,
-        > = value
-            .base_fee_params
-            .map(|config| {
-                config.into_iter().map(|(key, value)| {
+        let base_fee_params: Option<Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>> =
+            value
+                .base_fee_params
+                .map(|config| {
+                    config.into_iter().map(|(key, value)| {
                 let new_key = match key {
-                    DynamicBaseFeeCondition::Hardfork(hardfork_str) => {
+                    BaseFeeActivation::Hardfork(hardfork_str) => {
                         let hardfork = parse_hardfork(hardfork_str)?;
-                        DynamicBaseFeeCondition::Hardfork(hardfork)
+                        BaseFeeActivation::Hardfork(hardfork)
                     }
-                    DynamicBaseFeeCondition::BlockNumber(number) => {
-                        DynamicBaseFeeCondition::BlockNumber(number)
-                    }
-                    DynamicBaseFeeCondition::Timestamp(timestamp) => {
-                        DynamicBaseFeeCondition::Timestamp(timestamp)
+                    BaseFeeActivation::BlockNumber(number) => {
+                        BaseFeeActivation::BlockNumber(number)
                     }
                 };
                 Ok((new_key, value))
             })
             .collect::<napi::Result<
-                Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>
+                Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>
             >>()
-            })
-            .transpose()?;
+                })
+                .transpose()?;
 
         let fork = value
             .fork

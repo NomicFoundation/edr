@@ -1,38 +1,24 @@
 pub use alloy_eips::eip1559::BaseFeeParams as ConstantBaseFeeParams;
 
-/// Criteria for indicating the different activation of different base fee
-/// parameters
+/// Possible activation points of different base fee parameters
 #[derive(Clone, Copy, Debug, serde::Deserialize, Eq, Hash, PartialEq, serde::Serialize)]
-pub enum DynamicBaseFeeCondition<HardforkT> {
+pub enum BaseFeeActivation<HardforkT> {
     /// block number
     BlockNumber(u64),
-    /// block timestamp
-    Timestamp(u64),
     /// chain hardfork
     Hardfork(HardforkT),
-}
-
-/// Chain condition for selecting the right base fee params
-#[derive(Clone)]
-pub struct BaseFeeCondition<HardforkT> {
-    /// block current hardfork
-    pub hardfork: Option<HardforkT>,
-    /// block timestamp
-    pub timestamp: Option<u64>,
-    /// block number
-    pub block_number: Option<u64>,
 }
 /// A mapping of hardfork to [`ConstantBaseFeeParams`]. This is used to specify
 /// dynamic EIP-1559 parameters for chains like OP.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VariableBaseFeeParams<HardforkT> {
-    activations: Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>,
+    activations: Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>,
 }
 
 impl<HardforkT: PartialOrd> VariableBaseFeeParams<HardforkT> {
     /// Constructs a new instance from the provided mapping.
     pub const fn new(
-        activations: Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>,
+        activations: Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>,
     ) -> Self {
         Self { activations }
     }
@@ -41,25 +27,19 @@ impl<HardforkT: PartialOrd> VariableBaseFeeParams<HardforkT> {
     /// any.
     pub fn at_condition(
         &self,
-        condition: BaseFeeCondition<HardforkT>,
+        hardfork: HardforkT,
+        block_number: u64,
     ) -> Option<&ConstantBaseFeeParams> {
         self.activations
             .iter()
             .rev()
             .find(|(activation, _)| match activation {
-                DynamicBaseFeeCondition::BlockNumber(activation_number) => condition
-                    .block_number
-                    .filter(|condition_number| *activation_number <= *condition_number)
-                    .is_some(),
-                DynamicBaseFeeCondition::Timestamp(activation_timestamp) => condition
-                    .timestamp
-                    .filter(|condition_timestamp| *activation_timestamp <= *condition_timestamp)
-                    .is_some(),
-                DynamicBaseFeeCondition::Hardfork(activation_hardfork) => condition
-                    .hardfork
-                    .as_ref()
-                    .filter(|condition_hardfork| *activation_hardfork <= **condition_hardfork)
-                    .is_some(),
+                BaseFeeActivation::BlockNumber(activation_number) => {
+                    *activation_number <= block_number
+                }
+                BaseFeeActivation::Hardfork(activation_hardfork) => {
+                    *activation_hardfork <= hardfork
+                }
             })
             .map(|(_, params)| params)
     }
@@ -82,11 +62,12 @@ impl<HardforkT: PartialOrd> BaseFeeParams<HardforkT> {
     /// if any.
     pub fn at_condition(
         &self,
-        condition: BaseFeeCondition<HardforkT>,
+        hardfork: HardforkT,
+        block_number: u64,
     ) -> Option<&ConstantBaseFeeParams> {
         match self {
             Self::Constant(params) => Some(params),
-            Self::Variable(params) => params.at_condition(condition),
+            Self::Variable(params) => params.at_condition(hardfork, block_number),
         }
     }
 }

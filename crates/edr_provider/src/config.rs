@@ -2,7 +2,7 @@ use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_eth::{
     block::BlobGas,
-    eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition},
+    eips::eip1559::{BaseFeeActivation, ConstantBaseFeeParams},
     Address, Bytecode, ChainId, HashMap, B256, U256,
 };
 use edr_evm::{hardfork::ChainOverride, precompile::PrecompileFn, state::EvmStorage, MineOrdering};
@@ -114,7 +114,7 @@ pub struct Provider<HardforkT> {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
-    pub base_fee_params: Option<Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>>,
+    pub base_fee_params: Option<Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>>,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,

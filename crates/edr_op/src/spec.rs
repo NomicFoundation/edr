@@ -5,10 +5,7 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     block::{BlobGas, Header, PartialHeader},
     eips::{
-        eip1559::{
-            BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition,
-            VariableBaseFeeParams,
-        },
+        eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, VariableBaseFeeParams},
         eip4844,
     },
     l1::{self, BlockEnv},
@@ -49,11 +46,11 @@ use crate::{
 static _BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpSpecId>> = LazyLock::new(|| {
     BaseFeeParams::Variable(VariableBaseFeeParams::new(vec![
         (
-            DynamicBaseFeeCondition::Hardfork(OpSpecId::BEDROCK),
+            BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
             ConstantBaseFeeParams::new(50, 6),
         ),
         (
-            DynamicBaseFeeCondition::Hardfork(OpSpecId::CANYON),
+            BaseFeeActivation::Hardfork(OpSpecId::CANYON),
             ConstantBaseFeeParams::new(250, 6),
         ),
     ]))
@@ -103,11 +100,7 @@ impl GenesisBlockFactory for OpChainSpec {
             let extra_data = options.extra_data.unwrap_or_else(|| {
                 let base_fee_params = config_base_fee_params
                     .unwrap_or(Self::base_fee_params())
-                    .at_condition(BaseFeeCondition {
-                        hardfork: Some(hardfork),
-                        timestamp: options.timestamp,
-                        block_number: Some(0),
-                    })
+                    .at_condition(hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
                 encode_dynamic_base_fee_params(base_fee_params)

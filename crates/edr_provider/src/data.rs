@@ -17,7 +17,7 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         HeaderOverrides,
     },
-    eips::eip1559::{BaseFeeCondition, BaseFeeParams, VariableBaseFeeParams},
+    eips::eip1559::{BaseFeeParams, VariableBaseFeeParams},
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
@@ -1657,11 +1657,7 @@ where
                         self.base_fee_params
                             .clone()
                             .unwrap_or((*ChainSpecT::base_fee_params()).clone())
-                            .at_condition(BaseFeeCondition {
-                                hardfork: Some(self.hardfork()),
-                                timestamp: Some(last_block.header().timestamp),
-                                block_number: Some(last_block.header().number + 1),
-                            })
+                            .at_condition(self.hardfork(), last_block.header().number + 1)
                             .expect(
                                 "Chain spec must have base fee params for post-London hardforks",
                             ),
@@ -1951,11 +1947,7 @@ where
                         self.base_fee_params
                             .clone()
                             .unwrap_or((*ChainSpecT::base_fee_params()).clone())
-                            .at_condition(BaseFeeCondition {
-                                hardfork: Some(self.hardfork()),
-                                timestamp: Some(block.header().timestamp),
-                                block_number: Some(block.header().number),
-                            })
+                            .at_condition(self.hardfork(), block.header().number)
                             .expect(
                                 "Chain spec must have base fee params for post-London hardforks",
                             ),

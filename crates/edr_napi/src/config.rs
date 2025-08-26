@@ -8,7 +8,7 @@ use std::{
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eth::{
-    eips::eip1559::{ConstantBaseFeeParams, DynamicBaseFeeCondition},
+    eips::eip1559::{BaseFeeActivation, ConstantBaseFeeParams},
     signature::{secret_key_from_str, SecretKey},
     Bytes, HashMap, HashSet,
 };
@@ -37,7 +37,7 @@ pub struct BaseFeeConfig {
     pub elasticity_multiplier: BigInt,
 }
 
-impl TryFrom<BaseFeeConfig> for (DynamicBaseFeeCondition<String>, ConstantBaseFeeParams) {
+impl TryFrom<BaseFeeConfig> for (BaseFeeActivation<String>, ConstantBaseFeeParams) {
     type Error = napi::Error;
 
     fn try_from(value: BaseFeeConfig) -> Result<Self, Self::Error> {
@@ -54,23 +54,7 @@ impl TryFrom<BaseFeeConfig> for (DynamicBaseFeeCondition<String>, ConstantBaseFe
                         "Invalid activation value for BlockNumber type",
                     )),
                 }?;
-                Ok((
-                    DynamicBaseFeeCondition::BlockNumber(activation),
-                    base_fee_params,
-                ))
-            }
-            BaseFeeConfigType::Timestamp => {
-                let activation: u64 = match value.activation {
-                    Either::A(number) => number.try_cast(),
-                    Either::B(_) => Err(napi::Error::new(
-                        napi::Status::InvalidArg,
-                        "Invalid activation value for Timestamp type",
-                    )),
-                }?;
-                Ok((
-                    DynamicBaseFeeCondition::Timestamp(activation),
-                    base_fee_params,
-                ))
+                Ok((BaseFeeActivation::BlockNumber(activation), base_fee_params))
             }
             BaseFeeConfigType::Hardfork => {
                 let activation: String = match value.activation {
@@ -82,10 +66,7 @@ impl TryFrom<BaseFeeConfig> for (DynamicBaseFeeCondition<String>, ConstantBaseFe
                         ))
                     }
                 };
-                Ok((
-                    DynamicBaseFeeCondition::Hardfork(activation),
-                    base_fee_params,
-                ))
+                Ok((BaseFeeActivation::Hardfork(activation), base_fee_params))
             }
         }
     }
@@ -94,7 +75,6 @@ impl TryFrom<BaseFeeConfig> for (DynamicBaseFeeCondition<String>, ConstantBaseFe
 #[napi]
 /// Alternative types to define variable `base_fee_params` activations
 pub enum BaseFeeConfigType {
-    Timestamp,
     BlockNumber,
     Hardfork,
 }
@@ -517,10 +497,10 @@ impl ProviderConfig {
             })
             .collect::<napi::Result<Vec<_>>>()?;
 
-        let base_fee_params: Option<Vec<(DynamicBaseFeeCondition<String>, ConstantBaseFeeParams)>> =
-            self.base_fee_config
-                .map(|vec| vec.into_iter().map(TryInto::try_into).collect())
-                .transpose()?;
+        let base_fee_params: Option<Vec<(BaseFeeActivation<String>, ConstantBaseFeeParams)>> = self
+            .base_fee_config
+            .map(|vec| vec.into_iter().map(TryInto::try_into).collect())
+            .transpose()?;
 
         let block_gas_limit =
             NonZeroU64::new(self.block_gas_limit.try_cast()?).ok_or_else(|| {
