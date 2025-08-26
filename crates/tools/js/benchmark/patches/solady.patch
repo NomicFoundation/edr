@@ -318,10 +318,10 @@ index 03fea9c..0000000
 -The most intended usage pattern is to place it at the end of an `execute` function.
 \ No newline at end of file
 diff --git a/foundry.toml b/foundry.toml
-index 6afdd63..3b103e2 100644
+index 6afdd63..41130c5 100644
 --- a/foundry.toml
 +++ b/foundry.toml
-@@ -5,16 +5,13 @@
+@@ -5,16 +5,15 @@
  # The Default Profile
  [profile.default]
  solc_version = "0.8.30"
@@ -336,9 +336,22 @@ index 6afdd63..3b103e2 100644
 -remappings = [
 -  "forge-std=test/utils/forge-std/"
 -]
++fuzz = { runs = 256, seed = "0x4444" }
++invariant = { runs = 10, depth = 15, seed = "0x4444"}
  
  [profile.pre_global_structs]
  skip = ["*/g/*", "*/*7702*", "*/*Transient*", "*/ext/ithaca/*", "*/ext/zksync/*"]
+@@ -46,10 +45,3 @@ remappings = [
+ 
+ [fmt]
+ line_length = 100 # While we allow up to 120, we lint at 100 for readability.
+-
+-[profile.default.fuzz]
+-runs = 256
+-
+-[invariant]
+-depth = 15
+-runs = 10
 diff --git a/hardhat.config.js b/hardhat.config.js
 new file mode 100644
 index 0000000..a46a72f

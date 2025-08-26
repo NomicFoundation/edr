@@ -1,22 +1,22 @@
 diff --git a/foundry.toml b/foundry.toml
-index 4bedfa5..925c6cf 100644
+index 4bedfa5..cb8f725 100644
 --- a/foundry.toml
 +++ b/foundry.toml
-@@ -12,6 +12,8 @@
-   solc = "0.8.26"
-   src = "src"
-   test = "test"
-+  [fuzz]
-+  seed = "1234"
- 
- [profile.ci]
-   fuzz = { runs = 10_000, max_test_rejects = 100_000 }
+@@ -5,7 +5,7 @@
+   auto_detect_solc = false
+   bytecode_hash = "none"
+   evm_version = "shanghai"
+-  fuzz = { runs = 256 }
++  fuzz = { runs = 256, seed = "0x1234" }
+   optimizer = true
+   optimizer_runs = 10_000
+   out = "out"
 diff --git a/hardhat.config.js b/hardhat.config.js
 new file mode 100644
-index 0000000..66f3aa0
+index 0000000..9aef871
 --- /dev/null
 +++ b/hardhat.config.js
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,29 @@
 +module.exports = {
 +"paths": {
 +  "sources": "src",
@@ -27,6 +27,9 @@ index 0000000..66f3aa0
 +"solidity": {
 +  "version": "0.8.26",
 +  "settings": {
++    "metadata": {
++      "bytecodeHash": "none"
++    },
 +    "optimizer": {
 +      "enabled": true,
 +      "runs": 10000
@@ -37,9 +40,9 @@ index 0000000..66f3aa0
 +"solidityTest": {
 +  "allowInternalExpectRevert": true,
 +  "fuzz": {
-+    "runs": 256
-+  },
-+	"seed": "1234"
++    "runs": 256,
++	  "seed": "0x1234"
++  }
 +}
 +};
 +

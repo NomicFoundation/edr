@@ -446,37 +446,65 @@ function getForgeTestRuns(kind: ForgeTestKind): string {
   return "";
 }
 
-export function parseForgeTestDuration(duration: string): bigint {
+interface LegacyForgeTestDuration {
+  secs: number;
+  nanos: number;
+}
+
+function isLegacyForgeTestDuration(obj: any): obj is LegacyForgeTestDuration {
+  return typeof obj.secs === "number" && typeof obj.nanos === "number";
+}
+
+export function parseForgeTestDuration(
+  duration: string | LegacyForgeTestDuration
+): bigint {
+  if (isLegacyForgeTestDuration(duration)) {
+    return BigInt(duration.secs) * 1000000000n + BigInt(duration.nanos);
+  }
+
   if (duration.length === 0) {
     throw new Error("Expected duration, got empty string");
   }
+
   // Parse duration like "5ms 287µs 747ns" into nanoseconds
   const parts = duration.split(" ");
   let totalNs = 0n;
 
   for (const part of parts) {
     // Use regex to split number and unit exactly
-    const match = part.match(/^(\d+(?:\.\d+)?)([a-zA-Zµ]+)$/);
+    const match = part.match(/^(\d+)([a-zA-Zµ]+)$/);
     if (match === null) {
       throw new Error(`Invalid duration format: ${part}`);
     }
 
     const [, numberStr, unit] = match;
-    const value = parseFloat(numberStr);
+    const value = parseInt(numberStr, 10);
+    if (value >= 1000) {
+      throw new Error(`Expected value to be less than 1000, got '${value}'`);
+    }
 
     // Exact unit matching
     switch (unit) {
-      case "ms":
-        totalNs += BigInt(Math.round(value * 1000000));
+      case "ns":
+        totalNs += BigInt(value);
         break;
       case "µs":
-        totalNs += BigInt(Math.round(value * 1000));
+        totalNs += BigInt(value) * 1_000n;
         break;
-      case "ns":
-        totalNs += BigInt(Math.round(value));
+      case "us":
+        totalNs += BigInt(value) * 1_000n;
+        break;
+      case "ms":
+        totalNs += BigInt(value) * 1_000_000n;
         break;
       case "s":
-        totalNs += BigInt(Math.round(value * 1000000000));
+        totalNs += BigInt(value) * 1_000_000_000n;
+        break;
+      case "m":
+        totalNs += BigInt(value) * 60n * 1_000_000_000n;
+        break;
+      case "h":
+        totalNs += BigInt(value) * 60n * 60n * 1_000_000_000n;
         break;
       default:
         throw new Error(`Unknown duration unit: ${unit}`);
