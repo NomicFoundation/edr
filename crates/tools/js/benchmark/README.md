@@ -79,6 +79,33 @@ pnpm -s reportForge --csv-input edr-forge-v1.2.3.csv | xan view
 
 The ratio columns contain the ratio of the cumulative execution time of EDR over Forge, so lower is better for EDR. The zero values in the invariant column mean that the repo didn't have invariant tests.
 
+#### Patches
+
+The `pnpm compareForge` script will check out the supported repos to `./repos` and apply patches them from `./patches`. If you need to update the patch files, you can follow the following procedure:
+
+```shell
+# E.g. to edit the patch file for `prb-math`
+
+# Make sure dependencies are up to date
+pnpm install
+
+# This will check out the repos to `./repos` and apply the patches
+pnpm compareForge --csv-output out.csv --count 1 --forge-path ~/.foundry/versions/stable/forge --repo prb-math
+
+cd ./repos/hardhat/prb-math
+
+# This will show unstaged changes from applying `./patches/prb-math.patch`
+git status
+
+# ... make your changes in ./repos/hardhat/prb-math
+
+# Stage the desired changes that you want to include in the new patch file
+git add foundry.toml remappings.txt hardhat.config.js
+
+# Update the patch file in the repo
+git diff --cached > ../../../patches/prb-math.patch
+```
+
 ## Help
 
 Please see `pnpm run help` for more commands and flags.
