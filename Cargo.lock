@@ -185,6 +185,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-ens"
+version = "1.0.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d26f6a373a0def1aabf695fc70317d2e561052e22cb5e0924220ae6306a9b35"
+dependencies = [
+ "alloy-primitives",
+]
+
+[[package]]
 name = "alloy-genesis"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3063,6 +3072,7 @@ version = "0.3.8"
 dependencies = [
  "alloy-chains",
  "alloy-dyn-abi",
+ "alloy-ens",
  "alloy-genesis",
  "alloy-primitives",
  "alloy-provider",
