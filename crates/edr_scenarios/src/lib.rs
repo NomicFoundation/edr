@@ -70,7 +70,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
-            base_fee_params: vec![],
+            base_fee_params: None,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,

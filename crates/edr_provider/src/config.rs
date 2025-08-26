@@ -114,7 +114,7 @@ pub struct Provider<HardforkT> {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
-    pub base_fee_params: Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>,
+    pub base_fee_params: Option<Vec<(DynamicBaseFeeCondition<HardforkT>, ConstantBaseFeeParams)>>,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,

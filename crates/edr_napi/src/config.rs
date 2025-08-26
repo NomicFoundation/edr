@@ -517,10 +517,10 @@ impl ProviderConfig {
             })
             .collect::<napi::Result<Vec<_>>>()?;
 
-        let base_fee_params: Vec<(DynamicBaseFeeCondition<String>, ConstantBaseFeeParams)> =
-            self.base_fee_config.map_or(Ok(vec![]), |vec| {
-                vec.into_iter().map(TryInto::try_into).collect()
-            })?;
+        let base_fee_params: Option<Vec<(DynamicBaseFeeCondition<String>, ConstantBaseFeeParams)>> =
+            self.base_fee_config
+                .map(|vec| vec.into_iter().map(TryInto::try_into).collect())
+                .transpose()?;
 
         let block_gas_limit =
             NonZeroU64::new(self.block_gas_limit.try_cast()?).ok_or_else(|| {

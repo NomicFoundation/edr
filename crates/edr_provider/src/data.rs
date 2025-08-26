@@ -17,10 +17,7 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         HeaderOverrides,
     },
-    eips::eip1559::{
-        BaseFeeCondition, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeCondition,
-        VariableBaseFeeParams,
-    },
+    eips::eip1559::{BaseFeeCondition, BaseFeeParams, VariableBaseFeeParams},
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
@@ -64,7 +61,7 @@ use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
 use edr_solidity::contract_decoder::ContractDecoder;
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
-use itertools::{izip, Itertools};
+use itertools::izip;
 use lru::LruCache;
 use rpds::HashTrieMapSync;
 use tokio::runtime;
@@ -208,11 +205,7 @@ pub struct ProviderData<
     instance_id: B256,
     is_auto_mining: bool,
     next_block_base_fee_per_gas: Option<u128>,
-    base_fee_params: Vec<(
-        DynamicBaseFeeCondition<ChainSpecT::Hardfork>,
-        ConstantBaseFeeParams,
-    )>, /* TODO: Ani Change this to be BaseFeeParams instead, and default to chain spec defeault
-         * on constructor */
+    base_fee_params: Option<BaseFeeParams<ChainSpecT::Hardfork>>,
     next_block_timestamp: Option<u64>,
     next_snapshot_id: u64,
     snapshots: BTreeMap<u64, Snapshot<ChainSpecT::SignedTransaction>>,
@@ -663,11 +656,15 @@ where
             RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
         };
 
+        let base_fee_params = config
+            .base_fee_params
+            .map(|params| BaseFeeParams::Variable(VariableBaseFeeParams::new(params)));
+
         Ok(Self {
             runtime_handle,
             bail_on_call_failure: config.bail_on_call_failure,
             bail_on_transaction_failure: config.bail_on_transaction_failure,
-            base_fee_params: config.base_fee_params,
+            base_fee_params,
             blockchain,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit),
@@ -1657,7 +1654,8 @@ where
                     let last_block = self.last_block()?;
                     Ok(calculate_next_base_fee_per_gas(
                         last_block.header(),
-                        self.base_fee_params_for_chain_spec()
+                        self.base_fee_params
+                            .clone()
                             .unwrap_or((*ChainSpecT::base_fee_params()).clone())
                             .at_condition(BaseFeeCondition {
                                 hardfork: Some(self.hardfork()),
@@ -1715,17 +1713,6 @@ where
                 },
                 _ => ProviderError::Blockchain(err),
             })
-    }
-
-    // build base fee params based on override and chain defaults
-    fn base_fee_params_for_chain_spec(&self) -> Option<BaseFeeParams<ChainSpecT::Hardfork>> {
-        if self.base_fee_params.is_empty() {
-            None
-        } else {
-            Some(BaseFeeParams::Variable(VariableBaseFeeParams::new(
-                self.base_fee_params.clone(),
-            )))
-        }
     }
 }
 
@@ -1961,7 +1948,8 @@ where
                     .base_fee_per_gas
                     .push(calculate_next_base_fee_per_gas(
                         block.header(),
-                        self.base_fee_params_for_chain_spec()
+                        self.base_fee_params
+                            .clone()
                             .unwrap_or((*ChainSpecT::base_fee_params()).clone())
                             .at_condition(BaseFeeCondition {
                                 hardfork: Some(self.hardfork()),
@@ -2172,7 +2160,7 @@ where
             Self::mine_block_with_mem_pool,
             HeaderOverrides {
                 timestamp: Some(block_timestamp),
-                base_fee_params: self.base_fee_params_for_chain_spec(),
+                base_fee_params: self.base_fee_params.clone(),
                 ..HeaderOverrides::default()
             },
         )
@@ -2974,7 +2962,6 @@ fn create_blockchain_and_state<
                 .expect("initial date must be after UNIX epoch")
                 .as_secs()
         });
-        let base_fee_activations = config.base_fee_params.clone().into_iter().collect_vec();
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
             config.hardfork,
@@ -2984,13 +2971,10 @@ fn create_blockchain_and_state<
                 timestamp,
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: if base_fee_activations.is_empty() {
-                    None
-                } else {
-                    Some(BaseFeeParams::Variable(VariableBaseFeeParams::new(
-                        base_fee_activations.clone(),
-                    )))
-                },
+                base_fee_params: config
+                    .base_fee_params
+                    .clone()
+                    .map(|params| BaseFeeParams::Variable(VariableBaseFeeParams::new(params))),
                 blob_gas: config.initial_blob_gas.clone(),
             },
         )
