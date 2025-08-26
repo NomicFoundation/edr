@@ -13,8 +13,6 @@ use crate::{
 
 /// L1 Ethereum chain type
 pub const CHAIN_TYPE: &str = "L1";
-const _BASE_FEE_PARAMS: BaseFeeParams<SpecId> =
-    BaseFeeParams::Constant(ConstantBaseFeeParams::ethereum());
 
 /// The chain specification for Ethereum Layer 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
@@ -32,8 +30,8 @@ impl ChainSpec for L1ChainSpec {
 }
 
 impl EthHeaderConstants for L1ChainSpec {
-    fn base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
-        &_BASE_FEE_PARAMS
+    fn base_fee_params() -> BaseFeeParams<Self::Hardfork> {
+        BaseFeeParams::Constant(ConstantBaseFeeParams::ethereum())
     }
 
     const MIN_ETHASH_DIFFICULTY: u64 = 131072;

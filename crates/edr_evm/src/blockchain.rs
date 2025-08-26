@@ -8,11 +8,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_eth::{
-    l1,
-    log::FilterLog,
-    receipt::ReceiptTrait,
-    spec::ChainHardfork,
-    Address, HashSet, B256, U256,
+    l1, log::FilterLog, receipt::ReceiptTrait, spec::ChainHardfork, Address, HashSet, B256, U256,
 };
 
 use self::storage::ReservableSparseBlockchainStorage;

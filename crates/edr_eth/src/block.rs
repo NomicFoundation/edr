@@ -278,7 +278,7 @@ impl PartialHeader {
                     Some(if let Some(parent) = &parent {
                         let base_fee_params = overrides
                             .base_fee_params
-                            .unwrap_or((*ChainSpecT::base_fee_params()).clone())
+                            .unwrap_or(ChainSpecT::base_fee_params())
                             .at_condition(hardfork, number)
                             .copied()
                             .expect("Chain must have base fee params for post-London hardforks");

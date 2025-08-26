@@ -1656,7 +1656,7 @@ where
                         last_block.header(),
                         self.base_fee_params
                             .clone()
-                            .unwrap_or((*ChainSpecT::base_fee_params()).clone())
+                            .unwrap_or(ChainSpecT::base_fee_params())
                             .at_condition(self.hardfork(), last_block.header().number + 1)
                             .expect(
                                 "Chain spec must have base fee params for post-London hardforks",
@@ -1947,7 +1947,7 @@ where
                         self.base_fee_params
                             .clone()
                             // TODO: isn't this leaked responsibility from PartialHeader?
-                            .unwrap_or((*ChainSpecT::base_fee_params()).clone())
+                            .unwrap_or(ChainSpecT::base_fee_params())
                             .at_condition(self.hardfork(), block.header().number)
                             .expect(
                                 "Chain spec must have base fee params for post-London hardforks",

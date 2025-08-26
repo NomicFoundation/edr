@@ -108,7 +108,7 @@ impl BlockEnvConstructor<PartialHeader> for GenericChainSpec {
 }
 
 impl EthHeaderConstants for GenericChainSpec {
-    fn base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+    fn base_fee_params() -> BaseFeeParams<Self::Hardfork> {
         L1ChainSpec::base_fee_params()
     }
 

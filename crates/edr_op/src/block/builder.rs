@@ -121,9 +121,7 @@ where
                     Ok(base_fee_params)
                 } else {
                     // Use the prior EIP-1559 constants.
-                    let base_fee_params = (*OpChainSpec::base_fee_params()).clone();
-
-                    Ok(base_fee_params)
+                    Ok(OpChainSpec::base_fee_params())
                 }
             }, Ok)?;
 
