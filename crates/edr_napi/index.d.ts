@@ -171,9 +171,8 @@ export interface BaseFeeConfig {
 }
 /** Alternative types to define variable `base_fee_params` activations */
 export enum BaseFeeConfigType {
-  Timestamp = 0,
-  BlockNumber = 1,
-  Hardfork = 2
+  BlockNumber = 0,
+  Hardfork = 1
 }
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
