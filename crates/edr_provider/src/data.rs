@@ -482,6 +482,24 @@ where
             false
         }
     }
+
+    fn header_overrides_with_timestamp(
+        &self,
+        timestamp: u64,
+    ) -> HeaderOverrides<ChainSpecT::Hardfork> {
+        HeaderOverrides {
+            timestamp: Some(timestamp),
+            base_fee_params: self.base_fee_params.clone(),
+            ..HeaderOverrides::default()
+        }
+    }
+
+    fn header_overrides(&self) -> HeaderOverrides<ChainSpecT::Hardfork> {
+        HeaderOverrides {
+            base_fee_params: self.base_fee_params.clone(),
+            ..HeaderOverrides::default()
+        }
+    }
 }
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
@@ -2006,8 +2024,7 @@ where
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn interval_mine(&mut self) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
-        let result =
-            self.mine_and_commit_block(HeaderOverrides::<ChainSpecT::Hardfork>::default())?;
+        let result = self.mine_and_commit_block(self.header_overrides())?;
 
         self.logger
             .log_interval_mined(self.hardfork(), &result)
@@ -2056,10 +2073,7 @@ where
                     .header()
                     .timestamp;
 
-                let options = HeaderOverrides {
-                    timestamp: Some(previous_timestamp + interval),
-                    ..HeaderOverrides::default()
-                };
+                let options = data.header_overrides_with_timestamp(previous_timestamp + interval);
 
                 let mined_block = data.mine_and_commit_block(options)?;
                 mined_blocks.push(mined_block);
@@ -2075,8 +2089,7 @@ where
         );
 
         // we always mine the first block, and we don't apply the interval for it
-        mined_blocks
-            .push(self.mine_and_commit_block(HeaderOverrides::<ChainSpecT::Hardfork>::default())?);
+        mined_blocks.push(self.mine_and_commit_block(self.header_overrides())?);
 
         while u64::try_from(mined_blocks.len()).expect("usize cannot be larger than u128")
             < number_of_blocks
@@ -2112,10 +2125,7 @@ where
             self.add_state_to_cache(current_state, self.last_block_number());
 
             let previous_timestamp = self.blockchain.last_block()?.header().timestamp;
-            let options = HeaderOverrides {
-                timestamp: Some(previous_timestamp + interval),
-                ..HeaderOverrides::default()
-            };
+            let options = self.header_overrides_with_timestamp(previous_timestamp + interval);
 
             let mined_block = self.mine_and_commit_block(options)?;
             mined_blocks.push(mined_block);
@@ -2142,11 +2152,7 @@ where
         // Mining a pending block shouldn't affect the mix hash.
         self.mine_block(
             Self::mine_block_with_mem_pool,
-            HeaderOverrides {
-                timestamp: Some(block_timestamp),
-                base_fee_params: self.base_fee_params.clone(),
-                ..HeaderOverrides::default()
-            },
+            self.header_overrides_with_timestamp(block_timestamp),
         )
     }
 
@@ -2369,7 +2375,7 @@ where
                         runtime_observer,
                     )
                 },
-                HeaderOverrides::default(),
+                self.header_overrides(),
             )?;
 
             return Ok(SendTransactionResult {
@@ -2415,7 +2421,7 @@ where
                     // multiple block due to the gas limit.
                     loop {
                         let result = self
-                            .mine_and_commit_block(HeaderOverrides::default())
+                            .mine_and_commit_block(self.header_overrides())
                             .inspect_err(|_error| {
                                 self.revert_to_snapshot(snapshot_id);
                             })?;
@@ -2436,7 +2442,7 @@ where
                     //   miner's tip than other pending transactions.
                     while self.mem_pool.has_pending_transactions() {
                         let result = self
-                            .mine_and_commit_block(HeaderOverrides::default())
+                            .mine_and_commit_block(self.header_overrides())
                             .inspect_err(|_error| {
                                 self.revert_to_snapshot(snapshot_id);
                             })?;
@@ -3284,9 +3290,10 @@ mod tests {
         let result = fixture.provider_data.mine_block(
             ProviderData::mine_block_with_mem_pool,
             HeaderOverrides {
-                timestamp: Some(block_timestamp),
                 mix_hash: Some(prevrandao),
-                ..HeaderOverrides::default()
+                ..fixture
+                    .provider_data
+                    .header_overrides_with_timestamp(block_timestamp)
             },
         )?;
 
