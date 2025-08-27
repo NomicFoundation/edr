@@ -30,23 +30,23 @@ use crate::{
 
 /// Configuration for eip-1559 parameters
 #[napi(object)]
-pub struct BaseFeeConfig {
-    pub key_type: BaseFeeConfigType,
+pub struct BaseFeeParamActivation {
+    pub key_type: BaseFeeActivationType,
     pub activation: Either<BigInt, String>,
     pub max_change_denominator: BigInt,
     pub elasticity_multiplier: BigInt,
 }
 
-impl TryFrom<BaseFeeConfig> for (BaseFeeActivation<String>, ConstantBaseFeeParams) {
+impl TryFrom<BaseFeeParamActivation> for (BaseFeeActivation<String>, ConstantBaseFeeParams) {
     type Error = napi::Error;
 
-    fn try_from(value: BaseFeeConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: BaseFeeParamActivation) -> Result<Self, Self::Error> {
         let base_fee_params = ConstantBaseFeeParams {
             max_change_denominator: value.max_change_denominator.try_cast()?,
             elasticity_multiplier: value.elasticity_multiplier.try_cast()?,
         };
         match value.key_type {
-            BaseFeeConfigType::BlockNumber => {
+            BaseFeeActivationType::BlockNumber => {
                 let activation: u64 = match value.activation {
                     Either::A(number) => number.try_cast(),
                     Either::B(_) => Err(napi::Error::new(
@@ -56,7 +56,7 @@ impl TryFrom<BaseFeeConfig> for (BaseFeeActivation<String>, ConstantBaseFeeParam
                 }?;
                 Ok((BaseFeeActivation::BlockNumber(activation), base_fee_params))
             }
-            BaseFeeConfigType::Hardfork => {
+            BaseFeeActivationType::Hardfork => {
                 let activation: String = match value.activation {
                     Either::B(hardfork) => hardfork,
                     Either::A(_) => {
@@ -74,7 +74,7 @@ impl TryFrom<BaseFeeConfig> for (BaseFeeActivation<String>, ConstantBaseFeeParam
 
 #[napi]
 /// Alternative types to define variable `base_fee_params` activations
-pub enum BaseFeeConfigType {
+pub enum BaseFeeActivationType {
     BlockNumber,
     Hardfork,
 }
@@ -195,7 +195,7 @@ pub struct ProviderConfig {
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
     /// The chain eip-1559 configurable parameters
-    pub base_fee_config: Option<Vec<BaseFeeConfig>>,
+    pub base_fee_config: Option<Vec<BaseFeeParamActivation>>,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
     /// The chain ID of the blockchain
