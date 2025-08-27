@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use edr_eth::l1;
 use edr_evm::hardfork::ChainOverride;
-use edr_evm_spec::TransactionValidation;
+use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_provider::{
     test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, NoopLogger, Provider,
     ProviderSpec, SyncProviderSpec,
@@ -17,16 +16,16 @@ pub(crate) fn get_chain_fork_provider<
     ChainSpecT: SyncProviderSpec<
             CurrentTime,
             BlockEnv: Default,
-            Hardfork = l1::SpecId,
+            Hardfork = edr_chain_l1::Hardfork,
             SignedTransaction: Default
                                    + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+                ValidationError: From<EvmTransactionValidationError> + PartialEq,
             >,
         > + ProviderSpec<CurrentTime>,
 >(
     chain_id: u64,
     block_number: u64,
-    chain_override: ChainOverride<l1::SpecId>,
+    chain_override: ChainOverride<edr_chain_l1::Hardfork>,
     url: String,
 ) -> anyhow::Result<Provider<ChainSpecT>> {
     let logger = Box::new(NoopLogger::<ChainSpecT>::default());

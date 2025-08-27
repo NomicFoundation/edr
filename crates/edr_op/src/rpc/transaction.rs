@@ -1,19 +1,20 @@
 use std::sync::OnceLock;
 
-use edr_eth::{transaction::MaybeSignedTransaction, B256};
+use edr_eth::B256;
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
-    transaction::{remote::EthRpcTransaction, TxKind},
+    transaction::remote::EthRpcTransaction,
 };
 use edr_rpc_eth::{
     RpcTypeFrom, TransactionConversionError as L1ConversionError, TransactionWithSignature,
 };
 use edr_signer::Signature;
+use edr_transaction::{MaybeSignedTransaction as _, TxKind};
 
 use super::Transaction;
 use crate::{
     transaction::{self, OpTxTrait as _},
-    OpChainSpec, OpSpecId,
+    Hardfork, OpChainSpec,
 };
 
 impl EthRpcTransaction for Transaction {
@@ -131,7 +132,7 @@ impl TryFrom<Transaction> for transaction::Signed {
 }
 
 impl RpcTypeFrom<TransactionAndBlockForChainSpec<OpChainSpec>> for Transaction {
-    type Hardfork = OpSpecId;
+    type Hardfork = Hardfork;
 
     fn rpc_type_from(
         value: &TransactionAndBlockForChainSpec<OpChainSpec>,

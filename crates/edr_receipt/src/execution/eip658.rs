@@ -1,8 +1,5 @@
 use super::Eip658;
-use crate::{
-    receipt::{ExecutionReceipt, MapReceiptLogs, RootOrStatus},
-    Bloom,
-};
+use crate::{Bloom, ExecutionReceipt, MapReceiptLogs, RootOrStatus};
 
 impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Eip658<NewLogT>> for Eip658<LogT> {
     fn map_logs(self, map_fn: impl FnMut(LogT) -> NewLogT) -> Eip658<NewLogT> {

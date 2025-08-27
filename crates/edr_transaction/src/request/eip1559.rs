@@ -94,10 +94,8 @@ impl Eip1559 {
 pub(crate) mod tests {
     use std::str::FromStr;
 
-    use transaction::ExecutableTransaction as _;
-
     use super::*;
-    use crate::transaction::fake_signature::tests::test_fake_sign_properties;
+    use crate::{test_utils::test_fake_sign_properties, ExecutableTransaction as _};
 
     fn dummy_request() -> Eip1559 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();

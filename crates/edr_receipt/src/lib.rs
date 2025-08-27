@@ -1,5 +1,7 @@
+//! Ethereum receipt types
+
 // Part of this code was adapted from foundry and is distributed under their
-// licenss:
+// licenes:
 // - https://github.com/foundry-rs/foundry/blob/01b16238ff87dc7ca8ee3f5f13e389888c2a2ee4/LICENSE-APACHE
 // - https://github.com/foundry-rs/foundry/blob/01b16238ff87dc7ca8ee3f5f13e389888c2a2ee4/LICENSE-MIT
 // For the original context see: https://github.com/foundry-rs/foundry/blob/01b16238ff87dc7ca8ee3f5f13e389888c2a2ee4/anvil/core/src/eth/receipt.rs
@@ -7,19 +9,23 @@
 #![allow(missing_docs)]
 
 mod block;
-/// Types for execution receipts.
 pub mod execution;
 mod factory;
+pub mod log;
 mod transaction;
 
 use auto_impl::auto_impl;
+pub use revm_context_interface::result::{ExecutionResult, Output};
+pub use revm_primitives::{
+    alloy_primitives::{Bloom, BloomInput},
+    Address, Bytes, HashSet, B256,
+};
 
 pub use self::{block::BlockReceipt, factory::ReceiptFactory, transaction::TransactionReceipt};
-use crate::{Address, Bloom, B256};
 
 /// Log generated after execution of a transaction.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize), serde(untagged))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(untagged)]
 pub enum Execution<LogT> {
     /// Legacy receipt.
     Legacy(self::execution::Legacy<LogT>),

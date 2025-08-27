@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::l1;
-use edr_evm_spec::TransactionValidation;
+use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use tokio::{runtime, sync::Mutex};
 
 use crate::{
@@ -15,7 +14,7 @@ pub fn handle_set_interval_mining<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

@@ -1,8 +1,5 @@
-use edr_eth::{
-    address, bytes,
-    l1::{self, L1ChainSpec},
-    Bytes, U256,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{address, bytes, Bytes, U256};
 use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
 use edr_rpc_eth::TransactionRequest;
 use edr_signer::public_key_to_address;
@@ -13,7 +10,7 @@ use super::{assert_code_at, sign_authorization, CHAIN_ID};
 fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<L1ChainSpec>> {
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = l1::SpecId::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
 
     super::new_provider(config, vec![sender_secret_key])
 }

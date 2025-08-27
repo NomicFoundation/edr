@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use edr_transaction::{IsEip4844, IsLegacy, RuintBaseConvertError, RuintParseError, U8};
+use edr_transaction::{IsEip4844, IsLegacy, ParseError, U8};
 
 use crate::signed;
 
@@ -35,28 +35,6 @@ impl IsEip4844 for Type {
 impl IsLegacy for Type {
     fn is_legacy(&self) -> bool {
         matches!(self, Type::Legacy)
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ParseError {
-    #[error("{0}")]
-    BaseConvertError(RuintBaseConvertError),
-    #[error("Invalid digit: {0}")]
-    InvalidDigit(char),
-    #[error("Invalid radix. Only hexadecimal is supported.")]
-    InvalidRadix,
-    #[error("Unknown transaction type: {0}")]
-    UnknownType(u8),
-}
-
-impl From<RuintParseError> for ParseError {
-    fn from(error: RuintParseError) -> Self {
-        match error {
-            RuintParseError::InvalidDigit(c) => ParseError::InvalidDigit(c),
-            RuintParseError::InvalidRadix(_) => ParseError::InvalidRadix,
-            RuintParseError::BaseConvertError(error) => ParseError::BaseConvertError(error),
-        }
     }
 }
 

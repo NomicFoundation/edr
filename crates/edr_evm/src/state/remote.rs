@@ -110,7 +110,7 @@ impl<ChainSpecT: RpcSpec> State for RemoteState<ChainSpecT> {
 mod tests {
     use std::str::FromStr;
 
-    use edr_eth::l1::L1ChainSpec;
+    use edr_chain_l1::L1ChainSpec;
     use tokio::runtime;
 
     use super::*;

@@ -1,7 +1,7 @@
 use std::num::NonZeroU64;
 
-use edr_eth::{block::HeaderOverrides, l1, U64};
-use edr_evm_spec::TransactionValidation;
+use edr_eth::{block::HeaderOverrides, U64};
+use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 
 use crate::{
     data::ProviderData,
@@ -30,7 +30,7 @@ pub fn handle_mine_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

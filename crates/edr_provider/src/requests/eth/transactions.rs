@@ -1,21 +1,19 @@
 use std::sync::Arc;
 
-use edr_eth::{
-    l1,
-    rlp::Decodable,
-    transaction::{
-        request::TransactionRequestAndSender, IsEip155, IsEip4844, TransactionType,
-        INVALID_TX_TYPE_ERROR_MESSAGE,
-    },
-    Bytes, PreEip1898BlockSpec, B256, U256,
-};
+use edr_eth::{rlp::Decodable, Bytes, PreEip1898BlockSpec, B256, U256};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainErrorForChainSpec,
     transaction, Block,
 };
-use edr_evm_spec::{ExecutableTransaction as _, TransactionValidation};
+use edr_evm_spec::{
+    EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
+};
 use edr_rpc_eth::RpcTypeFrom as _;
+use edr_transaction::{
+    request::TransactionRequestAndSender, IsEip155, IsEip4844, TransactionType,
+    INVALID_TX_TYPE_ERROR_MESSAGE,
+};
 
 use crate::{
     data::ProviderData,
@@ -55,7 +53,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -173,7 +171,7 @@ pub fn handle_send_transaction_request<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -199,7 +197,7 @@ pub fn handle_send_raw_transaction_request<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
         PooledTransaction: IsEip155,
     >,
@@ -234,7 +232,7 @@ pub fn calculate_eip1559_fee_parameters<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -255,7 +253,7 @@ pub fn calculate_eip1559_fee_parameters<
             SignedTransaction: Default
                                    + TransactionType<Type: IsEip4844>
                                    + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+                ValidationError: From<EvmTransactionValidationError> + PartialEq,
             >,
         >,
         TimerT: Clone + TimeSinceEpoch,
@@ -298,7 +296,7 @@ fn send_raw_transaction_and_log<
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -381,8 +379,10 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
-    use edr_eth::{l1::L1ChainSpec, Address, Bytes, U256};
-    use transaction::{signed::FakeSign as _, TxKind};
+    use edr_chain_l1::L1ChainSpec;
+    use edr_eth::{Address, Bytes, U256};
+    use edr_signer::FakeSign as _;
+    use edr_transaction::TxKind;
 
     use super::*;
     use crate::test_utils::{one_ether, ProviderTestFixture};
@@ -402,7 +402,7 @@ mod tests {
 
         let chain_id = fixture.provider_data.chain_id();
 
-        let transaction = transaction::Request::Eip155(transaction::request::Eip155 {
+        let transaction = edr_chain_l1::Request::Eip155(edr_chain_l1::request::Eip155 {
             kind: TxKind::Call(Address::ZERO),
             gas_limit: 30_000,
             gas_price: 42_000_000_000,

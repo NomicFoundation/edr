@@ -2,16 +2,13 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use clap::ValueEnum;
-use edr_eth::{
-    block,
-    l1::{self, L1ChainSpec},
-    log::FilterLog,
-    receipt::AsExecutionReceipt,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::block;
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block, BlockReceipts};
-use edr_evm_spec::TransactionValidation;
+use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_op::{test_utils::isthmus_header_overrides, OpChainSpec};
 use edr_provider::{spec::SyncRuntimeSpec, test_utils::header_overrides};
+use edr_receipt::{log::FilterLog, AsExecutionReceipt};
 use edr_rpc_eth::client::EthRpcClient;
 
 #[derive(Clone, ValueEnum)]
@@ -62,7 +59,7 @@ where
             >,
             SignedTransaction: Default
                                    + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + Send + Sync,
+                ValidationError: From<EvmTransactionValidationError> + Send + Sync,
             >,
         >,
 {

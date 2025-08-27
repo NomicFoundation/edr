@@ -9,12 +9,9 @@ macro_rules! impl_execution_receipt_tests {
             paste::item! {
                 #[test]
                 fn [<typed_receipt_rpc_receipt_roundtrip_ $name>]() -> anyhow::Result<()> {
-                    use edr_eth::{
-                        log::{FilterLog, FullBlockLog, ReceiptLog},
-                        receipt::{MapReceiptLogs as _, ReceiptFactory as _, TransactionReceipt},
-                        Address, B256,
-                    };
+                    use edr_eth::{Address, B256};
                     use edr_evm_spec::ChainSpec;
+                    use edr_receipt::{log::{FilterLog, FullBlockLog, ReceiptLog}, MapReceiptLogs as _, ReceiptFactory as _, TransactionReceipt};
 
                     use $crate::{RpcTypeFrom as _, spec::RpcSpec};
 

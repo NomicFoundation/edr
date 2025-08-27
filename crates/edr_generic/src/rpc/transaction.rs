@@ -1,9 +1,9 @@
-use edr_eth::{l1, transaction::SignedTransaction as _};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
     transaction::remote::EthRpcTransaction,
 };
 use edr_rpc_eth::RpcTypeFrom;
+use edr_transaction::SignedTransaction as _;
 use serde::{Deserialize, Serialize};
 
 use crate::{transaction, GenericChainSpec};
@@ -30,7 +30,7 @@ impl From<edr_rpc_eth::TransactionWithSignature> for TransactionWithSignature {
 }
 
 impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for TransactionWithSignature {
-    type Hardfork = l1::SpecId;
+    type Hardfork = edr_chain_l1::Hardfork;
 
     fn rpc_type_from(
         value: &TransactionAndBlockForChainSpec<GenericChainSpec>,
@@ -73,14 +73,11 @@ impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPost
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
-        use edr_eth::transaction::Signed;
+        use edr_chain_l1::Signed;
 
         let TransactionWithSignature(value) = value;
 
-        let tx_type = match value
-            .transaction_type
-            .map(edr_eth::transaction::Type::try_from)
-        {
+        let tx_type = match value.transaction_type.map(edr_chain_l1::Type::try_from) {
             None => transaction::Type::Legacy,
             Some(Ok(r#type)) => r#type.into(),
             Some(Err(r#type)) => {

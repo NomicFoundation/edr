@@ -5,12 +5,11 @@ use alloy_rlp::BufMut;
 use crate::{log::ExecutionLog, B256};
 
 /// A log that's part of a transaction receipt.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReceiptLog {
     /// Execution log
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     pub inner: ExecutionLog,
     /// transaction hash
     pub transaction_hash: B256,
@@ -34,7 +33,7 @@ impl alloy_rlp::Encodable for ReceiptLog {
     }
 }
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(test)]
 mod tests {
     use std::str::FromStr;
 

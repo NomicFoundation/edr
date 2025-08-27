@@ -114,10 +114,10 @@ mod tests {
         }
 
         // Test vector generated using secret key in `dummy_secret_key`.
-        pub fn request() -> anyhow::Result<transaction::request::Eip7702> {
+        pub fn request() -> anyhow::Result<Eip7702> {
             const CHAIN_ID: u64 = 0x7a69;
 
-            let request = transaction::request::Eip7702 {
+            let request = Eip7702 {
                 chain_id: CHAIN_ID,
                 nonce: 0,
                 max_priority_fee_per_gas: 1_000_000_000,

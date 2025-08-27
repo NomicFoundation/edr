@@ -3,11 +3,10 @@ use std::{num::NonZeroU64, sync::Arc};
 
 use edr_eth::{
     block::{HeaderOverrides, PartialHeader},
-    log::FilterLog,
-    receipt::{ExecutionReceipt, ReceiptTrait},
     Address, HashMap, HashSet, B256, U256,
 };
 use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
+use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
@@ -162,7 +161,7 @@ impl<
         to_block: u64,
         addresses: &HashSet<Address>,
         normalized_topics: &[Option<Vec<B256>>],
-    ) -> Result<Vec<edr_eth::log::FilterLog>, BlockT::Error> {
+    ) -> Result<Vec<FilterLog>, BlockT::Error> {
         let storage = self.storage.read();
         sparse::logs(&storage, from_block, to_block, addresses, normalized_topics)
     }

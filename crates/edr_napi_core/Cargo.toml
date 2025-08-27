@@ -6,15 +6,17 @@ edition.workspace = true
 [dependencies]
 ansi_term = { version = "0.12.1", default-features = false }
 derive-where.workspace = true
+edr_chain_l1.workspace = true
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
 edr_evm_spec.workspace = true
 edr_generic = { path = "../edr_generic" }
 edr_provider = { path = "../edr_provider" }
+edr_rpc_client = { path = "../edr_rpc_client" }
 edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
 edr_solidity_tests.workspace = true
-edr_rpc_client = { path = "../edr_rpc_client" }
+edr_transaction.workspace = true
 itertools = { version = "0.12.0", default-features = false }
 napi = { version = "2.16.10", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
 serde = { workspace = true, features = ["derive"] }

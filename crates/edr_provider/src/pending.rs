@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{receipt::ReceiptTrait as _, HashSet, B256, U256};
 use edr_evm::{
     blockchain::{
         BlockHash, Blockchain, BlockchainErrorForChainSpec, BlockchainMut, SyncBlockchain,
@@ -11,6 +10,8 @@ use edr_evm::{
     Block as _, BlockAndTotalDifficulty, BlockReceipts,
 };
 use edr_evm_spec::ExecutableTransaction as _;
+use edr_receipt::{log::FilterLog, HashSet, ReceiptTrait as _, B256};
+use edr_transaction::U256;
 
 /// A blockchain with a pending block.
 ///
@@ -129,7 +130,7 @@ where
         _to_block: u64,
         _addresses: &HashSet<edr_eth::Address>,
         _normalized_topics: &[Option<Vec<B256>>],
-    ) -> Result<Vec<edr_eth::log::FilterLog>, Self::BlockchainError> {
+    ) -> Result<Vec<FilterLog>, Self::BlockchainError> {
         panic!("Retrieving logs from a pending blockchain is not supported.");
     }
 

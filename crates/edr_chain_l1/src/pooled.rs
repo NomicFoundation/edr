@@ -391,19 +391,16 @@ mod tests {
     use std::{str::FromStr, sync::OnceLock};
 
     use alloy_rlp::Decodable;
-    use c_kzg::BYTES_PER_BLOB;
     use edr_signer::{
         FakeableSignature, SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
     };
+    use edr_transaction::pooled::eip4844::{ethereum_kzg_settings, Bytes48, BYTES_PER_BLOB};
+    use revm_primitives::address;
 
     use super::*;
-    use crate::{
-        address,
-        transaction::{self, TxKind},
-        Address, Bytes, B256, U256,
-    };
+    use crate::signed;
 
-    fn fake_eip4844_blob() -> c_kzg::Blob {
+    fn fake_eip4844_blob() -> Blob {
         const BLOB_VALUE: &[u8] = b"hello world";
 
         // The blob starts 0, followed by `hello world`, then 0x80, and is padded with
@@ -414,7 +411,7 @@ mod tests {
 
         bytes.resize(BYTES_PER_BLOB, 0);
 
-        c_kzg::Blob::from_bytes(bytes.as_slice()).expect("Invalid blob")
+        Blob::from_bytes(bytes.as_slice()).expect("Invalid blob")
     }
 
     macro_rules! impl_test_pooled_transaction_encoding_round_trip {
@@ -530,7 +527,7 @@ mod tests {
             rlp_encoding: OnceLock::new(),
         }),
         eip4844 => PooledTransaction::Eip4844(
-            Eip4844::new(transaction::signed::Eip4844 {
+            Eip4844::new(signed::Eip4844 {
                 chain_id: 1337,
                 nonce: 0,
                 max_priority_fee_per_gas: 1_000_000_000,
@@ -557,12 +554,12 @@ mod tests {
                 rlp_encoding: OnceLock::new(),
             },
             vec![fake_eip4844_blob()],
-            vec![c_kzg::Bytes48::from_hex(
+            vec![Bytes48::from_hex(
                 "b93ab7583ad8a57b2edd262889391f37a83ab41107dc02c1a68220841379ae828343e84ac1c70fb7c2640ee3522c4c36"
             ).expect("Invalid commitment")],
-            vec![c_kzg::Bytes48::from_hex(
+            vec![Bytes48::from_hex(
                 "86ffb073648261475af77cc902c5189bf3d33d0f63e025f23c69ac1e4cc0a7646e1a59ff8e5600f0fcc35f78fe1a4df2"
-            ).expect("Invalid proof")], c_kzg::ethereum_kzg_settings(0))?
+            ).expect("Invalid proof")], ethereum_kzg_settings(0))?
         ),
         eip7702 => PooledTransaction::Eip7702(Eip7702 {
             chain_id: 31337,

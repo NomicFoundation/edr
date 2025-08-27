@@ -43,8 +43,8 @@ thiserror = "1.0.61"
 log = "0.4.22"
 
 [dev-dependencies]
+edr_chain_l1.workspace = true
 edr_test_utils.workspace = true
-
 futures = "0.3"
 itertools.workspace = true
 once_cell = "1"

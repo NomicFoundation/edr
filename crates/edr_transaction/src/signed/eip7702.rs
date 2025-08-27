@@ -8,34 +8,33 @@ use revm_primitives::{keccak256, TxKind};
 use crate::{request, utils::enveloped, Address, Bytes, ComputeTransactionHash as _, B256, U256};
 // transaction::{self, request, ComputeTransactionHash as _, TxKind},
 
-#[derive(Clone, Debug, Eq, RlpEncodable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone, Debug, Eq, serde::Serialize, RlpEncodable)]
 pub struct Eip7702 {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub chain_id: u64,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub max_priority_fee_per_gas: u128,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub max_fee_per_gas: u128,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
     pub access_list: edr_eip2930::AccessList,
     pub authorization_list: Vec<edr_eip7702::SignedAuthorization>,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     pub signature: FakeableSignature<SignatureWithYParity>,
     /// Cached transaction hash
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub hash: OnceLock<B256>,
     /// Cached RLP-encoding
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub rlp_encoding: OnceLock<Bytes>,
 }
 
@@ -210,6 +209,7 @@ mod tests {
         use edr_defaults::SECRET_KEYS;
         use edr_test_utils::secret_key::{secret_key_from_str, SecretKey, SignatureError};
         use hex::FromHexError;
+        use revm_primitives::{address, b256};
 
         use super::*;
 
@@ -239,13 +239,13 @@ mod tests {
 
         pub fn raw() -> Result<Vec<u8>, FromHexError> {
             hex::decode(
-                "04f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c01a0be47a039954e4dfb7f08927ef7f072e0ec7510290e3c4c1405f3bf0329d0be51a06f291c455321a863d4c8ebbd73d58e809328918bcb5555958247ca6ec27feec8",
+                "f8cc827a6980843b9aca00848321560082f61894f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85ef85c827a699412345678901234567890123456789012345678900101a0eb775e0a2b7a15ea4938921e1ab255c84270e25c2c384b2adc32c73cd70273d6a046b9bec1961318a644db6cd9c7fc4e8d7c6f40d9165fc8958f3aff2216ed6f7c01a0be47a039954e4dfb7f08927ef7f072e0ec7510290e3c4c1405f3bf0329d0be51a06f291c455321a863d4c8ebbd73d58e809328918bcb5555958247ca6ec27feec8",
             )
         }
 
         // Test vector generated using secret key in `dummy_secret_key`.
-        pub fn request() -> anyhow::Result<transaction::request::Eip7702> {
-            let request = transaction::request::Eip7702 {
+        pub fn request() -> anyhow::Result<request::Eip7702> {
+            let request = request::Eip7702 {
                 chain_id: CHAIN_ID,
                 nonce: 0,
                 max_priority_fee_per_gas: 1_000_000_000,
@@ -260,13 +260,13 @@ mod tests {
             Ok(request)
         }
 
-        pub fn signed() -> anyhow::Result<transaction::Signed> {
+        pub fn signed() -> anyhow::Result<Eip7702> {
             let request = expectation::request()?;
 
             let secret_key = expectation::secret_key()?;
             let signed = request.sign(&secret_key)?;
 
-            Ok(signed.into())
+            Ok(signed)
         }
 
         pub fn secret_key() -> Result<SecretKey, SignatureError> {
@@ -275,15 +275,15 @@ mod tests {
     }
 
     use alloy_rlp::Decodable as _;
+    use edr_signer::public_key_to_address;
 
     use super::*;
-    use crate::{address, b256, signature::public_key_to_address};
 
     #[test]
     fn decoding() -> anyhow::Result<()> {
         let raw_transaction = expectation::raw()?;
 
-        let decoded = transaction::Signed::decode(&mut raw_transaction.as_slice())?;
+        let decoded = Eip7702::decode(&mut raw_transaction.as_slice())?;
         let expected = expectation::signed()?;
         assert_eq!(decoded, expected);
 

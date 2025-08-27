@@ -2,7 +2,7 @@
 
 use std::sync::OnceLock;
 
-use alloy_rlp::BufMut;
+use alloy_rlp::{Buf as _, BufMut};
 use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
 use edr_signer::{FakeableSignature, Signature};
 pub use edr_transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
@@ -451,8 +451,10 @@ mod tests {
     use std::sync::OnceLock;
 
     use alloy_rlp::Decodable as _;
+    use edr_signer::{SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs};
 
     use super::*;
+    use crate::request;
 
     #[test]
     fn can_recover_sender() {
@@ -521,7 +523,7 @@ mod tests {
     }
 
     impl_test_signed_transaction_encoding_round_trip! {
-            pre_eip155 => transaction::request::Legacy {
+            pre_eip155 => request::Legacy {
                 nonce: 0,
                 gas_price: 1,
                 gas_limit: 2,
@@ -529,7 +531,7 @@ mod tests {
                 value: U256::from(3),
                 input: Bytes::from(vec![1, 2]),
             },
-            post_eip155 => transaction::request::Eip155 {
+            post_eip155 => request::Eip155 {
                 nonce: 0,
                 gas_price: 1,
                 gas_limit: 2,
@@ -538,7 +540,7 @@ mod tests {
                 input: Bytes::from(vec![1, 2]),
                 chain_id: 1337,
             },
-            eip2930 => transaction::request::Eip2930 {
+            eip2930 => request::Eip2930 {
                 chain_id: 1,
                 nonce: 0,
                 gas_price: 1,
@@ -548,7 +550,7 @@ mod tests {
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![],
             },
-            eip1559 => transaction::request::Eip1559 {
+            eip1559 => request::Eip1559 {
                 chain_id: 1,
                 nonce: 0,
                 max_priority_fee_per_gas: 1,
@@ -559,7 +561,7 @@ mod tests {
                 input: Bytes::from(vec![1, 2]),
                 access_list: vec![],
             },
-            eip4844 => transaction::request::Eip4844 {
+            eip4844 => request::Eip4844 {
                 chain_id: 1,
                 nonce: 0,
                 max_priority_fee_per_gas: 1,
@@ -572,7 +574,7 @@ mod tests {
                 access_list: vec![],
                 blob_hashes: vec![B256::random(), B256::random()],
             },
-            eip7702 => transaction::request::Eip7702 {
+            eip7702 => request::Eip7702 {
                 chain_id: 1,
                 nonce: 0,
                 max_priority_fee_per_gas: 1,
@@ -613,8 +615,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0xeb96ca19e8a77102767a41fc85a36afd5c61ccb09911cec5d3e86e193d9c5ae",
                         )
@@ -648,8 +650,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0xe24d8bd32ad906d6f8b8d7741e08d1959df021698b19ee232feba15361587d0a",
                         )
@@ -683,8 +685,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0xce6834447c0a4193c40382e6c57ae33b241379c5418caac9cdc18d786fd12071",
                         )
@@ -721,7 +723,7 @@ mod tests {
             access_list: edr_eip2930::AccessList::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: U256::from_str(
                             "0x59e6b67f48fb32e7e570dfb11e042b5ad2e55e3ce3ce9cd989c7e06e07feeafd",
@@ -756,8 +758,8 @@ mod tests {
             input: Bytes::default(),
             // SAFETY: Caller address has been precomputed
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: U256::from_str(
                             "0x35b7bfeb9ad9ece2cbafaaf8e202e706b4cfaeb233f46198f00b44d4a566a981",
                         )

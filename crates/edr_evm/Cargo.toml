@@ -11,10 +11,13 @@ auto_impl = { version = "1.2", default-features = false }
 cita_trie = { version = "4.0.0", default-features = false }
 derive-where.workspace = true
 dyn-clone.workspace = true
+edr_chain_l1.workspace = true
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_evm_spec.workspace = true
+edr_receipt.workspace = true
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
+edr_transaction.workspace = true
 edr_signer.workspace = true
 edr_utils = { version = "0.3.5", path = "../edr_utils" }
 futures = { version = "0.3.28", features = ["alloc", "async-await", "executor", "std"] }

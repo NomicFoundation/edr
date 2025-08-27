@@ -154,12 +154,12 @@ mod tests {
     use k256::SecretKey;
 
     use super::*;
-    use crate::transaction::signed::PreOrPostEip155;
+    use crate::signed::PreOrPostEip155;
 
-    fn dummy_request() -> transaction::request::Eip155 {
+    fn dummy_request() -> request::Eip155 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        transaction::request::Eip155 {
+        request::Eip155 {
             nonce: 1,
             gas_price: 2,
             gas_limit: 3,

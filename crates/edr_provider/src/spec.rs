@@ -1,23 +1,18 @@
 use std::sync::Arc;
 
-use edr_eth::{
-    l1::L1ChainSpec,
-    rlp,
-    transaction::{
-        signed::{FakeSign, Sign},
-        IsSupported,
-    },
-    Address, Blob, BlockSpec, B256,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{rlp, Address, Blob, BlockSpec, B256};
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
     spec::{GenesisBlockFactory, SyncGenesisBlockFactory},
     state::StateOverrides,
-    transaction, BlockAndTotalDifficulty, BlockReceipts,
+    BlockAndTotalDifficulty, BlockReceipts,
 };
 use edr_evm_spec::ExecutableTransaction;
 use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_signer::{FakeSign, Sign};
+use edr_transaction::IsSupported;
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, time::TimeSinceEpoch,
@@ -66,8 +61,8 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
-    type PooledTransaction = transaction::pooled::PooledTransaction;
-    type TransactionRequest = transaction::Request;
+    type PooledTransaction = edr_chain_l1::PooledTransaction;
+    type TransactionRequest = edr_chain_l1::Request;
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
         match reason {
@@ -84,7 +79,7 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
 }
 
 /// Trait with data used for validating a transaction complies with a
-/// [`edr_eth::l1::SpecId`].
+/// [`edr_evm_spec::EvmSpecId`].
 pub trait HardforkValidationData {
     /// Returns the `to` address of the transaction.
     fn to(&self) -> Option<&Address>;

@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
+edr_chain_l1.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
@@ -15,13 +16,17 @@ edr_evm_spec.workspace = true
 edr_generic = { path = "../edr_generic" }
 edr_napi_core = { path = "../edr_napi_core" }
 edr_provider = { path = "../edr_provider" }
+edr_receipt.workspace = true
 edr_rpc_eth = { path = "../edr_rpc_eth" }
 edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
 edr_solidity_tests.workspace = true
+edr_transaction.workspace = true
 log = { version = "0.4.17", default-features = false }
 op-alloy-rpc-types = { version = "0.17.2", default-features = false }
 op-revm.workspace = true
+revm-context.workspace = true
+revm-context-interface.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }
 thiserror.workspace = true
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }

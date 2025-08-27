@@ -1,8 +1,11 @@
+//! Ethereum log types
+
 mod block;
 mod filter;
 mod receipt;
 
-pub use revm_primitives::Log as ExecutionLog;
+/// Log generated after execution of a transaction.
+pub type ExecutionLog = revm_primitives::Log;
 
 pub use self::{
     block::{BlockLog, FullBlockLog},

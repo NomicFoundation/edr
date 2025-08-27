@@ -4,9 +4,6 @@ use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants};
 
 use crate::{BlockEnv, HaltReason, Hardfork, Signed};
 
-/// L1 Ethereum chain type
-pub const CHAIN_TYPE: &str = "L1";
-
 /// The chain specification for Ethereum Layer 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct L1ChainSpec;

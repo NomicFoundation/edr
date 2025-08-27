@@ -10,6 +10,7 @@ pub mod pooled;
 pub mod request;
 /// Types for signed transactions.
 pub mod signed;
+mod test_utils;
 /// Utility functions
 pub mod utils;
 
@@ -140,6 +141,28 @@ pub trait TransactionType {
 
     /// Returns the type of the transaction.
     fn transaction_type(&self) -> Self::Type;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error("{0}")]
+    BaseConvertError(RuintBaseConvertError),
+    #[error("Invalid digit: {0}")]
+    InvalidDigit(char),
+    #[error("Invalid radix. Only hexadecimal is supported.")]
+    InvalidRadix,
+    #[error("Unknown transaction type: {0}")]
+    UnknownType(u8),
+}
+
+impl From<RuintParseError> for ParseError {
+    fn from(error: RuintParseError) -> Self {
+        match error {
+            RuintParseError::InvalidDigit(c) => ParseError::InvalidDigit(c),
+            RuintParseError::InvalidRadix(_) => ParseError::InvalidRadix,
+            RuintParseError::BaseConvertError(error) => ParseError::BaseConvertError(error),
+        }
+    }
 }
 
 /// Trait for determining whether a transaction is an EIP-155 transaction.

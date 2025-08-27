@@ -5,8 +5,7 @@ use alloy_json_abi::Event;
 #[cfg(feature = "test-remote")]
 use alloy_primitives::address;
 use alloy_primitives::{Address, U256};
-use edr_eth::l1::{self, BlockEnv};
-use edr_evm_spec::HaltReasonTrait;
+use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
     revm::context::TxEnv,
@@ -91,7 +90,7 @@ async fn runner_config<
     BlockT: BlockEnvTr,
     ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TransactionT>,
-    HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
@@ -137,8 +136,15 @@ async fn repro_config(
     sender: Option<Address>,
     test_data: &L1ForgeTestData,
     rpc_config: bool,
-) -> TestConfig<BlockEnv, (), L1EvmBuilder, l1::HaltReason, l1::SpecId, l1::InvalidTransaction, TxEnv>
-{
+) -> TestConfig<
+    edr_chain_l1::BlockEnv,
+    (),
+    L1EvmBuilder,
+    edr_chain_l1::HaltReason,
+    edr_chain_l1::Hardfork,
+    edr_chain_l1::InvalidTransaction,
+    TxEnv,
+> {
     let config = runner_config(sender, test_data, rpc_config).await;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let filter = repro_filter(issue);

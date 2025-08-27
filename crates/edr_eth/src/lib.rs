@@ -17,10 +17,6 @@ pub mod eips;
 pub mod fee_history;
 /// Ethereum types for filter-based RPC methods
 pub mod filter;
-/// Ethereum log types
-pub mod log;
-/// Ethereum receipt types
-pub mod receipt;
 /// Ethereum result types
 pub mod result;
 /// Ethereum gas related types
@@ -31,7 +27,6 @@ pub mod rlp;
 pub mod serde;
 /// Ethereum state types and functions
 pub mod state;
-pub mod transaction;
 /// Ethereum trie functions
 pub mod trie;
 /// Ethereum utility functions
@@ -42,7 +37,7 @@ pub use c_kzg::{Blob, Bytes48};
 pub use revm_bytecode::{self as bytecode, Bytecode};
 pub use revm_primitives::{
     address,
-    alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
+    alloy_primitives::{Bloom, ChainId, B512, B64, U128, U160, U64, U8},
     b256, bytes,
     eip3860::MAX_INITCODE_SIZE,
     hash_map, hash_set, hex, hex_literal, keccak256, Address, Bytes, HashMap, HashSet, B256,

@@ -1,10 +1,6 @@
 use auto_impl::auto_impl;
 
-use crate::{
-    log::FilterLog,
-    receipt::{ExecutionReceipt, ReceiptTrait, TransactionReceipt},
-    B256,
-};
+use crate::{log::FilterLog, ExecutionReceipt, ReceiptTrait, TransactionReceipt, B256};
 
 /// Trait for constructing a receipt from a transaction receipt and the block it
 /// was executed in.

@@ -3,7 +3,8 @@ pub mod receipt;
 /// Types for OP RPC transaction.
 pub mod transaction;
 
-use edr_eth::{log::FilterLog, Address, Bloom, B256, U256};
+use edr_eth::U256;
+use edr_receipt::{log::FilterLog, Address, Bloom, B256};
 use op_alloy_rpc_types::L1BlockInfo;
 use serde::{Deserialize, Serialize};
 

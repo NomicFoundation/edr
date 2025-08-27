@@ -2,15 +2,12 @@ mod request;
 
 use std::{ops::Deref, sync::OnceLock};
 
-use edr_eth::{
-    block, l1,
-    transaction::{self, IsEip4844, IsLegacy, TransactionType, TxKind},
-    Address, Bytes, B256, U256,
-};
-use edr_evm_spec::ExecutableTransaction;
+use edr_eth::{block, Address, Bytes, B256, U256};
+use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
 use edr_signer::{
     FakeableSignature, SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
 };
+use edr_transaction::{IsEip4844, IsLegacy, TransactionType, TxKind};
 
 pub use self::request::TransactionRequest;
 
@@ -103,7 +100,7 @@ impl Transaction {
         header: Option<&block::Header>,
         transaction_index: Option<u64>,
         is_pending: bool,
-        hardfork: l1::SpecId,
+        hardfork: EvmSpecId,
     ) -> Self {
         let base_fee = header.and_then(|header| header.base_fee_per_gas);
         let gas_price = if let Some(base_fee) = base_fee {
@@ -126,7 +123,7 @@ impl Transaction {
             }
         });
 
-        let show_transaction_type = hardfork >= l1::SpecId::BERLIN;
+        let show_transaction_type = hardfork >= EvmSpecId::BERLIN;
         let is_typed_transaction = !transaction.is_legacy();
         let transaction_type = if show_transaction_type || is_typed_transaction {
             Some(transaction.transaction_type())
@@ -241,7 +238,7 @@ impl TransactionWithSignature {
     }
 }
 
-impl From<TransactionWithSignature> for transaction::signed::Legacy {
+impl From<TransactionWithSignature> for edr_transaction::signed::Legacy {
     fn from(value: TransactionWithSignature) -> Self {
         Self {
             nonce: value.nonce,
@@ -272,7 +269,7 @@ impl From<TransactionWithSignature> for transaction::signed::Legacy {
     }
 }
 
-impl From<TransactionWithSignature> for transaction::signed::Eip155 {
+impl From<TransactionWithSignature> for edr_transaction::signed::Eip155 {
     fn from(value: TransactionWithSignature) -> Self {
         Self {
             nonce: value.nonce,
@@ -303,7 +300,7 @@ impl From<TransactionWithSignature> for transaction::signed::Eip155 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip2930 {
+impl TryFrom<TransactionWithSignature> for edr_transaction::signed::Eip2930 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
@@ -344,7 +341,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip2930 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip1559 {
+impl TryFrom<TransactionWithSignature> for edr_transaction::signed::Eip1559 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
@@ -388,7 +385,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip1559 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
+impl TryFrom<TransactionWithSignature> for edr_transaction::signed::Eip4844 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
@@ -435,7 +432,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip7702 {
+impl TryFrom<TransactionWithSignature> for edr_transaction::signed::Eip7702 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
@@ -479,13 +476,13 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip7702 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::Signed {
+impl TryFrom<TransactionWithSignature> for edr_chain_l1::Signed {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction_type = match value
             .transaction_type
-            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
+            .map_or(Ok(edr_chain_l1::Type::Legacy), edr_chain_l1::Type::try_from)
         {
             Ok(r#type) => r#type,
             Err(r#type) => {
@@ -495,22 +492,22 @@ impl TryFrom<TransactionWithSignature> for transaction::Signed {
 
                 // As the transaction type is not 0 or `None`, this will always result in a
                 // post-EIP 155 legacy transaction.
-                transaction::Type::Legacy
+                edr_chain_l1::Type::Legacy
             }
         };
 
         let transaction = match transaction_type {
-            transaction::Type::Legacy => {
+            edr_chain_l1::Type::Legacy => {
                 if value.is_legacy() {
                     Self::PreEip155Legacy(value.into())
                 } else {
                     Self::PostEip155Legacy(value.into())
                 }
             }
-            transaction::Type::Eip2930 => Self::Eip2930(value.try_into()?),
-            transaction::Type::Eip1559 => Self::Eip1559(value.try_into()?),
-            transaction::Type::Eip4844 => Self::Eip4844(value.try_into()?),
-            transaction::Type::Eip7702 => Self::Eip7702(value.try_into()?),
+            edr_chain_l1::Type::Eip2930 => Self::Eip2930(value.try_into()?),
+            edr_chain_l1::Type::Eip1559 => Self::Eip1559(value.try_into()?),
+            edr_chain_l1::Type::Eip4844 => Self::Eip4844(value.try_into()?),
+            edr_chain_l1::Type::Eip7702 => Self::Eip7702(value.try_into()?),
         };
 
         Ok(transaction)

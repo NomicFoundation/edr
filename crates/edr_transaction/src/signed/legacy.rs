@@ -7,28 +7,27 @@ use revm_primitives::{keccak256, TxKind};
 
 use crate::{request, Address, Bytes, B256, U256};
 
-#[derive(Clone, Debug, Eq, RlpEncodable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone, Debug, Eq, serde::Serialize, RlpEncodable)]
 pub struct Legacy {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_price: u128,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     pub signature: FakeableSignature<SignatureWithRecoveryId>,
     /// Cached transaction hash
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub hash: OnceLock<B256>,
     /// Cached RLP-encoding
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub rlp_encoding: OnceLock<Bytes>,
 }
 
@@ -228,10 +227,10 @@ mod tests {
 
     use super::*;
 
-    fn dummy_request() -> transaction::request::Legacy {
+    fn dummy_request() -> request::Legacy {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        transaction::request::Legacy {
+        request::Legacy {
             nonce: 1,
             gas_price: 2,
             gas_limit: 3,

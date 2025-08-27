@@ -1,12 +1,5 @@
-pub use edr_eth::transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
-use edr_eth::{
-    l1,
-    transaction::{
-        signed::{FakeSign, Sign},
-        TxKind,
-    },
-    Address, Bytes, U256,
-};
+use edr_eth::{Address, Bytes, U256};
+use edr_evm_spec::EvmSpecId;
 use edr_provider::{
     calculate_eip1559_fee_parameters,
     requests::validation::{validate_call_request, validate_send_transaction_request},
@@ -15,7 +8,9 @@ use edr_provider::{
     ProviderError, ProviderErrorForChainSpec,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
-use edr_signer::{SecretKey, SignatureError};
+use edr_signer::{FakeSign, SecretKey, Sign, SignatureError};
+pub use edr_transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
+use edr_transaction::TxKind;
 
 use super::{Request, Signed};
 use crate::OpChainSpec;
@@ -113,10 +108,10 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
         let value = value.unwrap_or(U256::ZERO);
 
         let evm_spec_id = data.evm_spec_id();
-        let request = if evm_spec_id < l1::SpecId::LONDON || gas_price.is_some() {
+        let request = if evm_spec_id < EvmSpecId::LONDON || gas_price.is_some() {
             let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
             match access_list {
-                Some(access_list) if evm_spec_id >= l1::SpecId::BERLIN => {
+                Some(access_list) if evm_spec_id >= EvmSpecId::BERLIN => {
                     Request::Eip2930(Eip2930 {
                         nonce,
                         gas_price,
@@ -229,7 +224,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
                 access_list: access_list.unwrap_or_default(),
                 authorization_list,
             })
-        } else if current_hardfork >= l1::SpecId::LONDON
+        } else if current_hardfork >= EvmSpecId::LONDON
             && (gas_price.is_none()
                 || max_fee_per_gas.is_some()
                 || max_priority_fee_per_gas.is_some())

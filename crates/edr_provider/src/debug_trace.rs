@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 use edr_eth::{
     bytecode::opcode::{self, OpCode},
-    hex, l1,
+    hex,
     result::{ExecutionResult, ExecutionResultAndState},
     utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
@@ -23,7 +23,8 @@ use edr_evm::{
     transaction::TransactionError,
 };
 use edr_evm_spec::{
-    Block as _, ChainSpec, ExecutableTransaction as _, HaltReasonTrait, TransactionValidation,
+    Block as _, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
+    HaltReasonTrait, TransactionValidation,
 };
 
 use crate::observability::{self, RuntimeObserver};
@@ -49,13 +50,15 @@ where
     ChainSpecT: RuntimeSpec<
         BlockEnv: Clone,
         SignedTransaction: Default
-                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+                               + TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError>,
+        >,
     >,
     BlockchainErrorT: Send + std::error::Error,
     StateErrorT: Send + std::error::Error,
 {
     let evm_spec_id = evm_config.spec.into();
-    if evm_spec_id < l1::SpecId::SPURIOUS_DRAGON {
+    if evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
         return Err(DebugTraceError::InvalidSpecId {
             spec_id: evm_spec_id,
@@ -176,7 +179,7 @@ pub enum DebugTraceError<BlockchainErrorT, StateErrorT, TransactionValidationErr
     )]
     InvalidSpecId {
         /// The hardfork.
-        spec_id: l1::SpecId,
+        spec_id: EvmSpecId,
     },
     /// Invalid transaction hash argument.
     #[error("Transaction hash {transaction_hash} not found in block {block_number}")]

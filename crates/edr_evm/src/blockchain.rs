@@ -7,8 +7,9 @@ pub mod storage;
 use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included, sync::Arc};
 
 use auto_impl::auto_impl;
-use edr_eth::{l1, log::FilterLog, receipt::ReceiptTrait, Address, HashSet, B256, U256};
-use edr_evm_spec::ChainHardfork;
+use edr_eth::{Address, HashSet, B256, U256};
+use edr_evm_spec::{ChainHardfork, EvmSpecId};
+use edr_receipt::{log::FilterLog, ReceiptTrait};
 
 use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
@@ -308,7 +309,7 @@ fn validate_next_block<ChainSpecT: RuntimeSpec>(
         });
     }
 
-    if spec_id.into() >= l1::SpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+    if spec_id.into() >= EvmSpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
         return Err(BlockchainError::MissingWithdrawals);
     }
 

@@ -1,6 +1,7 @@
 use alloy_rlp::Encodable;
-use edr_eth::{keccak256, transaction::TxKind, utils::enveloped, Address, Bytes, B256, U256};
+use edr_eth::{keccak256, utils::enveloped, Address, Bytes, B256, U256};
 use edr_evm_spec::ExecutableTransaction;
+use edr_transaction::TxKind;
 
 use super::Deposit;
 
@@ -112,8 +113,9 @@ impl ExecutableTransaction for Deposit {
 mod tests {
     use std::{str::FromStr as _, sync::OnceLock};
 
-    use edr_eth::{address, b256, transaction::TxKind, Bytes, U256};
+    use edr_eth::{address, b256, Bytes, U256};
     use edr_evm_spec::ExecutableTransaction as _;
+    use edr_transaction::TxKind;
 
     use super::*;
     use crate::transaction;

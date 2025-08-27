@@ -15,18 +15,18 @@ edr_signer.workspace = true
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", ] }
 revm-context-interface.workspace = true
 revm-primitives.workspace = true
-serde = { workspace = true, optional = true }
+serde = { workspace = true }
 sha2.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+edr_defaults.workspace = true
 edr_test_utils.workspace = true
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 paste.workspace = true
 
-[features]
+# [features]
 # serde = ["dep:serde", "dep:serde_json", "alloy-eips/serde", "c-kzg/serde", "revm-bytecode/serde", "revm-primitives/serde", "revm-state/serde"]
-serde = ["dep:serde", "c-kzg/serde"]
 
 [lints]
 workspace = true

@@ -9,11 +9,11 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use auto_impl::auto_impl;
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
-    receipt::ReceiptTrait,
     withdrawal::Withdrawal,
     B256, U256,
 };
 use edr_evm_spec::{ChainSpec, ExecutableTransaction};
+use edr_receipt::ReceiptTrait;
 
 pub use self::{
     builder::{

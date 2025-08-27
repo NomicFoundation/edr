@@ -1,4 +1,4 @@
-use edr_eth::{block::Header, l1, result::ExecutionResult, Address, HashMap};
+use edr_eth::{block::Header, result::ExecutionResult, Address, HashMap};
 use edr_evm::{
     blockchain::{BlockHash, BlockchainErrorForChainSpec},
     config::CfgEnv,
@@ -8,7 +8,7 @@ use edr_evm::{
     spec::ContextForChainSpec,
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
 };
-use edr_evm_spec::TransactionValidation;
+use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 
 use crate::{
     error::ProviderErrorForChainSpec, time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
@@ -30,7 +30,9 @@ where
         TimerT,
         BlockEnv: Default,
         SignedTransaction: Default
-                               + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+                               + TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError>,
+        >,
     >,
     InspectorT: Inspector<
         ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,

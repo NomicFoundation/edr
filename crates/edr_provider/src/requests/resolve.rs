@@ -1,10 +1,8 @@
-use edr_eth::{
-    l1::{self, L1ChainSpec},
-    transaction::TxKind,
-    Bytes, U256,
-};
-use edr_evm::transaction;
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{Bytes, U256};
+use edr_evm_spec::EvmSpecId;
 use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_transaction::TxKind;
 
 use super::validation::validate_call_request;
 use crate::{
@@ -16,7 +14,7 @@ use crate::{
     ProviderError,
 };
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transaction::Request {
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for edr_chain_l1::Request {
     type Context<'context> = CallContext<'context, L1ChainSpec, TimerT>;
 
     type Error = ProviderErrorForChainSpec<L1ChainSpec>;
@@ -24,7 +22,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
     fn from_rpc_type(
         value: CallRequest,
         context: Self::Context<'_>,
-    ) -> Result<transaction::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
+    ) -> Result<edr_chain_l1::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
         let CallContext {
             data,
             block_spec,
@@ -60,11 +58,11 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
         let value = value.unwrap_or(U256::ZERO);
 
         let evm_spec_id = data.evm_spec_id();
-        let request = if evm_spec_id < l1::SpecId::LONDON || gas_price.is_some() {
+        let request = if evm_spec_id < EvmSpecId::LONDON || gas_price.is_some() {
             let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
             match access_list {
-                Some(access_list) if evm_spec_id >= l1::SpecId::BERLIN => {
-                    transaction::Request::Eip2930(transaction::request::Eip2930 {
+                Some(access_list) if evm_spec_id >= EvmSpecId::BERLIN => {
+                    edr_chain_l1::Request::Eip2930(edr_chain_l1::request::Eip2930 {
                         nonce,
                         gas_price,
                         gas_limit,
@@ -75,7 +73,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
                         access_list,
                     })
                 }
-                _ => transaction::Request::Eip155(transaction::request::Eip155 {
+                _ => edr_chain_l1::Request::Eip155(edr_chain_l1::request::Eip155 {
                     nonce,
                     gas_price,
                     gas_limit,
@@ -90,7 +88,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
                 max_fees_fn(data, block_spec, max_fee_per_gas, max_priority_fee_per_gas)?;
 
             if let Some(authorization_list) = authorization_list {
-                transaction::Request::Eip7702(transaction::request::Eip7702 {
+                edr_chain_l1::Request::Eip7702(edr_chain_l1::request::Eip7702 {
                     chain_id,
                     nonce,
                     max_fee_per_gas,
@@ -103,7 +101,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
                     authorization_list,
                 })
             } else {
-                transaction::Request::Eip1559(transaction::request::Eip1559 {
+                edr_chain_l1::Request::Eip1559(edr_chain_l1::request::Eip1559 {
                     chain_id,
                     nonce,
                     max_fee_per_gas,
@@ -122,7 +120,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for transa
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
-    for transaction::Request
+    for edr_chain_l1::Request
 {
     type Context<'context> = TransactionContext<'context, L1ChainSpec, TimerT>;
 
@@ -131,7 +129,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
     fn from_rpc_type(
         value: TransactionRequest,
         context: Self::Context<'_>,
-    ) -> Result<transaction::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
+    ) -> Result<edr_chain_l1::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
         let TransactionContext { data } = context;
 
         validate_send_transaction_request(data, &value)?;
@@ -166,7 +164,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
             let (max_fee_per_gas, max_priority_fee_per_gas) =
                 calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-            transaction::Request::Eip7702(transaction::request::Eip7702 {
+            edr_chain_l1::Request::Eip7702(edr_chain_l1::request::Eip7702 {
                 nonce,
                 max_fee_per_gas,
                 max_priority_fee_per_gas,
@@ -178,7 +176,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
                 access_list: access_list.unwrap_or_default(),
                 authorization_list,
             })
-        } else if current_hardfork >= l1::SpecId::LONDON
+        } else if current_hardfork >= EvmSpecId::LONDON
             && (gas_price.is_none()
                 || max_fee_per_gas.is_some()
                 || max_priority_fee_per_gas.is_some())
@@ -186,7 +184,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
             let (max_fee_per_gas, max_priority_fee_per_gas) =
                 calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-            transaction::Request::Eip1559(transaction::request::Eip1559 {
+            edr_chain_l1::Request::Eip1559(edr_chain_l1::request::Eip1559 {
                 nonce,
                 max_fee_per_gas,
                 max_priority_fee_per_gas,
@@ -201,7 +199,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
                 access_list: access_list.unwrap_or_default(),
             })
         } else if let Some(access_list) = access_list {
-            transaction::Request::Eip2930(transaction::request::Eip2930 {
+            edr_chain_l1::Request::Eip2930(edr_chain_l1::request::Eip2930 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,
@@ -215,7 +213,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
                 access_list,
             })
         } else {
-            transaction::Request::Eip155(transaction::request::Eip155 {
+            edr_chain_l1::Request::Eip155(edr_chain_l1::request::Eip155 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,
@@ -263,7 +261,7 @@ mod tests {
             max_fees_fn: |_, _, _, _| unreachable!("gas_price is set"),
         };
 
-        let resolved = transaction::Request::from_rpc_type(request, context)?;
+        let resolved = edr_chain_l1::Request::from_rpc_type(request, context)?;
         assert_eq!(*resolved.gas_price(), pending_base_fee);
 
         Ok(())
@@ -297,7 +295,7 @@ mod tests {
             },
         };
 
-        let resolved = transaction::Request::from_rpc_type(request, context)?;
+        let resolved = edr_chain_l1::Request::from_rpc_type(request, context)?;
 
         assert_eq!(*resolved.gas_price(), max_fee_per_gas);
         assert_eq!(
@@ -346,7 +344,7 @@ mod tests {
             },
         };
 
-        let resolved = transaction::Request::from_rpc_type(request, context)?;
+        let resolved = edr_chain_l1::Request::from_rpc_type(request, context)?;
 
         assert_eq!(*resolved.gas_price(), max_fee_per_gas);
         assert_eq!(

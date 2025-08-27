@@ -4,7 +4,8 @@
 
 use std::sync::Arc;
 
-use edr_eth::{l1::L1ChainSpec, HashMap};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::HashMap;
 use edr_provider::{
     test_utils::create_test_config_with_fork, time::MockTime, ForkConfig, NoopLogger, Provider,
 };

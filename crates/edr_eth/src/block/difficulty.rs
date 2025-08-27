@@ -1,21 +1,21 @@
-use edr_evm_spec::EthHeaderConstants;
+use edr_evm_spec::{EthHeaderConstants, EvmSpecId};
 
-use crate::{block::Header, l1, trie::KECCAK_RLP_EMPTY_ARRAY, U256};
+use crate::{block::Header, trie::KECCAK_RLP_EMPTY_ARRAY, U256};
 
-fn bomb_delay(spec_id: l1::SpecId) -> u64 {
+fn bomb_delay(spec_id: EvmSpecId) -> u64 {
     match spec_id {
-        l1::SpecId::FRONTIER
-        | l1::SpecId::FRONTIER_THAWING
-        | l1::SpecId::HOMESTEAD
-        | l1::SpecId::DAO_FORK
-        | l1::SpecId::TANGERINE
-        | l1::SpecId::SPURIOUS_DRAGON => 0,
-        l1::SpecId::BYZANTIUM => 3000000,
-        l1::SpecId::CONSTANTINOPLE | l1::SpecId::PETERSBURG | l1::SpecId::ISTANBUL => 5000000,
-        l1::SpecId::MUIR_GLACIER | l1::SpecId::BERLIN | l1::SpecId::LONDON => 9000000,
+        EvmSpecId::FRONTIER
+        | EvmSpecId::FRONTIER_THAWING
+        | EvmSpecId::HOMESTEAD
+        | EvmSpecId::DAO_FORK
+        | EvmSpecId::TANGERINE
+        | EvmSpecId::SPURIOUS_DRAGON => 0,
+        EvmSpecId::BYZANTIUM => 3000000,
+        EvmSpecId::CONSTANTINOPLE | EvmSpecId::PETERSBURG | EvmSpecId::ISTANBUL => 5000000,
+        EvmSpecId::MUIR_GLACIER | EvmSpecId::BERLIN | EvmSpecId::LONDON => 9000000,
         // SpecId::LONDON => 9500000, // EIP-3554
-        l1::SpecId::ARROW_GLACIER => 10700000,
-        l1::SpecId::GRAY_GLACIER => 11400000,
+        EvmSpecId::ARROW_GLACIER => 10700000,
+        EvmSpecId::GRAY_GLACIER => 11400000,
         _ => {
             unreachable!("Post-merge hardforks don't have a bomb delay")
         }
@@ -24,14 +24,14 @@ fn bomb_delay(spec_id: l1::SpecId) -> u64 {
 
 /// Calculates the mining difficulty of a block.
 pub fn calculate_ethash_canonical_difficulty<ChainSpecT: EthHeaderConstants>(
-    spec_id: l1::SpecId,
+    spec_id: EvmSpecId,
     parent: &Header,
     block_number: u64,
     block_timestamp: u64,
 ) -> U256 {
     // TODO: Create a custom config that prevents usage of older hardforks
     assert!(
-        spec_id >= l1::SpecId::BYZANTIUM,
+        spec_id >= EvmSpecId::BYZANTIUM,
         "Hardforks older than Byzantium are not supported"
     );
 

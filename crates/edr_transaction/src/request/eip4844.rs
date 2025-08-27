@@ -102,7 +102,7 @@ pub(crate) mod tests {
     use revm_primitives::b256;
 
     use super::*;
-    use crate::transaction::fake_signature::tests::test_fake_sign_properties;
+    use crate::test_utils::test_fake_sign_properties;
 
     fn dummy_request() -> Eip4844 {
         // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68

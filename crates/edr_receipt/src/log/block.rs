@@ -6,9 +6,8 @@ use super::receipt::ReceiptLog;
 use crate::B256;
 
 /// A log that's returned by a block query.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(untagged))]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
 pub enum BlockLog {
     /// A full log.
     Full(FullBlockLog),
@@ -17,24 +16,23 @@ pub enum BlockLog {
 }
 
 /// A type representing a fully specified block log.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FullBlockLog {
     /// Receipt log
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     pub inner: ReceiptLog,
     /// block hash
     // https://github.com/NomicFoundation/hardhat/blob/7d25b1b5a7bfbd7e7fabbf540b0f32186cba2b11/packages/hardhat-core/src/internal/hardhat-network/provider/output.ts#L120
     pub block_hash: B256,
     /// block number
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub block_number: u64,
     /// Index of the log within the block
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub log_index: u64,
     /// Index of the transaction within the block
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub transaction_index: u64,
 }
 
@@ -72,7 +70,7 @@ impl alloy_rlp::Encodable for FullBlockLog {
     }
 }
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(test)]
 mod tests {
     use std::str::FromStr;
 

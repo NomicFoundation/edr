@@ -8,37 +8,36 @@ use revm_primitives::{eip4844::GAS_PER_BLOB, keccak256, TxKind};
 use crate::{request, utils::enveloped, Address, Bytes, B256, U256};
 // eips::eip4844::GAS_PER_BLOB,
 
-#[derive(Clone, Debug, Eq, RlpEncodable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone, Debug, Eq, serde::Serialize, RlpEncodable)]
 pub struct Eip4844 {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub chain_id: u64,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub max_priority_fee_per_gas: u128,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub max_fee_per_gas: u128,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     pub to: Address,
     pub value: U256,
     pub input: Bytes,
     pub access_list: edr_eip2930::AccessList,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub max_fee_per_blob_gas: u128,
     pub blob_hashes: Vec<B256>,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     pub signature: FakeableSignature<SignatureWithYParity>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub hash: OnceLock<B256>,
     /// Cached RLP-encoding
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub rlp_encoding: OnceLock<Bytes>,
 }
 
@@ -216,10 +215,10 @@ pub fn total_blob_gas(transaction: &Eip4844) -> u64 {
 mod tests {
     use std::str::FromStr;
 
+    use edr_signer::{SignatureWithYParity, SignatureWithYParityArgs};
     use revm_primitives::{address, b256};
 
     use super::*;
-    use crate::signature::{SignatureWithYParity, SignatureWithYParityArgs};
 
     // From https://github.com/ethereumjs/ethereumjs-monorepo/blob/master/packages/tx/test/eip4844.spec.ts#L68
     fn dummy_transaction() -> Eip4844 {
@@ -231,7 +230,7 @@ mod tests {
             y_parity: false,
         });
 
-        let request = transaction::request::Eip4844 {
+        let request = request::Eip4844 {
             chain_id: 0x28757b3,
             nonce: 0,
             max_priority_fee_per_gas: 0x12a05f200,
@@ -248,8 +247,8 @@ mod tests {
             .unwrap()],
         };
 
-        let signature =
-            Fakeable::recover(signature, request.hash().into()).expect("Failed to retrieve caller");
+        let signature = FakeableSignature::recover(signature, request.hash().into())
+            .expect("Failed to retrieve caller");
 
         Eip4844 {
             chain_id: request.chain_id,
@@ -297,7 +296,7 @@ mod tests {
         // From https://github.com/NomicFoundation/edr/issues/341#issuecomment-2039360056
         const CALLER: Address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 
-        let request = transaction::request::Eip4844 {
+        let request = request::Eip4844 {
             chain_id: 1337,
             nonce: 0,
             max_priority_fee_per_gas: 0x3b9aca00,
@@ -313,7 +312,7 @@ mod tests {
             )],
         };
 
-        let signature = Fakeable::recover(
+        let signature = FakeableSignature::recover(
             SignatureWithYParity::new(SignatureWithYParityArgs {
                 r: U256::from_str(
                     "0xaeb099417be87077fe470104f6aa73e4e473a51a6c4be62607d10e8f13f9d082",

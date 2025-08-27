@@ -7,34 +7,33 @@ use revm_primitives::{keccak256, TxKind};
 
 use crate::{request, utils::enveloped, Address, Bytes, B256, U256};
 
-#[derive(Clone, Debug, Eq, RlpEncodable)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone, Debug, Eq, RlpEncodable, serde::Serialize)]
 pub struct Eip1559 {
     // The order of these fields determines encoding order.
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub chain_id: u64,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub nonce: u64,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub max_priority_fee_per_gas: u128,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub max_fee_per_gas: u128,
-    #[cfg_attr(feature = "serde", serde(with = "alloy_serde::quantity"))]
+    #[serde(with = "alloy_serde::quantity")]
     pub gas_limit: u64,
     pub kind: TxKind,
     pub value: U256,
     pub input: Bytes,
     pub access_list: edr_eip2930::AccessList,
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     pub signature: FakeableSignature<SignatureWithYParity>,
     /// Cached transaction hash
     #[rlp(default)]
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub hash: OnceLock<B256>,
     /// Cached RLP-encoding
     #[rlp(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
+    #[serde(skip)]
     pub rlp_encoding: OnceLock<Bytes>,
 }
 
@@ -208,10 +207,10 @@ mod tests {
     const DUMMY_SECRET_KEY: &str =
         "e331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109";
 
-    fn dummy_request() -> transaction::request::Eip1559 {
+    fn dummy_request() -> request::Eip1559 {
         let to = Address::from_str("0xc014ba5ec014ba5ec014ba5ec014ba5ec014ba5e").unwrap();
         let input = hex::decode("1234").unwrap();
-        transaction::request::Eip1559 {
+        request::Eip1559 {
             chain_id: 1,
             nonce: 1,
             max_priority_fee_per_gas: 2,

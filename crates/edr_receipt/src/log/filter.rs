@@ -5,12 +5,11 @@ use alloy_rlp::BufMut;
 use crate::log::{ExecutionLog, FullBlockLog};
 
 /// A log that's returned through a filter query.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FilterLog {
     /// Full block log
-    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[serde(flatten)]
     pub inner: FullBlockLog,
     /// Whether this log was reverted due to a chain reorganisation
     pub removed: bool,
@@ -40,7 +39,7 @@ impl alloy_rlp::Encodable for FilterLog {
     }
 }
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(test)]
 mod tests {
     use std::str::FromStr;
 

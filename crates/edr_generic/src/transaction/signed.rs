@@ -1,10 +1,9 @@
-use edr_eth::{
-    impl_revm_transaction_trait,
-    transaction::{self, IsSupported, SignedTransaction, TransactionMut, TransactionType, TxKind},
-    Address, Bytes, B256, U256,
-};
 use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
 use edr_signer::Signature;
+use edr_transaction::{
+    impl_revm_transaction_trait, Address, Bytes, IsEip155, IsEip4844, IsLegacy, IsSupported,
+    SignedTransaction, TransactionMut, TransactionType, TxKind, B256, U256,
+};
 
 /// The type of transaction.
 #[repr(u8)]
@@ -12,15 +11,15 @@ use edr_signer::Signature;
 pub enum Type {
     #[default]
     /// Legacy transaction
-    Legacy = transaction::signed::Legacy::TYPE,
+    Legacy = edr_transaction::signed::Legacy::TYPE,
     /// EIP-2930 transaction
-    Eip2930 = transaction::signed::Eip2930::TYPE,
+    Eip2930 = edr_transaction::signed::Eip2930::TYPE,
     /// EIP-1559 transaction
-    Eip1559 = transaction::signed::Eip1559::TYPE,
+    Eip1559 = edr_transaction::signed::Eip1559::TYPE,
     /// EIP-4844 transaction
-    Eip4844 = transaction::signed::Eip4844::TYPE,
+    Eip4844 = edr_transaction::signed::Eip4844::TYPE,
     /// EIP-7702 transaction
-    Eip7702 = transaction::signed::Eip7702::TYPE,
+    Eip7702 = edr_transaction::signed::Eip7702::TYPE,
     /// Unrecognized transaction type.
     Unrecognized(u8),
 }
@@ -28,11 +27,11 @@ pub enum Type {
 impl From<Type> for u8 {
     fn from(value: Type) -> u8 {
         match value {
-            Type::Legacy => transaction::signed::Legacy::TYPE,
-            Type::Eip2930 => transaction::signed::Eip2930::TYPE,
-            Type::Eip1559 => transaction::signed::Eip1559::TYPE,
-            Type::Eip4844 => transaction::signed::Eip4844::TYPE,
-            Type::Eip7702 => transaction::signed::Eip7702::TYPE,
+            Type::Legacy => edr_transaction::signed::Legacy::TYPE,
+            Type::Eip2930 => edr_transaction::signed::Eip2930::TYPE,
+            Type::Eip1559 => edr_transaction::signed::Eip1559::TYPE,
+            Type::Eip4844 => edr_transaction::signed::Eip4844::TYPE,
+            Type::Eip7702 => edr_transaction::signed::Eip7702::TYPE,
             Type::Unrecognized(t) => t,
         }
     }
@@ -41,41 +40,41 @@ impl From<Type> for u8 {
 impl From<u8> for Type {
     fn from(value: u8) -> Self {
         match value {
-            transaction::signed::Legacy::TYPE => Self::Legacy,
-            transaction::signed::Eip2930::TYPE => Self::Eip2930,
-            transaction::signed::Eip1559::TYPE => Self::Eip1559,
-            transaction::signed::Eip4844::TYPE => Self::Eip4844,
-            transaction::signed::Eip7702::TYPE => Self::Eip7702,
+            edr_transaction::signed::Legacy::TYPE => Self::Legacy,
+            edr_transaction::signed::Eip2930::TYPE => Self::Eip2930,
+            edr_transaction::signed::Eip1559::TYPE => Self::Eip1559,
+            edr_transaction::signed::Eip4844::TYPE => Self::Eip4844,
+            edr_transaction::signed::Eip7702::TYPE => Self::Eip7702,
             t => Self::Unrecognized(t),
         }
     }
 }
 
-impl From<edr_eth::transaction::Type> for Type {
-    fn from(value: edr_eth::transaction::Type) -> Self {
+impl From<edr_chain_l1::Type> for Type {
+    fn from(value: edr_chain_l1::Type) -> Self {
         match value {
-            edr_eth::transaction::Type::Legacy => Self::Legacy,
-            edr_eth::transaction::Type::Eip2930 => Self::Eip2930,
-            edr_eth::transaction::Type::Eip1559 => Self::Eip1559,
-            edr_eth::transaction::Type::Eip4844 => Self::Eip4844,
-            edr_eth::transaction::Type::Eip7702 => Self::Eip7702,
+            edr_chain_l1::Type::Legacy => Self::Legacy,
+            edr_chain_l1::Type::Eip2930 => Self::Eip2930,
+            edr_chain_l1::Type::Eip1559 => Self::Eip1559,
+            edr_chain_l1::Type::Eip4844 => Self::Eip4844,
+            edr_chain_l1::Type::Eip7702 => Self::Eip7702,
         }
     }
 }
 
-impl transaction::IsEip4844 for Type {
+impl IsEip4844 for Type {
     fn is_eip4844(&self) -> bool {
         matches!(self, Type::Eip4844)
     }
 }
 
-impl transaction::IsLegacy for Type {
+impl IsLegacy for Type {
     fn is_legacy(&self) -> bool {
         matches!(self, Type::Legacy)
     }
 }
 
-/// A regular [`Signed`](edr_eth::transaction::Signed) transaction that falls
+/// A regular [`Signed`](edr_chain_l1::Signed) transaction that falls
 /// back to post-EIP 155 legacy transactions for unrecognized transaction types
 /// when converting from an RPC request.
 // NOTE: This is a newtype only because we need to use a different
@@ -83,13 +82,13 @@ impl transaction::IsLegacy for Type {
 // types different.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SignedWithFallbackToPostEip155 {
-    inner: transaction::Signed,
+    inner: edr_chain_l1::Signed,
     r#type: Type,
 }
 
 impl SignedWithFallbackToPostEip155 {
     /// Constructs a new instance with the provided transaction its type.
-    pub fn with_type(inner: transaction::Signed, r#type: Type) -> Self {
+    pub fn with_type(inner: edr_chain_l1::Signed, r#type: Type) -> Self {
         Self { inner, r#type }
     }
 }
@@ -104,8 +103,8 @@ impl alloy_rlp::Encodable for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl From<transaction::Signed> for SignedWithFallbackToPostEip155 {
-    fn from(value: transaction::Signed) -> Self {
+impl From<edr_chain_l1::Signed> for SignedWithFallbackToPostEip155 {
+    fn from(value: edr_chain_l1::Signed) -> Self {
         Self {
             r#type: value.transaction_type().into(),
             inner: value,
@@ -119,14 +118,14 @@ impl IsSupported for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl From<edr_eth::transaction::pooled::PooledTransaction> for SignedWithFallbackToPostEip155 {
-    fn from(value: edr_eth::transaction::pooled::PooledTransaction) -> Self {
-        edr_eth::transaction::Signed::from(value).into()
+impl From<edr_chain_l1::PooledTransaction> for SignedWithFallbackToPostEip155 {
+    fn from(value: edr_chain_l1::PooledTransaction) -> Self {
+        edr_chain_l1::Signed::from(value).into()
     }
 }
 
 impl TransactionValidation for SignedWithFallbackToPostEip155 {
-    type ValidationError = <transaction::Signed as TransactionValidation>::ValidationError;
+    type ValidationError = <edr_chain_l1::Signed as TransactionValidation>::ValidationError;
 }
 
 impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
@@ -223,19 +222,19 @@ impl TransactionType for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl transaction::IsEip155 for SignedWithFallbackToPostEip155 {
+impl IsEip155 for SignedWithFallbackToPostEip155 {
     fn is_eip155(&self) -> bool {
         self.inner.is_eip155()
     }
 }
 
-impl transaction::IsEip4844 for SignedWithFallbackToPostEip155 {
+impl IsEip4844 for SignedWithFallbackToPostEip155 {
     fn is_eip4844(&self) -> bool {
         self.inner.is_eip4844()
     }
 }
 
-impl transaction::IsLegacy for SignedWithFallbackToPostEip155 {
+impl IsLegacy for SignedWithFallbackToPostEip155 {
     fn is_legacy(&self) -> bool {
         self.inner.is_legacy()
     }

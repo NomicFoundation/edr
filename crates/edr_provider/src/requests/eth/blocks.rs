@@ -1,13 +1,15 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_eth::{l1, BlockSpec, PreEip1898BlockSpec, B256, U256, U64};
+use edr_eth::{BlockSpec, PreEip1898BlockSpec, B256, U256, U64};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     spec::RuntimeSpec,
     Block as _,
 };
-use edr_evm_spec::{ExecutableTransaction as _, TransactionValidation};
+use edr_evm_spec::{
+    EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
+};
 use edr_rpc_eth::RpcTypeFrom as _;
 
 use crate::{
@@ -55,7 +57,7 @@ pub fn handle_get_block_by_number_request<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -104,7 +106,7 @@ pub fn handle_get_block_transaction_count_by_block_number<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -137,7 +139,7 @@ fn block_by_number<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

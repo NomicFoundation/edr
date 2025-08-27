@@ -2,7 +2,8 @@
 
 use std::sync::Arc;
 
-use edr_eth::{address, bytes, l1::L1ChainSpec, U256};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{address, bytes, U256};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,

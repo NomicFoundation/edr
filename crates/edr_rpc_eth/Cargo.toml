@@ -7,12 +7,15 @@ edition.workspace = true
 alloy-eips.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
 derive-where.workspace = true
+edr_chain_l1.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_evm_spec.workspace = true
+edr_receipt.workspace = true
 edr_rpc_client = { version = "0.3.5", path = "../edr_rpc_client" }
 edr_signer.workspace = true
+edr_transaction.workspace = true
 futures = { version = "0.3.28", default-features = false, features = ["std"] }
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 log = { version = "0.4.17", default-features = false }

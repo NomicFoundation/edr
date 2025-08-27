@@ -1,3 +1,3 @@
-pub use edr_eth::receipt::BlockReceipt;
+pub use edr_receipt::BlockReceipt;
 
 pub mod execution;

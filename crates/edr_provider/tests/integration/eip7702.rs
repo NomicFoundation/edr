@@ -10,11 +10,8 @@ mod zeroed_chain_id;
 
 use std::sync::Arc;
 
-use edr_eth::{
-    address,
-    l1::{self, L1ChainSpec},
-    transaction, Address, Bytes, B256, U256,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{address, Address, Bytes, B256, U256};
 use edr_evm_spec::ExecutableTransaction as _;
 use edr_provider::{
     test_utils::{
@@ -47,7 +44,7 @@ fn assert_code_at(provider: &Provider<L1ChainSpec>, address: Address, expected: 
 }
 
 fn new_provider(
-    mut config: ProviderConfig<l1::SpecId>,
+    mut config: ProviderConfig<edr_chain_l1::Hardfork>,
     owned_accounts: Vec<SecretKey>,
 ) -> anyhow::Result<Provider<L1ChainSpec>> {
     set_genesis_state_with_owned_accounts(&mut config, owned_accounts, one_ether());
@@ -90,7 +87,7 @@ async fn trace_transaction() -> anyhow::Result<()> {
 
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = l1::SpecId::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
 
     let provider = new_provider(config, vec![secret_key])?;
 
@@ -134,7 +131,7 @@ async fn get_transaction() -> anyhow::Result<()> {
 
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = l1::SpecId::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
 
     let provider = new_provider(config, vec![secret_key])?;
 
@@ -152,9 +149,9 @@ async fn get_transaction() -> anyhow::Result<()> {
 
     let transaction: edr_rpc_eth::TransactionWithSignature =
         serde_json::from_value(response.result)?;
-    let transaction = transaction::Signed::try_from(transaction)?;
+    let transaction = edr_chain_l1::Signed::try_from(transaction)?;
 
-    if let transaction::Signed::Eip7702(transaction) = transaction {
+    if let edr_chain_l1::Signed::Eip7702(transaction) = transaction {
         assert_eq!(Some(transaction.chain_id), transaction_request.chain_id);
         assert_eq!(Some(transaction.nonce), transaction_request.nonce);
         assert_eq!(*transaction.caller(), transaction_request.from);

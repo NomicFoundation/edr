@@ -5,17 +5,14 @@ mod deposit;
 use std::sync::OnceLock;
 
 use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
-pub use edr_eth::transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
-use edr_eth::{
-    impl_revm_transaction_trait,
-    transaction::{
-        IsEip4844, IsLegacy, IsSupported, MaybeSignedTransaction, TransactionMut, TransactionType,
-        TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
-    },
-    Address, Bytes, B256, U256,
-};
 use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
 use edr_signer::{FakeableSignature, Signature};
+pub use edr_transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
+use edr_transaction::{
+    impl_revm_transaction_trait, Address, Bytes, IsEip4844, IsLegacy, IsSupported,
+    MaybeSignedTransaction, TransactionMut, TransactionType, TxKind, B256,
+    INVALID_TX_TYPE_ERROR_MESSAGE, U256,
+};
 
 use super::Signed;
 use crate::transaction::{InvalidTransaction, OpTxTrait};
@@ -61,7 +58,7 @@ pub struct Deposit {
 
 impl alloy_rlp::Decodable for Signed {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        match edr_eth::transaction::Signed::decode(buf) {
+        match edr_chain_l1::Signed::decode(buf) {
             Ok(transaction) => Ok(transaction.into()),
             Err(alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE)) => {
                 let first = buf.first().ok_or(alloy_rlp::Error::InputTooShort)?;
@@ -116,15 +113,15 @@ impl Default for Signed {
     }
 }
 
-impl From<edr_eth::transaction::Signed> for Signed {
-    fn from(value: edr_eth::transaction::Signed) -> Self {
+impl From<edr_chain_l1::Signed> for Signed {
+    fn from(value: edr_chain_l1::Signed) -> Self {
         match value {
-            edr_eth::transaction::Signed::PreEip155Legacy(tx) => Self::PreEip155Legacy(tx),
-            edr_eth::transaction::Signed::PostEip155Legacy(tx) => Self::PostEip155Legacy(tx),
-            edr_eth::transaction::Signed::Eip2930(tx) => Self::Eip2930(tx),
-            edr_eth::transaction::Signed::Eip1559(tx) => Self::Eip1559(tx),
-            edr_eth::transaction::Signed::Eip4844(tx) => Self::Eip4844(tx),
-            edr_eth::transaction::Signed::Eip7702(tx) => Self::Eip7702(tx),
+            edr_chain_l1::Signed::PreEip155Legacy(tx) => Self::PreEip155Legacy(tx),
+            edr_chain_l1::Signed::PostEip155Legacy(tx) => Self::PostEip155Legacy(tx),
+            edr_chain_l1::Signed::Eip2930(tx) => Self::Eip2930(tx),
+            edr_chain_l1::Signed::Eip1559(tx) => Self::Eip1559(tx),
+            edr_chain_l1::Signed::Eip4844(tx) => Self::Eip4844(tx),
+            edr_chain_l1::Signed::Eip7702(tx) => Self::Eip7702(tx),
         }
     }
 }

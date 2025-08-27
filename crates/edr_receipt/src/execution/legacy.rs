@@ -1,5 +1,5 @@
 use super::Legacy;
-use crate::receipt::MapReceiptLogs;
+use crate::MapReceiptLogs;
 
 impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Legacy<NewLogT>> for Legacy<LogT> {
     fn map_logs(self, map_fn: impl FnMut(LogT) -> NewLogT) -> Legacy<NewLogT> {

@@ -1,4 +1,5 @@
-use edr_eth::{eips::eip2718::TypedEnvelope, l1::L1ChainSpec, receipt::ExecutionReceipt};
+use edr_chain_l1::L1ChainSpec;
+use edr_receipt::ExecutionReceipt;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{receipt::Block, CallRequest};
@@ -31,7 +32,7 @@ pub trait GetBlockNumber {
 }
 
 impl RpcSpec for L1ChainSpec {
-    type ExecutionReceipt<LogT> = TypedEnvelope<edr_eth::receipt::execution::Eip658<LogT>>;
+    type ExecutionReceipt<LogT> = edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<LogT>>;
     type RpcBlock<DataT>
         = crate::block::Block<DataT>
     where

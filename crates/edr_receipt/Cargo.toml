@@ -1,0 +1,34 @@
+[package]
+name = "edr_receipt"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-rlp.workspace = true
+alloy-serde.workspace = true
+auto_impl.workspace = true
+edr_evm_spec.workspace = true
+edr_transaction.workspace = true
+paste.workspace = true
+revm-context-interface.workspace = true
+revm-primitives.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+edr_chain_l1.workspace = true
+edr_defaults.workspace = true
+edr_eth.workspace = true
+edr_rpc_eth.workspace = true
+edr_test_utils.workspace = true
+hex.workspace = true
+serial_test = "2.0.0"
+tempfile = { version = "3.7.1", default-features = false }
+tokio = { version = "1.23.0", features = ["macros"] }
+
+[features]
+test-remote = []
+
+[lints]
+workspace = true

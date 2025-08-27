@@ -8,13 +8,14 @@ anyhow = "1.0.89"
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-serde.workspace = true
-auto_impl = { version = "1.2", default-features = false }
+auto_impl.workspace = true
 c-kzg.workspace = true
 derive-where.workspace = true
 edr_evm_spec.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
+edr_receipt.workspace = true
 edr_signer.workspace = true
 hash-db = { version = "0.15.2", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
@@ -38,15 +39,12 @@ triehash = { version = "0.8.4", default-features = false }
 [dev-dependencies]
 anyhow = "1.0.89"
 assert-json-diff = "2.0.2"
-edr_chain_l1.workspace = true
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
 lazy_static = "1.4.0"
 paste.workspace = true
 serde_json.workspace = true
-serial_test = "2.0.0"
-tempfile = { version = "3.7.1", default-features = false }
 tokio = { version = "1.23.0", features = ["macros"] }
 
 [features]

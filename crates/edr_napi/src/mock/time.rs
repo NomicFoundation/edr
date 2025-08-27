@@ -96,7 +96,7 @@ pub fn create_provider_with_mock_timer(
             )?;
 
             let provider_config =
-                edr_provider::ProviderConfig::<edr_eth::l1::SpecId>::try_from(provider_config)?;
+                edr_provider::ProviderConfig::<edr_chain_l1::Hardfork>::try_from(provider_config)?;
 
             let provider =
                 edr_provider::Provider::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(
