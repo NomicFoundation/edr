@@ -262,12 +262,16 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     /// Notifies the trace collector that a call has ended.
     pub fn notify_call_end<
         BlockchainT: BlockHash<Error: std::error::Error>,
-        JournalT: JournalExt
-            + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        ContextT: ContextTrait<
+            Journal: JournalExt
+                         + JournalTrait<
+                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
+        >,
         StateT: State<Error: std::error::Error>,
     >(
         &mut self,
-        journal: &JournalT,
+        context: &mut ContextT,
         outcome: &CallOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
@@ -298,7 +302,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 reason,
                 gas_used: outcome.gas().spent(),
                 gas_refunded: outcome.gas().refunded() as u64,
-                logs: journal.logs().to_vec(),
+                logs: context.journal().logs().to_vec(),
                 output: Output::Call(outcome.output().clone()),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
@@ -312,7 +316,9 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
             SuccessOrHalt::Internal(_) => {
                 panic!("Internal error: {safe_ret:?}")
             }
-            SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
+            SuccessOrHalt::FatalExternalError => {
+                panic!("Fatal external error: {error:?}", error = context.error())
+            }
         };
 
         self.add_after_message(AfterMessage {
@@ -357,12 +363,16 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
     /// Notifies the trace collector that a create has ended.
     pub fn notify_create_end<
         BlockchainT: BlockHash<Error: std::error::Error>,
-        JournalT: JournalExt
-            + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
+        ContextT: ContextTrait<
+            Journal: JournalExt
+                         + JournalTrait<
+                Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+            >,
+        >,
         StateT: State<Error: std::error::Error>,
     >(
         &mut self,
-        journal: &JournalT,
+        context: &mut ContextT,
         outcome: &CreateOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
@@ -383,7 +393,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 reason,
                 gas_used: outcome.gas().spent(),
                 gas_refunded: outcome.gas().refunded() as u64,
-                logs: journal.logs().to_vec(),
+                logs: context.journal().logs().to_vec(),
                 output: Output::Create(outcome.output().clone(), outcome.address),
             },
             SuccessOrHalt::Revert => ExecutionResult::Revert {
@@ -394,10 +404,12 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
                 reason,
                 gas_used: outcome.gas().limit(),
             },
-            SuccessOrHalt::Internal(_) => {
-                panic!("Internal error: {safe_ret:?}")
+            SuccessOrHalt::Internal(error) => {
+                panic!("Internal error: {error:?}")
             }
-            SuccessOrHalt::FatalExternalError => panic!("Fatal external error"),
+            SuccessOrHalt::FatalExternalError => {
+                panic!("Fatal external error: {error:?}", error = context.error())
+            }
         };
 
         self.add_after_message(AfterMessage {
@@ -484,7 +496,7 @@ impl<
         _inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        self.notify_call_end(context.journal(), outcome);
+        self.notify_call_end(context, outcome);
     }
 
     fn create(
@@ -502,7 +514,7 @@ impl<
         _inputs: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        self.notify_create_end(context.journal(), outcome);
+        self.notify_create_end(context, outcome);
     }
 
     fn step(&mut self, interpreter: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
