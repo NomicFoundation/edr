@@ -394,6 +394,11 @@ export interface LoggerConfig {
   printLineCallback: (message: string, replace: boolean) => void
 }
 /**
+ *Creates a provider with a mock timer.
+ *For testing purposes.
+ */
+export declare function createProviderWithMockTimer(providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: TracingConfigWithBuffers, time: MockTime): Promise<Provider>
+/**
  * [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification)
  * secp256r1 precompile.
  */
@@ -1339,6 +1344,17 @@ export declare class EdrContext {
    *is called to know when all tests are done.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
+  /**
+   *Creates a mock provider, which always returns the given response.
+   *For testing purposes.
+   */
+  createMockProvider(mockedResponse: any): Provider
+}
+export declare class MockTime {
+  /**Creates a new instance of `MockTime` with the current time. */
+  static now(): MockTime
+  /**Adds the specified number of seconds to the current time. */
+  addSeconds(seconds: bigint): void
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */
