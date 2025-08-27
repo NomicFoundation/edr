@@ -83,3 +83,106 @@ impl<HardforkT> From<VariableBaseFeeParams<HardforkT>> for BaseFeeParams<Hardfor
         Self::Variable(params)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use alloy_eips::eip1559::{
+        BaseFeeParams as ConstantBaseFeeParams, DEFAULT_BASE_FEE_MAX_CHANGE_DENOMINATOR,
+        DEFAULT_ELASTICITY_MULTIPLIER,
+    };
+
+    use crate::{
+        eips::eip1559::{BaseFeeActivation, BaseFeeParams, VariableBaseFeeParams},
+        l1,
+    };
+
+    const LONDON_PARAMS: ConstantBaseFeeParams = ConstantBaseFeeParams {
+        max_change_denominator: DEFAULT_BASE_FEE_MAX_CHANGE_DENOMINATOR as u128,
+        elasticity_multiplier: DEFAULT_ELASTICITY_MULTIPLIER as u128,
+    };
+
+    #[test]
+    fn test_variable_base_params_at_condition_respects_order() {
+        let prague_params = ConstantBaseFeeParams {
+            max_change_denominator: u128::from(DEFAULT_BASE_FEE_MAX_CHANGE_DENOMINATOR),
+            elasticity_multiplier: 3,
+        };
+        let prague_activation_block_number = 22_431_084;
+        let base_fee_params = VariableBaseFeeParams::<l1::SpecId>::new(vec![
+            (
+                BaseFeeActivation::Hardfork(l1::SpecId::LONDON),
+                LONDON_PARAMS,
+            ),
+            (
+                BaseFeeActivation::BlockNumber(prague_activation_block_number),
+                prague_params,
+            ),
+        ]);
+
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::LONDON, 12_965_001), /* london activation +
+                                                                           * 1 block number */
+            Some(&LONDON_PARAMS)
+        );
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::SHANGHAI, 19_426_587), /* shanghai activation + 1 block number */
+            Some(&LONDON_PARAMS)
+        );
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::LONDON, prague_activation_block_number + 1), /* london hardfork but prague + 1 block number */
+            Some(&prague_params)
+        );
+    }
+
+    #[test]
+    fn test_variable_base_params_at_condition_returns_none_on_missing_config() {
+        let base_fee_params = VariableBaseFeeParams::<l1::SpecId>::new(vec![(
+            BaseFeeActivation::Hardfork(l1::SpecId::LONDON),
+            LONDON_PARAMS,
+        )]);
+
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::BERLIN, 12_244_000),
+            None
+        ); // berlin activation block number
+    }
+
+    #[test]
+    fn base_fee_params_constant_at_condition_returns_constant_value() {
+        let base_fee_params = BaseFeeParams::Constant(LONDON_PARAMS);
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::FRONTIER, 0),
+            Some(&LONDON_PARAMS)
+        );
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::LONDON, 12_965_000),
+            Some(&LONDON_PARAMS)
+        );
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::PRAGUE, 22_431_084),
+            Some(&LONDON_PARAMS)
+        );
+    }
+
+    #[test]
+    fn base_fee_params_variable_at_condition_returns_variable_behavior() {
+        let variable_base_fee_params = VariableBaseFeeParams::new(vec![(
+            BaseFeeActivation::Hardfork(l1::SpecId::LONDON),
+            LONDON_PARAMS,
+        )]);
+        let base_fee_params = BaseFeeParams::Variable(variable_base_fee_params.clone());
+
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::FRONTIER, 0),
+            variable_base_fee_params.at_condition(l1::SpecId::FRONTIER, 0)
+        );
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::LONDON, 12_965_000),
+            variable_base_fee_params.at_condition(l1::SpecId::LONDON, 12_965_000)
+        );
+        assert_eq!(
+            base_fee_params.at_condition(l1::SpecId::PRAGUE, 22_431_084),
+            variable_base_fee_params.at_condition(l1::SpecId::PRAGUE, 22_431_084)
+        );
+    }
+}
