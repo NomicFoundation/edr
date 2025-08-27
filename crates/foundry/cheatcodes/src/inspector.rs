@@ -1395,7 +1395,7 @@ impl<
                 .any(|(expected, _)| !expected.found && expected.count > 0)
             {
                 outcome.result.result = InstructionResult::Revert;
-                outcome.result.output = "log != expected log".abi_encode().into();
+                outcome.result.output = Error::encode("log != expected log");
                 return;
             }
 
