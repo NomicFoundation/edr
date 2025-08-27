@@ -3,7 +3,6 @@
 //! Foundry cheatcodes implementations.
 
 #![warn(
-    missing_docs,
     unreachable_pub,
     unused_crate_dependencies,
     rust_2018_idioms
@@ -17,7 +16,7 @@ extern crate tracing;
 
 use alloy_primitives::Address;
 pub use config::{CheatsConfig, CheatsConfigOptions, ExecutionContextConfig};
-pub use endpoints::{RpcEndpoint, RpcEndpoints};
+pub use endpoints::{RpcEndpoint, RpcEndpointUrl, RpcEndpoints};
 pub use error::{Error, ErrorKind, Result};
 use foundry_evm_core::{
     backend::CheatcodeBackend,
