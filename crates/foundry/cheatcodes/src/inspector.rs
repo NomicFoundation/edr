@@ -1252,7 +1252,7 @@ impl<
                         Err(error) => {
                             trace!(expected=?expected_revert, ?error, status=?outcome.result.result, "Expected revert mismatch");
                             outcome.result.result = InstructionResult::Revert;
-                            outcome.result.output = error.abi_encode().into();
+                            outcome.result.output = Error::encode(error);
                         }
                         Ok((_, retdata)) => {
                             expected_revert.actual_count += 1;
@@ -1669,7 +1669,7 @@ impl<
                     }
                     Err(err) => {
                         outcome.result.result = InstructionResult::Revert;
-                        outcome.result.output = err.abi_encode().into();
+                        outcome.result.output = Error::encode(err);
                     }
                 };
             }
