@@ -20,8 +20,6 @@ function checkHardhatEdrVersion(hardhatPackageName: string) {
     "..",
     "..",
     "..",
-    "..",
-    "..",
     "crates",
     "edr_napi",
     "index.js"

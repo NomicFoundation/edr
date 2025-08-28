@@ -1,7 +1,7 @@
 packages:
   - "crates/edr_napi"
-  - "crates/tools/js/benchmark"
   - "hardhat-tests"
   - "hardhat-tests/integration/*"
+  - "js/benchmark"
   - "js/helpers"
   - "js/integration-tests/*"

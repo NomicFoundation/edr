@@ -104,82 +104,6 @@ importers:
         specifier: ~5.8.2
         version: 5.8.3
 
-  crates/tools/js/benchmark:
-    dependencies:
-      '@nomicfoundation/hardhat-utils':
-        specifier: 3.0.0-next.0
-        version: 3.0.0-next.0
-      papaparse:
-        specifier: ^5.5.3
-        version: 5.5.3
-    devDependencies:
-      '@ethereumjs/util':
-        specifier: ^9.1.0
-        version: 9.1.0
-      '@nomicfoundation/edr':
-        specifier: workspace:*
-        version: link:../../../edr_napi
-      '@nomicfoundation/edr-helpers':
-        specifier: workspace:*
-        version: link:../../../../js/helpers
-      '@types/argparse':
-        specifier: ^2.0.16
-        version: 2.0.16
-      '@types/lodash':
-        specifier: ^4.14.123
-        version: 4.17.0
-      '@types/node':
-        specifier: ^20.0.0
-        version: 20.16.1
-      '@types/papaparse':
-        specifier: ^5.3.16
-        version: 5.3.16
-      '@typescript-eslint/eslint-plugin':
-        specifier: 5.61.0
-        version: 5.61.0(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.8.3))(eslint@8.57.0)(typescript@5.8.3)
-      '@typescript-eslint/parser':
-        specifier: 5.61.0
-        version: 5.61.0(eslint@8.57.0)(typescript@5.8.3)
-      argparse:
-        specifier: ^2.0.1
-        version: 2.0.1
-      eslint:
-        specifier: ^8.44.0
-        version: 8.57.0
-      eslint-config-prettier:
-        specifier: 9.1.0
-        version: 9.1.0(eslint@8.57.0)
-      eslint-plugin-import:
-        specifier: 2.27.5
-        version: 2.27.5(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.8.3))(eslint@8.57.0)
-      eslint-plugin-prettier:
-        specifier: 5.2.1
-        version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
-      hardhat:
-        specifier: 3.0.0
-        version: 3.0.0(patch_hash=950b098f6868249e5ae36de5ebca5c48d9fc7dd75ed85ccc5b495bbb6056d782)
-      hardhat2:
-        specifier: npm:hardhat@2.26.1
-        version: hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
-      lodash:
-        specifier: ^4.17.11
-        version: 4.17.21
-      prettier:
-        specifier: ^3.2.5
-        version: 3.2.5
-      simple-git:
-        specifier: ^3.25.0
-        version: 3.27.0
-      smol-toml:
-        specifier: ^1.3.0
-        version: 1.3.4
-      tsx:
-        specifier: ^4.19.3
-        version: 4.19.4
-      typescript:
-        specifier: ~5.8.2
-        version: 5.8.3
-
   hardhat-tests:
     devDependencies:
       '@metamask/eth-sig-util':
@@ -341,6 +265,82 @@ importers:
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
+
+  js/benchmark:
+    dependencies:
+      '@nomicfoundation/hardhat-utils':
+        specifier: 3.0.0-next.0
+        version: 3.0.0-next.0
+      papaparse:
+        specifier: ^5.5.3
+        version: 5.5.3
+    devDependencies:
+      '@ethereumjs/util':
+        specifier: ^9.1.0
+        version: 9.1.0
+      '@nomicfoundation/edr':
+        specifier: workspace:*
+        version: link:../../crates/edr_napi
+      '@nomicfoundation/edr-helpers':
+        specifier: workspace:*
+        version: link:../helpers
+      '@types/argparse':
+        specifier: ^2.0.16
+        version: 2.0.17
+      '@types/lodash':
+        specifier: ^4.14.123
+        version: 4.17.0
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.16.1
+      '@types/papaparse':
+        specifier: ^5.3.16
+        version: 5.3.16
+      '@typescript-eslint/eslint-plugin':
+        specifier: 5.61.0
+        version: 5.61.0(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.8.3))(eslint@8.57.0)(typescript@5.8.3)
+      '@typescript-eslint/parser':
+        specifier: 5.61.0
+        version: 5.61.0(eslint@8.57.0)(typescript@5.8.3)
+      argparse:
+        specifier: ^2.0.1
+        version: 2.0.1
+      eslint:
+        specifier: ^8.44.0
+        version: 8.57.0
+      eslint-config-prettier:
+        specifier: 9.1.0
+        version: 9.1.0(eslint@8.57.0)
+      eslint-plugin-import:
+        specifier: 2.27.5
+        version: 2.27.5(@typescript-eslint/parser@5.61.0(eslint@8.57.0)(typescript@5.8.3))(eslint@8.57.0)
+      eslint-plugin-prettier:
+        specifier: 5.2.1
+        version: 5.2.1(eslint-config-prettier@9.1.0(eslint@8.57.0))(eslint@8.57.0)(prettier@3.2.5)
+      hardhat:
+        specifier: 3.0.0
+        version: 3.0.0(patch_hash=950b098f6868249e5ae36de5ebca5c48d9fc7dd75ed85ccc5b495bbb6056d782)
+      hardhat2:
+        specifier: npm:hardhat@2.26.1
+        version: hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
+      lodash:
+        specifier: ^4.17.11
+        version: 4.17.21
+      prettier:
+        specifier: ^3.2.5
+        version: 3.2.5
+      simple-git:
+        specifier: ^3.25.0
+        version: 3.28.0
+      smol-toml:
+        specifier: ^1.3.0
+        version: 1.4.2
+      tsx:
+        specifier: ^4.19.3
+        version: 4.19.4
+      typescript:
+        specifier: ~5.8.2
+        version: 5.8.3
 
   js/helpers:
     devDependencies:
@@ -1097,8 +1097,8 @@ packages:
   '@tsconfig/node20@20.1.6':
     resolution: {integrity: sha512-sz+Hqx9zwZDpZIV871WSbUzSqNIsXzghZydypnfgzPKLltVJfkINfUeTct31n/tTSa9ZE1ZOfKdRre1uHHquYQ==}
 
-  '@types/argparse@2.0.16':
-    resolution: {integrity: sha512-aMqBra2JlqpFeCWOinCtpRpiCkPIXH8hahW2+FkGzvWjfE5sAqtOcrjN5DRcMnTQqFDe6gb1CVYuGnBH0lhXwA==}
+  '@types/argparse@2.0.17':
+    resolution: {integrity: sha512-fueJssTf+4dW4HODshEGkIZbkLKHzgu1FvCI4cTc/MKum/534Euo3SrN+ilq8xgyHnOjtmg33/hee8iXLRg1XA==}
 
   '@types/async-eventemitter@0.2.4':
     resolution: {integrity: sha512-2Bq61VD01kgLf1XkK2xPtoBcu7fgn/km5JyEX9v0BlG5VQBzA+BlF9umFk+8gR8S4+eK7MgDY2oyVZCu6ar3Jw==}
@@ -2845,8 +2845,8 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
-  simple-git@3.27.0:
-    resolution: {integrity: sha512-ivHoFS9Yi9GY49ogc6/YAi3Fl9ROnF4VyubNylgCkA+RVqLaKWnDSzXOVzya8csELIaWaYNutsEuAhZrtOjozA==}
+  simple-git@3.28.0:
+    resolution: {integrity: sha512-Rs/vQRwsn1ILH1oBUy8NucJlXmnnLeLCfcvbSehkPzbv3wwoFWIdtfd6Ndo6ZPhlPsCZ60CPI4rxurnwAa+a2w==}
 
   sinon@9.2.4:
     resolution: {integrity: sha512-zljcULZQsJxVra28qIAL6ow1Z9tpattkCTEJR4RBP3TGc00FcttsP5pK284Nas5WjMZU5Yzy3kAIp3B3KRf5Yg==}
@@ -2862,8 +2862,8 @@ packages:
     resolution: {integrity: sha512-ZA6oR3T/pEyuqwMgAKT0/hAv8oAXckzbkmR0UkUosQ+Mc4RxGoJkRmwHgHufaenlyAgE1Mxgpdcrf75y6XcnDg==}
     engines: {node: '>=14.16'}
 
-  smol-toml@1.3.4:
-    resolution: {integrity: sha512-UOPtVuYkzYGee0Bd2Szz8d2G3RfMfJ2t3qVdZUAozZyAk+a0Sxa+QKix0YCwjL/A1RR0ar44nCxaoN9FxdJGwA==}
+  smol-toml@1.4.2:
+    resolution: {integrity: sha512-rInDH6lCNiEyn3+hH8KVGFdbjc099j47+OSgbMrfDYX1CmXLfdKd7qi6IfcWj2wFxvSVkuI46M+wPGYfEOEj6g==}
     engines: {node: '>= 18'}
 
   solc@0.8.26:
@@ -4129,7 +4129,7 @@ snapshots:
 
   '@tsconfig/node20@20.1.6': {}
 
-  '@types/argparse@2.0.16': {}
+  '@types/argparse@2.0.17': {}
 
   '@types/async-eventemitter@0.2.4':
     dependencies:
@@ -6136,7 +6136,7 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-git@3.27.0:
+  simple-git@3.28.0:
     dependencies:
       '@kwsites/file-exists': 1.1.1
       '@kwsites/promise-deferred': 1.1.1
@@ -6159,7 +6159,7 @@ snapshots:
 
   slash@5.1.0: {}
 
-  smol-toml@1.3.4: {}
+  smol-toml@1.4.2: {}
 
   solc@0.8.26(debug@4.4.1):
     dependencies:

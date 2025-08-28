@@ -61,4 +61,4 @@ The reported running time excludes reading the requests from disk and parsing th
 
 ## JS runner
 
-Please see the [readme](../../../crates/tools/js/benchmark/README.md) for instructions.
+Please see the [readme](../../../js/benchmark/README.md) for instructions.

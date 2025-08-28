@@ -30,7 +30,7 @@ const {
   createHardhatNetworkProvider,
 } = require("hardhat2/internal/hardhat-network/provider/provider.js");
 
-const SCENARIOS_DIR = "../../../scenarios/";
+const SCENARIOS_DIR = "scenarios";
 const SCENARIO_SNAPSHOT_NAME = "snapshot.json";
 const NEPTUNE_MAX_MIN_FAILURES = 1.05;
 
@@ -605,11 +605,11 @@ function readFile(pathToRead: string) {
 }
 
 function getScenariosDir() {
-  return path.join(dirName(import.meta.url), SCENARIOS_DIR);
+  return path.join(dirName(import.meta.url), "..", SCENARIOS_DIR);
 }
 
 function getScenarioFileNames(): string[] {
-  const scenariosDir = path.join(dirName(import.meta.url), SCENARIOS_DIR);
+  const scenariosDir = getScenariosDir();
   const scenarioFiles = fs.readdirSync(scenariosDir);
   scenarioFiles.sort();
   return scenarioFiles.filter((fileName) => fileName.endsWith(".jsonl.gz"));

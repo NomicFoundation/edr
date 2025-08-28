@@ -11,7 +11,7 @@ on:
 
 defaults:
   run:
-    working-directory: crates/tools/js/benchmark
+    working-directory: js/benchmark
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
@@ -75,7 +75,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: customSmallerIsBetter
-          output-file-path: crates/tools/js/benchmark/scenario-report.json
+          output-file-path: js/benchmark/scenario-report.json
           gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
           gh-pages-branch: main
           benchmark-data-dir-path: bench
@@ -129,7 +129,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: customSmallerIsBetter
-          output-file-path: crates/tools/js/benchmark/soltest-report.json
+          output-file-path: js/benchmark/soltest-report.json
           gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
           gh-pages-branch: main
           benchmark-data-dir-path: soltests
