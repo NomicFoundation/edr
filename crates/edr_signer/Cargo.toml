@@ -5,9 +5,9 @@ edition.workspace = true
 
 [dependencies]
 alloy-rlp.workspace = true
-hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+hex = { version = "0.4.3", default-features = false, features = ["alloc", "std"] }
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8", "precomputed-tables", "std"] }
-revm-primitives.workspace = true
+revm-primitives = { workspace = true, features = ["serde"] }
 serde.workspace = true
 sha3.workspace = true
 thiserror.workspace = true
