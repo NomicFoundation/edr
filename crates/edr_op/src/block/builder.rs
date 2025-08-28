@@ -3,7 +3,7 @@ use edr_eth::{
     eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
     spec::EthHeaderConstants,
     trie::KECCAK_NULL_RLP,
-    Address, HashMap, U256,
+    Address, Bytes, HashMap, U256,
 };
 use edr_evm::{
     blockchain::SyncBlockchain,
@@ -91,34 +91,8 @@ where
                         .last_block()
                         .map_err(BlockBuilderCreationError::Blockchain)?;
 
-                    let parent_header = parent_block.header();
-                    let extra_data = &parent_header.extra_data;
-
-                    let version = *extra_data.first()
-                        .expect("Extra data should have at least 1 byte for version");
-
-                    let base_fee_params = match version {
-                        DYNAMIC_BASE_FEE_PARAM_VERSION => {
-                            let denominator_bytes: [u8; 4] = extra_data[1..=4]
-                                .try_into()
-                                .expect("The slice should be exactly 4 bytes");
-
-                            let elasticity_bytes: [u8; 4] = extra_data[5..=8]
-                                .try_into()
-                                .expect("The slice should be exactly 4 bytes");
-
-                            BaseFeeParams::Constant(ConstantBaseFeeParams {
-                                max_change_denominator: u32::from_be_bytes(denominator_bytes)
-                                    .into(),
-                                elasticity_multiplier: u32::from_be_bytes(elasticity_bytes).into(),
-                            })
-                        }
-                        _ => panic!(
-                            "Unsupported base fee params version: {version}. Expected {DYNAMIC_BASE_FEE_PARAM_VERSION}."
-                        )
-                    };
-
-                    Ok(base_fee_params)
+                    let base_fee_params = decode_base_params(&parent_block.header().extra_data);
+                    Ok(BaseFeeParams::Constant(base_fee_params))
                 } else {
                     // Use the prior EIP-1559 constants.
                     Ok(OpChainSpec::base_fee_params())
@@ -219,5 +193,30 @@ where
     {
         let receipt_factory = self.block_receipt_factory();
         self.eth.finalize(&receipt_factory, rewards)
+    }
+}
+
+/// Decodes the base fee params from Bytes considering op-stack extra-param spec
+pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
+    let version = *extra_data
+        .first()
+        .expect("Extra data should have at least 1 byte for version");
+    match version {
+        DYNAMIC_BASE_FEE_PARAM_VERSION => {
+            let denominator_bytes: [u8; 4] = extra_data[1..=4]
+                .try_into()
+                .expect("The slice should be exactly 4 bytes");
+
+            let elasticity_bytes: [u8; 4] = extra_data[5..=8]
+                .try_into()
+                .expect("The slice should be exactly 4 bytes");
+
+                let max_change_denominator = u32::from_be_bytes(denominator_bytes).into();
+                let elasticity_multiplier = u32::from_be_bytes(elasticity_bytes).into();
+                ConstantBaseFeeParams{max_change_denominator, elasticity_multiplier}
+        }
+        _ => panic!(
+            "Unsupported base fee params version: {version}. Expected {DYNAMIC_BASE_FEE_PARAM_VERSION}."
+        )
     }
 }
