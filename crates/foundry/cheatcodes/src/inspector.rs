@@ -14,7 +14,7 @@ use std::{
 
 use alloy_primitives::{Address, Bytes, Log, TxKind, B256, U256};
 use alloy_rpc_types::request::TransactionRequest;
-use alloy_sol_types::{SolInterface};
+use alloy_sol_types::SolInterface;
 use derive_where::derive_where;
 use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
