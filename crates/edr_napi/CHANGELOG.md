@@ -1,5 +1,13 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.5
+
+### Patch Changes
+
+- c498e40: Upgraded revm to v27
+- ccab079: Fixed wrong stack trace for expectEmit cheatcode
+- 381643b: Removed reference to cli flag from ffi cheatcode error message.
+
 ## 0.12.0-next.4
 
 ### Minor Changes
