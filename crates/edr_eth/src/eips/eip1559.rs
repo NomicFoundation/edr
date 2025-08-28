@@ -1,7 +1,7 @@
 pub use alloy_eips::eip1559::BaseFeeParams as ConstantBaseFeeParams;
 
 /// Possible activation points of different base fee parameters
-#[derive(Clone, Copy, Debug, serde::Deserialize, Eq, Hash, PartialEq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BaseFeeActivation<HardforkT> {
     /// block number
     BlockNumber(u64),
