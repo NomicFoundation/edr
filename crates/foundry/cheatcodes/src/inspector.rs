@@ -14,7 +14,7 @@ use std::{
 
 use alloy_primitives::{Address, Bytes, Log, TxKind, B256, U256};
 use alloy_rpc_types::request::TransactionRequest;
-use alloy_sol_types::{SolInterface, SolValue};
+use alloy_sol_types::SolInterface;
 use derive_where::derive_where;
 use foundry_evm_core::{
     abi::Vm::stopExpectSafeMemoryCall,
@@ -1252,7 +1252,7 @@ impl<
                         Err(error) => {
                             trace!(expected=?expected_revert, ?error, status=?outcome.result.result, "Expected revert mismatch");
                             outcome.result.result = InstructionResult::Revert;
-                            outcome.result.output = error.abi_encode().into();
+                            outcome.result.output = Error::encode(error);
                         }
                         Ok((_, retdata)) => {
                             expected_revert.actual_count += 1;
@@ -1395,7 +1395,7 @@ impl<
                 .any(|(expected, _)| !expected.found && expected.count > 0)
             {
                 outcome.result.result = InstructionResult::Revert;
-                outcome.result.output = "log != expected log".abi_encode().into();
+                outcome.result.output = Error::encode("log != expected log");
                 return;
             }
 
@@ -1669,7 +1669,7 @@ impl<
                     }
                     Err(err) => {
                         outcome.result.result = InstructionResult::Revert;
-                        outcome.result.output = err.abi_encode().into();
+                        outcome.result.output = Error::encode(err);
                     }
                 };
             }

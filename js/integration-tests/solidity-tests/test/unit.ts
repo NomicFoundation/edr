@@ -507,4 +507,25 @@ describe("Unit tests", () => {
       ]
     );
   });
+
+  it("ExpectEmitError", async function () {
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("ExpectEmitErrorTest");
+
+    assert.equal(failedTests, 1);
+    assert.equal(totalTests, 2);
+
+    assertStackTraces(
+      stackTraces.get("testExpectEmitShouldFail()"),
+      "log != expected log",
+      [
+        {
+          contract: "ExpectEmitErrorTest",
+          function: "testExpectEmitShouldFail",
+          line: 37,
+          message: "log != expected log",
+        },
+      ]
+    );
+  });
 });
