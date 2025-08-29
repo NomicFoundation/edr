@@ -1674,7 +1674,6 @@ where
                         last_block.header(),
                         self.base_fee_params.clone(),
                         self.hardfork(),
-                        last_block.header().number + 1,
                     ))
                 },
                 Ok,
@@ -1960,7 +1959,6 @@ where
                         block.header(),
                         self.base_fee_params.clone(),
                         self.hardfork(),
-                        block.header().number,
                     ));
             }
         }

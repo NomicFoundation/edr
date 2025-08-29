@@ -280,7 +280,6 @@ impl PartialHeader {
                             parent,
                             overrides.base_fee_params,
                             hardfork,
-                            number,
                         )
                     } else {
                         u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
@@ -394,11 +393,10 @@ pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
     parent: &Header,
     base_fee_params: Option<BaseFeeParams<ChainSpecT::Hardfork>>,
     hardfork: ChainSpecT::Hardfork,
-    block_number: u64,
 ) -> u128 {
     let base_fee_params = base_fee_params
         .unwrap_or(ChainSpecT::base_fee_params())
-        .at_condition(hardfork, block_number)
+        .at_condition(hardfork, parent.number + 1)
         .copied()
         .expect("Chain must have base fee params for post-London hardforks");
 
