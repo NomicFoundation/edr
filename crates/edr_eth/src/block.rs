@@ -465,6 +465,8 @@ pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<l1::SpecId>>(
 mod tests {
     use std::str::FromStr;
 
+    use alloy_eips::eip1559::{BaseFeeParams as ConstantBaseFeeParams, INITIAL_BASE_FEE};
+
     use super::*;
     use crate::trie::KECCAK_RLP_EMPTY_ARRAY;
 
@@ -720,5 +722,118 @@ mod tests {
         let encoded = alloy_rlp::encode(&header);
         assert_eq!(encoded, expected_encoding);
         assert_eq!(header.hash(), expected_hash);
+    }
+
+    const DEFAULT_INITIAL_BASE_FEE: u128 = INITIAL_BASE_FEE as u128;
+
+    #[test]
+    fn test_partial_header_uses_base_fee_override() {
+        let ommers = vec![];
+        let configured_base_fee = 2_000_000_000;
+        let overrides = HeaderOverrides {
+            base_fee: Some(configured_base_fee),
+            ..HeaderOverrides::default()
+        };
+        let partial_header = PartialHeader::new::<l1::L1ChainSpec>(
+            l1::SpecId::LONDON,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, Some(configured_base_fee));
+    }
+
+    #[test]
+    fn test_partial_header_ignores_base_fee_params_if_before_london() {
+        let ommers = vec![];
+        let overrides = HeaderOverrides {
+            base_fee_params: Some(BaseFeeParams::Constant(ConstantBaseFeeParams {
+                max_change_denominator: 50,
+                elasticity_multiplier: 2,
+            })),
+            ..HeaderOverrides::default()
+        };
+        let partial_header = PartialHeader::new::<l1::L1ChainSpec>(
+            l1::SpecId::BERLIN,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, None);
+    }
+
+    #[test]
+    fn test_partial_header_defaults_base_fee_if_no_override_after_london() {
+        let ommers = vec![];
+        let overrides = HeaderOverrides::default();
+        let partial_header = PartialHeader::new::<l1::L1ChainSpec>(
+            l1::SpecId::LONDON,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, Some(DEFAULT_INITIAL_BASE_FEE));
+    }
+
+    #[test]
+    fn test_partial_header_defaults_base_fee_if_no_parent_after_london() {
+        let ommers = vec![];
+        let overrides = HeaderOverrides {
+            base_fee_params: Some(BaseFeeParams::Constant(ConstantBaseFeeParams {
+                max_change_denominator: 50,
+                elasticity_multiplier: 2,
+            })),
+            ..HeaderOverrides::default()
+        };
+        let partial_header = PartialHeader::new::<l1::L1ChainSpec>(
+            l1::SpecId::LONDON,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, Some(DEFAULT_INITIAL_BASE_FEE));
+    }
+
+    #[test]
+    fn test_partial_header_uses_override_with_parent_after_london() {
+        let ommers = vec![];
+        let base_fee_params = BaseFeeParams::Constant(ConstantBaseFeeParams {
+            max_change_denominator: 50,
+            elasticity_multiplier: 2,
+        });
+        let overrides = HeaderOverrides {
+            base_fee_params: Some(base_fee_params.clone()),
+            ..HeaderOverrides::default()
+        };
+        let parent_header = Header {
+            base_fee_per_gas: Some(DEFAULT_INITIAL_BASE_FEE),
+            gas_limit: 0xffffffffffffff,
+            gas_used: 200,
+            ..Header::default()
+        };
+        let partial_header = PartialHeader::new::<l1::L1ChainSpec>(
+            l1::SpecId::LONDON,
+            overrides,
+            Some(&parent_header),
+            &ommers,
+            None,
+        );
+
+        assert_eq!(
+            partial_header.base_fee,
+            Some(calculate_next_base_fee_per_gas::<l1::L1ChainSpec>(
+                &parent_header,
+                Some(base_fee_params),
+                l1::SpecId::LONDON
+            ))
+        );
     }
 }
