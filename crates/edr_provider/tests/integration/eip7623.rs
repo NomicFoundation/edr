@@ -5,10 +5,8 @@ mod send_data_to_eoa;
 
 use std::sync::Arc;
 
-use edr_eth::{
-    l1::{self, L1ChainSpec},
-    B256, U64,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{B256, U64};
 use edr_provider::{
     test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
     time::CurrentTime,
@@ -59,7 +57,7 @@ fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
     receipt.gas_used
 }
 
-fn new_provider(hardfork: l1::SpecId) -> anyhow::Result<Provider<L1ChainSpec>> {
+fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1ChainSpec>> {
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());

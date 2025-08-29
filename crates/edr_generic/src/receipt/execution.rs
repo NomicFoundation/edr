@@ -1,17 +1,20 @@
-use edr_eth::{
-    l1, log::ExecutionLog, receipt, result::ExecutionResult, transaction::TransactionType,
-};
+use edr_eth::result::ExecutionResult;
 use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
+use edr_receipt::log::{logs_to_bloom, ExecutionLog};
+use edr_transaction::TransactionType;
 
 use crate::{eip2718::TypedEnvelope, transaction};
 
 pub struct Builder;
 
 impl
-    ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::SignedWithFallbackToPostEip155>
-    for Builder
+    ExecutionReceiptBuilder<
+        edr_chain_l1::HaltReason,
+        edr_chain_l1::Hardfork,
+        transaction::SignedWithFallbackToPostEip155,
+    > for Builder
 {
-    type Receipt = TypedEnvelope<receipt::execution::Eip658<ExecutionLog>>;
+    type Receipt = TypedEnvelope<edr_receipt::execution::Eip658<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
         _pre_execution_state: StateT,
@@ -24,13 +27,13 @@ impl
         self,
         header: &edr_eth::block::PartialHeader,
         transaction: &crate::transaction::SignedWithFallbackToPostEip155,
-        result: &ExecutionResult<l1::HaltReason>,
-        _hardfork: l1::SpecId,
+        result: &ExecutionResult<edr_chain_l1::HaltReason>,
+        _hardfork: edr_chain_l1::Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
-        let logs_bloom = edr_eth::log::logs_to_bloom(&logs);
+        let logs_bloom = logs_to_bloom(&logs);
 
-        let receipt = receipt::execution::Eip658 {
+        let receipt = edr_receipt::execution::Eip658 {
             status: result.is_success(),
             cumulative_gas_used: header.gas_used,
             logs_bloom,

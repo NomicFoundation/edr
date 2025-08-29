@@ -7,12 +7,8 @@ use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_eth::{
-    filter::SubscriptionType,
-    hex, l1,
-    result::ExecutionResult,
-    spec::{ChainHardfork, ChainSpec, HaltReasonTrait},
-    transaction::TransactionValidation,
-    Address, BlockSpec, BlockTag, Bytes, B256, U256,
+    filter::SubscriptionType, hex, result::ExecutionResult, Address, BlockSpec, BlockTag, Bytes,
+    B256, U256,
 };
 use edr_evm::{
     blockchain::{BlockchainError, ForkedCreationError, InvalidGenesisBlock},
@@ -22,7 +18,11 @@ use edr_evm::{
     transaction::{self, TransactionError},
     MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
+use edr_evm_spec::{
+    ChainHardfork, ChainSpec, EvmSpecId, HaltReasonTrait, OutOfGasError, TransactionValidation,
+};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
+use edr_signer::SignatureError;
 use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;
 
@@ -304,7 +304,7 @@ pub enum ProviderError<
     SetNextPrevRandaoUnsupported { hardfork: HardforkT },
     /// An error occurred while recovering a signature.
     #[error(transparent)]
-    Signature(#[from] edr_eth::signature::SignatureError),
+    Signature(#[from] SignatureError),
     /// An error occurred while decoding the contract metadata.
     #[error("Error decoding contract metadata: {0}")]
     SolcDecoding(String),
@@ -340,34 +340,34 @@ pub enum ProviderError<
         "Feature is only available in post-{minimum:?} hardforks, the current hardfork is {actual:?}"
     )]
     UnmetHardfork {
-        actual: l1::SpecId,
-        minimum: l1::SpecId,
+        actual: EvmSpecId,
+        minimum: EvmSpecId,
     },
     #[error(
         "The transaction contains an access list parameter, but this is not supported by the current hardfork: {current_hardfork:?}"
     )]
     UnsupportedAccessListParameter {
-        current_hardfork: l1::SpecId,
-        minimum_hardfork: l1::SpecId,
+        current_hardfork: EvmSpecId,
+        minimum_hardfork: EvmSpecId,
     },
     #[error(
         "The transaction contains EIP-1559 parameters, but they are not supported by the current hardfork: {current_hardfork:?}"
     )]
     UnsupportedEIP1559Parameters {
-        current_hardfork: l1::SpecId,
-        minimum_hardfork: l1::SpecId,
+        current_hardfork: EvmSpecId,
+        minimum_hardfork: EvmSpecId,
     },
     #[error(
         "The transaction contains EIP-4844 parameters, but they are not supported by the current hardfork: {current_hardfork:?}"
     )]
     UnsupportedEIP4844Parameters {
-        current_hardfork: l1::SpecId,
-        minimum_hardfork: l1::SpecId,
+        current_hardfork: EvmSpecId,
+        minimum_hardfork: EvmSpecId,
     },
     #[error(
         "The transaction contains EIP-7702 parameters, but they are not supported by the current hardfork: {current_hardfork:?}. Use the Prague hardfork (or later)."
     )]
-    UnsupportedEip7702Parameters { current_hardfork: l1::SpecId },
+    UnsupportedEip7702Parameters { current_hardfork: EvmSpecId },
     #[error(
         "Cannot perform debug tracing on transaction '{requested_transaction_hash:?}', because its block includes transaction '{unsupported_transaction_hash:?}' with unsupported type '{unsupported_transaction_type}'"
     )]
@@ -557,8 +557,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailureWithT
     }
 }
 
-/// Wrapper around [`edr_eth::l1::HaltReason`] to convert error messages to
-/// match Hardhat.
+/// Wrapper around a halt reason to convert error messages to match Hardhat.
 #[derive(Clone, Debug, thiserror::Error, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionFailure<HaltReasonT: HaltReasonTrait> {
@@ -648,23 +647,8 @@ pub enum TransactionFailureReason<HaltReasonT: HaltReasonTrait> {
     CreateContractSizeLimit,
     Inner(HaltReasonT),
     OpcodeNotFound,
-    OutOfGas(l1::OutOfGasError),
+    OutOfGas(OutOfGasError),
     Revert(Bytes),
-}
-
-impl From<l1::HaltReason> for TransactionFailureReason<l1::HaltReason> {
-    fn from(value: l1::HaltReason) -> Self {
-        match value {
-            l1::HaltReason::CreateContractSizeLimit => {
-                TransactionFailureReason::CreateContractSizeLimit
-            }
-            l1::HaltReason::OpcodeNotFound | l1::HaltReason::InvalidFEOpcode => {
-                TransactionFailureReason::OpcodeNotFound
-            }
-            l1::HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
-            halt => TransactionFailureReason::Inner(halt),
-        }
-    }
 }
 
 fn revert_error(output: &Bytes) -> String {

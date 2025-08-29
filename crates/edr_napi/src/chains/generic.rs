@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use edr_eth::l1;
 use edr_generic::GenericChainSpec;
 use edr_napi_core::{
     logger::Logger,
@@ -31,7 +30,7 @@ impl SyncProviderFactory for GenericChainProviderFactory {
         )?;
 
         let provider_config =
-            edr_provider::ProviderConfig::<l1::SpecId>::try_from(provider_config)?;
+            edr_provider::ProviderConfig::<edr_chain_l1::Hardfork>::try_from(provider_config)?;
 
         let provider = edr_provider::Provider::<GenericChainSpec>::new(
             runtime.clone(),

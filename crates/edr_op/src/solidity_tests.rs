@@ -1,4 +1,3 @@
-use edr_eth::l1;
 use edr_evm::{
     evm::{self, Evm},
     inspector::Inspector,
@@ -20,7 +19,7 @@ pub struct OpEvmBuilder;
 
 impl
     EvmBuilderTrait<
-        l1::BlockEnv,
+        edr_chain_l1::BlockEnv,
         L1BlockInfo,
         OpHaltReason,
         OpSpecId,
@@ -32,7 +31,7 @@ impl
         DatabaseT: Database,
         InspectorT: Inspector<
             EthInstructionsContext<
-                l1::BlockEnv,
+                edr_chain_l1::BlockEnv,
                 OpTransaction<TxEnv>,
                 OpSpecId,
                 DatabaseT,
@@ -42,7 +41,7 @@ impl
         >,
     > = OpEvm<
         EthInstructionsContext<
-            l1::BlockEnv,
+            edr_chain_l1::BlockEnv,
             OpTransaction<TxEnv>,
             OpSpecId,
             DatabaseT,
@@ -52,7 +51,7 @@ impl
         EthInstructions<
             EthInterpreter,
             EthInstructionsContext<
-                l1::BlockEnv,
+                edr_chain_l1::BlockEnv,
                 OpTransaction<TxEnv>,
                 OpSpecId,
                 DatabaseT,
@@ -68,7 +67,7 @@ impl
         DatabaseT: Database,
         InspectorT: Inspector<
             EthInstructionsContext<
-                l1::BlockEnv,
+                edr_chain_l1::BlockEnv,
                 OpTransaction<TxEnv>,
                 OpSpecId,
                 DatabaseT,
@@ -78,7 +77,12 @@ impl
         >,
     >(
         db: DatabaseT,
-        env: EvmEnvWithChainContext<l1::BlockEnv, OpTransaction<TxEnv>, OpSpecId, L1BlockInfo>,
+        env: EvmEnvWithChainContext<
+            edr_chain_l1::BlockEnv,
+            OpTransaction<TxEnv>,
+            OpSpecId,
+            L1BlockInfo,
+        >,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
         let mut journaled_state = Journal::<DatabaseT, JournalEntry>::new(db);

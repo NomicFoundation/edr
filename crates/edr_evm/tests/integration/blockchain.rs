@@ -2,14 +2,10 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use edr_chain_l1::L1ChainSpec;
 use edr_eth::{
     block::{HeaderOverrides, PartialHeader},
-    eips::eip2718::TypedEnvelope,
-    l1::{self, L1ChainSpec},
-    log::{ExecutionLog, FilterLog},
-    receipt::{BlockReceipt, ExecutionReceipt as _, TransactionReceipt},
     result::{ExecutionResult, Output, SuccessReason},
-    transaction::ExecutableTransaction as _,
     Address, Bytes, HashSet, B256, U256,
 };
 use edr_evm::{
@@ -18,8 +14,13 @@ use edr_evm::{
     spec::{ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory, RuntimeSpec},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
-    transaction, EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
+    EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
     GenesisBlockOptions, RemoteBlockConversionError,
+};
+use edr_evm_spec::ExecutableTransaction as _;
+use edr_receipt::{
+    log::{ExecutionLog, FilterLog},
+    BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
 };
 use edr_rpc_eth::TransactionConversionError;
 use serial_test::serial;
@@ -43,7 +44,7 @@ const REMOTE_BLOCK_LAST_TRANSACTION_HASH: &str =
 async fn create_forked_dummy_blockchain(
     fork_block_number: Option<u64>,
 ) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>> {
-    use edr_eth::{l1, HashMap};
+    use edr_eth::HashMap;
     use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
@@ -58,7 +59,7 @@ async fn create_forked_dummy_blockchain(
         ForkedBlockchain::new(
             tokio::runtime::Handle::current().clone(),
             None,
-            l1::SpecId::default(),
+            edr_chain_l1::Hardfork::default(),
             Arc::new(rpc_client),
             fork_block_number,
             &mut irregular_state,
@@ -83,7 +84,7 @@ async fn create_dummy_blockchains(
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        l1::SpecId::default(),
+        edr_chain_l1::Hardfork::default(),
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
@@ -93,9 +94,13 @@ async fn create_dummy_blockchains(
     )
     .expect("Failed to create genesis block");
 
-    let local_blockchain =
-        LocalBlockchain::new(genesis_block, genesis_diff, 1, l1::SpecId::default())
-            .expect("Should construct without issues");
+    let local_blockchain = LocalBlockchain::new(
+        genesis_block,
+        genesis_diff,
+        1,
+        edr_chain_l1::Hardfork::default(),
+    )
+    .expect("Should construct without issues");
 
     vec![
         Box::new(local_blockchain),
@@ -164,7 +169,7 @@ fn create_dummy_block_with_difficulty(
 }
 
 fn create_dummy_block_with_hash(
-    hardfork: l1::SpecId,
+    hardfork: edr_chain_l1::Hardfork,
     number: u64,
     parent_hash: B256,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
@@ -185,7 +190,7 @@ fn create_dummy_block_with_hash(
 }
 
 fn create_dummy_block_with_header(
-    spec_id: l1::SpecId,
+    spec_id: edr_chain_l1::Hardfork,
     partial_header: PartialHeader,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     EthLocalBlock::empty(spec_id, partial_header)
@@ -194,8 +199,9 @@ fn create_dummy_block_with_header(
 struct DummyBlockAndTransaction {
     block: Arc<<L1ChainSpec as RuntimeSpec>::Block>,
     transaction_hash: B256,
-    transaction_receipt:
-        TransactionReceipt<TypedEnvelope<receipt::execution::Eip658<ExecutionLog>>>,
+    transaction_receipt: TransactionReceipt<
+        edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<ExecutionLog>>,
+    >,
 }
 
 /// Returns the transaction's hash.
@@ -257,11 +263,11 @@ fn insert_dummy_block_with_transaction(
 
     let block = EthLocalBlock::<
         RemoteBlockConversionError<TransactionConversionError>,
-        BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>,
+        BlockReceipt<edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
         ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
-        l1::SpecId,
+        edr_chain_l1::Hardfork,
         edr_rpc_eth::receipt::ConversionError,
-        transaction::Signed,
+        edr_chain_l1::Signed,
     >::new(
         &receipt_factory,
         blockchain.hardfork(),
@@ -392,7 +398,7 @@ async fn block_by_number_some() {
 async fn block_by_number_with_create() -> anyhow::Result<()> {
     use std::str::FromStr;
 
-    use edr_eth::transaction::{ExecutableTransaction as _, TxKind};
+    use edr_transaction::TxKind;
 
     const DAI_CREATION_BLOCK_NUMBER: u64 = 4_719_568;
     const DAI_CREATION_TRANSACTION_INDEX: usize = 85;

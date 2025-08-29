@@ -1,15 +1,14 @@
 #![cfg(feature = "test-remote")]
 use std::str::FromStr as _;
 
-use edr_eth::{
-    address,
-    l1::{self, InvalidHeader, L1ChainSpec},
-    transaction::TransactionValidation,
-    B256,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{address, B256};
 use edr_evm::{
     hardfork::{self, ChainOverride},
     transaction::TransactionError,
+};
+use edr_evm_spec::{
+    EvmHeaderValidationError, EvmTransactionValidationError, TransactionValidation,
 };
 use edr_generic::GenericChainSpec;
 use edr_provider::{
@@ -30,14 +29,14 @@ fn get_provider<
     ChainSpecT: SyncProviderSpec<
             CurrentTime,
             BlockEnv: Default,
-            Hardfork = l1::SpecId,
+            Hardfork = edr_chain_l1::Hardfork,
             SignedTransaction: Default
                                    + TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + PartialEq,
+                ValidationError: From<EvmTransactionValidationError> + PartialEq,
             >,
         > + ProviderSpec<CurrentTime>,
 >(
-    hardfork: l1::SpecId,
+    hardfork: edr_chain_l1::Hardfork,
     block_number: u64,
 ) -> anyhow::Result<Provider<ChainSpecT>> {
     // Arbitrum one
@@ -65,7 +64,8 @@ fn get_provider<
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_947_generic_evm_should_default_excess_gas() -> anyhow::Result<()> {
-    let provider = get_provider::<GenericChainSpec>(l1::SpecId::CANCUN, CANCUN_BLOCK_NUMBER)?;
+    let provider =
+        get_provider::<GenericChainSpec>(edr_chain_l1::Hardfork::CANCUN, CANCUN_BLOCK_NUMBER)?;
 
     let transaction_hash =
         B256::from_str("0x9fccb755176d48b3e5e576aff003bb5dc4aeefa8b0b22e082555bdc705276278")?;
@@ -88,7 +88,8 @@ async fn issue_947_generic_evm_should_default_excess_gas() -> anyhow::Result<()>
 #[serial]
 #[tokio::test(flavor = "multi_thread")]
 async fn issue_947_should_fail_with_missing_blob_gas_on_l1_after_cancun() -> anyhow::Result<()> {
-    let provider = get_provider::<L1ChainSpec>(l1::SpecId::CANCUN, CANCUN_BLOCK_NUMBER)?;
+    let provider =
+        get_provider::<L1ChainSpec>(edr_chain_l1::Hardfork::CANCUN, CANCUN_BLOCK_NUMBER)?;
 
     let transaction_hash =
         B256::from_str("0x9fccb755176d48b3e5e576aff003bb5dc4aeefa8b0b22e082555bdc705276278")?;
@@ -103,7 +104,7 @@ async fn issue_947_should_fail_with_missing_blob_gas_on_l1_after_cancun() -> any
         result,
         Err(ProviderError::DebugTrace(
             DebugTraceError::TransactionError(TransactionError::InvalidHeader(
-                InvalidHeader::ExcessBlobGasNotSet
+                EvmHeaderValidationError::ExcessBlobGasNotSet
             ))
         ))
     ));
@@ -119,7 +120,10 @@ async fn issue_947_should_fail_with_missing_blob_gas_on_l1_after_cancun() -> any
 async fn issue_947_should_succeed_on_generic_before_cancun() -> anyhow::Result<()> {
     // Arbitrum block after shanghai activation
     let shanghai_arbitrum_block = 184_097_481;
-    let provider = get_provider::<GenericChainSpec>(l1::SpecId::SHANGHAI, shanghai_arbitrum_block)?;
+    let provider = get_provider::<GenericChainSpec>(
+        edr_chain_l1::Hardfork::SHANGHAI,
+        shanghai_arbitrum_block,
+    )?;
 
     let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendTransaction(edr_rpc_eth::TransactionRequest {

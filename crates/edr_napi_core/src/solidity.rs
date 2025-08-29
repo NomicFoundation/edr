@@ -3,7 +3,7 @@ mod factory;
 
 use std::sync::Arc;
 
-use edr_eth::{l1, spec::HaltReasonTrait};
+use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::contract_decoder::SyncNestedTraceDecoder;
 use edr_solidity_tests::{
     evm_context::{
@@ -37,7 +37,7 @@ impl<
                 TransactionErrorT,
                 TransactionT,
             >,
-        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync + serde::Serialize,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync + serde::Serialize,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
         TransactionErrorT: TransactionErrorTrait,

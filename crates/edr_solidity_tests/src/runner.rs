@@ -13,7 +13,7 @@ use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::Function;
 use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, U256};
 use derive_where::derive_where;
-use edr_eth::{l1, spec::HaltReasonTrait};
+use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
     contract_decoder::{NestedTraceDecoder, SyncNestedTraceDecoder},
     solidity_stack_trace::StackTraceEntry,
@@ -203,7 +203,7 @@ impl<
                 TransactionErrorT,
                 TransactionT,
             >,
-        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason>,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason>,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
         TransactionErrorT: TransactionErrorTrait,
@@ -867,7 +867,7 @@ impl<
                 TransactionErrorT,
                 TransactionT,
             >,
-        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason>,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason>,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
         TransactionErrorT: TransactionErrorTrait,
@@ -1178,7 +1178,7 @@ impl<
                 TransactionErrorT,
                 TransactionT,
             >,
-        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
         TransactionErrorT: TransactionErrorTrait,
@@ -1436,7 +1436,7 @@ struct RunInvariantTestsArgs<
             TransactionErrorT,
             TransactionT,
         >,
-    HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason>,
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason>,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
@@ -1539,7 +1539,7 @@ fn try_to_replay_recorded_failures<
             TransactionErrorT,
             TransactionT,
         >,
-    HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason>,
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason>,
     HardforkT: HardforkTr,
     NestedTraceDecoderT: NestedTraceDecoder<HaltReasonT>,
     TransactionErrorT: TransactionErrorTrait,

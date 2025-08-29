@@ -2,13 +2,13 @@
 
 use std::{str::FromStr, sync::Arc};
 
+use edr_chain_l1::L1ChainSpec;
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     eips::eip4844::{self, GAS_PER_BLOB},
-    l1::{self, L1ChainSpec},
-    transaction::{self, ExecutableTransaction as _, TransactionType as _},
     Address, Blob, Bytes, PreEip1898BlockSpec, B256, U256,
 };
+use edr_evm_spec::ExecutableTransaction as _;
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
     time::CurrentTime,
@@ -17,6 +17,7 @@ use edr_provider::{
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
+use edr_transaction::TransactionType as _;
 use tokio::runtime;
 
 use crate::common::blob::{
@@ -29,7 +30,7 @@ fn fake_call_request() -> CallRequest {
     let transaction = transaction.into_payload();
     let from = transaction.caller();
 
-    let blob_hashes = if transaction.transaction_type() == transaction::Type::Eip4844 {
+    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::Type::Eip4844 {
         Some(transaction.blob_hashes().to_vec())
     } else {
         None
@@ -45,7 +46,7 @@ fn fake_call_request() -> CallRequest {
         data: Some(transaction.data().clone()),
         access_list: transaction
             .access_list()
-            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec),
+            .map(<[edr_eip2930::AccessListItem]>::to_vec),
         blobs,
         blob_hashes,
         ..CallRequest::default()
@@ -59,7 +60,7 @@ fn fake_transaction_request() -> TransactionRequest {
     let transaction = transaction.into_payload();
     let from = *transaction.caller();
 
-    let blob_hashes = if transaction.transaction_type() == transaction::Type::Eip4844 {
+    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::Type::Eip4844 {
         Some(transaction.blob_hashes().to_vec())
     } else {
         None
@@ -77,7 +78,7 @@ fn fake_transaction_request() -> TransactionRequest {
         chain_id: transaction.chain_id(),
         access_list: transaction
             .access_list()
-            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec),
+            .map(<[edr_eip2930::AccessListItem]>::to_vec),
         transaction_type: Some(transaction.transaction_type().into()),
         blobs,
         blob_hashes,
@@ -92,7 +93,7 @@ async fn call_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = l1::SpecId::SHANGHAI;
+    config.hardfork = edr_chain_l1::Hardfork::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -124,7 +125,7 @@ async fn estimate_gas_unsupported() -> anyhow::Result<()> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
     let mut config = create_test_config();
-    config.hardfork = l1::SpecId::SHANGHAI;
+    config.hardfork = edr_chain_l1::Hardfork::SHANGHAI;
 
     let provider = Provider::new(
         runtime::Handle::current(),
@@ -258,7 +259,7 @@ async fn get_transaction() -> anyhow::Result<()> {
     ))?;
 
     let transaction: edr_rpc_eth::TransactionWithSignature = serde_json::from_value(result.result)?;
-    let transaction = transaction::Signed::try_from(transaction)?;
+    let transaction = edr_chain_l1::Signed::try_from(transaction)?;
 
     assert_eq!(transaction, expected);
 
@@ -275,7 +276,7 @@ async fn block_header() -> anyhow::Result<()> {
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
-    config.hardfork = l1::SpecId::CANCUN;
+    config.hardfork = edr_chain_l1::Hardfork::CANCUN;
 
     config.genesis_state.insert(
         secret_key_to_address(SECRET_KEYS[0])?,

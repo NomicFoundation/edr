@@ -1,12 +1,8 @@
-use edr_eth::{
-    address, bytes,
-    eips::eip7702,
-    l1::{self, L1ChainSpec},
-    signature::public_key_to_address,
-    Bytes, U256,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{address, bytes, Bytes, U256};
 use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
+use edr_signer::public_key_to_address;
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
 use super::{assert_code_at, sign_authorization, CHAIN_ID};
@@ -16,14 +12,16 @@ static EXPECTED_CODE: Bytes = bytes!("ef0100123456789012345678901234567890123456
 fn new_provider(sender_secret_key: SecretKey) -> anyhow::Result<Provider<L1ChainSpec>> {
     let mut config = create_test_config();
     config.chain_id = CHAIN_ID;
-    config.hardfork = l1::SpecId::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
 
     super::new_provider(config, vec![sender_secret_key])
 }
 
-fn signed_authorization(secret_key: &SecretKey) -> anyhow::Result<eip7702::SignedAuthorization> {
+fn signed_authorization(
+    secret_key: &SecretKey,
+) -> anyhow::Result<edr_eip7702::SignedAuthorization> {
     sign_authorization(
-        eip7702::Authorization {
+        edr_eip7702::Authorization {
             chain_id: U256::ZERO,
             address: address!("0x1234567890123456789012345678901234567890"),
             nonce: 0x1,

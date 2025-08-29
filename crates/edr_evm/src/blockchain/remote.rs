@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use derive_where::derive_where;
-use edr_eth::{
-    filter::OneOrMore, log::FilterLog, Address, BlockSpec, HashSet, PreEip1898BlockSpec, B256, U256,
-};
+use edr_eth::{filter::OneOrMore, Address, BlockSpec, HashSet, PreEip1898BlockSpec, B256, U256};
+use edr_receipt::log::FilterLog;
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 
@@ -288,7 +287,7 @@ where
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-    use edr_eth::l1::L1ChainSpec;
+    use edr_chain_l1::L1ChainSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;

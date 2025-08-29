@@ -34,14 +34,14 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
         let runner = tokio::task::block_in_place(|| {
             runtime
                 .block_on(MultiContractRunner::<
-                    edr_eth::l1::BlockEnv,
+                    edr_op::BlockEnv,
                     _,
                     OpEvmBuilder,
-                    edr_op::OpHaltReason,
-                    edr_op::OpSpecId,
+                    edr_op::HaltReason,
+                    edr_op::Hardfork,
                     _,
                     edr_op::transaction::InvalidTransaction,
-                    edr_op::transaction::OpTxEnv<edr_eth::l1::TxEnv>,
+                    edr_op::transaction::OpTxEnv<edr_chain_l1::TxEnv>,
                 >::new(
                     config.try_into()?,
                     contracts,

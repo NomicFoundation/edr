@@ -1,18 +1,17 @@
 mod deposit;
 
-pub use edr_eth::receipt::execution::{Eip658, Legacy};
-use edr_eth::{
-    log::ExecutionLog,
-    receipt::{ExecutionReceipt, MapReceiptLogs, RootOrStatus},
-    result::ExecutionResult,
-    transaction::{Transaction as _, TransactionType as _},
-    Bloom,
-};
+use edr_eth::result::ExecutionResult;
 use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
+pub use edr_receipt::execution::{Eip658, Legacy};
+use edr_receipt::{
+    log::{logs_to_bloom, ExecutionLog},
+    Bloom, ExecutionReceipt, MapReceiptLogs, RootOrStatus,
+};
+use edr_transaction::{Transaction as _, TransactionType as _};
 
 use self::deposit::Eip658OrDeposit;
 use super::Execution;
-use crate::{eip2718::TypedEnvelope, transaction, OpHaltReason, OpSpecId};
+use crate::{eip2718::TypedEnvelope, transaction, HaltReason, Hardfork};
 
 /// Receipt for an OP deposit transaction with deposit nonce (since
 /// Regolith) and optionally deposit receipt version (since Canyon).
@@ -105,7 +104,7 @@ pub struct Builder {
     deposit_nonce: u64,
 }
 
-impl ExecutionReceiptBuilder<OpHaltReason, OpSpecId, transaction::Signed> for Builder {
+impl ExecutionReceiptBuilder<HaltReason, Hardfork, transaction::Signed> for Builder {
     type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
@@ -123,11 +122,11 @@ impl ExecutionReceiptBuilder<OpHaltReason, OpSpecId, transaction::Signed> for Bu
         self,
         header: &edr_eth::block::PartialHeader,
         transaction: &transaction::Signed,
-        result: &ExecutionResult<OpHaltReason>,
-        hardfork: OpSpecId,
+        result: &ExecutionResult<HaltReason>,
+        hardfork: Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
-        let logs_bloom = edr_eth::log::logs_to_bloom(&logs);
+        let logs_bloom = logs_to_bloom(&logs);
 
         let receipt = if transaction.transaction_type() == transaction::Type::Deposit {
             Execution::Deposit(Deposit {
@@ -136,7 +135,7 @@ impl ExecutionReceiptBuilder<OpHaltReason, OpSpecId, transaction::Signed> for Bu
                 logs_bloom,
                 logs,
                 deposit_nonce: self.deposit_nonce,
-                deposit_receipt_version: if hardfork >= OpSpecId::CANYON {
+                deposit_receipt_version: if hardfork >= Hardfork::CANYON {
                     Some(1)
                 } else {
                     None
@@ -188,7 +187,7 @@ impl<LogT> ExecutionReceipt for Execution<LogT> {
         }
     }
 
-    fn root_or_status(&self) -> edr_eth::receipt::RootOrStatus<'_> {
+    fn root_or_status(&self) -> RootOrStatus<'_> {
         match self {
             Execution::Eip658(receipt) => RootOrStatus::Status(receipt.status),
             Execution::Deposit(receipt) => RootOrStatus::Status(receipt.status),
@@ -198,7 +197,7 @@ impl<LogT> ExecutionReceipt for Execution<LogT> {
 #[cfg(test)]
 mod tests {
     use alloy_rlp::Decodable as _;
-    use edr_eth::{log::ExecutionLog, Address, Bytes, B256};
+    use edr_receipt::{log::ExecutionLog, Address, Bytes, B256};
 
     use super::*;
     use crate::eip2718::TypedEnvelope;

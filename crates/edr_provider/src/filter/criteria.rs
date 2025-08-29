@@ -1,7 +1,7 @@
-use edr_eth::{
-    filter::LogOutput,
+use edr_eth::{filter::LogOutput, Address, Bloom, HashSet, B256};
+use edr_receipt::{
     log::{matches_address_filter, matches_topics_filter, FilterLog},
-    Address, Bloom, BloomInput, HashSet, B256,
+    BloomInput,
 };
 
 #[derive(Clone, Debug, PartialEq)]

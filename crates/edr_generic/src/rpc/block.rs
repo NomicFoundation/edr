@@ -1,11 +1,11 @@
 use derive_where::derive_where;
 use edr_eth::{
     block::{BlobGas, Header},
-    transaction::ExecutableTransaction,
     withdrawal::Withdrawal,
     Address, Bloom, Bytes, B256, B64, U256,
 };
 use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
+use edr_evm_spec::ExecutableTransaction;
 use edr_rpc_eth::spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 

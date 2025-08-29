@@ -5,10 +5,10 @@ use edr_eth::{
     account::{AccountInfo, KECCAK_EMPTY},
     fee_history::FeeHistoryResult,
     filter::{LogFilterOptions, OneOrMore},
-    log::FilterLog,
     reward_percentile::RewardPercentile,
     Address, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, B256, U256, U64,
 };
+use edr_receipt::log::FilterLog;
 use edr_rpc_client::RpcClient;
 pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
 use futures::StreamExt;
@@ -322,7 +322,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
 mod tests {
     use std::{ops::Deref, str::FromStr};
 
-    use edr_eth::l1::L1ChainSpec;
+    use edr_chain_l1::L1ChainSpec;
     use reqwest::StatusCode;
     use tempfile::TempDir;
 

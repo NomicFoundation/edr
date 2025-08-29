@@ -1,13 +1,13 @@
-use edr_eth::{
-    receipt::{AsExecutionReceipt as _, ExecutionReceipt as _, TransactionReceipt},
-    transaction::TransactionType as _,
+use edr_receipt::{
+    AsExecutionReceipt as _, BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
 };
 use edr_rpc_eth::RpcTypeFrom;
+use edr_transaction::TransactionType as _;
 
-use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, OpSpecId};
+use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, Hardfork};
 
 impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
-    type Hardfork = OpSpecId;
+    type Hardfork = Hardfork;
 
     fn rpc_type_from(value: &receipt::Block, _hardfork: Self::Hardfork) -> Self {
         let transaction_type = u8::from(value.eth.inner.transaction_type());
@@ -137,7 +137,7 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
         let enveloped = TypedEnvelope::new(execution, transaction_type);
 
-        let eth = edr_eth::receipt::BlockReceipt {
+        let eth = BlockReceipt {
             block_hash: value.block_hash,
             block_number: value.block_number,
             inner: TransactionReceipt {
@@ -158,12 +158,13 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{log::ExecutionLog, Bloom, Bytes, U256};
+    use edr_eth::U256;
+    use edr_receipt::{log::ExecutionLog, Bloom, Bytes};
     use edr_rpc_eth::impl_execution_receipt_tests;
     use receipt::BlockReceiptFactory;
 
     use super::*;
-    use crate::{L1BlockInfo, OpChainSpec, OpSpecId};
+    use crate::{Hardfork, L1BlockInfo, OpChainSpec};
 
     impl_execution_receipt_tests! {
         OpChainSpec, BlockReceiptFactory {
@@ -175,7 +176,7 @@ mod tests {
                 l1_blob_base_fee_scalar: None,
             }.into(),
         } => {
-            eip658_legacy, OpSpecId::FJORD => TypedEnvelope::Legacy(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_legacy, Hardfork::FJORD => TypedEnvelope::Legacy(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -184,7 +185,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip2930, OpSpecId::FJORD => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip2930, Hardfork::FJORD => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -193,7 +194,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip1559, OpSpecId::FJORD => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip1559, Hardfork::FJORD => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -202,7 +203,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip4844, OpSpecId::FJORD => TypedEnvelope::Eip4844(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip4844, Hardfork::FJORD => TypedEnvelope::Eip4844(receipt::Execution::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -211,7 +212,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            deposit, OpSpecId::FJORD => TypedEnvelope::Deposit(receipt::Execution::Deposit(receipt::execution::Deposit {
+            deposit, Hardfork::FJORD => TypedEnvelope::Deposit(receipt::Execution::Deposit(receipt::execution::Deposit {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),

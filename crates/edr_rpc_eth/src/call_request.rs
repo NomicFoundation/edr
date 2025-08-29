@@ -1,7 +1,4 @@
-use edr_eth::{
-    eips::{eip2930, eip7702},
-    Address, Blob, Bytes, B256, U256,
-};
+use edr_eth::{Address, Blob, Bytes, B256, U256};
 
 /// For specifying input to methods requiring a transaction object, like
 /// `eth_call` and `eth_estimateGas`
@@ -30,7 +27,7 @@ pub struct CallRequest {
     #[serde(alias = "input")]
     pub data: Option<Bytes>,
     /// warm storage access pre-payment
-    pub access_list: Option<Vec<eip2930::AccessListItem>>,
+    pub access_list: Option<Vec<edr_eip2930::AccessListItem>>,
     /// EIP-2718 type
     #[serde(default, rename = "type", with = "alloy_serde::quantity::opt")]
     pub transaction_type: Option<u8>,
@@ -39,7 +36,7 @@ pub struct CallRequest {
     /// Blob versioned hashes (EIP-4844)
     pub blob_hashes: Option<Vec<B256>>,
     /// Authorization list (EIP-7702)
-    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
+    pub authorization_list: Option<Vec<edr_eip7702::SignedAuthorization>>,
 }
 
 #[cfg(test)]

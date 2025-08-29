@@ -1,7 +1,5 @@
-use edr_eth::{
-    block::PartialHeader, eips::eip1559::ConstantBaseFeeParams, spec::EthHeaderConstants,
-    trie::KECCAK_NULL_RLP, Address, HashMap, U256,
-};
+use edr_eip1559::ConstantBaseFeeParams;
+use edr_eth::{block::PartialHeader, trie::KECCAK_NULL_RLP, Address, HashMap, U256};
 use edr_evm::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -12,6 +10,7 @@ use edr_evm::{
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionErrorForChainSpec,
     EthBlockBuilder, MineBlockResultAndState,
 };
+use edr_evm_spec::EthHeaderConstants as _;
 use op_revm::{L1BlockInfo, OpHaltReason};
 
 use crate::{
@@ -19,7 +18,7 @@ use crate::{
     eip1559::{encode_dynamic_base_fee_params, DYNAMIC_BASE_FEE_PARAM_VERSION},
     predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
     receipt::BlockReceiptFactory,
-    transaction, OpChainSpec, OpSpecId,
+    transaction, Hardfork, OpChainSpec,
 };
 
 /// Block builder for OP.
@@ -44,22 +43,22 @@ where
             Self::StateError,
         >,
         state: Box<dyn edr_evm::state::SyncState<Self::StateError>>,
-        cfg: CfgEnv<OpSpecId>,
+        cfg: CfgEnv<Hardfork>,
         mut inputs: BlockInputs,
         mut overrides: edr_eth::block::HeaderOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
-    ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>>
+    ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, Hardfork, Self::StateError>>
     {
         // TODO: https://github.com/NomicFoundation/edr/issues/990
         // Replace this once we can detect chain-specific block inputs in the provider
         // and avoid passing them as input.
-        if cfg.spec >= OpSpecId::CANYON {
+        if cfg.spec >= Hardfork::CANYON {
             // `EthBlockBuilder` expects `inputs.withdrawals.is_some()` despite OP not
             // supporting withdrawals.
             inputs.withdrawals = Some(Vec::new());
         }
 
-        if cfg.spec >= OpSpecId::ISTHMUS {
+        if cfg.spec >= Hardfork::ISTHMUS {
             let withdrawals_root = overrides
                 .withdrawals_root
                 .map_or_else(
@@ -76,14 +75,14 @@ where
             overrides.withdrawals_root = Some(withdrawals_root);
         }
 
-        if cfg.spec >= OpSpecId::HOLOCENE {
-            let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<ConstantBaseFeeParams, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>> {
+        if cfg.spec >= Hardfork::HOLOCENE {
+            let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<ConstantBaseFeeParams, BlockBuilderCreationError<Self::BlockchainError, Hardfork, Self::StateError>> {
                 let parent_block_number = blockchain.last_block_number();
                 let parent_hardfork = blockchain
                     .spec_at_block_number(parent_block_number)
                     .map_err(BlockBuilderCreationError::Blockchain)?;
 
-                if parent_hardfork >= OpSpecId::HOLOCENE {
+                if parent_hardfork >= Hardfork::HOLOCENE {
                     // Take parameters from parent block's extra data
                     let parent_block = blockchain
                         .last_block()

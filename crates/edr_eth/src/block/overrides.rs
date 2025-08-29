@@ -1,5 +1,7 @@
+use edr_eip1559::ConstantBaseFeeParams;
+
 use super::BlobGas;
-use crate::{eips::eip1559::ConstantBaseFeeParams, Address, Bytes, B256, B64, U256};
+use crate::{Address, Bytes, B256, B64, U256};
 
 /// Data of a block header
 #[derive(Debug, Default)]

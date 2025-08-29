@@ -1,15 +1,8 @@
-// Re-export the receipt types from `edr_eth`.
-pub use edr_eth::receipt::*;
-use edr_eth::{
-    block,
-    eips::eip2718::TypedEnvelope,
-    l1,
-    log::{self, ExecutionLog},
-    receipt,
-    result::ExecutionResult,
-    spec::HaltReasonTrait,
-    transaction::{self, ExecutableTransaction, TransactionType as _, TransactionValidation},
-};
+use edr_chain_l1::TypedEnvelope;
+use edr_eth::{block, result::ExecutionResult};
+use edr_evm_spec::{ExecutableTransaction, HaltReasonTrait, TransactionValidation};
+use edr_receipt::log::{logs_to_bloom, ExecutionLog};
+use edr_transaction::TransactionType as _;
 
 use crate::state::State;
 
@@ -41,12 +34,14 @@ where
 /// Builder for execution receipts.
 pub struct Builder;
 
-impl ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::Signed> for Builder {
-    type Receipt = TypedEnvelope<receipt::execution::Eip658<ExecutionLog>>;
+impl ExecutionReceiptBuilder<edr_chain_l1::HaltReason, edr_chain_l1::Hardfork, edr_chain_l1::Signed>
+    for Builder
+{
+    type Receipt = TypedEnvelope<edr_receipt::execution::Eip658<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
         _pre_execution_state: StateT,
-        _transaction: &transaction::Signed,
+        _transaction: &edr_chain_l1::Signed,
     ) -> Result<Self, StateT::Error> {
         Ok(Self)
     }
@@ -54,14 +49,14 @@ impl ExecutionReceiptBuilder<l1::HaltReason, l1::SpecId, transaction::Signed> fo
     fn build_receipt(
         self,
         header: &block::PartialHeader,
-        transaction: &transaction::Signed,
-        result: &ExecutionResult<l1::HaltReason>,
-        _hardfork: l1::SpecId,
+        transaction: &edr_chain_l1::Signed,
+        result: &ExecutionResult<edr_chain_l1::HaltReason>,
+        _hardfork: edr_chain_l1::Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
-        let logs_bloom = log::logs_to_bloom(&logs);
+        let logs_bloom = logs_to_bloom(&logs);
 
-        let receipt = receipt::execution::Eip658 {
+        let receipt = edr_receipt::execution::Eip658 {
             status: result.is_success(),
             cumulative_gas_used: header.gas_used,
             logs_bloom,

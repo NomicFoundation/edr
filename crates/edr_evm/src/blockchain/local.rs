@@ -1,7 +1,9 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{l1, log::FilterLog, Address, HashSet, B256, U256};
+use edr_eth::{Address, HashSet, B256, U256};
+use edr_evm_spec::EvmSpecId;
+use edr_receipt::log::FilterLog;
 
 use super::{
     compute_state_at_block,
@@ -66,7 +68,7 @@ where
             });
         }
 
-        if hardfork.into() >= l1::SpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
+        if hardfork.into() >= EvmSpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
             return Err(InvalidGenesisBlock::MissingWithdrawals);
         }
 
@@ -295,9 +297,9 @@ impl<ChainSpecT: SyncRuntimeSpec> BlockHash for LocalBlockchain<ChainSpecT> {
 
 #[cfg(test)]
 mod tests {
+    use edr_chain_l1::L1ChainSpec;
     use edr_eth::{
         account::{Account, AccountInfo, AccountStatus},
-        l1::L1ChainSpec,
         HashMap,
     };
 
@@ -333,7 +335,7 @@ mod tests {
 
         let genesis_block = L1ChainSpec::genesis_block(
             genesis_diff.clone(),
-            l1::SpecId::SHANGHAI,
+            edr_chain_l1::Hardfork::SHANGHAI,
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),
@@ -345,7 +347,7 @@ mod tests {
             genesis_block,
             genesis_diff,
             123,
-            l1::SpecId::SHANGHAI,
+            edr_chain_l1::Hardfork::SHANGHAI,
         )
         .unwrap();
 

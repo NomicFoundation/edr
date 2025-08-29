@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use derive_where::derive_where;
-use edr_eth::{spec::HaltReasonTrait, Address, Bytes, U256};
+use edr_eth::{Address, Bytes, U256};
+use edr_evm_spec::HaltReasonTrait;
 
 use crate::{build_model::ContractMetadata, exit_code::ExitCode};
 

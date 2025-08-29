@@ -3,7 +3,7 @@ mod factory;
 
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_eth::l1;
+use edr_evm_spec::EvmHaltReason;
 use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
 use edr_solidity::{
@@ -30,7 +30,7 @@ pub trait SyncProvider: Send + Sync {
         &self,
         request: String,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<l1::HaltReason>>;
+    ) -> napi::Result<Response<EvmHaltReason>>;
 
     /// Set to `true` to make the traces returned with `eth_call`,
     /// `eth_estimateGas`, `eth_sendRawTransaction`, `eth_sendTransaction`,
@@ -64,7 +64,7 @@ impl<ChainSpecT: SyncNapiSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProvi
         &self,
         request: String,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<l1::HaltReason>> {
+    ) -> napi::Result<Response<EvmHaltReason>> {
         let request = match serde_json::from_str(&request) {
             Ok(request) => request,
             Err(error) => {

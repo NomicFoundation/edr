@@ -2,6 +2,7 @@ pub mod time;
 
 use std::sync::Arc;
 
+use edr_evm_spec::EvmHaltReason;
 use edr_napi_core::provider::SyncProvider;
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -35,7 +36,7 @@ impl SyncProvider for MockProvider {
         &self,
         _request: String,
         _contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<edr_napi_core::spec::Response<edr_eth::l1::HaltReason>> {
+    ) -> napi::Result<edr_napi_core::spec::Response<EvmHaltReason>> {
         let response = jsonrpc::ResponseData::Success {
             result: self.mocked_response.clone(),
         };

@@ -2,13 +2,14 @@ use std::{cmp::Ordering, fmt::Debug};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, HeaderOverrides},
-    l1,
     result::ExecutionResult,
-    signature::SignatureError,
-    spec::{ChainHardfork, ChainSpec, HaltReasonTrait},
-    transaction::{ExecutableTransaction, TransactionValidation},
     Address, HashMap,
 };
+use edr_evm_spec::{
+    ChainHardfork, ChainSpec, EvmTransactionValidationError, ExecutableTransaction,
+    HaltReasonTrait, TransactionValidation,
+};
+use edr_signer::SignatureError;
 use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};
 
@@ -110,7 +111,7 @@ where
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     InspectorT: for<'inspector> Inspector<
@@ -173,7 +174,9 @@ where
                     }
                     BlockTransactionError::Transaction(TransactionError::InvalidTransaction(
                         error,
-                    )) if error == l1::InvalidTransaction::GasPriceLessThanBasefee.into() => {
+                    )) if error
+                        == EvmTransactionValidationError::GasPriceLessThanBasefee.into() =>
+                    {
                         pending_transactions.remove_caller(&caller);
                     }
                     remainder => return Err(MineBlockError::BlockTransaction(remainder)),
@@ -313,7 +316,7 @@ where
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: SyncRuntimeSpec<
         SignedTransaction: TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     InspectorT: for<'inspector> Inspector<

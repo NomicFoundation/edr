@@ -1,9 +1,6 @@
 use std::str::FromStr;
 
-use edr_eth::{
-    transaction::{IsEip4844, ParseError},
-    U8,
-};
+use edr_transaction::{IsEip4844, ParseError, U8};
 
 use super::{signed, Type};
 

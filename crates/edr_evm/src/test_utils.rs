@@ -4,14 +4,13 @@ use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
     block::{self, miner_reward, HeaderOverrides},
-    l1,
-    log::FilterLog,
-    receipt::{AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _},
-    transaction::{TransactionValidation, TxKind},
     withdrawal::Withdrawal,
     Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
 };
+use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
+use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _};
 use edr_rpc_eth::client::EthRpcClient;
+use edr_transaction::TxKind;
 
 use crate::{
     blockchain::{Blockchain as _, BlockchainErrorForChainSpec, ForkedBlockchain},
@@ -25,7 +24,7 @@ use crate::{
 /// A test fixture for `MemPool`.
 pub struct MemPoolTestFixture {
     /// The mem pool.
-    pub mem_pool: MemPool<transaction::Signed>,
+    pub mem_pool: MemPool<edr_chain_l1::Signed>,
     /// The state.
     pub state: TrieState,
 }
@@ -46,7 +45,7 @@ impl MemPoolTestFixture {
     /// Tries to add the provided transaction to the mem pool.
     pub fn add_transaction(
         &mut self,
-        transaction: transaction::Signed,
+        transaction: edr_chain_l1::Signed,
     ) -> Result<(), MemPoolAddTransactionError<StateError>> {
         self.mem_pool.add_transaction(&self.state, transaction)
     }
@@ -67,7 +66,7 @@ impl MemPoolTestFixture {
 pub fn dummy_eip155_transaction(
     caller: Address,
     nonce: u64,
-) -> Result<transaction::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
     dummy_eip155_transaction_with_price(caller, nonce, 0)
 }
 
@@ -76,7 +75,7 @@ pub fn dummy_eip155_transaction_with_price(
     caller: Address,
     nonce: u64,
     gas_price: u128,
-) -> Result<transaction::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
     dummy_eip155_transaction_with_price_and_limit(caller, nonce, gas_price, 30_000)
 }
 
@@ -85,7 +84,7 @@ pub fn dummy_eip155_transaction_with_limit(
     caller: Address,
     nonce: u64,
     gas_limit: u64,
-) -> Result<transaction::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
     dummy_eip155_transaction_with_price_and_limit(caller, nonce, 0, gas_limit)
 }
 
@@ -94,7 +93,7 @@ fn dummy_eip155_transaction_with_price_and_limit(
     nonce: u64,
     gas_price: u128,
     gas_limit: u64,
-) -> Result<transaction::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
     dummy_eip155_transaction_with_price_limit_and_value(
         caller,
         nonce,
@@ -112,9 +111,9 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
     gas_price: u128,
     gas_limit: u64,
     value: U256,
-) -> Result<transaction::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
     let from = Address::random();
-    let request = transaction::request::Eip155 {
+    let request = edr_chain_l1::request::Eip155 {
         nonce,
         gas_price,
         gas_limit,
@@ -124,9 +123,9 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
         chain_id: 123,
     };
     let transaction = request.fake_sign(caller);
-    let transaction = transaction::Signed::from(transaction);
+    let transaction = edr_chain_l1::Signed::from(transaction);
 
-    transaction::validate(transaction, l1::SpecId::default())
+    transaction::validate(transaction, EvmSpecId::default())
 }
 
 /// Creates a dummy EIP-1559 transaction with the provided max fee and max
@@ -136,9 +135,9 @@ pub fn dummy_eip1559_transaction(
     nonce: u64,
     max_fee_per_gas: u128,
     max_priority_fee_per_gas: u128,
-) -> Result<transaction::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
     let from = Address::random();
-    let request = transaction::request::Eip1559 {
+    let request = edr_chain_l1::request::Eip1559 {
         chain_id: 123,
         nonce,
         max_priority_fee_per_gas,
@@ -150,9 +149,9 @@ pub fn dummy_eip1559_transaction(
         access_list: Vec::new(),
     };
     let transaction = request.fake_sign(caller);
-    let transaction = transaction::Signed::from(transaction);
+    let transaction = edr_chain_l1::Signed::from(transaction);
 
-    transaction::validate(transaction, l1::SpecId::default())
+    transaction::validate(transaction, EvmSpecId::default())
 }
 
 /// Runs a full remote block, asserting that the mined block matches the remote
@@ -169,7 +168,7 @@ pub async fn run_full_block<
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,
             >,
             SignedTransaction: TransactionValidation<
-                ValidationError: From<l1::InvalidTransaction> + Send + Sync,
+                ValidationError: From<EvmTransactionValidationError> + Send + Sync,
             >,
         >,
 >(
@@ -358,7 +357,8 @@ pub async fn run_full_block<
 
 /// Implements full block tests for the provided chain specs.
 /// ```no_run
-/// use edr_eth::{block::{self, HeaderOverrides}, l1::L1ChainSpec};
+/// use edr_chain_l1::L1ChainSpec;
+/// use edr_eth::{block::{self, HeaderOverrides}};
 /// use edr_evm::impl_full_block_tests;
 /// use edr_test_utils::env::get_alchemy_url;
 ///

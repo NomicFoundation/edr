@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_op::{OpChainSpec, OpSpecId};
+use edr_op::OpChainSpec;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
@@ -14,7 +14,7 @@ async fn holocene_genesis_block() -> anyhow::Result<()> {
     let subscriber = Box::new(|_event| {});
 
     let mut config = create_test_config();
-    config.hardfork = OpSpecId::HOLOCENE;
+    config.hardfork = edr_op::Hardfork::HOLOCENE;
 
     let provider = Provider::new(
         runtime::Handle::current(),

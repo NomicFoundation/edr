@@ -12,7 +12,7 @@
 
 use alloy_rlp::{BufMut, Encodable};
 
-use crate::{keccak256, B256, U256, U64};
+use crate::{U256, U64};
 
 /// RLP-encodes the provided value and prepends it with the provided ID.
 pub fn enveloped<T: Encodable>(id: u8, v: &T, out: &mut dyn BufMut) {
@@ -27,25 +27,6 @@ pub fn envelop_bytes(id: u8, bytes: &[u8]) -> Vec<u8> {
     out[1..].copy_from_slice(bytes);
 
     out
-}
-
-/// Hash a message according to EIP-191.
-///
-/// The data is a UTF-8 encoded string and will be enveloped as follows:
-/// `"\x19Ethereum Signed Message:\n" + message.length + message` and hashed
-/// using keccak256.
-pub fn hash_message<S>(message: S) -> B256
-where
-    S: AsRef<[u8]>,
-{
-    const PREFIX: &str = "\x19Ethereum Signed Message:\n";
-
-    let message = message.as_ref();
-
-    let mut eth_message = format!("{}{}", PREFIX, message.len()).into_bytes();
-    eth_message.extend_from_slice(message);
-
-    keccak256(&eth_message)
 }
 
 /// Convert a U256 to String as a 32-byte 0x prefixed hex string.

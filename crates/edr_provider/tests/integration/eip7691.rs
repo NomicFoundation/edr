@@ -2,12 +2,9 @@
 
 use std::sync::Arc;
 
-use edr_eth::{
-    eips::eip4844::GAS_PER_BLOB,
-    l1::{self, L1ChainSpec},
-    transaction::ExecutableTransaction as _,
-    PreEip1898BlockSpec, B256,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{eips::eip4844::GAS_PER_BLOB, PreEip1898BlockSpec, B256};
+use edr_evm_spec::ExecutableTransaction as _;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
@@ -27,7 +24,7 @@ async fn block_header() -> anyhow::Result<()> {
     config.chain_id = fake_transaction()
         .chain_id()
         .expect("Blob transaction has chain ID");
-    config.hardfork = l1::SpecId::PRAGUE;
+    config.hardfork = edr_chain_l1::Hardfork::PRAGUE;
 
     let provider = Provider::new(
         runtime::Handle::current(),

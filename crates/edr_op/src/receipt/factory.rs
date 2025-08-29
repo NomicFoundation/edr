@@ -1,26 +1,22 @@
-use edr_eth::{
-    log::FilterLog,
-    receipt::{ReceiptFactory, TransactionReceipt},
-    B256,
-};
 use edr_evm::EthBlockReceiptFactory;
+use edr_receipt::{log::FilterLog, ReceiptFactory, TransactionReceipt, B256};
 use op_revm::L1BlockInfo;
 
-use crate::{eip2718::TypedEnvelope, receipt, transaction, transaction::OpTxTrait as _, OpSpecId};
+use crate::{eip2718::TypedEnvelope, receipt, transaction, transaction::OpTxTrait as _, Hardfork};
 
 /// Block receipt factory for OP.
 pub struct BlockReceiptFactory {
     pub(crate) l1_block_info: L1BlockInfo,
 }
 
-impl ReceiptFactory<TypedEnvelope<receipt::Execution<FilterLog>>, OpSpecId, transaction::Signed>
+impl ReceiptFactory<TypedEnvelope<receipt::Execution<FilterLog>>, Hardfork, transaction::Signed>
     for BlockReceiptFactory
 {
     type Output = receipt::Block;
 
     fn create_receipt(
         &self,
-        hardfork: OpSpecId,
+        hardfork: Hardfork,
         transaction: &transaction::Signed,
         transaction_receipt: TransactionReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
         block_hash: &B256,
@@ -49,7 +45,7 @@ impl ReceiptFactory<TypedEnvelope<receipt::Execution<FilterLog>>, OpSpecId, tran
 }
 
 fn to_rpc_l1_block_info(
-    hardfork: OpSpecId,
+    hardfork: Hardfork,
     l1_block_info: &L1BlockInfo,
     transaction: &transaction::Signed,
     transaction_receipt: &TransactionReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
@@ -67,7 +63,7 @@ fn to_rpc_l1_block_info(
         let mut l1_block_info = l1_block_info.clone();
         let l1_fee = l1_block_info.calculate_tx_l1_cost(enveloped_tx, hardfork);
 
-        let (l1_fee_scalar, l1_base_fee_scalar) = if hardfork < OpSpecId::ECOTONE {
+        let (l1_fee_scalar, l1_base_fee_scalar) = if hardfork < Hardfork::ECOTONE {
             let l1_fee_scalar: f64 = l1_block_info.l1_base_fee_scalar.into();
 
             (Some(l1_fee_scalar / 1_000_000f64), None)

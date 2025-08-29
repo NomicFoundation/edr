@@ -1,6 +1,7 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use edr_eth::{log::ExecutionLog, Address, U256};
+use edr_eth::{Address, U256};
+use edr_receipt::log::ExecutionLog;
 pub use revm::inspector::{Inspector, NoOpInspector};
 use revm_interpreter::{
     CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter, InterpreterTypes,

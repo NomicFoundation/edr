@@ -7,7 +7,6 @@ use std::{
 
 use anyhow::Context;
 use derive_where::derive_where;
-use edr_eth::l1;
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
@@ -106,7 +105,7 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         }
     }
 
-    let provider_config = edr_provider::ProviderConfig::<l1::SpecId>::try_from(
+    let provider_config = edr_provider::ProviderConfig::<edr_chain_l1::Hardfork>::try_from(
         edr_napi_core::provider::Config::from(config.provider_config),
     )?;
 
