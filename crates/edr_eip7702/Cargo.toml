@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 revm-context-interface.workspace = true
-revm-primitives.workspace = true
+revm-primitives = { workspace = true, features = ["serde"] }
 
 [lints]
 workspace = true
