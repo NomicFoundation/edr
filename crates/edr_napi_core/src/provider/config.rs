@@ -3,9 +3,11 @@ use std::{str::FromStr, time::SystemTime};
 
 use edr_eth::{
     block::BlobGas,
+    eips::eip1559::{BaseFeeActivation, ConstantBaseFeeParams},
+    hash_map::HashMap,
     l1::{self, hardfork::UnknownHardfork},
     signature::SecretKey,
-    Address, ChainId, HashMap, B256,
+    Address, ChainId, B256,
 };
 use edr_evm::{
     hardfork::{self, ChainOverride},
@@ -22,6 +24,7 @@ pub struct Config {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
+    pub base_fee_params: Option<Vec<(BaseFeeActivation<String>, ConstantBaseFeeParams)>>,
     pub block_gas_limit: NonZeroU64,
     pub chain_id: ChainId,
     pub coinbase: Address,
@@ -41,13 +44,47 @@ pub struct Config {
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
 }
 
-impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
+fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
 where
     HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId>,
+{
+    hardfork.parse().map_err(|UnknownHardfork| {
+        napi::Error::new(
+            napi::Status::InvalidArg,
+            format!("Unknown hardfork: {hardfork}"),
+        )
+    })
+}
+
+impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
+where
+    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId> + Clone,
 {
     type Error = napi::Error;
 
     fn try_from(value: Config) -> Result<Self, Self::Error> {
+        let base_fee_params: Option<Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>> =
+            value
+                .base_fee_params
+                .map(|config| {
+                    config.into_iter().map(|(key, value)| {
+                let new_key = match key {
+                    BaseFeeActivation::Hardfork(hardfork_str) => {
+                        let hardfork = parse_hardfork(hardfork_str)?;
+                        BaseFeeActivation::Hardfork(hardfork)
+                    }
+                    BaseFeeActivation::BlockNumber(number) => {
+                        BaseFeeActivation::BlockNumber(number)
+                    }
+                };
+                Ok((new_key, value))
+            })
+            .collect::<napi::Result<
+                Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>
+            >>()
+                })
+                .transpose()?;
+
         let fork = value
             .fork
             .map(|fork| -> napi::Result<ForkConfig<HardforkT>> {
@@ -66,13 +103,7 @@ where
                                              condition,
                                              hardfork,
                                          }| {
-                                            let hardfork =
-                                                hardfork.parse().map_err(|UnknownHardfork| {
-                                                    napi::Error::new(
-                                                        napi::Status::InvalidArg,
-                                                        format!("Unknown hardfork: {hardfork}"),
-                                                    )
-                                                })?;
+                                            let hardfork = parse_hardfork(hardfork)?;
 
                                             Ok(hardfork::Activation {
                                                 condition,
@@ -89,7 +120,6 @@ where
                             name: chain_config.name,
                             hardfork_activation_overrides,
                         };
-
                         Ok((chain_id, chain_config))
                     })
                     .collect::<napi::Result<_>>()?;
@@ -104,18 +134,14 @@ where
             })
             .transpose()?;
 
-        let hardfork = value.hardfork.parse().map_err(|UnknownHardfork| {
-            napi::Error::new(
-                napi::Status::InvalidArg,
-                format!("Unknown hardfork: {}", value.hardfork),
-            )
-        })?;
+        let hardfork = parse_hardfork(value.hardfork)?;
 
         Ok(Self {
             allow_blocks_with_same_timestamp: value.allow_blocks_with_same_timestamp,
             allow_unlimited_contract_size: value.allow_unlimited_contract_size,
             bail_on_call_failure: value.bail_on_call_failure,
             bail_on_transaction_failure: value.bail_on_transaction_failure,
+            base_fee_params,
             block_gas_limit: value.block_gas_limit,
             chain_id: value.chain_id,
             coinbase: value.coinbase,

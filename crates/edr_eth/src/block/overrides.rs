@@ -1,9 +1,9 @@
 use super::BlobGas;
-use crate::{eips::eip1559::ConstantBaseFeeParams, Address, Bytes, B256, B64, U256};
+use crate::{eips::eip1559::BaseFeeParams, Address, Bytes, B256, B64, U256};
 
 /// Data of a block header
 #[derive(Debug, Default)]
-pub struct HeaderOverrides {
+pub struct HeaderOverrides<HardforkT> {
     /// The parent block's hash
     pub parent_hash: Option<B256>,
     /// The ommers' root hash
@@ -32,7 +32,7 @@ pub struct HeaderOverrides {
     ///
     /// These only override the default base fee parameters if
     /// [`HeaderOverrides::base_fee`] is not set.
-    pub base_fee_params: Option<ConstantBaseFeeParams>,
+    pub base_fee_params: Option<BaseFeeParams<HardforkT>>,
     /// The block's withdrawals root, which is the hash tree root of the
     /// withdrawals trie.
     pub withdrawals_root: Option<B256>,

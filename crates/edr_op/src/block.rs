@@ -1,5 +1,6 @@
 mod builder;
 
+pub use builder::decode_base_params;
 use edr_evm::EthLocalBlockForChainSpec;
 
 pub use self::builder::Builder;

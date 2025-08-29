@@ -1,6 +1,9 @@
 use edr_eth::{
-    block::PartialHeader, eips::eip1559::ConstantBaseFeeParams, spec::EthHeaderConstants,
-    trie::KECCAK_NULL_RLP, Address, HashMap, U256,
+    block::PartialHeader,
+    eips::eip1559::{BaseFeeParams, ConstantBaseFeeParams},
+    spec::EthHeaderConstants,
+    trie::KECCAK_NULL_RLP,
+    Address, Bytes, HashMap, U256,
 };
 use edr_evm::{
     blockchain::SyncBlockchain,
@@ -46,7 +49,7 @@ where
         state: Box<dyn edr_evm::state::SyncState<Self::StateError>>,
         cfg: CfgEnv<OpSpecId>,
         mut inputs: BlockInputs,
-        mut overrides: edr_eth::block::HeaderOverrides,
+        mut overrides: edr_eth::block::HeaderOverrides<OpSpecId>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>>
     {
@@ -75,9 +78,8 @@ where
 
             overrides.withdrawals_root = Some(withdrawals_root);
         }
-
         if cfg.spec >= OpSpecId::HOLOCENE {
-            let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<ConstantBaseFeeParams, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>> {
+            let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<BaseFeeParams<OpSpecId>, BlockBuilderCreationError<Self::BlockchainError, OpSpecId, Self::StateError>> {
                 let parent_block_number = blockchain.last_block_number();
                 let parent_hardfork = blockchain
                     .spec_at_block_number(parent_block_number)
@@ -89,47 +91,25 @@ where
                         .last_block()
                         .map_err(BlockBuilderCreationError::Blockchain)?;
 
-                    let parent_header = parent_block.header();
-                    let extra_data = &parent_header.extra_data;
-
-                    let version = *extra_data.first()
-                        .expect("Extra data should have at least 1 byte for version");
-
-                    let base_fee_params = match version {
-                        DYNAMIC_BASE_FEE_PARAM_VERSION => {
-                            let denominator_bytes: [u8; 4] = extra_data[1..=4]
-                                .try_into()
-                                .expect("The slice should be exactly 4 bytes");
-
-                            let elasticity_bytes: [u8; 4] = extra_data[5..=8]
-                                .try_into()
-                                .expect("The slice should be exactly 4 bytes");
-
-                            ConstantBaseFeeParams {
-                                max_change_denominator: u32::from_be_bytes(denominator_bytes)
-                                    .into(),
-                                elasticity_multiplier: u32::from_be_bytes(elasticity_bytes).into(),
-                            }
-                        }
-                        _ => panic!(
-                            "Unsupported base fee params version: {version}. Expected {DYNAMIC_BASE_FEE_PARAM_VERSION}."
-                        )
-                    };
-
-                    Ok(base_fee_params)
+                    let base_fee_params = decode_base_params(&parent_block.header().extra_data);
+                    Ok(BaseFeeParams::Constant(base_fee_params))
                 } else {
                     // Use the prior EIP-1559 constants.
-                    let base_fee_params = *OpChainSpec::BASE_FEE_PARAMS
-                        .at_hardfork(cfg.spec)
-                        .expect("Chain spec must have base fee params for post-London hardforks");
-
-                    Ok(base_fee_params)
+                    Ok(OpChainSpec::base_fee_params())
                 }
             }, Ok)?;
 
+            // The current block (parent + 1) must inform the eip-1559 params to be used in the
+            // following block (parent + 2)
+            // > if Holocene is active at parent_header.timestamp, then the parameters from parent_header.extraData are used.
+            // See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
+            let extra_data_base_fee_params = base_fee_params
+                .at_condition(cfg.spec, blockchain.last_block_number() + 2)
+                .expect("Chain spec must have base fee params for post-London hardforks");
+
             let extra_data = overrides
                 .extra_data
-                .unwrap_or_else(|| encode_dynamic_base_fee_params(&base_fee_params));
+                .unwrap_or_else(|| encode_dynamic_base_fee_params(extra_data_base_fee_params));
 
             overrides.base_fee_params = Some(base_fee_params);
             overrides.extra_data = Some(extra_data);
@@ -217,5 +197,30 @@ where
     {
         let receipt_factory = self.block_receipt_factory();
         self.eth.finalize(&receipt_factory, rewards)
+    }
+}
+
+/// Decodes the base fee params from Bytes considering op-stack extra-param spec
+pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
+    let version = *extra_data
+        .first()
+        .expect("Extra data should have at least 1 byte for version");
+    match version {
+        DYNAMIC_BASE_FEE_PARAM_VERSION => {
+            let denominator_bytes: [u8; 4] = extra_data[1..=4]
+                .try_into()
+                .expect("The slice should be exactly 4 bytes");
+
+            let elasticity_bytes: [u8; 4] = extra_data[5..=8]
+                .try_into()
+                .expect("The slice should be exactly 4 bytes");
+
+                let max_change_denominator = u32::from_be_bytes(denominator_bytes).into();
+                let elasticity_multiplier = u32::from_be_bytes(elasticity_bytes).into();
+                ConstantBaseFeeParams{max_change_denominator, elasticity_multiplier}
+        }
+        _ => panic!(
+            "Unsupported base fee params version: {version}. Expected {DYNAMIC_BASE_FEE_PARAM_VERSION}."
+        )
     }
 }
