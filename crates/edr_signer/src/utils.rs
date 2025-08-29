@@ -1,3 +1,5 @@
+//! Utility functions
+
 use revm_primitives::{keccak256, B256};
 
 /// Hash a message according to EIP-191.

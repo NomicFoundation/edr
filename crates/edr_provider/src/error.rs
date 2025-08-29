@@ -557,8 +557,7 @@ impl<HaltReasonT: HaltReasonTrait> std::fmt::Display for TransactionFailureWithT
     }
 }
 
-/// Wrapper around [`edr_eth::l1::HaltReason`] to convert error messages to
-/// match Hardhat.
+/// Wrapper around a halt reason to convert error messages to match Hardhat.
 #[derive(Clone, Debug, thiserror::Error, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionFailure<HaltReasonT: HaltReasonTrait> {

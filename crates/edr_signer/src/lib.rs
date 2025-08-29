@@ -8,7 +8,7 @@
 
 mod fakeable;
 mod recovery_id;
-mod utils;
+pub mod utils;
 mod y_parity;
 
 pub use k256::SecretKey;

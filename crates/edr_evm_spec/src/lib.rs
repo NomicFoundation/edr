@@ -7,7 +7,7 @@ use core::fmt::Debug;
 use edr_eip1559::BaseFeeParams;
 pub use revm_context_interface::{
     result::{HaltReasonTr as HaltReasonTrait, OutOfGasError},
-    Block,
+    Block, Transaction,
 };
 
 pub use self::transaction::{ExecutableTransaction, TransactionValidation};

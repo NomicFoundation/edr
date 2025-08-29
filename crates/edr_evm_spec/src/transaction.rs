@@ -57,7 +57,8 @@ pub trait ExecutableTransaction {
     fn max_priority_fee_per_gas(&self) -> Option<&u128>;
 
     /// The list of blob versioned hashes. Per EIP there should be at least
-    /// one blob present if [`Transaction::max_fee_per_blob_gas`] is `Some`.
+    /// one blob present if [`crate::Transaction::max_fee_per_blob_gas`] is
+    /// `Some`.
     ///
     /// Incorporated as part of the Cancun upgrade via [EIP-4844].
     ///
