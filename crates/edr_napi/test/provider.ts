@@ -55,17 +55,21 @@ describe("Provider", () => {
     blockGasLimit: 300_000_000n,
     chainId: 123n,
     chainOverrides: [],
-    coinbase: new Uint8Array(Buffer.from("0000000000000000000000000000000000000000", "hex")),
+    coinbase: new Uint8Array(
+      Buffer.from("0000000000000000000000000000000000000000", "hex")
+    ),
     genesisState,
     hardfork: l1HardforkToString(l1HardforkLatest()),
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
     },
-    initialParentBeaconBlockRoot:  new Uint8Array(Buffer.from(
-      "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex"
-    )),
+    initialParentBeaconBlockRoot: new Uint8Array(
+      Buffer.from(
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "hex"
+      )
+    ),
     minGasPrice: 0n,
     mining: {
       autoMine: true,
@@ -586,24 +590,26 @@ describe("Provider", () => {
       GENERIC_CHAIN_TYPE,
       {
         ...providerConfig,
-        baseFeeConfig: [{
-          keyType: BaseFeeActivationType.BlockNumber,
-          activation: BigInt(0),
-          maxChangeDenominator: BigInt(50),
-          elasticityMultiplier: BigInt(6)
-        },
-        {
-          keyType: BaseFeeActivationType.Hardfork,
-          activation: l1HardforkToString(SpecId.London),
-          maxChangeDenominator: BigInt(250),
-          elasticityMultiplier: BigInt(6)
-        },
-        {
-          keyType: BaseFeeActivationType.BlockNumber,
-          activation: BigInt(135_513_416),
-          maxChangeDenominator: BigInt(250),
-          elasticityMultiplier: BigInt(4)
-        }]
+        baseFeeConfig: [
+          {
+            keyType: BaseFeeActivationType.BlockNumber,
+            activation: BigInt(0),
+            maxChangeDenominator: BigInt(50),
+            elasticityMultiplier: BigInt(6),
+          },
+          {
+            keyType: BaseFeeActivationType.Hardfork,
+            activation: l1HardforkToString(SpecId.London),
+            maxChangeDenominator: BigInt(250),
+            elasticityMultiplier: BigInt(6),
+          },
+          {
+            keyType: BaseFeeActivationType.BlockNumber,
+            activation: BigInt(135_513_416),
+            maxChangeDenominator: BigInt(250),
+            elasticityMultiplier: BigInt(4),
+          },
+        ],
       },
       loggerConfig,
       {
@@ -611,20 +617,21 @@ describe("Provider", () => {
       },
       {}
     );
-  })
-  
+  });
+
   it("fails on illegal baseFeeConfig block number activation", async function () {
     const buildProvider = context.createProvider(
       GENERIC_CHAIN_TYPE,
       {
         ...providerConfig,
-        baseFeeConfig: [{
-          keyType: BaseFeeActivationType.BlockNumber,
-          activation: l1HardforkToString(SpecId.London),
-          maxChangeDenominator: BigInt(50),
-          elasticityMultiplier: BigInt(6)
-        },
-        ]
+        baseFeeConfig: [
+          {
+            keyType: BaseFeeActivationType.BlockNumber,
+            activation: l1HardforkToString(SpecId.London),
+            maxChangeDenominator: BigInt(50),
+            elasticityMultiplier: BigInt(6),
+          },
+        ],
       },
       loggerConfig,
       {
@@ -632,20 +639,24 @@ describe("Provider", () => {
       },
       {}
     );
-     await assert.isRejected(buildProvider, "Invalid activation value for BlockNumber type");
-  })
+    await assert.isRejected(
+      buildProvider,
+      "Invalid activation value for BlockNumber type"
+    );
+  });
   it("fails on illegal baseFeeConfig hardfork activation", async function () {
     const buildProvider = context.createProvider(
       GENERIC_CHAIN_TYPE,
       {
         ...providerConfig,
-        baseFeeConfig: [{
-          keyType: BaseFeeActivationType.Hardfork,
-          activation: BigInt(0),
-          maxChangeDenominator: BigInt(50),
-          elasticityMultiplier: BigInt(6)
-        },
-        ]
+        baseFeeConfig: [
+          {
+            keyType: BaseFeeActivationType.Hardfork,
+            activation: BigInt(0),
+            maxChangeDenominator: BigInt(50),
+            elasticityMultiplier: BigInt(6),
+          },
+        ],
       },
       loggerConfig,
       {
@@ -653,9 +664,11 @@ describe("Provider", () => {
       },
       {}
     );
-     await assert.isRejected(buildProvider, "Invalid activation value for Hardfork type");
-  })
-
+    await assert.isRejected(
+      buildProvider,
+      "Invalid activation value for Hardfork type"
+    );
+  });
 });
 
 function assertEqualMemory(
