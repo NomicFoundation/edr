@@ -194,7 +194,14 @@ pub struct ProviderConfig {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
-    /// The chain eip-1559 configurable parameters
+    /// EIP-1559 base fee parameters activations to be used to calculate the
+    /// block base fee.
+    ///
+    /// Provide an ordered list of base_fee_params to be
+    /// used starting from the specified activation point (hardfork or block
+    /// number).
+    /// If not provided, the default values from the chain spec
+    /// will be used.
     pub base_fee_config: Option<Vec<BaseFeeParamActivation>>,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,

@@ -267,7 +267,16 @@ export interface ProviderConfig {
   bailOnCallFailure: boolean
   /** Whether to return an `Err` when a `eth_sendTransaction` fails */
   bailOnTransactionFailure: boolean
-  /** The chain eip-1559 configurable parameters */
+  /**
+   * EIP-1559 base fee parameters activations to be used to calculate the
+   * block base fee.
+   *
+   * Provide an ordered list of base_fee_params to be
+   * used starting from the specified activation point (hardfork or block
+   * number).
+   * If not provided, the default values from the chain spec
+   * will be used.
+   */
   baseFeeConfig?: Array<BaseFeeParamActivation>
   /** The gas limit of each block */
   blockGasLimit: bigint
