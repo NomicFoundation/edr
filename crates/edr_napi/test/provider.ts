@@ -1,5 +1,5 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
-import chai, { assert } from "chai";
+import chai, { assert, expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { Interface } from "ethers";
 
@@ -14,6 +14,11 @@ import {
   MineOrdering,
   SubscriptionEvent,
   precompileP256Verify,
+  BaseFeeActivationType,
+  SpecId,
+  OpHardfork,
+  opHardforkToString,
+  OP_CHAIN_TYPE,
 } from "..";
 import {
   collectMessages,
@@ -575,6 +580,82 @@ describe("Provider", () => {
     const precompileReceipt = await deployAndTestCustomPrecompile(false);
     assert.strictEqual(precompileReceipt.status, "0x0");
   });
+
+  it("allows baseFeeConfig configuration", async function () {
+    await context.createProvider(
+      GENERIC_CHAIN_TYPE,
+      {
+        ...providerConfig,
+        baseFeeConfig: [{
+          keyType: BaseFeeActivationType.BlockNumber,
+          activation: BigInt(0),
+          maxChangeDenominator: BigInt(50),
+          elasticityMultiplier: BigInt(6)
+        },
+        {
+          keyType: BaseFeeActivationType.Hardfork,
+          activation: l1HardforkToString(SpecId.London),
+          maxChangeDenominator: BigInt(250),
+          elasticityMultiplier: BigInt(6)
+        },
+        {
+          keyType: BaseFeeActivationType.BlockNumber,
+          activation: BigInt(135_513_416),
+          maxChangeDenominator: BigInt(250),
+          elasticityMultiplier: BigInt(4)
+        }]
+      },
+      loggerConfig,
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      },
+      {}
+    );
+  })
+  
+  it("fails on illegal baseFeeConfig block number activation", async function () {
+    const buildProvider = context.createProvider(
+      GENERIC_CHAIN_TYPE,
+      {
+        ...providerConfig,
+        baseFeeConfig: [{
+          keyType: BaseFeeActivationType.BlockNumber,
+          activation: l1HardforkToString(SpecId.London),
+          maxChangeDenominator: BigInt(50),
+          elasticityMultiplier: BigInt(6)
+        },
+        ]
+      },
+      loggerConfig,
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      },
+      {}
+    );
+     await assert.isRejected(buildProvider, "Invalid activation value for BlockNumber type");
+  })
+  it("fails on illegal baseFeeConfig hardfork activation", async function () {
+    const buildProvider = context.createProvider(
+      GENERIC_CHAIN_TYPE,
+      {
+        ...providerConfig,
+        baseFeeConfig: [{
+          keyType: BaseFeeActivationType.Hardfork,
+          activation: BigInt(0),
+          maxChangeDenominator: BigInt(50),
+          elasticityMultiplier: BigInt(6)
+        },
+        ]
+      },
+      loggerConfig,
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      },
+      {}
+    );
+     await assert.isRejected(buildProvider, "Invalid activation value for Hardfork type");
+  })
+
 });
 
 function assertEqualMemory(
