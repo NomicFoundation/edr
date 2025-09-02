@@ -3,11 +3,8 @@
 use core::str::FromStr as _;
 use std::sync::Arc;
 
-use edr_eth::{
-    address,
-    l1::{self, L1ChainSpec},
-    Bytes,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::{address, Bytes};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
@@ -16,7 +13,7 @@ use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
-fn new_provider(hardfork: l1::SpecId) -> anyhow::Result<Provider<L1ChainSpec>> {
+fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1ChainSpec>> {
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});
 
@@ -58,7 +55,7 @@ macro_rules! impl_precompile_activated_in_prague_test {
             paste::item! {
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<$name _inactive_before_prague>]() -> anyhow::Result<()> {
-                    let provider = new_provider(l1::SpecId::CANCUN)?;
+                    let provider = new_provider(edr_chain_l1::Hardfork::CANCUN)?;
 
                     let output = send_call(&provider, $call_request)?;
                     assert_eq!(output, Bytes::new());
@@ -68,7 +65,7 @@ macro_rules! impl_precompile_activated_in_prague_test {
 
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<$name _active_after_prague>]() -> anyhow::Result<()> {
-                    let provider = new_provider(l1::SpecId::PRAGUE)?;
+                    let provider = new_provider(edr_chain_l1::Hardfork::PRAGUE)?;
 
                     let output = send_call(&provider, $call_request)?;
                     assert_eq!(output, $expected_output);

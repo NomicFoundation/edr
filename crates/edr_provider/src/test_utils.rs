@@ -2,18 +2,18 @@ use core::fmt::Debug;
 use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 
 use anyhow::anyhow;
+use edr_chain_l1::L1ChainSpec;
 use edr_eth::{
     block::{self, BlobGas},
-    eips::eip7702,
-    l1::{self, L1ChainSpec},
-    signature::{public_key_to_address, secret_key_from_str, SignatureWithYParity},
-    transaction::{self, request::TransactionRequestAndSender, TransactionValidation, TxKind},
     trie::KECCAK_NULL_RLP,
     Address, Bytes, HashMap, B256, U160, U256,
 };
 use edr_evm::Block as _;
+use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_rpc_eth::TransactionRequest;
+use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_transaction::{request::TransactionRequestAndSender, TxKind};
 use k256::SecretKey;
 use tokio::runtime;
 
@@ -73,7 +73,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
 ) -> ProviderConfig<HardforkT> {
     // This is test code, it's ok to use `DangerousSecretKeyStr`
     #[allow(deprecated)]
-    use edr_eth::signature::DangerousSecretKeyStr;
+    use edr_signer::DangerousSecretKeyStr;
 
     // This is test code, it's ok to use `DangerousSecretKeyStr`
     // Can't use `edr_test_utils` as a dependency here.
@@ -122,7 +122,7 @@ pub fn pending_base_fee<
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -268,8 +268,8 @@ impl ProviderTestFixture<L1ChainSpec> {
         local_account_index: usize,
         gas_limit: u64,
         nonce: Option<u64>,
-    ) -> anyhow::Result<TransactionRequestAndSender<transaction::Request>> {
-        let request = transaction::Request::Eip155(transaction::request::Eip155 {
+    ) -> anyhow::Result<TransactionRequestAndSender<edr_chain_l1::Request>> {
+        let request = edr_chain_l1::Request::Eip155(edr_chain_l1::request::Eip155 {
             kind: TxKind::Call(Address::ZERO),
             gas_limit,
             gas_price: 42_000_000_000_u128,
@@ -283,7 +283,7 @@ impl ProviderTestFixture<L1ChainSpec> {
         Ok(TransactionRequestAndSender { request, sender })
     }
 
-    pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<transaction::Signed> {
+    pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<edr_chain_l1::Signed> {
         let mut transaction = self.dummy_transaction_request(0, 30_000, None)?;
         transaction.sender = self.impersonated_account;
 
@@ -294,7 +294,7 @@ impl ProviderTestFixture<L1ChainSpec> {
         &self,
         local_account_index: usize,
         nonce: Option<u64>,
-    ) -> anyhow::Result<transaction::Signed> {
+    ) -> anyhow::Result<edr_chain_l1::Signed> {
         let transaction = self.dummy_transaction_request(local_account_index, 30_000, nonce)?;
         Ok(self.provider_data.sign_transaction_request(transaction)?)
     }
@@ -302,9 +302,9 @@ impl ProviderTestFixture<L1ChainSpec> {
 
 /// Signs an authorization with the provided secret key.
 pub fn sign_authorization(
-    authorization: eip7702::Authorization,
+    authorization: edr_eip7702::Authorization,
     secret_key: &SecretKey,
-) -> anyhow::Result<eip7702::SignedAuthorization> {
+) -> anyhow::Result<edr_eip7702::SignedAuthorization> {
     let signature = SignatureWithYParity::with_message(authorization.signature_hash(), secret_key)?;
 
     Ok(authorization.into_signed(signature.into_inner()))

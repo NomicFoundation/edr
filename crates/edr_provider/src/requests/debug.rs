@@ -1,5 +1,6 @@
-use edr_eth::{l1, transaction::TransactionValidation, BlockSpec, B256};
+use edr_eth::{BlockSpec, B256};
 use edr_evm::state::StateOverrides;
+use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use serde::{Deserialize, Deserializer};
 
 use crate::{
@@ -17,7 +18,7 @@ pub fn handle_debug_trace_transaction<
         BlockEnv: Clone + Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -53,7 +54,7 @@ where
         BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,

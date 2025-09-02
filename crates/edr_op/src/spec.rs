@@ -2,14 +2,10 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
+use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams};
 use edr_eth::{
     block::{BlobGas, Header, PartialHeader},
-    eips::{
-        eip1559::{BaseFeeParams, ConstantBaseFeeParams, ForkBaseFeeParams},
-        eip4844,
-    },
-    l1::{self, BlockEnv},
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
+    eips::eip4844,
     U256,
 };
 use edr_evm::{
@@ -18,9 +14,13 @@ use edr_evm::{
     precompile::PrecompileProvider,
     spec::{BlockEnvConstructor, ContextForChainSpec, GenesisBlockFactory, RuntimeSpec},
     state::Database,
-    transaction::{TransactionError, TransactionErrorForChainSpec, TransactionValidation},
+    transaction::{TransactionError, TransactionErrorForChainSpec},
     BlockReceipts, EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock,
     RemoteBlockConversionError, SyncBlock,
+};
+use edr_evm_spec::{
+    ChainHardfork, ChainSpec, EthHeaderConstants, EvmHaltReason, EvmSpecId,
+    EvmTransactionValidationError, TransactionValidation,
 };
 use edr_napi_core::{
     napi,
@@ -40,7 +40,7 @@ use crate::{
     receipt::{self, BlockReceiptFactory},
     rpc,
     transaction::{self, InvalidTransaction},
-    OpHaltReason, OpSpecId,
+    BlockEnv, HaltReason, Hardfork,
 };
 
 /// Chain specification for the Ethereum JSON-RPC API.
@@ -60,13 +60,13 @@ impl RpcSpec for OpChainSpec {
 }
 
 impl ChainHardfork for OpChainSpec {
-    type Hardfork = OpSpecId;
+    type Hardfork = Hardfork;
 }
 
 impl ChainSpec for OpChainSpec {
-    type BlockEnv = l1::BlockEnv;
+    type BlockEnv = edr_chain_l1::BlockEnv;
     type Context = L1BlockInfo;
-    type HaltReason = OpHaltReason;
+    type HaltReason = HaltReason;
     type SignedTransaction = transaction::Signed;
 }
 
@@ -80,7 +80,7 @@ impl GenesisBlockFactory for OpChainSpec {
         hardfork: Self::Hardfork,
         mut options: edr_evm::GenesisBlockOptions,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
-        if hardfork >= OpSpecId::HOLOCENE {
+        if hardfork >= Hardfork::HOLOCENE {
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
             let extra_data = options.extra_data.unwrap_or_else(|| {
@@ -158,7 +158,7 @@ impl RuntimeSpec for OpChainSpec {
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
     ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT> {
         match error {
-            InvalidTransaction::Base(l1::InvalidTransaction::LackOfFundForMaxFee {
+            InvalidTransaction::Base(EvmTransactionValidationError::LackOfFundForMaxFee {
                 fee,
                 balance,
             }) => TransactionError::LackOfFundForMaxFee { fee, balance },
@@ -197,10 +197,10 @@ impl RuntimeSpec for OpChainSpec {
 }
 
 impl EthHeaderConstants for OpChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<OpSpecId> =
+    const BASE_FEE_PARAMS: BaseFeeParams<Hardfork> =
         BaseFeeParams::Variable(ForkBaseFeeParams::new(&[
-            (OpSpecId::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
-            (OpSpecId::CANYON, ConstantBaseFeeParams::new(250, 6)),
+            (Hardfork::BEDROCK, ConstantBaseFeeParams::new(50, 6)),
+            (Hardfork::CANYON, ConstantBaseFeeParams::new(250, 6)),
         ]));
 
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
@@ -211,11 +211,11 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
 
     fn cast_response(
         response: Result<
-            edr_provider::ResponseWithTraces<OpHaltReason>,
+            edr_provider::ResponseWithTraces<HaltReason>,
             edr_provider::ProviderErrorForChainSpec<Self>,
         >,
         _contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<edr_napi_core::spec::Response<l1::HaltReason>> {
+    ) -> napi::Result<edr_napi_core::spec::Response<EvmHaltReason>> {
         let response = jsonrpc::ResponseData::from(response.map(|response| response.result));
 
         marshal_response_data(response).map(|data| Response {
@@ -231,25 +231,25 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OpChainSpec {
     type PooledTransaction = transaction::Pooled;
     type TransactionRequest = transaction::Request;
 
-    fn cast_halt_reason(reason: OpHaltReason) -> TransactionFailureReason<OpHaltReason> {
+    fn cast_halt_reason(reason: HaltReason) -> TransactionFailureReason<HaltReason> {
         match reason {
-            OpHaltReason::Base(reason) => match reason {
-                l1::HaltReason::CreateContractSizeLimit => {
+            HaltReason::Base(reason) => match reason {
+                EvmHaltReason::CreateContractSizeLimit => {
                     TransactionFailureReason::CreateContractSizeLimit
                 }
-                l1::HaltReason::OpcodeNotFound | l1::HaltReason::InvalidFEOpcode => {
+                EvmHaltReason::OpcodeNotFound | EvmHaltReason::InvalidFEOpcode => {
                     TransactionFailureReason::OpcodeNotFound
                 }
-                l1::HaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
-                remainder => TransactionFailureReason::Inner(OpHaltReason::Base(remainder)),
+                EvmHaltReason::OutOfGas(error) => TransactionFailureReason::OutOfGas(error),
+                remainder => TransactionFailureReason::Inner(HaltReason::Base(remainder)),
             },
-            remainder @ OpHaltReason::FailedDeposit => TransactionFailureReason::Inner(remainder),
+            remainder @ HaltReason::FailedDeposit => TransactionFailureReason::Inner(remainder),
         }
     }
 }
 
 impl BlockEnvConstructor<PartialHeader> for OpChainSpec {
-    fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self::BlockEnv {
+    fn new_block_env(header: &PartialHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
         BlockEnv {
             number: U256::from(header.number),
             beneficiary: header.beneficiary,
@@ -259,7 +259,7 @@ impl BlockEnvConstructor<PartialHeader> for OpChainSpec {
                 base_fee.try_into().expect("base fee is too large")
             }),
             gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= l1::SpecId::MERGE {
+            prevrandao: if hardfork >= EvmSpecId::MERGE {
                 Some(header.mix_hash)
             } else {
                 None
@@ -277,7 +277,7 @@ impl BlockEnvConstructor<PartialHeader> for OpChainSpec {
 }
 
 impl BlockEnvConstructor<Header> for OpChainSpec {
-    fn new_block_env(header: &Header, hardfork: l1::SpecId) -> Self::BlockEnv {
+    fn new_block_env(header: &Header, hardfork: EvmSpecId) -> Self::BlockEnv {
         BlockEnv {
             number: U256::from(header.number),
             beneficiary: header.beneficiary,
@@ -287,7 +287,7 @@ impl BlockEnvConstructor<Header> for OpChainSpec {
                 base_fee.try_into().expect("base fee is too large")
             }),
             gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= l1::SpecId::MERGE {
+            prevrandao: if hardfork >= EvmSpecId::MERGE {
                 Some(header.mix_hash)
             } else {
                 None
@@ -309,9 +309,10 @@ mod tests {
 
     use edr_eth::{
         block::{BlobGas, Header},
-        l1, Address, Bloom, Bytes, B256, B64, U256,
+        Address, Bloom, Bytes, B256, B64, U256,
     };
     use edr_evm::spec::BlockEnvConstructor as _;
+    use edr_evm_spec::EvmSpecId;
 
     use crate::spec::OpChainSpec;
 
@@ -344,7 +345,7 @@ mod tests {
     fn op_block_constructor_should_not_default_excess_blob_gas_for_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block = OpChainSpec::new_block_env(&header, l1::SpecId::CANCUN);
+        let block = OpChainSpec::new_block_env(&header, EvmSpecId::CANCUN);
         assert_eq!(block.blob_excess_gas_and_price, None);
     }
 
@@ -352,7 +353,7 @@ mod tests {
     fn op_block_constructor_should_not_default_excess_blob_gas_before_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block = OpChainSpec::new_block_env(&header, l1::SpecId::SHANGHAI);
+        let block = OpChainSpec::new_block_env(&header, EvmSpecId::SHANGHAI);
         assert_eq!(block.blob_excess_gas_and_price, None);
     }
 
@@ -360,7 +361,7 @@ mod tests {
     fn op_block_constructor_should_not_default_excess_blob_gas_after_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block = OpChainSpec::new_block_env(&header, l1::SpecId::PRAGUE);
+        let block = OpChainSpec::new_block_env(&header, EvmSpecId::PRAGUE);
         assert_eq!(block.blob_excess_gas_and_price, None);
     }
 
@@ -373,7 +374,7 @@ mod tests {
         };
         let header = build_block_header(Some(blob_gas)); // blob gas present
 
-        let block = OpChainSpec::new_block_env(&header, l1::SpecId::CANCUN);
+        let block = OpChainSpec::new_block_env(&header, EvmSpecId::CANCUN);
 
         let blob_excess_gas = block
             .blob_excess_gas_and_price

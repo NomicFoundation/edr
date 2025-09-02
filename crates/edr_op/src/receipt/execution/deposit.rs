@@ -1,5 +1,5 @@
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use edr_eth::{receipt::MapReceiptLogs, Bloom};
+use edr_receipt::{Bloom, MapReceiptLogs};
 
 use super::{Deposit, Execution};
 

@@ -1,12 +1,11 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
-use edr_eth::{
-    hash_map::OccupiedError,
+use edr_eth::{hash_map::OccupiedError, Address, HashMap, HashSet, B256, U256};
+use edr_evm_spec::ExecutableTransaction;
+use edr_receipt::{
     log::{matches_address_filter, matches_topics_filter, FilterLog},
-    receipt::{ExecutionReceipt, ReceiptTrait},
-    transaction::ExecutableTransaction,
-    Address, HashMap, HashSet, B256, U256,
+    ExecutionReceipt, ReceiptTrait,
 };
 
 use super::InsertError;
@@ -230,7 +229,7 @@ pub fn logs<
     to_block: u64,
     addresses: &HashSet<Address>,
     topics_filter: &[Option<Vec<B256>>],
-) -> Result<Vec<edr_eth::log::FilterLog>, BlockT::Error> {
+) -> Result<Vec<FilterLog>, BlockT::Error> {
     let mut logs = Vec::new();
     let addresses: HashSet<Address> = addresses.iter().copied().collect();
 

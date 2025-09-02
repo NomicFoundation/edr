@@ -10,6 +10,7 @@ edr_coverage.workspace = true
 edr_defaults.workspace = true
 edr_eth.workspace = true
 edr_evm.workspace = true
+edr_evm_spec.workspace = true
 edr_solidity.workspace = true
 
 foundry-cheatcodes.workspace = true
@@ -42,8 +43,8 @@ thiserror = "1.0.61"
 log = "0.4.22"
 
 [dev-dependencies]
+edr_chain_l1.workspace = true
 edr_test_utils.workspace = true
-
 futures = "0.3"
 itertools.workspace = true
 once_cell = "1"

@@ -1,12 +1,10 @@
 use std::{collections::BTreeMap, str::FromStr};
 
+use edr_chain_l1::L1ChainSpec;
 use edr_coverage::CoverageHitCollector;
 use edr_eth::{
     bytes,
-    l1::{self, L1ChainSpec},
     result::{ExecutionResult, Output},
-    signature::public_key_to_address,
-    transaction::{self, TxKind},
     Address, Bytes, HashMap, HashSet, B256, U256,
 };
 use edr_evm::{
@@ -17,7 +15,9 @@ use edr_evm::{
     state::{AccountModifierFn, StateDiff, StateError, SyncState},
     GenesisBlockOptions,
 };
+use edr_signer::public_key_to_address;
 use edr_test_utils::secret_key::secret_key_from_str;
+use edr_transaction::TxKind;
 
 const CHAIN_ID: u64 = 31337;
 
@@ -33,7 +33,7 @@ fn deploy_contract(
     let caller = public_key_to_address(secret_key.public_key());
 
     let nonce = state.basic(caller)?.map_or(0, |info| info.nonce);
-    let request = transaction::request::Eip1559 {
+    let request = edr_chain_l1::request::Eip1559 {
         chain_id: CHAIN_ID,
         nonce,
         max_priority_fee_per_gas: 1_000,
@@ -48,9 +48,9 @@ fn deploy_contract(
     let signed = request.sign(&secret_key)?;
 
     let cfg = CfgEnv::new_with_spec(blockchain.hardfork()).with_chain_id(blockchain.chain_id());
-    let block = l1::BlockEnv {
+    let block = edr_chain_l1::BlockEnv {
         number: U256::from(1),
-        ..l1::BlockEnv::default()
+        ..edr_chain_l1::BlockEnv::default()
     };
 
     let result = run::<_, L1ChainSpec, _>(
@@ -91,7 +91,7 @@ fn call_inc_by(
     let caller = public_key_to_address(secret_key.public_key());
 
     let nonce = state.basic(caller)?.map_or(0, |info| info.nonce);
-    let request = transaction::request::Eip1559 {
+    let request = edr_chain_l1::request::Eip1559 {
         chain_id: CHAIN_ID,
         nonce,
         max_priority_fee_per_gas: 1_000,
@@ -105,10 +105,11 @@ fn call_inc_by(
 
     let signed = request.sign(&secret_key)?;
 
-    let cfg = CfgEnv::new_with_spec(l1::SpecId::CANCUN).with_chain_id(blockchain.chain_id());
-    let block = l1::BlockEnv {
+    let cfg =
+        CfgEnv::new_with_spec(edr_chain_l1::Hardfork::CANCUN).with_chain_id(blockchain.chain_id());
+    let block = edr_chain_l1::BlockEnv {
         number: U256::from(1),
-        ..l1::BlockEnv::default()
+        ..edr_chain_l1::BlockEnv::default()
     };
 
     let mut coverage_collector = CoverageHitCollector::default();
@@ -135,7 +136,7 @@ fn record_hits() -> anyhow::Result<()> {
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        l1::SpecId::CANCUN,
+        edr_chain_l1::Hardfork::CANCUN,
         GenesisBlockOptions {
             mix_hash: Some(B256::random()),
             ..GenesisBlockOptions::default()
@@ -146,7 +147,7 @@ fn record_hits() -> anyhow::Result<()> {
         genesis_block,
         genesis_diff,
         CHAIN_ID,
-        l1::SpecId::CANCUN,
+        edr_chain_l1::Hardfork::CANCUN,
     )?;
 
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;

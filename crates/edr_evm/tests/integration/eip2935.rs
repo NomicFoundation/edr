@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 
-use edr_eth::{
-    l1::{self, L1ChainSpec},
-    Bytecode,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_eth::Bytecode;
 use edr_evm::{
     blockchain::{Blockchain, LocalBlockchain},
     eips::eip2935::{
@@ -20,14 +18,19 @@ fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L
 
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        l1::SpecId::PRAGUE,
+        edr_chain_l1::Hardfork::PRAGUE,
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),
             ..GenesisBlockOptions::default()
         },
     )?;
 
-    let blockchain = LocalBlockchain::new(genesis_block, genesis_diff, 0x7a69, l1::SpecId::PRAGUE)?;
+    let blockchain = LocalBlockchain::new(
+        genesis_block,
+        genesis_diff,
+        0x7a69,
+        edr_chain_l1::Hardfork::PRAGUE,
+    )?;
 
     Ok(blockchain)
 }
@@ -92,8 +95,8 @@ mod remote {
     async fn forked_blockchain(
         irregular_state: &mut IrregularState,
         block_number: u64,
-        local_hardfork: l1::SpecId,
-    ) -> Result<ForkedBlockchain<L1ChainSpec>, ForkedCreationError<l1::SpecId>> {
+        local_hardfork: edr_chain_l1::Hardfork,
+    ) -> Result<ForkedBlockchain<L1ChainSpec>, ForkedCreationError<edr_chain_l1::Hardfork>> {
         let runtime = tokio::runtime::Handle::current();
 
         let rpc_client = EthRpcClient::<L1ChainSpec>::new(
@@ -129,7 +132,7 @@ mod remote {
         let pre_prague = forked_blockchain(
             &mut irregular_state,
             PRE_PRAGUE_BLOCK_NUMBER,
-            l1::SpecId::CANCUN,
+            edr_chain_l1::Hardfork::CANCUN,
         )
         .await?;
 
@@ -160,7 +163,7 @@ mod remote {
         let pre_prague = forked_blockchain(
             &mut irregular_state,
             PRE_PRAGUE_BLOCK_NUMBER,
-            l1::SpecId::PRAGUE,
+            edr_chain_l1::Hardfork::PRAGUE,
         )
         .await?;
 
@@ -191,7 +194,7 @@ mod remote {
         let post_prague = forked_blockchain(
             &mut irregular_state,
             POST_DEPLOYMENT_BLOCK_NUMBER,
-            l1::SpecId::CANCUN,
+            edr_chain_l1::Hardfork::CANCUN,
         )
         .await?;
 
@@ -228,7 +231,7 @@ mod remote {
         let post_prague = forked_blockchain(
             &mut irregular_state,
             POST_PRAGUE_BLOCK_NUMBER,
-            l1::SpecId::PRAGUE,
+            edr_chain_l1::Hardfork::PRAGUE,
         )
         .await?;
 

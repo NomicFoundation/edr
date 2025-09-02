@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use edr_eth::{spec::ChainSpec, B256};
+use edr_eth::B256;
 use edr_evm::spec::RuntimeSpec;
+use edr_evm_spec::ChainSpec;
 use edr_generic::GenericChainSpec;
 use edr_napi_core::logger::Logger;
 use edr_rpc_eth::RpcSpec;
@@ -95,7 +96,7 @@ pub fn create_provider_with_mock_timer(
             )?;
 
             let provider_config =
-                edr_provider::ProviderConfig::<edr_eth::l1::SpecId>::try_from(provider_config)?;
+                edr_provider::ProviderConfig::<edr_chain_l1::Hardfork>::try_from(provider_config)?;
 
             let provider =
                 edr_provider::Provider::<GenericChainSpec, Arc<edr_provider::time::MockTime>>::new(

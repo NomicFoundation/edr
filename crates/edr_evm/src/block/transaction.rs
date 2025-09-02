@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
-use edr_eth::{
-    l1::{self, L1ChainSpec},
-    spec::ChainSpec,
-    transaction::SignedTransaction as _,
-};
+use edr_chain_l1::L1ChainSpec;
+use edr_evm_spec::ChainSpec;
 use edr_rpc_eth::RpcTypeFrom;
+use edr_transaction::SignedTransaction as _;
 
 use crate::spec::RuntimeSpec;
 
@@ -38,7 +36,7 @@ pub struct BlockDataForTransaction<BlockT> {
 impl RpcTypeFrom<TransactionAndBlockForChainSpec<L1ChainSpec>>
     for edr_rpc_eth::TransactionWithSignature
 {
-    type Hardfork = l1::SpecId;
+    type Hardfork = edr_chain_l1::Hardfork;
 
     fn rpc_type_from(
         value: &TransactionAndBlockForChainSpec<L1ChainSpec>,

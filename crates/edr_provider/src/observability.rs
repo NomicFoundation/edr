@@ -2,7 +2,6 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
-use edr_eth::spec::HaltReasonTrait;
 use edr_evm::{
     blockchain::BlockHash,
     inspector::Inspector,
@@ -14,6 +13,7 @@ use edr_evm::{
     state::{DatabaseComponents, State, WrapDatabaseRef},
     trace::TraceCollector,
 };
+use edr_evm_spec::HaltReasonTrait;
 
 use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
 

@@ -1,4 +1,5 @@
 use edr_evm::trace::AfterMessage;
+use edr_evm_spec::EvmHaltReason;
 use napi::{
     bindgen_prelude::{BigInt, Either3, Uint8Array},
     Either,
@@ -99,57 +100,32 @@ pub enum ExceptionalHalt {
     CreateInitCodeSizeLimit,
 }
 
-impl From<edr_eth::l1::HaltReason> for ExceptionalHalt {
-    fn from(halt: edr_eth::l1::HaltReason) -> Self {
+impl From<EvmHaltReason> for ExceptionalHalt {
+    fn from(halt: EvmHaltReason) -> Self {
         match halt {
-            edr_eth::l1::HaltReason::OutOfGas(..) => ExceptionalHalt::OutOfGas,
-            edr_eth::l1::HaltReason::OpcodeNotFound => ExceptionalHalt::OpcodeNotFound,
-            edr_eth::l1::HaltReason::InvalidFEOpcode => ExceptionalHalt::InvalidFEOpcode,
-            edr_eth::l1::HaltReason::InvalidJump => ExceptionalHalt::InvalidJump,
-            edr_eth::l1::HaltReason::NotActivated => ExceptionalHalt::NotActivated,
-            edr_eth::l1::HaltReason::StackUnderflow => ExceptionalHalt::StackUnderflow,
-            edr_eth::l1::HaltReason::StackOverflow => ExceptionalHalt::StackOverflow,
-            edr_eth::l1::HaltReason::OutOfOffset => ExceptionalHalt::OutOfOffset,
-            edr_eth::l1::HaltReason::CreateCollision => ExceptionalHalt::CreateCollision,
-            edr_eth::l1::HaltReason::PrecompileError => ExceptionalHalt::PrecompileError,
-            edr_eth::l1::HaltReason::NonceOverflow => ExceptionalHalt::NonceOverflow,
-            edr_eth::l1::HaltReason::CreateContractSizeLimit => {
-                ExceptionalHalt::CreateContractSizeLimit
-            }
-            edr_eth::l1::HaltReason::CreateContractStartingWithEF => {
+            EvmHaltReason::OutOfGas(..) => ExceptionalHalt::OutOfGas,
+            EvmHaltReason::OpcodeNotFound => ExceptionalHalt::OpcodeNotFound,
+            EvmHaltReason::InvalidFEOpcode => ExceptionalHalt::InvalidFEOpcode,
+            EvmHaltReason::InvalidJump => ExceptionalHalt::InvalidJump,
+            EvmHaltReason::NotActivated => ExceptionalHalt::NotActivated,
+            EvmHaltReason::StackUnderflow => ExceptionalHalt::StackUnderflow,
+            EvmHaltReason::StackOverflow => ExceptionalHalt::StackOverflow,
+            EvmHaltReason::OutOfOffset => ExceptionalHalt::OutOfOffset,
+            EvmHaltReason::CreateCollision => ExceptionalHalt::CreateCollision,
+            EvmHaltReason::PrecompileError => ExceptionalHalt::PrecompileError,
+            EvmHaltReason::NonceOverflow => ExceptionalHalt::NonceOverflow,
+            EvmHaltReason::CreateContractSizeLimit => ExceptionalHalt::CreateContractSizeLimit,
+            EvmHaltReason::CreateContractStartingWithEF => {
                 ExceptionalHalt::CreateContractStartingWithEF
             }
-            edr_eth::l1::HaltReason::CreateInitCodeSizeLimit => {
-                ExceptionalHalt::CreateInitCodeSizeLimit
-            }
-            edr_eth::l1::HaltReason::OverflowPayment
-            | edr_eth::l1::HaltReason::StateChangeDuringStaticCall
-            | edr_eth::l1::HaltReason::CallNotAllowedInsideStatic
-            | edr_eth::l1::HaltReason::OutOfFunds
-            | edr_eth::l1::HaltReason::CallTooDeep => {
+            EvmHaltReason::CreateInitCodeSizeLimit => ExceptionalHalt::CreateInitCodeSizeLimit,
+            EvmHaltReason::OverflowPayment
+            | EvmHaltReason::StateChangeDuringStaticCall
+            | EvmHaltReason::CallNotAllowedInsideStatic
+            | EvmHaltReason::OutOfFunds
+            | EvmHaltReason::CallTooDeep => {
                 unreachable!("Internal halts that can be only found inside Inspector: {halt:?}")
             }
-        }
-    }
-}
-
-impl From<ExceptionalHalt> for edr_eth::l1::HaltReason {
-    fn from(value: ExceptionalHalt) -> Self {
-        match value {
-            ExceptionalHalt::OutOfGas => Self::OutOfGas(edr_eth::l1::OutOfGasError::Basic),
-            ExceptionalHalt::OpcodeNotFound => Self::OpcodeNotFound,
-            ExceptionalHalt::InvalidFEOpcode => Self::InvalidFEOpcode,
-            ExceptionalHalt::InvalidJump => Self::InvalidJump,
-            ExceptionalHalt::NotActivated => Self::NotActivated,
-            ExceptionalHalt::StackUnderflow => Self::StackUnderflow,
-            ExceptionalHalt::StackOverflow => Self::StackOverflow,
-            ExceptionalHalt::OutOfOffset => Self::OutOfOffset,
-            ExceptionalHalt::CreateCollision => Self::CreateCollision,
-            ExceptionalHalt::PrecompileError => Self::PrecompileError,
-            ExceptionalHalt::NonceOverflow => Self::NonceOverflow,
-            ExceptionalHalt::CreateContractSizeLimit => Self::CreateContractSizeLimit,
-            ExceptionalHalt::CreateContractStartingWithEF => Self::CreateContractStartingWithEF,
-            ExceptionalHalt::CreateInitCodeSizeLimit => Self::CreateInitCodeSizeLimit,
         }
     }
 }
@@ -173,8 +149,8 @@ pub struct ExecutionResult {
     pub contract_address: Option<Uint8Array>,
 }
 
-impl From<&AfterMessage<edr_eth::l1::HaltReason>> for ExecutionResult {
-    fn from(value: &AfterMessage<edr_eth::l1::HaltReason>) -> Self {
+impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
+    fn from(value: &AfterMessage<EvmHaltReason>) -> Self {
         let AfterMessage {
             execution_result,
             contract_address,

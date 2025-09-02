@@ -2,7 +2,7 @@
 
 use std::num::NonZeroU64;
 
-use edr_eth::{account::AccountInfo, transaction::ExecutableTransaction, Address, U256};
+use edr_eth::{account::AccountInfo, Address, U256};
 use edr_evm::{
     state::{AccountModifierFn, StateDebug},
     test_utils::{
@@ -12,6 +12,7 @@ use edr_evm::{
     },
     MemPoolAddTransactionError, OrderedTransaction,
 };
+use edr_evm_spec::ExecutableTransaction;
 
 #[test]
 fn has_future_transactions() -> anyhow::Result<()> {

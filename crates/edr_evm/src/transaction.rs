@@ -4,9 +4,12 @@ pub mod remote;
 
 use std::fmt::Debug;
 
-// Re-export the transaction types from `edr_eth`.
-pub use edr_eth::transaction::*;
-use edr_eth::{l1, spec::ChainSpec, U256};
+use edr_eth::U256;
+use edr_evm_spec::{
+    ChainSpec, EvmHeaderValidationError, EvmSpecId, EvmTransactionValidationError,
+    TransactionValidation,
+};
+use edr_transaction::TxKind;
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 
@@ -31,7 +34,7 @@ pub enum TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationEr
     Custom(String),
     /// Invalid block header
     #[error(transparent)]
-    InvalidHeader(l1::InvalidHeader),
+    InvalidHeader(EvmHeaderValidationError),
     /// Corrupt transaction data
     #[error(transparent)]
     InvalidTransaction(TransactionValidationErrorT),
@@ -63,20 +66,20 @@ impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
     }
 }
 
-impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> From<l1::InvalidHeader>
+impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> From<EvmHeaderValidationError>
     for TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
 {
-    fn from(value: l1::InvalidHeader) -> Self {
+    fn from(value: EvmHeaderValidationError) -> Self {
         Self::InvalidHeader(value)
     }
 }
 
-impl<BlockchainErrorT, StateErrorT> From<l1::InvalidTransaction>
-    for TransactionError<BlockchainErrorT, StateErrorT, l1::InvalidTransaction>
+impl<BlockchainErrorT, StateErrorT> From<EvmTransactionValidationError>
+    for TransactionError<BlockchainErrorT, StateErrorT, EvmTransactionValidationError>
 {
-    fn from(value: l1::InvalidTransaction) -> Self {
+    fn from(value: EvmTransactionValidationError) -> Self {
         match value {
-            l1::InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
+            EvmTransactionValidationError::LackOfFundForMaxFee { fee, balance } => {
                 Self::LackOfFundForMaxFee { fee, balance }
             }
             remainder => Self::InvalidTransaction(remainder),
@@ -111,7 +114,7 @@ pub enum CreationError {
 /// Validates the transaction.
 pub fn validate<TransactionT: revm_context_interface::Transaction>(
     transaction: TransactionT,
-    spec_id: l1::SpecId,
+    spec_id: EvmSpecId,
 ) -> Result<TransactionT, CreationError> {
     if transaction.kind() == TxKind::Create && transaction.input().is_empty() {
         return Err(CreationError::ContractMissingData);
@@ -119,14 +122,14 @@ pub fn validate<TransactionT: revm_context_interface::Transaction>(
 
     match validate_initial_tx_gas(&transaction, spec_id) {
         Ok(_) => Ok(transaction),
-        Err(l1::InvalidTransaction::CallGasCostMoreThanGasLimit {
+        Err(EvmTransactionValidationError::CallGasCostMoreThanGasLimit {
             initial_gas,
             gas_limit,
         }) => Err(CreationError::InsufficientGas {
             initial_gas_cost: initial_gas,
             gas_limit,
         }),
-        Err(l1::InvalidTransaction::GasFloorMoreThanGasLimit {
+        Err(EvmTransactionValidationError::GasFloorMoreThanGasLimit {
             gas_floor,
             gas_limit,
         }) => Err(CreationError::GasFloorTooHigh {
@@ -139,7 +142,7 @@ pub fn validate<TransactionT: revm_context_interface::Transaction>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{transaction, Address, Bytes};
+    use edr_eth::{Address, Bytes};
 
     use super::*;
 
@@ -149,7 +152,7 @@ mod tests {
 
         let caller = Address::random();
 
-        let request = transaction::request::Eip155 {
+        let request = edr_chain_l1::request::Eip155 {
             nonce: 0,
             gas_price: 0,
             gas_limit: TOO_LOW_GAS_LIMIT,
@@ -160,8 +163,8 @@ mod tests {
         };
 
         let transaction = request.fake_sign(caller);
-        let transaction = transaction::Signed::from(transaction);
-        let result = validate(transaction, l1::SpecId::BERLIN);
+        let transaction = edr_chain_l1::Signed::from(transaction);
+        let result = validate(transaction, EvmSpecId::BERLIN);
 
         let expected_gas_cost = 21_000;
         assert!(matches!(
@@ -184,7 +187,7 @@ mod tests {
     fn create_missing_data() -> anyhow::Result<()> {
         let caller = Address::random();
 
-        let request = transaction::request::Eip155 {
+        let request = edr_chain_l1::request::Eip155 {
             nonce: 0,
             gas_price: 0,
             gas_limit: 30_000,
@@ -195,8 +198,8 @@ mod tests {
         };
 
         let transaction = request.fake_sign(caller);
-        let transaction = transaction::Signed::from(transaction);
-        let result = validate(transaction, l1::SpecId::BERLIN);
+        let transaction = edr_chain_l1::Signed::from(transaction);
+        let result = validate(transaction, EvmSpecId::BERLIN);
 
         assert!(matches!(result, Err(CreationError::ContractMissingData)));
 
