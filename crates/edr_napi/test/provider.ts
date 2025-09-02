@@ -1,5 +1,5 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
-import chai, { assert, expect } from "chai";
+import chai, { assert } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { Interface } from "ethers";
 
@@ -16,9 +16,6 @@ import {
   precompileP256Verify,
   BaseFeeActivationType,
   SpecId,
-  OpHardfork,
-  opHardforkToString,
-  OP_CHAIN_TYPE,
 } from "..";
 import {
   collectMessages,
