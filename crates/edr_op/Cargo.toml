@@ -49,6 +49,12 @@ serde_json.workspace = true
 serial_test = "2.0.0"
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 
+[build-dependencies]
+git2 = "0.20.2"
+serde = "1.0.219"
+tempfile = "3.21.0"
+toml = {version = "0.9.5", features = ["preserve_order"]}
+
 [features]
 test-remote = []
 test-utils = ["edr_provider/test-utils"]
