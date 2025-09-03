@@ -3,7 +3,9 @@ use std::{str::FromStr, time::SystemTime};
 
 use edr_eth::{
     block::BlobGas,
-    eips::eip1559::{BaseFeeActivation, ConstantBaseFeeParams},
+    eips::eip1559::{
+        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, VariableBaseFeeParams,
+    },
     hash_map::HashMap,
     l1::{self, hardfork::UnknownHardfork},
     signature::SecretKey,
@@ -58,16 +60,15 @@ where
 
 impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId> + Clone,
+    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId> + Clone + PartialOrd,
 {
     type Error = napi::Error;
 
     fn try_from(value: Config) -> Result<Self, Self::Error> {
-        let base_fee_params: Option<Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>> =
-            value
-                .base_fee_params
-                .map(|config| {
-                    config.into_iter().map(|(key, value)| {
+        let base_fee_params: Option<BaseFeeParams<HardforkT>> = value
+            .base_fee_params
+            .map(|config| {
+                config.into_iter().map(|(key, value)| {
                 let new_key = match key {
                     BaseFeeActivation::Hardfork(hardfork_str) => {
                         let hardfork = parse_hardfork(hardfork_str)?;
@@ -82,8 +83,9 @@ where
             .collect::<napi::Result<
                 Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>
             >>()
-                })
-                .transpose()?;
+            })
+            .transpose()?
+            .map(|activation| BaseFeeParams::Variable(VariableBaseFeeParams::new(activation)));
 
         let fork = value
             .fork

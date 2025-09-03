@@ -17,7 +17,7 @@ use edr_eth::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
         HeaderOverrides,
     },
-    eips::eip1559::{BaseFeeParams, VariableBaseFeeParams},
+    eips::eip1559::BaseFeeParams,
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     l1,
@@ -674,15 +674,11 @@ where
             RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
         };
 
-        let base_fee_params = config
-            .base_fee_params
-            .map(|params| BaseFeeParams::Variable(VariableBaseFeeParams::new(params)));
-
         Ok(Self {
             runtime_handle,
             bail_on_call_failure: config.bail_on_call_failure,
             bail_on_transaction_failure: config.bail_on_transaction_failure,
-            base_fee_params,
+            base_fee_params: config.base_fee_params,
             blockchain,
             irregular_state,
             mem_pool: MemPool::new(block_gas_limit),
@@ -2958,10 +2954,7 @@ fn create_blockchain_and_state<
                 }),
                 mix_hash,
                 base_fee: config.initial_base_fee_per_gas,
-                base_fee_params: config
-                    .base_fee_params
-                    .clone()
-                    .map(|params| BaseFeeParams::Variable(VariableBaseFeeParams::new(params))),
+                base_fee_params: config.base_fee_params.clone(),
                 blob_gas: config.initial_blob_gas.clone(),
             },
         )
