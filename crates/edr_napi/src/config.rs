@@ -31,10 +31,20 @@ use crate::{
 /// Configuration for eip-1559 parameters
 #[napi(object)]
 pub struct BaseFeeParamActivation {
-    pub key_type: BaseFeeActivationType,
-    pub activation: Either<BigInt, String>,
+    pub activation: Either<BaseFeeActivationByBlockNumber, BaseFeeActivationByHardfork>,
     pub max_change_denominator: BigInt,
     pub elasticity_multiplier: BigInt,
+}
+
+#[napi(object)]
+pub struct BaseFeeActivationByBlockNumber {
+    /// The block number at which the base_fee_params is activated
+    pub block_number: BigInt,
+}
+#[napi(object)]
+pub struct BaseFeeActivationByHardfork {
+    /// The hardfork at which the base_fee_params is activated
+    pub hardfork: String,
 }
 
 impl TryFrom<BaseFeeParamActivation> for (BaseFeeActivation<String>, ConstantBaseFeeParams) {
@@ -45,38 +55,20 @@ impl TryFrom<BaseFeeParamActivation> for (BaseFeeActivation<String>, ConstantBas
             max_change_denominator: value.max_change_denominator.try_cast()?,
             elasticity_multiplier: value.elasticity_multiplier.try_cast()?,
         };
-        match value.key_type {
-            BaseFeeActivationType::BlockNumber => {
-                let activation: u64 = match value.activation {
-                    Either::A(number) => number.try_cast(),
-                    Either::B(_) => Err(napi::Error::new(
-                        napi::Status::InvalidArg,
-                        "Invalid activation value for BlockNumber type",
-                    )),
-                }?;
-                Ok((BaseFeeActivation::BlockNumber(activation), base_fee_params))
+
+        match value.activation {
+            Either::A(BaseFeeActivationByBlockNumber { block_number }) => {
+                let activation_block_number: u64 = block_number.try_cast()?;
+                Ok((
+                    BaseFeeActivation::BlockNumber(activation_block_number),
+                    base_fee_params,
+                ))
             }
-            BaseFeeActivationType::Hardfork => {
-                let activation: String = match value.activation {
-                    Either::B(hardfork) => hardfork,
-                    Either::A(_) => {
-                        return Err(napi::Error::new(
-                            napi::Status::InvalidArg,
-                            "Invalid activation value for Hardfork type",
-                        ))
-                    }
-                };
-                Ok((BaseFeeActivation::Hardfork(activation), base_fee_params))
+            Either::B(BaseFeeActivationByHardfork { hardfork }) => {
+                Ok((BaseFeeActivation::Hardfork(hardfork), base_fee_params))
             }
         }
     }
-}
-
-#[napi]
-/// Alternative types to define variable `base_fee_params` activations
-pub enum BaseFeeActivationType {
-    BlockNumber,
-    Hardfork,
 }
 
 /// Specification of a chain with possible overrides.

@@ -164,15 +164,17 @@ export const HOLOCENE: string
 export const ISTHMUS: string
 /** Configuration for eip-1559 parameters */
 export interface BaseFeeParamActivation {
-  keyType: BaseFeeActivationType
-  activation: bigint | string
+  activation: BaseFeeActivationByBlockNumber | BaseFeeActivationByHardfork
   maxChangeDenominator: bigint
   elasticityMultiplier: bigint
 }
-/** Alternative types to define variable `base_fee_params` activations */
-export enum BaseFeeActivationType {
-  BlockNumber = 0,
-  Hardfork = 1
+export interface BaseFeeActivationByBlockNumber {
+  /** The block number at which the base_fee_params is activated */
+  blockNumber: bigint
+}
+export interface BaseFeeActivationByHardfork {
+  /** The hardfork at which the base_fee_params is activated */
+  hardfork: string
 }
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
