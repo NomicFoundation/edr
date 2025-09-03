@@ -5,7 +5,7 @@ use alloy_rlp::RlpEncodable;
 use edr_eth::{
     block::{BlobGas, Header, PartialHeader},
     eips::{
-        eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, VariableBaseFeeParams},
+        eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams},
         eip4844,
     },
     l1::{self, BlockEnv},
@@ -199,7 +199,7 @@ impl RuntimeSpec for OpChainSpec {
 
 impl EthHeaderConstants for OpChainSpec {
     fn base_fee_params() -> BaseFeeParams<Self::Hardfork> {
-        BaseFeeParams::Variable(VariableBaseFeeParams::new(vec![
+        BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
             (
                 BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
                 ConstantBaseFeeParams::new(50, 6),

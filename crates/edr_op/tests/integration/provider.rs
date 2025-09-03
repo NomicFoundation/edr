@@ -5,7 +5,7 @@ use std::sync::Arc;
 use edr_eth::{
     address, bytes,
     eips::eip1559::{
-        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, VariableBaseFeeParams,
+        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams,
     },
     Address, BlockSpec, HashMap, PreEip1898BlockSpec, U64,
 };
@@ -112,7 +112,7 @@ async fn custom_base_fee_params() -> anyhow::Result<()> {
 
     let mut config = create_test_config();
     config.hardfork = OpSpecId::HOLOCENE;
-    config.base_fee_params = Some(BaseFeeParams::Variable(VariableBaseFeeParams::new(vec![(
+    config.base_fee_params = Some(BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![(
         BaseFeeActivation::BlockNumber(0),
         ConstantBaseFeeParams {
             max_change_denominator: 300,

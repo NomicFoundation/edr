@@ -5,7 +5,7 @@ use std::sync::LazyLock;
 use edr_eth::{
     block::{self, HeaderOverrides},
     eips::eip1559::{
-        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, VariableBaseFeeParams,
+        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams,
     },
 };
 use edr_evm::impl_full_block_tests;
@@ -15,7 +15,7 @@ use edr_provider::test_utils::header_overrides;
 use super::op::mainnet_url;
 
 static OP_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpSpecId>> = LazyLock::new(|| {
-    BaseFeeParams::Variable(VariableBaseFeeParams::new(vec![
+    BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
         (
             BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
             ConstantBaseFeeParams::new(50, 6),

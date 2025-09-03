@@ -11,11 +11,11 @@ pub enum BaseFeeActivation<HardforkT> {
 /// A mapping of hardfork to [`ConstantBaseFeeParams`]. This is used to specify
 /// dynamic EIP-1559 parameters for chains like OP.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VariableBaseFeeParams<HardforkT> {
+pub struct DynamicBaseFeeParams<HardforkT> {
     activations: Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>,
 }
 
-impl<HardforkT: PartialOrd> VariableBaseFeeParams<HardforkT> {
+impl<HardforkT: PartialOrd> DynamicBaseFeeParams<HardforkT> {
     /// Constructs a new instance from the provided mapping.
     pub const fn new(
         activations: Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>,
@@ -54,7 +54,7 @@ pub enum BaseFeeParams<HardforkT> {
     Constant(ConstantBaseFeeParams),
     /// Variable [`ConstantBaseFeeParams`]; used for chains that have dynamic
     /// EIP-1559 parameters like OP
-    Variable(VariableBaseFeeParams<HardforkT>),
+    Dynamic(DynamicBaseFeeParams<HardforkT>),
 }
 
 impl<HardforkT: PartialOrd> BaseFeeParams<HardforkT> {
@@ -67,7 +67,7 @@ impl<HardforkT: PartialOrd> BaseFeeParams<HardforkT> {
     ) -> Option<&ConstantBaseFeeParams> {
         match self {
             Self::Constant(params) => Some(params),
-            Self::Variable(params) => params.at_condition(hardfork, block_number),
+            Self::Dynamic(params) => params.at_condition(hardfork, block_number),
         }
     }
 }
@@ -78,9 +78,9 @@ impl<HardforkT> From<ConstantBaseFeeParams> for BaseFeeParams<HardforkT> {
     }
 }
 
-impl<HardforkT> From<VariableBaseFeeParams<HardforkT>> for BaseFeeParams<HardforkT> {
-    fn from(params: VariableBaseFeeParams<HardforkT>) -> Self {
-        Self::Variable(params)
+impl<HardforkT> From<DynamicBaseFeeParams<HardforkT>> for BaseFeeParams<HardforkT> {
+    fn from(params: DynamicBaseFeeParams<HardforkT>) -> Self {
+        Self::Dynamic(params)
     }
 }
 
@@ -92,7 +92,7 @@ mod tests {
     };
 
     use crate::{
-        eips::eip1559::{BaseFeeActivation, BaseFeeParams, VariableBaseFeeParams},
+        eips::eip1559::{BaseFeeActivation, BaseFeeParams, DynamicBaseFeeParams},
         l1,
     };
 
@@ -108,7 +108,7 @@ mod tests {
             elasticity_multiplier: 3,
         };
         let prague_activation_block_number = 22_431_084;
-        let base_fee_params = VariableBaseFeeParams::<l1::SpecId>::new(vec![
+        let base_fee_params = DynamicBaseFeeParams::<l1::SpecId>::new(vec![
             (
                 BaseFeeActivation::Hardfork(l1::SpecId::LONDON),
                 LONDON_PARAMS,
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn test_variable_base_params_at_condition_returns_none_on_missing_config() {
-        let base_fee_params = VariableBaseFeeParams::<l1::SpecId>::new(vec![(
+        let base_fee_params = DynamicBaseFeeParams::<l1::SpecId>::new(vec![(
             BaseFeeActivation::Hardfork(l1::SpecId::LONDON),
             LONDON_PARAMS,
         )]);
@@ -166,11 +166,11 @@ mod tests {
 
     #[test]
     fn base_fee_params_variable_at_condition_returns_variable_behavior() {
-        let variable_base_fee_params = VariableBaseFeeParams::new(vec![(
+        let variable_base_fee_params = DynamicBaseFeeParams::new(vec![(
             BaseFeeActivation::Hardfork(l1::SpecId::LONDON),
             LONDON_PARAMS,
         )]);
-        let base_fee_params = BaseFeeParams::Variable(variable_base_fee_params.clone());
+        let base_fee_params = BaseFeeParams::Dynamic(variable_base_fee_params.clone());
 
         assert_eq!(
             base_fee_params.at_condition(l1::SpecId::FRONTIER, 0),

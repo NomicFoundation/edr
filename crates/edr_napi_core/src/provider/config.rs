@@ -4,7 +4,7 @@ use std::{str::FromStr, time::SystemTime};
 use edr_eth::{
     block::BlobGas,
     eips::eip1559::{
-        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, VariableBaseFeeParams,
+        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams,
     },
     hash_map::HashMap,
     l1::{self, hardfork::UnknownHardfork},
@@ -85,7 +85,7 @@ where
             >>()
             })
             .transpose()?
-            .map(|activation| BaseFeeParams::Variable(VariableBaseFeeParams::new(activation)));
+            .map(|activation| BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(activation)));
 
         let fork = value
             .fork
