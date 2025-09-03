@@ -2,21 +2,6 @@ use edr_eth::block::{self, HeaderOverrides};
 use edr_provider::test_utils::header_overrides;
 use op_revm::OpSpecId;
 
-/// Post-Holocene it's possible for the base fee parameters to be set
-/// dynamically using L1 parameters. As EDR doesn't support this yet, we
-/// override the base fee with the one from the replayed header.
-pub fn custom_base_fee_header_overrides<HardforkT>(
-    replay_header: &block::Header,
-) -> HeaderOverrides<HardforkT>
-where
-    HardforkT: Default,
-{
-    HeaderOverrides::<HardforkT> {
-        base_fee: replay_header.base_fee_per_gas,
-        ..header_overrides(replay_header)
-    }
-}
-
 /// Since Holocene override `extra_data` field since it can contain a
 /// `base_fee_param` update On OP stack chains, when a a `SystemConfig` eip-1559
 /// fields update happens, the change gets evidenced first in a block
