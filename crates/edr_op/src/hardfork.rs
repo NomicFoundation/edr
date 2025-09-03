@@ -10,6 +10,7 @@ use crate::Hardfork;
 pub mod base;
 /// OP chain configs
 pub mod op;
+pub mod generated;
 
 // Source:
 // <https://docs.optimism.io/builders/node-operators/network-upgrades>
