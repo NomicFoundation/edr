@@ -18,7 +18,7 @@ use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, InvariantContract},
     BaseCounterExample,
 };
-use foundry_evm_traces::{load_contracts, TraceKind, Traces};
+use foundry_evm_traces::{load_contracts, TraceKind, Traces, TracingMode};
 use parking_lot::RwLock;
 use proptest::test_runner::TestError;
 use revm::{
@@ -126,11 +126,12 @@ pub fn replay_run<
     } = args;
 
     // We want traces for a failed case.
-    if generate_stack_trace && executor.safe_to_re_execute() {
-        executor.inspector.enable_for_stack_traces();
+
+    executor.set_tracing(if generate_stack_trace && executor.safe_to_re_execute() {
+        TracingMode::WithSteps
     } else {
-        executor.set_tracing(true);
-    }
+        TracingMode::WithoutSteps
+    });
 
     let mut counterexample_sequence = vec![];
 

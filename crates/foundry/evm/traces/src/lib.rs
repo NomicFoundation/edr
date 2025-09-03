@@ -67,6 +67,40 @@ impl SparsedTraceArena {
     }
 }
 
+/// Trace mode for execution traces.
+#[derive(Clone, Copy, Debug, Default)]
+pub enum TracingMode {
+    /// Don't collect traces
+    #[default]
+    None,
+    /// Collect traces without recording steps
+    WithoutSteps,
+    /// Collect traces with recorded steps
+    WithSteps,
+}
+
+impl TracingMode {
+    pub fn into_config(self) -> Option<TracingInspectorConfig> {
+        let record_steps = match self {
+            Self::None => return None,
+            Self::WithoutSteps => false,
+            Self::WithSteps => true,
+        };
+
+        Some(TracingInspectorConfig {
+            record_steps,
+            record_memory_snapshots: false,
+            record_stack_snapshots: StackSnapshotType::None,
+            record_state_diff: false,
+            record_returndata_snapshots: false,
+            record_opcodes_filter: None,
+            exclude_precompile_calls: false,
+            record_logs: true,
+            record_immediate_bytes: false,
+        })
+    }
+}
+
 fn clear_node(
     nodes: &mut [CallTraceNode],
     node_idx: usize,

@@ -12,7 +12,7 @@ use foundry_evm_core::{
     },
 };
 use foundry_evm_coverage::HitMaps;
-use foundry_evm_traces::SparsedTraceArena;
+use foundry_evm_traces::{SparsedTraceArena, TracingMode};
 use revm::{
     context::{
         result::{ExecutionResult, HaltReason, HaltReasonTr},
@@ -26,10 +26,7 @@ use revm::{
     DatabaseCommit, ExecuteEvm, Inspector, Journal,
 };
 
-use super::{
-    Cheatcodes, CheatsConfig, CoverageCollector, Fuzzer, LogCollector, StackSnapshotType,
-    TracingInspector, TracingInspectorConfig,
-};
+use super::{Cheatcodes, CheatsConfig, CoverageCollector, Fuzzer, LogCollector, TracingInspector};
 
 #[derive(Clone, Debug, Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
@@ -51,7 +48,7 @@ pub struct InspectorStackBuilder<HardforkT: HardforkTr, ChainContextT: ChainCont
     /// The fuzzer inspector and its state, if it exists.
     pub fuzzer: Option<Fuzzer>,
     /// Whether to enable tracing.
-    pub trace: Option<bool>,
+    pub trace: Option<TracingMode>,
     /// Whether logs should be collected.
     pub logs: Option<bool>,
     /// Whether to report EDR code coverage.
@@ -127,8 +124,8 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
 
     /// Set whether to enable the tracer.
     #[inline]
-    pub fn trace(mut self, yes: bool) -> Self {
-        self.trace = Some(yes);
+    pub fn trace(mut self, mode: TracingMode) -> Self {
+        self.trace = Some(mode);
         self
     }
 
@@ -188,7 +185,7 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
         }
         stack.collect_coverage(coverage.unwrap_or(false));
         stack.collect_logs(logs.unwrap_or(true));
-        stack.tracing(trace.unwrap_or(false));
+        stack.tracing(trace.unwrap_or(TracingMode::None));
 
         stack.enable_isolation(enable_isolation);
 
@@ -455,37 +452,10 @@ impl<
 
     /// Set whether to enable the tracer.
     #[inline]
-    pub fn tracing(&mut self, yes: bool) {
-        self.tracer = yes.then(|| {
-            TracingInspector::new(TracingInspectorConfig {
-                record_steps: false,
-                record_memory_snapshots: false,
-                record_stack_snapshots: StackSnapshotType::None,
-                record_state_diff: false,
-                record_returndata_snapshots: false,
-                record_opcodes_filter: None,
-                exclude_precompile_calls: false,
-                record_logs: true,
-                record_immediate_bytes: false,
-            })
-        });
-    }
+    pub fn tracing(&mut self, mode: TracingMode) {
+        let tracing_config = mode.into_config();
 
-    /// Enable tracer for stack traces.
-    /// This enables a tracing inspector with expensive `record_steps`.
-    #[inline]
-    pub fn enable_for_stack_traces(&mut self) {
-        self.tracer = Some(TracingInspector::new(TracingInspectorConfig {
-            record_steps: true,
-            record_memory_snapshots: false,
-            record_stack_snapshots: StackSnapshotType::None,
-            record_state_diff: false,
-            record_returndata_snapshots: false,
-            record_opcodes_filter: None,
-            exclude_precompile_calls: false,
-            record_logs: true,
-            record_immediate_bytes: false,
-        }));
+        self.tracer = tracing_config.map(TracingInspector::new);
     }
 
     /// Collects all the data gathered during inspection into a single struct.
