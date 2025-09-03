@@ -746,6 +746,30 @@ mod tests {
     }
 
     #[test]
+    fn test_partial_header_base_fee_override_takes_precedence_over_base_fee_params_override() {
+        let ommers = vec![];
+        let configured_base_fee = 2_000_000_000;
+        let base_fee_params = BaseFeeParams::Constant(ConstantBaseFeeParams {
+            max_change_denominator: 50,
+            elasticity_multiplier: 2,
+        });
+        let overrides = HeaderOverrides {
+            base_fee: Some(configured_base_fee),
+            base_fee_params: Some(base_fee_params),
+            ..HeaderOverrides::default()
+        };
+        let partial_header = PartialHeader::new::<l1::L1ChainSpec>(
+            l1::SpecId::LONDON,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, Some(configured_base_fee));
+    }
+
+    #[test]
     fn test_partial_header_ignores_base_fee_params_if_before_london() {
         let ommers = vec![];
         let overrides = HeaderOverrides {
