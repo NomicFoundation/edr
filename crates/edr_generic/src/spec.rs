@@ -106,7 +106,9 @@ impl BlockEnvConstructor<PartialHeader> for GenericChainSpec {
 }
 
 impl EthHeaderConstants for GenericChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork> = L1ChainSpec::BASE_FEE_PARAMS;
+    fn base_fee_params() -> BaseFeeParams<Self::Hardfork> {
+        L1ChainSpec::base_fee_params()
+    }
 
     const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
 }
@@ -119,7 +121,7 @@ impl GenesisBlockFactory for GenericChainSpec {
     fn genesis_block(
         genesis_diff: edr_evm::state::StateDiff,
         hardfork: Self::Hardfork,
-        mut options: edr_evm::GenesisBlockOptions,
+        mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
         options.extra_data = Some(

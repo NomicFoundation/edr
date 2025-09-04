@@ -214,8 +214,11 @@ impl<
     pub fn with_genesis_state<HeaderConstantsT: EthHeaderConstants<Hardfork = HardforkT>>(
         genesis_diff: StateDiff,
         hardfork: HardforkT,
-        options: GenesisBlockOptions,
-    ) -> Result<Self, CreationError> {
+        options: GenesisBlockOptions<HardforkT>,
+    ) -> Result<Self, CreationError>
+    where
+        HardforkT: Default,
+    {
         let mut genesis_state = TrieState::default();
         genesis_state.commit(genesis_diff.clone().into());
 
@@ -224,7 +227,7 @@ impl<
             return Err(CreationError::MissingPrevrandao);
         }
 
-        let mut options = HeaderOverrides::from(options);
+        let mut options = HeaderOverrides::<HardforkT>::from(options);
         options.state_root = Some(
             genesis_state
                 .state_root()

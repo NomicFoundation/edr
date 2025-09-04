@@ -14,6 +14,7 @@ dyn-clone.workspace = true
 edr_chain_l1.workspace = true
 edr_coverage = { path = "../edr_coverage" }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
+edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_eth = { version = "0.3.5", path = "../edr_eth" }

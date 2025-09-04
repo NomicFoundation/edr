@@ -42,7 +42,9 @@ pub async fn replay(
 pub async fn replay_chain_specific_block<ChainSpecT>(
     chain_type: &str,
     url: String,
-    header_overrides_constructor: impl FnOnce(&block::Header) -> block::HeaderOverrides,
+    header_overrides_constructor: impl FnOnce(
+        &block::Header,
+    ) -> block::HeaderOverrides<ChainSpecT::Hardfork>,
     block_number: Option<u64>,
 ) -> anyhow::Result<()>
 where

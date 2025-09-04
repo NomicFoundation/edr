@@ -2,6 +2,7 @@ mod l1;
 
 use std::fmt::Debug;
 
+use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::{self, BlobGas, HeaderOverrides, PartialHeader},
     withdrawal::Withdrawal,
@@ -113,7 +114,7 @@ pub enum BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidat
 
 /// Options for creating a genesis block.
 #[derive(Default)]
-pub struct GenesisBlockOptions {
+pub struct GenesisBlockOptions<HardforkT> {
     /// The block's extra data
     pub extra_data: Option<Bytes>,
     /// The block's gas limit
@@ -124,18 +125,21 @@ pub struct GenesisBlockOptions {
     pub mix_hash: Option<B256>,
     /// The block's base gas fee
     pub base_fee: Option<u128>,
+    /// Base fee params to calculate `base_fee` if not set
+    pub base_fee_params: Option<BaseFeeParams<HardforkT>>,
     /// The block's blob gas (for post-Cancun blockchains)
     pub blob_gas: Option<BlobGas>,
 }
 
-impl From<GenesisBlockOptions> for HeaderOverrides {
-    fn from(value: GenesisBlockOptions) -> Self {
+impl<HardforkT: Default> From<GenesisBlockOptions<HardforkT>> for HeaderOverrides<HardforkT> {
+    fn from(value: GenesisBlockOptions<HardforkT>) -> Self {
         let GenesisBlockOptions {
             extra_data,
             gas_limit,
             timestamp,
             mix_hash,
             base_fee,
+            base_fee_params,
             blob_gas,
         } = value;
 
@@ -145,8 +149,9 @@ impl From<GenesisBlockOptions> for HeaderOverrides {
             timestamp,
             mix_hash,
             base_fee,
+            base_fee_params,
             blob_gas,
-            ..HeaderOverrides::default()
+            ..HeaderOverrides::<HardforkT>::default()
         }
     }
 }
@@ -172,7 +177,7 @@ where
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
-        overrides: HeaderOverrides,
+        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,

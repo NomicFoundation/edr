@@ -107,7 +107,7 @@ pub trait GenesisBlockFactory: ChainHardfork {
     fn genesis_block(
         genesis_diff: StateDiff,
         hardfork: Self::Hardfork,
-        options: GenesisBlockOptions,
+        options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError>;
 }
 
@@ -131,7 +131,7 @@ impl GenesisBlockFactory for L1ChainSpec {
     fn genesis_block(
         genesis_diff: StateDiff,
         hardfork: Self::Hardfork,
-        mut options: GenesisBlockOptions,
+        mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
         options.extra_data = Some(
