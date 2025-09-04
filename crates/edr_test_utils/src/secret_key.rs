@@ -1,16 +1,14 @@
-pub use edr_eth::signature::{SecretKey, SignatureError};
+use edr_eth::Address;
 #[allow(deprecated)]
 // This is test code, it's ok to use `DangerousSecretKeyStr`
-use edr_eth::{
-    signature::{public_key_to_address, DangerousSecretKeyStr},
-    Address,
-};
+use edr_signer::{public_key_to_address, DangerousSecretKeyStr};
+pub use edr_signer::{SecretKey, SignatureError};
 
 /// Converts a hex string to a secret key.
 pub fn secret_key_from_str(secret_key: &str) -> Result<SecretKey, SignatureError> {
     // This is test code, it's ok to use `DangerousSecretKeyStr`
     #[allow(deprecated)]
-    edr_eth::signature::secret_key_from_str(DangerousSecretKeyStr(secret_key))
+    edr_signer::secret_key_from_str(DangerousSecretKeyStr(secret_key))
 }
 
 /// Converts a secret key in a hex string format to an address.
@@ -32,7 +30,7 @@ pub fn secret_key_from_str(secret_key: &str) -> Result<SecretKey, SignatureError
 pub fn secret_key_to_address(secret_key: &str) -> Result<Address, SignatureError> {
     // This is test code, it's ok to use `DangerousSecretKeyStr`
     #[allow(deprecated)]
-    let secret_key = edr_eth::signature::secret_key_from_str(DangerousSecretKeyStr(secret_key))?;
+    let secret_key = edr_signer::secret_key_from_str(DangerousSecretKeyStr(secret_key))?;
     Ok(public_key_to_address(secret_key.public_key()))
 }
 

@@ -6,7 +6,7 @@ use edr_napi_core::{
     provider::{SyncProvider, SyncProviderFactory},
     subscription::subscriber_callback_for_chain_spec,
 };
-use edr_op::{predeploys::GAS_PRICE_ORACLE_ADDRESS, OpChainSpec, OpSpecId};
+use edr_op::{predeploys::GAS_PRICE_ORACLE_ADDRESS, OpChainSpec};
 use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
@@ -34,7 +34,8 @@ impl SyncProviderFactory for OpProviderFactory {
         let logger =
             Logger::<OpChainSpec, CurrentTime>::new(logger_config, Arc::clone(&contract_decoder))?;
 
-        let provider_config = edr_provider::ProviderConfig::<OpSpecId>::try_from(provider_config)?;
+        let provider_config =
+            edr_provider::ProviderConfig::<edr_op::Hardfork>::try_from(provider_config)?;
 
         let provider = edr_provider::Provider::<OpChainSpec>::new(
             runtime.clone(),
@@ -63,17 +64,17 @@ pub enum OpHardfork {
     Isthmus = 107,
 }
 
-impl From<OpHardfork> for OpSpecId {
+impl From<OpHardfork> for edr_op::Hardfork {
     fn from(hardfork: OpHardfork) -> Self {
         match hardfork {
-            OpHardfork::Bedrock => OpSpecId::BEDROCK,
-            OpHardfork::Regolith => OpSpecId::REGOLITH,
-            OpHardfork::Canyon => OpSpecId::CANYON,
-            OpHardfork::Ecotone => OpSpecId::ECOTONE,
-            OpHardfork::Fjord => OpSpecId::FJORD,
-            OpHardfork::Granite => OpSpecId::GRANITE,
-            OpHardfork::Holocene => OpSpecId::HOLOCENE,
-            OpHardfork::Isthmus => OpSpecId::ISTHMUS,
+            OpHardfork::Bedrock => edr_op::Hardfork::BEDROCK,
+            OpHardfork::Regolith => edr_op::Hardfork::REGOLITH,
+            OpHardfork::Canyon => edr_op::Hardfork::CANYON,
+            OpHardfork::Ecotone => edr_op::Hardfork::ECOTONE,
+            OpHardfork::Fjord => edr_op::Hardfork::FJORD,
+            OpHardfork::Granite => edr_op::Hardfork::GRANITE,
+            OpHardfork::Holocene => edr_op::Hardfork::HOLOCENE,
+            OpHardfork::Isthmus => edr_op::Hardfork::ISTHMUS,
         }
     }
 }
@@ -335,10 +336,10 @@ pub fn op_provider_factory() -> ProviderFactory {
     factory.into()
 }
 
-fn gas_price_oracle_override(hardfork: OpSpecId) -> AccountOverride {
-    if hardfork >= OpSpecId::ISTHMUS {
+fn gas_price_oracle_override(hardfork: edr_op::Hardfork) -> AccountOverride {
+    if hardfork >= edr_op::Hardfork::ISTHMUS {
         gas_price_oracle_isthmus()
-    } else if hardfork >= OpSpecId::FJORD {
+    } else if hardfork >= edr_op::Hardfork::FJORD {
         gas_price_oracle_fjord()
     } else {
         gas_price_oracle_ecotone()

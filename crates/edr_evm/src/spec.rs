@@ -1,16 +1,22 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
+use edr_chain_l1::L1ChainSpec;
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
     eips::eip4844::{self, blob_base_fee_update_fraction},
-    l1::{self, BlockEnv, L1ChainSpec},
-    log::{ExecutionLog, FilterLog},
-    receipt::{BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptTrait},
     result::ExecutionResult,
-    spec::{ChainHardfork, ChainSpec, EthHeaderConstants},
     Bytes, B256, U256,
 };
+use edr_evm_spec::{
+    ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, EvmTransactionValidationError,
+    ExecutableTransaction, TransactionValidation,
+};
+use edr_receipt::{
+    log::{ExecutionLog, FilterLog},
+    BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
+};
 use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
+use edr_transaction::TransactionType;
 use edr_utils::types::TypeConstructor;
 use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector};
 pub use revm_context_interface::ContextTr as ContextTrait;
@@ -24,13 +30,10 @@ use crate::{
     hardfork::{self, Activations},
     journal::Journal,
     precompile::EthPrecompiles,
-    receipt::{self, ExecutionReceiptBuilder, ReceiptFactory},
+    receipt::{self, ExecutionReceiptBuilder},
     result::EVMErrorForChain,
     state::{Database, DatabaseComponentError, EvmState, StateDiff},
-    transaction::{
-        remote::EthRpcTransaction, ExecutableTransaction, TransactionError,
-        TransactionErrorForChainSpec, TransactionType, TransactionValidation,
-    },
+    transaction::{remote::EthRpcTransaction, TransactionError, TransactionErrorForChainSpec},
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
     EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, EthRpcBlock,
     GenesisBlockOptions, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock,
@@ -162,7 +165,7 @@ pub trait RuntimeSpec:
           + Eq
           + ExecutableTransaction
           + TransactionType
-          + TransactionValidation<ValidationError: From<l1::InvalidTransaction>>,
+          + TransactionValidation<ValidationError: From<EvmTransactionValidationError>>,
     >
     + BlockEnvConstructor<block::PartialHeader> + BlockEnvConstructor<block::Header>
     // Defines an RPC spec and conversion between RPC <-> EVM types
@@ -330,7 +333,7 @@ pub trait RuntimeSpec:
 /// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<HeaderT>: ChainSpec {
     /// Converts the instance into an EVM block.
-    fn new_block_env(header: &HeaderT, hardfork: l1::SpecId) -> Self::BlockEnv;
+    fn new_block_env(header: &HeaderT, hardfork: EvmSpecId) -> Self::BlockEnv;
 }
 
 /// A supertrait for [`RuntimeSpec`] that is safe to send between threads.
@@ -428,7 +431,7 @@ impl RuntimeSpec for L1ChainSpec {
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
     ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT> {
         match error {
-            l1::InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
+            EvmTransactionValidationError::LackOfFundForMaxFee { fee, balance } => {
                 TransactionError::LackOfFundForMaxFee { fee, balance }
             }
             remainder => TransactionError::InvalidTransaction(remainder),
@@ -464,8 +467,8 @@ impl RuntimeSpec for L1ChainSpec {
 }
 
 impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
-    fn new_block_env(header: &PartialHeader, hardfork: l1::SpecId) -> Self::BlockEnv {
-        BlockEnv {
+    fn new_block_env(header: &PartialHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
+        edr_chain_l1::BlockEnv {
             number: U256::from(header.number),
             beneficiary: header.beneficiary,
             timestamp: U256::from(header.timestamp),
@@ -474,7 +477,7 @@ impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
                 base_fee.try_into().expect("base fee is too large")
             }),
             gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= l1::SpecId::MERGE {
+            prevrandao: if hardfork >= EvmSpecId::MERGE {
                 Some(header.mix_hash)
             } else {
                 None
@@ -492,8 +495,8 @@ impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
 }
 
 impl BlockEnvConstructor<Header> for L1ChainSpec {
-    fn new_block_env(header: &Header, hardfork: l1::SpecId) -> Self::BlockEnv {
-        BlockEnv {
+    fn new_block_env(header: &Header, hardfork: EvmSpecId) -> Self::BlockEnv {
+        edr_chain_l1::BlockEnv {
             number: U256::from(header.number),
             beneficiary: header.beneficiary,
             timestamp: U256::from(header.timestamp),
@@ -502,7 +505,7 @@ impl BlockEnvConstructor<Header> for L1ChainSpec {
                 base_fee.try_into().expect("base fee is too large")
             }),
             gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= l1::SpecId::MERGE {
+            prevrandao: if hardfork >= EvmSpecId::MERGE {
                 Some(header.mix_hash)
             } else {
                 None
@@ -521,10 +524,9 @@ impl BlockEnvConstructor<Header> for L1ChainSpec {
 
 #[cfg(test)]
 mod l1_chain_spec_tests {
-
     use edr_eth::{
         block::{BlobGas, Header},
-        l1, Address, Bloom, Bytes, B256, B64, U256,
+        Address, Bloom, Bytes, B256, B64, U256,
     };
 
     use crate::spec::{BlockEnvConstructor as _, L1ChainSpec};
@@ -558,7 +560,7 @@ mod l1_chain_spec_tests {
     fn l1_block_constructor_should_not_default_excess_blob_gas_for_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block = L1ChainSpec::new_block_env(&header, l1::SpecId::CANCUN);
+        let block = L1ChainSpec::new_block_env(&header, edr_chain_l1::Hardfork::CANCUN);
         assert_eq!(block.blob_excess_gas_and_price, None);
     }
 
@@ -566,7 +568,7 @@ mod l1_chain_spec_tests {
     fn l1_block_constructor_should_not_default_excess_blob_gas_before_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block = L1ChainSpec::new_block_env(&header, l1::SpecId::SHANGHAI);
+        let block = L1ChainSpec::new_block_env(&header, edr_chain_l1::Hardfork::SHANGHAI);
         assert_eq!(block.blob_excess_gas_and_price, None);
     }
 
@@ -574,7 +576,7 @@ mod l1_chain_spec_tests {
     fn l1_block_constructor_should_not_default_excess_blob_gas_after_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block = L1ChainSpec::new_block_env(&header, l1::SpecId::PRAGUE);
+        let block = L1ChainSpec::new_block_env(&header, edr_chain_l1::Hardfork::PRAGUE);
         assert_eq!(block.blob_excess_gas_and_price, None);
     }
 
@@ -587,7 +589,7 @@ mod l1_chain_spec_tests {
         };
         let header = build_block_header(Some(blob_gas)); // blob gas present
 
-        let block = L1ChainSpec::new_block_env(&header, l1::SpecId::CANCUN);
+        let block = L1ChainSpec::new_block_env(&header, edr_chain_l1::Hardfork::CANCUN);
 
         let blob_excess_gas = block
             .blob_excess_gas_and_price

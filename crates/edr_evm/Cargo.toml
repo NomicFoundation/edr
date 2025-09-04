@@ -11,6 +11,16 @@ auto_impl = { version = "1.2", default-features = false }
 cita_trie = { version = "4.0.0", default-features = false }
 derive-where.workspace = true
 dyn-clone.workspace = true
+edr_chain_l1.workspace = true
+edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
+edr_eip1559.workspace = true
+edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
+edr_evm_spec.workspace = true
+edr_receipt.workspace = true
+edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
+edr_transaction.workspace = true
+edr_signer.workspace = true
+edr_utils = { version = "0.3.5", path = "../edr_utils" }
 futures = { version = "0.3.28", features = ["alloc", "async-await", "executor", "std"] }
 hasher = { version = "0.1.4", default-features = false, features = ["hash-keccak"] }
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
@@ -18,10 +28,6 @@ itertools = { version = "0.11.0", default-features = false, features = ["use_all
 log = { version = "0.4.17", default-features = false }
 once_cell = { version = "1.19.0", default-features = false, features = ["alloc", "race", "std"] }
 parking_lot = { version = "0.12.1", default-features = false }
-edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
-edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
-edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
-edr_utils = { version = "0.3.5", path = "../edr_utils" }
 revm.workspace = true
 revm-context.workspace = true
 revm-context-interface.workspace = true

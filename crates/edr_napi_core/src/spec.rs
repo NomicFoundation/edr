@@ -1,17 +1,17 @@
 use std::sync::Arc;
 
-use edr_eth::{
-    l1::{self, L1ChainSpec},
-    spec::HaltReasonTrait,
-    transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType, TransactionValidation},
-};
+use edr_chain_l1::L1ChainSpec;
 use edr_evm::trace::Trace;
+use edr_evm_spec::{
+    EvmHaltReason, EvmTransactionValidationError, HaltReasonTrait, TransactionValidation,
+};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use napi::{Either, Status};
 
 pub type ResponseData = Either<String, serde_json::Value>;
@@ -58,7 +58,7 @@ pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
                            + TransactionMut
                            + TransactionType<Type: IsEip4844>
                            + TransactionValidation<
-        ValidationError: From<l1::InvalidTransaction> + PartialEq,
+        ValidationError: From<EvmTransactionValidationError> + PartialEq,
     >,
 >
 {
@@ -72,18 +72,18 @@ pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
     fn cast_response(
         response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<l1::HaltReason>>;
+    ) -> napi::Result<Response<EvmHaltReason>>;
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for L1ChainSpec {
-    const CHAIN_TYPE: &'static str = edr_eth::l1::CHAIN_TYPE;
+    const CHAIN_TYPE: &'static str = edr_chain_l1::CHAIN_TYPE;
 
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<l1::HaltReason>> {
+    ) -> napi::Result<Response<EvmHaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
-        let solidity_trace: Option<Arc<Trace<l1::HaltReason>>> =
+        let solidity_trace: Option<Arc<Trace<EvmHaltReason>>> =
             response.as_mut().err().and_then(|error| {
                 if let edr_provider::ProviderError::TransactionFailed(failure) = error {
                     if matches!(
@@ -133,9 +133,9 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for GenericChainSpec {
     fn cast_response(
         mut response: Result<ResponseWithTraces<Self::HaltReason>, ProviderErrorForChainSpec<Self>>,
         contract_decoder: Arc<ContractDecoder>,
-    ) -> napi::Result<Response<l1::HaltReason>> {
+    ) -> napi::Result<Response<EvmHaltReason>> {
         // We can take the solidity trace as it won't be used for anything else
-        let solidity_trace: Option<Arc<Trace<l1::HaltReason>>> =
+        let solidity_trace: Option<Arc<Trace<EvmHaltReason>>> =
             response.as_mut().err().and_then(|error| {
                 if let edr_provider::ProviderError::TransactionFailed(failure) = error {
                     if matches!(

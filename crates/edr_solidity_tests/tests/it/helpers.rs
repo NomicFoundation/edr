@@ -1,20 +1,16 @@
 //! Test helpers for Forge integration tests.
 
 mod config;
+mod tracing;
+
 pub use config::{assert_multiple, TestConfig};
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
-use edr_eth::{
-    l1::{self, BlockEnv},
-    spec::HaltReasonTrait,
-};
-pub use solidity_test_filter::SolidityTestFilter;
-mod tracing;
-
 use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf};
 
 use alloy_primitives::{Bytes, U256};
+use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
     artifacts::ArtifactId,
     linker::{LinkOutput, Linker},
@@ -50,6 +46,7 @@ use foundry_evm::{
 };
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+pub use solidity_test_filter::SolidityTestFilter;
 
 use crate::helpers::{
     config::NoOpContractDecoder, integration_test_config::IntegrationTestConfig,
@@ -297,12 +294,12 @@ impl From<TestFuzzDictionaryConfig> for FuzzDictionaryConfig {
 
 /// Type alias for [`ForgeTestData`] targetting L1.
 pub type L1ForgeTestData = ForgeTestData<
-    BlockEnv,
+    edr_chain_l1::BlockEnv,
     (),
     L1EvmBuilder,
-    l1::HaltReason,
-    l1::SpecId,
-    l1::InvalidTransaction,
+    edr_chain_l1::HaltReason,
+    edr_chain_l1::Hardfork,
+    edr_chain_l1::InvalidTransaction,
     TxEnv,
 >;
 
@@ -346,7 +343,7 @@ impl<
             TransactionErrorT,
             TransactionT,
         >,
-        HaltReasonT: 'static + HaltReasonTrait + TryInto<l1::HaltReason> + Send + Sync,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
         TransactionT: TransactionEnvTr,
@@ -696,17 +693,23 @@ fn get_compiled(project: &Project) -> ProjectCompileOutput {
 
 /// Default data for the tests group.
 pub static TEST_DATA_DEFAULT: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Default, l1::SpecId::CANCUN).expect("linking ok")
+    ForgeTestData::new(ForgeTestProfile::Default, edr_chain_l1::Hardfork::CANCUN)
+        .expect("linking ok")
 });
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_CANCUN: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Cancun, l1::SpecId::CANCUN).expect("linking ok")
+    ForgeTestData::new(ForgeTestProfile::Cancun, edr_chain_l1::Hardfork::CANCUN)
+        .expect("linking ok")
 });
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::MultiVersion, l1::SpecId::CANCUN).expect("linking ok")
+    ForgeTestData::new(
+        ForgeTestProfile::MultiVersion,
+        edr_chain_l1::Hardfork::CANCUN,
+    )
+    .expect("linking ok")
 });
 
 fn mock_rpc_endpoints() -> RpcEndpoints {

@@ -2,14 +2,12 @@ mod request;
 
 use std::{ops::Deref, sync::OnceLock};
 
-use edr_eth::{
-    block,
-    eips::{eip2930, eip7702},
-    l1,
-    signature::{self, SignatureWithYParity, SignatureWithYParityArgs},
-    transaction::{self, ExecutableTransaction, IsEip4844, IsLegacy, TransactionType, TxKind},
-    Address, Bytes, B256, U256,
+use edr_eth::{block, Address, Bytes, B256, U256};
+use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
+use edr_signer::{
+    FakeableSignature, SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
 };
+use edr_transaction::{IsEip4844, IsLegacy, TransactionType, TxKind};
 
 pub use self::request::TransactionRequest;
 
@@ -62,7 +60,7 @@ pub struct Transaction {
     pub transaction_type: Option<u8>,
     /// access list
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub access_list: Option<Vec<eip2930::AccessListItem>>,
+    pub access_list: Option<Vec<edr_eip2930::AccessListItem>>,
     /// max fee per gas
     #[serde(
         default,
@@ -93,7 +91,7 @@ pub struct Transaction {
     /// the code referenced by `address`. These also include a `chain_id` (which
     /// can be set to zero and not evaluated) as well as an optional `nonce`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
+    pub authorization_list: Option<Vec<edr_eip7702::SignedAuthorization>>,
 }
 
 impl Transaction {
@@ -102,7 +100,7 @@ impl Transaction {
         header: Option<&block::Header>,
         transaction_index: Option<u64>,
         is_pending: bool,
-        hardfork: l1::SpecId,
+        hardfork: EvmSpecId,
     ) -> Self {
         let base_fee = header.and_then(|header| header.base_fee_per_gas);
         let gas_price = if let Some(base_fee) = base_fee {
@@ -125,7 +123,7 @@ impl Transaction {
             }
         });
 
-        let show_transaction_type = hardfork >= l1::SpecId::BERLIN;
+        let show_transaction_type = hardfork >= EvmSpecId::BERLIN;
         let is_typed_transaction = !transaction.is_legacy();
         let transaction_type = if show_transaction_type || is_typed_transaction {
             Some(transaction.transaction_type())
@@ -143,7 +141,7 @@ impl Transaction {
 
         let access_list = transaction
             .access_list()
-            .map(<[edr_eth::eips::eip2930::AccessListItem]>::to_vec);
+            .map(<[edr_eip2930::AccessListItem]>::to_vec);
 
         let blob_versioned_hashes = if transaction.is_eip4844() {
             Some(transaction.blob_hashes().to_vec())
@@ -172,7 +170,7 @@ impl Transaction {
             blob_versioned_hashes,
             authorization_list: transaction
                 .authorization_list()
-                .map(<[eip7702::SignedAuthorization]>::to_vec),
+                .map(<[edr_eip7702::SignedAuthorization]>::to_vec),
         }
     }
 }
@@ -240,7 +238,7 @@ impl TransactionWithSignature {
     }
 }
 
-impl From<TransactionWithSignature> for transaction::signed::Legacy {
+impl From<TransactionWithSignature> for edr_transaction::signed::Legacy {
     fn from(value: TransactionWithSignature) -> Self {
         Self {
             nonce: value.nonce,
@@ -256,8 +254,8 @@ impl From<TransactionWithSignature> for transaction::signed::Legacy {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: value.r,
                         s: value.s,
                         v: value.v,
@@ -271,7 +269,7 @@ impl From<TransactionWithSignature> for transaction::signed::Legacy {
     }
 }
 
-impl From<TransactionWithSignature> for transaction::signed::Eip155 {
+impl From<TransactionWithSignature> for edr_transaction::signed::Eip155 {
     fn from(value: TransactionWithSignature) -> Self {
         Self {
             nonce: value.nonce,
@@ -287,8 +285,8 @@ impl From<TransactionWithSignature> for transaction::signed::Eip155 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
-                    signature::SignatureWithRecoveryId {
+                FakeableSignature::with_address_unchecked(
+                    SignatureWithRecoveryId {
                         r: value.r,
                         s: value.s,
                         v: value.v,
@@ -302,7 +300,7 @@ impl From<TransactionWithSignature> for transaction::signed::Eip155 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip2930 {
+impl TryFrom<TransactionWithSignature> for edr_transaction::signed::Eip2930 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
@@ -310,7 +308,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip2930 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
@@ -343,7 +341,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip2930 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip1559 {
+impl TryFrom<TransactionWithSignature> for edr_transaction::signed::Eip1559 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
@@ -351,7 +349,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip1559 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
@@ -387,7 +385,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip1559 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
+impl TryFrom<TransactionWithSignature> for edr_transaction::signed::Eip4844 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
@@ -395,7 +393,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
@@ -434,7 +432,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip4844 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::signed::Eip7702 {
+impl TryFrom<TransactionWithSignature> for edr_transaction::signed::Eip7702 {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
@@ -442,7 +440,7 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip7702 {
             // SAFETY: The `from` field represents the caller address of the signed
             // transaction.
             signature: unsafe {
-                signature::Fakeable::with_address_unchecked(
+                FakeableSignature::with_address_unchecked(
                     SignatureWithYParity::new(SignatureWithYParityArgs {
                         r: value.r,
                         s: value.s,
@@ -478,13 +476,13 @@ impl TryFrom<TransactionWithSignature> for transaction::signed::Eip7702 {
     }
 }
 
-impl TryFrom<TransactionWithSignature> for transaction::Signed {
+impl TryFrom<TransactionWithSignature> for edr_chain_l1::Signed {
     type Error = ConversionError;
 
     fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction_type = match value
             .transaction_type
-            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
+            .map_or(Ok(edr_chain_l1::Type::Legacy), edr_chain_l1::Type::try_from)
         {
             Ok(r#type) => r#type,
             Err(r#type) => {
@@ -494,22 +492,22 @@ impl TryFrom<TransactionWithSignature> for transaction::Signed {
 
                 // As the transaction type is not 0 or `None`, this will always result in a
                 // post-EIP 155 legacy transaction.
-                transaction::Type::Legacy
+                edr_chain_l1::Type::Legacy
             }
         };
 
         let transaction = match transaction_type {
-            transaction::Type::Legacy => {
+            edr_chain_l1::Type::Legacy => {
                 if value.is_legacy() {
                     Self::PreEip155Legacy(value.into())
                 } else {
                     Self::PostEip155Legacy(value.into())
                 }
             }
-            transaction::Type::Eip2930 => Self::Eip2930(value.try_into()?),
-            transaction::Type::Eip1559 => Self::Eip1559(value.try_into()?),
-            transaction::Type::Eip4844 => Self::Eip4844(value.try_into()?),
-            transaction::Type::Eip7702 => Self::Eip7702(value.try_into()?),
+            edr_chain_l1::Type::Eip2930 => Self::Eip2930(value.try_into()?),
+            edr_chain_l1::Type::Eip1559 => Self::Eip1559(value.try_into()?),
+            edr_chain_l1::Type::Eip4844 => Self::Eip4844(value.try_into()?),
+            edr_chain_l1::Type::Eip7702 => Self::Eip7702(value.try_into()?),
         };
 
         Ok(transaction)

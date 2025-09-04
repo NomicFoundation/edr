@@ -1,4 +1,5 @@
-use edr_eth::{eips::eip1559::ConstantBaseFeeParams, Bytes};
+use edr_eip1559::ConstantBaseFeeParams;
+use edr_eth::Bytes;
 
 /// Currently used version of the dynamic base fee parameter.
 pub const DYNAMIC_BASE_FEE_PARAM_VERSION: u8 = 0x0;

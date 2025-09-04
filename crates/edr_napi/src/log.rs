@@ -9,8 +9,8 @@ pub struct ExecutionLog {
     pub data: Uint8Array,
 }
 
-impl From<&edr_eth::log::ExecutionLog> for ExecutionLog {
-    fn from(value: &edr_eth::log::ExecutionLog) -> Self {
+impl From<&edr_receipt::log::ExecutionLog> for ExecutionLog {
+    fn from(value: &edr_receipt::log::ExecutionLog) -> Self {
         let topics = value
             .topics()
             .iter()

@@ -1,0 +1,32 @@
+[package]
+name = "edr_transaction"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-rlp.workspace = true
+alloy-serde.workspace = true
+anyhow.workspace = true
+c-kzg.workspace = true
+edr_eip2930.workspace = true
+edr_eip7702.workspace = true
+edr_evm_spec.workspace = true
+edr_signer.workspace = true
+k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8" ] }
+revm-context-interface.workspace = true
+revm-primitives = { workspace = true, features = ["serde"] }
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+edr_defaults.workspace = true
+edr_test_utils.workspace = true
+hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+paste.workspace = true
+
+# [features]
+# serde = ["dep:serde", "dep:serde_json", "alloy-eips/serde", "c-kzg/serde", "revm-bytecode/serde", "revm-primitives/serde", "revm-state/serde"]
+
+[lints]
+workspace = true

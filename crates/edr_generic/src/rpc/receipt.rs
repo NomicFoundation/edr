@@ -1,8 +1,4 @@
-use edr_eth::{
-    l1,
-    log::FilterLog,
-    receipt::{self, AsExecutionReceipt as _},
-};
+use edr_receipt::{log::FilterLog, AsExecutionReceipt as _};
 use edr_rpc_eth::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
@@ -16,13 +12,11 @@ pub enum ConversionError {
     MissingStatus,
 }
 
-use edr_eth::{
-    receipt::{
-        execution::{Eip658, Legacy},
-        ExecutionReceipt, TransactionReceipt,
-    },
-    transaction::TransactionType,
+use edr_receipt::{
+    execution::{Eip658, Legacy},
+    ExecutionReceipt, TransactionReceipt,
 };
+use edr_transaction::TransactionType;
 
 // We need to introduce a newtype for BlockReceipt again due to the orphan rule,
 // even though we use our own TypedEnvelope.
@@ -30,7 +24,7 @@ use edr_eth::{
 pub struct BlockReceipt(edr_rpc_eth::receipt::Block);
 
 impl TryFrom<BlockReceipt>
-    for crate::receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>
+    for crate::receipt::BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>
 {
     type Error = ConversionError;
 
@@ -91,16 +85,20 @@ impl TryFrom<BlockReceipt>
     }
 }
 
-impl RpcTypeFrom<crate::receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>>
-    for BlockReceipt
+impl
+    RpcTypeFrom<
+        crate::receipt::BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
+    > for BlockReceipt
 {
-    type Hardfork = l1::SpecId;
+    type Hardfork = edr_chain_l1::Hardfork;
 
     fn rpc_type_from(
-        value: &crate::receipt::BlockReceipt<TypedEnvelope<receipt::execution::Eip658<FilterLog>>>,
+        value: &crate::receipt::BlockReceipt<
+            TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>,
+        >,
         hardfork: Self::Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= l1::SpecId::BERLIN {
+        let transaction_type = if hardfork >= edr_chain_l1::Hardfork::BERLIN {
             Some(u8::from(value.inner.transaction_type()))
         } else {
             None

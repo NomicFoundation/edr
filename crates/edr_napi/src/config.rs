@@ -7,11 +7,9 @@ use std::{
 };
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
-use edr_eth::{
-    eips::eip1559::{BaseFeeActivation, ConstantBaseFeeParams},
-    signature::{secret_key_from_str, SecretKey},
-    Bytes, HashMap, HashSet,
-};
+use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
+use edr_eth::{Bytes, HashMap, HashSet};
+use edr_signer::{secret_key_from_str, SecretKey};
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
     bindgen_prelude::{BigInt, Promise, Reference, Uint8Array},
@@ -476,7 +474,7 @@ impl ProviderConfig {
                 // This is the only place in production code where it's allowed to use
                 // `DangerousSecretKeyStr`.
                 #[allow(deprecated)]
-                use edr_eth::signature::DangerousSecretKeyStr;
+                use edr_signer::DangerousSecretKeyStr;
 
                 static_assertions::assert_not_impl_all!(JsString: Debug, Display, serde::Serialize);
                 static_assertions::assert_not_impl_all!(JsStringUtf8: Debug, Display, serde::Serialize);

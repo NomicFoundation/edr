@@ -1,22 +1,30 @@
 [workspace]
 members = [
     # EDR
+    "crates/edr_chain_l1",
     "crates/edr_common",
     "crates/edr_coverage",
     "crates/edr_defaults",
+    "crates/edr_eip1559",
+    "crates/edr_eip2930",
+    "crates/edr_eip7702",
     "crates/edr_eth",
     "crates/edr_evm",
+    "crates/edr_evm_spec",
     "crates/edr_instrument",
     "crates/edr_macros",
     "crates/edr_napi",
     "crates/edr_op",
     "crates/edr_provider",
+    "crates/edr_receipt",
     "crates/edr_rpc_client",
     "crates/edr_rpc_eth",
     "crates/edr_scenarios",
+    "crates/edr_signer",
     "crates/edr_solidity",
     "crates/edr_solidity_tests",
     "crates/edr_test_utils",
+    "crates/edr_transaction",
     "crates/tools",
     # Foundry
     "crates/foundry/cheatcodes",
@@ -83,15 +91,25 @@ scrypt.opt-level = 3
 
 
 [workspace.dependencies]
+edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
 edr_defaults = { path = "crates/edr_defaults" }
+edr_eip1559 = { path = "crates/edr_eip1559" }
+edr_eip2930 = { path = "crates/edr_eip2930" }
+edr_eip7702 = { path = "crates/edr_eip7702" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/edr_evm" }
+edr_evm_spec = { path = "crates/edr_evm_spec" }
 edr_macros = { path = "crates/edr_macros" }
+edr_receipt = { path = "crates/edr_receipt" }
+edr_rpc_client = { path = "crates/edr_rpc_client" }
+edr_rpc_eth = { path = "crates/edr_rpc_eth" }
+edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_test_utils = { path = "crates/edr_test_utils" }
+edr_transaction = { path = "crates/edr_transaction" }
 
 foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
 foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }
@@ -175,6 +193,7 @@ alloy-trie = "0.9.0"
 ## misc
 anyhow = { version = "1.0.89", default-features = false }
 arrayvec = "0.7"
+auto_impl = { version = "1.2", default-features = false }
 dunce = "1"
 dyn-clone = { version = "1.0.13", default-features = false }
 base64 = "0.22"

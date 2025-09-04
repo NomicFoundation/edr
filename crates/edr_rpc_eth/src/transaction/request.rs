@@ -1,7 +1,4 @@
-use edr_eth::{
-    eips::{eip2930, eip7702},
-    Address, Blob, Bytes, B256, U256,
-};
+use edr_eth::{Address, Blob, Bytes, B256, U256};
 
 /// Represents _all_ transaction requests received from RPC
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -37,7 +34,7 @@ pub struct TransactionRequest {
     pub chain_id: Option<u64>,
     /// warm storage access pre-payment
     #[serde(default)]
-    pub access_list: Option<Vec<eip2930::AccessListItem>>,
+    pub access_list: Option<Vec<edr_eip2930::AccessListItem>>,
     /// EIP-2718 type
     #[serde(default, rename = "type", with = "alloy_serde::quantity::opt")]
     pub transaction_type: Option<u8>,
@@ -49,5 +46,5 @@ pub struct TransactionRequest {
     /// the code referenced by `address`. These also include a `chain_id` (which
     /// can be set to zero and not evaluated) as well as an optional `nonce`.
     #[serde(default)]
-    pub authorization_list: Option<Vec<eip7702::SignedAuthorization>>,
+    pub authorization_list: Option<Vec<edr_eip7702::SignedAuthorization>>,
 }

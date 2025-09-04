@@ -1,21 +1,16 @@
 use core::num::NonZeroU64;
 use std::{str::FromStr, time::SystemTime};
 
-use edr_eth::{
-    block::BlobGas,
-    eips::eip1559::{
-        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams,
-    },
-    hash_map::HashMap,
-    l1::{self, hardfork::UnknownHardfork},
-    signature::SecretKey,
-    Address, ChainId, B256,
-};
+use edr_chain_l1::UnknownHardfork;
+use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
+use edr_eth::{block::BlobGas, Address, ChainId, HashMap, B256};
 use edr_evm::{
     hardfork::{self, ChainOverride},
     precompile::PrecompileFn,
 };
+use edr_evm_spec::EvmSpecId;
 use edr_provider::{config, AccountOverride, ForkConfig};
+use edr_signer::SecretKey;
 
 /// Chain-agnostic configuration for a provider.
 #[derive(Clone, Debug)]
@@ -48,7 +43,7 @@ pub struct Config {
 
 fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
 where
-    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId>,
+    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<EvmSpecId>,
 {
     hardfork.parse().map_err(|UnknownHardfork| {
         napi::Error::new(
@@ -60,7 +55,11 @@ where
 
 impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
-    HardforkT: FromStr<Err = UnknownHardfork> + Default + Into<l1::SpecId> + Clone + PartialOrd,
+    HardforkT: FromStr<Err = UnknownHardfork>
+        + Default
+        + Into<edr_evm_spec::EvmSpecId>
+        + Clone
+        + PartialOrd,
 {
     type Error = napi::Error;
 

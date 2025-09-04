@@ -1,18 +1,14 @@
 use core::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
 
-use edr_eth::{
-    result::ExecutionResult,
-    spec::{ChainSpec, HaltReasonTrait},
-    transaction::ExecutableTransaction,
-    Bytes, B256,
-};
+use edr_eth::{result::ExecutionResult, Bytes, B256};
 use edr_evm::{
     spec::RuntimeSpec,
     state::{StateDiff, SyncState},
     trace::Trace,
     Block, MineBlockResultAndState,
 };
+use edr_evm_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait};
 
 /// The result of mining a block, including the state, in debug mode. This
 /// result needs to be inserted into the blockchain to be persistent.

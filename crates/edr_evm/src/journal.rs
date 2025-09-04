@@ -1,4 +1,4 @@
-use edr_eth::log::ExecutionLog;
+use edr_receipt::log::ExecutionLog;
 pub use revm::JournalEntry;
 pub use revm_context::Journal;
 pub use revm_context_interface::JournalTr as JournalTrait;

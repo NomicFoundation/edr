@@ -2,26 +2,22 @@
 
 use std::sync::LazyLock;
 
-use edr_eth::{
-    block::{self, HeaderOverrides},
-    eips::eip1559::{
-        BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams,
-    },
-};
+use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
+use edr_eth::block::{self, HeaderOverrides};
 use edr_evm::impl_full_block_tests;
-use edr_op::{OpChainSpec, OpSpecId};
+use edr_op::{Hardfork, OpChainSpec};
 use edr_provider::test_utils::header_overrides;
 
 use super::op::mainnet_url;
 
-static OP_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpSpecId>> = LazyLock::new(|| {
+static OP_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<Hardfork>> = LazyLock::new(|| {
     BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
         (
-            BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+            BaseFeeActivation::Hardfork(Hardfork::BEDROCK),
             ConstantBaseFeeParams::new(50, 6),
         ),
         (
-            BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+            BaseFeeActivation::Hardfork(Hardfork::CANYON),
             ConstantBaseFeeParams::new(250, 6),
         ),
         // On OP mainnet, the first block to have extra_data field with (250, 4) is 135_513_415
@@ -38,7 +34,7 @@ static OP_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<OpSpecId>> = LazyLock::new(|| 
     ]))
 });
 
-fn op_header_overrides(replay_header: &block::Header) -> HeaderOverrides<OpSpecId> {
+fn op_header_overrides(replay_header: &block::Header) -> HeaderOverrides<Hardfork> {
     HeaderOverrides {
         base_fee_params: Some(OP_BASE_FEE_PARAMS.clone()),
         ..header_overrides(replay_header)
