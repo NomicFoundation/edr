@@ -277,7 +277,7 @@ impl PartialHeader {
                     Some(if let Some(parent) = &parent {
                         calculate_next_base_fee_per_gas::<ChainSpecT>(
                             parent,
-                            overrides.base_fee_params,
+                            &overrides.base_fee_params,
                             hardfork,
                         )
                     } else {
@@ -390,11 +390,12 @@ impl From<Header> for PartialHeader {
 /// Panics if the parent header does not contain a base fee.
 pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
     parent: &Header,
-    base_fee_params: Option<BaseFeeParams<ChainSpecT::Hardfork>>,
+    base_fee_params: &Option<BaseFeeParams<ChainSpecT::Hardfork>>,
     hardfork: ChainSpecT::Hardfork,
 ) -> u128 {
     let base_fee_params = base_fee_params
-        .unwrap_or(ChainSpecT::base_fee_params())
+        .as_ref()
+        .unwrap_or(&ChainSpecT::base_fee_params())
         .at_condition(hardfork, parent.number + 1)
         .copied()
         .expect("Chain must have base fee params for post-London hardforks");
@@ -855,7 +856,7 @@ mod tests {
             Some(
                 calculate_next_base_fee_per_gas::<edr_chain_l1::L1ChainSpec>(
                     &parent_header,
-                    Some(base_fee_params),
+                    &Some(base_fee_params),
                     edr_chain_l1::Hardfork::LONDON
                 )
             )
