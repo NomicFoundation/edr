@@ -96,6 +96,11 @@ mod tests {
 
     use crate::{BaseFeeActivation, BaseFeeParams, DynamicBaseFeeParams};
 
+    const BERLIN_ACTIVATION: u64 = 12_244_000;
+    const LONDON_ACTIVATION: u64 = 12_965_000;
+    const SHANGHAI_ACTIVATION: u64 = 17_034_870;
+    const PRAGUE_ACTIVATION: u64 = 22_431_084;
+
     const LONDON_PARAMS: ConstantBaseFeeParams = ConstantBaseFeeParams {
         max_change_denominator: DEFAULT_BASE_FEE_MAX_CHANGE_DENOMINATOR as u128,
         elasticity_multiplier: DEFAULT_ELASTICITY_MULTIPLIER as u128,
@@ -107,29 +112,27 @@ mod tests {
             max_change_denominator: u128::from(DEFAULT_BASE_FEE_MAX_CHANGE_DENOMINATOR),
             elasticity_multiplier: 3,
         };
-        let prague_activation_block_number = 22_431_084;
         let base_fee_params = DynamicBaseFeeParams::<EvmSpecId>::new(vec![
             (
                 BaseFeeActivation::Hardfork(EvmSpecId::LONDON),
                 LONDON_PARAMS,
             ),
             (
-                BaseFeeActivation::BlockNumber(prague_activation_block_number),
+                BaseFeeActivation::BlockNumber(PRAGUE_ACTIVATION),
                 prague_params,
             ),
         ]);
 
         assert_eq!(
-            base_fee_params.at_condition(EvmSpecId::LONDON, 12_965_001), /* london activation +
-                                                                          * 1 block number */
+            base_fee_params.at_condition(EvmSpecId::LONDON, LONDON_ACTIVATION + 1),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(EvmSpecId::SHANGHAI, 19_426_587), /* shanghai activation + 1 block number */
+            base_fee_params.at_condition(EvmSpecId::SHANGHAI, SHANGHAI_ACTIVATION + 1),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(EvmSpecId::LONDON, prague_activation_block_number + 1), /* london hardfork but prague + 1 block number */
+            base_fee_params.at_condition(EvmSpecId::LONDON, PRAGUE_ACTIVATION + 1),
             Some(&prague_params)
         );
     }
@@ -142,9 +145,9 @@ mod tests {
         )]);
 
         assert_eq!(
-            base_fee_params.at_condition(EvmSpecId::BERLIN, 12_244_000),
+            base_fee_params.at_condition(EvmSpecId::BERLIN, BERLIN_ACTIVATION),
             None
-        ); // berlin activation block number
+        );
     }
 
     #[test]
@@ -155,11 +158,11 @@ mod tests {
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(EvmSpecId::LONDON, 12_965_000),
+            base_fee_params.at_condition(EvmSpecId::LONDON, LONDON_ACTIVATION),
             Some(&LONDON_PARAMS)
         );
         assert_eq!(
-            base_fee_params.at_condition(EvmSpecId::PRAGUE, 22_431_084),
+            base_fee_params.at_condition(EvmSpecId::PRAGUE, PRAGUE_ACTIVATION),
             Some(&LONDON_PARAMS)
         );
     }
@@ -177,12 +180,12 @@ mod tests {
             variable_base_fee_params.at_condition(EvmSpecId::FRONTIER, 0)
         );
         assert_eq!(
-            base_fee_params.at_condition(EvmSpecId::LONDON, 12_965_000),
-            variable_base_fee_params.at_condition(EvmSpecId::LONDON, 12_965_000)
+            base_fee_params.at_condition(EvmSpecId::LONDON, LONDON_ACTIVATION),
+            variable_base_fee_params.at_condition(EvmSpecId::LONDON, LONDON_ACTIVATION)
         );
         assert_eq!(
-            base_fee_params.at_condition(EvmSpecId::PRAGUE, 22_431_084),
-            variable_base_fee_params.at_condition(EvmSpecId::PRAGUE, 22_431_084)
+            base_fee_params.at_condition(EvmSpecId::PRAGUE, PRAGUE_ACTIVATION),
+            variable_base_fee_params.at_condition(EvmSpecId::PRAGUE, PRAGUE_ACTIVATION)
         );
     }
 }
