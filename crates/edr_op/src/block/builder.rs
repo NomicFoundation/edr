@@ -95,17 +95,15 @@ where
                 }
             }, Ok)?;
 
-            // The current block (parent + 1) must inform the eip-1559 params to be used in the
-            // following block (parent + 2)
-            // > if Holocene is active at parent_header.timestamp, then the parameters from parent_header.extraData are used.
-            // See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
-            let extra_data_base_fee_params = base_fee_params
-                .at_condition(cfg.spec, blockchain.last_block_number() + 2)
-                .expect("Chain spec must have base fee params for post-London hardforks");
-
-            let extra_data = overrides
-                .extra_data
-                .unwrap_or_else(|| encode_dynamic_base_fee_params(extra_data_base_fee_params));
+            let extra_data = overrides.extra_data.unwrap_or_else(|| {
+                // For post-Holocene blocks, store the encoded base fee parameters to be used in
+                // the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
+                let next_block_number = blockchain.last_block_number() + 2;
+                let extra_data_base_fee_params = base_fee_params
+                    .at_condition(cfg.spec, next_block_number)
+                    .expect("Chain spec must have base fee params for post-London hardforks");
+                encode_dynamic_base_fee_params(extra_data_base_fee_params)
+            });
 
             overrides.base_fee_params = Some(base_fee_params);
             overrides.extra_data = Some(extra_data);
