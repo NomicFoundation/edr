@@ -2,11 +2,9 @@ use edr_eth::block::{self, HeaderOverrides};
 use edr_provider::test_utils::header_overrides;
 use op_revm::OpSpecId;
 
-/// Since Holocene override `extra_data` field since it can contain a
-/// `base_fee_param` update On OP stack chains, when a a `SystemConfig` eip-1559
-/// fields update happens, the change gets evidenced first in a block
-/// `extra_data` field which will then used for calculating next block
-/// `base_fee`
+/// Since Holocene, overriding `extra_data` field is necessary to fork and
+/// replay a block in EDR since this field manifests if there has been a
+/// `SystemConfig` update in eip1559 fields.
 ///
 /// > Placing the EIP-1559 parameters within the L2 block header allows us to
 /// > retain the purity of the function that computes the next block's base fee
