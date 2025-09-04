@@ -84,10 +84,10 @@ impl GenesisBlockFactory for OpChainSpec {
         if hardfork >= Hardfork::HOLOCENE {
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
-            let base_fee_params = Self::base_fee_params();
             let extra_data = options.extra_data.unwrap_or_else(|| {
+                let chain_base_fee_params = Self::base_fee_params();
                 let base_fee_params = config_base_fee_params
-                    .unwrap_or(&base_fee_params)
+                    .unwrap_or(&chain_base_fee_params)
                     .at_condition(hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
