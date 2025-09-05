@@ -3,10 +3,10 @@ use std::{str::FromStr, sync::LazyLock};
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-pub const MAINNET_CHAIN_ID: u64 = 0x2B2;
+pub const SEPOLIA_CHAIN_ID: u64 = 0x4061;
 
-pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
-    name: "Redstone".into(),
+pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
+    name: "Pivotal Sepolia".into(),
     hardfork_activations: Activations::new(vec![
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
