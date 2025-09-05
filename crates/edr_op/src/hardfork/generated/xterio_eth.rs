@@ -1,4 +1,3 @@
-
 use std::{str::FromStr, sync::LazyLock};
 
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
@@ -8,21 +7,18 @@ pub const MAINNET_CHAIN_ID: u64 = 0x293B30;
 
 pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "Xterio Chain (ETH)".into(),
-    hardfork_activations: Activations::new( vec![
-    
+    hardfork_activations: Activations::new(vec![
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
             hardfork: OpSpecId::from_str("canyon").unwrap(),
         },
-
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
             hardfork: OpSpecId::from_str("delta").unwrap(),
         },
-
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
             hardfork: OpSpecId::from_str("ecotone").unwrap(),
         },
-   ]),
+    ]),
 });
