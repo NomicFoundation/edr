@@ -543,7 +543,7 @@ describe("Unit tests", () => {
       stackTrace.stackTrace?.kind !== "UnsafeToReplay"
     ) {
       throw new Error(
-        `Expected unsafe to replay stack trace, instead it is: {stackTrace}`
+        `Expected unsafe to replay stack trace, instead it is: ${stackTrace}`
       );
     }
 
@@ -565,7 +565,7 @@ describe("Unit tests", () => {
       stackTrace2.stackTrace?.kind !== "UnsafeToReplay"
     ) {
       throw new Error(
-        `Expected unsafe to replay stack trace, instead it is: {stackTrace}`
+        `Expected unsafe to replay stack trace, instead it is: ${stackTrace2}`
       );
     }
 
