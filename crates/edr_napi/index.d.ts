@@ -162,7 +162,7 @@ export const FJORD: string
 export const GRANITE: string
 export const HOLOCENE: string
 export const ISTHMUS: string
-/** Configuration for eip-1559 parameters */
+/** Configuration for EIP-1559 parameters */
 export interface BaseFeeParamActivation {
   activation: BaseFeeActivationByBlockNumber | BaseFeeActivationByHardfork
   maxChangeDenominator: bigint
