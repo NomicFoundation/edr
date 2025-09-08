@@ -664,6 +664,8 @@ export interface SolidityTestRunnerConfigArgs {
    * config value is set, then the fuzz config value will be used.
    */
   invariant?: InvariantConfigArgs
+  /** Whether to collect stack traces. */
+  collectStackTraces?: CollectStackTraces
   /**
    * Controls which test results should include execution traces. Defaults to
    * None.
@@ -839,6 +841,19 @@ export interface AddressLabel {
   address: Uint8Array
   /** The label to assign to the address */
   label: string
+}
+/** A type that controls when stack traces are collected. */
+export enum CollectStackTraces {
+  /** Always collects stack traces, adding performance overhead. */
+  Always = 0,
+  /**
+   * Only collects stack traces upon failure, re-executing the test. This
+   * minimizes performance overhead.
+   *
+   * Not all tests can be re-executed since certain cheatcodes contain
+   * non-deterministic side-effects.
+   */
+  OnFailure = 1
 }
 /**
  * Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that

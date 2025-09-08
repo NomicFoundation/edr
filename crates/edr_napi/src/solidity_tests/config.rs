@@ -143,6 +143,8 @@ pub struct SolidityTestRunnerConfigArgs {
     /// If an invariant config setting is not set, but a corresponding fuzz
     /// config value is set, then the fuzz config value will be used.
     pub invariant: Option<InvariantConfigArgs>,
+    /// Whether to collect stack traces.
+    pub collect_stack_traces: Option<CollectStackTraces>,
     /// Controls which test results should include execution traces. Defaults to
     /// None.
     pub include_traces: Option<IncludeTraces>,
@@ -194,6 +196,7 @@ impl SolidityTestRunnerConfigArgs {
             prompt_timeout,
             fuzz,
             invariant,
+            collect_stack_traces,
             include_traces,
             observability,
             test_pattern,
@@ -296,6 +299,10 @@ impl SolidityTestRunnerConfigArgs {
             cheatcode,
             fuzz,
             invariant,
+            collect_stack_traces: collect_stack_traces.map_or(
+                edr_solidity_tests::CollectStackTraces::OnFailure,
+                edr_solidity_tests::CollectStackTraces::from,
+            ),
             on_collected_coverage_fn,
             test_pattern,
         };
@@ -719,6 +726,29 @@ pub struct AddressLabel {
     pub address: Uint8Array,
     /// The label to assign to the address
     pub label: String,
+}
+
+/// A type that controls when stack traces are collected.
+#[napi]
+#[derive(Debug, serde::Serialize)]
+pub enum CollectStackTraces {
+    /// Always collects stack traces, adding performance overhead.
+    Always,
+    /// Only collects stack traces upon failure, re-executing the test. This
+    /// minimizes performance overhead.
+    ///
+    /// Not all tests can be re-executed since certain cheatcodes contain
+    /// non-deterministic side-effects.
+    OnFailure,
+}
+
+impl From<CollectStackTraces> for edr_solidity_tests::CollectStackTraces {
+    fn from(value: CollectStackTraces) -> Self {
+        match value {
+            CollectStackTraces::Always => edr_solidity_tests::CollectStackTraces::Always,
+            CollectStackTraces::OnFailure => edr_solidity_tests::CollectStackTraces::OnFailure,
+        }
+    }
 }
 
 /// Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
