@@ -1666,7 +1666,7 @@ where
                     let last_block = self.last_block()?;
                     Ok(calculate_next_base_fee_per_gas::<ChainSpecT>(
                         last_block.header(),
-                        &self.base_fee_params,
+                        self.base_fee_params.as_ref(),
                         self.hardfork(),
                     ))
                 },
@@ -1951,7 +1951,7 @@ where
                     .base_fee_per_gas
                     .push(calculate_next_base_fee_per_gas::<ChainSpecT>(
                         block.header(),
-                        &self.base_fee_params,
+                        self.base_fee_params.as_ref(),
                         self.hardfork(),
                     ));
             }
