@@ -26,7 +26,7 @@ use crate::{
     precompile::Precompile, subscription::SubscriptionConfig,
 };
 
-/// Configuration for eip-1559 parameters
+/// Configuration for EIP-1559 parameters
 #[napi(object)]
 pub struct BaseFeeParamActivation {
     pub activation: Either<BaseFeeActivationByBlockNumber, BaseFeeActivationByHardfork>,
