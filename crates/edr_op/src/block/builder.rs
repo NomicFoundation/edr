@@ -75,14 +75,33 @@ where
             overrides.withdrawals_root = Some(withdrawals_root);
         }
         if cfg.spec >= Hardfork::HOLOCENE {
-            let base_fee_params = overrides.base_fee_params.map_or_else(|| -> Result<BaseFeeParams<Hardfork>, BlockBuilderCreationError<Self::BlockchainError, Hardfork, Self::StateError>> {
+            // For post-Holocene blocks, store the encoded base fee parameters to be used in
+            // the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
+            overrides.extra_data = Some(overrides.extra_data.unwrap_or_else(|| {
+                let chain_base_fee_params = overrides
+                    .base_fee_params
+                    .clone()
+                    .unwrap_or_else(OpChainSpec::base_fee_params);
+
+                let current_block_number = blockchain.last_block_number() + 1;
+                let next_block_number = current_block_number + 1;
+
+                let extra_data_base_fee_params = chain_base_fee_params
+                    .at_condition(cfg.spec, next_block_number)
+                    .expect("Chain spec must have base fee params for post-London hardforks");
+                encode_dynamic_base_fee_params(extra_data_base_fee_params)
+            }));
+
+            // For post-Holocene blocks, determine the base fee parameters to be used for
+            // this block.
+            overrides.base_fee_params = Some(overrides.base_fee_params.map_or_else(|| -> Result<BaseFeeParams<Hardfork>, BlockBuilderCreationError<Self::BlockchainError, Hardfork, Self::StateError>> {
                 let parent_block_number = blockchain.last_block_number();
                 let parent_hardfork = blockchain
                     .spec_at_block_number(parent_block_number)
                     .map_err(BlockBuilderCreationError::Blockchain)?;
 
                 if parent_hardfork >= Hardfork::HOLOCENE {
-                    // Take parameters from parent block's extra data
+                    // Use the base fee parameters encoded in the parent block's extra data
                     let parent_block = blockchain
                         .last_block()
                         .map_err(BlockBuilderCreationError::Blockchain)?;
@@ -93,20 +112,7 @@ where
                     // Use the prior EIP-1559 constants.
                     Ok(OpChainSpec::base_fee_params())
                 }
-            }, Ok)?;
-
-            let extra_data = overrides.extra_data.unwrap_or_else(|| {
-                // For post-Holocene blocks, store the encoded base fee parameters to be used in
-                // the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
-                let next_block_number = blockchain.last_block_number() + 2;
-                let extra_data_base_fee_params = base_fee_params
-                    .at_condition(cfg.spec, next_block_number)
-                    .expect("Chain spec must have base fee params for post-London hardforks");
-                encode_dynamic_base_fee_params(extra_data_base_fee_params)
-            });
-
-            overrides.base_fee_params = Some(base_fee_params);
-            overrides.extra_data = Some(extra_data);
+            }, Ok)?);
         }
 
         let eth = EthBlockBuilder::new(
