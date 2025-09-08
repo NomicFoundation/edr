@@ -7,7 +7,7 @@ edition.workspace = true
 alloy-eips.workspace = true
 
 [dev-dependencies]
-edr_evm_spec.workspace = true
+edr_chain_l1.workspace = true
 
 [lints]
 workspace = true

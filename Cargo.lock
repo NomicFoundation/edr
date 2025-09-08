@@ -2341,7 +2341,7 @@ name = "edr_eip1559"
 version = "0.3.8"
 dependencies = [
  "alloy-eips",
- "edr_evm_spec",
+ "edr_chain_l1",
 ]
 
 [[package]]
