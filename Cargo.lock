@@ -2341,6 +2341,7 @@ name = "edr_eip1559"
 version = "0.3.8"
 dependencies = [
  "alloy-eips",
+ "edr_chain_l1",
 ]
 
 [[package]]
@@ -2370,6 +2371,7 @@ dependencies = [
  "auto_impl",
  "c-kzg",
  "derive-where",
+ "edr_chain_l1",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2416,6 +2418,7 @@ dependencies = [
  "dyn-clone",
  "edr_chain_l1",
  "edr_defaults",
+ "edr_eip1559",
  "edr_eth",
  "edr_evm_spec",
  "edr_generic",
@@ -2533,6 +2536,7 @@ dependencies = [
  "edr_common",
  "edr_coverage",
  "edr_defaults",
+ "edr_eip1559",
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
@@ -2576,6 +2580,7 @@ dependencies = [
  "ansi_term",
  "derive-where",
  "edr_chain_l1",
+ "edr_eip1559",
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
@@ -2648,6 +2653,7 @@ dependencies = [
  "edr_chain_l1",
  "edr_coverage",
  "edr_defaults",
+ "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
  "edr_eth",

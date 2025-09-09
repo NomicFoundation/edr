@@ -7,6 +7,7 @@ edition.workspace = true
 ansi_term = { version = "0.12.1", default-features = false }
 derive-where.workspace = true
 edr_chain_l1.workspace = true
+edr_eip1559.workspace = true
 edr_eth = { path = "../edr_eth" }
 edr_evm = { path = "../edr_evm" }
 edr_evm_spec.workspace = true

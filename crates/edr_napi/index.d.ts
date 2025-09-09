@@ -162,6 +162,20 @@ export const FJORD: string
 export const GRANITE: string
 export const HOLOCENE: string
 export const ISTHMUS: string
+/** Configuration for EIP-1559 parameters */
+export interface BaseFeeParamActivation {
+  activation: BaseFeeActivationByBlockNumber | BaseFeeActivationByHardfork
+  maxChangeDenominator: bigint
+  elasticityMultiplier: bigint
+}
+export interface BaseFeeActivationByBlockNumber {
+  /** The block number at which the base_fee_params is activated */
+  blockNumber: bigint
+}
+export interface BaseFeeActivationByHardfork {
+  /** The hardfork at which the base_fee_params is activated */
+  hardfork: string
+}
 /** Specification of a chain with possible overrides. */
 export interface ChainOverride {
   /** The chain ID */
@@ -255,6 +269,17 @@ export interface ProviderConfig {
   bailOnCallFailure: boolean
   /** Whether to return an `Err` when a `eth_sendTransaction` fails */
   bailOnTransactionFailure: boolean
+  /**
+   * EIP-1559 base fee parameters activations to be used to calculate the
+   * block base fee.
+   *
+   * Provide an ordered list of base_fee_params to be
+   * used starting from the specified activation point (hardfork or block
+   * number).
+   * If not provided, the default values from the chain spec
+   * will be used.
+   */
+  baseFeeConfig?: Array<BaseFeeParamActivation>
   /** The gas limit of each block */
   blockGasLimit: bigint
   /** The chain ID of the blockchain */

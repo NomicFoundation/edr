@@ -16,6 +16,7 @@ edr_chain_l1.workspace = true
 edr_coverage.workspace = true
 edr_defaults = { path = "../edr_defaults" }
 edr_eth = { path = "../edr_eth" }
+edr_eip1559.workspace = true
 edr_evm_spec.workspace = true
 edr_evm = { path = "../edr_evm" }
 edr_generic = { path = "../edr_generic" }

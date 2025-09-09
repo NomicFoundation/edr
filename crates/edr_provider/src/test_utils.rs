@@ -41,7 +41,9 @@ pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
 }
 
 /// Default header overrides for replaying L1 blocks.
-pub fn header_overrides(replay_header: &block::Header) -> block::HeaderOverrides {
+pub fn header_overrides<HardforkT: Default>(
+    replay_header: &block::Header,
+) -> block::HeaderOverrides<HardforkT> {
     block::HeaderOverrides {
         beneficiary: Some(replay_header.beneficiary),
         gas_limit: Some(replay_header.gas_limit),
@@ -49,7 +51,7 @@ pub fn header_overrides(replay_header: &block::Header) -> block::HeaderOverrides
         parent_beacon_block_root: replay_header.parent_beacon_block_root,
         state_root: Some(replay_header.state_root),
         timestamp: Some(replay_header.timestamp),
-        ..block::HeaderOverrides::default()
+        ..block::HeaderOverrides::<HardforkT>::default()
     }
 }
 
@@ -92,6 +94,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         allow_unlimited_contract_size: false,
         bail_on_call_failure: false,
         bail_on_transaction_failure: false,
+        base_fee_params: None,
         // SAFETY: literal is non-zero
         block_gas_limit: unsafe { NonZeroU64::new_unchecked(30_000_000) },
         chain_id: 123,

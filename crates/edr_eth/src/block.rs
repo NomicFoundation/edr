@@ -10,7 +10,7 @@ mod reorg;
 mod reward;
 
 use alloy_rlp::{BufMut, Decodable, RlpDecodable, RlpEncodable};
-use edr_eip1559::ConstantBaseFeeParams;
+use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{EthHeaderConstants, EvmSpecId};
 
 use self::difficulty::calculate_ethash_canonical_difficulty;
@@ -216,7 +216,7 @@ impl PartialHeader {
     /// parent [`Header`] for the given [`EvmSpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
-        overrides: HeaderOverrides,
+        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         parent: Option<&Header>,
         ommers: &Vec<Header>,
         withdrawals: Option<&Vec<Withdrawal>>,
@@ -275,13 +275,11 @@ impl PartialHeader {
             base_fee: overrides.base_fee.or_else(|| {
                 if hardfork.into() >= EvmSpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        if let Some(base_fee_params) = &overrides.base_fee_params {
-                            calculate_next_base_fee_per_gas(parent, base_fee_params)
-                        } else {
-                            calculate_next_base_fee_per_gas_for_chain_spec::<ChainSpecT>(
-                                hardfork, parent,
-                            )
-                        }
+                        calculate_next_base_fee_per_gas::<ChainSpecT>(
+                            parent,
+                            overrides.base_fee_params.as_ref(),
+                            hardfork,
+                        )
                     } else {
                         u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
                     })
@@ -384,34 +382,23 @@ impl From<Header> for PartialHeader {
     }
 }
 
-/// Calculates the next base fee per gas for a post-London block, given the
-/// parent's header and the base fee parameters provided by
-/// [`EthHeaderConstants`].
-///
-/// # Panics
-///
-/// Panics if the parent header does not contain a base fee.
-pub fn calculate_next_base_fee_per_gas_for_chain_spec<ChainSpecT: EthHeaderConstants>(
-    hardfork: ChainSpecT::Hardfork,
-    parent: &Header,
-) -> u128 {
-    let base_fee_params = ChainSpecT::BASE_FEE_PARAMS
-        .at_hardfork(hardfork)
-        .expect("Chain spec must have base fee params for post-London hardforks");
-
-    calculate_next_base_fee_per_gas(parent, base_fee_params)
-}
-
 /// Calculates the next base fee for a post-London block, given the parent's
 /// header.
 ///
 /// # Panics
 ///
 /// Panics if the parent header does not contain a base fee.
-pub fn calculate_next_base_fee_per_gas(
+pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
     parent: &Header,
-    base_fee_params: &ConstantBaseFeeParams,
+    base_fee_params: Option<&BaseFeeParams<ChainSpecT::Hardfork>>,
+    hardfork: ChainSpecT::Hardfork,
 ) -> u128 {
+    let base_fee_params = base_fee_params
+        .unwrap_or(&ChainSpecT::base_fee_params())
+        .at_condition(hardfork, parent.number + 1)
+        .copied()
+        .expect("Chain must have base fee params for post-London hardforks");
+
     // Adapted from https://github.com/alloy-rs/alloy/blob/main/crates/eips/src/eip1559/helpers.rs#L41
     // modifying it to support `u128`.
     // TODO: Remove once https://github.com/alloy-rs/alloy/issues/2181 has been addressed.
@@ -476,6 +463,8 @@ pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<EvmSpecId>>(
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+
+    use alloy_eips::eip1559::{BaseFeeParams as ConstantBaseFeeParams, INITIAL_BASE_FEE};
 
     use super::*;
     use crate::trie::KECCAK_RLP_EMPTY_ARRAY;
@@ -732,5 +721,144 @@ mod tests {
         let encoded = alloy_rlp::encode(&header);
         assert_eq!(encoded, expected_encoding);
         assert_eq!(header.hash(), expected_hash);
+    }
+
+    const DEFAULT_INITIAL_BASE_FEE: u128 = INITIAL_BASE_FEE as u128;
+
+    #[test]
+    fn test_partial_header_uses_base_fee_override() {
+        let ommers = vec![];
+        let configured_base_fee = 2_000_000_000;
+        let overrides = HeaderOverrides {
+            base_fee: Some(configured_base_fee),
+            ..HeaderOverrides::default()
+        };
+        let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
+            edr_chain_l1::Hardfork::LONDON,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, Some(configured_base_fee));
+    }
+
+    #[test]
+    fn test_partial_header_base_fee_override_takes_precedence_over_base_fee_params_override() {
+        let ommers = vec![];
+        let configured_base_fee = 2_000_000_000;
+        let base_fee_params = BaseFeeParams::Constant(ConstantBaseFeeParams {
+            max_change_denominator: 50,
+            elasticity_multiplier: 2,
+        });
+        let overrides = HeaderOverrides {
+            base_fee: Some(configured_base_fee),
+            base_fee_params: Some(base_fee_params),
+            ..HeaderOverrides::default()
+        };
+        let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
+            edr_chain_l1::Hardfork::LONDON,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, Some(configured_base_fee));
+    }
+
+    #[test]
+    fn test_partial_header_ignores_base_fee_params_if_before_london() {
+        let ommers = vec![];
+        let overrides = HeaderOverrides {
+            base_fee_params: Some(BaseFeeParams::Constant(ConstantBaseFeeParams {
+                max_change_denominator: 50,
+                elasticity_multiplier: 2,
+            })),
+            ..HeaderOverrides::default()
+        };
+        let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
+            edr_chain_l1::Hardfork::BERLIN,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, None);
+    }
+
+    #[test]
+    fn test_partial_header_defaults_base_fee_if_no_override_after_london() {
+        let ommers = vec![];
+        let overrides = HeaderOverrides::default();
+        let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
+            edr_chain_l1::Hardfork::LONDON,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, Some(DEFAULT_INITIAL_BASE_FEE));
+    }
+
+    #[test]
+    fn test_partial_header_defaults_base_fee_if_no_parent_after_london() {
+        let ommers = vec![];
+        let overrides = HeaderOverrides {
+            base_fee_params: Some(BaseFeeParams::Constant(ConstantBaseFeeParams {
+                max_change_denominator: 50,
+                elasticity_multiplier: 2,
+            })),
+            ..HeaderOverrides::default()
+        };
+        let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
+            edr_chain_l1::Hardfork::LONDON,
+            overrides,
+            None,
+            &ommers,
+            None,
+        );
+
+        assert_eq!(partial_header.base_fee, Some(DEFAULT_INITIAL_BASE_FEE));
+    }
+
+    #[test]
+    fn test_partial_header_uses_override_with_parent_after_london() {
+        let ommers = vec![];
+        let base_fee_params = BaseFeeParams::Constant(ConstantBaseFeeParams {
+            max_change_denominator: 50,
+            elasticity_multiplier: 2,
+        });
+        let overrides = HeaderOverrides {
+            base_fee_params: Some(base_fee_params.clone()),
+            ..HeaderOverrides::default()
+        };
+        let parent_header = Header {
+            base_fee_per_gas: Some(DEFAULT_INITIAL_BASE_FEE),
+            gas_limit: 0xffffffffffffff,
+            gas_used: 200,
+            ..Header::default()
+        };
+        let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
+            edr_chain_l1::Hardfork::LONDON,
+            overrides,
+            Some(&parent_header),
+            &ommers,
+            None,
+        );
+
+        assert_eq!(
+            partial_header.base_fee,
+            Some(
+                calculate_next_base_fee_per_gas::<edr_chain_l1::L1ChainSpec>(
+                    &parent_header,
+                    Some(&base_fee_params),
+                    edr_chain_l1::Hardfork::LONDON
+                )
+            )
+        );
     }
 }

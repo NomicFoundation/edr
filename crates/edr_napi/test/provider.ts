@@ -14,6 +14,10 @@ import {
   MineOrdering,
   SubscriptionEvent,
   precompileP256Verify,
+  OP_CHAIN_TYPE,
+  opProviderFactory,
+  opHardforkToString,
+  OpHardfork,
 } from "..";
 import {
   collectMessages,
@@ -33,6 +37,7 @@ describe("Provider", () => {
       GENERIC_CHAIN_TYPE,
       genericChainProviderFactory()
     );
+    await context.registerProviderFactory(OP_CHAIN_TYPE, opProviderFactory());
   });
 
   const genesisState: AccountOverride[] = [
@@ -50,16 +55,20 @@ describe("Provider", () => {
     blockGasLimit: 300_000_000n,
     chainId: 123n,
     chainOverrides: [],
-    coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
+    coinbase: new Uint8Array(
+      Buffer.from("0000000000000000000000000000000000000000", "hex")
+    ),
     genesisState,
     hardfork: l1HardforkToString(l1HardforkLatest()),
     initialBlobGas: {
       gasUsed: 0n,
       excessGas: 0n,
     },
-    initialParentBeaconBlockRoot: Buffer.from(
-      "0000000000000000000000000000000000000000000000000000000000000000",
-      "hex"
+    initialParentBeaconBlockRoot: new Uint8Array(
+      Buffer.from(
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "hex"
+      )
     ),
     minGasPrice: 0n,
     mining: {
@@ -574,6 +583,77 @@ describe("Provider", () => {
   it("custom precompile disabled", async function () {
     const precompileReceipt = await deployAndTestCustomPrecompile(false);
     assert.strictEqual(precompileReceipt.status, "0x0");
+  });
+
+  it("allows baseFeeConfig configuration", async function () {
+    const provider = await context.createProvider(
+      OP_CHAIN_TYPE,
+      {
+        ...providerConfig,
+        hardfork: opHardforkToString(OpHardfork.Holocene),
+        baseFeeConfig: [
+          {
+            activation: { blockNumber: BigInt(0) },
+            maxChangeDenominator: BigInt(50),
+            elasticityMultiplier: BigInt(6),
+          },
+          {
+            activation: { hardfork: opHardforkToString(OpHardfork.Canyon) },
+            maxChangeDenominator: BigInt(250),
+            elasticityMultiplier: BigInt(6),
+          },
+          {
+            activation: { blockNumber: BigInt(135_513_416) },
+            maxChangeDenominator: BigInt(250),
+            elasticityMultiplier: BigInt(4),
+          },
+        ],
+      },
+      loggerConfig,
+      {
+        subscriptionCallback: (_event: SubscriptionEvent) => {},
+      },
+      {}
+    );
+
+    await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_sendTransaction",
+        params: [
+          {
+            from: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+            to: "420000000000000000000000000000000000000F",
+            data: "de26c4a1",
+          },
+        ],
+      })
+    );
+    const block = await provider.handleRequest(
+      JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "eth_getBlockByNumber",
+        params: ["latest", false],
+      })
+    );
+    const responseData = JSON.parse(block.data);
+    const lastBlockExtraData = responseData.result.extraData;
+
+    const bytes = new Uint8Array(
+      Buffer.from(lastBlockExtraData.split("0x")[1], "hex")
+    );
+    const dataView = new DataView(bytes.buffer);
+    const extraDataVersionByte = 0;
+    const denominatorLeastSignificantByte = 4;
+    const elasticityLeastSignificantByte = 8;
+
+    assert.equal(0, dataView.getUint8(extraDataVersionByte));
+    // we are expecting base_fee_params = (250,4) since provider was created
+    // with Holocene hardfork, which is after Canyon
+    assert.equal(250, dataView.getUint8(denominatorLeastSignificantByte));
+    assert.equal(6, dataView.getUint8(elasticityLeastSignificantByte));
   });
 });
 

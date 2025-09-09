@@ -7,6 +7,7 @@ use std::{
 };
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
+use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
 use edr_eth::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -24,6 +25,49 @@ use crate::{
     account::AccountOverride, block::BlobGas, cast::TryCast, logger::LoggerConfig,
     precompile::Precompile, subscription::SubscriptionConfig,
 };
+
+/// Configuration for EIP-1559 parameters
+#[napi(object)]
+pub struct BaseFeeParamActivation {
+    pub activation: Either<BaseFeeActivationByBlockNumber, BaseFeeActivationByHardfork>,
+    pub max_change_denominator: BigInt,
+    pub elasticity_multiplier: BigInt,
+}
+
+#[napi(object)]
+pub struct BaseFeeActivationByBlockNumber {
+    /// The block number at which the base_fee_params is activated
+    pub block_number: BigInt,
+}
+#[napi(object)]
+pub struct BaseFeeActivationByHardfork {
+    /// The hardfork at which the base_fee_params is activated
+    pub hardfork: String,
+}
+
+impl TryFrom<BaseFeeParamActivation> for (BaseFeeActivation<String>, ConstantBaseFeeParams) {
+    type Error = napi::Error;
+
+    fn try_from(value: BaseFeeParamActivation) -> Result<Self, Self::Error> {
+        let base_fee_params = ConstantBaseFeeParams {
+            max_change_denominator: value.max_change_denominator.try_cast()?,
+            elasticity_multiplier: value.elasticity_multiplier.try_cast()?,
+        };
+
+        match value.activation {
+            Either::A(BaseFeeActivationByBlockNumber { block_number }) => {
+                let activation_block_number: u64 = block_number.try_cast()?;
+                Ok((
+                    BaseFeeActivation::BlockNumber(activation_block_number),
+                    base_fee_params,
+                ))
+            }
+            Either::B(BaseFeeActivationByHardfork { hardfork }) => {
+                Ok((BaseFeeActivation::Hardfork(hardfork), base_fee_params))
+            }
+        }
+    }
+}
 
 /// Specification of a chain with possible overrides.
 #[napi(object)]
@@ -140,6 +184,15 @@ pub struct ProviderConfig {
     pub bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     pub bail_on_transaction_failure: bool,
+    /// EIP-1559 base fee parameters activations to be used to calculate the
+    /// block base fee.
+    ///
+    /// Provide an ordered list of base_fee_params to be
+    /// used starting from the specified activation point (hardfork or block
+    /// number).
+    /// If not provided, the default values from the chain spec
+    /// will be used.
+    pub base_fee_config: Option<Vec<BaseFeeParamActivation>>,
     /// The gas limit of each block
     pub block_gas_limit: BigInt,
     /// The chain ID of the blockchain
@@ -441,6 +494,11 @@ impl ProviderConfig {
             })
             .collect::<napi::Result<Vec<_>>>()?;
 
+        let base_fee_params: Option<Vec<(BaseFeeActivation<String>, ConstantBaseFeeParams)>> = self
+            .base_fee_config
+            .map(|vec| vec.into_iter().map(TryInto::try_into).collect())
+            .transpose()?;
+
         let block_gas_limit =
             NonZeroU64::new(self.block_gas_limit.try_cast()?).ok_or_else(|| {
                 napi::Error::new(
@@ -466,6 +524,7 @@ impl ProviderConfig {
             allow_unlimited_contract_size: self.allow_unlimited_contract_size,
             bail_on_call_failure: self.bail_on_call_failure,
             bail_on_transaction_failure: self.bail_on_transaction_failure,
+            base_fee_params,
             block_gas_limit,
             chain_id: self.chain_id.try_cast()?,
             coinbase: self.coinbase.try_cast()?,

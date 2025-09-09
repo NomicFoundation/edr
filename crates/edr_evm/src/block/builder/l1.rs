@@ -132,7 +132,7 @@ where
         state: Box<dyn SyncState<StateErrorT>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
-        mut overrides: HeaderOverrides,
+        mut overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
     {
@@ -406,7 +406,7 @@ where
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
-        overrides: HeaderOverrides,
+        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,

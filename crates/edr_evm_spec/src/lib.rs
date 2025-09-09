@@ -27,7 +27,7 @@ pub type EvmTransactionValidationError = revm_context_interface::result::Invalid
 /// Trait for specifying the hardfork type of a chain.
 pub trait ChainHardfork {
     /// The chain's hardfork type.
-    type Hardfork: Copy + Into<EvmSpecId>;
+    type Hardfork: Copy + Default + Into<EvmSpecId>;
 }
 
 /// Trait for chain specifications.
@@ -47,7 +47,9 @@ pub trait ChainSpec {
 /// Constants for constructing Ethereum headers.
 pub trait EthHeaderConstants: ChainHardfork<Hardfork: 'static + PartialOrd> {
     /// Parameters for the EIP-1559 base fee calculation.
-    const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork>;
+    // TODO: Ani should this be moved to another trait? No longer a const since
+    // VariableBaseFeeParams contains a Vec
+    fn base_fee_params() -> BaseFeeParams<Self::Hardfork>;
 
     /// The minimum difficulty for the Ethash proof-of-work algorithm.
     const MIN_ETHASH_DIFFICULTY: u64;

@@ -20,8 +20,9 @@ impl ChainSpec for L1ChainSpec {
 }
 
 impl EthHeaderConstants for L1ChainSpec {
-    const BASE_FEE_PARAMS: BaseFeeParams<Self::Hardfork> =
-        BaseFeeParams::Constant(ConstantBaseFeeParams::ethereum());
+    fn base_fee_params() -> BaseFeeParams<Self::Hardfork> {
+        BaseFeeParams::Constant(ConstantBaseFeeParams::ethereum())
+    }
 
     const MIN_ETHASH_DIFFICULTY: u64 = 131072;
 }
