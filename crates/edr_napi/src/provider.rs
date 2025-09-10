@@ -5,20 +5,18 @@ mod response;
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
-use edr_solidity::{
-    compiler::create_models_and_decode_bytecodes, contract_decoder::ContractDecoder,
-};
+use edr_solidity::compiler::create_models_and_decode_bytecodes;
 use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 
 pub use self::factory::ProviderFactory;
 use self::response::Response;
-use crate::call_override::CallOverrideCallback;
+use crate::{call_override::CallOverrideCallback, contract_decoder::ContractDecoder};
 
 /// A JSON-RPC provider for Ethereum.
 #[napi]
 pub struct Provider {
-    contract_decoder: Arc<ContractDecoder>,
+    contract_decoder: Arc<edr_solidity::contract_decoder::ContractDecoder>,
     provider: Arc<dyn SyncProvider>,
     runtime: runtime::Handle,
     #[cfg(feature = "scenarios")]
@@ -30,7 +28,7 @@ impl Provider {
     pub fn new(
         provider: Arc<dyn SyncProvider>,
         runtime: runtime::Handle,
-        contract_decoder: Arc<ContractDecoder>,
+        contract_decoder: Arc<edr_solidity::contract_decoder::ContractDecoder>,
         #[cfg(feature = "scenarios")] scenario_file: Option<
             napi::tokio::sync::Mutex<napi::tokio::fs::File>,
         >,
@@ -86,6 +84,12 @@ impl Provider {
             })
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?
+    }
+
+    #[doc = "Retrieves the instance's contract decoder."]
+    #[napi(catch_unwind)]
+    pub fn contract_decoder(&self) -> ContractDecoder {
+        ContractDecoder::from(Arc::clone(&self.contract_decoder))
     }
 
     #[doc = "Handles a JSON-RPC request and returns a JSON-RPC response."]

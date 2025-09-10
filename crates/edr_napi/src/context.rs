@@ -19,6 +19,7 @@ use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::{
     config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
+    contract_decoder::ContractDecoder,
     logger::LoggerConfig,
     provider::{Provider, ProviderFactory},
     solidity_tests::{
@@ -57,7 +58,7 @@ impl EdrContext {
         provider_config: ProviderConfig,
         logger_config: LoggerConfig,
         subscription_config: SubscriptionConfig,
-        tracing_config: TracingConfigWithBuffers,
+        contract_decoder: &ContractDecoder,
     ) -> napi::Result<JsObject> {
         let (deferred, promise) = env.create_deferred()?;
 
@@ -76,7 +77,6 @@ impl EdrContext {
         let runtime = runtime::Handle::current();
 
         let ConfigResolution {
-            contract_decoder,
             logger_config,
             provider_config,
             subscription_callback,
@@ -86,7 +86,6 @@ impl EdrContext {
             provider_config,
             logger_config,
             subscription_config,
-            tracing_config
         ));
 
         #[cfg(feature = "scenarios")]
@@ -105,6 +104,7 @@ impl EdrContext {
             try_or_reject_promise!(context.get_provider_factory(&chain_type))
         };
 
+        let contract_decoder = Arc::clone(contract_decoder.as_inner());
         runtime.clone().spawn_blocking(move || {
             let result = factory
                 .create_provider(

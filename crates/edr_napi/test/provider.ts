@@ -5,6 +5,7 @@ import { Interface } from "ethers";
 
 import {
   AccountOverride,
+  ContractDecoder,
   GENERIC_CHAIN_TYPE,
   genericChainProviderFactory,
   l1GenesisState,
@@ -106,7 +107,7 @@ describe("Provider", () => {
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
-      {}
+      new ContractDecoder()
     );
 
     await assert.isFulfilled(provider);
@@ -130,7 +131,7 @@ describe("Provider", () => {
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
-      {}
+      new ContractDecoder()
     );
 
     await assert.isFulfilled(provider);
@@ -150,7 +151,7 @@ describe("Provider", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       const responseObject = await provider.handleRequest(
@@ -198,7 +199,7 @@ describe("Provider", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       await provider.setVerboseTracing(true);
@@ -251,7 +252,7 @@ describe("Provider", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       const responseObject = await provider.handleRequest(
@@ -298,7 +299,7 @@ describe("Provider", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       await provider.setVerboseTracing(true);
@@ -352,7 +353,7 @@ describe("Provider", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       const responseObject = await provider.handleRequest(
@@ -399,7 +400,7 @@ describe("Provider", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       const sendTxResponse = await provider.handleRequest(
@@ -459,7 +460,7 @@ describe("Provider", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       const traceCallResponse = await provider.handleRequest(
@@ -508,7 +509,7 @@ describe("Provider", () => {
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
-      {}
+      new ContractDecoder()
     );
 
     const sender = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
