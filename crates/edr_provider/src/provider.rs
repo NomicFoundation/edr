@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use edr_evm_spec::{ChainHardfork, EvmTransactionValidationError, TransactionValidation};
-use edr_solidity::{
-    artifacts::{CompilerInput, CompilerOutput},
-    contract_decoder::ContractDecoder,
-};
+use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use parking_lot::Mutex;
 use tokio::{runtime, sync::Mutex as AsyncMutex, task};
@@ -135,27 +132,6 @@ impl<
             interval_miner,
             runtime,
         })
-    }
-
-    pub fn add_compilation_result(
-        &self,
-        solc_version: String,
-        compiler_input: CompilerInput,
-        compiler_output: CompilerOutput,
-    ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-        let mut data = task::block_in_place(|| self.runtime.block_on(self.data.lock()));
-
-        if let Err(error) = hardhat::handle_add_compilation_result(
-            &mut data,
-            solc_version,
-            compiler_input,
-            compiler_output,
-        ) {
-            data.logger_mut().print_contract_decoding_error(&error)?;
-            Ok(false)
-        } else {
-            Ok(true)
-        }
     }
 
     /// Set to `true` to make the traces returned with `eth_call`,

@@ -5,7 +5,9 @@ mod response;
 use std::sync::Arc;
 
 use edr_napi_core::provider::SyncProvider;
-use edr_solidity::contract_decoder::ContractDecoder;
+use edr_solidity::{
+    compiler::create_models_and_decode_bytecodes, contract_decoder::ContractDecoder,
+};
 use napi::{tokio::runtime, Env, JsFunction, JsObject, Status};
 use napi_derive::napi;
 
@@ -54,8 +56,8 @@ impl Provider {
         solc_version: String,
         compiler_input: serde_json::Value,
         compiler_output: serde_json::Value,
-    ) -> napi::Result<bool> {
-        let provider = self.provider.clone();
+    ) -> napi::Result<()> {
+        let contract_decoder = self.contract_decoder.clone();
 
         self.runtime
             .spawn_blocking(move || {
@@ -65,7 +67,22 @@ impl Provider {
                 let compiler_output = serde_json::from_value(compiler_output)
                     .map_err(|error| napi::Error::from_reason(error.to_string()))?;
 
-                provider.add_compilation_result(solc_version, compiler_input, compiler_output)
+                let contracts = match create_models_and_decode_bytecodes(
+                    solc_version,
+                    &compiler_input,
+                    &compiler_output,
+                ) {
+                    Ok(contracts) => contracts,
+                    Err(error) => {
+                        return Err(napi::Error::from_reason(format!("Contract decoder failed to be updated. Please report this to help us improve Hardhat.\n{error}")));
+                    }
+                };
+
+                for contract in contracts {
+                    contract_decoder.add_contract_metadata(contract);
+                }
+
+                Ok(())
             })
             .await
             .map_err(|error| napi::Error::new(Status::GenericFailure, error.to_string()))?

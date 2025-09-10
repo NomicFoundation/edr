@@ -82,11 +82,6 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
         Ok(())
     }
 
-    fn print_contract_decoding_error(
-        &mut self,
-        error: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
-
     /// Prints the collected logs, which correspond to the method with the
     /// provided name.
     ///
@@ -138,13 +133,6 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> Logger<Ch
     }
 
     fn set_is_enabled(&mut self, _is_enabled: bool) {}
-
-    fn print_contract_decoding_error(
-        &mut self,
-        _error: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        Ok(())
-    }
 
     fn print_method_logs(
         &mut self,
