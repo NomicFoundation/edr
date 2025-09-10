@@ -123,6 +123,8 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Run benchmark and generate report for github-action-benchmark
+        env:
+          ALCHEMY_URL: ${{ secrets.ALCHEMY_URL }}
         run: pnpm run --silent soltestsBenchmark --benchmark-output soltest-report.json
 
       - name: Store benchmark result
