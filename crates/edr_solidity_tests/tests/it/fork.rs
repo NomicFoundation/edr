@@ -50,7 +50,7 @@ mod remote {
         TestConfig::with_filter(runner, filter).run().await;
     }
 
-    /// Executes eth_getLogs cheatcode
+    /// Executes `eth_getLogs` cheatcode
     #[tokio::test(flavor = "multi_thread")]
     async fn test_get_logs_fork() {
         let runner = TEST_DATA_DEFAULT
