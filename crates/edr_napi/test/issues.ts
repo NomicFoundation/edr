@@ -3,7 +3,6 @@ import { assert } from "chai";
 
 import {
   AccountOverride,
-  CANCUN,
   ContractDecoder,
   GENERIC_CHAIN_TYPE,
   genericChainProviderFactory,
