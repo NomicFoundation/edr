@@ -1,5 +1,6 @@
 use std::sync::OnceLock;
 
+use edr_eip1559::BaseFeeParams;
 use edr_eth::HashMap;
 use edr_evm::hardfork::{Activations, ChainConfig};
 pub use op_revm::name;
@@ -42,4 +43,14 @@ pub fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<
     chain_configs()
         .get(&chain_id)
         .map(|config| &config.hardfork_activations)
+}
+
+/// Returns the base fee params corresponding to the provided chain IF, if it is
+/// supported if not, it default to chain type main chain values
+pub fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Hardfork> {
+    chain_configs()
+        .get(&chain_id)
+        .map_or(&op::MAINNET_CONFIG.base_fee_params, |config| {
+            &config.base_fee_params
+        })
 }

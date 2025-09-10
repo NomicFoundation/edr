@@ -157,6 +157,7 @@ where
         overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new::<ChainSpecT>(
             cfg.spec,
+            ChainSpecT::chain_base_fee_params(cfg.chain_id),
             overrides,
             Some(parent_header),
             &inputs.ommers,

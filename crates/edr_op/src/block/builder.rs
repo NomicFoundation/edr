@@ -5,12 +5,11 @@ use edr_evm::{
     config::CfgEnv,
     inspector::Inspector,
     precompile::PrecompileFn,
-    spec::ContextForChainSpec,
+    spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponents, SyncState, WrapDatabaseRef},
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionErrorForChainSpec,
     EthBlockBuilder, MineBlockResultAndState,
 };
-use edr_evm_spec::EthHeaderConstants as _;
 use op_revm::{L1BlockInfo, OpHaltReason};
 
 use crate::{
@@ -78,10 +77,10 @@ where
             // For post-Holocene blocks, store the encoded base fee parameters to be used in
             // the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
             overrides.extra_data = Some(overrides.extra_data.unwrap_or_else(|| {
-                let chain_base_fee_params = overrides
-                    .base_fee_params
-                    .clone()
-                    .unwrap_or_else(OpChainSpec::base_fee_params);
+                let chain_base_fee_params =
+                    overrides.base_fee_params.clone().unwrap_or_else(|| {
+                        OpChainSpec::chain_base_fee_params(blockchain.chain_id()).clone()
+                    });
 
                 let current_block_number = blockchain.last_block_number() + 1;
                 let next_block_number = current_block_number + 1;
@@ -94,25 +93,28 @@ where
 
             // For post-Holocene blocks, determine the base fee parameters to be used for
             // this block.
-            overrides.base_fee_params = Some(overrides.base_fee_params.map_or_else(|| -> Result<BaseFeeParams<Hardfork>, BlockBuilderCreationError<Self::BlockchainError, Hardfork, Self::StateError>> {
-                let parent_block_number = blockchain.last_block_number();
-                let parent_hardfork = blockchain
-                    .spec_at_block_number(parent_block_number)
-                    .map_err(BlockBuilderCreationError::Blockchain)?;
-
-                if parent_hardfork >= Hardfork::HOLOCENE {
-                    // Use the base fee parameters encoded in the parent block's extra data
-                    let parent_block = blockchain
-                        .last_block()
+            overrides.base_fee_params = {
+                if overrides.base_fee_params.is_some() {
+                    overrides.base_fee_params
+                } else {
+                    let parent_block_number = blockchain.last_block_number();
+                    let parent_hardfork = blockchain
+                        .spec_at_block_number(parent_block_number)
                         .map_err(BlockBuilderCreationError::Blockchain)?;
 
-                    let base_fee_params = decode_base_params(&parent_block.header().extra_data);
-                    Ok(BaseFeeParams::Constant(base_fee_params))
-                } else {
-                    // Use the prior EIP-1559 constants.
-                    Ok(OpChainSpec::base_fee_params())
+                    if parent_hardfork >= Hardfork::HOLOCENE {
+                        // Use the base fee parameters encoded in the parent block's extra data
+                        let parent_block = blockchain
+                            .last_block()
+                            .map_err(BlockBuilderCreationError::Blockchain)?;
+
+                        let base_fee_params = decode_base_params(&parent_block.header().extra_data);
+                        Some(BaseFeeParams::Constant(base_fee_params))
+                    } else {
+                        None
+                    }
                 }
-            }, Ok)?);
+            }
         }
 
         let eth = EthBlockBuilder::new(

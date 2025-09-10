@@ -1,6 +1,7 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_chain_l1::L1ChainSpec;
+use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::{self, BlobGas, Header, PartialHeader},
     eips::eip4844::{self, blob_base_fee_update_fraction},
@@ -107,6 +108,7 @@ pub trait GenesisBlockFactory: ChainHardfork {
     fn genesis_block(
         genesis_diff: StateDiff,
         hardfork: Self::Hardfork,
+        base_fee_params: &BaseFeeParams<Self::Hardfork>,
         options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError>;
 }
@@ -131,6 +133,7 @@ impl GenesisBlockFactory for L1ChainSpec {
     fn genesis_block(
         genesis_diff: StateDiff,
         hardfork: Self::Hardfork,
+        base_fee_params: &BaseFeeParams<Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
@@ -143,6 +146,7 @@ impl GenesisBlockFactory for L1ChainSpec {
         EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
             genesis_diff,
             hardfork,
+            base_fee_params,
             options,
         )
     }
@@ -275,6 +279,9 @@ pub trait RuntimeSpec:
     /// Returns the hardfork activations corresponding to the provided chain ID,
     /// if it is associated with this chain specification.
     fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self::Hardfork>>;
+
+    /// Returns the base fee params corresponding to the provided chain ID
+    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork>;
 
     /// Returns the name corresponding to the provided chain ID, if it is
     /// associated with this chain specification.
@@ -463,6 +470,10 @@ impl RuntimeSpec for L1ChainSpec {
             EthInstructions::default(),
             precompile_provider,
         )
+    }
+
+    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
+        hardfork::l1::chain_base_fee_params(chain_id)
     }
 }
 

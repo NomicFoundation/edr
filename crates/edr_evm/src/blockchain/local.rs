@@ -12,7 +12,7 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    spec::SyncRuntimeSpec,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
@@ -268,6 +268,7 @@ where
             last_header.state_root,
             previous_total_difficulty,
             self.hardfork,
+            <ChainSpecT as RuntimeSpec>::chain_base_fee_params(self.chain_id).clone(),
         );
 
         Ok(())
@@ -336,6 +337,7 @@ mod tests {
         let genesis_block = L1ChainSpec::genesis_block(
             genesis_diff.clone(),
             edr_chain_l1::Hardfork::SHANGHAI,
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),

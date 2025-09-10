@@ -216,6 +216,7 @@ impl PartialHeader {
     /// parent [`Header`] for the given [`EvmSpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
+        base_fee_params: &BaseFeeParams<ChainSpecT::Hardfork>,
         overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         parent: Option<&Header>,
         ommers: &Vec<Header>,
@@ -263,7 +264,7 @@ impl PartialHeader {
             gas_limit: overrides.gas_limit.unwrap_or(1_000_000),
             gas_used: 0,
             timestamp,
-            extra_data: overrides.extra_data.unwrap_or_default(),
+            extra_data: overrides.extra_data.clone().unwrap_or_default(),
             mix_hash: overrides.mix_hash.unwrap_or_default(),
             nonce: overrides.nonce.unwrap_or_else(|| {
                 if hardfork.into() >= EvmSpecId::MERGE {
@@ -279,6 +280,7 @@ impl PartialHeader {
                             parent,
                             overrides.base_fee_params.as_ref(),
                             hardfork,
+                            base_fee_params,
                         )
                     } else {
                         u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
@@ -390,11 +392,13 @@ impl From<Header> for PartialHeader {
 /// Panics if the parent header does not contain a base fee.
 pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
     parent: &Header,
-    base_fee_params: Option<&BaseFeeParams<ChainSpecT::Hardfork>>,
+    overrides_base_fee_params: Option<&BaseFeeParams<ChainSpecT::Hardfork>>,
     hardfork: ChainSpecT::Hardfork,
+    chain_base_fee_params: &BaseFeeParams<ChainSpecT::Hardfork>, /* TODO: receive only one
+                                                                  * base_fee_params */
 ) -> u128 {
-    let base_fee_params = base_fee_params
-        .unwrap_or(&ChainSpecT::base_fee_params())
+    let base_fee_params = overrides_base_fee_params
+        .unwrap_or(chain_base_fee_params)
         .at_condition(hardfork, parent.number + 1)
         .copied()
         .expect("Chain must have base fee params for post-London hardforks");
@@ -465,6 +469,7 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_eips::eip1559::{BaseFeeParams as ConstantBaseFeeParams, INITIAL_BASE_FEE};
+    use edr_evm::{hardfork::l1::MAINNET_CHAIN_ID, spec::RuntimeSpec as _};
 
     use super::*;
     use crate::trie::KECCAK_RLP_EMPTY_ARRAY;
@@ -735,6 +740,7 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             edr_chain_l1::Hardfork::LONDON,
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(MAINNET_CHAIN_ID),
             overrides,
             None,
             &ommers,
@@ -759,6 +765,7 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             edr_chain_l1::Hardfork::LONDON,
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(MAINNET_CHAIN_ID),
             overrides,
             None,
             &ommers,
@@ -780,6 +787,7 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             edr_chain_l1::Hardfork::BERLIN,
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(MAINNET_CHAIN_ID),
             overrides,
             None,
             &ommers,
@@ -795,6 +803,7 @@ mod tests {
         let overrides = HeaderOverrides::default();
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             edr_chain_l1::Hardfork::LONDON,
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(MAINNET_CHAIN_ID),
             overrides,
             None,
             &ommers,
@@ -816,6 +825,7 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             edr_chain_l1::Hardfork::LONDON,
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(MAINNET_CHAIN_ID),
             overrides,
             None,
             &ommers,
@@ -844,6 +854,7 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             edr_chain_l1::Hardfork::LONDON,
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(MAINNET_CHAIN_ID),
             overrides,
             Some(&parent_header),
             &ommers,
@@ -856,7 +867,8 @@ mod tests {
                 calculate_next_base_fee_per_gas::<edr_chain_l1::L1ChainSpec>(
                     &parent_header,
                     Some(&base_fee_params),
-                    edr_chain_l1::Hardfork::LONDON
+                    edr_chain_l1::Hardfork::LONDON,
+                    edr_chain_l1::L1ChainSpec::chain_base_fee_params(MAINNET_CHAIN_ID),
                 )
             )
         );
