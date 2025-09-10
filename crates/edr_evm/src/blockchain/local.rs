@@ -12,7 +12,7 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::SyncRuntimeSpec,
     state::{StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
@@ -268,7 +268,7 @@ where
             last_header.state_root,
             previous_total_difficulty,
             self.hardfork,
-            <ChainSpecT as RuntimeSpec>::chain_base_fee_params(self.chain_id).clone(),
+            ChainSpecT::chain_base_fee_params(self.chain_id).clone(), // TODO: validate
         );
 
         Ok(())
@@ -305,7 +305,11 @@ mod tests {
     };
 
     use super::*;
-    use crate::{spec::GenesisBlockFactory as _, state::IrregularState, GenesisBlockOptions};
+    use crate::{
+        spec::{GenesisBlockFactory as _, RuntimeSpec as _},
+        state::IrregularState,
+        GenesisBlockOptions,
+    };
 
     #[test]
     fn compute_state_after_reserve() -> anyhow::Result<()> {
