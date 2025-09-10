@@ -20,7 +20,7 @@ pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoc
 
     /// Sets whether the logger is enabled.
     fn set_is_enabled(&mut self, is_enabled: bool);
-
+    // TODO: add for simulateV1
     fn log_call(
         &mut self,
         hardfork: ChainSpecT::Hardfork,

@@ -11,6 +11,7 @@ mod r#override;
 /// Types for Ethereum JSON-RPC API receipts.
 pub mod receipt;
 mod request_methods;
+pub mod simulate;
 /// Types for Ethereum JSON-RPC API specification.
 pub mod spec;
 #[cfg(any(feature = "test-utils", test))]

@@ -187,7 +187,7 @@ pub struct ProviderData<
     bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
-    blockchain:
+    pub blockchain:
         Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
@@ -1194,7 +1194,7 @@ where
 
     /// Tries to add a transaction to the mempool and notifies subscribers about
     /// it.
-    fn add_pending_transaction(
+    pub fn add_pending_transaction(
         &mut self,
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<B256, ProviderErrorForChainSpec<ChainSpecT>> {
@@ -1308,7 +1308,7 @@ where
         self.get_or_compute_state(self.last_block_number())
     }
 
-    fn get_or_compute_state(
+    pub fn get_or_compute_state(
         &mut self,
         block_number: u64,
     ) -> Result<Arc<Box<dyn SyncState<StateError>>>, ProviderErrorForChainSpec<ChainSpecT>> {

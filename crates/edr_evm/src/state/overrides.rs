@@ -51,6 +51,8 @@ pub struct AccountOverride {
     pub code: Option<Bytecode>,
     /// Account storage override.
     pub storage: Option<StorageOverride>,
+    /// Precompile address relocation.
+    pub move_precompile_to_address: Option<Address>,
 }
 
 impl AccountOverride {
@@ -118,6 +120,7 @@ impl TryFrom<AccountOverrideOptions> for AccountOverride {
             code,
             storage,
             storage_diff,
+            move_precompile_to_address,
         } = value;
 
         let storage = if let Some(storage) = storage {
@@ -135,6 +138,7 @@ impl TryFrom<AccountOverrideOptions> for AccountOverride {
             nonce,
             code: code.map(Bytecode::new_raw),
             storage,
+            move_precompile_to_address,
         })
     }
 }
@@ -142,7 +146,7 @@ impl TryFrom<AccountOverrideOptions> for AccountOverride {
 /// A set of overrides for state information.
 #[derive(Clone, Debug, Default)]
 pub struct StateOverrides {
-    account_overrides: HashMap<Address, AccountOverride>,
+    pub account_overrides: HashMap<Address, AccountOverride>,
     code_by_hash_overrides: HashMap<B256, Bytecode>,
 }
 

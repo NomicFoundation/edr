@@ -5,7 +5,7 @@ use edr_eth::{
     serde::{optional_single_to_sequence, sequence_to_optional_single},
     Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U128, U256, U64,
 };
-use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
+use edr_rpc_eth::{simulate::SimulatePayload, spec::RpcSpec, StateOverrideOptions};
 use serde::{Deserialize, Serialize};
 
 use super::serde::{RpcAddress, Timestamp};
@@ -47,6 +47,16 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
         )]
         Option<BlockSpec>,
         #[serde(default, skip_serializing_if = "Option::is_none")] Option<StateOverrideOptions>,
+    ),
+    /// `eth_simulateV1`
+    #[serde(rename = "eth_simulateV1")]
+    SimulateV1(
+        SimulatePayload<ChainSpecT::RpcTransactionRequest>,
+        #[serde(
+            skip_serializing_if = "Option::is_none",
+            default = "optional_block_spec::latest"
+        )]
+        Option<BlockSpec>,
     ),
     /// `eth_chainId`
     #[serde(rename = "eth_chainId", with = "edr_eth::serde::empty_params")]
@@ -420,6 +430,7 @@ impl<ChainSpecT: RpcSpec> MethodInvocation<ChainSpecT> {
             MethodInvocation::SendRawTransaction(_) => "eth_sendRawTransaction",
             MethodInvocation::SendTransaction(_) => "eth_sendTransaction",
             MethodInvocation::SignTypedDataV4(_, _) => "eth_signTypedData_v4",
+            MethodInvocation::SimulateV1(_, _) => "eth_simulateV1",
             MethodInvocation::Subscribe(_, _) => "eth_subscribe",
             MethodInvocation::Syncing(_) => "eth_syncing",
             MethodInvocation::UninstallFilter(_) => "eth_uninstallFilter",

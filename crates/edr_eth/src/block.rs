@@ -5,7 +5,7 @@
 // For the original context see: https://github.com/foundry-rs/foundry/blob/01b16238ff87dc7ca8ee3f5f13e389888c2a2ee4/anvil/core/src/eth/block.rs
 
 mod difficulty;
-mod overrides;
+pub mod overrides;
 mod reorg;
 mod reward;
 

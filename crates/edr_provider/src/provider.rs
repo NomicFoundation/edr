@@ -349,6 +349,10 @@ impl<
                 eth::handle_sign_typed_data_v4(data, address, message)
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
             }
+            MethodInvocation::SimulateV1(simulate_payload, block_spec) => {
+                eth::handle_simulatev1_request(data, simulate_payload, block_spec)
+                    .and_then(to_json::<_, ChainSpecT, TimerT>)
+            }
             MethodInvocation::Subscribe(subscription_type, filter_options) => {
                 eth::handle_subscribe_request(data, subscription_type, filter_options)
                     .and_then(to_json::<_, ChainSpecT, TimerT>)
