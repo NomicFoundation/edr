@@ -85,6 +85,7 @@ async fn create_dummy_blockchains(
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
         edr_chain_l1::Hardfork::default(),
+        edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
@@ -155,6 +156,7 @@ fn create_dummy_block_with_difficulty(
         blockchain.hardfork(),
         PartialHeader::new::<L1ChainSpec>(
             blockchain.hardfork(),
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(blockchain.chain_id()),
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -177,6 +179,7 @@ fn create_dummy_block_with_hash(
         hardfork,
         PartialHeader::new::<L1ChainSpec>(
             hardfork,
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -220,6 +223,7 @@ fn insert_dummy_block_with_transaction(
 
     let mut header = PartialHeader::new::<L1ChainSpec>(
         blockchain.hardfork(),
+        edr_chain_l1::L1ChainSpec::chain_base_fee_params(blockchain.chain_id()),
         HeaderOverrides::default(),
         Some(blockchain.last_block()?.header()),
         &Vec::new(),

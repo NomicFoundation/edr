@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
-use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
+use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::{BlobGas, Header, PartialHeader},
     eips::eip4844,
@@ -78,6 +78,7 @@ impl GenesisBlockFactory for OpChainSpec {
     fn genesis_block(
         genesis_diff: edr_evm::state::StateDiff,
         hardfork: Self::Hardfork,
+        base_fee_params: &BaseFeeParams<Self::Hardfork>,
         mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         let config_base_fee_params = options.base_fee_params.as_ref();
@@ -85,9 +86,8 @@ impl GenesisBlockFactory for OpChainSpec {
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
             let extra_data = options.extra_data.unwrap_or_else(|| {
-                let chain_base_fee_params = Self::base_fee_params();
                 let base_fee_params = config_base_fee_params
-                    .unwrap_or(&chain_base_fee_params)
+                    .unwrap_or(base_fee_params)
                     .at_condition(hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
@@ -100,6 +100,7 @@ impl GenesisBlockFactory for OpChainSpec {
         EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
             genesis_diff,
             hardfork,
+            base_fee_params,
             options,
         )
     }
@@ -195,22 +196,13 @@ impl RuntimeSpec for OpChainSpec {
             precompile_provider,
         ))
     }
+
+    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
+        hardfork::chain_base_fee_params(chain_id)
+    }
 }
 
 impl EthHeaderConstants for OpChainSpec {
-    fn base_fee_params() -> BaseFeeParams<Hardfork> {
-        BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
-            (
-                BaseFeeActivation::Hardfork(Hardfork::BEDROCK),
-                ConstantBaseFeeParams::new(50, 6),
-            ),
-            (
-                BaseFeeActivation::Hardfork(Hardfork::CANYON),
-                ConstantBaseFeeParams::new(250, 6),
-            ),
-        ]))
-    }
-
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
 }
 

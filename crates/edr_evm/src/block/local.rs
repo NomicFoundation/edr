@@ -7,6 +7,7 @@ use std::{
 
 use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
+use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::{self, Header, HeaderOverrides, PartialHeader},
     trie,
@@ -214,6 +215,7 @@ impl<
     pub fn with_genesis_state<HeaderConstantsT: EthHeaderConstants<Hardfork = HardforkT>>(
         genesis_diff: StateDiff,
         hardfork: HardforkT,
+        base_fee_params: &BaseFeeParams<HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
     ) -> Result<Self, CreationError>
     where
@@ -255,6 +257,7 @@ impl<
 
         let partial_header = PartialHeader::new::<HeaderConstantsT>(
             hardfork.clone(),
+            base_fee_params,
             options,
             None,
             &ommers,

@@ -1668,6 +1668,7 @@ where
                         last_block.header(),
                         self.base_fee_params.as_ref(),
                         self.hardfork(),
+                        ChainSpecT::chain_base_fee_params(self.chain_id()),
                     ))
                 },
                 Ok,
@@ -1953,6 +1954,7 @@ where
                         block.header(),
                         self.base_fee_params.as_ref(),
                         self.hardfork(),
+                        ChainSpecT::chain_base_fee_params(self.chain_id()),
                     ));
             }
         }
@@ -2942,6 +2944,7 @@ fn create_blockchain_and_state<
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
             config.hardfork,
+            &config.base_fee_params.clone().unwrap_or(ChainSpecT::chain_base_fee_params(config.chain_id).clone()), // TODO: Should provider have config.base_fee_params not be an option an fallback like this when constructing?
             GenesisBlockOptions {
                 extra_data: None,
                 gas_limit: Some(config.block_gas_limit.get()),

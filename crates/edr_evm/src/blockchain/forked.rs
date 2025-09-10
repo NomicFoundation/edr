@@ -645,6 +645,7 @@ where
             last_header.state_root,
             previous_total_difficulty,
             self.hardfork,
+            <ChainSpecT as RuntimeSpec>::chain_base_fee_params(self.chain_id).clone(),
         );
 
         Ok(())
