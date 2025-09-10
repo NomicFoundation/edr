@@ -1666,9 +1666,8 @@ where
                     let last_block = self.last_block()?;
                     Ok(calculate_next_base_fee_per_gas::<ChainSpecT>(
                         last_block.header(),
-                        self.base_fee_params.as_ref(),
+                        self.base_fee_params.as_ref().unwrap_or(ChainSpecT::chain_base_fee_params(self.chain_id())), // TODO: this looks like leaked responsibility
                         self.hardfork(),
-                        ChainSpecT::chain_base_fee_params(self.chain_id()),
                     ))
                 },
                 Ok,
@@ -1952,9 +1951,8 @@ where
                     .base_fee_per_gas
                     .push(calculate_next_base_fee_per_gas::<ChainSpecT>(
                         block.header(),
-                        self.base_fee_params.as_ref(),
+                        self.base_fee_params.as_ref().unwrap_or(ChainSpecT::chain_base_fee_params(self.chain_id())), // TODO: this looks like leaked responsibility
                         self.hardfork(),
-                        ChainSpecT::chain_base_fee_params(self.chain_id()),
                     ));
             }
         }
