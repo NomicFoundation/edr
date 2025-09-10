@@ -202,7 +202,10 @@ where
         .iter()
         .enumerate()
         .map(|(i, receipt)| {
-            let transaction = &block.transactions()[i];
+            let transaction = block
+                .transactions()
+                .get(i)
+                .expect("receipt index should match transaction index");
 
             let gas_used = receipt.gas_used();
             // gas price pre EIP-1559 and max fee per gas post EIP-1559

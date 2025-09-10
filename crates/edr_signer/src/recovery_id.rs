@@ -211,7 +211,7 @@ impl<'a> TryFrom<&'a [u8]> for SignatureWithRecoveryId {
         let (s_bytes, remainder) = remainder.split_at(32);
         let s = U256::from_be_bytes::<32>(s_bytes.try_into().unwrap());
 
-        let v = remainder[0];
+        let v = *remainder.first().expect("raw signature is 65 bytes long");
 
         Ok(SignatureWithRecoveryId { r, s, v: v.into() })
     }

@@ -29,7 +29,7 @@ where
     if s.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(s[0].clone()))
+        Ok(Some(s.first().expect("s is not empty").clone()))
     }
 }
 

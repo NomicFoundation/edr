@@ -109,7 +109,7 @@ pub struct SolidityTestRunnerConfigArgs {
     /// Defaults to false.
     pub disable_block_gas_limit: Option<bool>,
     /// The memory limit of the EVM in bytes.
-    /// Defaults to 33_554_432 (2^25 = 32MiB).
+    /// Defaults to `33_554_432` (2^25 = 32MiB).
     #[serde(serialize_with = "serialize_optional_bigint_as_struct")]
     pub memory_limit: Option<BigInt>,
     /// The predeploys applied in local mode. Defaults to no predeploys.

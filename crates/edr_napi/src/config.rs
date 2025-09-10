@@ -36,12 +36,12 @@ pub struct BaseFeeParamActivation {
 
 #[napi(object)]
 pub struct BaseFeeActivationByBlockNumber {
-    /// The block number at which the base_fee_params is activated
+    /// The block number at which the `base_fee_params` is activated
     pub block_number: BigInt,
 }
 #[napi(object)]
 pub struct BaseFeeActivationByHardfork {
-    /// The hardfork at which the base_fee_params is activated
+    /// The hardfork at which the `base_fee_params` is activated
     pub hardfork: String,
 }
 
@@ -187,7 +187,7 @@ pub struct ProviderConfig {
     /// EIP-1559 base fee parameters activations to be used to calculate the
     /// block base fee.
     ///
-    /// Provide an ordered list of base_fee_params to be
+    /// Provide an ordered list of `base_fee_params` to be
     /// used starting from the specified activation point (hardfork or block
     /// number).
     /// If not provided, the default values from the chain spec

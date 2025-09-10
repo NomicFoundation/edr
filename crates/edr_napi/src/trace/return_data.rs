@@ -23,7 +23,13 @@ impl ReturnData {
     #[napi(catch_unwind, constructor)]
     pub fn new(value: Uint8Array) -> Self {
         let selector = if value.len() >= 4 {
-            Some(value[0..4].try_into().unwrap())
+            Some(
+                value
+                    .get(0..4)
+                    .expect("Value length should be at least 4 bytes")
+                    .try_into()
+                    .unwrap(),
+            )
         } else {
             None
         };

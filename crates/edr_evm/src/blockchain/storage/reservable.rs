@@ -211,7 +211,11 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
                     .map(|reservation| reservation.previous_diff_index)
             })?;
 
-        Some(&self.state_diffs[0..=diff_index])
+        Some(
+            self.state_diffs
+                .get(0..=diff_index)
+                .expect("diff_index is valid"),
+        )
     }
 
     /// Retrieves the receipt of the transaction with the provided hash, if it

@@ -118,9 +118,15 @@ pub enum RecoveryMessage {
 /// Converts a [`PublicKey`] to an [`Address`].
 pub fn public_key_to_address(public_key: PublicKey) -> Address {
     let public_key = public_key.to_encoded_point(/* compress = */ false);
-    let hash = Keccak256::digest(&public_key.as_bytes()[1..]);
+    // First byte is header value
+    let pk_bytes = public_key
+        .as_bytes()
+        .get(1..)
+        .expect("uncompressed public key is 65 bytes");
+    let hash = Keccak256::digest(pk_bytes);
     // Only take the lower 160 bits of the hash
-    Address::from_slice(&hash[12..])
+    let hash_slice = hash.get(12..).expect("hash is 32 bytes");
+    Address::from_slice(hash_slice)
 }
 
 /// It's dangerous to represent secret keys as native string types, because the

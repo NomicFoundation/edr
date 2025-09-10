@@ -59,7 +59,14 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
             if index < cursor.prefix.range_end {
                 // If there is a mismatch with the prefix of the cursor, we have to add a split
                 // node
-                if new_key_byte != cursor.prefix.key.key()[index] {
+                if new_key_byte
+                    != *cursor
+                        .prefix
+                        .key
+                        .key()
+                        .get(index)
+                        .expect("index should be within prefix key bounds")
+                {
                     let split_node =
                         Self::new_split_node(index, new_item.clone(), cursor.descendants.len());
                     let node_to_split = std::mem::replace(cursor, split_node);
@@ -105,7 +112,14 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
 
         while index < key.len() {
             if index < cursor.prefix.range_end {
-                if key[index] != cursor.prefix.key.key()[index] {
+                if *key.get(index).expect("index should be within key bounds")
+                    != *cursor
+                        .prefix
+                        .key
+                        .key()
+                        .get(index)
+                        .expect("index should be within prefix key bounds")
+                {
                     // Cursor cannot be root here, because the root's prefix ends at index 0.
                     return Some(TrieSearch::LongestPrefixNode {
                         node: cursor,
@@ -114,7 +128,10 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
                         match_: None,
                     });
                 }
-            } else if let Some(node) = cursor.child_nodes.get(&key[index]) {
+            } else if let Some(node) = cursor
+                .child_nodes
+                .get(key.get(index).expect("index should be within key bounds"))
+            {
                 cursor = node;
             } else if !cursor.is_root() {
                 return Some(TrieSearch::LongestPrefixNode {
@@ -196,7 +213,12 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
 
         // Add occupied node as child
         self.child_nodes.insert(
-            node_to_split.prefix.key.key()[split_index],
+            *node_to_split
+                .prefix
+                .key
+                .key()
+                .get(split_index)
+                .expect("split_index should be within prefix key bounds"),
             Box::new(node_to_split),
         );
 
@@ -204,7 +226,10 @@ impl<T: Clone + TrieKeyTrait> BytecodeTrie<T> {
             Ordering::Less => {
                 // If the new key is longer than the end of split prefix, add it as a child node
                 self.child_nodes.insert(
-                    new_item.key()[split_index],
+                    *new_item
+                        .key()
+                        .get(split_index)
+                        .expect("split_index should be within new item key bounds"),
                     Box::new(Self::new_leaf(new_item)),
                 );
             }
@@ -301,7 +326,11 @@ mod tests {
         };
         assert_eq!(should_match, match_.is_some());
         assert_eq!(
-            &node.prefix.key.key()[..node.prefix.range_end],
+            node.prefix
+                .key
+                .key()
+                .get(..node.prefix.range_end)
+                .expect("range_end should be within key bounds"),
             expected_prefix.as_bytes()
         );
         assert_eq!(node.descendants.len(), descendants_length);

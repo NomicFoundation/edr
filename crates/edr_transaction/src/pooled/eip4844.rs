@@ -99,7 +99,8 @@ impl Eip4844 {
             .enumerate()
             .find_map(|(idx, (blob_hash, commitment))| {
                 let mut commitment_hash = sha2::Sha256::digest(commitment.as_ref());
-                commitment_hash[0] = VERSIONED_HASH_VERSION_KZG;
+                *commitment_hash.get_mut(0).expect("sha2 hash is 32 bytes") =
+                    VERSIONED_HASH_VERSION_KZG;
 
                 if *blob_hash == *commitment_hash {
                     None

@@ -56,7 +56,7 @@ interface Vm {
         Create,
         /// The account was selfdestructed.
         SelfDestruct,
-        /// Synthetic access indicating the current context has resumed after a previous sub-context (AccountAccess).
+        /// Synthetic access indicating the current context has resumed after a previous sub-context (`AccountAccess`).
         Resume,
         /// The account's balance was read.
         Balance,
@@ -223,9 +223,9 @@ interface Vm {
         /// The chain and fork the access occurred.
         ChainInfo chainInfo;
         /// The kind of account access that determines what the account is.
-        /// If kind is Call, DelegateCall, StaticCall or CallCode, then the account is the callee.
+        /// If kind is Call, `DelegateCall`, `StaticCall` or `CallCode`, then the account is the callee.
         /// If kind is Create, then the account is the newly created account.
-        /// If kind is SelfDestruct, then the account is the selfdestruct recipient.
+        /// If kind is `SelfDestruct`, then the account is the selfdestruct recipient.
         /// If kind is a Resume, then account represents a account context that has resumed.
         AccountAccessKind kind;
         /// The account that was accessed.
@@ -1018,7 +1018,7 @@ interface Vm {
     #[cheatcode(group = Testing, safety = Safe)]
     function assertEq(bool[] calldata left, bool[] calldata right, string calldata error) external pure;
 
-    /// Asserts that two arrays of `uint256 values are equal.
+    /// Asserts that two arrays of `uint256` values are equal.
     #[cheatcode(group = Testing, safety = Safe)]
     function assertEq(uint256[] calldata left, uint256[] calldata right) external pure;
 
@@ -2036,7 +2036,7 @@ interface Vm {
     #[cheatcode(group = Json)]
     function writeJson(string calldata json, string calldata path) external;
 
-    /// Write a serialized JSON object to an **existing** JSON file, replacing a value with key = <value_key.>
+    /// Write a serialized JSON object to an **existing** JSON file, replacing a value with key = `<value_key>`.
     /// This is useful to replace a specific value of a JSON file, without having to parse the entire thing.
     #[cheatcode(group = Json)]
     function writeJson(string calldata json, string calldata path, string calldata valueKey) external;
@@ -2128,7 +2128,7 @@ interface Vm {
     #[cheatcode(group = Toml)]
     function writeToml(string calldata json, string calldata path) external;
 
-    /// Takes serialized JSON, converts to TOML and write a serialized TOML table to an **existing** TOML file, replacing a value with key = <value_key.>
+    /// Takes serialized JSON, converts to TOML and write a serialized TOML table to an **existing** TOML file, replacing a value with key = `<value_key>`.
     /// This is useful to replace a specific value of a TOML file, without having to parse the entire thing.
     #[cheatcode(group = Toml)]
     function writeToml(string calldata json, string calldata path, string calldata valueKey) external;

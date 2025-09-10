@@ -64,7 +64,7 @@
         },
         {
           "name": "Resume",
-          "description": "Synthetic access indicating the current context has resumed after a previous sub-context (AccountAccess)."
+          "description": "Synthetic access indicating the current context has resumed after a previous sub-context (`AccountAccess`)."
         },
         {
           "name": "Balance",
@@ -347,7 +347,7 @@
         {
           "name": "kind",
           "ty": "AccountAccessKind",
-          "description": "The kind of account access that determines what the account is.\n If kind is Call, DelegateCall, StaticCall or CallCode, then the account is the callee.\n If kind is Create, then the account is the newly created account.\n If kind is SelfDestruct, then the account is the selfdestruct recipient.\n If kind is a Resume, then account represents a account context that has resumed."
+          "description": "The kind of account access that determines what the account is.\n If kind is Call, `DelegateCall`, `StaticCall` or `CallCode`, then the account is the callee.\n If kind is Create, then the account is the newly created account.\n If kind is `SelfDestruct`, then the account is the selfdestruct recipient.\n If kind is a Resume, then account represents a account context that has resumed."
         },
         {
           "name": "account",
@@ -1198,7 +1198,7 @@
     {
       "func": {
         "id": "assertEq_16",
-        "description": "Asserts that two arrays of `uint256 values are equal.",
+        "description": "Asserts that two arrays of `uint256` values are equal.",
         "declaration": "function assertEq(uint256[] calldata left, uint256[] calldata right) external pure;",
         "visibility": "external",
         "mutability": "pure",
@@ -8570,7 +8570,7 @@
     {
       "func": {
         "id": "writeJson_1",
-        "description": "Write a serialized JSON object to an **existing** JSON file, replacing a value with key = <value_key.>\nThis is useful to replace a specific value of a JSON file, without having to parse the entire thing.",
+        "description": "Write a serialized JSON object to an **existing** JSON file, replacing a value with key = `<value_key>`.\nThis is useful to replace a specific value of a JSON file, without having to parse the entire thing.",
         "declaration": "function writeJson(string calldata json, string calldata path, string calldata valueKey) external;",
         "visibility": "external",
         "mutability": "",
@@ -8630,7 +8630,7 @@
     {
       "func": {
         "id": "writeToml_1",
-        "description": "Takes serialized JSON, converts to TOML and write a serialized TOML table to an **existing** TOML file, replacing a value with key = <value_key.>\nThis is useful to replace a specific value of a TOML file, without having to parse the entire thing.",
+        "description": "Takes serialized JSON, converts to TOML and write a serialized TOML table to an **existing** TOML file, replacing a value with key = `<value_key>`.\nThis is useful to replace a specific value of a TOML file, without having to parse the entire thing.",
         "declaration": "function writeToml(string calldata json, string calldata path, string calldata valueKey) external;",
         "visibility": "external",
         "mutability": "",

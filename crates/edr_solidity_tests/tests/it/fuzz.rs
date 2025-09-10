@@ -78,7 +78,7 @@ async fn test_successful_fuzz_cases() {
 
 /// Test that showcases PUSH collection on normal fuzzing. Ignored until we
 /// collect them in a smarter way.
-/// Disabled in https://github.com/foundry-rs/foundry/pull/2724
+/// Disabled in <https://github.com/foundry-rs/foundry/pull/2724>
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_fuzz_collection() {

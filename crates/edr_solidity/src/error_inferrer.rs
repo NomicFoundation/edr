@@ -248,8 +248,14 @@ pub(crate) fn infer_before_tracing_call_message<HaltReasonT: HaltReasonTrait>(
         .ok_or(InferrerError::MissingContract)?;
     let contract = contract_meta.contract.read();
 
-    let called_function =
-        contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
+    let called_function = contract.get_function_from_selector(
+        trace.calldata.get(..4).unwrap_or(
+            trace
+                .calldata
+                .get(..)
+                .expect("calldata should be accessible"),
+        ),
+    );
 
     if let Some(called_function) = called_function {
         if is_function_not_payable_error(trace, called_function)? {
@@ -476,7 +482,12 @@ fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
     }
 
     for step_index in (0..steps.len() - 1).rev() {
-        let (step, next_step) = match &steps[step_index..][..2] {
+        let (step, next_step) = match steps
+            .get(step_index..)
+            .expect("step_index should be within steps bounds")
+            .get(..2)
+            .expect("should have at least 2 elements")
+        {
             &[NestedTraceStep::Evm(ref step), ref next_step] => (step, next_step),
             _ => return Ok(Heuristic::Miss(stacktrace)),
         };
@@ -579,7 +590,9 @@ fn check_last_instruction<HaltReasonT: HaltReasonTrait>(
 
     let contract = contract_meta.contract.read();
 
-    let selector = calldata.get(..4).unwrap_or(&calldata[..]);
+    let selector = calldata
+        .get(..4)
+        .unwrap_or(calldata.get(..).expect("calldata should be accessible"));
     let calldata = &calldata.get(4..).unwrap_or(&[]);
 
     let called_function = contract.get_function_from_selector(selector);
@@ -855,8 +868,10 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
                         let contract = contract_meta.contract.read();
 
                         // This is here because of the optimizations
-                        let function_from_selector = contract
-                            .get_function_from_selector(calldata.get(..4).unwrap_or(&calldata[..]));
+                        let function_from_selector =
+                            contract.get_function_from_selector(calldata.get(..4).unwrap_or(
+                                calldata.get(..).expect("calldata should be accessible"),
+                            ));
 
                         // in general this shouldn't happen, but it does when viaIR is enabled,
                         // "optimizerSteps": "u" is used, and the called function is fallback or
@@ -1023,7 +1038,15 @@ fn format_dyn_sol_value(val: &DynSolValue) -> String {
         DynSolValue::Address(address) => format!("\"{address}\""),
         DynSolValue::Bytes(bytes) => format!("\"{}\"", hex::encode_prefixed(bytes)),
         DynSolValue::FixedBytes(word, size) => {
-            format!("\"{}\"", hex::encode_prefixed(&word.0.as_slice()[..*size]))
+            format!(
+                "\"{}\"",
+                hex::encode_prefixed(
+                    word.0
+                        .as_slice()
+                        .get(..*size)
+                        .expect("size should be within word bounds")
+                )
+            )
         }
         DynSolValue::Bool(b) => b.to_string(),
         DynSolValue::Function(_) => "<function>".to_string(),
@@ -1096,8 +1119,14 @@ fn get_direct_library_call_error_stack_trace<HaltReasonT: HaltReasonTrait>(
         .ok_or(InferrerError::MissingContract)?;
     let contract = contract_meta.contract.read();
 
-    let func =
-        contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]));
+    let func = contract.get_function_from_selector(
+        trace.calldata.get(..4).unwrap_or(
+            trace
+                .calldata
+                .get(..)
+                .expect("calldata should be accessible"),
+        ),
+    );
 
     let source_reference = match func {
         Some(func) => {
@@ -1165,7 +1194,14 @@ fn get_entry_before_initial_modifier_callstack_entry<HaltReasonT: HaltReasonTrai
         // Defaulting to shorter slice doesn't make much sense at first glance, but we
         // keep it after fixing the receive fallback, as this pattern is consistently
         // used in the codebase.
-        contract.get_function_from_selector(trace.calldata.get(..4).unwrap_or(&trace.calldata[..]))
+        contract.get_function_from_selector(
+            trace.calldata.get(..4).unwrap_or(
+                trace
+                    .calldata
+                    .get(..)
+                    .expect("calldata should be accessible"),
+            ),
+        )
     };
 
     let source_reference = match called_function {
@@ -1504,7 +1540,10 @@ fn is_called_non_contract_account_error<HaltReasonT: HaltReasonTrait>(
         Some(last_index) => last_index as usize,
     };
 
-    let last_step = match &steps[last_index] {
+    let last_step = match steps
+        .get(last_index)
+        .expect("last_index should be within steps bounds")
+    {
         NestedTraceStep::Evm(step) => step,
         _ => {
             return Err(InferrerError::InvariantViolation(
@@ -1519,7 +1558,10 @@ fn is_called_non_contract_account_error<HaltReasonT: HaltReasonTrait>(
         return Ok(false);
     }
 
-    let prev_step = match &steps[last_index - 1] {
+    let prev_step = match steps
+        .get(last_index - 1)
+        .expect("last_index - 1 should be within steps bounds")
+    {
         NestedTraceStep::Evm(step) => step,
         _ => {
             return Err(InferrerError::InvariantViolation(
@@ -2170,7 +2212,9 @@ fn solidity_0_6_3_get_frame_for_unmapped_revert_within_function<HaltReasonT: Hal
 fn solidity_0_6_3_correct_line_number(mut source_reference: SourceReference) -> SourceReference {
     let lines: Vec<_> = source_reference.source_content.split('\n').collect();
 
-    let current_line = lines[source_reference.line as usize - 1];
+    let current_line = lines
+        .get(source_reference.line as usize - 1)
+        .expect("source_reference.line should be within lines bounds");
     if current_line.contains("require") || current_line.contains("revert") {
         return source_reference;
     }
@@ -2184,7 +2228,9 @@ fn solidity_0_6_3_correct_line_number(mut source_reference: SourceReference) -> 
         return source_reference;
     };
 
-    let next_line = next_lines[first_non_empty_line];
+    let next_line = next_lines
+        .get(first_non_empty_line)
+        .expect("first_non_empty_line should be within next_lines bounds");
     if next_line.contains("require") || next_line.contains("revert") {
         source_reference.line += 1 + first_non_empty_line as u32;
     }

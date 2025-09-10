@@ -56,7 +56,12 @@ fn create_sources_model_from_ast(
             .map(|(source_name, source)| {
                 let file = SourceFile::new(
                     source_name.clone(),
-                    compiler_input.sources[source_name].content.clone(),
+                    compiler_input
+                        .sources
+                        .get(source_name)
+                        .expect("source_name should exist in compiler_input.sources")
+                        .content
+                        .clone(),
                 );
                 let file = Arc::new(RwLock::new(file));
                 (source.id, file.clone())
@@ -69,7 +74,9 @@ fn create_sources_model_from_ast(
     // processed functions
     let mut contract_id_to_contract = IndexMap::new();
     for (source_name, source) in &compiler_output.sources {
-        let file = &sources[&source.id];
+        let file = sources
+            .get(&source.id)
+            .expect("source.id should exist in sources");
 
         process_ast_nodes(
             source_name,
@@ -526,7 +533,11 @@ fn ast_function_definition_to_selector(
 
     let mut param_types = Vec::new();
 
-    for param in function_definition["parameters"]["parameters"]
+    for param in function_definition
+        .get("parameters")
+        .expect("function_definition should have parameters")
+        .get("parameters")
+        .expect("parameters should have parameters")
         .as_array()
         .with_context(|| "Expected function parameters to be an array")?
     {
@@ -561,7 +572,11 @@ fn ast_function_definition_to_selector(
             Some("ArrayTypeName" | "FunctionTypeName" | "Mapping")
         ) {
             param_types.push(
-                typename["typeDescriptions"]["typeString"]
+                typename
+                    .get("typeDescriptions")
+                    .expect("typename should have typeDescriptions")
+                    .get("typeString")
+                    .expect("typeDescriptions should have typeString")
                     .as_str()
                     .with_context(|| "Expected typeString to be a string")?
                     .to_string(),
@@ -687,13 +702,19 @@ fn ast_src_to_source_location(
         return Ok(None);
     }
 
-    let offset = parts[0]
+    let offset = parts
+        .first()
+        .expect("parts should have three elements")
         .parse::<u32>()
         .with_context(|| format!("Failed to parse offset: {src:?}"))?;
-    let length = parts[1]
+    let length = parts
+        .get(1)
+        .expect("parts should have three elements")
         .parse::<u32>()
         .with_context(|| format!("Failed to parse length: {src:?}"))?;
-    let file_id = parts[2]
+    let file_id = parts
+        .get(2)
+        .expect("parts should have three elements")
         .parse::<u32>()
         .with_context(|| format!("Failed to parse file ID: {src:?}"))?;
 
@@ -768,7 +789,9 @@ fn abi_method_id(name: &str, param_types: Vec<impl AsRef<str>>) -> Vec<u8> {
     );
     let sig = sig.as_bytes();
     let sig = keccak256(sig);
-    sig[..4].to_vec()
+    sig.get(..4)
+        .expect("signature should have at least 4 bytes")
+        .to_vec()
 }
 
 fn decode_evm_bytecode(
@@ -825,8 +848,20 @@ fn decode_bytecodes(
             let mut contract = contract.write();
 
             let contract_file = &contract.location.file()?.read().source_name.clone();
-            let contract_evm_output = &compiler_output.contracts[contract_file][&contract.name].evm;
-            let contract_abi_output = &compiler_output.contracts[contract_file][&contract.name].abi;
+            let contract_evm_output = &compiler_output
+                .contracts
+                .get(contract_file)
+                .expect("contract_file should exist in contracts")
+                .get(&contract.name)
+                .expect("contract.name should exist in contract_file")
+                .evm;
+            let contract_abi_output = &compiler_output
+                .contracts
+                .get(contract_file)
+                .expect("contract_file should exist in contracts")
+                .get(&contract.name)
+                .expect("contract.name should exist in contract_file")
+                .abi;
 
             for item in contract_abi_output {
                 if item.r#type.as_deref() == Some("error") {
