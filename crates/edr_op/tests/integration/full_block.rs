@@ -2,7 +2,7 @@
 
 use edr_evm::impl_full_block_tests;
 use edr_op::{
-    test_utils::{holocene_header_overrides, isthmus_header_overrides},
+    test_utils::isthmus_header_overrides,
     OpChainSpec,
 };
 use edr_provider::test_utils::header_overrides;
@@ -39,23 +39,23 @@ impl_full_block_tests! {
     mainnet_holocene => OpChainSpec {
         block_number: 130_423_412,
         url: mainnet_url(),
-        header_overrides_constructor: holocene_header_overrides,
+        header_overrides_constructor: header_overrides,
     },
     // The second Holocene block should use the dynamic base fee from the parent block's `extra_data`.
     mainnet_holocene_plus_one => OpChainSpec {
         block_number: 130_423_413,
         url: mainnet_url(),
-        header_overrides_constructor: holocene_header_overrides,
+        header_overrides_constructor: header_overrides,
     },
     mainnet_system_config_update_on_extra_data => OpChainSpec {
         block_number: 135_513_415,
         url: mainnet_url(),
-        header_overrides_constructor: holocene_header_overrides,
+        header_overrides_constructor: header_overrides,
     },
     mainnet_after_system_config_update => OpChainSpec {
         block_number: 135_513_416,
         url: mainnet_url(),
-        header_overrides_constructor: holocene_header_overrides,
+        header_overrides_constructor: header_overrides,
     },
     // The Isthmus hardfork modified the GasPriceOracle predeploy in this block
     // but we don't support forked account overrides yet.

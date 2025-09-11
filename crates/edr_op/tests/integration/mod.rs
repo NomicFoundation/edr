@@ -1,4 +1,3 @@
-mod dynamic_base_fee_params;
 mod full_block;
 mod hardfork_activation;
 mod holocene;
