@@ -1,8 +1,10 @@
 use alloy_rlp::RlpEncodable;
 use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams};
 use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants};
+use edr_rpc_spec::RpcSpec;
+use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{BlockEnv, HaltReason, Hardfork, Signed};
+use crate::{rpc, BlockEnv, HaltReason, Hardfork, Signed, TypedEnvelope};
 
 /// The chain specification for Ethereum Layer 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
@@ -25,4 +27,16 @@ impl EthHeaderConstants for L1ChainSpec {
     }
 
     const MIN_ETHASH_DIFFICULTY: u64 = 131072;
+}
+
+impl RpcSpec for L1ChainSpec {
+    type ExecutionReceipt<LogT> = TypedEnvelope<edr_receipt::execution::Eip658<LogT>>;
+    type RpcBlock<DataT>
+        = rpc::Block<DataT>
+    where
+        DataT: Default + DeserializeOwned + Serialize;
+    type RpcCallRequest = rpc::CallRequest;
+    type RpcReceipt = rpc::Block;
+    type RpcTransaction = rpc::TransactionWithSignature;
+    type RpcTransactionRequest = rpc::TransactionRequest;
 }

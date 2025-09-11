@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 
-use edr_eth::{block::BlobGas, withdrawal::Withdrawal, Address, Bloom, Bytes, B256, B64, U256};
+use edr_rpc_spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 
-use crate::spec::GetBlockNumber;
+use crate::{Address, Bloom, Bytes, B256, B64, U256};
 
 /// block object returned by `eth_getBlockBy*`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
