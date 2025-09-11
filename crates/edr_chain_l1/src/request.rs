@@ -3,7 +3,7 @@
 use edr_signer::{Address, FakeSign, SecretKey, Sign, SignatureError};
 pub use edr_transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 
-use crate::Signed;
+use crate::L1SignedTransaction;
 
 /// Container type for various Ethereum transaction requests
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -91,7 +91,7 @@ impl Request {
         }
     }
 
-    pub fn sign(self, secret_key: &SecretKey) -> Result<Signed, SignatureError> {
+    pub fn sign(self, secret_key: &SecretKey) -> Result<L1SignedTransaction, SignatureError> {
         Ok(match self {
             Request::Legacy(transaction) => transaction.sign(secret_key)?.into(),
             Request::Eip155(transaction) => transaction.sign(secret_key)?.into(),
@@ -104,9 +104,9 @@ impl Request {
 }
 
 impl FakeSign for Request {
-    type Signed = Signed;
+    type Signed = L1SignedTransaction;
 
-    fn fake_sign(self, sender: Address) -> Signed {
+    fn fake_sign(self, sender: Address) -> L1SignedTransaction {
         match self {
             Request::Legacy(transaction) => transaction.fake_sign(sender).into(),
             Request::Eip155(transaction) => transaction.fake_sign(sender).into(),
@@ -119,13 +119,13 @@ impl FakeSign for Request {
 }
 
 impl Sign for Request {
-    type Signed = Signed;
+    type Signed = L1SignedTransaction;
 
     unsafe fn sign_for_sender_unchecked(
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<Signed, SignatureError> {
+    ) -> Result<L1SignedTransaction, SignatureError> {
         Ok(match self {
             Request::Legacy(transaction) => {
                 // SAFETY: The safety concern is propagated in the function signature.

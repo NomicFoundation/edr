@@ -30,7 +30,7 @@ fn fake_call_request() -> CallRequest {
     let transaction = transaction.into_payload();
     let from = transaction.caller();
 
-    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::Type::Eip4844 {
+    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::L1TransactionType::Eip4844 {
         Some(transaction.blob_hashes().to_vec())
     } else {
         None
@@ -60,7 +60,7 @@ fn fake_transaction_request() -> TransactionRequest {
     let transaction = transaction.into_payload();
     let from = *transaction.caller();
 
-    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::Type::Eip4844 {
+    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::L1TransactionType::Eip4844 {
         Some(transaction.blob_hashes().to_vec())
     } else {
         None
@@ -259,7 +259,7 @@ async fn get_transaction() -> anyhow::Result<()> {
     ))?;
 
     let transaction: edr_rpc_eth::TransactionWithSignature = serde_json::from_value(result.result)?;
-    let transaction = edr_chain_l1::Signed::try_from(transaction)?;
+    let transaction = edr_chain_l1::L1SignedTransaction::try_from(transaction)?;
 
     assert_eq!(transaction, expected);
 

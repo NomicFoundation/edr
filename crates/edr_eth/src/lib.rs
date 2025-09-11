@@ -21,17 +21,12 @@ pub mod filter;
 pub mod result;
 /// Ethereum gas related types
 pub mod reward_percentile;
-/// RLP traits and functions
-pub mod rlp;
 #[cfg(feature = "serde")]
 pub mod serde;
 /// Ethereum state types and functions
 pub mod state;
-/// Ethereum trie functions
-pub mod trie;
 /// Ethereum utility functions
 pub mod utils;
-pub mod withdrawal;
 
 pub use c_kzg::{Blob, Bytes48};
 pub use revm_bytecode::{self as bytecode, Bytecode};

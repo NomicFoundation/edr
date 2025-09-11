@@ -1,14 +1,17 @@
+//! Ethereum L1 RPC block types
+
 use std::fmt::Debug;
 
+use alloy_eips::eip4895::Withdrawal;
+use edr_block_header::{BlobGas, BlockHeader};
+use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 use edr_rpc_spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
-
-use crate::{Address, Bloom, Bytes, B256, B64, U256};
 
 /// block object returned by `eth_getBlockBy*`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Block<TransactionT> {
+pub struct L1RpcBlock<TransactionT> {
     /// Hash of the block
     pub hash: Option<B256>,
     /// hash of the parent block.
@@ -96,7 +99,7 @@ pub struct Block<TransactionT> {
     pub requests_hash: Option<B256>,
 }
 
-impl<TransactionT> GetBlockNumber for Block<TransactionT> {
+impl<TransactionT> GetBlockNumber for L1RpcBlock<TransactionT> {
     fn number(&self) -> Option<u64> {
         self.number
     }
@@ -122,11 +125,11 @@ pub enum MissingFieldError {
     Number,
 }
 
-impl<TransactionT> TryFrom<&Block<TransactionT>> for edr_eth::block::Header {
+impl<TransactionT> TryFrom<&L1RpcBlock<TransactionT>> for BlockHeader {
     type Error = MissingFieldError;
 
-    fn try_from(value: &Block<TransactionT>) -> Result<Self, Self::Error> {
-        let header = edr_eth::block::Header {
+    fn try_from(value: &L1RpcBlock<TransactionT>) -> Result<Self, Self::Error> {
+        let header = BlockHeader {
             parent_hash: value.parent_hash,
             ommers_hash: value.sha3_uncles,
             beneficiary: value.miner.ok_or(MissingFieldError::Miner)?,

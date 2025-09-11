@@ -149,9 +149,9 @@ async fn get_transaction() -> anyhow::Result<()> {
 
     let transaction: edr_rpc_eth::TransactionWithSignature =
         serde_json::from_value(response.result)?;
-    let transaction = edr_chain_l1::Signed::try_from(transaction)?;
+    let transaction = edr_chain_l1::L1SignedTransaction::try_from(transaction)?;
 
-    if let edr_chain_l1::Signed::Eip7702(transaction) = transaction {
+    if let edr_chain_l1::L1SignedTransaction::Eip7702(transaction) = transaction {
         assert_eq!(Some(transaction.chain_id), transaction_request.chain_id);
         assert_eq!(Some(transaction.nonce), transaction_request.nonce);
         assert_eq!(*transaction.caller(), transaction_request.from);

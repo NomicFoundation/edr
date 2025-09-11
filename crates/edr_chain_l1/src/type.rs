@@ -7,7 +7,7 @@ use crate::signed;
 /// The type of transaction.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Type {
+pub enum L1TransactionType {
     /// Legacy transaction
     Legacy = signed::Legacy::TYPE,
     /// EIP-2930 transaction
@@ -20,25 +20,25 @@ pub enum Type {
     Eip7702 = signed::Eip7702::TYPE,
 }
 
-impl From<Type> for u8 {
-    fn from(t: Type) -> u8 {
+impl From<L1TransactionType> for u8 {
+    fn from(t: L1TransactionType) -> u8 {
         t as u8
     }
 }
 
-impl IsEip4844 for Type {
+impl IsEip4844 for L1TransactionType {
     fn is_eip4844(&self) -> bool {
-        matches!(self, Type::Eip4844)
+        matches!(self, L1TransactionType::Eip4844)
     }
 }
 
-impl IsLegacy for Type {
+impl IsLegacy for L1TransactionType {
     fn is_legacy(&self) -> bool {
-        matches!(self, Type::Legacy)
+        matches!(self, L1TransactionType::Legacy)
     }
 }
 
-impl FromStr for Type {
+impl FromStr for L1TransactionType {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -47,7 +47,7 @@ impl FromStr for Type {
             if prefix == "0x" {
                 let value = U8::from_str_radix(rest, 16)?;
 
-                Type::try_from(value.to::<u8>()).map_err(ParseError::UnknownType)
+                L1TransactionType::try_from(value.to::<u8>()).map_err(ParseError::UnknownType)
             } else {
                 Err(ParseError::InvalidRadix)
             }
@@ -57,7 +57,7 @@ impl FromStr for Type {
     }
 }
 
-impl TryFrom<u8> for Type {
+impl TryFrom<u8> for L1TransactionType {
     type Error = u8;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
@@ -72,17 +72,17 @@ impl TryFrom<u8> for Type {
     }
 }
 
-impl<'deserializer> serde::Deserialize<'deserializer> for Type {
-    fn deserialize<D>(deserializer: D) -> Result<Type, D::Error>
+impl<'deserializer> serde::Deserialize<'deserializer> for L1TransactionType {
+    fn deserialize<D>(deserializer: D) -> Result<L1TransactionType, D::Error>
     where
         D: serde::Deserializer<'deserializer>,
     {
         let value = U8::deserialize(deserializer)?;
-        Type::try_from(value.to::<u8>()).map_err(serde::de::Error::custom)
+        L1TransactionType::try_from(value.to::<u8>()).map_err(serde::de::Error::custom)
     }
 }
 
-impl serde::Serialize for Type {
+impl serde::Serialize for L1TransactionType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

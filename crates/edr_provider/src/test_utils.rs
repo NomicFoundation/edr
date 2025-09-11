@@ -286,7 +286,7 @@ impl ProviderTestFixture<L1ChainSpec> {
         Ok(TransactionRequestAndSender { request, sender })
     }
 
-    pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<edr_chain_l1::Signed> {
+    pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<edr_chain_l1::L1SignedTransaction> {
         let mut transaction = self.dummy_transaction_request(0, 30_000, None)?;
         transaction.sender = self.impersonated_account;
 
@@ -297,7 +297,7 @@ impl ProviderTestFixture<L1ChainSpec> {
         &self,
         local_account_index: usize,
         nonce: Option<u64>,
-    ) -> anyhow::Result<edr_chain_l1::Signed> {
+    ) -> anyhow::Result<edr_chain_l1::L1SignedTransaction> {
         let transaction = self.dummy_transaction_request(local_account_index, 30_000, nonce)?;
         Ok(self.provider_data.sign_transaction_request(transaction)?)
     }

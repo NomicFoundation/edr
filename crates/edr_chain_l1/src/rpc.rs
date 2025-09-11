@@ -1,5 +1,12 @@
 //! Ethereum L1 RPC types
 
-mod block;
+pub mod block;
+pub mod call;
+pub mod receipt;
+pub mod transaction;
 
-pub use self::block::Block;
+pub type Block<TransactionT> = self::block::L1RpcBlock<TransactionT>;
+
+pub type BlockReceipt = self::receipt::L1BlockReceipt;
+
+pub type TransactionRequest = self::transaction::L1RpcTransactionRequest;

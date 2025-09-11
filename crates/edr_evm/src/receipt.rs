@@ -34,14 +34,14 @@ where
 /// Builder for execution receipts.
 pub struct Builder;
 
-impl ExecutionReceiptBuilder<edr_chain_l1::HaltReason, edr_chain_l1::Hardfork, edr_chain_l1::Signed>
+impl ExecutionReceiptBuilder<edr_chain_l1::HaltReason, edr_chain_l1::Hardfork, edr_chain_l1::L1SignedTransaction>
     for Builder
 {
     type Receipt = TypedEnvelope<edr_receipt::execution::Eip658<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
         _pre_execution_state: StateT,
-        _transaction: &edr_chain_l1::Signed,
+        _transaction: &edr_chain_l1::L1SignedTransaction,
     ) -> Result<Self, StateT::Error> {
         Ok(Self)
     }
@@ -49,7 +49,7 @@ impl ExecutionReceiptBuilder<edr_chain_l1::HaltReason, edr_chain_l1::Hardfork, e
     fn build_receipt(
         self,
         header: &block::PartialHeader,
-        transaction: &edr_chain_l1::Signed,
+        transaction: &edr_chain_l1::L1SignedTransaction,
         result: &ExecutionResult<edr_chain_l1::HaltReason>,
         _hardfork: edr_chain_l1::Hardfork,
     ) -> Self::Receipt {

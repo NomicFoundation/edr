@@ -163,7 +163,7 @@ mod tests {
         };
 
         let transaction = request.fake_sign(caller);
-        let transaction = edr_chain_l1::Signed::from(transaction);
+        let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
         let result = validate(transaction, EvmSpecId::BERLIN);
 
         let expected_gas_cost = 21_000;
@@ -198,7 +198,7 @@ mod tests {
         };
 
         let transaction = request.fake_sign(caller);
-        let transaction = edr_chain_l1::Signed::from(transaction);
+        let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
         let result = validate(transaction, EvmSpecId::BERLIN);
 
         assert!(matches!(result, Err(CreationError::ContractMissingData)));

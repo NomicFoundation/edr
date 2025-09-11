@@ -166,7 +166,7 @@ pub fn validate_send_transaction_request<
     }
 
     if let Some(transaction_type) = request.transaction_type {
-        if transaction_type == u8::from(edr_chain_l1::Type::Eip4844) {
+        if transaction_type == u8::from(edr_chain_l1::L1TransactionType::Eip4844) {
             return Err(ProviderError::Eip4844TransactionUnsupported);
         }
     }

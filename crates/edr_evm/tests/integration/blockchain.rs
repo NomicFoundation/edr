@@ -267,7 +267,7 @@ fn insert_dummy_block_with_transaction(
         ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
         edr_chain_l1::Hardfork,
         edr_rpc_eth::receipt::ConversionError,
-        edr_chain_l1::Signed,
+        edr_chain_l1::L1SignedTransaction,
     >::new(
         &receipt_factory,
         blockchain.hardfork(),

@@ -6,7 +6,6 @@ edition.workspace = true
 [dependencies]
 anyhow = "1.0.89"
 alloy-eips.workspace = true
-alloy-rlp.workspace = true
 alloy-serde.workspace = true
 auto_impl.workspace = true
 c-kzg.workspace = true
@@ -17,8 +16,6 @@ edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_receipt.workspace = true
 edr_signer.workspace = true
-hash-db = { version = "0.15.2", default-features = false }
-hash256-std-hasher = { version = "0.15.2", default-features = false }
 hashbrown = { version = "0.14.3", default-features = false, features = ["ahash", "allocator-api2", "inline-more"] }
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 itertools = { version = "0.10.5", default-features = false, features = ["use_alloc"] }
@@ -31,10 +28,8 @@ revm-primitives.workspace = true
 revm-state.workspace = true
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
-sha3.workspace = true
 thiserror.workspace = true
 tracing = { version = "0.1.37", features = ["attributes", "std"], optional = true }
-triehash = { version = "0.8.4", default-features = false }
 
 [dev-dependencies]
 anyhow = "1.0.89"
@@ -52,7 +47,7 @@ edr_chain_l1.workspace = true
 default = ["std"]
 rand = ["revm-primitives/rand"]
 serde = ["dep:serde", "dep:serde_json", "alloy-eips/serde", "c-kzg/serde", "revm-bytecode/serde", "revm-primitives/serde", "revm-state/serde"]
-std = ["alloy-eips/std", "alloy-serde/std", "hash256-std-hasher/std", "hash-db/std", "hex/std", "itertools/use_std", "revm-bytecode/std", "revm-primitives/std", "revm-state/serde", "serde?/std", "sha3/std", "triehash/std"]
+std = ["alloy-eips/std", "alloy-serde/std", "hex/std", "itertools/use_std", "revm-bytecode/std", "revm-primitives/std", "revm-state/serde", "serde?/std"]
 test-remote = []
 tracing = ["dep:tracing"]
 

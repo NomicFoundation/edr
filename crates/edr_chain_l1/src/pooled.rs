@@ -9,7 +9,7 @@ use edr_transaction::{
     Address, Bytes, IsEip155, TxKind, B256, INVALID_TX_TYPE_ERROR_MESSAGE, U256,
 };
 
-use crate::Signed;
+use crate::L1SignedTransaction;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PooledTransaction {
@@ -45,14 +45,14 @@ impl PooledTransaction {
     }
 
     /// Converts the pooled transaction into a signed transaction.
-    pub fn into_payload(self) -> Signed {
+    pub fn into_payload(self) -> L1SignedTransaction {
         match self {
-            PooledTransaction::PreEip155Legacy(tx) => Signed::PreEip155Legacy(tx),
-            PooledTransaction::PostEip155Legacy(tx) => Signed::PostEip155Legacy(tx),
-            PooledTransaction::Eip2930(tx) => Signed::Eip2930(tx),
-            PooledTransaction::Eip1559(tx) => Signed::Eip1559(tx),
-            PooledTransaction::Eip4844(tx) => Signed::Eip4844(tx.into_payload()),
-            PooledTransaction::Eip7702(tx) => Signed::Eip7702(tx),
+            PooledTransaction::PreEip155Legacy(tx) => L1SignedTransaction::PreEip155Legacy(tx),
+            PooledTransaction::PostEip155Legacy(tx) => L1SignedTransaction::PostEip155Legacy(tx),
+            PooledTransaction::Eip2930(tx) => L1SignedTransaction::Eip2930(tx),
+            PooledTransaction::Eip1559(tx) => L1SignedTransaction::Eip1559(tx),
+            PooledTransaction::Eip4844(tx) => L1SignedTransaction::Eip4844(tx.into_payload()),
+            PooledTransaction::Eip7702(tx) => L1SignedTransaction::Eip7702(tx),
         }
     }
 
@@ -374,7 +374,7 @@ impl From<PreOrPostEip155> for PooledTransaction {
     }
 }
 
-impl From<PooledTransaction> for Signed {
+impl From<PooledTransaction> for L1SignedTransaction {
     fn from(value: PooledTransaction) -> Self {
         value.into_payload()
     }
