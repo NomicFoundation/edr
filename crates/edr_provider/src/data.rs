@@ -3098,7 +3098,7 @@ mod tests {
 
     fn test_add_pending_transaction(
         fixture: &mut ProviderTestFixture<L1ChainSpec>,
-        transaction: edr_chain_l1::Signed,
+        transaction: edr_chain_l1::L1SignedTransaction,
     ) -> anyhow::Result<()> {
         let filter_id = fixture
             .provider_data

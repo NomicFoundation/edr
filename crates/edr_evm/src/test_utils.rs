@@ -24,7 +24,7 @@ use crate::{
 /// A test fixture for `MemPool`.
 pub struct MemPoolTestFixture {
     /// The mem pool.
-    pub mem_pool: MemPool<edr_chain_l1::Signed>,
+    pub mem_pool: MemPool<edr_chain_l1::L1SignedTransaction>,
     /// The state.
     pub state: TrieState,
 }
@@ -45,7 +45,7 @@ impl MemPoolTestFixture {
     /// Tries to add the provided transaction to the mem pool.
     pub fn add_transaction(
         &mut self,
-        transaction: edr_chain_l1::Signed,
+        transaction: edr_chain_l1::L1SignedTransaction,
     ) -> Result<(), MemPoolAddTransactionError<StateError>> {
         self.mem_pool.add_transaction(&self.state, transaction)
     }
@@ -66,7 +66,7 @@ impl MemPoolTestFixture {
 pub fn dummy_eip155_transaction(
     caller: Address,
     nonce: u64,
-) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::L1SignedTransaction, transaction::CreationError> {
     dummy_eip155_transaction_with_price(caller, nonce, 0)
 }
 
@@ -75,7 +75,7 @@ pub fn dummy_eip155_transaction_with_price(
     caller: Address,
     nonce: u64,
     gas_price: u128,
-) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::L1SignedTransaction, transaction::CreationError> {
     dummy_eip155_transaction_with_price_and_limit(caller, nonce, gas_price, 30_000)
 }
 
@@ -84,7 +84,7 @@ pub fn dummy_eip155_transaction_with_limit(
     caller: Address,
     nonce: u64,
     gas_limit: u64,
-) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::L1SignedTransaction, transaction::CreationError> {
     dummy_eip155_transaction_with_price_and_limit(caller, nonce, 0, gas_limit)
 }
 
@@ -93,7 +93,7 @@ fn dummy_eip155_transaction_with_price_and_limit(
     nonce: u64,
     gas_price: u128,
     gas_limit: u64,
-) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::L1SignedTransaction, transaction::CreationError> {
     dummy_eip155_transaction_with_price_limit_and_value(
         caller,
         nonce,
@@ -111,7 +111,7 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
     gas_price: u128,
     gas_limit: u64,
     value: U256,
-) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::L1SignedTransaction, transaction::CreationError> {
     let from = Address::random();
     let request = edr_chain_l1::request::Eip155 {
         nonce,
@@ -123,7 +123,7 @@ pub fn dummy_eip155_transaction_with_price_limit_and_value(
         chain_id: 123,
     };
     let transaction = request.fake_sign(caller);
-    let transaction = edr_chain_l1::Signed::from(transaction);
+    let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
 
     transaction::validate(transaction, EvmSpecId::default())
 }
@@ -135,7 +135,7 @@ pub fn dummy_eip1559_transaction(
     nonce: u64,
     max_fee_per_gas: u128,
     max_priority_fee_per_gas: u128,
-) -> Result<edr_chain_l1::Signed, transaction::CreationError> {
+) -> Result<edr_chain_l1::L1SignedTransaction, transaction::CreationError> {
     let from = Address::random();
     let request = edr_chain_l1::request::Eip1559 {
         chain_id: 123,
@@ -149,7 +149,7 @@ pub fn dummy_eip1559_transaction(
         access_list: Vec::new(),
     };
     let transaction = request.fake_sign(caller);
-    let transaction = edr_chain_l1::Signed::from(transaction);
+    let transaction = edr_chain_l1::L1SignedTransaction::from(transaction);
 
     transaction::validate(transaction, EvmSpecId::default())
 }

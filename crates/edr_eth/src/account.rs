@@ -10,8 +10,6 @@ use alloy_rlp::{RlpDecodable, RlpEncodable};
 pub use revm_primitives::KECCAK_EMPTY;
 pub use revm_state::{Account, AccountInfo, AccountStatus};
 
-use crate::{trie::KECCAK_NULL_RLP, B256, U256};
-
 /// Basic account type.
 #[derive(Debug, Clone, PartialEq, Eq, RlpDecodable, RlpEncodable)]
 pub struct BasicAccount {

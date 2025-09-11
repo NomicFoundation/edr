@@ -12,16 +12,10 @@ pub mod r#type;
 use edr_evm_spec::EvmSpecId;
 pub use revm_context::TxEnv;
 pub use revm_context_interface::result::OutOfGasError;
-pub use revm_primitives::{
-    alloy_primitives::Bloom,
-    hardfork::UnknownHardfork,
-    ruint::aliases::{B256, B64},
-    Address, Bytes, U256,
-};
 
 pub use self::{
-    eip2718::TypedEnvelope, pooled::PooledTransaction, r#type::Type, request::Request,
-    signed::Signed, spec::L1ChainSpec,
+    eip2718::TypedEnvelope, pooled::PooledTransaction, r#type::L1TransactionType, request::Request,
+    signed::L1SignedTransaction, spec::L1ChainSpec,
 };
 
 /// Ethereum L1 block environment.

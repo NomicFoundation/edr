@@ -2277,23 +2277,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_block_header"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+ "alloy-rlp",
+ "alloy-serde",
+ "edr_chain_l1",
+ "edr_eip1559",
+ "edr_eip4844",
+ "edr_evm_spec",
+ "edr_primitives",
+ "edr_trie",
+ "serde",
+]
+
+[[package]]
 name = "edr_chain_l1"
 version = "0.3.8"
 dependencies = [
+ "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
  "anyhow",
  "const-hex",
+ "edr_block_header",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_receipt",
  "edr_rpc_spec",
  "edr_signer",
  "edr_test_utils",
  "edr_transaction",
+ "log",
  "paste",
  "revm-context",
  "revm-context-interface",
@@ -2354,6 +2374,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip4844"
+version = "0.3.8"
+dependencies = [
+ "alloy-rlp",
+ "serde",
+]
+
+[[package]]
 name = "edr_eip7702"
 version = "0.3.8"
 dependencies = [
@@ -2366,7 +2394,6 @@ name = "edr_eth"
 version = "0.3.8"
 dependencies = [
  "alloy-eips",
- "alloy-rlp",
  "alloy-serde",
  "anyhow",
  "assert-json-diff",
@@ -2383,8 +2410,6 @@ dependencies = [
  "edr_rpc_eth",
  "edr_signer",
  "edr_test_utils",
- "hash-db",
- "hash256-std-hasher",
  "hashbrown 0.14.5",
  "hex",
  "itertools 0.10.5",
@@ -2399,11 +2424,9 @@ dependencies = [
  "revm-state",
  "serde",
  "serde_json",
- "sha3",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
- "triehash",
 ]
 
 [[package]]
@@ -2641,6 +2664,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_primitives"
+version = "0.3.8"
+dependencies = [
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_provider"
 version = "0.3.8"
 dependencies = [
@@ -2757,9 +2787,9 @@ dependencies = [
  "edr_chain_l1",
  "edr_eip2930",
  "edr_eip7702",
- "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_receipt",
  "edr_rpc_client",
  "edr_signer",
@@ -2931,6 +2961,17 @@ dependencies = [
  "serde",
  "sha2 0.10.9",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "edr_trie"
+version = "0.3.8"
+dependencies = [
+ "edr_primitives",
+ "hash-db",
+ "hash256-std-hasher",
+ "sha3",
+ "triehash",
 ]
 
 [[package]]

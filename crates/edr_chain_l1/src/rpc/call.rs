@@ -1,10 +1,14 @@
-use edr_eth::{Address, Blob, Bytes, B256, U256};
+//! L1 Ethereum types for `eth_call` and `debug_traceCall`.
+use edr_primitives::{Address, Bytes, B256, U256};
+use edr_transaction::pooled::eip4844::Blob;
+
+pub type Request = L1CallRequest;
 
 /// For specifying input to methods requiring a transaction object, like
 /// `eth_call` and `eth_estimateGas`
 #[derive(Clone, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CallRequest {
+pub struct L1CallRequest {
     /// the address from which the transaction should be sent
     pub from: Option<Address>,
     /// the address to which the transaction should be sent
@@ -64,11 +68,11 @@ mod tests {
             "to":"0x5fbdb2315678afecb367f032d93f642f64180aa3"
         }"#;
 
-        let with_data: CallRequest = serde_json::from_str(JSON_WITH_DATA)?;
-        let with_input: CallRequest = serde_json::from_str(JSON_WITH_INPUT)?;
+        let with_data: L1CallRequest = serde_json::from_str(JSON_WITH_DATA)?;
+        let with_input: L1CallRequest = serde_json::from_str(JSON_WITH_INPUT)?;
         assert_eq!(with_data.data, with_input.data);
 
-        let error: serde_json::Error = serde_json::from_str::<CallRequest>(JSON_WITH_BOTH)
+        let error: serde_json::Error = serde_json::from_str::<L1CallRequest>(JSON_WITH_BOTH)
             .expect_err("Should fail due to duplicate fields");
 
         assert_eq!(

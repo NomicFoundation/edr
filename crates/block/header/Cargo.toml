@@ -1,0 +1,21 @@
+[package]
+name = "edr_block_header"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-eips.workspace = true
+alloy-rlp.workspace = true
+alloy-serde.workspace = true
+edr_eip1559.workspace = true
+edr_eip4844.workspace = true
+edr_evm_spec.workspace = true
+edr_primitives.workspace = true
+edr_trie.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+edr_chain_l1.workspace = true
+
+[lints]
+workspace = true

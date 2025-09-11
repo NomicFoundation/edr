@@ -1,13 +1,11 @@
 [workspace]
 members = [
     # EDR
+    "crates/block/header",
     "crates/edr_chain_l1",
     "crates/edr_common",
     "crates/edr_coverage",
     "crates/edr_defaults",
-    "crates/edr_eip1559",
-    "crates/edr_eip2930",
-    "crates/edr_eip7702",
     "crates/edr_eth",
     "crates/edr_evm",
     "crates/edr_evm_spec",
@@ -26,7 +24,13 @@ members = [
     "crates/edr_solidity_tests",
     "crates/edr_test_utils",
     "crates/edr_transaction",
+    "crates/eips/1559",
+    "crates/eips/2930",
+    "crates/eips/4844",
+    "crates/eips/7702",
+    "crates/primitives",
     "crates/tools",
+    "crates/trie",
     # Foundry
     "crates/foundry/cheatcodes",
     "crates/foundry/cheatcodes/spec",
@@ -90,19 +94,21 @@ foundry-evm-fuzz.opt-level = 3
 # keystores
 scrypt.opt-level = 3
 
-
 [workspace.dependencies]
+edr_block_header = { path = "crates/block/header" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
 edr_defaults = { path = "crates/edr_defaults" }
-edr_eip1559 = { path = "crates/edr_eip1559" }
-edr_eip2930 = { path = "crates/edr_eip2930" }
-edr_eip7702 = { path = "crates/edr_eip7702" }
+edr_eip1559 = { path = "crates/eips/1559" }
+edr_eip2930 = { path = "crates/eips/2930" }
+edr_eip4844 = { path = "crates/eips/4844" }
+edr_eip7702 = { path = "crates/eips/7702" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/edr_evm" }
 edr_evm_spec = { path = "crates/edr_evm_spec" }
 edr_macros = { path = "crates/edr_macros" }
+edr_primitives = { path = "crates/primitives" }
 edr_receipt = { path = "crates/edr_receipt" }
 edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
@@ -112,6 +118,7 @@ edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 edr_transaction = { path = "crates/edr_transaction" }
+edr_trie = { path = "crates/trie" }
 
 foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
 foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }
@@ -212,6 +219,7 @@ hex = { package = "const-hex", version = "1.6", features = ["hex"] }
 itertools = "0.12"
 jsonpath_lib = "0.3"
 k256 = "0.13"
+log = { version = "0.4.17", default-features = false }
 paste = { version = "1.0.14", default-features = false }
 semver = { version = "1.0.26", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }

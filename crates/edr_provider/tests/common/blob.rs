@@ -123,6 +123,6 @@ pub fn fake_pooled_transaction() -> edr_chain_l1::PooledTransaction {
         .expect("failed to decode raw transaction")
 }
 
-pub fn fake_transaction() -> edr_chain_l1::Signed {
+pub fn fake_transaction() -> edr_chain_l1::L1SignedTransaction {
     fake_pooled_transaction().into_payload()
 }

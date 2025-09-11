@@ -1,6 +1,7 @@
 use edr_evm_spec::{EthHeaderConstants, EvmSpecId};
+use edr_primitives::{KECCAK_RLP_EMPTY_ARRAY, U256};
 
-use crate::{block::Header, trie::KECCAK_RLP_EMPTY_ARRAY, U256};
+use crate::BlockHeader;
 
 fn bomb_delay(spec_id: EvmSpecId) -> u64 {
     match spec_id {
@@ -25,7 +26,7 @@ fn bomb_delay(spec_id: EvmSpecId) -> u64 {
 /// Calculates the mining difficulty of a block.
 pub fn calculate_ethash_canonical_difficulty<ChainSpecT: EthHeaderConstants>(
     spec_id: EvmSpecId,
-    parent: &Header,
+    parent: &BlockHeader,
     block_number: u64,
     block_timestamp: u64,
 ) -> U256 {
