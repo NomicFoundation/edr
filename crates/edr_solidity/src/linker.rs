@@ -344,11 +344,10 @@ impl<'a> Linker<'a> {
             .filter(|id| {
                 // Filter out already provided libraries.
                 let (file, name) = self.convert_artifact_id_to_lib_path(id);
-                !libraries.libs.contains_key(&file)
-                    || libraries
-                        .libs
-                        .get(&file)
-                        .is_none_or(|libs| !libs.contains_key(&name))
+                libraries
+                    .libs
+                    .get(&file)
+                    .is_none_or(|libs| !libs.contains_key(&name))
             })
             .map(|id| {
                 // Link library with provided libs and extract bytecode object (possibly
@@ -530,12 +529,8 @@ mod tests {
 
     use super::*;
 
-    static SOLC: LazyLock<Solc> = LazyLock::new(|| {
-        // Try to find a system-installed solc or use a default path
-        Solc::new("solc")
-            .or_else(|_| Solc::new("/usr/bin/solc"))
-            .unwrap_or_else(|_| Solc::new_with_version("/usr/bin/solc", Version::new(0, 8, 18)))
-    });
+    static SOLC: LazyLock<Solc> =
+        LazyLock::new(|| Solc::find_or_install(&Version::new(0, 8, 18)).unwrap());
 
     struct LinkerTest {
         project: Project,
