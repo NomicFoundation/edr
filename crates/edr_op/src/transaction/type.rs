@@ -74,8 +74,9 @@ impl serde::Serialize for Type {
 mod tests {
     use crate::transaction::Type;
 
-    fn assert_conversion(type_number: u8, expected_conversion: Type) {
-        assert_eq!(Type::try_from(type_number), Ok(expected_conversion));
+    fn assert_conversion(expected_conversion: Type) {
+        let value: u8 = expected_conversion.into();
+        assert_eq!(Type::try_from(value), Ok(expected_conversion));
     }
 
     #[test]
@@ -88,15 +89,15 @@ mod tests {
             Type::Eip7702,
             Type::Legacy,
         ];
-        for transaction_type in possible_values.iter() {
+        for transaction_type in possible_values {
             // using match to ensure we are covering all variants
             match transaction_type {
-                Type::Eip1559 => assert_conversion(Type::Eip1559.into(), Type::Eip1559),
-                Type::Eip2930 => assert_conversion(Type::Eip2930.into(), Type::Eip2930),
-                Type::Eip4844 => assert_conversion(Type::Eip4844.into(), Type::Eip4844),
-                Type::Eip7702 => assert_conversion(Type::Eip7702.into(), Type::Eip7702),
-                Type::Deposit => assert_conversion(Type::Deposit.into(), Type::Deposit),
-                Type::Legacy => assert_conversion(Type::Legacy.into(), Type::Legacy),
+                Type::Eip1559 => assert_conversion(Type::Eip1559),
+                Type::Eip2930 => assert_conversion(Type::Eip2930),
+                Type::Eip4844 => assert_conversion(Type::Eip4844),
+                Type::Eip7702 => assert_conversion(Type::Eip7702),
+                Type::Deposit => assert_conversion(Type::Deposit),
+                Type::Legacy => assert_conversion(Type::Legacy),
             }
         }
     }
