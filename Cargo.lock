@@ -4680,8 +4680,8 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "metaslang_cst"
-version = "1.1.0"
-source = "git+https://github.com/NomicFoundation/slang?rev=699de7e#699de7e9c93c71dc82393c37e7898172de447524"
+version = "1.2.1"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.2.1#53b08abeee164e00f0e37a902ec5ba82c438e257"
 dependencies = [
  "nom",
  "serde",
@@ -6913,8 +6913,8 @@ dependencies = [
 
 [[package]]
 name = "slang_solidity"
-version = "1.1.0"
-source = "git+https://github.com/NomicFoundation/slang?rev=699de7e#699de7e9c93c71dc82393c37e7898172de447524"
+version = "1.2.1"
+source = "git+https://github.com/NomicFoundation/slang?tag=v1.2.1#53b08abeee164e00f0e37a902ec5ba82c438e257"
 dependencies = [
  "metaslang_cst",
  "semver 1.0.26",
