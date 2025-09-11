@@ -55,7 +55,18 @@ pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
             BaseFeeActivation::Hardfork(OpSpecId::CANYON),
             ConstantBaseFeeParams::new(250, 6),
         ),
-        // TODO: check for dynamic updates after Holocene
+        (
+            BaseFeeActivation::BlockNumber(25955889),
+            ConstantBaseFeeParams::new(250, 2),
+        ),
+        (
+            BaseFeeActivation::BlockNumber(30795009),
+            ConstantBaseFeeParams::new(50, 2),
+        ),
+        (
+            BaseFeeActivation::BlockNumber(31747084),
+            ConstantBaseFeeParams::new(50, 3),
+        ),
     ])),
 });
 
