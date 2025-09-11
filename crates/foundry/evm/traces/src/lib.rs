@@ -258,3 +258,21 @@ pub fn load_contracts<'a>(
     }
     contracts
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tracing_mode_into_config() {
+        assert!(TracingMode::None.into_config().is_none());
+        assert!(matches!(
+            TracingMode::WithoutSteps.into_config(),
+            Some(config) if !config.record_steps
+        ));
+        assert!(matches!(
+            TracingMode::WithSteps.into_config(),
+            Some(config) if config.record_steps
+        ));
+    }
+}
