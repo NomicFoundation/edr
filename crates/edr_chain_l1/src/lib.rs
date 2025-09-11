@@ -4,6 +4,7 @@ mod eip2718;
 pub mod hardfork;
 pub mod pooled;
 pub mod request;
+pub mod rpc;
 pub mod signed;
 mod spec;
 pub mod r#type;
@@ -11,7 +12,12 @@ pub mod r#type;
 use edr_evm_spec::EvmSpecId;
 pub use revm_context::TxEnv;
 pub use revm_context_interface::result::OutOfGasError;
-pub use revm_primitives::hardfork::UnknownHardfork;
+pub use revm_primitives::{
+    alloy_primitives::Bloom,
+    hardfork::UnknownHardfork,
+    ruint::aliases::{B256, B64},
+    Address, Bytes, U256,
+};
 
 pub use self::{
     eip2718::TypedEnvelope, pooled::PooledTransaction, r#type::Type, request::Request,

@@ -2281,6 +2281,7 @@ name = "edr_chain_l1"
 version = "0.3.8"
 dependencies = [
  "alloy-rlp",
+ "alloy-serde",
  "anyhow",
  "const-hex",
  "edr_defaults",
@@ -2289,6 +2290,7 @@ dependencies = [
  "edr_eip7702",
  "edr_evm_spec",
  "edr_receipt",
+ "edr_rpc_spec",
  "edr_signer",
  "edr_test_utils",
  "edr_transaction",
@@ -2776,6 +2778,14 @@ dependencies = [
  "tokio",
  "tracing",
  "walkdir",
+]
+
+[[package]]
+name = "edr_rpc_spec"
+version = "0.3.8"
+dependencies = [
+ "edr_receipt",
+ "serde",
 ]
 
 [[package]]

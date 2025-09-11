@@ -19,6 +19,7 @@ members = [
     "crates/edr_receipt",
     "crates/edr_rpc_client",
     "crates/edr_rpc_eth",
+    "crates/edr_rpc_spec",
     "crates/edr_scenarios",
     "crates/edr_signer",
     "crates/edr_solidity",
@@ -105,6 +106,7 @@ edr_macros = { path = "crates/edr_macros" }
 edr_receipt = { path = "crates/edr_receipt" }
 edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
+edr_rpc_spec = { path = "crates/edr_rpc_spec" }
 edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }

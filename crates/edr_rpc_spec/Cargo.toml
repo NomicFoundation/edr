@@ -1,0 +1,11 @@
+[package]
+name = "edr_rpc_spec"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_receipt.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true
