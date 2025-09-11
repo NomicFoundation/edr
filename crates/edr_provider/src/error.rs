@@ -258,6 +258,9 @@ pub enum ProviderError<
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
     #[error(transparent)]
     OnCollectedCoverageCallback(Box<dyn std::error::Error + Send + Sync>),
+    /// An error occurred while invoking a `SyncOnCollectedGasReportCallback`.
+    #[error(transparent)]
+    OnCollectedGasReportCallback(Box<dyn std::error::Error + Send + Sync>),
     /// Rpc client error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -487,6 +490,7 @@ impl<
             ProviderError::MineBlock(_) => INVALID_INPUT,
             ProviderError::MineTransaction(_) => INVALID_INPUT,
             ProviderError::OnCollectedCoverageCallback(_) => INTERNAL_ERROR,
+            ProviderError::OnCollectedGasReportCallback(_) => INTERNAL_ERROR,
             ProviderError::RpcClientError(_) => INTERNAL_ERROR,
             ProviderError::RpcVersion(_) => INVALID_INPUT,
             ProviderError::RunTransaction(_) => INVALID_INPUT,

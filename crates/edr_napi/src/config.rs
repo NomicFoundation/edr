@@ -9,6 +9,7 @@ use std::{
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
 use edr_eth::{Bytes, HashMap, HashSet};
+use edr_provider::gas_reports::SyncOnCollectedGasReportCallback;
 use edr_signer::{secret_key_from_str, SecretKey};
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
@@ -22,8 +23,8 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-    account::AccountOverride, block::BlobGas, cast::TryCast, logger::LoggerConfig,
-    precompile::Precompile, subscription::SubscriptionConfig,
+    account::AccountOverride, block::BlobGas, cast::TryCast, gas_reports::GasReport,
+    logger::LoggerConfig, precompile::Precompile, subscription::SubscriptionConfig,
 };
 
 /// Configuration for EIP-1559 parameters
@@ -92,6 +93,18 @@ pub struct CodeCoverageConfig {
     /// caller.
     #[napi(ts_type = "(coverageHits: Uint8Array[]) => Promise<void>")]
     pub on_collected_coverage_callback: JsFunction,
+}
+
+#[napi(object)]
+pub struct GasReportConfig {
+    /// The callback to be called when gas reports have been collected.
+    ///
+    /// The callback receives a map from contract name to gas report.
+    ///
+    /// Exceptions thrown in the callback will be propagated to the original
+    /// caller.
+    #[napi(ts_type = "(gasReport: GasReport) => Promise<void>")]
+    pub on_collected_gas_report_callback: JsFunction,
 }
 
 /// Configuration for forking a blockchain
@@ -171,6 +184,8 @@ pub struct MiningConfig {
 pub struct ObservabilityConfig {
     /// If present, configures runtime observability to collect code coverage.
     pub code_coverage: Option<CodeCoverageConfig>,
+    /// If present, configures runtime observability to collect gas reports.
+    pub gas_report: Option<GasReportConfig>,
 }
 
 /// Configuration for a provider
@@ -383,6 +398,7 @@ impl ObservabilityConfig {
         env: &napi::Env,
         runtime: runtime::Handle,
     ) -> napi::Result<edr_provider::observability::Config> {
+        let runtime_clone = runtime.clone();
         let on_collected_coverage_fn = self
             .code_coverage
             .map(
@@ -422,7 +438,7 @@ impl ObservabilityConfig {
 
                     let on_collected_coverage_fn: Box<dyn SyncOnCollectedCoverageCallback> =
                         Box::new(move |hits| {
-                            let runtime = runtime.clone();
+                            let runtime = runtime_clone.clone();
 
                             let (sender, receiver) = std::sync::mpsc::channel();
 
@@ -452,9 +468,62 @@ impl ObservabilityConfig {
                 },
             )
             .transpose()?;
+        let on_collected_gas_report_fn = self.gas_report.map(
+            |gas_report| -> napi::Result<Box<dyn SyncOnCollectedGasReportCallback>> {
+                let mut on_collected_gas_report_callback: ThreadsafeFunction<
+                    _,
+                    ErrorStrategy::Fatal,
+                > = gas_report
+                    .on_collected_gas_report_callback
+                    .create_threadsafe_function(
+                        0,
+                        |ctx: ThreadSafeCallContext<GasReport>| {
+                            let report = ctx.value;
+
+                            Ok(vec![report])
+                        }
+                        ,
+                    )?;
+                // Maintain a weak reference to the function to avoid blocking the event loop
+                // from exiting.
+                on_collected_gas_report_callback.unref(env)?;
+
+                let on_collected_gas_report_fn: Box<dyn SyncOnCollectedGasReportCallback> =
+                    Box::new(move |report| {
+                        let runtime = runtime.clone();
+
+                        let (sender, receiver) = std::sync::mpsc::channel();
+
+                        let status = on_collected_gas_report_callback
+                            .call_with_return_value(GasReport::from(report), ThreadsafeFunctionCallMode::Blocking, move |result: Promise<()>| {
+                                // We spawn a background task to handle the async callback
+                                runtime.spawn(async move {
+                                    let result = result.await;
+                                    sender.send(result).map_err(|_error| {
+                                        napi::Error::new(
+                                            napi::Status::GenericFailure,
+                                            "Failed to send result from on_collected_gas_report_callback",
+                                        )
+                                    })
+                                });
+                                Ok(())
+                            });
+
+                        assert_eq!(status, napi::Status::Ok);
+
+                        let () = receiver.recv().expect("Receive can only fail if the channel is closed")?;
+
+                        
+                        Ok(())
+                    });
+
+                Ok(on_collected_gas_report_fn)
+            },
+        ).transpose()?;
 
         Ok(edr_provider::observability::Config {
             on_collected_coverage_fn,
+            on_collected_gas_report_fn,
             ..edr_provider::observability::Config::default()
         })
     }

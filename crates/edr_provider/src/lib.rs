@@ -6,6 +6,7 @@ mod debug_mine;
 mod debug_trace;
 mod error;
 mod filter;
+pub mod gas_reports;
 mod interval;
 mod logger;
 mod mock;

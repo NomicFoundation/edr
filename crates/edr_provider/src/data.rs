@@ -1436,12 +1436,16 @@ where
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
+        let mut runtime_observer = RuntimeObserver::new(
+            self.observability.clone(),
+            Some(Arc::clone(&self.contract_decoder)),
+        );
 
         let result = mine_fn(self, &evm_config, options, &mut runtime_observer)?;
 
         let RuntimeObserver {
             code_coverage,
+            gas_reporter,
             console_logger,
             mocker: _mocker,
             trace_collector,
@@ -1451,6 +1455,12 @@ where
             code_coverage
                 .report()
                 .map_err(ProviderError::OnCollectedCoverageCallback)?;
+        }
+
+        if let Some(gas_reporter) = gas_reporter {
+            gas_reporter
+                .report()
+                .map_err(ProviderError::OnCollectedGasReportCallback)?;
         }
 
         let traces = trace_collector.into_traces();
@@ -1760,10 +1770,13 @@ where
     > {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let mut runtime_observer = RuntimeObserver::new(observability::Config {
-            call_override: None,
-            ..self.observability.clone()
-        });
+        let mut runtime_observer = RuntimeObserver::new(
+            observability::Config {
+                call_override: None,
+                ..self.observability.clone()
+            },
+            Some(Arc::clone(&self.contract_decoder)),
+        );
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
 
         let custom_precompiles = self.precompile_overrides.clone();
@@ -1783,6 +1796,7 @@ where
 
             let RuntimeObserver {
                 code_coverage,
+                gas_reporter,
                 console_logger: _console_logger,
                 mocker: _mocker,
                 trace_collector,
@@ -1792,6 +1806,12 @@ where
                 code_coverage
                     .report()
                     .map_err(ProviderError::OnCollectedCoverageCallback)?;
+            }
+
+            if let Some(gas_reporter) = gas_reporter {
+                gas_reporter
+                    .report()
+                    .map_err(ProviderError::OnCollectedGasReportCallback)?;
             }
 
             let debug_result =
@@ -2186,7 +2206,10 @@ where
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
+        let mut runtime_observer = RuntimeObserver::new(
+            self.observability.clone(),
+            Some(Arc::clone(&self.contract_decoder)),
+        );
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
@@ -2203,6 +2226,7 @@ where
 
             let RuntimeObserver {
                 code_coverage,
+                gas_reporter,
                 console_logger,
                 mocker: _mocker,
                 trace_collector,
@@ -2212,6 +2236,12 @@ where
                 code_coverage
                     .report()
                     .map_err(ProviderError::OnCollectedCoverageCallback)?;
+            }
+
+            if let Some(gas_reporter) = gas_reporter {
+                gas_reporter
+                    .report()
+                    .map_err(ProviderError::OnCollectedGasReportCallback)?;
             }
 
             let mut traces = trace_collector.into_traces();
@@ -2578,7 +2608,10 @@ where
                 .initial_gas;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
+        let mut runtime_observer = RuntimeObserver::new(
+            self.observability.clone(),
+            Some(Arc::clone(&self.contract_decoder)),
+        );
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
@@ -2598,6 +2631,7 @@ where
 
             let RuntimeObserver {
                 code_coverage,
+                gas_reporter,
                 console_logger,
                 mocker: _mocker,
                 mut trace_collector,
@@ -2607,6 +2641,12 @@ where
                 code_coverage
                     .report()
                     .map_err(ProviderError::OnCollectedCoverageCallback)?;
+            }
+
+            if let Some(gas_reporter) = gas_reporter {
+                gas_reporter
+                    .report()
+                    .map_err(ProviderError::OnCollectedGasReportCallback)?;
             }
 
             let mut initial_estimation = match result {
