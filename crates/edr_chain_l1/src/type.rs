@@ -90,3 +90,33 @@ impl serde::Serialize for Type {
         U8::serialize(&U8::from(u8::from(*self)), serializer)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Type;
+
+    fn assert_conversion(type_number: u8, expected_conversion: Type) {
+        assert_eq!(Type::try_from(type_number), Ok(expected_conversion));
+    }
+
+    #[test]
+    fn test_transaction_type_conversion() {
+        let possible_values = [
+            Type::Eip1559,
+            Type::Eip2930,
+            Type::Eip4844,
+            Type::Eip7702,
+            Type::Legacy,
+        ];
+        for transaction_type in possible_values.iter() {
+            // using match to ensure we are covering all variants
+            match transaction_type {
+                Type::Eip1559 => assert_conversion(Type::Eip1559.into(), Type::Eip1559),
+                Type::Eip2930 => assert_conversion(Type::Eip2930.into(), Type::Eip2930),
+                Type::Eip4844 => assert_conversion(Type::Eip4844.into(), Type::Eip4844),
+                Type::Eip7702 => assert_conversion(Type::Eip7702.into(), Type::Eip7702),
+                Type::Legacy => assert_conversion(Type::Legacy.into(), Type::Legacy),
+            }
+        }
+    }
+}
