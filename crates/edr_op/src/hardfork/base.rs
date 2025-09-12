@@ -56,15 +56,15 @@ pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
             ConstantBaseFeeParams::new(250, 6),
         ),
         (
-            BaseFeeActivation::BlockNumber(25955889),
+            BaseFeeActivation::BlockNumber(25_955_889),
             ConstantBaseFeeParams::new(250, 2),
         ),
         (
-            BaseFeeActivation::BlockNumber(30795009),
+            BaseFeeActivation::BlockNumber(30_795_009),
             ConstantBaseFeeParams::new(50, 2),
         ),
         (
-            BaseFeeActivation::BlockNumber(31747084),
+            BaseFeeActivation::BlockNumber(31_747_084),
             ConstantBaseFeeParams::new(50, 3),
         ),
     ])),
