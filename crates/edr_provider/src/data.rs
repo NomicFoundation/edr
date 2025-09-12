@@ -1775,7 +1775,7 @@ where
                 call_override: None,
                 ..self.observability.clone()
             },
-            Some(Arc::clone(&self.contract_decoder)),
+            None,
         );
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
 
@@ -1796,7 +1796,7 @@ where
 
             let RuntimeObserver {
                 code_coverage,
-                gas_reporter,
+                gas_reporter: _gas_reporter,
                 console_logger: _console_logger,
                 mocker: _mocker,
                 trace_collector,
@@ -1806,12 +1806,6 @@ where
                 code_coverage
                     .report()
                     .map_err(ProviderError::OnCollectedCoverageCallback)?;
-            }
-
-            if let Some(gas_reporter) = gas_reporter {
-                gas_reporter
-                    .report()
-                    .map_err(ProviderError::OnCollectedGasReportCallback)?;
             }
 
             let debug_result =
@@ -2608,10 +2602,7 @@ where
                 .initial_gas;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut runtime_observer = RuntimeObserver::new(
-            self.observability.clone(),
-            Some(Arc::clone(&self.contract_decoder)),
-        );
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone(), None);
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
@@ -2631,7 +2622,7 @@ where
 
             let RuntimeObserver {
                 code_coverage,
-                gas_reporter,
+                gas_reporter: _gas_reporter,
                 console_logger,
                 mocker: _mocker,
                 mut trace_collector,
@@ -2641,12 +2632,6 @@ where
                 code_coverage
                     .report()
                     .map_err(ProviderError::OnCollectedCoverageCallback)?;
-            }
-
-            if let Some(gas_reporter) = gas_reporter {
-                gas_reporter
-                    .report()
-                    .map_err(ProviderError::OnCollectedGasReportCallback)?;
             }
 
             let mut initial_estimation = match result {

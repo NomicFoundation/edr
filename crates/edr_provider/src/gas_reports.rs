@@ -12,10 +12,8 @@ use edr_evm::{
     spec::ContextTrait,
 };
 use edr_evm_spec::Transaction;
-use edr_solidity::contract_decoder::{ContractAndFunctionName, ContractDecoder};
+use edr_solidity::contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature};
 use edr_transaction::TxKind;
-
-// use edr_eth::result::ExecutionResult;
 
 pub trait SyncOnCollectedGasReportCallback:
     Fn(GasReport) -> Result<(), Box<dyn std::error::Error + Send + Sync>> + DynClone + Send + Sync
@@ -83,7 +81,7 @@ pub struct ContractGasReport {
 }
 
 #[derive(Clone, Debug)]
-pub enum GasReportFunctionStatus {
+pub enum GasReportExecutionStatus {
     Success,
     Revert,
     Halt,
@@ -93,7 +91,7 @@ pub enum GasReportFunctionStatus {
 pub struct DeploymentGasReport {
     pub gas: u64,
     pub size: u64,
-    pub status: GasReportFunctionStatus,
+    pub status: GasReportExecutionStatus,
 }
 
 #[derive(Clone, Debug)]
@@ -104,7 +102,7 @@ pub struct FunctionGasReport {
 #[derive(Clone, Debug)]
 pub struct FunctionCallGasReport {
     pub gas: u64,
-    pub status: GasReportFunctionStatus,
+    pub status: GasReportExecutionStatus,
 }
 
 impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT, InterpreterT>
@@ -116,30 +114,28 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
                 let code = code.data;
                 let input = inputs.input.bytes(context);
 
-                // TODO: does this extract only the name or the full identifier + signature?
-                let ContractAndFunctionName {
-                    contract_name,
-                    function_name,
+                let ContractIdentifierAndFunctionSignature {
+                    contract_identifier,
+                    function_signature,
                 } = self
                     .contract_decoder
-                    .get_contract_and_function_names_for_call(&code, Some(&input));
+                    .get_contract_indentifier_and_function_singature_for_call(&code, Some(&input));
 
                 let entry =
                     self.reports
-                        .entry(contract_name)
+                        .entry(contract_identifier)
                         .or_insert_with(|| ContractGasReport {
                             deployments: Vec::new(),
                             functions: HashMap::new(),
                         });
-                if let Some(function_name) = function_name {
-                    let signature = function_name;
+                if let Some(function_signature) = function_signature {
                     let result = *outcome.instruction_result();
-                    let status = GasReportFunctionStatus::from(result);
+                    let status = GasReportExecutionStatus::from(result);
                     let gas = outcome.gas().used();
 
                     entry
                         .functions
-                        .entry(signature)
+                        .entry(function_signature)
                         .or_insert_with(|| FunctionGasReport { calls: Vec::new() })
                         .calls
                         .push(FunctionCallGasReport { gas, status });
@@ -156,19 +152,22 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
     ) {
         let code = &inputs.init_code;
 
-        let ContractAndFunctionName { contract_name, .. } = self
+        let ContractIdentifierAndFunctionSignature {
+            contract_identifier,
+            ..
+        } = self
             .contract_decoder
-            .get_contract_and_function_names_for_call(code, None);
+            .get_contract_indentifier_and_function_singature_for_call(code, None);
 
         let entry = self
             .reports
-            .entry(contract_name)
+            .entry(contract_identifier)
             .or_insert_with(|| ContractGasReport {
                 deployments: Vec::new(),
                 functions: HashMap::new(),
             });
         let result = *outcome.instruction_result();
-        let status = GasReportFunctionStatus::from(result);
+        let status = GasReportExecutionStatus::from(result);
         let gas = outcome.gas().used();
         let size = outcome.output().len() as u64;
 
@@ -178,8 +177,7 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
     }
 }
 
-// TODO: is there a better way to do this?
-impl From<InstructionResult> for GasReportFunctionStatus {
+impl From<InstructionResult> for GasReportExecutionStatus {
     fn from(value: InstructionResult) -> Self {
         match value {
             InstructionResult::Stop

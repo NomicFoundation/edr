@@ -479,7 +479,6 @@ impl ObservabilityConfig {
                         0,
                         |ctx: ThreadSafeCallContext<GasReport>| {
                             let report = ctx.value;
-
                             Ok(vec![report])
                         }
                         ,
@@ -494,6 +493,7 @@ impl ObservabilityConfig {
 
                         let (sender, receiver) = std::sync::mpsc::channel();
 
+                        // Convert the report to the N-API representation
                         let status = on_collected_gas_report_callback
                             .call_with_return_value(GasReport::from(report), ThreadsafeFunctionCallMode::Blocking, move |result: Promise<()>| {
                                 // We spawn a background task to handle the async callback
@@ -512,7 +512,6 @@ impl ObservabilityConfig {
                         assert_eq!(status, napi::Status::Ok);
 
                         let () = receiver.recv().expect("Receive can only fail if the channel is closed")?;
-
                         
                         Ok(())
                     });

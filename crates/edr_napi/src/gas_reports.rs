@@ -15,7 +15,7 @@ pub struct ContractGasReport {
 }
 
 #[napi]
-pub enum GasReportFunctionStatus {
+pub enum GasReportExecutionStatus {
     Success,
     Revert,
     Halt,
@@ -25,7 +25,7 @@ pub enum GasReportFunctionStatus {
 pub struct DeploymentGasReport {
     pub gas: BigInt,
     pub size: BigInt,
-    pub status: GasReportFunctionStatus,
+    pub status: GasReportExecutionStatus,
 }
 
 #[napi(object)]
@@ -36,7 +36,7 @@ pub struct FunctionGasReport {
 #[napi(object)]
 pub struct FunctionCallGasReport {
     pub gas: BigInt,
-    pub status: GasReportFunctionStatus,
+    pub status: GasReportExecutionStatus,
 }
 
 impl From<edr_provider::gas_reports::GasReport> for GasReport {
@@ -64,12 +64,12 @@ impl From<edr_provider::gas_reports::ContractGasReport> for ContractGasReport {
     }
 }
 
-impl From<edr_provider::gas_reports::GasReportFunctionStatus> for GasReportFunctionStatus {
-    fn from(value: edr_provider::gas_reports::GasReportFunctionStatus) -> Self {
+impl From<edr_provider::gas_reports::GasReportExecutionStatus> for GasReportExecutionStatus {
+    fn from(value: edr_provider::gas_reports::GasReportExecutionStatus) -> Self {
         match value {
-            edr_provider::gas_reports::GasReportFunctionStatus::Success => Self::Success,
-            edr_provider::gas_reports::GasReportFunctionStatus::Revert => Self::Revert,
-            edr_provider::gas_reports::GasReportFunctionStatus::Halt => Self::Halt,
+            edr_provider::gas_reports::GasReportExecutionStatus::Success => Self::Success,
+            edr_provider::gas_reports::GasReportExecutionStatus::Revert => Self::Revert,
+            edr_provider::gas_reports::GasReportExecutionStatus::Halt => Self::Halt,
         }
     }
 }

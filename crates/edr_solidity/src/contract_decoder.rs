@@ -80,6 +80,34 @@ impl ContractDecoder {
         code: &Bytes,
         calldata: Option<&Bytes>,
     ) -> ContractAndFunctionName {
+        let ContractIdentifierAndFunctionSignature {
+            contract_identifier,
+            function_signature,
+        } = self.get_contract_indentifier_and_function_singature_for_call(code, calldata);
+
+        let contract_name = contract_identifier
+            .rsplit_once(':')
+            .map_or(contract_identifier.clone(), |(_, name)| name.to_string());
+
+        let function_name = function_signature.as_ref().map(|signature| {
+            signature
+                .split_once('(')
+                .map_or(signature.clone(), |(name, _)| name.to_string())
+        });
+
+        ContractAndFunctionName {
+            contract_name,
+            function_name,
+        }
+    }
+
+    /// Returns the contract indentifier and function signature for the provided
+    /// calldata.
+    pub fn get_contract_indentifier_and_function_singature_for_call(
+        &self,
+        code: &Bytes,
+        calldata: Option<&Bytes>,
+    ) -> ContractIdentifierAndFunctionSignature {
         let is_create = calldata.is_none();
         let bytecode = {
             self.contracts_identifier
@@ -90,21 +118,29 @@ impl ContractDecoder {
         let contract = bytecode.map(|bytecode| bytecode.contract.clone());
         let contract = contract.as_ref().map(|c| c.read());
 
-        let contract_name = contract.as_ref().map_or_else(
+        let contract_identifier = contract.as_ref().map_or_else(
             || UNRECOGNIZED_CONTRACT_NAME.to_string(),
-            |c| c.name.clone(),
+            |c| {
+                c.location.file().map_or_else(
+                    |_| UNRECOGNIZED_CONTRACT_NAME.to_string(),
+                    |file| {
+                        let source_name = &file.read().source_name;
+                        format!("{}:{}", source_name, c.name)
+                    },
+                )
+            },
         );
 
         if is_create {
-            ContractAndFunctionName {
-                contract_name,
-                function_name: None,
+            ContractIdentifierAndFunctionSignature {
+                contract_identifier,
+                function_signature: None,
             }
         } else {
             match contract {
-                None => ContractAndFunctionName {
-                    contract_name,
-                    function_name: Some("".to_string()),
+                None => ContractIdentifierAndFunctionSignature {
+                    contract_identifier,
+                    function_signature: Some("".to_string()),
                 },
                 Some(contract) => {
                     let calldata = match calldata {
@@ -118,18 +154,34 @@ impl ContractDecoder {
 
                     let func = contract.get_function_from_selector(selector);
 
-                    let function_name = match func {
-                        Some(func) => match func.r#type {
-                            ContractFunctionType::Fallback => FALLBACK_FUNCTION_NAME.to_string(),
-                            ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
-                            _ => func.name.clone(),
-                        },
+                    let function_signature = match func {
+                        Some(func) => {
+                            let function_name = match func.r#type {
+                                ContractFunctionType::Fallback => {
+                                    FALLBACK_FUNCTION_NAME.to_string()
+                                }
+                                ContractFunctionType::Receive => RECEIVE_FUNCTION_NAME.to_string(),
+                                _ => func.name.clone(),
+                            };
+                            let function = alloy_json_abi::Function::try_from(&**func);
+                            if let Ok(function) = function {
+                                let inputs = function
+                                    .inputs
+                                    .iter()
+                                    .map(|param| param.ty.clone())
+                                    .collect::<Vec<_>>()
+                                    .join(",");
+                                format!("{function_name}({inputs})")
+                            } else {
+                                function_name
+                            }
+                        }
                         None => UNRECOGNIZED_FUNCTION_NAME.to_string(),
                     };
 
-                    ContractAndFunctionName {
-                        contract_name,
-                        function_name: Some(function_name),
+                    ContractIdentifierAndFunctionSignature {
+                        contract_identifier,
+                        function_signature: Some(function_signature),
                     }
                 }
             }
@@ -233,6 +285,14 @@ pub struct ContractAndFunctionName {
     pub contract_name: String,
     /// The name of the function.
     pub function_name: Option<String>,
+}
+
+/// A contract identifier and a function signature in the contract.
+pub struct ContractIdentifierAndFunctionSignature {
+    /// The contract identifier path.
+    pub contract_identifier: String,
+    /// The function signature.
+    pub function_signature: Option<String>,
 }
 
 fn initialize_contracts_identifier(

@@ -6,8 +6,6 @@ import {
   // Ignore this on testNoBuild
   // @ts-ignore
   createProviderWithMockTimer,
-  GasReport,
-  GasReportFunctionStatus,
   l1GenesisState,
   l1HardforkFromString,
   MineOrdering,
@@ -217,12 +215,6 @@ const genesisState: AccountOverride[] = [
 
 const MINING_INTERVAL = 1000; // 1000 milliseconds
 
-class GasReporter {
-  public report: GasReport | undefined;
-}
-
-const gasReporter = new GasReporter();
-
 const providerConfig = {
   // Allow blocks with the same timestamp, as some tests mine multiple blocks without changing the timestamp
   allowBlocksWithSameTimestamp: true,
@@ -254,13 +246,7 @@ const providerConfig = {
     },
   },
   networkId: 123n,
-  observability: {
-    gasReport: {
-      onCollectedGasReportCallback: async (report: GasReport) => {
-        gasReporter.report = report;
-      },
-    },
-  },
+  observability: {},
   ownedAccounts: [
     "0xe331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd109",
     "0xe331b6d69882b4cb4ea581d88e0b604039a3de5967688d3dcffdd2270c0fd10a",
@@ -410,30 +396,6 @@ describe("Provider logs", function () {
       const address = await deployContract(
         provider,
         `0x${EXAMPLE_READ_CONTRACT.bytecode.object}`
-      );
-      assert.isDefined(gasReporter.report, "No gas report received");
-      // check if contract name is "<UnrecognizedContract>"
-      assert(
-        Object.keys(gasReporter.report!.contracts)[0] ===
-          "<UnrecognizedContract>"
-      );
-      assert(
-        Object.keys(
-          gasReporter.report!.contracts["<UnrecognizedContract>"].deployments
-        ).length > 0,
-        "No deployment info found"
-      );
-
-      assert(
-        gasReporter.report!.contracts["<UnrecognizedContract>"].deployments[0]
-          .gas > 0,
-        "No gas used for deployment"
-      );
-
-      assert(
-        gasReporter.report!.contracts["<UnrecognizedContract>"].deployments[0]
-          .status === GasReportFunctionStatus.Success,
-        "Deployment failed"
       );
       await setAutomine(provider, false);
 

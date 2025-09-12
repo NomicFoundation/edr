@@ -392,7 +392,7 @@ export interface ContractGasReport {
   deployments: Array<DeploymentGasReport>
   functions: Record<string, FunctionGasReport>
 }
-export enum GasReportFunctionStatus {
+export enum GasReportExecutionStatus {
   Success = 0,
   Revert = 1,
   Halt = 2
@@ -400,14 +400,14 @@ export enum GasReportFunctionStatus {
 export interface DeploymentGasReport {
   gas: bigint
   size: bigint
-  status: GasReportFunctionStatus
+  status: GasReportExecutionStatus
 }
 export interface FunctionGasReport {
   calls: Array<FunctionCallGasReport>
 }
 export interface FunctionCallGasReport {
   gas: bigint
-  status: GasReportFunctionStatus
+  status: GasReportExecutionStatus
 }
 export interface InstrumentationResult {
   /** The generated source code with coverage instrumentation. */
