@@ -82,43 +82,77 @@ fn uncompress_sourcemaps(compressed: &str) -> Result<Vec<SourceMap>, SourceMapEr
         mappings.push(SourceMap {
             location: SourceMapLocation {
                 offset: if has_parts0 {
-                    parts[0]
+                    parts
+                        .first()
+                        .expect("parts[0] should exist when has_parts0 is true")
                         .parse()
                         .map_err(|_err| SourceMapError::ParseError {
                             field: "offset".to_string(),
                             index: i,
-                            value: parts[0].to_string(),
+                            value: (*parts
+                                .first()
+                                .expect("parts[0] should exist when has_parts0 is true"))
+                            .to_string(),
                         })?
                 } else {
-                    mappings[i - 1].location.offset
+                    mappings
+                        .get(i - 1)
+                        .expect("previous mapping should exist")
+                        .location
+                        .offset
                 },
                 length: if has_parts1 {
-                    parts[1]
+                    parts
+                        .get(1)
+                        .expect("parts[1] should exist when has_parts1 is true")
                         .parse()
                         .map_err(|_err| SourceMapError::ParseError {
                             field: "length".to_string(),
                             index: i,
-                            value: parts[1].to_string(),
+                            value: (*parts
+                                .get(1)
+                                .expect("parts[1] should exist when has_parts1 is true"))
+                            .to_string(),
                         })?
                 } else {
-                    mappings[i - 1].location.length
+                    mappings
+                        .get(i - 1)
+                        .expect("previous mapping should exist")
+                        .location
+                        .length
                 },
                 file: if has_parts2 {
-                    parts[2]
+                    parts
+                        .get(2)
+                        .expect("parts[2] should exist when has_parts2 is true")
                         .parse()
                         .map_err(|_err| SourceMapError::ParseError {
                             field: "file".to_string(),
                             index: i,
-                            value: parts[2].to_string(),
+                            value: (*parts
+                                .get(2)
+                                .expect("parts[2] should exist when has_parts2 is true"))
+                            .to_string(),
                         })?
                 } else {
-                    mappings[i - 1].location.file
+                    mappings
+                        .get(i - 1)
+                        .expect("previous mapping should exist")
+                        .location
+                        .file
                 },
             },
             jump_type: if has_parts3 {
-                jump_letter_to_jump_type(parts[3])
+                jump_letter_to_jump_type(
+                    parts
+                        .get(3)
+                        .expect("parts[3] should exist when has_parts3 is true"),
+                )
             } else {
-                mappings[i - 1].jump_type
+                mappings
+                    .get(i - 1)
+                    .expect("previous mapping should exist")
+                    .jump_type
             },
         });
     }
@@ -137,14 +171,27 @@ fn add_unmapped_instructions(
     });
 
     while bytecode.get(bytes_index) != Some(OpCode::INVALID.get()).as_ref() {
-        let opcode =
-            OpCode::new(bytecode[bytes_index]).ok_or_else(|| SourceMapError::InvalidOpcode {
-                index: bytes_index,
-                value: format!("{:02x}", bytecode[bytes_index]),
-            })?;
+        let opcode = OpCode::new(
+            *bytecode
+                .get(bytes_index)
+                .expect("bytes_index should be within bytecode bounds"),
+        )
+        .ok_or_else(|| SourceMapError::InvalidOpcode {
+            index: bytes_index,
+            value: format!(
+                "{:02x}",
+                *bytecode
+                    .get(bytes_index)
+                    .expect("bytes_index should be within bytecode bounds")
+            ),
+        })?;
 
         let push_data = if opcode.is_push() {
-            let push_data = &bytecode[bytes_index..][..1 + opcode.info().immediate_size() as usize];
+            let push_data = bytecode
+                .get(bytes_index..)
+                .expect("bytes_index should be within bytecode bounds")
+                .get(..1 + opcode.info().immediate_size() as usize)
+                .expect("bytecode should have enough bytes for push data");
 
             Some(push_data.to_vec())
         } else {
@@ -188,13 +235,25 @@ pub fn decode_instructions(
     let mut bytes_index = 0;
 
     while instructions.len() < source_maps.len() {
-        let source_map = &source_maps[instructions.len()];
+        let source_map = source_maps
+            .get(instructions.len())
+            .expect("instructions.len() should be within source_maps bounds");
 
         let pc = bytes_index;
-        let opcode = if let Some(opcode) = OpCode::new(bytecode[pc]) {
+        let opcode = if let Some(opcode) = OpCode::new(
+            *bytecode
+                .get(pc)
+                .expect("pc should be within bytecode bounds"),
+        ) {
             opcode
         } else {
-            log::debug!("Invalid opcode {} at pc: {}", bytecode[pc], pc);
+            log::debug!(
+                "Invalid opcode {} at pc: {}",
+                *bytecode
+                    .get(pc)
+                    .expect("pc should be within bytecode bounds"),
+                pc
+            );
 
             // We assume this happens because the source maps point to the metadata region
             // of the bytecode. That means that the actual instructions have
@@ -203,7 +262,11 @@ pub fn decode_instructions(
         };
 
         let push_data = if opcode.is_push() {
-            let push_data = &bytecode[bytes_index..][..1 + opcode.info().immediate_size() as usize];
+            let push_data = bytecode
+                .get(bytes_index..)
+                .expect("bytes_index should be within bytecode bounds")
+                .get(..1 + opcode.info().immediate_size() as usize)
+                .expect("bytecode should have enough bytes for push data");
 
             Some(push_data.to_vec())
         } else {

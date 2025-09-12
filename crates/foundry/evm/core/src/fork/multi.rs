@@ -494,7 +494,9 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> Future
             std::thread::Builder::new()
                 .name("flusher".into())
                 .spawn(move || {
-                    forks.into_iter().for_each(|fork| fork.flush_cache());
+                    for fork in forks {
+                        fork.flush_cache();
+                    }
                 })
                 .expect("failed to spawn thread");
         }

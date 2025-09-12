@@ -207,11 +207,15 @@ pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
         .expect("Extra data should have at least 1 byte for version");
     match version {
         DYNAMIC_BASE_FEE_PARAM_VERSION => {
-            let denominator_bytes: [u8; 4] = extra_data[1..=4]
+            let denominator_bytes: [u8; 4] = extra_data
+                .get(1..=4)
+                .expect("Extra data should have at least 9 bytes for dynamic base fee params")
                 .try_into()
                 .expect("The slice should be exactly 4 bytes");
 
-            let elasticity_bytes: [u8; 4] = extra_data[5..=8]
+            let elasticity_bytes: [u8; 4] = extra_data
+                .get(5..=8)
+                .expect("Extra data should have at least 9 bytes for dynamic base fee params")
                 .try_into()
                 .expect("The slice should be exactly 4 bytes");
 

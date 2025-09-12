@@ -21,7 +21,11 @@ fn is_matching_metadata(code: &[u8], last_byte: usize) -> bool {
     while byte < last_byte {
         // It's possible we don't recognize the opcode if it's from an unknown chain, so
         // just return false in that case.
-        let Some(opcode) = OpCode::new(code[byte]) else {
+        let Some(opcode) = OpCode::new(
+            *code
+                .get(byte)
+                .expect("byte index should be within code bounds"),
+        ) else {
             return false;
         };
 
@@ -180,7 +184,13 @@ impl ContractsIdentifier {
             && is_matching_metadata(code, diff_index)
             && !search_result.descendants.is_empty()
         {
-            return Some(search_result.descendants[search_result.descendants.len() - 1].clone());
+            return Some(
+                search_result
+                    .descendants
+                    .last()
+                    .expect("descendants should not be empty")
+                    .clone(),
+            );
         }
 
         None
@@ -226,7 +236,13 @@ fn normalize_library_runtime_bytecode_if_necessary(bytecode: &[u8]) -> Cow<'_, [
     // the address, which we zero-out as a way of normalizing it. Note that it's
     // also zeroed-out in the compiler output.
     if bytecode.first().copied() == Some(OpCode::PUSH20.get()) {
-        bytecode.to_mut()[1..][..Address::len_bytes()].fill(0);
+        bytecode
+            .to_mut()
+            .get_mut(1..)
+            .expect("bytecode should have at least 1 byte")
+            .get_mut(..Address::len_bytes())
+            .expect("bytecode should have enough bytes for address")
+            .fill(0);
     }
 
     bytecode

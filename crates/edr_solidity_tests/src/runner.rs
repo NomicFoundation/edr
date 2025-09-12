@@ -1220,7 +1220,12 @@ impl<
             .filter(|func| func.name.is_setup())
             .collect();
 
-        let needs_setup = setup_fns.len() == 1 && setup_fns[0].name == "setUp";
+        let needs_setup = setup_fns.len() == 1
+            && setup_fns
+                .first()
+                .expect("setup_fns has exactly one element")
+                .name
+                == "setUp";
 
         // There is a single miss-cased `setUp` function, so we add a warning
         for &setup_fn in setup_fns.iter() {

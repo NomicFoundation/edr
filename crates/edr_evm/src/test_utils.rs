@@ -259,43 +259,64 @@ pub async fn run_full_block<
             expected.block_number(),
             actual.block_number(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
         debug_assert_eq!(
             expected.transaction_hash(),
             actual.transaction_hash(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
         debug_assert_eq!(
             expected.transaction_index(),
             actual.transaction_index(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
         debug_assert_eq!(
             expected.from(),
             actual.from(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
         debug_assert_eq!(
             expected.to(),
             actual.to(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
         debug_assert_eq!(
             expected.contract_address(),
             actual.contract_address(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
         debug_assert_eq!(
             expected.gas_used(),
             actual.gas_used(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
         // Skip effective gas price check because Hardhat doesn't include it pre-London
         // debug_assert_eq!(
@@ -308,7 +329,10 @@ pub async fn run_full_block<
             expected.cumulative_gas_used(),
             actual.cumulative_gas_used(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
         if expected.logs_bloom() != actual.logs_bloom() {
             for (expected, actual) in expected
@@ -320,19 +344,28 @@ pub async fn run_full_block<
                     expected.inner.address,
                     actual.inner.address,
                     "{:?}",
-                    replay_block.transactions()[expected.transaction_index as usize]
+                    replay_block
+                        .transactions()
+                        .get(expected.transaction_index as usize)
+                        .expect("transaction index is valid")
                 );
                 debug_assert_eq!(
                     expected.inner.topics(),
                     actual.inner.topics(),
                     "{:?}",
-                    replay_block.transactions()[expected.transaction_index as usize]
+                    replay_block
+                        .transactions()
+                        .get(expected.transaction_index as usize)
+                        .expect("transaction index is valid")
                 );
                 debug_assert_eq!(
                     expected.inner.data.data,
                     actual.inner.data.data,
                     "{:?}",
-                    replay_block.transactions()[expected.transaction_index as usize]
+                    replay_block
+                        .transactions()
+                        .get(expected.transaction_index as usize)
+                        .expect("transaction index is valid")
                 );
             }
         }
@@ -340,13 +373,19 @@ pub async fn run_full_block<
             expected.root_or_status(),
             actual.root_or_status(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
         debug_assert_eq!(
             expected.as_execution_receipt(),
             actual.as_execution_receipt(),
             "{:?}",
-            replay_block.transactions()[expected.transaction_index() as usize]
+            replay_block
+                .transactions()
+                .get(expected.transaction_index() as usize)
+                .expect("transaction index is valid")
         );
     }
 

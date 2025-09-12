@@ -26,11 +26,7 @@ where
     T: Deserialize<'de> + Clone,
 {
     let s: Vec<T> = Deserialize::deserialize(deserializer)?;
-    if s.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(s[0].clone()))
-    }
+    Ok(s.first().cloned())
 }
 
 /// Deserialize a float vector. Needed to work around <https://github.com/serde-rs/json/issues/721.>

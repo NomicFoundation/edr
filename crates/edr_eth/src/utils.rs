@@ -23,8 +23,10 @@ pub fn enveloped<T: Encodable>(id: u8, v: &T, out: &mut dyn BufMut) {
 /// Prepends the provided (RLP-encoded) bytes with the provided ID.
 pub fn envelop_bytes(id: u8, bytes: &[u8]) -> Vec<u8> {
     let mut out = vec![0; 1 + bytes.len()];
-    out[0] = id;
-    out[1..].copy_from_slice(bytes);
+    *out.get_mut(0).expect("out is not empty") = id;
+    out.get_mut(1..)
+        .expect("out has space for bytes")
+        .copy_from_slice(bytes);
 
     out
 }

@@ -105,7 +105,9 @@ pub fn handle_fee_history<
                 ))
             })?);
             if i > 0 {
-                let prev = percentiles[i - 1];
+                let prev = *percentiles
+                    .get(i - 1)
+                    .expect("previous percentile should exist");
                 if prev > percentile {
                     return Err(ProviderError::InvalidInput(format!("\
 The reward percentiles should be in non-decreasing order, but the percentile number {i} is greater than the next one")));

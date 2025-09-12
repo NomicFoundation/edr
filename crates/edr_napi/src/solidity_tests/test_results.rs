@@ -42,7 +42,7 @@ pub struct ValueSnapshotEntry {
     pub value: String,
 }
 
-/// See [edr_solidity_tests::result::SuiteResult]
+/// See [`edr_solidity_tests::result::SuiteResult`]
 #[napi]
 #[derive(Clone, Debug)]
 pub struct SuiteResult {
@@ -50,13 +50,13 @@ pub struct SuiteResult {
     /// callback
     #[napi(readonly)]
     pub id: ArtifactId,
-    /// See [edr_solidity_tests::result::SuiteResult::duration]
+    /// See [`edr_solidity_tests::result::SuiteResult::duration`]
     #[napi(readonly)]
     pub duration_ns: BigInt,
-    /// See [edr_solidity_tests::result::SuiteResult::test_results]
+    /// See [`edr_solidity_tests::result::SuiteResult::test_results`]
     #[napi(readonly)]
     pub test_results: Vec<TestResult>,
-    /// See [edr_solidity_tests::result::SuiteResult::warnings]
+    /// See [`edr_solidity_tests::result::SuiteResult::warnings`]
     #[napi(readonly)]
     pub warnings: Vec<String>,
 }
@@ -80,29 +80,29 @@ impl SuiteResult {
     }
 }
 
-/// See [edr_solidity_tests::result::TestResult]
+/// See [`edr_solidity_tests::result::TestResult`]
 #[napi]
 #[derive(Clone, Debug)]
 pub struct TestResult {
     /// The name of the test.
     #[napi(readonly)]
     pub name: String,
-    /// See [edr_solidity_tests::result::TestResult::status]
+    /// See [`edr_solidity_tests::result::TestResult::status`]
     #[napi(readonly)]
     pub status: TestStatus,
-    /// See [edr_solidity_tests::result::TestResult::reason]
+    /// See [`edr_solidity_tests::result::TestResult::reason`]
     #[napi(readonly)]
     pub reason: Option<String>,
-    /// See [edr_solidity_tests::result::TestResult::counterexample]
+    /// See [`edr_solidity_tests::result::TestResult::counterexample`]
     #[napi(readonly)]
     pub counterexample: Option<Either<BaseCounterExample, CounterExampleSequence>>,
-    /// See [edr_solidity_tests::result::TestResult::decoded_logs]
+    /// See [`edr_solidity_tests::result::TestResult::decoded_logs`]
     #[napi(readonly)]
     pub decoded_logs: Vec<String>,
-    /// See [edr_solidity_tests::result::TestResult::kind]
+    /// See [`edr_solidity_tests::result::TestResult::kind`]
     #[napi(readonly)]
     pub kind: Either3<StandardTestKind, FuzzTestKind, InvariantTestKind>,
-    /// See [edr_solidity_tests::result::TestResult::duration]
+    /// See [`edr_solidity_tests::result::TestResult::duration`]
     #[napi(readonly)]
     pub duration_ns: BigInt,
     /// Groups of value snapshot entries (incl. gas).
@@ -335,7 +335,7 @@ impl From<edr_solidity_tests::result::TestStatus> for TestStatus {
     }
 }
 
-/// See [edr_solidity_tests::result::TestKind::Standard]
+/// See [`edr_solidity_tests::result::TestKind::Standard`]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct StandardTestKind {
@@ -344,22 +344,22 @@ pub struct StandardTestKind {
     pub consumed_gas: BigInt,
 }
 
-/// See [edr_solidity_tests::result::TestKind::Fuzz]
+/// See [`edr_solidity_tests::result::TestKind::Fuzz`]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct FuzzTestKind {
-    /// See [edr_solidity_tests::result::TestKind::Fuzz]
+    /// See [`edr_solidity_tests::result::TestKind::Fuzz`]
     #[napi(readonly)]
     pub runs: BigInt,
-    /// See [edr_solidity_tests::result::TestKind::Fuzz]
+    /// See [`edr_solidity_tests::result::TestKind::Fuzz`]
     #[napi(readonly)]
     pub mean_gas: BigInt,
-    /// See [edr_solidity_tests::result::TestKind::Fuzz]
+    /// See [`edr_solidity_tests::result::TestKind::Fuzz`]
     #[napi(readonly)]
     pub median_gas: BigInt,
 }
 
-/// See [edr_solidity_tests::fuzz::FuzzCase]
+/// See [`edr_solidity_tests::fuzz::FuzzCase`]
 #[napi(object)]
 #[derive(Clone)]
 pub struct FuzzCase {
@@ -383,17 +383,17 @@ impl Debug for FuzzCase {
     }
 }
 
-/// See [edr_solidity_tests::result::TestKind::Invariant]
+/// See [`edr_solidity_tests::result::TestKind::Invariant`]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct InvariantTestKind {
-    /// See [edr_solidity_tests::result::TestKind::Invariant]
+    /// See [`edr_solidity_tests::result::TestKind::Invariant`]
     #[napi(readonly)]
     pub runs: BigInt,
-    /// See [edr_solidity_tests::result::TestKind::Invariant]
+    /// See [`edr_solidity_tests::result::TestKind::Invariant`]
     #[napi(readonly)]
     pub calls: BigInt,
-    /// See [edr_solidity_tests::result::TestKind::Invariant]
+    /// See [`edr_solidity_tests::result::TestKind::Invariant`]
     #[napi(readonly)]
     pub reverts: BigInt,
 }
@@ -409,26 +409,26 @@ pub struct CounterExampleSequence {
     pub sequence: Vec<BaseCounterExample>,
 }
 
-/// See [edr_solidity_tests::fuzz::BaseCounterExample]
+/// See [`edr_solidity_tests::fuzz::BaseCounterExample`]
 #[napi(object)]
 #[derive(Clone)]
 pub struct BaseCounterExample {
-    /// See [edr_solidity_tests::fuzz::BaseCounterExample::sender]
+    /// See [`edr_solidity_tests::fuzz::BaseCounterExample::sender`]
     #[napi(readonly)]
     pub sender: Option<Uint8Array>,
-    /// See [edr_solidity_tests::fuzz::BaseCounterExample::addr]
+    /// See [`edr_solidity_tests::fuzz::BaseCounterExample::addr`]
     #[napi(readonly)]
     pub address: Option<Uint8Array>,
-    /// See [edr_solidity_tests::fuzz::BaseCounterExample::calldata]
+    /// See [`edr_solidity_tests::fuzz::BaseCounterExample::calldata`]
     #[napi(readonly)]
     pub calldata: Uint8Array,
-    /// See [edr_solidity_tests::fuzz::BaseCounterExample::contract_name]
+    /// See [`edr_solidity_tests::fuzz::BaseCounterExample::contract_name`]
     #[napi(readonly)]
     pub contract_name: Option<String>,
-    /// See [edr_solidity_tests::fuzz::BaseCounterExample::signature]
+    /// See [`edr_solidity_tests::fuzz::BaseCounterExample::signature`]
     #[napi(readonly)]
     pub signature: Option<String>,
-    /// See [edr_solidity_tests::fuzz::BaseCounterExample::args]
+    /// See [`edr_solidity_tests::fuzz::BaseCounterExample::args`]
     #[napi(readonly)]
     pub args: Option<String>,
 }
@@ -604,7 +604,10 @@ impl CallTrace {
         loop {
             // We will break out of the loop before the stack goes empty.
             let mut item = stack.pop().unwrap();
-            let node = &arena.nodes()[item.arena_index];
+            let node = arena
+                .nodes()
+                .get(item.arena_index)
+                .expect("Arena index should be valid");
 
             if item.visited {
                 let mut logs = node
@@ -618,11 +621,20 @@ impl CallTrace {
                     .iter()
                     .filter_map(|ord| match *ord {
                         traces::TraceMemberOrder::Log(i) => {
-                            let log = logs[i].take().unwrap();
+                            let log = logs
+                                .get_mut(i)
+                                .expect("Log index should be valid")
+                                .take()
+                                .unwrap();
                             Some(Either::B(log))
                         }
                         traces::TraceMemberOrder::Call(i) => {
-                            let child_trace = item.child_traces[i].take().unwrap();
+                            let child_trace = item
+                                .child_traces
+                                .get_mut(i)
+                                .expect("Child trace index should be valid")
+                                .take()
+                                .unwrap();
                             Some(Either::A(child_trace))
                         }
                         traces::TraceMemberOrder::Step(_) => None,
@@ -632,7 +644,9 @@ impl CallTrace {
                 let trace = CallTrace::new(node, children);
 
                 if let Some(parent_stack_index) = item.parent_stack_index {
-                    let parent = &mut stack[parent_stack_index];
+                    let parent = stack
+                        .get_mut(parent_stack_index)
+                        .expect("Parent stack index should be valid");
                     parent.child_traces.push(Some(trace));
                 } else {
                     return trace;
