@@ -1,6 +1,6 @@
 {
   "name": "@nomicfoundation/edr",
-  "version": "0.12.0-next.6",
+  "version": "0.12.0-next.7",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@nomicfoundation/ethereumjs-util": "^9.0.4",
