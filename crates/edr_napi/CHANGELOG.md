@@ -1,5 +1,20 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.7
+
+### Minor Changes
+
+- 20b4311: - Added the `ContractDecoder` type
+  - Added a function `Provider.contractDecoder` to retrieve the provider's `ContractDecoder` instance
+  - Changed `EdrContext.createProvider` to receive a `ContractDecoder` instance instead of a `TracingConfigWithBuffers`
+    - The `ContractDecoder` can be constructed from a `TracingConfigWithBuffers` using the static method `ContractDecoder.withContracts`
+  - Changed `Provider.addCompilationResult` to no longer return a `boolean`. Failures are now signaled by throwing an exception.
+
+### Patch Changes
+
+- ba6bfa0: Added support for Solidity v0.8.30
+- d4806e6: Added a `collectStackTraces` option to `SolidityTestRunnerConfigArgs`, specifying what strategy to use for collecting stack traces
+
 ## 0.12.0-next.6
 
 ### Minor Changes
