@@ -173,18 +173,6 @@ where
         Ok(())
     }
 
-    fn print_contract_decoding_error(
-        &mut self,
-        error: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.collector.log(
-            "Contract decoder failed to be updated. Please report this to help us improve Hardhat.",
-        );
-        self.collector.print_empty_line()?;
-        self.collector.log(error);
-        Ok(())
-    }
-
     fn print_method_logs(
         &mut self,
         method: &str,

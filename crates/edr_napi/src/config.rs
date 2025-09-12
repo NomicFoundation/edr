@@ -2,7 +2,6 @@ use core::fmt::{Debug, Display};
 use std::{
     num::NonZeroU64,
     path::PathBuf,
-    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -10,7 +9,6 @@ use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
 use edr_eth::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
-use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{
     bindgen_prelude::{BigInt, Promise, Reference, Uint8Array},
     threadsafe_function::{
@@ -606,7 +604,6 @@ impl From<BuildInfoAndOutput> for edr_napi_core::solidity::config::BuildInfoAndO
 
 /// Result of [`resolve_configs`].
 pub struct ConfigResolution {
-    pub contract_decoder: Arc<ContractDecoder>,
     pub logger_config: edr_napi_core::logger::Config,
     pub provider_config: edr_napi_core::provider::Config,
     pub subscription_callback: edr_napi_core::subscription::Callback,
@@ -619,28 +616,15 @@ pub fn resolve_configs(
     provider_config: ProviderConfig,
     logger_config: LoggerConfig,
     subscription_config: SubscriptionConfig,
-    tracing_config: TracingConfigWithBuffers,
 ) -> napi::Result<ConfigResolution> {
     let provider_config = provider_config.resolve(env, runtime)?;
     let logger_config = logger_config.resolve(env)?;
-
-    // TODO: https://github.com/NomicFoundation/edr/issues/760
-    let build_info_config = edr_solidity::artifacts::BuildInfoConfig::parse_from_buffers(
-        (&edr_napi_core::solidity::config::TracingConfigWithBuffers::from(tracing_config)).into(),
-    )
-    .map_err(|error| napi::Error::from_reason(error.to_string()))?;
-
-    let contract_decoder = ContractDecoder::new(&build_info_config).map_or_else(
-        |error| Err(napi::Error::from_reason(error.to_string())),
-        |contract_decoder| Ok(Arc::new(contract_decoder)),
-    )?;
 
     let subscription_config = edr_napi_core::subscription::Config::from(subscription_config);
     let subscription_callback =
         edr_napi_core::subscription::Callback::new(env, subscription_config.subscription_callback)?;
 
     Ok(ConfigResolution {
-        contract_decoder,
         logger_config,
         provider_config,
         subscription_callback,

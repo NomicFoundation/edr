@@ -28,6 +28,7 @@ import {
   opProviderFactory,
   // @ts-ignore
   opSolidityTestRunnerFactory,
+  ContractDecoder,
 } from "..";
 import {
   ALCHEMY_URL,
@@ -114,7 +115,7 @@ describe("Multi-chain", () => {
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
-      {}
+      new ContractDecoder()
     );
 
     await assert.isFulfilled(provider);
@@ -133,7 +134,7 @@ describe("Multi-chain", () => {
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
-      {}
+      new ContractDecoder()
     );
 
     await assert.isFulfilled(provider);
@@ -158,7 +159,7 @@ describe("Multi-chain", () => {
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
-      {}
+      new ContractDecoder()
     );
 
     await assert.isFulfilled(provider);
@@ -181,7 +182,7 @@ describe("Multi-chain", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       const block = provider.handleRequest(
@@ -210,7 +211,7 @@ describe("Multi-chain", () => {
           {
             subscriptionCallback: (_event: SubscriptionEvent) => {},
           },
-          {}
+          new ContractDecoder()
         );
 
         const response = await provider.handleRequest(
@@ -247,7 +248,7 @@ describe("Multi-chain", () => {
           {
             subscriptionCallback: (_event: SubscriptionEvent) => {},
           },
-          {}
+          new ContractDecoder()
         );
 
         const response = await provider.handleRequest(
@@ -284,7 +285,7 @@ describe("Multi-chain", () => {
           {
             subscriptionCallback: (_event: SubscriptionEvent) => {},
           },
-          {}
+          new ContractDecoder()
         );
 
         const response = await provider.handleRequest(

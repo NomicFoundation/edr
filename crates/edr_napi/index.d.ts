@@ -1366,7 +1366,7 @@ export declare class EdrContext {
   /**Creates a new [`EdrContext`] instance. Should only be called once! */
   constructor()
   /**Constructs a new provider with the provided configuration. */
-  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: TracingConfigWithBuffers): Promise<Provider>
+  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder): Promise<Provider>
   /**Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
   registerSolidityTestRunnerFactory(chainType: string, factory: SolidityTestRunnerFactory): Promise<void>
@@ -1379,6 +1379,12 @@ export declare class EdrContext {
    *is called to know when all tests are done.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
+}
+export declare class ContractDecoder {
+  /**Creates an empty instance. */
+  constructor()
+  /**Creates a new instance with the provided configuration. */
+  static withContracts(config: TracingConfigWithBuffers): ContractDecoder
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */
@@ -1400,7 +1406,9 @@ export declare class Provider {
    *
    *For internal use only. Support for this method may be removed in the future.
    */
-  addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<boolean>
+  addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<void>
+  /**Retrieves the instance's contract decoder. */
+  contractDecoder(): ContractDecoder
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>

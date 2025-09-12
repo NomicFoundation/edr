@@ -3,6 +3,7 @@ import { assert } from "chai";
 import chalk, { Chalk } from "chalk";
 import {
   AccountOverride,
+  ContractDecoder,
   // Ignore this on testNoBuild
   // @ts-ignore
   createProviderWithMockTimer,
@@ -296,7 +297,7 @@ describe("Provider logs", function () {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {},
+        new ContractDecoder(),
         mockTimer
       );
 

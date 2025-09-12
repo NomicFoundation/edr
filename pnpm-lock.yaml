@@ -12,7 +12,7 @@ patchedDependencies:
     hash: 5e5b11ceb52a214d4578a3f669f771954fa62027a2f89dbee62ba7b5b395b715
     path: patches/@defi-wonderland__smock@2.4.0.patch
   hardhat@2.26.1:
-    hash: c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c
+    hash: 7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd
     path: patches/hardhat@2.26.1.patch
   hardhat@3.0.0:
     hash: 950b098f6868249e5ae36de5ebca5c48d9fc7dd75ed85ccc5b495bbb6056d782
@@ -216,7 +216,7 @@ importers:
         version: 7.0.1
       hardhat:
         specifier: 2.26.1
-        version: 2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
+        version: 2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
@@ -246,10 +246,10 @@ importers:
     devDependencies:
       '@defi-wonderland/smock':
         specifier: 2.4.0
-        version: 2.4.0(patch_hash=5e5b11ceb52a214d4578a3f669f771954fa62027a2f89dbee62ba7b5b395b715)(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)))(ethers@5.7.2)(hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))
+        version: 2.4.0(patch_hash=5e5b11ceb52a214d4578a3f669f771954fa62027a2f89dbee62ba7b5b395b715)(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)))(ethers@5.7.2)(hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))
       '@nomiclabs/hardhat-ethers':
         specifier: ^2.2.3
-        version: 2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))
+        version: 2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))
       '@types/node':
         specifier: ^20.0.0
         version: 20.16.1
@@ -261,7 +261,7 @@ importers:
         version: 5.7.2
       hardhat:
         specifier: 2.26.1
-        version: 2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
+        version: 2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
       mocha:
         specifier: ^10.0.0
         version: 10.3.0
@@ -322,7 +322,7 @@ importers:
         version: 3.0.0(patch_hash=950b098f6868249e5ae36de5ebca5c48d9fc7dd75ed85ccc5b495bbb6056d782)
       hardhat2:
         specifier: npm:hardhat@2.26.1
-        version: hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
+        version: hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
       lodash:
         specifier: ^4.17.11
         version: 4.17.21
@@ -3410,16 +3410,16 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@defi-wonderland/smock@2.4.0(patch_hash=5e5b11ceb52a214d4578a3f669f771954fa62027a2f89dbee62ba7b5b395b715)(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)))(ethers@5.7.2)(hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))':
+  '@defi-wonderland/smock@2.4.0(patch_hash=5e5b11ceb52a214d4578a3f669f771954fa62027a2f89dbee62ba7b5b395b715)(@ethersproject/abi@5.7.0)(@ethersproject/abstract-provider@5.7.0)(@ethersproject/abstract-signer@5.7.0)(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)))(ethers@5.7.2)(hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))':
     dependencies:
       '@ethersproject/abi': 5.7.0
       '@ethersproject/abstract-provider': 5.7.0
       '@ethersproject/abstract-signer': 5.7.0
       '@nomicfoundation/ethereumjs-util': 9.0.4
-      '@nomiclabs/hardhat-ethers': 2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))
+      '@nomiclabs/hardhat-ethers': 2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))
       diff: 5.0.0
       ethers: 5.7.2
-      hardhat: 2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
+      hardhat: 2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
       lodash.isequal: 4.5.0
       lodash.isequalwith: 4.4.0
       rxjs: 7.8.1
@@ -4011,10 +4011,10 @@ snapshots:
       '@nomicfoundation/solidity-analyzer-win32-ia32-msvc': 0.1.1
       '@nomicfoundation/solidity-analyzer-win32-x64-msvc': 0.1.1
 
-  '@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))':
+  '@nomiclabs/hardhat-ethers@2.2.3(ethers@5.7.2)(hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3))':
     dependencies:
       ethers: 5.7.2
-      hardhat: 2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
+      hardhat: 2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3)
 
   '@pkgr/core@0.1.1': {}
 
@@ -5326,7 +5326,7 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  hardhat@2.26.1(patch_hash=c14456f25297eebd2485352ed87078626649d96e4068e02e6428c4ca403b733c)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3):
+  hardhat@2.26.1(patch_hash=7e65150b934ddc045e542b7868eebf0b79d94c2d3ce0c10e7288e0bf8f24d8bd)(ts-node@10.9.2(@types/node@20.16.1)(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
       '@ethereumjs/util': 9.1.0
       '@ethersproject/abi': 5.7.0

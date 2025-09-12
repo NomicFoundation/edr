@@ -11,7 +11,8 @@ use napi_derive::napi;
 
 use crate::{
     cast::TryCast as _,
-    config::{resolve_configs, ConfigResolution, ProviderConfig, TracingConfigWithBuffers},
+    config::{resolve_configs, ConfigResolution, ProviderConfig},
+    contract_decoder::ContractDecoder,
     logger::LoggerConfig,
     provider::Provider,
     subscription::SubscriptionConfig,
@@ -50,7 +51,7 @@ pub fn create_provider_with_mock_timer(
     provider_config: ProviderConfig,
     logger_config: LoggerConfig,
     subscription_config: SubscriptionConfig,
-    tracing_config: TracingConfigWithBuffers,
+    contract_decoder: &ContractDecoder,
     time: &MockTime,
 ) -> napi::Result<JsObject> {
     let (deferred, promise) = env.create_deferred()?;
@@ -70,7 +71,6 @@ pub fn create_provider_with_mock_timer(
     let runtime = runtime::Handle::current();
 
     let ConfigResolution {
-        contract_decoder,
         logger_config,
         provider_config,
         subscription_callback,
@@ -80,9 +80,9 @@ pub fn create_provider_with_mock_timer(
         provider_config,
         logger_config,
         subscription_config,
-        tracing_config,
     ));
 
+    let contract_decoder = Arc::clone(contract_decoder.as_inner());
     let timer = Arc::clone(&time.inner);
 
     runtime.clone().spawn_blocking(move || {
@@ -112,7 +112,7 @@ pub fn create_provider_with_mock_timer(
                         subscription_callback.call(event);
                     }),
                     provider_config,
-                    contract_decoder.clone(),
+                    Arc::clone(&contract_decoder),
                     timer,
                 )
                 .map_err(|error| napi::Error::from_reason(error.to_string()))?;

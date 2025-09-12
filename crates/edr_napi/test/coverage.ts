@@ -5,6 +5,7 @@ import * as fs from "fs";
 
 import {
   AccountOverride,
+  ContractDecoder,
   GENERIC_CHAIN_TYPE,
   genericChainProviderFactory,
   L1_CHAIN_TYPE,
@@ -128,7 +129,7 @@ describe("Code coverage", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       const sendTransactionResponse = await provider.handleRequest(
@@ -207,7 +208,7 @@ describe("Code coverage", () => {
         {
           subscriptionCallback: (_event: SubscriptionEvent) => {},
         },
-        {}
+        new ContractDecoder()
       );
 
       const sendTransactionResponse = await provider.handleRequest(
