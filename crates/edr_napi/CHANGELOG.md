@@ -4,7 +4,8 @@
 
 ### Minor Changes
 
-- 20b4311: - Added the `ContractDecoder` type
+- 20b4311:
+  - Added the `ContractDecoder` type
   - Added a function `Provider.contractDecoder` to retrieve the provider's `ContractDecoder` instance
   - Changed `EdrContext.createProvider` to receive a `ContractDecoder` instance instead of a `TracingConfigWithBuffers`
     - The `ContractDecoder` can be constructed from a `TracingConfigWithBuffers` using the static method `ContractDecoder.withContracts`
