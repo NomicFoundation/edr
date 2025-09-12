@@ -129,62 +129,63 @@ describe("Gas reports", function () {
     it("deployment + transaction", async function () {
       const address = await deployContract(
         provider,
-        exampleBuildInfo.output.contracts["contracts/Example.sol"].Example.evm
-          .bytecode.object
+        exampleBuildInfo.output.contracts["project/contracts/MyLibrary.sol"]
+          .MyLibrary.evm.bytecode.object
       );
+
+      let contractReport =
+        gasReporter.report!.contracts[
+          "project/contracts/MyLibrary.sol:MyLibrary"
+        ];
 
       assert.isDefined(gasReporter.report, "No gas report received");
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .deployments.length > 0,
+        contractReport.deployments.length > 0,
         "Deployed contract not found in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .deployments[0].gas > 0,
+        contractReport.deployments[0].gas > 0,
         "Deployed contract has zero gas used in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .deployments[0].size > 0,
+        contractReport.deployments[0].size > 0,
         "Deployed contract has zero size in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .deployments[0].status === GasReportExecutionStatus.Success,
+        contractReport.deployments[0].status ===
+          GasReportExecutionStatus.Success,
         "Deployed contract has non-success status in gas report"
       );
 
       await sendTransaction(provider, {
         to: address,
         gas: 1000000,
-        data: "0x0c55699c", // x()
+        data: "0x68ba353b0000000000000000000000000000000000000000000000000000000000000001", // plus100(1)
         value: 1,
         gasPrice,
       }).catch(() => {});
 
+      contractReport =
+        gasReporter.report!.contracts[
+          "project/contracts/MyLibrary.sol:MyLibrary"
+        ];
+
       assert(
-        Object.keys(
-          gasReporter.report!.contracts["contracts/Example.sol:Example"]
-            .functions
-        ).length > 0,
+        Object.keys(contractReport.functions).length > 0,
         "No functions found in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .functions["x()"].calls.length > 0,
-        "No calls to x() found in gas report"
-      );
-
-      assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .functions["x()"].calls[0].gas > 0,
-        "Call to x() has zero gas used in gas report"
+        contractReport.functions["plus100(uint256)"].calls.length > 0,
+        "No calls to plus100(uint256) found in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .functions["x()"].calls[0].status === GasReportExecutionStatus.Revert,
-        "Call to x() has non-revert status in gas report"
+        contractReport.functions["plus100(uint256)"].calls[0].gas > 0,
+        "Call to plus100(uint256) has zero gas used in gas report"
+      );
+      assert(
+        contractReport.functions["plus100(uint256)"].calls[0].status ===
+          GasReportExecutionStatus.Success,
+        "Call to plus100(uint256) has non-success status in gas report"
       );
     });
   });
@@ -193,29 +194,31 @@ describe("Gas reports", function () {
     it("deployment + call", async function () {
       const address = await deployContract(
         provider,
-        exampleBuildInfo.output.contracts["contracts/Example.sol"].Example.evm
-          .bytecode.object
+        exampleBuildInfo.output.contracts["project/contracts/MyLibrary.sol"]
+          .MyLibrary.evm.bytecode.object
       );
+
+      let contractReport =
+        gasReporter.report!.contracts[
+          "project/contracts/MyLibrary.sol:MyLibrary"
+        ];
 
       assert.isDefined(gasReporter.report, "No gas report received");
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .deployments.length > 0,
+        contractReport.deployments.length > 0,
         "Deployed contract not found in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .deployments[0].gas > 0,
+        contractReport.deployments[0].gas > 0,
         "Deployed contract has zero gas used in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .deployments[0].size > 0,
+        contractReport.deployments[0].size > 0,
         "Deployed contract has zero size in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .deployments[0].status === GasReportExecutionStatus.Success,
+        contractReport.deployments[0].status ===
+          GasReportExecutionStatus.Success,
         "Deployed contract has non-success status in gas report"
       );
 
@@ -228,36 +231,34 @@ describe("Gas reports", function () {
             params: [
               {
                 to: address,
-                data: "0x0c55699c", // x()
+                data: "0x68ba353b0000000000000000000000000000000000000000000000000000000000000001", // plus100(1)
               },
             ],
           })
         )
         .catch(() => {});
 
+      contractReport =
+        gasReporter.report!.contracts[
+          "project/contracts/MyLibrary.sol:MyLibrary"
+        ];
+
       assert(
-        Object.keys(
-          gasReporter.report!.contracts["contracts/Example.sol:Example"]
-            .functions
-        ).length > 0,
+        Object.keys(contractReport.functions).length > 0,
         "No functions found in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .functions["x()"].calls.length > 0,
-        "No calls to x() found in gas report"
-      );
-
-      assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .functions["x()"].calls[0].gas > 0,
-        "Call to x() has zero gas used in gas report"
+        contractReport.functions["plus100(uint256)"].calls.length > 0,
+        "No calls to plus100(uint256) found in gas report"
       );
       assert(
-        gasReporter.report!.contracts["contracts/Example.sol:Example"]
-          .functions["x()"].calls[0].status ===
+        contractReport.functions["plus100(uint256)"].calls[0].gas > 0,
+        "Call to plus100(uint256) has zero gas used in gas report"
+      );
+      assert(
+        contractReport.functions["plus100(uint256)"].calls[0].status ===
           GasReportExecutionStatus.Success,
-        "Call to x() has non-success status in gas report"
+        "Call to plus100(uint256) has non-success status in gas report"
       );
     });
   });
