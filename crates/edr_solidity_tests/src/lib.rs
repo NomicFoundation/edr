@@ -21,7 +21,7 @@ pub use runner::ContractRunner;
 
 mod config;
 pub use config::{
-    IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
+    CollectStackTraces, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
     SyncOnCollectedCoverageCallback,
 };
 

@@ -30,7 +30,7 @@ use foundry_evm_core::{
     utils::StateChangeset,
 };
 use foundry_evm_coverage::HitMaps;
-use foundry_evm_traces::SparsedTraceArena;
+use foundry_evm_traces::{SparsedTraceArena, TracingMode};
 use revm::{
     bytecode::Bytecode,
     context::result::{ExecutionResult, HaltReason, HaltReasonTr, ResultAndState},
@@ -215,8 +215,8 @@ impl<
     }
 
     #[inline]
-    pub fn set_tracing(&mut self, tracing: bool) -> &mut Self {
-        self.inspector.tracing(tracing);
+    pub fn set_tracing(&mut self, mode: TracingMode) -> &mut Self {
+        self.inspector.tracing(mode);
         self
     }
 

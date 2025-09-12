@@ -32,6 +32,8 @@ pub enum SolidityTestRunnerConfigError {
 pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     /// Project root directory.
     pub project_root: PathBuf,
+    /// Whether to collect stack traces.
+    pub collect_stack_traces: CollectStackTraces,
     /// Whether to enable trace mode and which traces to include in test
     /// results.
     pub include_traces: IncludeTraces,
@@ -134,6 +136,19 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
             disable_block_gas_limit: false,
         }
     }
+}
+
+/// A type that controls when stack traces are collected.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CollectStackTraces {
+    /// Always collects stack traces, adding performance overhead.
+    Always,
+    /// Only collects stack traces upon failure, re-executing the test. This
+    /// minimizes performance overhead.
+    ///
+    /// Not all tests can be re-executed since certain cheatcodes contain
+    /// non-deterministic side-effects.
+    OnFailure,
 }
 
 /// Configuration for [`SolidityTestRunnerConfig::include_traces`] that

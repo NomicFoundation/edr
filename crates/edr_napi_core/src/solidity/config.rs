@@ -6,7 +6,8 @@ use edr_solidity_tests::{
     evm_context::HardforkTr,
     fuzz::{invariant::InvariantConfig, FuzzConfig},
     inspectors::cheatcodes::CheatsConfigOptions,
-    IncludeTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback, TestFilterConfig,
+    CollectStackTraces, IncludeTraces, SolidityTestRunnerConfig, SyncOnCollectedCoverageCallback,
+    TestFilterConfig,
 };
 use napi::{bindgen_prelude::Uint8Array, Either};
 
@@ -162,6 +163,8 @@ pub struct TestRunnerConfig {
     /// If an invariant config setting is not set, but a corresponding fuzz
     /// config value is set, then the fuzz config value will be used.
     pub invariant: InvariantConfig,
+    /// Whether to collect stack traces.
+    pub collect_stack_traces: CollectStackTraces,
     /// Whether to enable trace mode and which traces to include in test
     /// results.
     pub include_traces: IncludeTraces,
@@ -201,6 +204,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             cheatcode: cheats_config_options,
             fuzz,
             invariant,
+            collect_stack_traces,
             include_traces,
             on_collected_coverage_fn,
             test_pattern: _,
@@ -274,6 +278,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
 
         Ok(SolidityTestRunnerConfig {
             project_root,
+            collect_stack_traces,
             include_traces,
             test_fail,
             // TODO
