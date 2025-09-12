@@ -398,11 +398,12 @@ impl ObservabilityConfig {
         env: &napi::Env,
         runtime: runtime::Handle,
     ) -> napi::Result<edr_provider::observability::Config> {
-        let runtime_clone = runtime.clone();
         let on_collected_coverage_fn = self
             .code_coverage
             .map(
                 |code_coverage| -> napi::Result<Box<dyn SyncOnCollectedCoverageCallback>> {
+                    let runtime = runtime.clone();
+
                     let mut on_collected_coverage_callback: ThreadsafeFunction<
                         _,
                         ErrorStrategy::Fatal,
@@ -438,7 +439,7 @@ impl ObservabilityConfig {
 
                     let on_collected_coverage_fn: Box<dyn SyncOnCollectedCoverageCallback> =
                         Box::new(move |hits| {
-                            let runtime = runtime_clone.clone();
+                            let runtime = runtime.clone();
 
                             let (sender, receiver) = std::sync::mpsc::channel();
 
