@@ -1313,15 +1313,18 @@ impl<
             // these numbers to reason about the performance of their code.
             let elapsed = start.elapsed();
 
-            // Re-execute for stack traces
             let stack_trace_result: Option<StackTraceResult<HaltReasonT>> =
                 if records_steps(&executor) {
+                    // We collected steps during setup, so we can generate the stack trace
                     get_stack_trace(&*self.contract_decoder, &setup.traces)
                         .transpose()
                         .map(Into::into)
                 } else if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                    // We cannot re-run the setup due to indeterminism, so we return the
+                    // indeterminism reasons
                     Some(indeterminism_reasons.into())
                 } else {
+                    // Re-execute with collection of steps to generate stack traces
                     let mut executor = self.executor_builder.clone().build();
                     executor.set_tracing(TracingMode::WithSteps);
                     let setup_for_stack_traces = self.setup(&mut executor, needs_setup);
