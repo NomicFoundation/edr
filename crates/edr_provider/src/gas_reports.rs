@@ -12,7 +12,10 @@ use edr_evm::{
     spec::ContextTrait,
 };
 use edr_evm_spec::Transaction;
-use edr_solidity::contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature};
+use edr_solidity::{
+    contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature},
+    solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
+};
 use edr_transaction::TxKind;
 
 pub trait SyncOnCollectedGasReportCallback:
@@ -121,6 +124,15 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
                     .contract_decoder
                     .get_contract_indentifier_and_function_singature_for_call(&code, Some(&input));
 
+                // Ignore contracts & functions we couldn't recognize for now
+                if contract_identifier == UNRECOGNIZED_CONTRACT_NAME
+                    || function_signature
+                        .as_ref()
+                        .is_none_or(|name| name.is_empty() || *name == UNRECOGNIZED_FUNCTION_NAME)
+                {
+                    return;
+                }
+
                 let entry =
                     self.reports
                         .entry(contract_identifier)
@@ -158,6 +170,11 @@ impl<ContextT: ContextTrait, InterpreterT: InterpreterTypes> Inspector<ContextT,
         } = self
             .contract_decoder
             .get_contract_indentifier_and_function_singature_for_call(code, None);
+
+        // Ignore contracts we couldn't recognize for now
+        if contract_identifier == UNRECOGNIZED_CONTRACT_NAME {
+            return;
+        }
 
         let entry = self
             .reports
