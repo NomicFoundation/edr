@@ -614,7 +614,7 @@ describe("Provider", () => {
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
-      {}
+      new ContractDecoder()
     );
 
     await provider.handleRequest(
