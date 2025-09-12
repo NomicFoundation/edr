@@ -18,6 +18,7 @@ pub mod config;
 /// Types related to an EDR N-API context.
 pub mod context;
 mod debug_trace;
+pub mod gas_reports;
 /// Types and functions related to code coverage instrumentation.
 pub mod instrument;
 /// Types for EVM execution logs.

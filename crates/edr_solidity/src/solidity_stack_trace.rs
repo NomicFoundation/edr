@@ -7,12 +7,14 @@ use crate::build_model::ContractFunctionType;
 pub(crate) const FALLBACK_FUNCTION_NAME: &str = "<fallback>";
 pub(crate) const RECEIVE_FUNCTION_NAME: &str = "<receive>";
 pub(crate) const CONSTRUCTOR_FUNCTION_NAME: &str = "constructor";
-pub(crate) const UNRECOGNIZED_FUNCTION_NAME: &str = "<unrecognized-selector>";
 #[allow(unused)]
 pub(crate) const UNKNOWN_FUNCTION_NAME: &str = "<unknown>";
 #[allow(unused)]
 pub(crate) const PRECOMPILE_FUNCTION_NAME: &str = "<precompile>";
-pub(crate) const UNRECOGNIZED_CONTRACT_NAME: &str = "<UnrecognizedContract>";
+/// Name used when we couldn't recognize the function.
+pub const UNRECOGNIZED_FUNCTION_NAME: &str = "<unrecognized-selector>";
+/// Name used when we couldn't recognize the contract.
+pub const UNRECOGNIZED_CONTRACT_NAME: &str = "<UnrecognizedContract>";
 
 /// A Solidity source reference.
 #[derive(Debug, Clone, Eq, PartialEq)]

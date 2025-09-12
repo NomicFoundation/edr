@@ -69,7 +69,7 @@ where
     for transaction in transactions {
         if transaction.transaction_hash() == transaction_hash {
             let mut eip3155_tracer = TracerEip3155::new(trace_config);
-            let mut runtime_observer = RuntimeObserver::new(observability);
+            let mut runtime_observer = RuntimeObserver::new(observability, None);
 
             let ExecutionResultAndState { result, .. } =
                 dry_run_with_inspector::<_, ChainSpecT, _, _>(
@@ -84,6 +84,7 @@ where
 
             let RuntimeObserver {
                 code_coverage,
+                gas_reporter: _gas_reporter,
                 console_logger: _console_logger,
                 mocker: _mocker,
                 trace_collector,

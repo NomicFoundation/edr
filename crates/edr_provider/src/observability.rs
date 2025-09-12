@@ -14,14 +14,21 @@ use edr_evm::{
     trace::TraceCollector,
 };
 use edr_evm_spec::HaltReasonTrait;
+use edr_solidity::contract_decoder::ContractDecoder;
 
-use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
+use crate::{
+    console_log::ConsoleLogCollector,
+    gas_reports::{GasReporter, SyncOnCollectedGasReportCallback},
+    mock::Mocker,
+    SyncCallOverride,
+};
 
 /// Configuration for a [`RuntimeObserver`].
 #[derive(Clone, Default)]
 pub struct Config {
     pub call_override: Option<Arc<dyn SyncCallOverride>>,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
+    pub on_collected_gas_report_fn: Option<Box<dyn SyncOnCollectedGasReportCallback>>,
     pub verbose_raw_tracing: bool,
 }
 
@@ -33,6 +40,10 @@ impl Debug for Config {
                 "on_collected_coverage_fn",
                 &self.on_collected_coverage_fn.is_some(),
             )
+            .field(
+                "on_collected_gas_report_fn",
+                &self.on_collected_gas_report_fn.is_some(),
+            )
             .field("verbose_raw_traces", &self.verbose_raw_tracing)
             .finish()
     }
@@ -42,6 +53,7 @@ impl Debug for Config {
 /// execution.
 pub struct RuntimeObserver<HaltReasonT: HaltReasonTrait> {
     pub code_coverage: Option<CodeCoverageReporter>,
+    pub gas_reporter: Option<GasReporter>,
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
     pub trace_collector: TraceCollector<HaltReasonT>,
@@ -49,13 +61,20 @@ pub struct RuntimeObserver<HaltReasonT: HaltReasonTrait> {
 
 impl<HaltReasonT: HaltReasonTrait> RuntimeObserver<HaltReasonT> {
     /// Creates a new instance with the provided configuration.
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config, contract_decoder: Option<Arc<ContractDecoder>>) -> Self {
         let code_coverage = config
             .on_collected_coverage_fn
             .map(CodeCoverageReporter::new);
 
+        let gas_reporter = contract_decoder.as_ref().and_then(|decoder| {
+            config
+                .on_collected_gas_report_fn
+                .map(|callback| GasReporter::new(callback, Arc::clone(decoder)))
+        });
+
         Self {
             code_coverage,
+            gas_reporter,
             console_logger: ConsoleLogCollector::default(),
             mocker: Mocker::new(config.call_override.clone()),
             trace_collector: TraceCollector::new(config.verbose_raw_tracing),
@@ -86,6 +105,14 @@ impl<
 
     fn call_end(&mut self, context: &mut ContextT, inputs: &CallInputs, outcome: &mut CallOutcome) {
         self.trace_collector.call_end(context, inputs, outcome);
+        if let Some(gas_reporter) = &mut self.gas_reporter {
+            Inspector::<_, EthInterpreter>::call_end(
+                &mut gas_reporter.collector,
+                context,
+                inputs,
+                outcome,
+            );
+        }
     }
 
     fn create(
@@ -103,6 +130,14 @@ impl<
         outcome: &mut CreateOutcome,
     ) {
         self.trace_collector.create_end(context, inputs, outcome);
+        if let Some(gas_reporter) = &mut self.gas_reporter {
+            Inspector::<_, EthInterpreter>::create_end(
+                &mut gas_reporter.collector,
+                context,
+                inputs,
+                outcome,
+            );
+        }
     }
 
     fn step(&mut self, interp: &mut Interpreter<EthInterpreter>, context: &mut ContextT) {
