@@ -11,13 +11,12 @@ use std::{
 };
 
 use alloy_dyn_abi::eip712::TypedData;
+use edr_block_header::{
+    calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, HeaderOverrides,
+};
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    account::{Account, AccountInfo, AccountStatus},
-    block::{
-        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
-        HeaderOverrides,
-    },
+    block::miner_reward,
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     result::ExecutionResult,
@@ -56,6 +55,7 @@ use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_state::account::{Account, AccountInfo, AccountStatus};
 use edr_transaction::{
     request::TransactionRequestAndSender, IsEip4844, IsSupported as _, TransactionMut,
     TransactionType,
@@ -3984,8 +3984,8 @@ mod tests {
 
     #[cfg(feature = "test-remote")]
     mod alchemy {
+        use edr_block_header::BlockHeader;
         use edr_chain_l1::L1ChainSpec;
-        use edr_eth::block;
         use edr_evm::impl_full_block_tests;
         use edr_test_utils::env::get_alchemy_url;
 
@@ -3995,8 +3995,8 @@ mod tests {
         #[test]
         fn run_call_in_hardfork_context() -> anyhow::Result<()> {
             use alloy_sol_types::{sol, SolCall};
+            use edr_chain_l1::rpc::call::L1CallRequest;
             use edr_evm::transaction::TransactionError;
-            use edr_rpc_eth::CallRequest;
 
             use crate::{
                 requests::eth::resolve_call_request, test_utils::create_test_config_with_fork,
@@ -4021,7 +4021,7 @@ mod tests {
             fn call_hello_world_contract(
                 data: &mut ProviderData<L1ChainSpec>,
                 block_spec: BlockSpec,
-                request: CallRequest,
+                request: L1CallRequest,
             ) -> Result<CallResult<edr_chain_l1::HaltReason>, ProviderErrorForChainSpec<L1ChainSpec>>
             {
                 let state_overrides = StateOverrides::default();
@@ -4064,13 +4064,13 @@ mod tests {
 
             let mut fixture = ProviderTestFixture::<L1ChainSpec>::new(runtime, config)?;
 
-            let default_call = CallRequest {
+            let default_call = L1CallRequest {
                 from: Some(fixture.nth_local_account(0)?),
                 to: Some(hello_world_contract_address),
                 gas: Some(1_000_000),
                 value: Some(U256::ZERO),
                 data: Some(hello_world_contract_call.abi_encode().into()),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             };
 
             // Should accept post-EIP-1559 gas semantics when running in the context of a
@@ -4078,7 +4078,7 @@ mod tests {
             let result = call_hello_world_contract(
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
-                CallRequest {
+                L1CallRequest {
                     max_fee_per_gas: Some(0),
                     ..default_call.clone()
                 },
@@ -4091,7 +4091,7 @@ mod tests {
             let result = call_hello_world_contract(
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
-                CallRequest {
+                L1CallRequest {
                     gas_price: Some(0),
                     ..default_call.clone()
                 },
@@ -4104,7 +4104,7 @@ mod tests {
             let result = call_hello_world_contract(
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK - 1),
-                CallRequest {
+                L1CallRequest {
                     max_fee_per_gas: Some(0),
                     ..default_call.clone()
                 },
@@ -4124,7 +4124,7 @@ mod tests {
             let result = call_hello_world_contract(
                 &mut fixture.provider_data,
                 BlockSpec::Number(EIP_1559_ACTIVATION_BLOCK),
-                CallRequest {
+                L1CallRequest {
                     gas_price: Some(0),
                     ..default_call.clone()
                 },
@@ -4141,7 +4141,7 @@ mod tests {
             let result = call_hello_world_contract(
                 &mut fixture.provider_data,
                 BlockSpec::Number(previous_block_number + 50),
-                CallRequest {
+                L1CallRequest {
                     max_fee_per_gas: Some(0),
                     ..default_call
                 },
@@ -4153,7 +4153,7 @@ mod tests {
         }
 
         fn l1_header_overrides(
-            replay_header: &block::Header,
+            replay_header: &BlockHeader,
         ) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
             HeaderOverrides {
                 beneficiary: Some(replay_header.beneficiary),

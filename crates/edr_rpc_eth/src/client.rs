@@ -2,22 +2,19 @@ use std::{fmt::Debug, path::PathBuf};
 
 use derive_where::derive_where;
 use edr_eth::{
-    account::{AccountInfo, KECCAK_EMPTY},
     fee_history::FeeHistoryResult,
     filter::{LogFilterOptions, OneOrMore},
     reward_percentile::RewardPercentile,
-    Address, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, B256, U256, U64,
+    Address, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, B256, KECCAK_EMPTY, U256, U64,
 };
 use edr_receipt::log::FilterLog;
 use edr_rpc_client::RpcClient;
 pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
+use edr_rpc_spec::{GetBlockNumber, RpcSpec};
+use edr_state::account::AccountInfo;
 use futures::StreamExt;
 
-use crate::{
-    fork::ForkMetadata,
-    request_methods::RequestMethod,
-    spec::{GetBlockNumber, RpcSpec},
-};
+use crate::{fork::ForkMetadata, request_methods::RequestMethod};
 
 // Constrain parallel requests to avoid rate limiting on transport level and
 // thundering herd during backoff.

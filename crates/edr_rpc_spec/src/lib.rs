@@ -1,6 +1,9 @@
 #![warn(missing_docs)]
 //! Ethereum JSON-RPC specification types
 
+#[cfg(any(feature = "test-utils", test))]
+mod test_utils;
+
 use edr_receipt::ExecutionReceipt;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -29,6 +32,8 @@ pub trait RpcSpec {
 
 /// Trait for retrieving a block's number.
 pub trait GetBlockNumber {
+    /// Retrieves the block number, if available. If the block is pending,
+    /// returns `None`.
     fn number(&self) -> Option<u64>;
 }
 

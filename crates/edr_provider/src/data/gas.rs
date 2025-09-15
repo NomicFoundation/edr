@@ -1,10 +1,8 @@
 use core::cmp;
 use std::sync::Arc;
 
-use edr_eth::{
-    block::Header, result::ExecutionResult, reward_percentile::RewardPercentile, Address, HashMap,
-    U256,
-};
+use edr_block_header::BlockHeader;
+use edr_eth::{result::ExecutionResult, reward_percentile::RewardPercentile};
 use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
@@ -17,6 +15,7 @@ use edr_evm::{
 use edr_evm_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
+use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
@@ -26,7 +25,7 @@ use crate::{data::call, error::ProviderErrorForChainSpec, time::TimeSinceEpoch, 
 pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub blockchain:
         &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
-    pub header: &'a Header,
+    pub header: &'a BlockHeader,
     pub state: &'a dyn SyncState<StateError>,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
@@ -82,7 +81,7 @@ where
 pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
     pub blockchain:
         &'a dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
-    pub header: &'a Header,
+    pub header: &'a BlockHeader,
     pub state: &'a dyn SyncState<StateError>,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,

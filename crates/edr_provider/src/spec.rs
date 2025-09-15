@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{rlp, Address, Blob, BlockSpec, B256};
+use edr_chain_l1::{
+    rpc::{call::L1CallRequest, TransactionRequest},
+    L1ChainSpec,
+};
+use edr_eth::{Address, Blob, BlockSpec, B256};
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
@@ -10,7 +13,6 @@ use edr_evm::{
     BlockAndTotalDifficulty, BlockReceipts,
 };
 use edr_evm_spec::ExecutableTransaction;
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_signer::{FakeSign, Sign};
 use edr_transaction::IsSupported;
 
@@ -35,7 +37,7 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
 {
     type PooledTransaction: HardforkValidationData
         + Into<Self::SignedTransaction>
-        + rlp::Decodable
+        + alloy_rlp::Decodable
         + ExecutableTransaction;
 
     /// Type representing a transaction request.
@@ -112,7 +114,7 @@ pub trait MaybeSender {
     fn maybe_sender(&self) -> Option<&Address>;
 }
 
-impl MaybeSender for CallRequest {
+impl MaybeSender for L1CallRequest {
     fn maybe_sender(&self) -> Option<&Address> {
         self.from.as_ref()
     }

@@ -26,10 +26,14 @@ thiserror.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+assert-json-diff = "2.0.2"
 edr_defaults.workspace = true
+edr_evm.workspace = true
+edr_rpc_spec = { workspace = true, features = ["test-utils"] }
 edr_test_utils.workspace = true
 hex.workspace = true
 paste.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

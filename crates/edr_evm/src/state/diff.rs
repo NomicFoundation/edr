@@ -1,7 +1,5 @@
-use edr_eth::{
-    account::{Account, AccountInfo, AccountStatus},
-    Address, HashMap, U256,
-};
+use edr_primitives::{Address, HashMap, U256};
+use edr_state::account::{Account, AccountInfo, AccountStatus};
 
 use crate::state::EvmStorageSlot;
 

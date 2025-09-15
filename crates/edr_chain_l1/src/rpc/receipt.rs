@@ -285,9 +285,10 @@ mod test {
     use assert_json_diff::assert_json_eq;
     use edr_evm::block::EthBlockReceiptFactory;
     use edr_receipt::{log::ExecutionLog, Bloom, Bytes};
+    use edr_rpc_spec::impl_execution_receipt_serde_tests;
     use serde_json::json;
 
-    use crate::{impl_execution_receipt_tests, receipt, L1ChainSpec, TypedEnvelope};
+    use crate::{rpc::receipt::L1BlockReceipt, Hardfork, L1ChainSpec, TypedEnvelope};
 
     #[test]
     fn test_matches_hardhat_serialization() -> anyhow::Result<()> {
@@ -326,7 +327,7 @@ mod test {
           "effectiveGasPrice": "0x699e6346"
         });
 
-        let deserialized: receipt::Block = serde_json::from_value(receipt_from_hardhat.clone())?;
+        let deserialized: L1BlockReceipt = serde_json::from_value(receipt_from_hardhat.clone())?;
 
         let serialized = serde_json::to_value(deserialized)?;
         assert_json_eq!(receipt_from_hardhat, serialized);
@@ -334,9 +335,9 @@ mod test {
         Ok(())
     }
 
-    impl_execution_receipt_tests! {
+    impl_execution_receipt_serde_tests! {
         L1ChainSpec, EthBlockReceiptFactory::default() => {
-            legacy, edr_chain_l1::Hardfork::default() => TypedEnvelope::Legacy(edr_receipt::Execution::Legacy(edr_receipt::execution::Legacy {
+            legacy, Hardfork::default() => TypedEnvelope::Legacy(edr_receipt::Execution::Legacy(edr_receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -345,7 +346,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip2930, edr_chain_l1::Hardfork::default() => TypedEnvelope::Eip2930(edr_receipt::Execution::Eip658(edr_receipt::execution::Eip658 {
+            eip658_eip2930, Hardfork::default() => TypedEnvelope::Eip2930(edr_receipt::Execution::Eip658(edr_receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -354,7 +355,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip1559, edr_chain_l1::Hardfork::default() => TypedEnvelope::Eip2930(edr_receipt::Execution::Eip658(edr_receipt::execution::Eip658 {
+            eip658_eip1559, Hardfork::default() => TypedEnvelope::Eip2930(edr_receipt::Execution::Eip658(edr_receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -363,7 +364,7 @@ mod test {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip4844, edr_chain_l1::Hardfork::default() => TypedEnvelope::Eip4844(edr_receipt::Execution::Eip658(edr_receipt::execution::Eip658 {
+            eip658_eip4844, Hardfork::default() => TypedEnvelope::Eip4844(edr_receipt::Execution::Eip658(edr_receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),

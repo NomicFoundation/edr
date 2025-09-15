@@ -1,15 +1,12 @@
 use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use anyhow::anyhow;
-use edr_eth::{
-    account::AccountInfo,
-    block::{self, miner_reward, HeaderOverrides},
-    withdrawal::Withdrawal,
-    Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
-};
+use edr_block_header::{BlockHeader, HeaderOverrides, Withdrawal};
+use edr_eth::{block::miner_reward, Address, Bytes, HashMap, PreEip1898BlockSpec, U256};
 use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _};
 use edr_rpc_eth::client::EthRpcClient;
+use edr_state::account::AccountInfo;
 use edr_transaction::TxKind;
 
 use crate::{
@@ -174,7 +171,7 @@ pub async fn run_full_block<
 >(
     url: String,
     block_number: u64,
-    header_overrides_constructor: impl FnOnce(&block::Header) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
 ) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Handle::current();
 

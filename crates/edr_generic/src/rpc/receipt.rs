@@ -1,5 +1,5 @@
 use edr_receipt::{log::FilterLog, AsExecutionReceipt as _};
-use edr_rpc_eth::RpcTypeFrom;
+use edr_rpc_spec::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
 use crate::eip2718::TypedEnvelope;

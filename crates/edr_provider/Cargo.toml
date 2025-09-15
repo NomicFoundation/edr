@@ -5,12 +5,14 @@ edition.workspace = true
 
 [dependencies]
 alloy-dyn-abi.workspace = true
+alloy-rlp.workspace = true
 alloy-sol-types.workspace = true
 alloy-serde.workspace = true
 anyhow = { workspace = true, optional = true }
 auto_impl = { version = "1.2", default-features = false }
 derive-where.workspace = true
 dyn-clone.workspace = true
+edr_block_header.workspace = true
 edr_chain_l1.workspace = true
 edr_coverage = { path = "../edr_coverage" }
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
@@ -20,10 +22,13 @@ edr_eip7702.workspace = true
 edr_eth = { version = "0.3.5", path = "../edr_eth" }
 edr_evm = { version = "0.3.5", path = "../edr_evm", features = ["tracing"] }
 edr_evm_spec.workspace = true
+edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
+edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
+edr_state.workspace = true
 edr_test_utils = { version = "0.3.5", path = "../edr_test_utils", optional = true }
 edr_transaction.workspace = true
 edr_utils = { version = "0.3.5", path = "../edr_utils" }

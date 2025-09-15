@@ -1,7 +1,7 @@
 use edr_receipt::{
     AsExecutionReceipt as _, BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
 };
-use edr_rpc_eth::RpcTypeFrom;
+use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::TransactionType as _;
 
 use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, Hardfork};

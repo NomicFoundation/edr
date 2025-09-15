@@ -1,5 +1,6 @@
+use edr_block_header::PartialHeader;
 use edr_chain_l1::TypedEnvelope;
-use edr_eth::{block, result::ExecutionResult};
+use edr_eth::result::ExecutionResult;
 use edr_evm_spec::{ExecutableTransaction, HaltReasonTrait, TransactionValidation};
 use edr_receipt::log::{logs_to_bloom, ExecutionLog};
 use edr_transaction::TransactionType as _;
@@ -24,7 +25,7 @@ where
     /// Builds a receipt using the provided information.
     fn build_receipt(
         self,
-        header: &block::PartialHeader,
+        header: &PartialHeader,
         transaction: &TransactionT,
         result: &ExecutionResult<HaltReasonT>,
         hardfork: HardforkT,
@@ -34,8 +35,12 @@ where
 /// Builder for execution receipts.
 pub struct Builder;
 
-impl ExecutionReceiptBuilder<edr_chain_l1::HaltReason, edr_chain_l1::Hardfork, edr_chain_l1::L1SignedTransaction>
-    for Builder
+impl
+    ExecutionReceiptBuilder<
+        edr_chain_l1::HaltReason,
+        edr_chain_l1::Hardfork,
+        edr_chain_l1::L1SignedTransaction,
+    > for Builder
 {
     type Receipt = TypedEnvelope<edr_receipt::execution::Eip658<ExecutionLog>>;
 
@@ -48,7 +53,7 @@ impl ExecutionReceiptBuilder<edr_chain_l1::HaltReason, edr_chain_l1::Hardfork, e
 
     fn build_receipt(
         self,
-        header: &block::PartialHeader,
+        header: &PartialHeader,
         transaction: &edr_chain_l1::L1SignedTransaction,
         result: &ExecutionResult<edr_chain_l1::HaltReason>,
         _hardfork: edr_chain_l1::Hardfork,

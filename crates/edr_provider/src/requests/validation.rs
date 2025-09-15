@@ -1,8 +1,8 @@
+use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_eth::{
     Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
 };
 use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
@@ -43,7 +43,7 @@ impl HardforkValidationData for TransactionRequest {
     }
 }
 
-impl HardforkValidationData for CallRequest {
+impl HardforkValidationData for L1CallRequest {
     fn to(&self) -> Option<&Address> {
         self.to.as_ref()
     }
@@ -275,10 +275,10 @@ fn validate_transaction_spec<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
     Ok(())
 }
 
-/// Validates a `CallRequest` and `BlockSpec` against the provided hardfork.
+/// Validates a `L1CallRequest` and `BlockSpec` against the provided hardfork.
 pub fn validate_call_request<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     hardfork: ChainSpecT::Hardfork,
-    call_request: &CallRequest,
+    call_request: &L1CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, block_spec)?;

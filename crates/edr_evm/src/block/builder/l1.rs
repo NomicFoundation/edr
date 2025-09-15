@@ -2,19 +2,18 @@ use core::{fmt::Debug, marker::PhantomData};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use derive_where::derive_where;
+use edr_block_header::{BlobGas, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_eth::{
-    block::{BlobGas, HeaderOverrides, PartialHeader},
     eips::{eip4844, eip7691},
     result::{ExecutionResult, ExecutionResultAndState},
-    trie::{ordered_trie_root, KECCAK_NULL_RLP},
-    withdrawal::Withdrawal,
-    Address, Bloom, HashMap, B256, U256,
 };
 use edr_evm_spec::{EvmSpecId, ExecutableTransaction as _};
+use edr_primitives::{Address, Bloom, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt, ReceiptFactory, TransactionReceipt,
 };
+use edr_trie::ordered_trie_root;
 use revm::{precompile::PrecompileFn, Inspector};
 
 use super::{BlockBuilder, BlockTransactionError, BlockTransactionErrorForChainSpec};

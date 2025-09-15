@@ -1,7 +1,9 @@
 use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
-use edr_eth::{block::Header, withdrawal::Withdrawal, B256, U256};
+use edr_block_header::{BlockHeader, Withdrawal};
+use edr_chain_l1::rpc::block::L1RpcBlock;
+use edr_eth::{B256, U256};
 use edr_evm_spec::ExecutableTransaction as _;
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
@@ -40,7 +42,7 @@ pub enum ConversionError<TransactionConversionErrorT> {
 #[derive_where(Clone; ChainSpecT::SignedTransaction)]
 #[derive_where(Debug; ChainSpecT::SignedTransaction, ChainSpecT::BlockReceipt)]
 pub struct RemoteBlock<ChainSpecT: RuntimeSpec> {
-    header: Header,
+    header: BlockHeader,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     /// The receipts of the block's transactions
     receipts: OnceLock<Vec<Arc<ChainSpecT::BlockReceipt>>>,
@@ -85,7 +87,7 @@ impl<ChainSpecT: RuntimeSpec> Block<ChainSpecT::SignedTransaction> for RemoteBlo
         &self.hash
     }
 
-    fn header(&self) -> &Header {
+    fn header(&self) -> &BlockHeader {
         &self.header
     }
 
@@ -158,7 +160,7 @@ pub trait EthRpcBlock {
     fn total_difficulty(&self) -> Option<&U256>;
 }
 
-impl<TransactionT> EthRpcBlock for edr_rpc_eth::Block<TransactionT> {
+impl<TransactionT> EthRpcBlock for L1RpcBlock<TransactionT> {
     fn state_root(&self) -> &B256 {
         &self.state_root
     }

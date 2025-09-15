@@ -12,13 +12,11 @@ mod remote {
                     #[serial]
                     async fn [<remote_block_receipt_root_ $name>]() -> anyhow::Result<()> {
                         use edr_chain_l1::{L1ChainSpec, TypedEnvelope};
-                        use edr_eth::{
-                            trie::ordered_trie_root,
-                            PreEip1898BlockSpec,
-                        };
+                        use edr_eth::PreEip1898BlockSpec;
                         use edr_receipt::{log::FilterLog, BlockReceipt};
                         use edr_rpc_eth::{client::EthRpcClient};
                         use edr_test_utils::env::get_alchemy_url;
+                        use edr_trie::ordered_trie_root;
 
                         let client = EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None)?;
 

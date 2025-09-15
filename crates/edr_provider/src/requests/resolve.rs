@@ -1,7 +1,9 @@
-use edr_chain_l1::L1ChainSpec;
+use edr_chain_l1::{
+    rpc::{call::L1CallRequest, TransactionRequest},
+    L1ChainSpec,
+};
 use edr_eth::{Bytes, U256};
 use edr_evm_spec::EvmSpecId;
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_transaction::TxKind;
 
 use super::validation::validate_call_request;
@@ -14,13 +16,13 @@ use crate::{
     ProviderError,
 };
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for edr_chain_l1::Request {
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for edr_chain_l1::Request {
     type Context<'context> = CallContext<'context, L1ChainSpec, TimerT>;
 
     type Error = ProviderErrorForChainSpec<L1ChainSpec>;
 
     fn from_rpc_type(
-        value: CallRequest,
+        value: L1CallRequest,
         context: Self::Context<'_>,
     ) -> Result<edr_chain_l1::Request, ProviderErrorForChainSpec<L1ChainSpec>> {
         let CallContext {
@@ -33,7 +35,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for edr_ch
 
         validate_call_request::<L1ChainSpec, TimerT>(data.evm_spec_id(), &value, block_spec)?;
 
-        let CallRequest {
+        let L1CallRequest {
             from,
             to,
             gas,
@@ -235,7 +237,6 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
 mod tests {
     use edr_eth::{Address, BlockSpec};
     use edr_evm::state::StateOverrides;
-    use edr_rpc_eth::CallRequest;
 
     use super::*;
     use crate::test_utils::{pending_base_fee, ProviderTestFixture};
@@ -246,11 +247,11 @@ mod tests {
 
         let pending_base_fee = pending_base_fee(&mut fixture.provider_data)?;
 
-        let request = CallRequest {
+        let request = L1CallRequest {
             from: Some(fixture.nth_local_account(0)?),
             to: Some(fixture.nth_local_account(1)?),
             gas_price: Some(pending_base_fee),
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         };
 
         let context = CallContext {
@@ -274,12 +275,12 @@ mod tests {
         let max_fee_per_gas = pending_base_fee(&mut fixture.provider_data)?;
         let max_priority_fee_per_gas = Some(max_fee_per_gas / 2);
 
-        let request = CallRequest {
+        let request = L1CallRequest {
             from: Some(fixture.nth_local_account(0)?),
             to: Some(fixture.nth_local_account(1)?),
             max_fee_per_gas: Some(max_fee_per_gas),
             max_priority_fee_per_gas,
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         };
 
         let context = CallContext {
@@ -322,13 +323,13 @@ mod tests {
             U256::from(0x5678),
         )]);
 
-        let request = CallRequest {
+        let request = L1CallRequest {
             from: Some(fixture.nth_local_account(0)?),
             to: Some(fixture.nth_local_account(1)?),
             max_fee_per_gas: Some(max_fee_per_gas),
             max_priority_fee_per_gas,
             authorization_list: authorization_list.clone(),
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         };
 
         let context = CallContext {

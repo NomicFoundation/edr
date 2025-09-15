@@ -1,4 +1,4 @@
-use edr_eth::{account::AccountInfo, state::AccountStorage};
+use edr_state::{account::AccountInfo, AccountStorage};
 
 #[derive(Clone, Debug, Default)]
 pub struct EdrAccount {

@@ -189,10 +189,9 @@ fn resolve_estimate_gas_request<
 
 #[cfg(test)]
 mod tests {
-    use edr_chain_l1::L1ChainSpec;
+    use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
     use edr_eth::BlockTag;
     use edr_evm_spec::ExecutableTransaction as _;
-    use edr_rpc_eth::CallRequest;
 
     use super::*;
     use crate::test_utils::{pending_base_fee, ProviderTestFixture};
@@ -203,11 +202,11 @@ mod tests {
 
         let max_fee_per_gas = pending_base_fee(&mut fixture.provider_data)?.max(10_000_000_000);
 
-        let request = CallRequest {
+        let request = L1CallRequest {
             from: Some(fixture.nth_local_account(0)?),
             to: Some(fixture.nth_local_account(1)?),
             max_fee_per_gas: Some(max_fee_per_gas),
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         };
 
         let resolved = resolve_estimate_gas_request(
@@ -237,11 +236,11 @@ mod tests {
             .provider_data
             .set_next_block_base_fee_per_gas(base_fee)?;
 
-        let request = CallRequest {
+        let request = L1CallRequest {
             from: Some(fixture.nth_local_account(0)?),
             to: Some(fixture.nth_local_account(1)?),
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         };
 
         let resolved = resolve_estimate_gas_request(
@@ -276,11 +275,11 @@ mod tests {
         assert_eq!(last_block.header().number, 1);
 
         let max_priority_fee_per_gas = 1u128;
-        let request = CallRequest {
+        let request = L1CallRequest {
             from: Some(fixture.nth_local_account(0)?),
             to: Some(fixture.nth_local_account(1)?),
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         };
 
         let resolved = resolve_estimate_gas_request(
@@ -312,11 +311,11 @@ mod tests {
 
         let max_fee_per_gas = 123u128;
 
-        let request = CallRequest {
+        let request = L1CallRequest {
             from: Some(fixture.nth_local_account(0)?),
             to: Some(fixture.nth_local_account(1)?),
             max_fee_per_gas: Some(max_fee_per_gas),
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         };
 
         let resolved = resolve_estimate_gas_request(
