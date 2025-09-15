@@ -97,9 +97,7 @@ pub struct CodeCoverageConfig {
 
 #[napi(object)]
 pub struct GasReportConfig {
-    /// The callback to be called when gas reports have been collected.
-    ///
-    /// The callback receives a map from contract name to gas report.
+    /// Gas reports are collected after a block is mined or `eth_call` is executed.
     ///
     /// Exceptions thrown in the callback will be propagated to the original
     /// caller.
