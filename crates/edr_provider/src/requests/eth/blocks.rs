@@ -1,6 +1,8 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
+use edr_block_header::Withdrawal;
+use edr_chain_l1::rpc::block::L1RpcBlock;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec, B256, U256, U64};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
@@ -10,7 +12,7 @@ use edr_evm::{
 use edr_evm_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
-use edr_rpc_eth::RpcTypeFrom as _;
+use edr_rpc_spec::RpcTypeFrom as _;
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec,
@@ -32,10 +34,8 @@ pub fn handle_get_block_by_hash_request<
     data: &ProviderData<ChainSpecT, TimerT>,
     block_hash: B256,
     transaction_detail_flag: bool,
-) -> Result<
-    Option<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>>,
-    ProviderErrorForChainSpec<ChainSpecT>,
-> {
+) -> Result<Option<L1RpcBlock<HashOrTransaction<ChainSpecT>>>, ProviderErrorForChainSpec<ChainSpecT>>
+{
     data.block_by_hash(&block_hash)?
         .map(|block| {
             let total_difficulty = data.total_difficulty_by_hash(block.block_hash())?;
@@ -65,10 +65,8 @@ pub fn handle_get_block_by_number_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: PreEip1898BlockSpec,
     transaction_detail_flag: bool,
-) -> Result<
-    Option<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>>,
-    ProviderErrorForChainSpec<ChainSpecT>,
-> {
+) -> Result<Option<L1RpcBlock<HashOrTransaction<ChainSpecT>>>, ProviderErrorForChainSpec<ChainSpecT>>
+{
     block_by_number(data, &block_spec.into())?
         .map(
             |BlockByNumberResult {
@@ -189,8 +187,7 @@ fn block_to_rpc_output<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSin
     is_pending: bool,
     total_difficulty: Option<U256>,
     transaction_detail_flag: bool,
-) -> Result<edr_rpc_eth::Block<HashOrTransaction<ChainSpecT>>, ProviderErrorForChainSpec<ChainSpecT>>
-{
+) -> Result<L1RpcBlock<HashOrTransaction<ChainSpecT>>, ProviderErrorForChainSpec<ChainSpecT>> {
     let header = block.header();
 
     let transactions: Vec<HashOrTransaction<ChainSpecT>> = if transaction_detail_flag {
@@ -236,7 +233,7 @@ fn block_to_rpc_output<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSin
         Some(header.number)
     };
 
-    Ok(edr_rpc_eth::Block {
+    Ok(L1RpcBlock {
         hash: Some(*block.block_hash()),
         parent_hash: header.parent_hash,
         sha3_uncles: header.ommers_hash,
@@ -258,9 +255,7 @@ fn block_to_rpc_output<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSin
         nonce,
         base_fee_per_gas: header.base_fee_per_gas,
         miner: Some(header.beneficiary),
-        withdrawals: block
-            .withdrawals()
-            .map(<[edr_eth::withdrawal::Withdrawal]>::to_vec),
+        withdrawals: block.withdrawals().map(<[Withdrawal]>::to_vec),
         withdrawals_root: header.withdrawals_root,
         blob_gas_used: header.blob_gas.as_ref().map(|bg| bg.gas_used),
         excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),

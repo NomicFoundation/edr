@@ -16,7 +16,7 @@ use ::serde::{
     Deserialize, Deserializer, Serialize,
 };
 use derive_where::derive_where;
-use edr_rpc_eth::spec::RpcSpec;
+use edr_rpc_spec::RpcSpec;
 
 pub use crate::requests::{
     methods::{IntervalConfig, MethodInvocation},

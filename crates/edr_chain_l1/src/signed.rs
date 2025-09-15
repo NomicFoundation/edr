@@ -511,10 +511,10 @@ mod tests {
                         let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0]).expect("Failed to parse secret key");
                         let transaction = request.sign(&secret_key)?;
 
-                        let transaction = Signed::from(transaction);
+                        let transaction = $crate::L1SignedTransaction::from(transaction);
 
                         let encoded = alloy_rlp::encode(&transaction);
-                        let decoded = Signed::decode(&mut encoded.as_slice()).unwrap();
+                        let decoded = $crate::L1SignedTransaction::decode(&mut encoded.as_slice()).unwrap();
 
                         assert_eq!(decoded, transaction);
 

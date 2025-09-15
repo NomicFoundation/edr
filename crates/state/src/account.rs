@@ -1,17 +1,11 @@
-// Part of this code was adapted from foundry and is distributed under their
-// license:
-// - https://github.com/foundry-rs/foundry/blob/01b16238ff87dc7ca8ee3f5f13e389888c2a2ee4/LICENSE-APACHE
-// - https://github.com/foundry-rs/foundry/blob/01b16238ff87dc7ca8ee3f5f13e389888c2a2ee4/LICENSE-MIT
-// For the original context see: https://github.com/foundry-rs/foundry/blob/01b16238ff87dc7ca8ee3f5f13e389888c2a2ee4/anvil/core/src/eth/proof.rs
-
 //! Ethereum account types
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-pub use revm_primitives::KECCAK_EMPTY;
+use edr_primitives::{B256, KECCAK_EMPTY, KECCAK_NULL_RLP, U256};
 pub use revm_state::{Account, AccountInfo, AccountStatus};
 
 /// Basic account type.
-#[derive(Debug, Clone, PartialEq, Eq, RlpDecodable, RlpEncodable)]
+#[derive(Clone, Debug, PartialEq, Eq, RlpDecodable, RlpEncodable)]
 pub struct BasicAccount {
     /// Nonce of the account.
     pub nonce: u64,

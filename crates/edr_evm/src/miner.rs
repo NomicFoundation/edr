@@ -1,14 +1,12 @@
 use std::{cmp::Ordering, fmt::Debug};
 
-use edr_eth::{
-    block::{calculate_next_base_fee_per_blob_gas, HeaderOverrides},
-    result::ExecutionResult,
-    Address, HashMap,
-};
+use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides};
+use edr_eth::result::ExecutionResult;
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EvmTransactionValidationError, ExecutableTransaction,
     HaltReasonTrait, TransactionValidation,
 };
+use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;
 use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};

@@ -1,10 +1,8 @@
 use core::fmt::Debug;
 use std::{num::NonZeroU64, sync::Arc};
 
-use edr_eth::{
-    block::{HeaderOverrides, PartialHeader},
-    Address, HashMap, HashSet, B256, U256,
-};
+use edr_block_header::{HeaderOverrides, PartialHeader};
+use edr_eth::{Address, HashMap, HashSet, B256, U256};
 use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};

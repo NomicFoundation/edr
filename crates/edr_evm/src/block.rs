@@ -7,12 +7,10 @@ pub mod transaction;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use auto_impl::auto_impl;
-use edr_eth::{
-    block::{self, BlobGas, Header, PartialHeader},
-    withdrawal::Withdrawal,
-    B256, U256,
-};
+use edr_block_header::{BlobGas, BlockHeader, PartialHeader, Withdrawal};
+use edr_chain_l1::rpc::block::L1RpcBlock;
 use edr_evm_spec::{ChainSpec, ExecutableTransaction};
+use edr_primitives::{B256, U256};
 use edr_receipt::ReceiptTrait;
 
 pub use self::{
@@ -33,7 +31,7 @@ pub trait Block<SignedTransactionT>: Debug {
     fn block_hash(&self) -> &B256;
 
     /// Returns the block's header.
-    fn header(&self) -> &block::Header;
+    fn header(&self) -> &BlockHeader;
 
     /// Ommer/uncle block hashes.
     fn ommer_hashes(&self) -> &[B256];
@@ -110,7 +108,7 @@ where
 /// A type containing the relevant data for an Ethereum block.
 pub struct EthBlockData<ChainSpecT: RuntimeSpec> {
     /// The block's header.
-    pub header: edr_eth::block::Header,
+    pub header: BlockHeader,
     /// The block's transactions.
     pub transactions: Vec<ChainSpecT::SignedTransaction>,
     /// The hashes of the block's ommers.
@@ -123,15 +121,13 @@ pub struct EthBlockData<ChainSpecT: RuntimeSpec> {
     pub rlp_size: u64,
 }
 
-impl<ChainSpecT: RuntimeSpec> TryFrom<edr_rpc_eth::Block<ChainSpecT::RpcTransaction>>
+impl<ChainSpecT: RuntimeSpec> TryFrom<L1RpcBlock<ChainSpecT::RpcTransaction>>
     for EthBlockData<ChainSpecT>
 {
     type Error = RemoteBlockConversionError<ChainSpecT::RpcTransactionConversionError>;
 
-    fn try_from(
-        value: edr_rpc_eth::Block<ChainSpecT::RpcTransaction>,
-    ) -> Result<Self, Self::Error> {
-        let header = Header {
+    fn try_from(value: L1RpcBlock<ChainSpecT::RpcTransaction>) -> Result<Self, Self::Error> {
+        let header = BlockHeader {
             parent_hash: value.parent_hash,
             ommers_hash: value.sha3_uncles,
             beneficiary: value
@@ -215,7 +211,7 @@ impl<BlockT, SignedTransactionT> BlockAndTotalDifficulty<BlockT, SignedTransacti
 }
 
 impl<BlockT: Block<SignedTransactionT>, SignedTransactionT>
-    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>> for edr_rpc_eth::Block<B256>
+    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>> for L1RpcBlock<B256>
 where
     SignedTransactionT: ExecutableTransaction,
 {
@@ -228,7 +224,7 @@ where
             .collect();
 
         let header = value.block.header();
-        edr_rpc_eth::Block {
+        L1RpcBlock {
             hash: Some(*value.block.block_hash()),
             parent_hash: header.parent_hash,
             sha3_uncles: header.ommers_hash,
@@ -250,10 +246,7 @@ where
             nonce: Some(header.nonce),
             base_fee_per_gas: header.base_fee_per_gas,
             miner: Some(header.beneficiary),
-            withdrawals: value
-                .block
-                .withdrawals()
-                .map(<[edr_eth::withdrawal::Withdrawal]>::to_vec),
+            withdrawals: value.block.withdrawals().map(<[Withdrawal]>::to_vec),
             withdrawals_root: header.withdrawals_root,
             blob_gas_used: header.blob_gas.as_ref().map(|bg| bg.gas_used),
             excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),

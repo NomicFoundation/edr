@@ -2,7 +2,7 @@ use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
     transaction::remote::EthRpcTransaction,
 };
-use edr_rpc_eth::RpcTypeFrom;
+use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::SignedTransaction as _;
 use serde::{Deserialize, Serialize};
 
@@ -77,7 +77,10 @@ impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPost
 
         let TransactionWithSignature(value) = value;
 
-        let tx_type = match value.transaction_type.map(edr_chain_l1::L1TransactionType::try_from) {
+        let tx_type = match value
+            .transaction_type
+            .map(edr_chain_l1::L1TransactionType::try_from)
+        {
             None => transaction::Type::Legacy,
             Some(Ok(r#type)) => r#type.into(),
             Some(Err(r#type)) => {
@@ -92,7 +95,9 @@ impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPost
         let transaction = match tx_type {
             // We explicitly treat unrecognized transaction types as post-EIP 155 legacy
             // transactions
-            transaction::Type::Unrecognized(_) => L1SignedTransaction::PostEip155Legacy(value.into()),
+            transaction::Type::Unrecognized(_) => {
+                L1SignedTransaction::PostEip155Legacy(value.into())
+            }
 
             transaction::Type::Legacy => {
                 if value.is_legacy() {

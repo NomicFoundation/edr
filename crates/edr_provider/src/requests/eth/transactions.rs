@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::{rlp::Decodable, Bytes, PreEip1898BlockSpec, B256, U256};
+use edr_eth::{Bytes, PreEip1898BlockSpec, B256, U256};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainErrorForChainSpec,
@@ -9,7 +9,7 @@ use edr_evm::{
 use edr_evm_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
-use edr_rpc_eth::RpcTypeFrom as _;
+use edr_rpc_spec::RpcTypeFrom as _;
 use edr_transaction::{
     request::TransactionRequestAndSender, IsEip155, IsEip4844, TransactionType,
     INVALID_TX_TYPE_ERROR_MESSAGE,
@@ -206,10 +206,12 @@ pub fn handle_send_raw_transaction_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     raw_transaction: Bytes,
 ) -> ProviderResultWithTraces<B256, ChainSpecT> {
+    use alloy_rlp::Decodable as _;
+
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     ChainSpecT::PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
-            edr_eth::rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE) => {
+            alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE) => {
                 let type_id = *raw_transaction.first().expect("We already validated that the transaction is not empty if it's an invalid transaction type error.");
                 ProviderError::InvalidTransactionType(type_id)
             }

@@ -1,10 +1,7 @@
 use std::str::FromStr as _;
 
-use edr_eth::{
-    eips::eip4844::ethereum_kzg_settings,
-    rlp::{self, Decodable as _},
-    Address, Blob, Bytes, Bytes48, B256,
-};
+use alloy_rlp::{self, Decodable as _};
+use edr_eth::{eips::eip4844::ethereum_kzg_settings, Address, Blob, Bytes, Bytes48, B256};
 use edr_test_utils::secret_key::secret_key_from_str;
 
 /// Helper struct to modify the pooled transaction from the value in
@@ -42,7 +39,7 @@ impl BlobTransactionBuilder {
     }
 
     pub fn build_raw(self) -> Bytes {
-        rlp::encode(self.build()).into()
+        alloy_rlp::encode(self.build()).into()
     }
 
     /// Duplicates the blobs, commitments, and proofs such that they exist

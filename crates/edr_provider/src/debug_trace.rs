@@ -4,7 +4,6 @@ use edr_eth::{
     bytecode::opcode::{self, OpCode},
     hex,
     result::{ExecutionResult, ExecutionResultAndState},
-    utils::u256_to_padded_hex,
     Address, Bytes, B256, U256,
 };
 use edr_evm::{
@@ -27,7 +26,10 @@ use edr_evm_spec::{
     HaltReasonTrait, TransactionValidation,
 };
 
-use crate::observability::{self, RuntimeObserver};
+use crate::{
+    observability::{self, RuntimeObserver},
+    utils::u256_to_padded_hex,
+};
 
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]

@@ -29,6 +29,7 @@ members = [
     "crates/eips/4844",
     "crates/eips/7702",
     "crates/primitives",
+    "crates/state",
     "crates/tools",
     "crates/trie",
     # Foundry
@@ -38,7 +39,7 @@ members = [
     "crates/foundry/evm/coverage",
     "crates/foundry/evm/evm",
     "crates/foundry/evm/fuzz",
-    "crates/foundry/evm/traces",
+    "crates/foundry/evm/traces"
 ]
 resolver = "2"
 
@@ -116,6 +117,7 @@ edr_rpc_spec = { path = "crates/edr_rpc_spec" }
 edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
+edr_state = { path = "crates/state" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 edr_transaction = { path = "crates/edr_transaction" }
 edr_trie = { path = "crates/trie" }

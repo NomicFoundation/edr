@@ -1,4 +1,5 @@
-use edr_eth::{block::Header, result::ExecutionResult, Address, HashMap};
+use edr_block_header::BlockHeader;
+use edr_eth::result::ExecutionResult;
 use edr_evm::{
     blockchain::{BlockHash, BlockchainErrorForChainSpec},
     config::CfgEnv,
@@ -9,6 +10,7 @@ use edr_evm::{
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
 };
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_primitives::{Address, HashMap};
 
 use crate::{
     error::ProviderErrorForChainSpec, time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
@@ -17,7 +19,7 @@ use crate::{
 /// Execute a transaction as a call. Returns the gas used and the output.
 pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT, TimerT>(
     blockchain: BlockchainT,
-    header: &Header,
+    header: &BlockHeader,
     state: StateT,
     cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,

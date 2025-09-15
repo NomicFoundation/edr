@@ -5,8 +5,6 @@
 //! Ethereum types as needed by EDR. In particular, they are based on the same
 //! primitive types as `revm`.
 
-/// Ethereum account types
-pub mod account;
 /// Ethereum block types
 pub mod block;
 /// Ethereum block spec
@@ -23,10 +21,6 @@ pub mod result;
 pub mod reward_percentile;
 #[cfg(feature = "serde")]
 pub mod serde;
-/// Ethereum state types and functions
-pub mod state;
-/// Ethereum utility functions
-pub mod utils;
 
 pub use c_kzg::{Blob, Bytes48};
 pub use revm_bytecode::{self as bytecode, Bytecode};

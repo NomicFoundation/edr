@@ -1,9 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
-use edr_eth::{
-    account::{Account, AccountInfo, BasicAccount},
-    Address, HashMap, B256, U256,
-};
+use edr_primitives::{Address, HashMap, B256, U256};
+use edr_state::account::{Account, AccountInfo, BasicAccount};
 use hasher::{Hasher, HasherKeccak};
 use rpds::HashTrieMapSync;
 
