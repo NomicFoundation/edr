@@ -97,7 +97,8 @@ pub struct CodeCoverageConfig {
 
 #[napi(object)]
 pub struct GasReportConfig {
-    /// Gas reports are collected after a block is mined or `eth_call` is executed.
+    /// Gas reports are collected after a block is mined or `eth_call` is
+    /// executed.
     ///
     /// Exceptions thrown in the callback will be propagated to the original
     /// caller.

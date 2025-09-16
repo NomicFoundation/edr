@@ -1,5 +1,6 @@
 import { toBytes } from "@nomicfoundation/ethereumjs-util";
 import { assert } from "chai";
+import * as fs from "fs";
 import {
   AccountOverride,
   GasReport,
@@ -20,7 +21,6 @@ import {
   getGasPrice,
   sendTransaction,
 } from "./helpers";
-import { exampleBuildInfo } from "./helper/buildInfos";
 
 const genesisState: AccountOverride[] = [
   {
@@ -37,6 +37,11 @@ class GasReporter {
   public report: GasReport | undefined;
 }
 
+// Contract build info in edr/crates/edr_napi/data/artifacts/default/GasReport.json
+const contractBuildInfo: Buffer = fs.readFileSync(
+  `${__dirname}/data/artifacts/default/GasReport.json`
+);
+
 const providerConfig = {
   allowBlocksWithSameTimestamp: false,
   allowUnlimitedContractSize: true,
@@ -45,16 +50,20 @@ const providerConfig = {
   blockGasLimit: 6_000_000n,
   chainId: 123n,
   chainOverrides: [],
-  coinbase: Buffer.from("0000000000000000000000000000000000000000", "hex"),
+  coinbase: Uint8Array.from(
+    Buffer.from("0000000000000000000000000000000000000000", "hex")
+  ),
   genesisState,
   hardfork: SHANGHAI,
   initialBlobGas: {
     gasUsed: 0n,
     excessGas: 0n,
   },
-  initialParentBeaconBlockRoot: Buffer.from(
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "hex"
+  initialParentBeaconBlockRoot: Uint8Array.from(
+    Buffer.from(
+      "0000000000000000000000000000000000000000000000000000000000000000",
+      "hex"
+    )
   ),
   minGasPrice: 0n,
   mining: {
@@ -81,7 +90,7 @@ const loggerConfig = {
 };
 
 const tracingConfig: TracingConfigWithBuffers = {
-  buildInfos: [Buffer.from(JSON.stringify(exampleBuildInfo))],
+  buildInfos: [Uint8Array.from(contractBuildInfo)],
   ignoreContracts: true,
 };
 
@@ -124,6 +133,8 @@ describe("Gas reports", function () {
     gasPrice = await getGasPrice(provider);
     gasReporter = new GasReporter();
   });
+
+  const exampleBuildInfo = JSON.parse(contractBuildInfo.toString());
 
   describe("sendTransaction", function () {
     it("deployment + transaction", async function () {
