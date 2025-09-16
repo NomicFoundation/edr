@@ -29,6 +29,7 @@ jobs:
           webhook: ${{ secrets.GH_ACTION_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: webhook-trigger
           errors: true
+          payload-delimiter: "_"
           payload-templated: true
           payload: |
             {
