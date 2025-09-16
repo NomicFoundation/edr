@@ -3,6 +3,7 @@ pub use revm_primitives::{
     alloy_primitives::{Bloom, ChainId, B512, B64, U128, U160, U64, U8},
     b256, bytes,
     eip3860::MAX_INITCODE_SIZE,
+    hardfork::UnknownHardfork,
     hash_map, hash_set, hex, hex_literal, keccak256, Address, Bytes, HashMap, HashSet, B256,
     KECCAK_EMPTY, U256,
 };

@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
+use edr_chain_l1::{
+    rpc::{call::L1CallRequest, TransactionRequest},
+    L1ChainSpec,
+};
 use edr_eth::Address;
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
     AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
@@ -61,11 +63,11 @@ async fn issue_326() -> anyhow::Result<()> {
     ))?;
 
     provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-        CallRequest {
+        L1CallRequest {
             from: Some(impersonated_account),
             to: Some(impersonated_account),
             max_fee_per_gas: Some(0x200),
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         },
         None,
     )))?;

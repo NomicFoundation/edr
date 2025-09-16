@@ -1,3 +1,4 @@
+use edr_chain_l1::rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
     transaction::remote::EthRpcTransaction,
@@ -15,7 +16,7 @@ use crate::{transaction, GenericChainSpec};
 // defining crate of `edr_evm::TransactionAndBlock`, which probably shouldn't
 // as far as defining spec externally is concerned.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct TransactionWithSignature(edr_rpc_eth::TransactionWithSignature);
+pub struct TransactionWithSignature(L1RpcTransactionWithSignature);
 
 impl EthRpcTransaction for TransactionWithSignature {
     fn block_hash(&self) -> Option<&edr_eth::B256> {
@@ -23,8 +24,8 @@ impl EthRpcTransaction for TransactionWithSignature {
     }
 }
 
-impl From<edr_rpc_eth::TransactionWithSignature> for TransactionWithSignature {
-    fn from(value: edr_rpc_eth::TransactionWithSignature) -> Self {
+impl From<L1RpcTransactionWithSignature> for TransactionWithSignature {
+    fn from(value: L1RpcTransactionWithSignature) -> Self {
         Self(value)
     }
 }
@@ -47,7 +48,7 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for Transact
             )
             .unzip();
 
-        let transaction = edr_rpc_eth::Transaction::new(
+        let transaction = L1RpcTransaction::new(
             &value.transaction,
             header,
             transaction_index,
@@ -56,7 +57,7 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for Transact
         );
         let signature = value.transaction.signature();
 
-        edr_rpc_eth::TransactionWithSignature::new(
+        L1RpcTransactionWithSignature::new(
             transaction,
             signature.r(),
             signature.s(),
@@ -67,7 +68,7 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for Transact
     }
 }
 
-pub use edr_rpc_eth::TransactionConversionError as ConversionError;
+pub use edr_chain_l1::rpc::transaction::ConversionError;
 
 impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPostEip155 {
     type Error = ConversionError;

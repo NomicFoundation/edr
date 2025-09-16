@@ -308,7 +308,8 @@ impl AccountTrieMutation<'_> {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{state::state_root, trie::KECCAK_NULL_RLP};
+    use edr_primitives::KECCAK_NULL_RLP;
+    use edr_state::state_root;
 
     use super::*;
 
