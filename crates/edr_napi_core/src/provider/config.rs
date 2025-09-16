@@ -1,14 +1,14 @@
 use core::num::NonZeroU64;
 use std::{str::FromStr, time::SystemTime};
 
-use edr_chain_l1::UnknownHardfork;
+use edr_block_header::BlobGas;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_eth::{block::BlobGas, Address, ChainId, HashMap, B256};
 use edr_evm::{
     hardfork::{self, ChainOverride},
     precompile::PrecompileFn,
 };
 use edr_evm_spec::EvmSpecId;
+use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
 use edr_provider::{config, AccountOverride, ForkConfig};
 use edr_signer::SecretKey;
 

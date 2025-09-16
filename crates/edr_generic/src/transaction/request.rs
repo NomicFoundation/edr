@@ -1,3 +1,4 @@
+use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_evm_spec::EvmSpecId;
 use edr_provider::{
     calculate_eip1559_fee_parameters,
@@ -6,7 +7,6 @@ use edr_provider::{
     time::TimeSinceEpoch,
     ProviderError, ProviderErrorForChainSpec,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_signer::{FakeSign, SecretKey, Sign, SignatureError};
 use edr_transaction::{Address, Bytes, TxKind, U256};
 
@@ -50,13 +50,13 @@ impl Sign for Request {
     }
 }
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Request {
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for Request {
     type Context<'context> = CallContext<'context, GenericChainSpec, TimerT>;
 
     type Error = ProviderErrorForChainSpec<GenericChainSpec>;
 
     fn from_rpc_type(
-        value: CallRequest,
+        value: L1CallRequest,
         context: Self::Context<'_>,
     ) -> Result<crate::transaction::Request, ProviderErrorForChainSpec<GenericChainSpec>> {
         let CallContext {
@@ -69,7 +69,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
 
         validate_call_request::<GenericChainSpec, TimerT>(data.hardfork(), &value, block_spec)?;
 
-        let CallRequest {
+        let L1CallRequest {
             from,
             to,
             gas,

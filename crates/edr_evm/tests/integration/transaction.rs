@@ -8,7 +8,7 @@ mod alchemy {
                 paste::item! {
                     #[tokio::test]
                     async fn [<transaction_remote_ $name _hash>]() {
-                        use edr_chain_l1::L1ChainSpec;
+                        use edr_chain_l1::{L1ChainSpec, L1SignedTransaction};
                         use edr_eth::{
                             PreEip1898BlockSpec,
                             B256
@@ -31,7 +31,7 @@ mod alchemy {
                             .collect();
 
                         let transactions =
-                                block.transactions.into_iter().map(edr_chain_l1::Signed::try_from).collect::<Result<Vec<_>, _>>()
+                                block.transactions.into_iter().map(L1SignedTransaction::try_from).collect::<Result<Vec<_>, _>>()
                                     .expect("Conversion must succeed, as we're not retrieving a pending block");
 
                         for (index, transaction) in transactions.iter().enumerate() {

@@ -7,7 +7,7 @@ use edr_provider::{
     test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::CallRequest;
+use edr_chain_l1::rpc::call::L1CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
 use sha3::{Digest, Keccak256};
@@ -53,10 +53,10 @@ async fn issue_356() -> anyhow::Result<()> {
 
     let response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            CallRequest {
+            L1CallRequest {
                 to: Some(contract_address),
                 data: Some(selector),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             None,
             None,

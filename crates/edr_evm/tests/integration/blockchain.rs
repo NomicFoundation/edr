@@ -2,9 +2,9 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use edr_block_header::{HeaderOverrides, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
 use edr_eth::{
-    block::{HeaderOverrides, PartialHeader},
     result::{ExecutionResult, Output, SuccessReason},
     Address, Bytes, HashSet, B256, U256,
 };
@@ -22,7 +22,6 @@ use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
 };
-use edr_rpc_eth::TransactionConversionError;
 use serial_test::serial;
 
 #[cfg(feature = "test-remote")]
@@ -262,11 +261,11 @@ fn insert_dummy_block_with_transaction(
     let receipt_factory = EthBlockReceiptFactory::default();
 
     let block = EthLocalBlock::<
-        RemoteBlockConversionError<TransactionConversionError>,
+        RemoteBlockConversionError<edr_chain_l1::rpc::transaction::ConversionError>,
         BlockReceipt<edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
         ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
         edr_chain_l1::Hardfork,
-        edr_rpc_eth::receipt::ConversionError,
+        edr_chain_l1::rpc::receipt::ConversionError,
         edr_chain_l1::L1SignedTransaction,
     >::new(
         &receipt_factory,

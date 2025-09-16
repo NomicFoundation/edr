@@ -8,6 +8,7 @@ description = "A generic chain specification for Ethereum Layer 1 chains."
 alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
 derive-where.workspace = true
+edr_block_header.workspace = true
 edr_chain_l1.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
@@ -17,7 +18,7 @@ edr_evm = { path = "../edr_evm" }
 edr_evm_spec.workspace = true
 edr_provider = { path = "../edr_provider" }
 edr_receipt.workspace = true
-edr_rpc_eth = { path = "../edr_rpc_eth" }
+edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
 edr_transaction.workspace = true

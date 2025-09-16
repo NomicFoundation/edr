@@ -524,15 +524,13 @@ impl BlockEnvConstructor<BlockHeader> for L1ChainSpec {
 
 #[cfg(test)]
 mod l1_chain_spec_tests {
-    use edr_eth::{
-        block::{BlobGas, Header},
-        Address, Bloom, Bytes, B256, B64, U256,
-    };
+    use edr_block_header::{BlobGas, BlockHeader};
+    use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
     use crate::spec::{BlockEnvConstructor as _, L1ChainSpec};
 
-    fn build_block_header(blob_gas: Option<BlobGas>) -> Header {
-        Header {
+    fn build_block_header(blob_gas: Option<BlobGas>) -> BlockHeader {
+        BlockHeader {
             parent_hash: B256::default(),
             ommers_hash: B256::default(),
             beneficiary: Address::default(),

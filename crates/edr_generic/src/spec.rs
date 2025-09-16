@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
+use edr_block_header::{BlobGas, BlockHeader, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{self, BlobGas, Header, PartialHeader},
     eips::eip4844::{self, blob_base_fee_update_fraction, BlobExcessGasAndPrice},
     Bytes, U256,
 };
@@ -63,8 +63,8 @@ fn blob_excess_gas_and_price(
         })
 }
 
-impl BlockEnvConstructor<block::Header> for GenericChainSpec {
-    fn new_block_env(header: &Header, hardfork: EvmSpecId) -> Self::BlockEnv {
+impl BlockEnvConstructor<BlockHeader> for GenericChainSpec {
+    fn new_block_env(header: &BlockHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
         edr_chain_l1::BlockEnv {
             number: U256::from(header.number),
             beneficiary: header.beneficiary,
@@ -263,17 +263,14 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{
-        block::{BlobGas, Header},
-        eips::eip4844,
-        Address, Bloom, Bytes, B256, B64, U256,
-    };
+    use edr_eth::{eips::eip4844, Address, Bloom, Bytes, B256, B64, U256};
     use edr_evm::spec::BlockEnvConstructor as _;
 
+    use super::*;
     use crate::spec::GenericChainSpec;
 
-    fn build_block_header(blob_gas: Option<BlobGas>) -> Header {
-        Header {
+    fn build_block_header(blob_gas: Option<BlobGas>) -> BlockHeader {
+        BlockHeader {
             parent_hash: B256::default(),
             ommers_hash: B256::default(),
             beneficiary: Address::default(),

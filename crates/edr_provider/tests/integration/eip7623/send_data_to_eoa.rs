@@ -1,17 +1,17 @@
+use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_eth::{address, bytes};
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use super::new_provider;
 use crate::integration::eip7623::assert_transaction_gas_usage;
 
-fn call_request() -> CallRequest {
+fn call_request() -> L1CallRequest {
     let transaction_request = transaction_request();
 
-    CallRequest {
+    L1CallRequest {
         from: Some(transaction_request.from),
         to: transaction_request.to,
         data: transaction_request.data,
-        ..CallRequest::default()
+        ..L1CallRequest::default()
     }
 }
 

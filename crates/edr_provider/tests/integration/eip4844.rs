@@ -2,7 +2,13 @@
 
 use std::{str::FromStr, sync::Arc};
 
-use edr_chain_l1::L1ChainSpec;
+use edr_chain_l1::{
+    rpc::{
+        block::L1RpcBlock, call::L1CallRequest, transaction::L1RpcTransactionWithSignature,
+        TransactionRequest,
+    },
+    L1ChainSpec,
+};
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{
     eips::eip4844::{self, GAS_PER_BLOB},
@@ -14,7 +20,6 @@ use edr_provider::{
     time::CurrentTime,
     AccountOverride, MethodInvocation, NoopLogger, Provider, ProviderError, ProviderRequest,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_to_address;
 use edr_transaction::TransactionType as _;
@@ -24,19 +29,20 @@ use crate::common::blob::{
     fake_pooled_transaction, fake_raw_transaction, fake_transaction, BlobTransactionBuilder,
 };
 
-fn fake_call_request() -> CallRequest {
+fn fake_call_request() -> L1CallRequest {
     let transaction = fake_pooled_transaction();
     let blobs = transaction.blobs().map(<[Blob]>::to_vec);
     let transaction = transaction.into_payload();
     let from = transaction.caller();
 
-    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::L1TransactionType::Eip4844 {
+    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::L1TransactionType::Eip4844
+    {
         Some(transaction.blob_hashes().to_vec())
     } else {
         None
     };
 
-    CallRequest {
+    L1CallRequest {
         from: Some(*from),
         to: transaction.kind().to().copied(),
         max_fee_per_gas: transaction.max_fee_per_gas().copied(),
@@ -49,7 +55,7 @@ fn fake_call_request() -> CallRequest {
             .map(<[edr_eip2930::AccessListItem]>::to_vec),
         blobs,
         blob_hashes,
-        ..CallRequest::default()
+        ..L1CallRequest::default()
     }
 }
 
@@ -60,7 +66,8 @@ fn fake_transaction_request() -> TransactionRequest {
     let transaction = transaction.into_payload();
     let from = *transaction.caller();
 
-    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::L1TransactionType::Eip4844 {
+    let blob_hashes = if transaction.transaction_type() == edr_chain_l1::L1TransactionType::Eip4844
+    {
         Some(transaction.blob_hashes().to_vec())
     } else {
         None
@@ -258,7 +265,7 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: edr_rpc_eth::TransactionWithSignature = serde_json::from_value(result.result)?;
+    let transaction: L1RpcTransactionWithSignature = serde_json::from_value(result.result)?;
     let transaction = edr_chain_l1::L1SignedTransaction::try_from(transaction)?;
 
     assert_eq!(transaction, expected);
@@ -306,7 +313,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let first_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let first_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(first_block.blob_gas_used, Some(eip4844::GAS_PER_BLOB));
 
     assert_eq!(
@@ -330,7 +337,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let second_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let second_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(second_block.blob_gas_used, Some(4 * GAS_PER_BLOB));
 
     assert_eq!(
@@ -354,7 +361,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let third_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let third_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(third_block.blob_gas_used, Some(5 * GAS_PER_BLOB));
 
     assert_eq!(
@@ -374,7 +381,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fourth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fourth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fourth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
@@ -395,7 +402,7 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fifth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fifth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fifth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(

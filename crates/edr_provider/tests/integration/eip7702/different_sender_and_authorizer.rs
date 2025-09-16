@@ -1,7 +1,9 @@
-use edr_chain_l1::L1ChainSpec;
+use edr_chain_l1::{
+    rpc::{call::L1CallRequest, TransactionRequest},
+    L1ChainSpec,
+};
 use edr_eth::{address, bytes, Bytes, U256};
 use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_signer::public_key_to_address;
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 
@@ -37,11 +39,11 @@ async fn call() -> anyhow::Result<()> {
     let secret_key2 = secret_key_from_str(edr_defaults::SECRET_KEYS[1])?;
     let sender = public_key_to_address(secret_key2.public_key());
 
-    let call_request = CallRequest {
+    let call_request = L1CallRequest {
         from: Some(sender),
         to: Some(sender),
         authorization_list: Some(vec![signed_authorization(&secret_key1)?]),
-        ..CallRequest::default()
+        ..L1CallRequest::default()
     };
 
     let provider = new_provider(secret_key2)?;
@@ -117,11 +119,11 @@ async fn trace_call() -> anyhow::Result<()> {
     let secret_key2 = secret_key_from_str(edr_defaults::SECRET_KEYS[1])?;
     let sender = public_key_to_address(secret_key2.public_key());
 
-    let call_request = CallRequest {
+    let call_request = L1CallRequest {
         from: Some(sender),
         to: Some(sender),
         authorization_list: Some(vec![signed_authorization(&secret_key1)?]),
-        ..CallRequest::default()
+        ..L1CallRequest::default()
     };
 
     let provider = new_provider(secret_key2)?;
