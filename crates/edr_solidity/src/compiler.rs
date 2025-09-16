@@ -864,10 +864,10 @@ fn decode_bytecodes(
                 .abi;
 
             for item in contract_abi_output {
-                if item.r#type.as_deref() == Some("error") {
-                    if let Ok(custom_error) = CustomError::from_abi(item.clone()) {
-                        contract.add_custom_error(custom_error);
-                    }
+                if item.r#type.as_deref() == Some("error")
+                    && let Ok(custom_error) = CustomError::from_abi(item.clone())
+                {
+                    contract.add_custom_error(custom_error);
                 }
             }
 

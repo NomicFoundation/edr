@@ -10,12 +10,16 @@ fn main() {
         .get("revm")
     {
         Some(Dependency::Simple(s)) => s.clone(),
-        Some(Dependency::Detailed(DependencyDetail {
-            version: Some(version),
-            git,
-            rev,
-            ..
-        })) => {
+        Some(Dependency::Detailed(detailed)) => {
+            let DependencyDetail {
+                version: Some(version),
+                git,
+                rev,
+                ..
+            } = &**detailed
+            else {
+                panic!("Unrecognized revm dependency format")
+            };
             let rev = rev.clone().map_or(String::new(), |rev| format!("@{rev}"));
             let git = git
                 .clone()

@@ -984,8 +984,8 @@ impl<
             .as_ref()
             .map(|failure_dir| failure_dir.join(&invariant_contract.invariant_function.name));
 
-        if let Some(failure_file) = failure_file.as_ref() {
-            if let Some(result) = try_to_replay_recorded_failures(ReplayRecordedFailureArgs {
+        if let Some(failure_file) = failure_file.as_ref()
+            && let Some(result) = try_to_replay_recorded_failures(ReplayRecordedFailureArgs {
                 executor: executor.clone(),
                 test_bytecode,
                 contract_decoder: &*self.contract_decoder,
@@ -1001,9 +1001,9 @@ impl<
                 coverage: &mut coverage,
                 start: &start,
                 _phantom: PhantomData,
-            }) {
-                return result;
-            }
+            })
+        {
+            return result;
         }
 
         let InvariantFuzzTestResult {
@@ -1623,63 +1623,59 @@ fn try_to_replay_recorded_failures<
                 .into(),
             invariant_config.fail_on_revert,
             invariant_contract.call_after_invariant,
-        ) {
-            if !success {
-                // If sequence still fails then replay error to collect traces and
-                // exit without executing new runs.
-                let stack_trace_result = replay_run(ReplayRunArgs {
-                    invariant_contract,
-                    executor,
-                    known_contracts,
-                    ided_contracts: identified_contracts.clone(),
-                    logs,
-                    traces,
-                    coverage,
-                    deprecated_cheatcodes,
-                    inputs: txes,
-                    generate_stack_trace: true,
-                    contract_decoder: Some(contract_decoder),
-                    revert_decoder,
-                    fail_on_revert: invariant_config.fail_on_revert,
-                    show_solidity: invariant_config.show_solidity,
-                })
-                .map_or(None, |result| result.stack_trace_result);
-                let reason = if replayed_entirely {
-                    Some(format!(
-                        "{} replay failure",
-                        invariant_contract.invariant_function.name
-                    ))
-                } else {
-                    Some(format!(
-                        "{} persisted failure revert",
-                        invariant_contract.invariant_function.name
-                    ))
-                };
+        ) && !success
+        {
+            // If sequence still fails then replay error to collect traces and
+            // exit without executing new runs.
+            let stack_trace_result = replay_run(ReplayRunArgs {
+                invariant_contract,
+                executor,
+                known_contracts,
+                ided_contracts: identified_contracts.clone(),
+                logs,
+                traces,
+                coverage,
+                deprecated_cheatcodes,
+                inputs: txes,
+                generate_stack_trace: true,
+                contract_decoder: Some(contract_decoder),
+                revert_decoder,
+                fail_on_revert: invariant_config.fail_on_revert,
+                show_solidity: invariant_config.show_solidity,
+            })
+            .map_or(None, |result| result.stack_trace_result);
+            let reason = if replayed_entirely {
+                Some(format!(
+                    "{} replay failure",
+                    invariant_contract.invariant_function.name
+                ))
+            } else {
+                Some(format!(
+                    "{} persisted failure revert",
+                    invariant_contract.invariant_function.name
+                ))
+            };
 
-                return Some(TestResult {
-                    status: TestStatus::Failure,
-                    reason,
-                    decoded_logs: decode_console_logs(logs),
-                    traces: traces.clone(),
-                    gas_report_traces: vec![],
-                    coverage: coverage.clone(),
-                    counterexample: Some(CounterExample::Sequence(
-                        call_sequence.len(),
-                        call_sequence,
-                    )),
-                    kind: TestKind::Invariant {
-                        runs: 1,
-                        calls: 1,
-                        reverts: 1,
-                    },
-                    duration: start.elapsed(),
-                    logs: vec![],
-                    labeled_addresses: AddressHashMap::<String>::default(),
-                    value_snapshots: BTreeMap::new(),
-                    stack_trace_result,
-                    deprecated_cheatcodes: deprecated_cheatcodes.clone(),
-                });
-            }
+            return Some(TestResult {
+                status: TestStatus::Failure,
+                reason,
+                decoded_logs: decode_console_logs(logs),
+                traces: traces.clone(),
+                gas_report_traces: vec![],
+                coverage: coverage.clone(),
+                counterexample: Some(CounterExample::Sequence(call_sequence.len(), call_sequence)),
+                kind: TestKind::Invariant {
+                    runs: 1,
+                    calls: 1,
+                    reverts: 1,
+                },
+                duration: start.elapsed(),
+                logs: vec![],
+                labeled_addresses: AddressHashMap::<String>::default(),
+                value_snapshots: BTreeMap::new(),
+                stack_trace_result,
+                deprecated_cheatcodes: deprecated_cheatcodes.clone(),
+            });
         }
     }
     None

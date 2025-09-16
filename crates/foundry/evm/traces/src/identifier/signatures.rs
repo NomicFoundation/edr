@@ -82,10 +82,10 @@ impl SignaturesIdentifier {
     #[instrument(target = "evm::traces", skip(self))]
     pub fn save(&self) {
         if let Some(cached_path) = &self.cached_path {
-            if let Some(parent) = cached_path.parent() {
-                if let Err(err) = std::fs::create_dir_all(parent) {
-                    warn!(target: "evm::traces", ?parent, ?err, "failed to create cache");
-                }
+            if let Some(parent) = cached_path.parent()
+                && let Err(err) = std::fs::create_dir_all(parent)
+            {
+                warn!(target: "evm::traces", ?parent, ?err, "failed to create cache");
             }
             if let Err(err) = fs::write_json_file(cached_path, &self.cached) {
                 warn!(target: "evm::traces", ?cached_path, ?err, "failed to flush signature cache");
@@ -125,11 +125,11 @@ impl SignaturesIdentifier {
             {
                 for (hex_id, selector_result) in query.into_iter().zip(res.into_iter()) {
                     let mut found = false;
-                    if let Some(decoded_results) = selector_result {
-                        if let Some(decoded_result) = decoded_results.into_iter().next() {
-                            cache.insert(hex_id.clone(), decoded_result);
-                            found = true;
-                        }
+                    if let Some(decoded_results) = selector_result
+                        && let Some(decoded_result) = decoded_results.into_iter().next()
+                    {
+                        cache.insert(hex_id.clone(), decoded_result);
+                        found = true;
                     }
                     if !found {
                         self.unavailable.insert(hex_id.clone());
