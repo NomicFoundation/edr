@@ -3,7 +3,7 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use edr_chain_l1::L1ChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{self, BlobGas, Header, PartialHeader},
+    block::{self, calculate_next_base_fee_per_gas, BlobGas, Header, PartialHeader},
     eips::eip4844::{self, blob_base_fee_update_fraction},
     result::ExecutionResult,
     Bytes, B256, U256,
@@ -28,7 +28,7 @@ use crate::{
     block::{transaction::TransactionAndBlockForChainSpec, LocalCreationError},
     config::CfgEnv,
     evm::Evm,
-    hardfork::{self, Activations},
+    hardfork::{self, l1::chain_base_fee_params, Activations},
     journal::Journal,
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder},
@@ -335,6 +335,9 @@ pub trait RuntimeSpec:
         StateErrorT,
     >;
 
+    /// Returns the `base_fee_per_gas` for next block
+    fn next_base_fee_per_gas(header: &Header, chain_id: u64, hardfork: Self::Hardfork, base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>) -> u128;
+
 }
 
 /// A trait for constructing a (partial) block header into an EVM block.
@@ -474,6 +477,19 @@ impl RuntimeSpec for L1ChainSpec {
 
     fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
         hardfork::l1::chain_base_fee_params(chain_id)
+    }
+
+    fn next_base_fee_per_gas(
+        header: &Header,
+        chain_id: u64,
+        hardfork: Self::Hardfork,
+        base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
+    ) -> u128 {
+        calculate_next_base_fee_per_gas(
+            header,
+            base_fee_params_overrides.unwrap_or(chain_base_fee_params(chain_id)),
+            hardfork,
+        )
     }
 }
 

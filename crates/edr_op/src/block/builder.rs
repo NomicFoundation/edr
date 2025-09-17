@@ -1,4 +1,4 @@
-use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams};
+use edr_eip1559::ConstantBaseFeeParams;
 use edr_eth::{block::PartialHeader, trie::KECCAK_NULL_RLP, Address, Bytes, HashMap, U256};
 use edr_evm::{
     blockchain::SyncBlockchain,
@@ -91,29 +91,20 @@ where
                 encode_dynamic_base_fee_params(extra_data_base_fee_params)
             }));
 
-            // For post-Holocene blocks, determine the base fee parameters to be used for
-            // this block.
             overrides.base_fee_params = {
-                if overrides.base_fee_params.is_some() {
-                    overrides.base_fee_params
-                } else {
-                    let parent_block_number = blockchain.last_block_number();
-                    let parent_hardfork = blockchain
-                        .spec_at_block_number(parent_block_number)
-                        .map_err(BlockBuilderCreationError::Blockchain)?;
+                let parent_block_number = blockchain.last_block_number();
+                let parent_hardfork = blockchain
+                    .spec_at_block_number(parent_block_number)
+                    .map_err(BlockBuilderCreationError::Blockchain)?;
+                let parent_block = blockchain
+                    .last_block()
+                    .map_err(BlockBuilderCreationError::Blockchain)?;
 
-                    if parent_hardfork >= Hardfork::HOLOCENE {
-                        // Use the base fee parameters encoded in the parent block's extra data
-                        let parent_block = blockchain
-                            .last_block()
-                            .map_err(BlockBuilderCreationError::Blockchain)?;
-
-                        let base_fee_params = decode_base_params(&parent_block.header().extra_data);
-                        Some(BaseFeeParams::Constant(base_fee_params))
-                    } else {
-                        None
-                    }
-                }
+                OpChainSpec::base_fee_params_overrides(
+                    parent_block.header(),
+                    parent_hardfork,
+                    overrides.base_fee_params,
+                )
             }
         }
 

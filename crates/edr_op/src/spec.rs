@@ -4,7 +4,7 @@ use std::sync::Arc;
 use alloy_rlp::RlpEncodable;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{BlobGas, Header, PartialHeader},
+    block::{calculate_next_base_fee_per_gas, BlobGas, Header, PartialHeader},
     eips::eip4844,
     U256,
 };
@@ -33,7 +33,7 @@ use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::{self, LocalBlock},
+    block::{self, decode_base_params, LocalBlock},
     eip1559::encode_dynamic_base_fee_params,
     eip2718::TypedEnvelope,
     hardfork,
@@ -199,6 +199,41 @@ impl RuntimeSpec for OpChainSpec {
 
     fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
         hardfork::chain_base_fee_params(chain_id)
+    }
+
+    fn next_base_fee_per_gas(
+        header: &Header,
+        chain_id: u64,
+        hardfork: Self::Hardfork,
+        base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
+    ) -> u128 {
+        calculate_next_base_fee_per_gas(
+            header,
+            Self::base_fee_params_overrides(header, hardfork, base_fee_params_overrides.cloned())
+                .as_ref()
+                .unwrap_or(OpChainSpec::chain_base_fee_params(chain_id)),
+            hardfork,
+        )
+    }
+}
+
+impl OpChainSpec {
+    /// Defines the `base_fee_params` override to use for OP
+    pub fn base_fee_params_overrides(
+        parent_header: &Header,
+        parent_hardfork: <OpChainSpec as ChainHardfork>::Hardfork,
+        base_fee_params_overrides: Option<BaseFeeParams<<OpChainSpec as ChainHardfork>::Hardfork>>,
+    ) -> Option<BaseFeeParams<<OpChainSpec as ChainHardfork>::Hardfork>> {
+        base_fee_params_overrides.or_else(|| {
+            // For post-Holocene blocks, use the parent header extra_data to determine the
+            // base fee parameters
+            if parent_hardfork >= Hardfork::HOLOCENE {
+                let base_fee_params = decode_base_params(&parent_header.extra_data);
+                Some(BaseFeeParams::Constant(base_fee_params))
+            } else {
+                None
+            }
+        })
     }
 }
 

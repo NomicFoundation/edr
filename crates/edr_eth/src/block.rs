@@ -276,7 +276,7 @@ impl PartialHeader {
             base_fee: overrides.base_fee.or_else(|| {
                 if hardfork.into() >= EvmSpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        calculate_next_base_fee_per_gas::<ChainSpecT>(
+                        calculate_next_base_fee_per_gas(
                             parent,
                             overrides
                                 .base_fee_params
@@ -392,10 +392,10 @@ impl From<Header> for PartialHeader {
 /// # Panics
 ///
 /// Panics if the parent header does not contain a base fee.
-pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
+pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
     parent: &Header,
-    base_fee_params: &BaseFeeParams<ChainSpecT::Hardfork>,
-    hardfork: ChainSpecT::Hardfork,
+    base_fee_params: &BaseFeeParams<HardforkT>,
+    hardfork: HardforkT,
 ) -> u128 {
     let base_fee_params = base_fee_params
         .at_condition(hardfork, parent.number + 1)
@@ -862,13 +862,11 @@ mod tests {
 
         assert_eq!(
             partial_header.base_fee,
-            Some(
-                calculate_next_base_fee_per_gas::<edr_chain_l1::L1ChainSpec>(
-                    &parent_header,
-                    &base_fee_params,
-                    edr_chain_l1::Hardfork::LONDON,
-                )
-            )
+            Some(calculate_next_base_fee_per_gas(
+                &parent_header,
+                &base_fee_params,
+                edr_chain_l1::Hardfork::LONDON,
+            ))
         );
     }
 }

@@ -14,10 +14,7 @@ use alloy_dyn_abi::eip712::TypedData;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     account::{Account, AccountInfo, AccountStatus},
-    block::{
-        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
-        Header, HeaderOverrides,
-    },
+    block::{calculate_next_base_fee_per_blob_gas, miner_reward, Header, HeaderOverrides},
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
     result::ExecutionResult,
@@ -1697,12 +1694,11 @@ where
     }
 
     fn calculate_next_block_base_fee(&self, header: &Header) -> u128 {
-        calculate_next_base_fee_per_gas::<ChainSpecT>(
+        ChainSpecT::next_base_fee_per_gas(
             header,
-            self.base_fee_params
-                .as_ref()
-                .unwrap_or(ChainSpecT::chain_base_fee_params(self.chain_id())), /* TODO: this looks like leaked responsibility. If OP should use header extra_data before fallbacking to chainspect values */
+            self.chain_id(),
             self.hardfork(),
+            self.base_fee_params.as_ref(),
         )
     }
 
