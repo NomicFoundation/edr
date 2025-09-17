@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{Address, HashMap, B256, U256};
-use edr_state::account::AccountInfo;
+use edr_state_api_api::account::AccountInfo;
 use edr_transaction::upfront_cost;
 use indexmap::{map::Entry, IndexMap};
 

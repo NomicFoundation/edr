@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use edr_eth::Bytecode;
 use edr_primitives::{Address, HashMap, B256, KECCAK_EMPTY, U256};
 use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
-use edr_state::account::AccountInfo;
+use edr_state_api::account::AccountInfo;
 
 use super::State;
 

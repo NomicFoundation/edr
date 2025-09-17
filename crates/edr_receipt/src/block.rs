@@ -1,9 +1,10 @@
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
+use edr_primitives::{Address, Bloom, B256};
 
 use super::{AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus, TransactionReceipt};
-use crate::{log::FilterLog, Address, Bloom, B256};
+use crate::log::FilterLog;
 
 /// Type for a receipt that's included in a block.
 #[derive(Clone, Debug, PartialEq, Eq)]

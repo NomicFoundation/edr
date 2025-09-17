@@ -5,7 +5,7 @@ use edr_eth::Bytecode;
 use edr_primitives::{Address, HashMap, HashSet, B256, KECCAK_NULL_RLP, U256};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_rpc_spec::RpcSpec;
-use edr_state::account::{Account, AccountInfo};
+use edr_state_api::account::{Account, AccountInfo};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use tokio::runtime;
 

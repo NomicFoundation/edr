@@ -43,11 +43,10 @@ impl alloy_rlp::Encodable for FilterLog {
 mod tests {
     use std::str::FromStr;
 
+    use edr_primitives::{Address, Bytes, B256};
+
     use super::*;
-    use crate::{
-        log::{ExecutionLog, FullBlockLog, ReceiptLog},
-        Address, Bytes, B256,
-    };
+    use crate::log::{ExecutionLog, FullBlockLog, ReceiptLog};
 
     #[test]
     fn test_filter_log_serde() -> anyhow::Result<()> {

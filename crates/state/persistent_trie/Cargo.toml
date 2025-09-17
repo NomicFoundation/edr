@@ -1,0 +1,26 @@
+[package]
+name = "edr_state_persistent_trie"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-rlp.workspace = true
+cita_trie = { version = "4.0.0", default-features = false }
+edr_primitives.workspace = true
+edr_state_api.workspace = true
+hasher = { version = "0.1.4", default-features = false, features = ["hash-keccak"] }
+parking_lot.workspace = true
+revm-state.workspace = true
+rpds = { version = "1.1.0", default-features = false, features = ["std"] }
+serde.workspace = true
+serde_json.workspace = true
+tracing = { workspace = true, default-features = false, features = ["attributes", "std"], optional = true }
+
+[dev-dependencies]
+anyhow.workspace = true
+
+[features]
+tracing = ["dep:tracing"]
+
+[lints]
+workspace = true

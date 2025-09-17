@@ -85,16 +85,6 @@ pub enum BlockchainError<BlockConversionErrorT, HardforkT: Debug, ReceiptConvers
     },
 }
 
-/// Trait for retrieving a block's hash by number.
-#[auto_impl(&, &mut, Box, Rc, Arc)]
-pub trait BlockHash {
-    /// The blockchain's error type.
-    type Error;
-
-    /// Retrieves the block hash at the provided number.
-    fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error>;
-}
-
 /// Trait for implementations of an Ethereum blockchain.
 #[auto_impl(&)]
 pub trait Blockchain<ChainSpecT>

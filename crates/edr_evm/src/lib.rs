@@ -16,7 +16,6 @@ pub use crate::{
 pub mod block;
 /// Types for managing Ethereum blockchain
 pub mod blockchain;
-pub(crate) mod collections;
 /// Types for configuring the runtime.
 pub mod config;
 /// Types and constants for Ethereum improvements proposals (EIPs)

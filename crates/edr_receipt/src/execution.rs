@@ -4,9 +4,9 @@ mod eip658;
 mod legacy;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
+use edr_primitives::{Bloom, B256};
 
 use super::{Execution, ExecutionReceipt, MapReceiptLogs};
-use crate::{Bloom, B256};
 
 #[derive(
     Clone, Debug, PartialEq, Eq, RlpDecodable, serde::Deserialize, serde::Serialize, RlpEncodable,

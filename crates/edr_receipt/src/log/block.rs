@@ -1,9 +1,9 @@
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
+use edr_primitives::B256;
 
 use super::receipt::ReceiptLog;
-use crate::B256;
 
 /// A log that's returned by a block query.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -74,8 +74,10 @@ impl alloy_rlp::Encodable for FullBlockLog {
 mod tests {
     use std::str::FromStr;
 
+    use edr_primitives::{Address, Bytes};
+
     use super::*;
-    use crate::{log::ExecutionLog, Address, Bytes};
+    use crate::log::ExecutionLog;
 
     #[test]
     fn test_block_log_full_serde() -> anyhow::Result<()> {

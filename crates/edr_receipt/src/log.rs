@@ -7,12 +7,13 @@ mod receipt;
 /// Log generated after execution of a transaction.
 pub type ExecutionLog = revm_primitives::Log;
 
+use edr_primitives::{Address, Bloom, BloomInput, HashSet, B256};
+
 pub use self::{
     block::{BlockLog, FullBlockLog},
     filter::FilterLog,
     receipt::ReceiptLog,
 };
-use crate::{Address, Bloom, BloomInput, HashSet, B256};
 
 /// Constructs a bloom filter from the provided logs.
 pub fn logs_to_bloom(logs: &[ExecutionLog]) -> Bloom {

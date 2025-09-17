@@ -6,7 +6,7 @@ use edr_eth::{block::miner_reward, Address, Bytes, HashMap, PreEip1898BlockSpec,
 use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _};
 use edr_rpc_eth::client::EthRpcClient;
-use edr_state::account::AccountInfo;
+use edr_state_api::account::AccountInfo;
 use edr_transaction::TxKind;
 
 use crate::{

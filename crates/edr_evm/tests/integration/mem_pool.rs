@@ -13,7 +13,7 @@ use edr_evm::{
 };
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{Address, U256};
-use edr_state::account::AccountInfo;
+use edr_state_api::account::AccountInfo;
 
 #[test]
 fn has_future_transactions() -> anyhow::Result<()> {
