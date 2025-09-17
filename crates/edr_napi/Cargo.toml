@@ -12,10 +12,10 @@ alloy-json-abi.workspace = true
 alloy-sol-types.workspace = true
 derive_more.workspace = true
 derive-where.workspace = true
+edr_block_header.workspace = true
 edr_chain_l1.workspace = true
 edr_coverage.workspace = true
 edr_defaults = { path = "../edr_defaults" }
-edr_eth = { path = "../edr_eth" }
 edr_eip1559.workspace = true
 edr_evm_spec.workspace = true
 edr_evm = { path = "../edr_evm" }
@@ -23,13 +23,15 @@ edr_generic = { path = "../edr_generic" }
 edr_instrument = { path = "../edr_instrument" }
 edr_napi_core = { path = "../edr_napi_core" }
 edr_op = { path = "../edr_op", optional = true }
+edr_primitives.workspace = true
 edr_provider = { path = "../edr_provider" }
 edr_receipt.workspace = true
-edr_rpc_eth = { path = "../edr_rpc_eth" }
 edr_rpc_client = { path = "../edr_rpc_client" }
-edr_scenarios = { version = "0.3.5", path = "../edr_scenarios", optional = true }
+edr_rpc_eth = { path = "../edr_rpc_eth" }
+edr_rpc_spec.workspace = true
+edr_scenarios = { workspace = true, optional = true }
 edr_signer.workspace = true
-edr_solidity = { version = "0.3.5", path = "../edr_solidity" }
+edr_solidity.workspace = true
 k256 = { version = "0.13.1", default-features = false, features = [
     "arithmetic",
     "ecdsa",

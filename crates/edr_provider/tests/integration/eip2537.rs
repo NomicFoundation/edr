@@ -3,13 +3,12 @@
 use core::str::FromStr as _;
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
+use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_eth::{address, Bytes};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
-use edr_chain_l1::rpc::call::L1CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
@@ -33,7 +32,10 @@ fn new_provider(hardfork: edr_chain_l1::Hardfork) -> anyhow::Result<Provider<L1C
     Ok(provider)
 }
 
-fn send_call(provider: &Provider<L1ChainSpec>, call_request: L1CallRequest) -> anyhow::Result<Bytes> {
+fn send_call(
+    provider: &Provider<L1ChainSpec>,
+    call_request: L1CallRequest,
+) -> anyhow::Result<Bytes> {
     let response = provider
         .handle_request(ProviderRequest::with_single(MethodInvocation::Call(
             call_request,

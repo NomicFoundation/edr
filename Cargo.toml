@@ -108,12 +108,17 @@ edr_eip7702 = { path = "crates/eips/7702" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/edr_evm" }
 edr_evm_spec = { path = "crates/edr_evm_spec" }
+edr_generic = { path = "crates/edr_generic" }
 edr_macros = { path = "crates/edr_macros" }
+edr_napi_core = { path = "crates/edr_napi_core" }
+edr_op = { path = "crates/edr_op" }
 edr_primitives = { path = "crates/primitives" }
+edr_provider = { path = "crates/edr_provider" }
 edr_receipt = { path = "crates/edr_receipt" }
 edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
 edr_rpc_spec = { path = "crates/edr_rpc_spec" }
+edr_scenarios = { path = "crates/edr_scenarios" }
 edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
@@ -121,6 +126,7 @@ edr_state = { path = "crates/state" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 edr_transaction = { path = "crates/edr_transaction" }
 edr_trie = { path = "crates/trie" }
+edr_utils = { path = "crates/edr_utils" }
 
 foundry-cheatcodes = { path = "crates/foundry/cheatcodes" }
 foundry-cheatcodes-spec = { path = "crates/foundry/cheatcodes/spec" }

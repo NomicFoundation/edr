@@ -1,5 +1,6 @@
 mod deposit;
 
+use edr_block_header::PartialHeader;
 use edr_eth::result::ExecutionResult;
 use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
 pub use edr_receipt::execution::{Eip658, Legacy};
@@ -120,7 +121,7 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, transaction::Signed> for Buil
 
     fn build_receipt(
         self,
-        header: &edr_eth::block::PartialHeader,
+        header: &PartialHeader,
         transaction: &transaction::Signed,
         result: &ExecutionResult<HaltReason>,
         hardfork: Hardfork,

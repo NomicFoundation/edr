@@ -1,13 +1,12 @@
 use std::sync::OnceLock;
 
+use edr_chain_l1::rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature};
 use edr_eth::B256;
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
     transaction::remote::EthRpcTransaction,
 };
-use edr_rpc_eth::{
-    RpcTypeFrom, TransactionConversionError as L1ConversionError, TransactionWithSignature,
-};
+use edr_rpc_spec::RpcTypeFrom;
 use edr_signer::Signature;
 use edr_transaction::{MaybeSignedTransaction as _, TxKind};
 
@@ -53,7 +52,7 @@ impl TryFrom<Transaction> for transaction::signed::Deposit {
 pub enum ConversionError {
     /// L1 conversion error
     #[error(transparent)]
-    L1(#[from] L1ConversionError),
+    L1(#[from] edr_chain_l1::rpc::transaction::ConversionError),
     /// Missing mint
     #[error("Missing mint")]
     Mint,
@@ -100,7 +99,7 @@ impl TryFrom<Transaction> for transaction::Signed {
                 let v = value.v.ok_or(ConversionError::SignatureV)?;
 
                 let transaction_with_signature =
-                    TransactionWithSignature::new(value.l1, r, s, v, value.y_parity);
+                    L1RpcTransactionWithSignature::new(value.l1, r, s, v, value.y_parity);
 
                 match transaction_type {
                     transaction::Type::Legacy => {
@@ -149,7 +148,7 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<OpChainSpec>> for Transaction {
             )
             .unzip();
 
-        let l1 = edr_rpc_eth::Transaction::new(
+        let l1 = L1RpcTransaction::new(
             &value.transaction,
             header,
             transaction_index,

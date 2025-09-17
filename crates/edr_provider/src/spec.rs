@@ -63,8 +63,8 @@ pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
-    type PooledTransaction = edr_chain_l1::PooledTransaction;
-    type TransactionRequest = edr_chain_l1::Request;
+    type PooledTransaction = edr_chain_l1::L1PooledTransaction;
+    type TransactionRequest = edr_chain_l1::L1TransactionRequest;
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
         match reason {

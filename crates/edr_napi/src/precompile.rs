@@ -1,5 +1,5 @@
-use edr_eth::Address;
 use edr_evm::precompile::{self, PrecompileFn, PrecompileWithAddress};
+use edr_primitives::Address;
 use napi::bindgen_prelude::Uint8Array;
 use napi_derive::napi;
 

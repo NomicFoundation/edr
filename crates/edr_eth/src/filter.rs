@@ -1,3 +1,5 @@
+//! Ethereum types for filter-based RPC methods
+
 use std::mem::take;
 
 use edr_receipt::log::FilterLog;

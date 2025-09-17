@@ -14,8 +14,8 @@ pub use revm_context::TxEnv;
 pub use revm_context_interface::result::OutOfGasError;
 
 pub use self::{
-    eip2718::TypedEnvelope, pooled::PooledTransaction, r#type::L1TransactionType, request::Request,
-    signed::L1SignedTransaction, spec::L1ChainSpec,
+    eip2718::TypedEnvelope, pooled::L1PooledTransaction, r#type::L1TransactionType,
+    request::L1TransactionRequest, signed::L1SignedTransaction, spec::L1ChainSpec,
 };
 
 /// Ethereum L1 block environment.

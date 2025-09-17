@@ -158,15 +158,15 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::U256;
+    use edr_primitives::U256;
     use edr_receipt::{log::ExecutionLog, Bloom, Bytes};
-    use edr_rpc_eth::impl_execution_receipt_tests;
+    use edr_rpc_spec::impl_execution_receipt_serde_tests;
     use receipt::BlockReceiptFactory;
 
     use super::*;
     use crate::{Hardfork, L1BlockInfo, OpChainSpec};
 
-    impl_execution_receipt_tests! {
+    impl_execution_receipt_serde_tests! {
         OpChainSpec, BlockReceiptFactory {
             l1_block_info: L1BlockInfo {
                 l1_base_fee: U256::from(1234),

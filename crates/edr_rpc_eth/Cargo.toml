@@ -14,7 +14,7 @@ edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_evm_spec.workspace = true
 edr_receipt.workspace = true
-edr_rpc_client = { version = "0.3.5", path = "../edr_rpc_client" }
+edr_rpc_client.workspace = true
 edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_state.workspace = true
@@ -30,8 +30,8 @@ tracing = { version = "0.1.37", default-features = false, features = ["attribute
 [dev-dependencies]
 anyhow = { workspace = true, features = ["std"] }
 assert-json-diff = "2.0.2"
-edr_evm = { version = "0.3.5", path = "../edr_evm" }
-edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
+edr_evm.workspace = true
+edr_test_utils.workspace = true
 mockito = { version = "1.0.2", default-features = false }
 paste = { version = "1.0.14", default-features = false }
 reqwest = { version = "0.11", default-features = false, features = ["blocking", "json"] }

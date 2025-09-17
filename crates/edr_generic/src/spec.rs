@@ -253,7 +253,7 @@ impl RuntimeSpec for GenericChainSpec {
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
-    type PooledTransaction = edr_chain_l1::PooledTransaction;
+    type PooledTransaction = edr_chain_l1::L1PooledTransaction;
     type TransactionRequest = crate::transaction::Request;
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {

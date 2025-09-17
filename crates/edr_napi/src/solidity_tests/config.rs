@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use derive_more::Debug;
-use edr_eth::hex;
+use edr_primitives::hex;
 use edr_solidity_tests::{
     executors::invariant::InvariantConfig,
     fuzz::FuzzConfig,
