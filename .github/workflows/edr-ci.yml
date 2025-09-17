@@ -57,7 +57,7 @@ jobs:
         with:
           path: |
             **/edr-cache
-          key: edr-rs-rpc-cache-v1-${{ matrix.os }}
+          key: edr-rs-rpc-cache-v2-${{ matrix.os }}
 
       - name: Run cargo tests (with coverage)
         env:
