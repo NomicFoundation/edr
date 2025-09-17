@@ -3,7 +3,10 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 use derive_where::derive_where;
 use edr_eth::{
     account::{Account, AccountStatus},
-    block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
+    block::{
+        largest_safe_block_number, safe_block_depth, BlockChainCondition,
+        LargestSafeBlockNumberArgs,
+    },
     Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
 };
 use edr_evm_spec::EvmSpecId;
@@ -644,8 +647,10 @@ where
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            self.hardfork,
-            <ChainSpecT as RuntimeSpec>::chain_base_fee_params(self.chain_id).clone(),
+            BlockChainCondition::new(
+                self.hardfork,
+                <ChainSpecT as RuntimeSpec>::chain_base_fee_params(self.chain_id),
+            ),
         );
 
         Ok(())

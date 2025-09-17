@@ -3,7 +3,7 @@ use std::{num::NonZeroU64, sync::Arc};
 
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{HeaderOverrides, PartialHeader},
+    block::{BlockChainCondition, HeaderOverrides, PartialHeader},
     Address, HashMap, HashSet, B256, U256,
 };
 use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
@@ -169,7 +169,7 @@ impl<
     }
 }
 
-impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransactionT>
+impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, SignedTransactionT>
     ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the block by hash, if it exists.
@@ -232,7 +232,6 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
 
     /// Reserves the provided number of blocks, starting from the next block
     /// number.
-    #[allow(clippy::too_many_arguments)]
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn reserve_blocks(
         &mut self,
@@ -241,8 +240,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
         previous_base_fee: Option<u128>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
-        hardfork: HardforkT,
-        base_fee_params: BaseFeeParams<HardforkT>,
+        chain_condition: BlockChainCondition<'_, HardforkT>,
     ) {
         let reservation = Reservation {
             first_number: self.last_block_number + 1,
@@ -252,8 +250,8 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
             previous_state_root,
             previous_total_difficulty,
             previous_diff_index: self.state_diffs.len() - 1,
-            hardfork,
-            base_fee_params,
+            hardfork: chain_condition.hardfork,
+            base_fee_params: (*chain_condition.base_fee_params).clone(),
         };
 
         self.reservations.get_mut().push(reservation);
@@ -356,8 +354,10 @@ impl<
                 let block = BlockT::empty(
                     reservation.hardfork.clone(),
                     PartialHeader::new::<ChainSpecT>(
-                        reservation.hardfork,
-                        &reservation.base_fee_params,
+                        BlockChainCondition::new(
+                            reservation.hardfork,
+                            &reservation.base_fee_params,
+                        ),
                         HeaderOverrides {
                             number: Some(block_number),
                             state_root: Some(reservation.previous_state_root),

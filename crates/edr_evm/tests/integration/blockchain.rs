@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_chain_l1::L1ChainSpec;
 use edr_eth::{
-    block::{HeaderOverrides, PartialHeader},
+    block::{BlockChainCondition, HeaderOverrides, PartialHeader},
     result::{ExecutionResult, Output, SuccessReason},
     Address, Bytes, HashSet, B256, U256,
 };
@@ -155,8 +155,10 @@ fn create_dummy_block_with_difficulty(
     create_dummy_block_with_header(
         blockchain.hardfork(),
         PartialHeader::new::<L1ChainSpec>(
-            blockchain.hardfork(),
-            edr_chain_l1::L1ChainSpec::chain_base_fee_params(blockchain.chain_id()),
+            BlockChainCondition::new(
+                blockchain.hardfork(),
+                edr_chain_l1::L1ChainSpec::chain_base_fee_params(blockchain.chain_id()),
+            ),
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -178,8 +180,10 @@ fn create_dummy_block_with_hash(
     create_dummy_block_with_header(
         hardfork,
         PartialHeader::new::<L1ChainSpec>(
-            hardfork,
-            edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
+            BlockChainCondition::new(
+                hardfork,
+                edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
+            ),
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -222,8 +226,10 @@ fn insert_dummy_block_with_transaction(
     let transaction_hash = *transaction.transaction_hash();
 
     let mut header = PartialHeader::new::<L1ChainSpec>(
-        blockchain.hardfork(),
-        edr_chain_l1::L1ChainSpec::chain_base_fee_params(blockchain.chain_id()),
+        BlockChainCondition::new(
+            blockchain.hardfork(),
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(blockchain.chain_id()),
+        ),
         HeaderOverrides::default(),
         Some(blockchain.last_block()?.header()),
         &Vec::new(),

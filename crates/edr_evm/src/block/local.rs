@@ -9,7 +9,7 @@ use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{self, Header, HeaderOverrides, PartialHeader},
+    block::{self, BlockChainCondition, Header, HeaderOverrides, PartialHeader},
     trie,
     withdrawal::Withdrawal,
     B256, KECCAK_EMPTY,
@@ -256,8 +256,7 @@ impl<
         };
 
         let partial_header = PartialHeader::new::<HeaderConstantsT>(
-            hardfork.clone(),
-            base_fee_params,
+            BlockChainCondition::new(hardfork.clone(), base_fee_params),
             options,
             None,
             &ommers,
