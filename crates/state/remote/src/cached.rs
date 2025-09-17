@@ -1,17 +1,31 @@
 use derive_where::derive_where;
 use edr_primitives::{hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
 use edr_rpc_spec::RpcSpec;
-use edr_state::account::AccountInfo;
+use edr_state_api::{account::AccountInfo, AccountStorage, State, StateError, StateMut};
 
 use super::RemoteState;
-use crate::state::{account::EdrAccount, State, StateError, StateMut};
+
+#[derive(Clone, Debug, Default)]
+struct AccountAndStorage {
+    pub info: AccountInfo,
+    pub storage: AccountStorage,
+}
+
+impl From<AccountInfo> for AccountAndStorage {
+    fn from(info: AccountInfo) -> Self {
+        Self {
+            info,
+            storage: AccountStorage::default(),
+        }
+    }
+}
 
 /// A cached version of [`RemoteState`].
 #[derive_where(Debug)]
 pub struct CachedRemoteState<ChainSpecT: RpcSpec> {
     remote: RemoteState<ChainSpecT>,
     /// Mapping of block numbers to cached accounts
-    account_cache: HashMap<u64, HashMap<Address, EdrAccount>>,
+    account_cache: HashMap<u64, HashMap<Address, AccountAndStorage>>,
     /// Mapping of block numbers to cached code
     code_cache: HashMap<u64, HashMap<B256, Bytecode>>,
 }
@@ -88,7 +102,7 @@ impl<ChainSpecT: RpcSpec> StateMut for CachedRemoteState<ChainSpecT> {
                 // account needs to be loaded for us to access slots.
                 let mut account =
                     fetch_remote_account(address, &self.remote, &mut self.code_cache)?
-                        .map_or_else(EdrAccount::default, EdrAccount::from);
+                        .map_or_else(AccountAndStorage::default, AccountAndStorage::from);
 
                 let value = self.remote.storage(address, index)?;
 

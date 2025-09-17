@@ -1,5 +1,5 @@
 use edr_primitives::{Address, HashMap, U256};
-use edr_state::account::{Account, AccountInfo, AccountStatus};
+use edr_state_api::account::{Account, AccountInfo, AccountStatus};
 
 use crate::state::EvmStorageSlot;
 

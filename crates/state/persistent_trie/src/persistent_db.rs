@@ -5,7 +5,7 @@ use rpds::HashTrieMapSync;
 /// structure that allows efficient checkpointing.
 /// Based on the `cita-trie` crate's `MemoryDB`.
 #[derive(Debug, Default)]
-pub(super) struct PersistentMemoryDB {
+pub(crate) struct PersistentMemoryDB {
     storage: RwLock<HashTrieMapSync<Vec<u8>, Vec<u8>>>,
 }
 

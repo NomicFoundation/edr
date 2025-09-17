@@ -43,7 +43,7 @@ edr_provider = { path = "../edr_provider", features = ["test-utils"] }
 edr_rpc_eth = { path = "../edr_rpc_eth", features = ["test-utils"] }
 edr_rpc_spec = { workspace = true, features = ["test-utils"] }
 edr_test_utils = { path = "../edr_test_utils" }
-parking_lot = { version = "0.12.1", default-features = false }
+parking_lot.workspace = true
 paste.workspace = true
 serde_json.workspace = true
 serial_test = "2.0.0"

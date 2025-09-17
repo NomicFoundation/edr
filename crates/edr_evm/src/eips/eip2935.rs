@@ -1,5 +1,5 @@
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes};
-use edr_state::account::AccountInfo;
+use edr_state_api::account::AccountInfo;
 
 use crate::state::StateDiff;
 

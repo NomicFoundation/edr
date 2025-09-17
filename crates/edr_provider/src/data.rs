@@ -55,7 +55,7 @@ use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_state::account::{Account, AccountInfo, AccountStatus};
+use edr_state_api::account::{Account, AccountInfo, AccountStatus};
 use edr_transaction::{
     request::TransactionRequestAndSender, IsEip4844, IsSupported as _, TransactionMut,
     TransactionType, TxKind,

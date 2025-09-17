@@ -461,7 +461,7 @@ fn priority_comparator<SignedTransactionT: ExecutableTransaction>(
 #[cfg(test)]
 mod tests {
     use edr_primitives::U256;
-    use edr_state::account::AccountInfo;
+    use edr_state_api::account::AccountInfo;
 
     use super::*;
     use crate::test_utils::{

@@ -13,7 +13,7 @@ use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
 };
-use edr_state::account::{Account, AccountStatus};
+use edr_state_api::account::{Account, AccountStatus};
 use parking_lot::Mutex;
 use tokio::runtime;
 

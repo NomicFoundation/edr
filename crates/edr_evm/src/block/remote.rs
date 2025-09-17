@@ -146,20 +146,6 @@ impl<ChainSpecT: RuntimeSpec> BlockReceipts<Arc<ChainSpecT::BlockReceipt>>
     }
 }
 
-/// Trait that provides access to the state root and total difficulty of an
-/// Ethereum-based block.
-pub trait EthRpcBlock {
-    /// Returns the root of the block's state trie.
-    fn state_root(&self) -> &B256;
-
-    /// Returns the block's timestamp.
-    fn timestamp(&self) -> u64;
-
-    /// Returns the total difficulty of the chain until this block for finalised
-    /// blocks. For pending blocks, returns `None`.
-    fn total_difficulty(&self) -> Option<&U256>;
-}
-
 impl<TransactionT> EthRpcBlock for L1RpcBlock<TransactionT> {
     fn state_root(&self) -> &B256 {
         &self.state_root

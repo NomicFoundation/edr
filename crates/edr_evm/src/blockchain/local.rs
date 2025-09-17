@@ -303,7 +303,7 @@ impl<ChainSpecT: SyncRuntimeSpec> BlockHash for LocalBlockchain<ChainSpecT> {
 mod tests {
     use edr_chain_l1::L1ChainSpec;
     use edr_primitives::HashMap;
-    use edr_state::account::{Account, AccountInfo, AccountStatus};
+    use edr_state_api::account::{Account, AccountInfo, AccountStatus};
 
     use super::*;
     use crate::{spec::GenesisBlockFactory as _, state::IrregularState, GenesisBlockOptions};

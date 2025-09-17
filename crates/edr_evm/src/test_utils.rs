@@ -7,7 +7,7 @@ use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidati
 use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _};
 use edr_rpc_eth::client::EthRpcClient;
-use edr_state::account::AccountInfo;
+use edr_state_api::account::AccountInfo;
 use edr_transaction::TxKind;
 
 use crate::{
