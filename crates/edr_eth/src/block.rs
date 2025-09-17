@@ -264,7 +264,7 @@ impl PartialHeader {
             gas_limit: overrides.gas_limit.unwrap_or(1_000_000),
             gas_used: 0,
             timestamp,
-            extra_data: overrides.extra_data.clone().unwrap_or_default(),
+            extra_data: overrides.extra_data.unwrap_or_default(),
             mix_hash: overrides.mix_hash.unwrap_or_default(),
             nonce: overrides.nonce.unwrap_or_else(|| {
                 if hardfork.into() >= EvmSpecId::MERGE {

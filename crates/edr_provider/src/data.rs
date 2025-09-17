@@ -16,7 +16,7 @@ use edr_eth::{
     account::{Account, AccountInfo, AccountStatus},
     block::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
-        HeaderOverrides,
+        Header, HeaderOverrides,
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -1664,11 +1664,7 @@ where
             .map_or_else(
                 || {
                     let last_block = self.last_block()?;
-                    Ok(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        last_block.header(),
-                        self.base_fee_params.as_ref().unwrap_or(ChainSpecT::chain_base_fee_params(self.chain_id())), // TODO: this looks like leaked responsibility
-                        self.hardfork(),
-                    ))
+                    Ok(self.calculate_next_block_base_fee(last_block.header()))
                 },
                 Ok,
             )
@@ -1698,6 +1694,16 @@ where
             // We return a hardcoded value for networks without EIP-1559
             Ok(8_000_000_000)
         }
+    }
+
+    fn calculate_next_block_base_fee(&self, header: &Header) -> u128 {
+        calculate_next_base_fee_per_gas::<ChainSpecT>(
+            header,
+            self.base_fee_params
+                .as_ref()
+                .unwrap_or(ChainSpecT::chain_base_fee_params(self.chain_id())), /* TODO: this looks like leaked responsibility. If OP should use header extra_data before fallbacking to chainspect values */
+            self.hardfork(),
+        )
     }
 
     /// Wrapper over `Blockchain::chain_id_at_block_number` that handles error
@@ -1949,11 +1955,7 @@ where
                 let block = pending_block.as_ref().expect("We mined the pending block");
                 result
                     .base_fee_per_gas
-                    .push(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        block.header(),
-                        self.base_fee_params.as_ref().unwrap_or(ChainSpecT::chain_base_fee_params(self.chain_id())), // TODO: this looks like leaked responsibility
-                        self.hardfork(),
-                    ));
+                    .push(self.calculate_next_block_base_fee(block.header()));
             }
         }
 
@@ -2942,7 +2944,10 @@ fn create_blockchain_and_state<
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
             config.hardfork,
-            &config.base_fee_params.clone().unwrap_or(ChainSpecT::chain_base_fee_params(config.chain_id).clone()), // TODO: Should provider have config.base_fee_params not be an option an fallback like this when constructing?
+            config
+                .base_fee_params
+                .as_ref()
+                .unwrap_or(ChainSpecT::chain_base_fee_params(config.chain_id)),
             GenesisBlockOptions {
                 extra_data: None,
                 gas_limit: Some(config.block_gas_limit.get()),
