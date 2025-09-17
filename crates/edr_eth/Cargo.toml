@@ -29,13 +29,12 @@ revm-state.workspace = true
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 thiserror.workspace = true
-tracing = { version = "0.1.37", features = ["attributes", "std"], optional = true }
 
 [dev-dependencies]
 anyhow = "1.0.89"
-edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
-edr_rpc_eth = { version = "0.3.5", path = "../edr_rpc_eth" }
-edr_test_utils = { version = "0.3.5", path = "../edr_test_utils" }
+edr_defaults.workspace = true
+edr_rpc_eth.workspace = true
+edr_test_utils.workspace = true
 lazy_static = "1.4.0"
 paste.workspace = true
 serde_json.workspace = true
@@ -48,7 +47,6 @@ rand = ["revm-primitives/rand"]
 serde = ["dep:serde", "dep:serde_json", "alloy-eips/serde", "c-kzg/serde", "revm-bytecode/serde", "revm-primitives/serde", "revm-state/serde"]
 std = ["alloy-eips/std", "alloy-serde/std", "hex/std", "itertools/use_std", "revm-bytecode/std", "revm-primitives/std", "revm-state/serde", "serde?/std"]
 test-remote = []
-tracing = ["dep:tracing"]
 
 [lints]
 workspace = true

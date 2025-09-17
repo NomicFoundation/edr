@@ -1,3 +1,4 @@
+pub use revm_bytecode::{self as bytecode, Bytecode};
 pub use revm_primitives::{
     address,
     alloy_primitives::{Bloom, ChainId, B512, B64, U128, U160, U64, U8},

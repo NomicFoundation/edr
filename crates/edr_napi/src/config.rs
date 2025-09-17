@@ -7,7 +7,7 @@ use std::{
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
-use edr_eth::{Bytes, HashMap, HashSet};
+use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{
     bindgen_prelude::{BigInt, Promise, Reference, Uint8Array},
@@ -509,7 +509,7 @@ impl ProviderConfig {
             .genesis_state
             .into_iter()
             .map(TryInto::try_into)
-            .collect::<napi::Result<HashMap<edr_eth::Address, edr_provider::AccountOverride>>>()?;
+            .collect::<napi::Result<HashMap<edr_primitives::Address, edr_provider::AccountOverride>>>()?;
 
         let precompile_overrides = self
             .precompile_overrides

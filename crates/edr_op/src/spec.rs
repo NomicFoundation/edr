@@ -2,12 +2,10 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
+use edr_block_header::{BlobGas, BlockHeader, PartialHeader};
+use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_eth::{
-    block::{BlobGas, Header, PartialHeader},
-    eips::eip4844,
-    U256,
-};
+use edr_eth::{eips::eip4844, U256};
 use edr_evm::{
     evm::Evm,
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
@@ -27,7 +25,8 @@ use edr_napi_core::{
     spec::{marshal_response_data, Response, SyncNapiSpec},
 };
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
-use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
+use edr_rpc_eth::jsonrpc;
+use edr_rpc_spec::RpcSpec;
 use edr_solidity::contract_decoder::ContractDecoder;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
 use serde::{de::DeserializeOwned, Serialize};
@@ -50,13 +49,13 @@ pub struct OpChainSpec;
 impl RpcSpec for OpChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<receipt::Execution<Log>>;
     type RpcBlock<Data>
-        = edr_rpc_eth::Block<Data>
+        = edr_chain_l1::rpc::Block<Data>
     where
         Data: Default + DeserializeOwned + Serialize;
-    type RpcCallRequest = edr_rpc_eth::CallRequest;
+    type RpcCallRequest = L1CallRequest;
     type RpcReceipt = rpc::BlockReceipt;
     type RpcTransaction = rpc::Transaction;
-    type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
+    type RpcTransactionRequest = TransactionRequest;
 }
 
 impl ChainHardfork for OpChainSpec {
@@ -284,8 +283,8 @@ impl BlockEnvConstructor<PartialHeader> for OpChainSpec {
     }
 }
 
-impl BlockEnvConstructor<Header> for OpChainSpec {
-    fn new_block_env(header: &Header, hardfork: EvmSpecId) -> Self::BlockEnv {
+impl BlockEnvConstructor<BlockHeader> for OpChainSpec {
+    fn new_block_env(header: &BlockHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
         BlockEnv {
             number: U256::from(header.number),
             beneficiary: header.beneficiary,
@@ -315,17 +314,15 @@ impl BlockEnvConstructor<Header> for OpChainSpec {
 #[cfg(test)]
 mod tests {
 
-    use edr_eth::{
-        block::{BlobGas, Header},
-        Address, Bloom, Bytes, B256, B64, U256,
-    };
     use edr_evm::spec::BlockEnvConstructor as _;
     use edr_evm_spec::EvmSpecId;
+    use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
+    use super::*;
     use crate::spec::OpChainSpec;
 
-    fn build_block_header(blob_gas: Option<BlobGas>) -> Header {
-        Header {
+    fn build_block_header(blob_gas: Option<BlobGas>) -> BlockHeader {
+        BlockHeader {
             parent_hash: B256::default(),
             ommers_hash: B256::default(),
             beneficiary: Address::default(),

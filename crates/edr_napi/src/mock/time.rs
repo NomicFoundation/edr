@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use edr_eth::B256;
 use edr_evm::spec::RuntimeSpec;
 use edr_evm_spec::ChainSpec;
 use edr_generic::GenericChainSpec;
 use edr_napi_core::logger::Logger;
-use edr_rpc_eth::RpcSpec;
+use edr_primitives::B256;
+use edr_rpc_spec::RpcSpec;
 use napi::{bindgen_prelude::BigInt, tokio::runtime, Env, JsObject};
 use napi_derive::napi;
 

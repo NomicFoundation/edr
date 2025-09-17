@@ -1,5 +1,5 @@
+use edr_block_header::{HeaderOverrides, PartialHeader};
 use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams};
-use edr_eth::{block::PartialHeader, trie::KECCAK_NULL_RLP, Address, Bytes, HashMap, U256};
 use edr_evm::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -11,6 +11,7 @@ use edr_evm::{
     EthBlockBuilder, MineBlockResultAndState,
 };
 use edr_evm_spec::EthHeaderConstants as _;
+use edr_primitives::{Address, Bytes, HashMap, KECCAK_NULL_RLP, U256};
 use op_revm::{L1BlockInfo, OpHaltReason};
 
 use crate::{
@@ -45,7 +46,7 @@ where
         state: Box<dyn edr_evm::state::SyncState<Self::StateError>>,
         cfg: CfgEnv<Hardfork>,
         mut inputs: BlockInputs,
-        mut overrides: edr_eth::block::HeaderOverrides<Hardfork>,
+        mut overrides: HeaderOverrides<Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, Hardfork, Self::StateError>>
     {

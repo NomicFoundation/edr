@@ -404,16 +404,17 @@ mod tests {
 
         let chain_id = fixture.provider_data.chain_id();
 
-        let transaction = edr_chain_l1::Request::Eip155(edr_chain_l1::request::Eip155 {
-            kind: TxKind::Call(Address::ZERO),
-            gas_limit: 30_000,
-            gas_price: 42_000_000_000,
-            value: U256::from(1),
-            input: Bytes::default(),
-            nonce: 0,
-            chain_id,
-        })
-        .fake_sign(impersonated_account);
+        let transaction =
+            edr_chain_l1::L1TransactionRequest::Eip155(edr_chain_l1::request::Eip155 {
+                kind: TxKind::Call(Address::ZERO),
+                gas_limit: 30_000,
+                gas_price: 42_000_000_000,
+                value: U256::from(1),
+                input: Bytes::default(),
+                nonce: 0,
+                chain_id,
+            })
+            .fake_sign(impersonated_account);
         let transaction = transaction::validate(transaction, fixture.provider_data.evm_spec_id())?;
 
         fixture.provider_data.set_auto_mining(true);

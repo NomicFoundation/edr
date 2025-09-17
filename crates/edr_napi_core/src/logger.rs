@@ -3,14 +3,15 @@ use std::{fmt::Display, marker::PhantomData, sync::Arc};
 
 use ansi_term::{Color, Style};
 use derive_where::derive_where;
-use edr_eth::{result::ExecutionResult, Bytes, B256, U256};
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
     precompile::{self, Precompiles},
+    result::{self, ExecutionResult},
     trace::{AfterMessage, Trace, TraceMessage},
     Block as _,
 };
 use edr_evm_spec::ExecutableTransaction;
+use edr_primitives::{Bytecode, Bytes, B256, U256};
 use edr_provider::{
     time::TimeSinceEpoch, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
     EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
@@ -548,7 +549,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         &mut self,
         hardfork: ChainSpecT::Hardfork,
         result: &DebugMineBlockResultForChainSpec<ChainSpecT>,
-        transaction_hash_to_highlight: &edr_eth::B256,
+        transaction_hash_to_highlight: &edr_primitives::B256,
     ) -> Result<(), LoggerError> {
         let DebugMineBlockResult {
             block,
@@ -734,10 +735,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                         format!("<PrecompileContract {precompile}>"),
                     );
                 } else {
-                    let is_code_empty = before_message
-                        .code
-                        .as_ref()
-                        .is_none_or(edr_eth::Bytecode::is_empty);
+                    let is_code_empty = before_message.code.as_ref().is_none_or(Bytecode::is_empty);
 
                     if is_code_empty {
                         if PRINT_INVALID_CONTRACT_WARNING {
@@ -747,7 +745,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                         let code = before_message
                             .code
                             .as_ref()
-                            .map(edr_eth::Bytecode::original_bytes)
+                            .map(Bytecode::original_bytes)
                             .expect("Call must be defined");
 
                         let ContractAndFunctionName {
@@ -790,7 +788,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                 self.log_with_title("Contract deployment", contract_name);
 
                 if let ExecutionResult::Success { output, .. } = result {
-                    if let edr_eth::result::Output::Create(_, address) = output {
+                    if let result::Output::Create(_, address) = output {
                         if let Some(deployed_address) = address {
                             self.log_with_title(
                                 "Contract address",

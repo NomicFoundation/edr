@@ -270,8 +270,8 @@ impl ProviderTestFixture<L1ChainSpec> {
         local_account_index: usize,
         gas_limit: u64,
         nonce: Option<u64>,
-    ) -> anyhow::Result<TransactionRequestAndSender<edr_chain_l1::Request>> {
-        let request = edr_chain_l1::Request::Eip155(edr_chain_l1::request::Eip155 {
+    ) -> anyhow::Result<TransactionRequestAndSender<edr_chain_l1::L1TransactionRequest>> {
+        let request = edr_chain_l1::L1TransactionRequest::Eip155(edr_chain_l1::request::Eip155 {
             kind: TxKind::Call(Address::ZERO),
             gas_limit,
             gas_price: 42_000_000_000_u128,

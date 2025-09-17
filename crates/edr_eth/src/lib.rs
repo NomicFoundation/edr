@@ -13,7 +13,6 @@ mod block_spec;
 pub mod eips;
 /// Ethereum fee history types
 pub mod fee_history;
-/// Ethereum types for filter-based RPC methods
 pub mod filter;
 /// Ethereum result types
 pub mod result;

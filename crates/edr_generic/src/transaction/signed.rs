@@ -118,8 +118,8 @@ impl IsSupported for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl From<edr_chain_l1::PooledTransaction> for SignedWithFallbackToPostEip155 {
-    fn from(value: edr_chain_l1::PooledTransaction) -> Self {
+impl From<edr_chain_l1::L1PooledTransaction> for SignedWithFallbackToPostEip155 {
+    fn from(value: edr_chain_l1::L1PooledTransaction) -> Self {
         edr_chain_l1::L1SignedTransaction::from(value).into()
     }
 }

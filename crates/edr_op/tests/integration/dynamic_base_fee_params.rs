@@ -2,8 +2,8 @@
 
 use std::sync::LazyLock;
 
+use edr_block_header::{BlockHeader, HeaderOverrides};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_eth::block::{self, HeaderOverrides};
 use edr_evm::impl_full_block_tests;
 use edr_op::{Hardfork, OpChainSpec};
 use edr_provider::test_utils::header_overrides;
@@ -34,7 +34,7 @@ static OP_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<Hardfork>> = LazyLock::new(|| 
     ]))
 });
 
-fn op_header_overrides(replay_header: &block::Header) -> HeaderOverrides<Hardfork> {
+fn op_header_overrides(replay_header: &BlockHeader) -> HeaderOverrides<Hardfork> {
     HeaderOverrides {
         base_fee_params: Some(OP_BASE_FEE_PARAMS.clone()),
         ..header_overrides(replay_header)

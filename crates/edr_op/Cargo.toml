@@ -6,18 +6,21 @@ edition.workspace = true
 [dependencies]
 alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
+edr_block_header.workspace = true
 edr_chain_l1.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
-edr_eth = { path = "../edr_eth", features = ["serde", "std"] }
+edr_eth = { workspace = true, features = ["serde", "std"] }
 edr_evm = { path = "../edr_evm" }
 edr_evm_spec.workspace = true
 edr_generic = { path = "../edr_generic" }
 edr_napi_core = { path = "../edr_napi_core" }
+edr_primitives.workspace = true
 edr_provider = { path = "../edr_provider" }
 edr_receipt.workspace = true
 edr_rpc_eth = { path = "../edr_rpc_eth" }
+edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
 edr_solidity_tests.workspace = true
@@ -37,6 +40,7 @@ edr_defaults = { path = "../edr_defaults" }
 edr_evm = { path = "../edr_evm", features = ["test-utils"] }
 edr_provider = { path = "../edr_provider", features = ["test-utils"] }
 edr_rpc_eth = { path = "../edr_rpc_eth", features = ["test-utils"] }
+edr_rpc_spec = { workspace = true, features = ["test-utils"] }
 edr_test_utils = { path = "../edr_test_utils" }
 parking_lot = { version = "0.12.1", default-features = false }
 paste.workspace = true

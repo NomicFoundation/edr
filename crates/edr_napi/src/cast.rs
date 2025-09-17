@@ -1,4 +1,4 @@
-use edr_eth::{Address, Bytecode, Bytes, B256, B64, U256};
+use edr_primitives::{Address, Bytecode, Bytes, B256, B64, U256};
 use napi::{
     bindgen_prelude::{BigInt, Uint8Array},
     Status,

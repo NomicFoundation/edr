@@ -1,5 +1,5 @@
 use derive_more::Debug;
-use edr_eth::{hex, HashMap, U256};
+use edr_primitives::{hex, Address, HashMap, U256};
 use edr_solidity_tests::{backend::Predeploy, revm::state::AccountInfo};
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
@@ -36,7 +36,7 @@ pub struct AccountOverride {
     pub storage: Option<Vec<StorageSlot>>,
 }
 
-impl TryFrom<AccountOverride> for (edr_eth::Address, edr_provider::AccountOverride) {
+impl TryFrom<AccountOverride> for (Address, edr_provider::AccountOverride) {
     type Error = napi::Error;
 
     fn try_from(value: AccountOverride) -> Result<Self, Self::Error> {
@@ -55,7 +55,7 @@ impl TryFrom<AccountOverride> for (edr_eth::Address, edr_provider::AccountOverri
                         let value = value.try_cast()?;
                         let slot = edr_evm::state::EvmStorageSlot::new(value, 0);
 
-                        let index: edr_eth::U256 = index.try_cast()?;
+                        let index: U256 = index.try_cast()?;
                         Ok((index, slot))
                     })
                     .collect::<napi::Result<_>>()
@@ -69,7 +69,7 @@ impl TryFrom<AccountOverride> for (edr_eth::Address, edr_provider::AccountOverri
             storage,
         };
 
-        let address: edr_eth::Address = address.try_cast()?;
+        let address: Address = address.try_cast()?;
 
         Ok((address, account_override))
     }
