@@ -115,12 +115,19 @@ pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
     base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
         (
             BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
-            ConstantBaseFeeParams::new(50, 6),
+            ConstantBaseFeeParams::new(50, 10),
         ),
         (
             BaseFeeActivation::Hardfork(OpSpecId::CANYON),
-            ConstantBaseFeeParams::new(250, 6),
+            ConstantBaseFeeParams::new(250, 10),
         ),
-        // TODO: check for dynamic updates after Holocene
+        (
+            BaseFeeActivation::BlockNumber(21_256_270),
+            ConstantBaseFeeParams::new(250, 4),
+        ),
+        (
+            BaseFeeActivation::BlockNumber(26_299_084),
+            ConstantBaseFeeParams::new(50, 4),
+        ),
     ])),
 });

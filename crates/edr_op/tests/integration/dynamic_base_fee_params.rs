@@ -56,4 +56,11 @@ impl_test_dynamic_base_fee_params! {
         30_795_009,
         31_747_084,
     ],
+    op_sepolia: op::sepolia_url() => [
+        26_806_602,
+    ],
+    base_sepolia: base::sepolia_url() => [
+        21_256_270,
+        26_299_084,
+    ],
 }
