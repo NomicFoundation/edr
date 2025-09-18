@@ -178,7 +178,11 @@ describe("Gas reports", function () {
       );
 
       const deployment = contractReport.deployments[0];
-      assert(deployment.gas > 0n, "Gas report deployment has zero gas used");
+      assert.equal(
+        deployment.gas,
+        142_395n,
+        "Gas report deployment has unexpected gas used"
+      );
 
       const bytecodeLength = BigInt(bytecode.length / 2); // 2 hex chars per byte
       assert.equal(
@@ -243,9 +247,10 @@ describe("Gas reports", function () {
       const call = func[0];
       assert(call.gas > 0n, "Gas report function call has zero gas used");
 
-      assert(
-        call.gas > 0,
-        "Gas report call to plus100(uint256) has zero gas used"
+      assert.equal(
+        call.gas,
+        21_944n,
+        "Gas report function call has unexpected gas used"
       );
       assert(
         call.status === GasReportExecutionStatus.Success,
@@ -295,7 +300,11 @@ describe("Gas reports", function () {
       );
 
       const deployment = contractReport.deployments[0];
-      assert(deployment.gas > 0n, "Gas report deployment has zero gas used");
+      assert.equal(
+        deployment.gas,
+        142_395n,
+        "Gas report deployment has unexpected gas used"
+      );
 
       const bytecodeLength = BigInt(bytecode.length / 2); // 2 hex chars per byte
       assert.equal(
@@ -366,7 +375,11 @@ describe("Gas reports", function () {
       );
 
       const call = func[0];
-      assert(call.gas > 0n, "Gas report function call has zero gas used");
+      assert.equal(
+        call.gas,
+        21_944n,
+        "Gas report function call has unexpected gas used"
+      );
 
       assert(
         call.gas > 0,
