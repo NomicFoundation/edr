@@ -84,8 +84,10 @@ async fn create_dummy_blockchains(
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        edr_chain_l1::Hardfork::default(),
-        edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
+        BlockChainCondition::new(
+            edr_chain_l1::Hardfork::default(),
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
+        ),
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),

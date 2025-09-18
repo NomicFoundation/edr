@@ -4,7 +4,7 @@ use std::sync::Arc;
 use alloy_rlp::RlpEncodable;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{calculate_next_base_fee_per_gas, BlobGas, Header, PartialHeader},
+    block::{calculate_next_base_fee_per_gas, BlobGas, BlockChainCondition, Header, PartialHeader},
     eips::eip4844,
     U256,
 };
@@ -77,18 +77,17 @@ impl GenesisBlockFactory for OpChainSpec {
 
     fn genesis_block(
         genesis_diff: edr_evm::state::StateDiff,
-        hardfork: Self::Hardfork,
-        base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        chain_condition: BlockChainCondition<'_, Self::Hardfork>,
         mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         let config_base_fee_params = options.base_fee_params.as_ref();
-        if hardfork >= Hardfork::HOLOCENE {
+        if chain_condition.hardfork >= Hardfork::HOLOCENE {
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
             let extra_data = options.extra_data.unwrap_or_else(|| {
                 let base_fee_params = config_base_fee_params
-                    .unwrap_or(base_fee_params)
-                    .at_condition(hardfork, 0)
+                    .unwrap_or(chain_condition.base_fee_params)
+                    .at_condition(chain_condition.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
                 encode_dynamic_base_fee_params(base_fee_params)
@@ -99,8 +98,7 @@ impl GenesisBlockFactory for OpChainSpec {
 
         EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
             genesis_diff,
-            hardfork,
-            base_fee_params,
+            chain_condition,
             options,
         )
     }

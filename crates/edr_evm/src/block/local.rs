@@ -7,7 +7,6 @@ use std::{
 
 use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
-use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::{self, BlockChainCondition, Header, HeaderOverrides, PartialHeader},
     trie,
@@ -214,8 +213,7 @@ impl<
     /// Constructs a block with the provided genesis state and options.
     pub fn with_genesis_state<HeaderConstantsT: EthHeaderConstants<Hardfork = HardforkT>>(
         genesis_diff: StateDiff,
-        hardfork: HardforkT,
-        base_fee_params: &BaseFeeParams<HardforkT>,
+        chain_condition: BlockChainCondition<'_, HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
     ) -> Result<Self, CreationError>
     where
@@ -224,7 +222,7 @@ impl<
         let mut genesis_state = TrieState::default();
         genesis_state.commit(genesis_diff.clone().into());
 
-        let evm_spec_id = hardfork.clone().into();
+        let evm_spec_id = chain_condition.hardfork.clone().into();
         if evm_spec_id >= EvmSpecId::MERGE && options.mix_hash.is_none() {
             return Err(CreationError::MissingPrevrandao);
         }
@@ -254,9 +252,10 @@ impl<
         } else {
             None
         };
+        let hardfork = chain_condition.hardfork.clone();
 
         let partial_header = PartialHeader::new::<HeaderConstantsT>(
-            BlockChainCondition::new(hardfork.clone(), base_fee_params),
+            chain_condition,
             options,
             None,
             &ommers,
