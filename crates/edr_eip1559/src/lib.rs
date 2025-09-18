@@ -12,7 +12,8 @@ pub enum BaseFeeActivation<HardforkT> {
 }
 /// A mapping of hardfork to [`ConstantBaseFeeParams`]. This is used to specify
 /// dynamic EIP-1559 parameters for chains like OP.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DynamicBaseFeeParams<HardforkT> {
     activations: Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>,
 }
@@ -49,7 +50,8 @@ impl<HardforkT: PartialOrd> DynamicBaseFeeParams<HardforkT> {
 
 /// Type that allows specifying constant or dynamic EIP-1559 parameters based on
 /// the active hardfork.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BaseFeeParams<HardforkT> {
     /// Constant [`ConstantBaseFeeParams`]; used for chains that don't have
     /// dynamic EIP-1559 parameters
