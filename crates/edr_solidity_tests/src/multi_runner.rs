@@ -22,11 +22,14 @@ use foundry_evm::{
     fork::CreateFork,
     inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
     opts::EvmOpts,
-    traces::{decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder},
+    traces::{
+        decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder, TracingMode,
+    },
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
+    config::CollectStackTraces,
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
@@ -95,6 +98,8 @@ pub struct MultiContractRunner<
     revert_decoder: RevertDecoder,
     /// The fork to use at launch
     fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
+    /// Whether to collect stack traces.
+    collect_stack_traces: CollectStackTraces,
     /// Whether to collect coverage info
     coverage: bool,
     /// Whether to enable trace mode and which traces to include in test
@@ -159,6 +164,7 @@ impl<
         let fork = config.get_fork().await?;
 
         let SolidityTestRunnerConfig {
+            collect_stack_traces,
             include_traces,
             coverage,
             test_fail,
@@ -195,6 +201,7 @@ impl<
             local_predeploys,
             revert_decoder,
             fork,
+            collect_stack_traces,
             coverage,
             include_traces,
             test_fail,
@@ -269,6 +276,14 @@ impl<
             Some(artifact_id.clone()),
         );
 
+        let tracing_mode = match self.collect_stack_traces {
+            CollectStackTraces::Always => TracingMode::WithSteps,
+            CollectStackTraces::OnFailure => match self.include_traces {
+                IncludeTraces::Failing | IncludeTraces::All => TracingMode::WithoutSteps,
+                IncludeTraces::None => TracingMode::None,
+            },
+        };
+
         let executor_builder =
             ExecutorBuilder::<BlockT, TransactionT, HardforkT, ChainContextT>::new()
                 .env(self.env.clone())
@@ -277,7 +292,7 @@ impl<
                 .inspectors(|stack| {
                     stack
                         .cheatcodes(Arc::new(cheats_config))
-                        .trace(self.include_traces != IncludeTraces::None)
+                        .trace(tracing_mode)
                         .code_coverage(
                             self.on_collected_coverage_fn
                                 .clone()

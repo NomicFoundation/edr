@@ -278,13 +278,6 @@ impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT, CurrentTime>
 
     fn set_is_enabled(&mut self, _is_enabled: bool) {}
 
-    fn print_contract_decoding_error(
-        &mut self,
-        _error: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        Ok(())
-    }
-
     fn print_method_logs(
         &mut self,
         _method: &str,

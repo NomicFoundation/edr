@@ -47,7 +47,10 @@ pub fn link_hex_string_bytecode(
     let pos = position as usize;
 
     let mut bytes = code.into_bytes();
-    bytes[pos * 2..pos * 2 + address.len()].copy_from_slice(address.as_bytes());
+    bytes
+        .get_mut(pos * 2..pos * 2 + address.len())
+        .expect("position and address length should be within bytecode bounds")
+        .copy_from_slice(address.as_bytes());
     String::from_utf8(bytes).with_context(|| {
         format!("Invalid UTF-8 in hex strings for code or address. The address is '{address}'")
     })

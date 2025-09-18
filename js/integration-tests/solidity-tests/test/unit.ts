@@ -6,6 +6,7 @@ import {
   TestContext,
 } from "./testContext.js";
 import {
+  CollectStackTraces,
   L1_CHAIN_TYPE,
   OP_CHAIN_TYPE,
   SuiteResult,
@@ -527,5 +528,57 @@ describe("Unit tests", () => {
         },
       ]
     );
+  });
+
+  describe("Stack traces for a contract with impure cheatcodes, that is unsafe to replay", function () {
+    it("By default, don't generate a stack trace", async function () {
+      const { totalTests, failedTests, stackTraces } =
+        await testContext.runTestsWithStats("StackTraceUnsafeToReplay");
+
+      assert.equal(failedTests, 1);
+      assert.equal(totalTests, 1);
+      const stackTrace = stackTraces.get("testThatFails()");
+      if (
+        stackTrace === undefined ||
+        stackTrace.stackTrace?.kind !== "UnsafeToReplay"
+      ) {
+        throw new Error(
+          `Expected unsafe to replay stack trace, instead it is: ${stackTrace}`
+        );
+      }
+    });
+
+    it("When explicitly requesting `CollectStackTraces.OnFailure`, don't generate a stack trace", async function () {
+      const { totalTests, failedTests, stackTraces } =
+        await testContext.runTestsWithStats("StackTraceUnsafeToReplay", {
+          collectStackTraces: CollectStackTraces.OnFailure,
+        });
+
+      assert.equal(failedTests, 1);
+      assert.equal(totalTests, 1);
+
+      const stackTrace = stackTraces.get("testThatFails()");
+      if (
+        stackTrace === undefined ||
+        stackTrace.stackTrace?.kind !== "UnsafeToReplay"
+      ) {
+        throw new Error(
+          `Expected unsafe to replay stack trace, instead it is: ${stackTrace}`
+        );
+      }
+    });
+
+    it("When explicitly requesting `CollectStackTraces.Always`, generate a stack trace", async function () {
+      const { totalTests, failedTests, stackTraces } =
+        await testContext.runTestsWithStats("StackTraceUnsafeToReplay", {
+          collectStackTraces: CollectStackTraces.Always,
+        });
+
+      assert.equal(failedTests, 1);
+      assert.equal(totalTests, 1);
+
+      const stackTrace = stackTraces.get("testThatFails()");
+      assert(stackTrace !== undefined);
+    });
   });
 });

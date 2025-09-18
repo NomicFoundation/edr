@@ -231,32 +231,75 @@ pub fn assert_multiple<HaltReasonT: HaltReasonTrait>(
         );
 
         assert_eq!(
-            actuals[*contract_name].len(),
-            expecteds[contract_name].len(),
+            actuals
+                .get(*contract_name)
+                .expect("contract should exist in actuals")
+                .len(),
+            expecteds
+                .get(contract_name)
+                .expect("contract should exist in expecteds")
+                .len(),
             "We did not run as many test functions as we expected for {contract_name}"
         );
         for (test_name, should_pass, reason, expected_logs, expected_warning_count) in tests {
-            let logs = &actuals[*contract_name].test_results[*test_name].decoded_logs;
+            let logs = &actuals
+                .get(*contract_name)
+                .expect("contract should exist in actuals")
+                .test_results
+                .get(*test_name)
+                .expect("test should exist in test results")
+                .decoded_logs;
 
-            let warnings_count = &actuals[*contract_name].warnings.len();
+            let warnings_count = &actuals
+                .get(*contract_name)
+                .expect("contract should exist in actuals")
+                .warnings
+                .len();
 
             if *should_pass {
                 assert!(
-                    actuals[*contract_name].test_results[*test_name].status == TestStatus::Success,
+                    actuals
+                        .get(*contract_name)
+                        .expect("contract should exist in actuals")
+                        .test_results
+                        .get(*test_name)
+                        .expect("test should exist in test results")
+                        .status
+                        == TestStatus::Success,
                     "Test {} did not pass as expected.\nReason: {:?}\nLogs:\n{}",
                     test_name,
-                    actuals[*contract_name].test_results[*test_name].reason,
+                    actuals
+                        .get(*contract_name)
+                        .expect("contract should exist in actuals")
+                        .test_results
+                        .get(*test_name)
+                        .expect("test should exist in test results")
+                        .reason,
                     logs.join("\n")
                 );
             } else {
                 assert!(
-                    actuals[*contract_name].test_results[*test_name].status == TestStatus::Failure,
+                    actuals
+                        .get(*contract_name)
+                        .expect("contract should exist in actuals")
+                        .test_results
+                        .get(*test_name)
+                        .expect("test should exist in test results")
+                        .status
+                        == TestStatus::Failure,
                     "Test {} did not fail as expected.\nLogs:\n{}",
                     test_name,
                     logs.join("\n")
                 );
                 assert_eq!(
-                    actuals[*contract_name].test_results[*test_name].reason, *reason,
+                    actuals
+                        .get(*contract_name)
+                        .expect("contract should exist in actuals")
+                        .test_results
+                        .get(*test_name)
+                        .expect("test should exist in test results")
+                        .reason,
+                    *reason,
                     "Failure reason for test {test_name} did not match what we expected."
                 );
             }

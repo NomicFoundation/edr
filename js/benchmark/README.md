@@ -40,6 +40,9 @@ The benchmark collects measurements from running all the selected test suites an
 ```shell
 pnpm install
 
+# Mainnet Alchemy RPC URL
+export ALCHEMY_URL = "..."
+
 pnpm soltestsBenchmark --benchmark-output soltest-report.json
 ```
 
@@ -59,6 +62,9 @@ For this reason, we've settled on comparing individual test execution times (as 
 pnpm install
 # Optional: install CLI CSV viewer
 cargo install xan --locked
+
+# Mainnet Alchemy RPC URL
+export ALCHEMY_URL = "..."
 
 # Runs EDR and Forge in each supported third-party repo and creates a CSV file where each row is a test or test suite execution
 pnpm compareForge --csv-output edr-forge-stable.csv --count 9 --forge-path ~/.foundry/versions/v1.2.3/forge

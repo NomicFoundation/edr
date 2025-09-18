@@ -169,11 +169,11 @@ export interface BaseFeeParamActivation {
   elasticityMultiplier: bigint
 }
 export interface BaseFeeActivationByBlockNumber {
-  /** The block number at which the base_fee_params is activated */
+  /** The block number at which the `base_fee_params` is activated */
   blockNumber: bigint
 }
 export interface BaseFeeActivationByHardfork {
-  /** The hardfork at which the base_fee_params is activated */
+  /** The hardfork at which the `base_fee_params` is activated */
   hardfork: string
 }
 /** Specification of a chain with possible overrides. */
@@ -285,7 +285,7 @@ export interface ProviderConfig {
    * EIP-1559 base fee parameters activations to be used to calculate the
    * block base fee.
    *
-   * Provide an ordered list of base_fee_params to be
+   * Provide an ordered list of `base_fee_params` to be
    * used starting from the specified activation point (hardfork or block
    * number).
    * If not provided, the default values from the chain spec
@@ -680,7 +680,7 @@ export interface SolidityTestRunnerConfigArgs {
   disableBlockGasLimit?: boolean
   /**
    * The memory limit of the EVM in bytes.
-   * Defaults to 33_554_432 (2^25 = 32MiB).
+   * Defaults to `33_554_432` (2^25 = 32MiB).
    */
   memoryLimit?: bigint
   /**
@@ -725,6 +725,8 @@ export interface SolidityTestRunnerConfigArgs {
    * config value is set, then the fuzz config value will be used.
    */
   invariant?: InvariantConfigArgs
+  /** Whether to collect stack traces. */
+  collectStackTraces?: CollectStackTraces
   /**
    * Controls which test results should include execution traces. Defaults to
    * None.
@@ -901,6 +903,19 @@ export interface AddressLabel {
   /** The label to assign to the address */
   label: string
 }
+/** A type that controls when stack traces are collected. */
+export enum CollectStackTraces {
+  /** Always collects stack traces, adding performance overhead. */
+  Always = 0,
+  /**
+   * Only collects stack traces upon failure, re-executing the test. This
+   * minimizes performance overhead.
+   *
+   * Not all tests can be re-executed since certain cheatcodes contain
+   * non-deterministic side-effects.
+   */
+  OnFailure = 1
+}
 /**
  * Configuration for [`SolidityTestRunnerConfigArgs::include_traces`] that
  * controls execution trace decoding and inclusion in test results.
@@ -984,21 +999,21 @@ export enum TestStatus {
   /**Test skipped */
   Skipped = 'Skipped'
 }
-/** See [edr_solidity_tests::result::TestKind::Standard] */
+/** See [`edr_solidity_tests::result::TestKind::Standard`] */
 export interface StandardTestKind {
   /** The gas consumed by the test. */
   readonly consumedGas: bigint
 }
-/** See [edr_solidity_tests::result::TestKind::Fuzz] */
+/** See [`edr_solidity_tests::result::TestKind::Fuzz`] */
 export interface FuzzTestKind {
-  /** See [edr_solidity_tests::result::TestKind::Fuzz] */
+  /** See [`edr_solidity_tests::result::TestKind::Fuzz`] */
   readonly runs: bigint
-  /** See [edr_solidity_tests::result::TestKind::Fuzz] */
+  /** See [`edr_solidity_tests::result::TestKind::Fuzz`] */
   readonly meanGas: bigint
-  /** See [edr_solidity_tests::result::TestKind::Fuzz] */
+  /** See [`edr_solidity_tests::result::TestKind::Fuzz`] */
   readonly medianGas: bigint
 }
-/** See [edr_solidity_tests::fuzz::FuzzCase] */
+/** See [`edr_solidity_tests::fuzz::FuzzCase`] */
 export interface FuzzCase {
   /** The calldata used for this fuzz test */
   readonly calldata: Uint8Array
@@ -1007,13 +1022,13 @@ export interface FuzzCase {
   /** The initial gas stipend for the transaction */
   readonly stipend: bigint
 }
-/** See [edr_solidity_tests::result::TestKind::Invariant] */
+/** See [`edr_solidity_tests::result::TestKind::Invariant`] */
 export interface InvariantTestKind {
-  /** See [edr_solidity_tests::result::TestKind::Invariant] */
+  /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
   readonly runs: bigint
-  /** See [edr_solidity_tests::result::TestKind::Invariant] */
+  /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
   readonly calls: bigint
-  /** See [edr_solidity_tests::result::TestKind::Invariant] */
+  /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
   readonly reverts: bigint
 }
 /**
@@ -1026,19 +1041,19 @@ export interface CounterExampleSequence {
   /** The shrunk counterexample sequence. */
   sequence: Array<BaseCounterExample>
 }
-/** See [edr_solidity_tests::fuzz::BaseCounterExample] */
+/** See [`edr_solidity_tests::fuzz::BaseCounterExample`] */
 export interface BaseCounterExample {
-  /** See [edr_solidity_tests::fuzz::BaseCounterExample::sender] */
+  /** See [`edr_solidity_tests::fuzz::BaseCounterExample::sender`] */
   readonly sender?: Uint8Array
-  /** See [edr_solidity_tests::fuzz::BaseCounterExample::addr] */
+  /** See [`edr_solidity_tests::fuzz::BaseCounterExample::addr`] */
   readonly address?: Uint8Array
-  /** See [edr_solidity_tests::fuzz::BaseCounterExample::calldata] */
+  /** See [`edr_solidity_tests::fuzz::BaseCounterExample::calldata`] */
   readonly calldata: Uint8Array
-  /** See [edr_solidity_tests::fuzz::BaseCounterExample::contract_name] */
+  /** See [`edr_solidity_tests::fuzz::BaseCounterExample::contract_name`] */
   readonly contractName?: string
-  /** See [edr_solidity_tests::fuzz::BaseCounterExample::signature] */
+  /** See [`edr_solidity_tests::fuzz::BaseCounterExample::signature`] */
   readonly signature?: string
-  /** See [edr_solidity_tests::fuzz::BaseCounterExample::args] */
+  /** See [`edr_solidity_tests::fuzz::BaseCounterExample::args`] */
   readonly args?: string
 }
 /**
@@ -1387,7 +1402,7 @@ export declare class EdrContext {
   /**Creates a new [`EdrContext`] instance. Should only be called once! */
   constructor()
   /**Constructs a new provider with the provided configuration. */
-  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, tracingConfig: TracingConfigWithBuffers): Promise<Provider>
+  createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder): Promise<Provider>
   /**Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
   registerSolidityTestRunnerFactory(chainType: string, factory: SolidityTestRunnerFactory): Promise<void>
@@ -1400,6 +1415,12 @@ export declare class EdrContext {
    *is called to know when all tests are done.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
+}
+export declare class ContractDecoder {
+  /**Creates an empty instance. */
+  constructor()
+  /**Creates a new instance with the provided configuration. */
+  static withContracts(config: TracingConfigWithBuffers): ContractDecoder
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */
@@ -1421,7 +1442,9 @@ export declare class Provider {
    *
    *For internal use only. Support for this method may be removed in the future.
    */
-  addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<boolean>
+  addCompilationResult(solcVersion: string, compilerInput: any, compilerOutput: any): Promise<void>
+  /**Retrieves the instance's contract decoder. */
+  contractDecoder(): ContractDecoder
   /**Handles a JSON-RPC request and returns a JSON-RPC response. */
   handleRequest(request: string): Promise<Response>
   setCallOverrideCallback(callOverrideCallback: (contract_address: ArrayBuffer, data: ArrayBuffer) => Promise<CallOverrideResult | undefined>): Promise<void>
@@ -1434,35 +1457,35 @@ export declare class Provider {
   setVerboseTracing(verboseTracing: boolean): Promise<void>
 }
 export declare class SolidityTestRunnerFactory { }
-/** See [edr_solidity_tests::result::SuiteResult] */
+/** See [`edr_solidity_tests::result::SuiteResult`] */
 export declare class SuiteResult {
   /**
    * The artifact id can be used to match input to result in the progress
    * callback
    */
   readonly id: ArtifactId
-  /** See [edr_solidity_tests::result::SuiteResult::duration] */
+  /** See [`edr_solidity_tests::result::SuiteResult::duration`] */
   readonly durationNs: bigint
-  /** See [edr_solidity_tests::result::SuiteResult::test_results] */
+  /** See [`edr_solidity_tests::result::SuiteResult::test_results`] */
   readonly testResults: Array<TestResult>
-  /** See [edr_solidity_tests::result::SuiteResult::warnings] */
+  /** See [`edr_solidity_tests::result::SuiteResult::warnings`] */
   readonly warnings: Array<string>
 }
-/** See [edr_solidity_tests::result::TestResult] */
+/** See [`edr_solidity_tests::result::TestResult`] */
 export declare class TestResult {
   /** The name of the test. */
   readonly name: string
-  /** See [edr_solidity_tests::result::TestResult::status] */
+  /** See [`edr_solidity_tests::result::TestResult::status`] */
   readonly status: TestStatus
-  /** See [edr_solidity_tests::result::TestResult::reason] */
+  /** See [`edr_solidity_tests::result::TestResult::reason`] */
   readonly reason?: string
-  /** See [edr_solidity_tests::result::TestResult::counterexample] */
+  /** See [`edr_solidity_tests::result::TestResult::counterexample`] */
   readonly counterexample?: BaseCounterExample | CounterExampleSequence
-  /** See [edr_solidity_tests::result::TestResult::decoded_logs] */
+  /** See [`edr_solidity_tests::result::TestResult::decoded_logs`] */
   readonly decodedLogs: Array<string>
-  /** See [edr_solidity_tests::result::TestResult::kind] */
+  /** See [`edr_solidity_tests::result::TestResult::kind`] */
   readonly kind: StandardTestKind | FuzzTestKind | InvariantTestKind
-  /** See [edr_solidity_tests::result::TestResult::duration] */
+  /** See [`edr_solidity_tests::result::TestResult::duration`] */
   readonly durationNs: bigint
   /**
    * Groups of value snapshot entries (incl. gas).

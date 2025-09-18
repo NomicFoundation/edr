@@ -146,7 +146,12 @@ export async function runSolidityTestsBenchmark(resultsPath: string) {
     l1SolidityTestRunnerFactory()
   );
 
-  const repoPath = await setupRepo(REPOS["forge-std"], "hardhat");
+  const repoPath = await setupRepo(
+    REPOS["forge-std"],
+    "hardhat",
+    // Since this is run in CI, make sure we reset before each run
+    /* cleanFirst */ true
+  );
   const { artifacts, testSuiteIds, tracingConfig, solidityTestsConfig } =
     await createSolidityTestsInput(repoPath);
 
@@ -566,7 +571,8 @@ function displaySec(delta: number) {
 
 export async function setupRepo(
   repoData: RepoData,
-  tool: "hardhat" | "forge"
+  tool: "hardhat" | "forge",
+  cleanFirst: boolean = false
 ): Promise<string> {
   const repoNameRegex = /\/([^\/]+)\.git$/;
   const match = repoData.url.match(repoNameRegex);
@@ -582,6 +588,11 @@ export async function setupRepo(
     tool,
     match[1]
   );
+
+  if (cleanFirst) {
+    fs.rmSync(repoPath, { recursive: true, force: true });
+  }
+
   // Ensure directory exists
   if (!fs.existsSync(repoPath)) {
     await simpleGit().clone(repoData.url, repoPath, [
@@ -607,7 +618,8 @@ export async function setupRepo(
     } catch (e) {
       if (
         !(e instanceof Error) ||
-        !e.toString().toLowerCase().includes("patch failed")
+        // Patch will fail on subsequent runs unless the repo was cleaned first
+        (!cleanFirst && !e.toString().toLowerCase().includes("patch failed"))
       ) {
         throw e;
       }

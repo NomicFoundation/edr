@@ -32,7 +32,7 @@ index 62ca21a..51a474f 100644
 +ignore = ["src/console.sol", "src/console2.sol"]
 diff --git a/hardhat.config.js b/hardhat.config.js
 new file mode 100644
-index 0000000..7ffeba4
+index 0000000..6aa92ae
 --- /dev/null
 +++ b/hardhat.config.js
 @@ -0,0 +1,31 @@
@@ -53,7 +53,7 @@ index 0000000..7ffeba4
 +  solidityTest: {
 +    forking: {
 +      rpcEndpoints: {
-+        mainnet: "https://eth.merkle.io",
++        mainnet: process.env.ALCHEMY_URL,
 +        optimism_sepolia: "https://sepolia.optimism.io/",
 +        arbitrum_one_sepolia: "https://sepolia-rollup.arbitrum.io/rpc/",
 +        needs_undefined_env_var: "${UNDEFINED_RPC_URL_PLACEHOLDER}"
@@ -3248,10 +3248,41 @@ index 74e5e66..1d1eaa5 100644
    }
  }
 diff --git a/test/StdChains.t.sol b/test/StdChains.t.sol
-index d88069b..a4e1e1e 100644
+index d88069b..78cdf01 100644
 --- a/test/StdChains.t.sol
 +++ b/test/StdChains.t.sol
-@@ -100,15 +100,16 @@ contract StdChainsTest is Test {
+@@ -22,9 +22,20 @@ contract StdChainsMock is Test {
+ }
+ 
+ contract StdChainsTest is Test {
++    function assertStartsWith(string memory str, string memory prefix) internal {
++        bytes memory strBytes = bytes(str);
++        bytes memory prefixBytes = bytes(prefix);
++
++        require(strBytes.length >= prefixBytes.length, "String too short");
++
++        for (uint i = 0; i < prefixBytes.length; i++) {
++            assertEq(strBytes[i], prefixBytes[i]);
++        }
++    }
++
+     function test_ChainRpcInitialization() public {
+         // RPCs specified in `foundry.toml` should be updated.
+-        assertEq(getChain(1).rpcUrl, "https://eth.merkle.io");
++        assertStartsWith(getChain(1).rpcUrl, "https://eth-mainnet.g.alchemy.com/");
+         assertEq(getChain("optimism_sepolia").rpcUrl, "https://sepolia.optimism.io/");
+         assertEq(getChain("arbitrum_one_sepolia").rpcUrl, "https://sepolia-rollup.arbitrum.io/rpc/");
+ 
+@@ -36,7 +47,7 @@ contract StdChainsTest is Test {
+ 
+         // Cannot override RPCs defined in `foundry.toml`
+         vm.setEnv("MAINNET_RPC_URL", "myoverride2");
+-        assertEq(getChain("mainnet").rpcUrl, "https://eth.merkle.io");
++        assertStartsWith(getChain("mainnet").rpcUrl, "https://eth-mainnet.g.alchemy.com/");
+ 
+         // Other RPCs should remain unchanged.
+         assertEq(getChain(31337).rpcUrl, "http://127.0.0.1:8545");
+@@ -100,15 +111,16 @@ contract StdChainsTest is Test {
          stdChainsMock.exposed_setChain("anvil2", ChainData("Anvil", 31337, "URL"));
      }
  

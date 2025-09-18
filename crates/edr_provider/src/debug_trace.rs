@@ -372,7 +372,14 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
                     | JournalEntry::StorageWarmed { address, key },
                 ) = last_entry
                 {
-                    let value = journal.state()[address].storage[key].present_value();
+                    let value = journal
+                        .state()
+                        .get(address)
+                        .expect("address should exist in journal state")
+                        .storage
+                        .get(key)
+                        .expect("storage key should exist")
+                        .present_value();
                     let contract_storage = self.storage.entry(self.contract_address).or_default();
                     contract_storage.insert(u256_to_padded_hex(key), u256_to_padded_hex(&value));
                 }

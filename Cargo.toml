@@ -121,7 +121,7 @@ foundry-evm-traces = { path = "crates/foundry/evm/traces" }
 
 # solc & compilation utilities
 foundry-block-explorers = { version = "0.18.0", default-features = false }
-foundry-compilers = { version = "0.17.3", default-features = false }
+foundry-compilers = { version = "0.17.3", default-features = false, features = ["svm-solc"] }
 
 ## revm
 op-revm = { version = "8.1.0", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
@@ -270,6 +270,7 @@ from_iter_instead_of_collect = "warn"
 implicit_clone = "warn"
 imprecise_flops = "warn"
 inconsistent_struct_constructor = "warn"
+indexing_slicing = "warn"
 inefficient_to_string = "warn"
 invalid_upcast_comparisons = "warn"
 items-after-statements = "warn"
@@ -285,7 +286,6 @@ manual_ok_or = "warn"
 map_err_ignore = "warn"
 map_flatten = "warn"
 map_unwrap_or = "warn"
-match_on_vec_items = "warn"
 match_same_arms = "warn"
 match_wild_err_arm = "warn"
 match_wildcard_for_single_variants = "warn"

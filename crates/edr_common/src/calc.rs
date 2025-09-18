@@ -22,9 +22,11 @@ pub fn median_sorted(values: &[u64]) -> u64 {
     let len = values.len();
     let mid = len / 2;
     if len % 2 == 0 {
-        (values[mid - 1] + values[mid]) / 2
+        let before_mid = values.get(mid - 1).expect("values is not empty");
+        let mid = values.get(mid).expect("values is not empty");
+        (before_mid + mid) / 2
     } else {
-        values[mid]
+        *values.get(mid).expect("values is not empty")
     }
 }
 

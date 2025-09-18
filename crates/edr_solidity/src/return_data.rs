@@ -18,11 +18,9 @@ pub struct ReturnData<'a> {
 
 impl<'a> ReturnData<'a> {
     pub fn new(value: &'a Bytes) -> Self {
-        let selector = if value.len() >= 4 {
-            Some(value[0..4].try_into().expect("checked length"))
-        } else {
-            None
-        };
+        let selector = value
+            .get(0..4)
+            .map(|selector| selector.try_into().expect("selector is 4 bytes"));
 
         Self { value, selector }
     }

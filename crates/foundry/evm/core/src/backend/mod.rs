@@ -156,8 +156,8 @@ pub trait CheatcodeBackend<
     ///
     /// A state snapshot is associated with a new unique id that's created for
     /// the snapshot. State snapshots can be reverted:
-    /// [CheatcodeBackend::revert_state], however, depending on the
-    /// [RevertStateSnapshotAction], it will keep the snapshot alive or
+    /// [`CheatcodeBackend::revert_state`], however, depending on the
+    /// [`RevertStateSnapshotAction`], it will keep the snapshot alive or
     /// delete it.
     fn snapshot_state(
         &mut self,
@@ -177,8 +177,8 @@ pub trait CheatcodeBackend<
     /// CfgEnv<HardforkT>>` and replace it with the captured `EvmEnv<BlockT,
     /// TxT, CfgEnv<HardforkT>>` of `Self::state_snapshot`.
     ///
-    /// Depending on [RevertStateSnapshotAction] it will keep the snapshot alive
-    /// or delete it.
+    /// Depending on [`RevertStateSnapshotAction`] it will keep the snapshot
+    /// alive or delete it.
     fn revert_state<'a>(
         &'a mut self,
         id: U256,
@@ -374,7 +374,7 @@ pub trait CheatcodeBackend<
     ) -> Option<RevertDiagnostic>;
 
     /// Loads the account allocs from the given `allocs` map into the passed
-    /// [JournalInner<JournalEntry>].
+    /// [`JournalInner`<JournalEntry>].
     ///
     /// Returns [Ok] if all accounts were successfully inserted into the
     /// journal, [Err] otherwise.

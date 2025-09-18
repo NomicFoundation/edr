@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
+// False positive: imported by HH2
+#[allow(dead_code)]
 #[napi(object)]
 pub struct DebugTraceResult {
     pub pass: bool,

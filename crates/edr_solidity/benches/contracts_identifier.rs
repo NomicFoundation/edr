@@ -63,7 +63,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         .contracts;
 
     // Sanity check
-    let total_contracts = contracts.iter().map(|(_k, v)| v.len()).sum::<usize>();
+    let total_contracts = contracts
+        .values()
+        .map(std::collections::HashMap::len)
+        .sum::<usize>();
     let min_contracts = 70;
     assert!(
         total_contracts >= min_contracts,

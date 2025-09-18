@@ -46,7 +46,9 @@ fn print_stack_trace(trace: SolidityStackTrace) -> napi::Result<()> {
                 })?;
 
                 let mut value = serde_json::to_value(entry)?;
-                value["message"] = decoded_error_msg.into();
+                if let Some(obj) = value.as_object_mut() {
+                    obj.insert("message".to_string(), decoded_error_msg.into());
+                }
                 Ok(value)
             }
         })

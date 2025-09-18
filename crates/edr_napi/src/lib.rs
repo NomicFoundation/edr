@@ -17,6 +17,8 @@ pub mod chains;
 pub mod config;
 /// Types related to an EDR N-API context.
 pub mod context;
+/// Types for decoding smart contract data.
+pub mod contract_decoder;
 mod debug_trace;
 pub mod gas_reports;
 /// Types and functions related to code coverage instrumentation.

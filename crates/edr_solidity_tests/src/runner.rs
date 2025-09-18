@@ -44,7 +44,7 @@ use foundry_evm::{
         invariant::{CallDetails, InvariantContract},
         CounterExample, FuzzFixtures,
     },
-    traces::{load_contracts, TraceKind},
+    traces::{load_contracts, TraceKind, TracingMode},
 };
 use proptest::test_runner::{TestError, TestRunner};
 use rayon::prelude::*;
@@ -601,13 +601,17 @@ impl<
         // Exclude stack trace generation from test execution time for accurate
         // reporting
         let stack_trace_result = if !success {
-            let stack_trace_result: StackTraceResult<HaltReasonT> =
-                if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
-                    indeterminism_reasons.into()
-                } else {
-                    self.re_run_test_for_stack_traces(func, setup.has_setup_method)
-                        .into()
-                };
+            let stack_trace_result: StackTraceResult<HaltReasonT> = if records_steps(&executor) {
+                get_stack_trace(&*self.contract_decoder, &traces)
+                    .transpose()
+                    .expect("traces are not empty")
+                    .into()
+            } else if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                indeterminism_reasons.into()
+            } else {
+                self.re_run_test_for_stack_traces(func, setup.has_setup_method)
+                    .into()
+            };
             Some(stack_trace_result)
         } else {
             None
@@ -649,7 +653,7 @@ impl<
 
         // We only need light-weight tracing for setup to be able to match contract
         // codes to contact addresses.
-        executor.inspector.tracing(true);
+        executor.inspector.tracing(TracingMode::WithoutSteps);
         let setup = self.setup(&mut executor, needs_setup);
         if let Some(reason) = setup.reason {
             // If this function was called, the setup succeeded during test execution, so
@@ -658,7 +662,7 @@ impl<
         }
 
         // Collect EVM step traces that are needed for stack trace generation.
-        executor.inspector.enable_for_stack_traces();
+        executor.inspector.tracing(TracingMode::WithSteps);
 
         // Run unit test
         let new_traces = match executor.execute_test(
@@ -724,6 +728,8 @@ impl<
             has_setup_method,
         } = setup;
 
+        let executor_records_steps = records_steps(&executor);
+
         // Run fuzz test
         let start = Instant::now();
         let fuzzed_executor =
@@ -771,7 +777,12 @@ impl<
 
         let stack_trace_result =
             if let Some(CounterExample::Single(counter_example)) = result.counterexample.as_ref() {
-                let stack_trace_result: StackTraceResult<_> = if let Some(indeterminism_reasons) =
+                let stack_trace_result: StackTraceResult<_> = if executor_records_steps {
+                    get_stack_trace(&*self.contract_decoder, &traces)
+                        .transpose()
+                        .expect("traces are not empty")
+                        .into()
+                } else if let Some(indeterminism_reasons) =
                     counter_example.indeterminism_reasons.clone()
                 {
                     indeterminism_reasons.into()
@@ -825,7 +836,7 @@ impl<
 
         // We only need light-weight tracing for setup to be able to match contract
         // codes to contact addresses.
-        executor.inspector.tracing(true);
+        executor.inspector.tracing(TracingMode::WithoutSteps);
         let setup = self.setup(&mut executor, needs_setup);
         if let Some(reason) = setup.reason {
             // If this function was called, the setup succeeded during test execution, so
@@ -834,7 +845,7 @@ impl<
         }
 
         // Collect EVM step traces that are needed for stack trace generation.
-        executor.inspector.enable_for_stack_traces();
+        executor.inspector.tracing(TracingMode::WithSteps);
 
         // Run counterexample test
         let (call, _cow_backend) = executor
@@ -1220,7 +1231,12 @@ impl<
             .filter(|func| func.name.is_setup())
             .collect();
 
-        let needs_setup = setup_fns.len() == 1 && setup_fns[0].name == "setUp";
+        let needs_setup = setup_fns.len() == 1
+            && setup_fns
+                .first()
+                .expect("setup_fns has exactly one element")
+                .name
+                == "setUp";
 
         // There is a single miss-cased `setUp` function, so we add a warning
         for &setup_fn in setup_fns.iter() {
@@ -1289,12 +1305,12 @@ impl<
         // to contract code, and it simplifies re-execution for invariant tests
         // if we don't need to redo the setup.
         let setup_tracing = executor.inspector.tracer.is_none() && has_invariants;
-        if setup_tracing {
-            executor.set_tracing(true);
+        if executor.inspector.tracer.is_none() {
+            executor.set_tracing(TracingMode::WithoutSteps);
         }
         let setup = self.setup(&mut executor, needs_setup);
         if setup_tracing {
-            executor.set_tracing(false);
+            executor.set_tracing(TracingMode::WithoutSteps);
         }
 
         if setup.reason.is_some() {
@@ -1302,13 +1318,20 @@ impl<
             // these numbers to reason about the performance of their code.
             let elapsed = start.elapsed();
 
-            // Re-execute for stack traces
             let stack_trace_result: Option<StackTraceResult<HaltReasonT>> =
-                if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                if records_steps(&executor) {
+                    // We collected steps during setup, so we can generate the stack trace
+                    get_stack_trace(&*self.contract_decoder, &setup.traces)
+                        .transpose()
+                        .map(Into::into)
+                } else if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                    // We cannot re-run the setup due to indeterminism, so we return the
+                    // indeterminism reasons
                     Some(indeterminism_reasons.into())
                 } else {
+                    // Re-execute with collection of steps to generate stack traces
                     let mut executor = self.executor_builder.clone().build();
-                    executor.inspector.enable_for_stack_traces();
+                    executor.set_tracing(TracingMode::WithSteps);
                     let setup_for_stack_traces = self.setup(&mut executor, needs_setup);
 
                     get_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
@@ -1666,4 +1689,31 @@ fn try_to_replay_recorded_failures<
 /// filter.
 fn is_matching_test(func: &Function, filter: &dyn TestFilter) -> bool {
     func.is_any_test() && filter.matches_test(&func.signature())
+}
+
+/// Returns whether the executor's trace inspector records steps.
+fn records_steps<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTrait,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+>(
+    executor: &Executor<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
+) -> bool {
+    executor
+        .inspector
+        .tracer
+        .as_ref()
+        .is_some_and(|tracer| tracer.config().record_steps)
 }

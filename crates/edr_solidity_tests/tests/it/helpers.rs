@@ -19,7 +19,7 @@ use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},
     revm::context::TxEnv,
-    IncludeTraces, MultiContractRunner, SolidityTestRunnerConfig,
+    CollectStackTraces, IncludeTraces, MultiContractRunner, SolidityTestRunnerConfig,
 };
 use edr_test_utils::{
     env::{get_alchemy_url_for_network, NetworkType},
@@ -112,6 +112,7 @@ impl ForgeTestProfile {
         hardfork: HardforkT,
     ) -> SolidityTestRunnerConfig<HardforkT> {
         SolidityTestRunnerConfig {
+            collect_stack_traces: CollectStackTraces::OnFailure,
             include_traces: IncludeTraces::All,
             evm_opts: Self::evm_opts(hardfork),
             project_root: PROJECT_ROOT.clone(),

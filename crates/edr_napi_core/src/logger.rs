@@ -173,18 +173,6 @@ where
         Ok(())
     }
 
-    fn print_contract_decoding_error(
-        &mut self,
-        error: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        self.collector.log(
-            "Contract decoder failed to be updated. Please report this to help us improve Hardhat.",
-        );
-        self.collector.print_empty_line()?;
-        self.collector.log(error);
-        Ok(())
-    }
-
     fn print_method_logs(
         &mut self,
         method: &str,
@@ -735,7 +723,12 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                 };
 
                 if is_precompile {
-                    let precompile = u16::from_be_bytes([to[18], to[19]]);
+                    let precompile = u16::from_be_bytes([
+                        *to.get(18)
+                            .expect("precompile address should have byte at index 18"),
+                        *to.get(19)
+                            .expect("precompile address should have byte at index 19"),
+                    ]);
                     self.log_with_title(
                         "Precompile call",
                         format!("<PrecompileContract {precompile}>"),

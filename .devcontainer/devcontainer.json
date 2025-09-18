@@ -6,7 +6,7 @@
       "version": "22"
     }
   },
-  "postAttachCommand": "scripts/setup.sh",
+  "postCreateCommand": "scripts/setup.sh",
   "portsAttributes": {
     // The default port of mdbook
     "3000": {

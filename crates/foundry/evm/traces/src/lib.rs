@@ -4,6 +4,8 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+// TODO https://github.com/NomicFoundation/edr/issues/1076
+#![allow(clippy::indexing_slicing)]
 
 #[macro_use]
 extern crate tracing;
@@ -64,6 +66,40 @@ impl SparsedTraceArena {
             clear_node(arena.nodes_mut(), 0, &self.ignored, &mut None);
             Cow::Owned(arena)
         }
+    }
+}
+
+/// Trace mode for execution traces.
+#[derive(Clone, Copy, Debug, Default)]
+pub enum TracingMode {
+    /// Don't collect traces
+    #[default]
+    None,
+    /// Collect traces without recording steps
+    WithoutSteps,
+    /// Collect traces with recorded steps
+    WithSteps,
+}
+
+impl TracingMode {
+    pub fn into_config(self) -> Option<TracingInspectorConfig> {
+        let record_steps = match self {
+            Self::None => return None,
+            Self::WithoutSteps => false,
+            Self::WithSteps => true,
+        };
+
+        Some(TracingInspectorConfig {
+            record_steps,
+            record_memory_snapshots: false,
+            record_stack_snapshots: StackSnapshotType::None,
+            record_state_diff: false,
+            record_returndata_snapshots: false,
+            record_opcodes_filter: None,
+            exclude_precompile_calls: false,
+            record_logs: true,
+            record_immediate_bytes: false,
+        })
     }
 }
 
@@ -223,4 +259,22 @@ pub fn load_contracts<'a>(
         }
     }
     contracts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tracing_mode_into_config() {
+        assert!(TracingMode::None.into_config().is_none());
+        assert!(matches!(
+            TracingMode::WithoutSteps.into_config(),
+            Some(config) if !config.record_steps
+        ));
+        assert!(matches!(
+            TracingMode::WithSteps.into_config(),
+            Some(config) if config.record_steps
+        ));
+    }
 }
