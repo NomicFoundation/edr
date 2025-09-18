@@ -45,8 +45,8 @@ pub fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<
         .map(|config| &config.hardfork_activations)
 }
 
-/// Returns the base fee params corresponding to the provided chain IF, if it is
-/// supported if not, it default to chain type main chain values
+/// Returns the hardfork activations corresponding to the provided chain ID, if
+/// it is supported. If not, it defaults to OP Mainnet values
 pub fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Hardfork> {
     chain_configs()
         .get(&chain_id)

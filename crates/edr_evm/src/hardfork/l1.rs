@@ -241,7 +241,7 @@ pub fn chain_hardfork_activations(
 }
 
 /// Returns the hardfork activations corresponding to the provided chain ID, if
-/// it is supported.
+/// it is supported. If not, it defaults to Mainnet values
 pub fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<edr_chain_l1::Hardfork> {
     chain_configs()
         .get(&chain_id)

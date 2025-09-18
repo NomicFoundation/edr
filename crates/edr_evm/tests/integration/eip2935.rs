@@ -14,14 +14,14 @@ use edr_evm::{
 };
 
 fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L1ChainSpec>> {
-    let chain_id = 0x7a69;
+    const CHAIN_ID: u64 = 0x7a69;
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
         BlockChainCondition::new(
             edr_chain_l1::Hardfork::PRAGUE,
-            edr_chain_l1::L1ChainSpec::chain_base_fee_params(chain_id),
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(CHAIN_ID),
         ),
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),
@@ -32,7 +32,7 @@ fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L
     let blockchain = LocalBlockchain::new(
         genesis_block,
         genesis_diff,
-        chain_id,
+        CHAIN_ID,
         edr_chain_l1::Hardfork::PRAGUE,
     )?;
 

@@ -58,11 +58,11 @@ pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
         (
             BaseFeeActivation::BlockNumber(135_513_416),
             ConstantBaseFeeParams::new(250, 4),
-        ), // ConfigUpdate timestamp: 0x681b63b7, logIndex: 0x1e8
+        ),
         (
             BaseFeeActivation::BlockNumber(136_165_876),
             ConstantBaseFeeParams::new(250, 2),
-        ), // ConfigUpdate timestamp: 0x682f4d53, logIndex: 0x1ed
+        ),
     ])),
 });
 

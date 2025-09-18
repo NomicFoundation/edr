@@ -78,6 +78,7 @@ async fn create_forked_dummy_blockchain(
 async fn create_dummy_blockchains(
 ) -> Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>>>
 {
+    const CHAIN_ID: u64 = 1;
     const DEFAULT_GAS_LIMIT: u64 = 0xffffffffffffff;
     const DEFAULT_INITIAL_BASE_FEE: u128 = 1000000000;
 
@@ -86,7 +87,7 @@ async fn create_dummy_blockchains(
         genesis_diff.clone(),
         BlockChainCondition::new(
             edr_chain_l1::Hardfork::default(),
-            edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(CHAIN_ID),
         ),
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
@@ -100,7 +101,7 @@ async fn create_dummy_blockchains(
     let local_blockchain = LocalBlockchain::new(
         genesis_block,
         genesis_diff,
-        1,
+        CHAIN_ID,
         edr_chain_l1::Hardfork::default(),
     )
     .expect("Should construct without issues");
