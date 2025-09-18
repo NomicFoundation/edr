@@ -304,10 +304,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     ) -> Option<&mut Vec<CreateSender<BlockT, TxT, HardforkT>>> {
         for task in self.pending_tasks.iter_mut() {
             #[allow(irrefutable_let_patterns)]
-            if let ForkTask::Create(_, in_progress, _, additional) = task {
-                if in_progress == id {
-                    return Some(additional);
-                }
+            if let ForkTask::Create(_, in_progress, _, additional) = task
+                && in_progress == id
+            {
+                return Some(additional);
             }
         }
         None
@@ -560,11 +560,11 @@ impl<BlockT, TxT, HardforkT> Drop for ShutDownMultiFork<BlockT, TxT, HardforkT> 
         trace!(target: "fork::multi", "initiating shutdown");
         let (sender, rx) = oneshot_channel();
         let req = Request::ShutDown(sender);
-        if let Some(mut handler) = self.handler.take() {
-            if handler.try_send(req).is_ok() {
-                let _ = rx.recv();
-                trace!(target: "fork::cache", "multifork backend shutdown");
-            }
+        if let Some(mut handler) = self.handler.take()
+            && handler.try_send(req).is_ok()
+        {
+            let _ = rx.recv();
+            trace!(target: "fork::cache", "multifork backend shutdown");
         }
     }
 }
