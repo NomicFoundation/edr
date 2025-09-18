@@ -93,30 +93,30 @@ impl serde::Serialize for L1TransactionType {
 
 #[cfg(test)]
 mod tests {
-    use crate::Type;
+    use super::*;
 
-    fn assert_conversion(expected_conversion: Type) {
+    fn assert_conversion(expected_conversion: L1TransactionType) {
         let value: u8 = expected_conversion.into();
-        assert_eq!(Type::try_from(value), Ok(expected_conversion));
+        assert_eq!(L1TransactionType::try_from(value), Ok(expected_conversion));
     }
 
     #[test]
     fn test_transaction_type_conversion() {
         let possible_values = [
-            Type::Eip1559,
-            Type::Eip2930,
-            Type::Eip4844,
-            Type::Eip7702,
-            Type::Legacy,
+            L1TransactionType::Eip1559,
+            L1TransactionType::Eip2930,
+            L1TransactionType::Eip4844,
+            L1TransactionType::Eip7702,
+            L1TransactionType::Legacy,
         ];
         for transaction_type in possible_values {
             // using match to ensure we are covering all variants
             match transaction_type {
-                Type::Eip1559 => assert_conversion(Type::Eip1559),
-                Type::Eip2930 => assert_conversion(Type::Eip2930),
-                Type::Eip4844 => assert_conversion(Type::Eip4844),
-                Type::Eip7702 => assert_conversion(Type::Eip7702),
-                Type::Legacy => assert_conversion(Type::Legacy),
+                L1TransactionType::Eip1559 => assert_conversion(L1TransactionType::Eip1559),
+                L1TransactionType::Eip2930 => assert_conversion(L1TransactionType::Eip2930),
+                L1TransactionType::Eip4844 => assert_conversion(L1TransactionType::Eip4844),
+                L1TransactionType::Eip7702 => assert_conversion(L1TransactionType::Eip7702),
+                L1TransactionType::Legacy => assert_conversion(L1TransactionType::Legacy),
             }
         }
     }
