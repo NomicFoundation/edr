@@ -3,6 +3,7 @@ import { assert } from "chai";
 import * as fs from "fs";
 import {
   AccountOverride,
+  ContractDecoder,
   GasReport,
   GasReportExecutionStatus,
   GENERIC_CHAIN_TYPE,
@@ -127,7 +128,7 @@ describe("Gas reports", function () {
       {
         subscriptionCallback: (_event: SubscriptionEvent) => {},
       },
-      tracingConfig
+      ContractDecoder.withContracts(tracingConfig)
     );
 
     gasPrice = await getGasPrice(provider);
@@ -138,99 +139,175 @@ describe("Gas reports", function () {
 
   describe("sendTransaction", function () {
     it("deployment + transaction", async function () {
-      const address = await deployContract(
-        provider,
+      const bytecode =
         exampleBuildInfo.output.contracts["project/contracts/MyLibrary.sol"]
-          .MyLibrary.evm.bytecode.object
+          .MyLibrary.evm.bytecode.object;
+
+      const address = await deployContract(provider, bytecode);
+
+      assert.isDefined(
+        gasReporter.report,
+        "No gas report received after deployment"
+      );
+
+      let gasReport = gasReporter.report!;
+
+      assert.equal(
+        Object.keys(gasReport.contracts).length,
+        1,
+        "Gas report should contain exactly one contract"
+      );
+      assert.equal(
+        Object.keys(gasReport.contracts)[0],
+        "project/contracts/MyLibrary.sol:MyLibrary",
+        "Gas report contains unexpected contract"
       );
 
       let contractReport =
-        gasReporter.report!.contracts[
-          "project/contracts/MyLibrary.sol:MyLibrary"
-        ];
+        gasReport.contracts["project/contracts/MyLibrary.sol:MyLibrary"];
 
-      assert.isDefined(gasReporter.report, "No gas report received");
-      assert(
-        contractReport.deployments.length > 0,
-        "Deployed contract not found in gas report"
+      assert.equal(
+        contractReport.deployments.length,
+        1,
+        "Gas report should contain exactly one deployment"
       );
-      assert(
-        contractReport.deployments[0].gas > 0,
-        "Deployed contract has zero gas used in gas report"
+      assert.equal(
+        Object.keys(contractReport.functions).length,
+        0,
+        "Gas report should contain no function calls after deployment"
       );
-      assert(
-        contractReport.deployments[0].size > 0,
-        "Deployed contract has zero size in gas report"
+
+      const deployment = contractReport.deployments[0];
+      assert(deployment.gas > 0n, "Gas report deployment has zero gas used");
+
+      const bytecodeLength = BigInt(bytecode.length / 2); // 2 hex chars per byte
+      assert.equal(
+        deployment.size,
+        bytecodeLength,
+        "Gas report deployment size mismatch"
       );
-      assert(
-        contractReport.deployments[0].status ===
-          GasReportExecutionStatus.Success,
-        "Deployed contract has non-success status in gas report"
+
+      assert.equal(
+        deployment.status,
+        GasReportExecutionStatus.Success,
+        "Gas report deployment has non-success status"
       );
 
       await sendTransaction(provider, {
         to: address,
-        gas: 1000000,
+        gas: 1_000_000,
         data: "0x68ba353b0000000000000000000000000000000000000000000000000000000000000001", // plus100(1)
         value: 1,
         gasPrice,
       }).catch(() => {});
 
+      assert.isDefined(
+        gasReporter.report,
+        "No gas report received after transaction"
+      );
+
+      gasReport = gasReporter.report!;
+
+      assert.equal(
+        Object.keys(gasReport.contracts).length,
+        1,
+        "Gas report should contain exactly one contract"
+      );
+      assert.equal(
+        Object.keys(gasReport.contracts)[0],
+        "project/contracts/MyLibrary.sol:MyLibrary",
+        "Gas report contains unexpected contract"
+      );
+
       contractReport =
-        gasReporter.report!.contracts[
-          "project/contracts/MyLibrary.sol:MyLibrary"
-        ];
+        gasReport.contracts["project/contracts/MyLibrary.sol:MyLibrary"];
+
+      assert.equal(
+        contractReport.deployments.length,
+        0,
+        "Gas report should contain no deployments"
+      );
+      assert.equal(
+        Object.keys(contractReport.functions).length,
+        1,
+        "Gas report should contain exactly one function"
+      );
+
+      const func = contractReport.functions["plus100(uint256)"];
+      assert.equal(
+        func.length,
+        1,
+        "Gas report should contain exactly one call to plus100(uint256)"
+      );
+
+      const call = func[0];
+      assert(call.gas > 0n, "Gas report function call has zero gas used");
 
       assert(
-        Object.keys(contractReport.functions).length > 0,
-        "No functions found in gas report"
+        call.gas > 0,
+        "Gas report call to plus100(uint256) has zero gas used"
       );
       assert(
-        contractReport.functions["plus100(uint256)"].calls.length > 0,
-        "No calls to plus100(uint256) found in gas report"
-      );
-      assert(
-        contractReport.functions["plus100(uint256)"].calls[0].gas > 0,
-        "Call to plus100(uint256) has zero gas used in gas report"
-      );
-      assert(
-        contractReport.functions["plus100(uint256)"].calls[0].status ===
-          GasReportExecutionStatus.Success,
-        "Call to plus100(uint256) has non-success status in gas report"
+        call.status === GasReportExecutionStatus.Success,
+        "Gas report call to plus100(uint256) has non-success status"
       );
     });
   });
 
   describe("call", function () {
     it("deployment + call", async function () {
-      const address = await deployContract(
-        provider,
+      const bytecode =
         exampleBuildInfo.output.contracts["project/contracts/MyLibrary.sol"]
-          .MyLibrary.evm.bytecode.object
+          .MyLibrary.evm.bytecode.object;
+
+      const address = await deployContract(provider, bytecode);
+
+      assert.isDefined(
+        gasReporter.report,
+        "No gas report received after deployment"
+      );
+
+      let gasReport = gasReporter.report!;
+
+      assert.equal(
+        Object.keys(gasReport.contracts).length,
+        1,
+        "Gas report should contain exactly one contract"
+      );
+      assert.equal(
+        Object.keys(gasReport.contracts)[0],
+        "project/contracts/MyLibrary.sol:MyLibrary",
+        "Gas report contains unexpected contract"
       );
 
       let contractReport =
-        gasReporter.report!.contracts[
-          "project/contracts/MyLibrary.sol:MyLibrary"
-        ];
+        gasReport.contracts["project/contracts/MyLibrary.sol:MyLibrary"];
 
-      assert.isDefined(gasReporter.report, "No gas report received");
-      assert(
-        contractReport.deployments.length > 0,
-        "Deployed contract not found in gas report"
+      assert.equal(
+        contractReport.deployments.length,
+        1,
+        "Gas report should contain exactly one deployment"
       );
-      assert(
-        contractReport.deployments[0].gas > 0,
-        "Deployed contract has zero gas used in gas report"
+      assert.equal(
+        Object.keys(contractReport.functions).length,
+        0,
+        "Gas report should contain no function calls after deployment"
       );
-      assert(
-        contractReport.deployments[0].size > 0,
-        "Deployed contract has zero size in gas report"
+
+      const deployment = contractReport.deployments[0];
+      assert(deployment.gas > 0n, "Gas report deployment has zero gas used");
+
+      const bytecodeLength = BigInt(bytecode.length / 2); // 2 hex chars per byte
+      assert.equal(
+        deployment.size,
+        bytecodeLength,
+        "Gas report deployment size mismatch"
       );
-      assert(
-        contractReport.deployments[0].status ===
-          GasReportExecutionStatus.Success,
-        "Deployed contract has non-success status in gas report"
+
+      assert.equal(
+        deployment.status,
+        GasReportExecutionStatus.Success,
+        "Gas report deployment has non-success status"
       );
 
       await provider
@@ -249,27 +326,55 @@ describe("Gas reports", function () {
         )
         .catch(() => {});
 
+      assert.isDefined(
+        gasReporter.report,
+        "No gas report received after transaction"
+      );
+
+      gasReport = gasReporter.report!;
+
+      assert.equal(
+        Object.keys(gasReport.contracts).length,
+        1,
+        "Gas report should contain exactly one contract"
+      );
+      assert.equal(
+        Object.keys(gasReport.contracts)[0],
+        "project/contracts/MyLibrary.sol:MyLibrary",
+        "Gas report contains unexpected contract"
+      );
+
       contractReport =
-        gasReporter.report!.contracts[
-          "project/contracts/MyLibrary.sol:MyLibrary"
-        ];
+        gasReport.contracts["project/contracts/MyLibrary.sol:MyLibrary"];
+
+      assert.equal(
+        contractReport.deployments.length,
+        0,
+        "Gas report should contain no deployments"
+      );
+      assert.equal(
+        Object.keys(contractReport.functions).length,
+        1,
+        "Gas report should contain exactly one function"
+      );
+
+      const func = contractReport.functions["plus100(uint256)"];
+      assert.equal(
+        func.length,
+        1,
+        "Gas report should contain exactly one call to plus100(uint256)"
+      );
+
+      const call = func[0];
+      assert(call.gas > 0n, "Gas report function call has zero gas used");
 
       assert(
-        Object.keys(contractReport.functions).length > 0,
-        "No functions found in gas report"
+        call.gas > 0,
+        "Gas report call to plus100(uint256) has zero gas used"
       );
       assert(
-        contractReport.functions["plus100(uint256)"].calls.length > 0,
-        "No calls to plus100(uint256) found in gas report"
-      );
-      assert(
-        contractReport.functions["plus100(uint256)"].calls[0].gas > 0,
-        "Call to plus100(uint256) has zero gas used in gas report"
-      );
-      assert(
-        contractReport.functions["plus100(uint256)"].calls[0].status ===
-          GasReportExecutionStatus.Success,
-        "Call to plus100(uint256) has non-success status in gas report"
+        call.status === GasReportExecutionStatus.Success,
+        "Gas report call to plus100(uint256) has non-success status"
       );
     });
   });

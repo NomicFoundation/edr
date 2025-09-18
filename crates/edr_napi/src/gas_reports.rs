@@ -11,7 +11,7 @@ pub struct GasReport {
 #[napi(object)]
 pub struct ContractGasReport {
     pub deployments: Vec<DeploymentGasReport>,
-    pub functions: HashMap<String, FunctionGasReport>,
+    pub functions: HashMap<String, Vec<FunctionGasReport>>,
 }
 
 #[napi]
@@ -30,11 +30,6 @@ pub struct DeploymentGasReport {
 
 #[napi(object)]
 pub struct FunctionGasReport {
-    pub calls: Vec<FunctionCallGasReport>,
-}
-
-#[napi(object)]
-pub struct FunctionCallGasReport {
     pub gas: BigInt,
     pub status: GasReportExecutionStatus,
 }
@@ -59,8 +54,8 @@ impl From<edr_provider::gas_reports::ContractGasReport> for ContractGasReport {
                 .functions
                 .into_iter()
                 .map(|(k, v)| {
-                    let calls = v.into_iter().map(FunctionCallGasReport::from).collect();
-                    (k, FunctionGasReport { calls })
+                    let function_reports = v.into_iter().map(FunctionGasReport::from).collect();
+                    (k, function_reports)
                 })
                 .collect(),
         }
@@ -87,7 +82,7 @@ impl From<edr_provider::gas_reports::DeploymentGasReport> for DeploymentGasRepor
     }
 }
 
-impl From<edr_provider::gas_reports::FunctionGasReport> for FunctionCallGasReport {
+impl From<edr_provider::gas_reports::FunctionGasReport> for FunctionGasReport {
     fn from(value: edr_provider::gas_reports::FunctionGasReport) -> Self {
         Self {
             gas: BigInt::from(value.gas),

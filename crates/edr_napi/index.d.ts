@@ -389,7 +389,7 @@ export interface GasReport {
 }
 export interface ContractGasReport {
   deployments: Array<DeploymentGasReport>
-  functions: Record<string, FunctionGasReport>
+  functions: Record<string, Array<FunctionGasReport>>
 }
 export enum GasReportExecutionStatus {
   Success = 0,
@@ -402,9 +402,6 @@ export interface DeploymentGasReport {
   status: GasReportExecutionStatus
 }
 export interface FunctionGasReport {
-  calls: Array<FunctionCallGasReport>
-}
-export interface FunctionCallGasReport {
   gas: bigint
   status: GasReportExecutionStatus
 }
