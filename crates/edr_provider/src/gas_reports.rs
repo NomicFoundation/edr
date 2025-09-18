@@ -30,6 +30,15 @@ pub struct GasReport {
     contracts: HashMap<String, ContractGasReport>,
 }
 
+/// An error that can occur when calling [`GasReport::new`] or
+/// [`GasReport::add`].
+#[derive(Debug, thiserror::Error)]
+pub enum GasReportCreationError {
+    /// Error caused by the state.
+    #[error(transparent)]
+    State(#[from] StateError),
+}
+
 impl GasReport {
     /// Creates a new instance with a single entry, based on the provided
     /// transaction parameters and execution result.
@@ -111,14 +120,6 @@ impl GasReport {
             }
         }
     }
-}
-
-/// An error that can occur when calling [`GasReporter::report`].
-#[derive(Debug, thiserror::Error)]
-pub enum GasReportCreationError {
-    /// Error caused by the state.
-    #[error(transparent)]
-    State(#[from] StateError),
 }
 
 #[derive(Clone, Debug)]

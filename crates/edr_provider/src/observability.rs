@@ -22,13 +22,13 @@ use crate::{
 
 /// Convenience type alias for [`ObservabilityConfig`].
 ///
-/// This allows usage like [`observability::Config`].
+/// This allows usage like `edr_provider::observability::Config`.
 pub type Config = ObservabilityConfig;
 
 /// Configuration for collecting information about executed transactions.
 ///
 /// This can happen at multiple levels:
-/// - **EVM-level**: Using a [`RuntimeObserver`] to inspect the EVM execution.
+/// - **EVM-level**: Using a [`EvmObserver`] to inspect the EVM execution.
 /// - **Provider-level**: Using finalised execution results.
 #[derive(Clone, Default)]
 pub struct ObservabilityConfig {
