@@ -4,13 +4,11 @@ use std::sync::Arc;
 
 pub use cached::CachedRemoteState;
 use derive_where::derive_where;
-use edr_eth::{
-    account::AccountInfo, Address, BlockSpec, Bytecode, PreEip1898BlockSpec, B256, U256,
-};
-use edr_rpc_eth::{
-    client::{EthRpcClient, RpcClientError},
-    spec::RpcSpec,
-};
+use edr_eth::{BlockSpec, Bytecode, PreEip1898BlockSpec};
+use edr_primitives::{Address, B256, U256};
+use edr_rpc_eth::client::{EthRpcClient, RpcClientError};
+use edr_rpc_spec::RpcSpec;
+use edr_state::account::AccountInfo;
 use tokio::runtime;
 
 use super::{State, StateError};

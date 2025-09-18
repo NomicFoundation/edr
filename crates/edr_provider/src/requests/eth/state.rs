@@ -1,9 +1,11 @@
-use edr_eth::{utils::u256_to_padded_hex, Address, BlockSpec, Bytes, U256};
+use edr_eth::BlockSpec;
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_primitives::{Address, Bytes, U256};
 
 use crate::{
     data::ProviderData, requests::validation::validate_post_merge_block_tags,
-    spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,
+    spec::SyncProviderSpec, time::TimeSinceEpoch, utils::u256_to_padded_hex,
+    ProviderErrorForChainSpec,
 };
 
 pub fn handle_get_balance_request<

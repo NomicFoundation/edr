@@ -1,8 +1,8 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
+use edr_block_header::{BlobGas, BlockHeader, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
 use edr_eth::{
-    block::{self, BlobGas, Header, PartialHeader},
     eips::eip4844::{self, blob_base_fee_update_fraction},
     result::ExecutionResult,
     Bytes, B256, U256,
@@ -15,7 +15,7 @@ use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
 };
-use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
+use edr_rpc_spec::{RpcSpec, RpcTypeFrom};
 use edr_transaction::TransactionType;
 use edr_utils::types::TypeConstructor;
 use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector};
@@ -167,7 +167,7 @@ pub trait RuntimeSpec:
           + TransactionType
           + TransactionValidation<ValidationError: From<EvmTransactionValidationError>>,
     >
-    + BlockEnvConstructor<block::PartialHeader> + BlockEnvConstructor<block::Header>
+    + BlockEnvConstructor<PartialHeader> + BlockEnvConstructor<BlockHeader>
     // Defines an RPC spec and conversion between RPC <-> EVM types
     + RpcSpec<
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
@@ -416,8 +416,8 @@ impl RuntimeSpec for L1ChainSpec {
 
     type ReceiptBuilder = receipt::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
-    type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;
-    type RpcTransactionConversionError = TransactionConversionError;
+    type RpcReceiptConversionError = edr_chain_l1::rpc::receipt::ConversionError;
+    type RpcTransactionConversionError = edr_chain_l1::rpc::transaction::ConversionError;
 
     fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block> {
         local_block
@@ -494,8 +494,8 @@ impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
     }
 }
 
-impl BlockEnvConstructor<Header> for L1ChainSpec {
-    fn new_block_env(header: &Header, hardfork: EvmSpecId) -> Self::BlockEnv {
+impl BlockEnvConstructor<BlockHeader> for L1ChainSpec {
+    fn new_block_env(header: &BlockHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
         edr_chain_l1::BlockEnv {
             number: U256::from(header.number),
             beneficiary: header.beneficiary,
@@ -524,15 +524,13 @@ impl BlockEnvConstructor<Header> for L1ChainSpec {
 
 #[cfg(test)]
 mod l1_chain_spec_tests {
-    use edr_eth::{
-        block::{BlobGas, Header},
-        Address, Bloom, Bytes, B256, B64, U256,
-    };
+    use edr_block_header::{BlobGas, BlockHeader};
+    use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
     use crate::spec::{BlockEnvConstructor as _, L1ChainSpec};
 
-    fn build_block_header(blob_gas: Option<BlobGas>) -> Header {
-        Header {
+    fn build_block_header(blob_gas: Option<BlobGas>) -> BlockHeader {
+        BlockHeader {
             parent_hash: B256::default(),
             ommers_hash: B256::default(),
             beneficiary: Address::default(),

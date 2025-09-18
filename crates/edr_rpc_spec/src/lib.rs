@@ -1,8 +1,11 @@
-use edr_chain_l1::L1ChainSpec;
+#![warn(missing_docs)]
+//! Ethereum JSON-RPC specification types
+
+#[cfg(any(feature = "test-utils", test))]
+mod test_utils;
+
 use edr_receipt::ExecutionReceipt;
 use serde::{de::DeserializeOwned, Serialize};
-
-use crate::{receipt::Block, CallRequest};
 
 /// Trait for specifying Ethereum-based JSON-RPC method types.
 pub trait RpcSpec {
@@ -27,18 +30,18 @@ pub trait RpcSpec {
     type RpcTransactionRequest: DeserializeOwned + Serialize;
 }
 
+/// Trait for retrieving a block's number.
 pub trait GetBlockNumber {
+    /// Retrieves the block number, if available. If the block is pending,
+    /// returns `None`.
     fn number(&self) -> Option<u64>;
 }
 
-impl RpcSpec for L1ChainSpec {
-    type ExecutionReceipt<LogT> = edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<LogT>>;
-    type RpcBlock<DataT>
-        = crate::block::Block<DataT>
-    where
-        DataT: Default + DeserializeOwned + Serialize;
-    type RpcCallRequest = CallRequest;
-    type RpcReceipt = Block;
-    type RpcTransaction = crate::transaction::TransactionWithSignature;
-    type RpcTransactionRequest = crate::transaction::TransactionRequest;
+/// Trait for constructing an RPC type from an internal type.
+pub trait RpcTypeFrom<InputT> {
+    /// The hardfork type.
+    type Hardfork;
+
+    /// Constructs an RPC type from the provided internal value.
+    fn rpc_type_from(value: &InputT, hardfork: Self::Hardfork) -> Self;
 }

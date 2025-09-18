@@ -124,7 +124,7 @@ mod remote {
     #[tokio::test(flavor = "multi_thread")]
     #[serial_test::serial]
     async fn forked_blockchain_pre_prague_activation_with_cancun() -> anyhow::Result<()> {
-        use edr_eth::account::AccountInfo;
+        use edr_state::account::AccountInfo;
 
         const PRE_PRAGUE_BLOCK_NUMBER: u64 = 19_426_589;
 

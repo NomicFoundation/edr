@@ -1,4 +1,11 @@
-use crate::{account::BasicAccount, trie::sec_trie_root, Address, HashMap, B256, U256};
+//! Types for Ethereum state management
+
+pub mod account;
+
+use edr_primitives::{Address, HashMap, B256, U256};
+use edr_trie::sec_trie_root;
+
+use crate::account::BasicAccount;
 
 /// Account storage mapping of indices to values.
 pub type AccountStorage = HashMap<U256, U256>;
@@ -32,8 +39,9 @@ where
 mod tests {
     use std::str::FromStr;
 
+    use edr_primitives::KECCAK_NULL_RLP;
+
     use super::*;
-    use crate::trie::KECCAK_NULL_RLP;
 
     #[test]
     fn empty_state_root() {

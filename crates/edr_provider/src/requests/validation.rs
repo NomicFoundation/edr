@@ -1,8 +1,8 @@
+use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_eth::{
     Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
 };
 use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
@@ -43,7 +43,7 @@ impl HardforkValidationData for TransactionRequest {
     }
 }
 
-impl HardforkValidationData for CallRequest {
+impl HardforkValidationData for L1CallRequest {
     fn to(&self) -> Option<&Address> {
         self.to.as_ref()
     }
@@ -77,19 +77,19 @@ impl HardforkValidationData for CallRequest {
     }
 }
 
-impl HardforkValidationData for edr_chain_l1::PooledTransaction {
+impl HardforkValidationData for edr_chain_l1::L1PooledTransaction {
     fn to(&self) -> Option<&Address> {
         Some(self.caller())
     }
 
     fn gas_price(&self) -> Option<&u128> {
         match self {
-            edr_chain_l1::PooledTransaction::PreEip155Legacy(tx) => Some(&tx.gas_price),
-            edr_chain_l1::PooledTransaction::PostEip155Legacy(tx) => Some(&tx.gas_price),
-            edr_chain_l1::PooledTransaction::Eip2930(tx) => Some(&tx.gas_price),
-            edr_chain_l1::PooledTransaction::Eip1559(_)
-            | edr_chain_l1::PooledTransaction::Eip4844(_)
-            | edr_chain_l1::PooledTransaction::Eip7702(_) => None,
+            edr_chain_l1::L1PooledTransaction::PreEip155Legacy(tx) => Some(&tx.gas_price),
+            edr_chain_l1::L1PooledTransaction::PostEip155Legacy(tx) => Some(&tx.gas_price),
+            edr_chain_l1::L1PooledTransaction::Eip2930(tx) => Some(&tx.gas_price),
+            edr_chain_l1::L1PooledTransaction::Eip1559(_)
+            | edr_chain_l1::L1PooledTransaction::Eip4844(_)
+            | edr_chain_l1::L1PooledTransaction::Eip7702(_) => None,
         }
     }
 
@@ -103,32 +103,32 @@ impl HardforkValidationData for edr_chain_l1::PooledTransaction {
 
     fn access_list(&self) -> Option<&Vec<edr_eip2930::AccessListItem>> {
         match self {
-            edr_chain_l1::PooledTransaction::PreEip155Legacy(_)
-            | edr_chain_l1::PooledTransaction::PostEip155Legacy(_) => None,
-            edr_chain_l1::PooledTransaction::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
-            edr_chain_l1::PooledTransaction::Eip1559(tx) => Some(tx.access_list.0.as_ref()),
-            edr_chain_l1::PooledTransaction::Eip4844(tx) => Some(&tx.payload().access_list),
-            edr_chain_l1::PooledTransaction::Eip7702(tx) => Some(tx.access_list.0.as_ref()),
+            edr_chain_l1::L1PooledTransaction::PreEip155Legacy(_)
+            | edr_chain_l1::L1PooledTransaction::PostEip155Legacy(_) => None,
+            edr_chain_l1::L1PooledTransaction::Eip2930(tx) => Some(tx.access_list.0.as_ref()),
+            edr_chain_l1::L1PooledTransaction::Eip1559(tx) => Some(tx.access_list.0.as_ref()),
+            edr_chain_l1::L1PooledTransaction::Eip4844(tx) => Some(&tx.payload().access_list),
+            edr_chain_l1::L1PooledTransaction::Eip7702(tx) => Some(tx.access_list.0.as_ref()),
         }
     }
 
     fn blobs(&self) -> Option<&Vec<Blob>> {
         match self {
-            edr_chain_l1::PooledTransaction::Eip4844(tx) => Some(tx.blobs_ref()),
+            edr_chain_l1::L1PooledTransaction::Eip4844(tx) => Some(tx.blobs_ref()),
             _ => None,
         }
     }
 
     fn blob_hashes(&self) -> Option<&Vec<B256>> {
         match self {
-            edr_chain_l1::PooledTransaction::Eip4844(tx) => Some(&tx.payload().blob_hashes),
+            edr_chain_l1::L1PooledTransaction::Eip4844(tx) => Some(&tx.payload().blob_hashes),
             _ => None,
         }
     }
 
     fn authorization_list(&self) -> Option<&Vec<edr_eip7702::SignedAuthorization>> {
         match self {
-            edr_chain_l1::PooledTransaction::Eip7702(tx) => Some(tx.authorization_list.as_ref()),
+            edr_chain_l1::L1PooledTransaction::Eip7702(tx) => Some(tx.authorization_list.as_ref()),
             _ => None,
         }
     }
@@ -166,7 +166,7 @@ pub fn validate_send_transaction_request<
     }
 
     if let Some(transaction_type) = request.transaction_type {
-        if transaction_type == u8::from(edr_chain_l1::Type::Eip4844) {
+        if transaction_type == u8::from(edr_chain_l1::L1TransactionType::Eip4844) {
             return Err(ProviderError::Eip4844TransactionUnsupported);
         }
     }
@@ -275,10 +275,10 @@ fn validate_transaction_spec<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
     Ok(())
 }
 
-/// Validates a `CallRequest` and `BlockSpec` against the provided hardfork.
+/// Validates a `L1CallRequest` and `BlockSpec` against the provided hardfork.
 pub fn validate_call_request<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
     hardfork: ChainSpecT::Hardfork,
-    call_request: &CallRequest,
+    call_request: &L1CallRequest,
     block_spec: &BlockSpec,
 ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
     validate_post_merge_block_tags::<ChainSpecT, TimerT>(hardfork, block_spec)?;

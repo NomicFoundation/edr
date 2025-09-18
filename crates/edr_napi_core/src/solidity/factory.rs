@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use edr_eth::Bytes;
+use edr_primitives::Bytes;
 use edr_solidity::artifacts::ArtifactId;
 use edr_solidity_tests::{
     contracts::ContractsByArtifact, decode::RevertDecoder, multi_runner::TestContract,

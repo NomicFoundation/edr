@@ -1,4 +1,5 @@
-use edr_rpc_eth::RpcSpec;
+use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
+use edr_rpc_spec::RpcSpec;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{eip2718::TypedEnvelope, GenericChainSpec};
@@ -13,8 +14,8 @@ impl RpcSpec for GenericChainSpec {
         = self::block::Block<Data>
     where
         Data: Default + DeserializeOwned + Serialize;
-    type RpcCallRequest = edr_rpc_eth::CallRequest;
+    type RpcCallRequest = L1CallRequest;
     type RpcReceipt = self::receipt::BlockReceipt;
     type RpcTransaction = self::transaction::TransactionWithSignature;
-    type RpcTransactionRequest = edr_rpc_eth::TransactionRequest;
+    type RpcTransactionRequest = TransactionRequest;
 }

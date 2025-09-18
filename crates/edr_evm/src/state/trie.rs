@@ -4,10 +4,9 @@ mod state_trie;
 mod storage_trie;
 mod trie_query;
 
-use edr_eth::{
-    account::{Account, AccountInfo, KECCAK_EMPTY},
-    Address, Bytecode, HashMap, B256, U256,
-};
+use edr_eth::Bytecode;
+use edr_primitives::{Address, HashMap, B256, KECCAK_EMPTY, U256};
+use edr_state::account::{Account, AccountInfo};
 
 pub use self::account::AccountTrie;
 use super::{State, StateCommit, StateDebug, StateError};

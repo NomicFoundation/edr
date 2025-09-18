@@ -3,7 +3,7 @@
 
 use std::convert::Infallible;
 
-use edr_eth::{hex, U256};
+use edr_primitives::{hex, U256};
 use napi::bindgen_prelude::{BigInt, Either25, FromNapiValue, ToNapiValue, Uint8Array, Undefined};
 use napi_derive::napi;
 use serde::{Serialize, Serializer};
@@ -848,7 +848,8 @@ const _: () = {
     assert_to_from_napi_value::<SolidityStackTraceEntry>();
 };
 
-/// Serializes a [`BigInt`] that represents an EVM value as a [`edr_eth::U256`].
+/// Serializes a [`BigInt`] that represents an EVM value as a
+/// [`edr_primitives::U256`].
 fn serialize_evm_value_bigint_using_u256<S>(bigint: &BigInt, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,

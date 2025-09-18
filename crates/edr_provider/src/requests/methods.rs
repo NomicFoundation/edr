@@ -5,7 +5,8 @@ use edr_eth::{
     serde::{optional_single_to_sequence, sequence_to_optional_single},
     Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U128, U256, U64,
 };
-use edr_rpc_eth::{spec::RpcSpec, StateOverrideOptions};
+use edr_rpc_eth::StateOverrideOptions;
+use edr_rpc_spec::RpcSpec;
 use serde::{Deserialize, Serialize};
 
 use super::serde::{RpcAddress, Timestamp};

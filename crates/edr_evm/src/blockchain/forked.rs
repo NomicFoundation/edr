@@ -2,7 +2,6 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
 use edr_eth::{
-    account::{Account, AccountStatus},
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
 };
@@ -12,6 +11,7 @@ use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
 };
+use edr_state::account::{Account, AccountStatus};
 use parking_lot::Mutex;
 use tokio::runtime;
 

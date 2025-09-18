@@ -9,7 +9,7 @@ pub mod test_results;
 
 use std::path::Path;
 
-use edr_eth::Bytes;
+use edr_primitives::Bytes;
 use edr_solidity::linker::{LinkOutput, Linker};
 use edr_solidity_tests::{constants::LIBRARY_DEPLOYER, contracts::ContractsByArtifact};
 use foundry_compilers::artifacts::Libraries;

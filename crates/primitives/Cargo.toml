@@ -1,0 +1,11 @@
+[package]
+name = "edr_primitives"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+revm-bytecode.workspace = true
+revm-primitives.workspace = true
+
+[lints]
+workspace = true

@@ -1,10 +1,7 @@
 use std::str::FromStr as _;
 
-use edr_eth::{
-    eips::eip4844::ethereum_kzg_settings,
-    rlp::{self, Decodable as _},
-    Address, Blob, Bytes, Bytes48, B256,
-};
+use alloy_rlp::{self, Decodable as _};
+use edr_eth::{eips::eip4844::ethereum_kzg_settings, Address, Blob, Bytes, Bytes48, B256};
 use edr_test_utils::secret_key::secret_key_from_str;
 
 /// Helper struct to modify the pooled transaction from the value in
@@ -21,7 +18,7 @@ impl BlobTransactionBuilder {
         self.request.blob_hashes.clone()
     }
 
-    pub fn build(self) -> edr_chain_l1::PooledTransaction {
+    pub fn build(self) -> edr_chain_l1::L1PooledTransaction {
         let secret_key =
             secret_key_from_str(edr_defaults::SECRET_KEYS[0]).expect("Invalid secret key");
         let signed_transaction = self
@@ -38,11 +35,11 @@ impl BlobTransactionBuilder {
         )
         .expect("Invalid blob transaction");
 
-        edr_chain_l1::PooledTransaction::Eip4844(pooled_transaction)
+        edr_chain_l1::L1PooledTransaction::Eip4844(pooled_transaction)
     }
 
     pub fn build_raw(self) -> Bytes {
-        rlp::encode(self.build()).into()
+        alloy_rlp::encode(self.build()).into()
     }
 
     /// Duplicates the blobs, commitments, and proofs such that they exist
@@ -81,7 +78,7 @@ impl BlobTransactionBuilder {
 
 impl Default for BlobTransactionBuilder {
     fn default() -> Self {
-        let edr_chain_l1::PooledTransaction::Eip4844(pooled_transaction) =
+        let edr_chain_l1::L1PooledTransaction::Eip4844(pooled_transaction) =
             fake_pooled_transaction()
         else {
             unreachable!("Must be an EIP-4844 transaction")
@@ -116,13 +113,13 @@ pub fn fake_raw_transaction() -> Bytes {
         .expect("failed to parse raw transaction")
 }
 
-pub fn fake_pooled_transaction() -> edr_chain_l1::PooledTransaction {
+pub fn fake_pooled_transaction() -> edr_chain_l1::L1PooledTransaction {
     let raw_transaction = fake_raw_transaction();
 
-    edr_chain_l1::PooledTransaction::decode(&mut raw_transaction.as_ref())
+    edr_chain_l1::L1PooledTransaction::decode(&mut raw_transaction.as_ref())
         .expect("failed to decode raw transaction")
 }
 
-pub fn fake_transaction() -> edr_chain_l1::Signed {
+pub fn fake_transaction() -> edr_chain_l1::L1SignedTransaction {
     fake_pooled_transaction().into_payload()
 }

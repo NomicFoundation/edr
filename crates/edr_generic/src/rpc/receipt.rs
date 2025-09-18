@@ -1,5 +1,6 @@
+use edr_chain_l1::rpc::receipt::L1BlockReceipt;
 use edr_receipt::{log::FilterLog, AsExecutionReceipt as _};
-use edr_rpc_eth::RpcTypeFrom;
+use edr_rpc_spec::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
 use crate::eip2718::TypedEnvelope;
@@ -21,7 +22,7 @@ use edr_transaction::TransactionType;
 // We need to introduce a newtype for BlockReceipt again due to the orphan rule,
 // even though we use our own TypedEnvelope.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BlockReceipt(edr_rpc_eth::receipt::Block);
+pub struct BlockReceipt(L1BlockReceipt);
 
 impl TryFrom<BlockReceipt>
     for crate::receipt::BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>
@@ -104,7 +105,7 @@ impl
             None
         };
 
-        BlockReceipt(edr_rpc_eth::receipt::Block {
+        BlockReceipt(L1BlockReceipt {
             block_hash: value.block_hash,
             block_number: value.block_number,
             transaction_hash: value.inner.transaction_hash,

@@ -50,14 +50,14 @@ impl From<u8> for Type {
     }
 }
 
-impl From<edr_chain_l1::Type> for Type {
-    fn from(value: edr_chain_l1::Type) -> Self {
+impl From<edr_chain_l1::L1TransactionType> for Type {
+    fn from(value: edr_chain_l1::L1TransactionType) -> Self {
         match value {
-            edr_chain_l1::Type::Legacy => Self::Legacy,
-            edr_chain_l1::Type::Eip2930 => Self::Eip2930,
-            edr_chain_l1::Type::Eip1559 => Self::Eip1559,
-            edr_chain_l1::Type::Eip4844 => Self::Eip4844,
-            edr_chain_l1::Type::Eip7702 => Self::Eip7702,
+            edr_chain_l1::L1TransactionType::Legacy => Self::Legacy,
+            edr_chain_l1::L1TransactionType::Eip2930 => Self::Eip2930,
+            edr_chain_l1::L1TransactionType::Eip1559 => Self::Eip1559,
+            edr_chain_l1::L1TransactionType::Eip4844 => Self::Eip4844,
+            edr_chain_l1::L1TransactionType::Eip7702 => Self::Eip7702,
         }
     }
 }
@@ -82,13 +82,13 @@ impl IsLegacy for Type {
 // types different.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SignedWithFallbackToPostEip155 {
-    inner: edr_chain_l1::Signed,
+    inner: edr_chain_l1::L1SignedTransaction,
     r#type: Type,
 }
 
 impl SignedWithFallbackToPostEip155 {
     /// Constructs a new instance with the provided transaction its type.
-    pub fn with_type(inner: edr_chain_l1::Signed, r#type: Type) -> Self {
+    pub fn with_type(inner: edr_chain_l1::L1SignedTransaction, r#type: Type) -> Self {
         Self { inner, r#type }
     }
 }
@@ -103,8 +103,8 @@ impl alloy_rlp::Encodable for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl From<edr_chain_l1::Signed> for SignedWithFallbackToPostEip155 {
-    fn from(value: edr_chain_l1::Signed) -> Self {
+impl From<edr_chain_l1::L1SignedTransaction> for SignedWithFallbackToPostEip155 {
+    fn from(value: edr_chain_l1::L1SignedTransaction) -> Self {
         Self {
             r#type: value.transaction_type().into(),
             inner: value,
@@ -118,14 +118,15 @@ impl IsSupported for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl From<edr_chain_l1::PooledTransaction> for SignedWithFallbackToPostEip155 {
-    fn from(value: edr_chain_l1::PooledTransaction) -> Self {
-        edr_chain_l1::Signed::from(value).into()
+impl From<edr_chain_l1::L1PooledTransaction> for SignedWithFallbackToPostEip155 {
+    fn from(value: edr_chain_l1::L1PooledTransaction) -> Self {
+        edr_chain_l1::L1SignedTransaction::from(value).into()
     }
 }
 
 impl TransactionValidation for SignedWithFallbackToPostEip155 {
-    type ValidationError = <edr_chain_l1::Signed as TransactionValidation>::ValidationError;
+    type ValidationError =
+        <edr_chain_l1::L1SignedTransaction as TransactionValidation>::ValidationError;
 }
 
 impl ExecutableTransaction for SignedWithFallbackToPostEip155 {

@@ -1,4 +1,5 @@
-use edr_eth::{reward_percentile::RewardPercentile, Address, B256, U256};
+use edr_eth::reward_percentile::RewardPercentile;
+use edr_primitives::{Address, B256, U256};
 use edr_rpc_client::{
     cache::{
         self,

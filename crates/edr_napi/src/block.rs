@@ -16,7 +16,7 @@ pub struct BlobGas {
     pub excess_gas: BigInt,
 }
 
-impl TryFrom<BlobGas> for edr_eth::block::BlobGas {
+impl TryFrom<BlobGas> for edr_block_header::BlobGas {
     type Error = napi::Error;
 
     fn try_from(value: BlobGas) -> Result<Self, Self::Error> {
