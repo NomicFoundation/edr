@@ -305,7 +305,7 @@ describe("Eth module", function () {
             const { oldestBlock } = await this.provider.send("eth_feeHistory", [
               numberToRpcQuantity(2),
               "latest",
-              []
+              [],
             ]);
 
             assert.equal(oldestBlock, numberToRpcQuantity(firstBlock + 2));
@@ -334,7 +334,7 @@ describe("Eth module", function () {
             const { oldestBlock } = await this.provider.send("eth_feeHistory", [
               numberToRpcQuantity(1024),
               "latest",
-              []
+              [],
             ]);
 
             assert.equal(oldestBlock, firstBlock);

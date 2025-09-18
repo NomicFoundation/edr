@@ -52,10 +52,9 @@ describe("Eth module - hardfork dependant tests", function () {
     });
   }
 
-  const privateKey = new Uint8Array(Buffer.from(
-    DEFAULT_ACCOUNTS[1].privateKey.slice(2),
-    "hex"
-  ));
+  const privateKey = new Uint8Array(
+    Buffer.from(DEFAULT_ACCOUNTS[1].privateKey.slice(2), "hex")
+  );
 
   function getSampleSignedTx(common: Common) {
     const tx = TransactionFactory.fromTxData(
