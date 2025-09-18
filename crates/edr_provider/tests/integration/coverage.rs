@@ -61,9 +61,8 @@ fn provider_with_deployed_test_contract(
         Ok(())
     }));
     config.observability.on_collected_gas_report_fn = Some(Box::new(move |report| {
-        report.contracts.iter().for_each(|(k, v)| {
-            gas_reporter.lock().contracts.insert(k.clone(), v.clone());
-        });
+        let mut gas_reporter = gas_reporter.lock();
+        gas_reporter.contracts.extend(report.contracts);
         Ok(())
     }));
 
