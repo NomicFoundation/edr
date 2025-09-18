@@ -43,7 +43,7 @@ impl From<edr_provider::gas_reports::GasReport> for GasReport {
     fn from(value: edr_provider::gas_reports::GasReport) -> Self {
         Self {
             contracts: value
-                .contracts
+                .into_inner()
                 .into_iter()
                 .map(|(k, v)| (k, v.into()))
                 .collect(),
@@ -58,7 +58,10 @@ impl From<edr_provider::gas_reports::ContractGasReport> for ContractGasReport {
             functions: value
                 .functions
                 .into_iter()
-                .map(|(k, v)| (k, v.into()))
+                .map(|(k, v)| {
+                    let calls = v.into_iter().map(FunctionCallGasReport::from).collect();
+                    (k, FunctionGasReport { calls })
+                })
                 .collect(),
         }
     }
@@ -84,16 +87,8 @@ impl From<edr_provider::gas_reports::DeploymentGasReport> for DeploymentGasRepor
     }
 }
 
-impl From<edr_provider::gas_reports::FunctionGasReport> for FunctionGasReport {
+impl From<edr_provider::gas_reports::FunctionGasReport> for FunctionCallGasReport {
     fn from(value: edr_provider::gas_reports::FunctionGasReport) -> Self {
-        Self {
-            calls: value.calls.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-impl From<edr_provider::gas_reports::FunctionCallGasReport> for FunctionCallGasReport {
-    fn from(value: edr_provider::gas_reports::FunctionCallGasReport) -> Self {
         Self {
             gas: BigInt::from(value.gas),
             status: value.status.into(),

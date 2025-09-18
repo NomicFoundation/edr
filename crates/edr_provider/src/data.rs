@@ -58,7 +58,7 @@ use edr_signer::{
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{
     request::TransactionRequestAndSender, IsEip4844, IsSupported as _, TransactionMut,
-    TransactionType,
+    TransactionType, TxKind,
 };
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
@@ -81,6 +81,7 @@ use crate::{
         TransactionFailure, TransactionFailureWithTraces,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
+    gas_reports::{GasReport, SyncOnCollectedGasReportCallback},
     logger::SyncLogger,
     mock::SyncCallOverride,
     observability::{self, RuntimeObserver},
@@ -1436,16 +1437,12 @@ where
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut runtime_observer = RuntimeObserver::new(
-            self.observability.clone(),
-            Some(Arc::clone(&self.contract_decoder)),
-        );
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         let result = mine_fn(self, &evm_config, options, &mut runtime_observer)?;
 
         let RuntimeObserver {
             code_coverage,
-            gas_reporter,
             console_logger,
             mocker: _mocker,
             trace_collector,
@@ -1457,10 +1454,24 @@ where
                 .map_err(ProviderError::OnCollectedCoverageCallback)?;
         }
 
-        if let Some(gas_reporter) = gas_reporter {
-            gas_reporter
-                .report()
-                .map_err(ProviderError::OnCollectedGasReportCallback)?;
+        if let Some(callback) = self.observability.on_collected_gas_report_fn.as_ref() {
+            let mut report = GasReport::default();
+            for (transaction, execution_result) in result
+                .block
+                .transactions()
+                .iter()
+                .zip(result.transaction_results.iter())
+            {
+                report.add(
+                    &result.state,
+                    self.contract_decoder.as_ref(),
+                    execution_result,
+                    transaction.kind(),
+                    transaction.data().clone(),
+                )?;
+            }
+
+            callback(report).map_err(ProviderError::OnCollectedGasReportCallback)?;
         }
 
         let traces = trace_collector.into_traces();
@@ -1770,13 +1781,10 @@ where
     > {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let mut runtime_observer = RuntimeObserver::new(
-            observability::Config {
-                call_override: None,
-                ..self.observability.clone()
-            },
-            None,
-        );
+        let mut runtime_observer = RuntimeObserver::new(observability::Config {
+            call_override: None,
+            ..self.observability.clone()
+        });
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
 
         let custom_precompiles = self.precompile_overrides.clone();
@@ -1796,7 +1804,6 @@ where
 
             let RuntimeObserver {
                 code_coverage,
-                gas_reporter: _gas_reporter,
                 console_logger: _console_logger,
                 mocker: _mocker,
                 trace_collector,
@@ -2197,13 +2204,28 @@ where
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
     ) -> Result<CallResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
+        struct GasReportArgs {
+            callback: Box<dyn SyncOnCollectedGasReportCallback>,
+            kind: TxKind,
+            input: Bytes,
+        }
+
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut runtime_observer = RuntimeObserver::new(
-            self.observability.clone(),
-            Some(Arc::clone(&self.contract_decoder)),
-        );
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
+
+        let gas_report_args =
+            self.observability
+                .on_collected_gas_report_fn
+                .as_ref()
+                .map(|callback| GasReportArgs {
+                    callback: callback.clone(),
+                    kind: transaction.kind(),
+                    input: transaction.data().clone(),
+                });
+
+        let contract_decoder = Arc::clone(&self.contract_decoder);
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
@@ -2220,7 +2242,6 @@ where
 
             let RuntimeObserver {
                 code_coverage,
-                gas_reporter,
                 console_logger,
                 mocker: _mocker,
                 trace_collector,
@@ -2232,10 +2253,21 @@ where
                     .map_err(ProviderError::OnCollectedCoverageCallback)?;
             }
 
-            if let Some(gas_reporter) = gas_reporter {
-                gas_reporter
-                    .report()
-                    .map_err(ProviderError::OnCollectedGasReportCallback)?;
+            if let Some(GasReportArgs {
+                callback,
+                kind,
+                input,
+            }) = gas_report_args
+            {
+                let gas_report = GasReport::new(
+                    state,
+                    contract_decoder.as_ref(),
+                    &execution_result,
+                    kind,
+                    input,
+                )?;
+
+                callback(gas_report).map_err(ProviderError::OnCollectedGasReportCallback)?;
             }
 
             let mut traces = trace_collector.into_traces();
@@ -2602,7 +2634,7 @@ where
                 .initial_gas;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut runtime_observer = RuntimeObserver::new(self.observability.clone(), None);
+        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
@@ -2622,7 +2654,6 @@ where
 
             let RuntimeObserver {
                 code_coverage,
-                gas_reporter: _gas_reporter,
                 console_logger,
                 mocker: _mocker,
                 mut trace_collector,

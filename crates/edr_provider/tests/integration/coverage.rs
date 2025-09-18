@@ -3,10 +3,10 @@
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_chain_l1::L1ChainSpec;
-use edr_eth::{bytes, Address, Bytes, HashMap, HashSet, B256};
+use edr_eth::{bytes, Address, Bytes, HashSet, B256};
 use edr_provider::{
-    gas_reports::ContractGasReport, test_utils::create_test_config, time::CurrentTime,
-    MethodInvocation, NoopLogger, Provider, ProviderRequest,
+    gas_reports::GasReport, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
+    NoopLogger, Provider, ProviderRequest,
 };
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_signer::public_key_to_address;
@@ -28,7 +28,7 @@ struct CoverageReporter {
 
 #[derive(Default)]
 pub struct GasReporter {
-    pub contracts: HashMap<String, ContractGasReport>,
+    report: GasReport,
 }
 
 struct Fixture {
@@ -62,7 +62,7 @@ fn provider_with_deployed_test_contract(
     }));
     config.observability.on_collected_gas_report_fn = Some(Box::new(move |report| {
         let mut gas_reporter = gas_reporter.lock();
-        gas_reporter.contracts.extend(report.contracts);
+        gas_reporter.report.merge(report);
         Ok(())
     }));
 

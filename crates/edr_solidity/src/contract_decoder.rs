@@ -83,7 +83,7 @@ impl ContractDecoder {
         let ContractIdentifierAndFunctionSignature {
             contract_identifier,
             function_signature,
-        } = self.get_contract_indentifier_and_function_singature_for_call(code, calldata);
+        } = self.get_contract_identifier_and_function_signature_for_call(code, calldata);
 
         let contract_name = contract_identifier
             .rsplit_once(':')
@@ -103,7 +103,7 @@ impl ContractDecoder {
 
     /// Returns the contract indentifier and function signature for the provided
     /// calldata.
-    pub fn get_contract_indentifier_and_function_singature_for_call(
+    pub fn get_contract_identifier_and_function_signature_for_call(
         &self,
         code: &Bytes,
         calldata: Option<&Bytes>,

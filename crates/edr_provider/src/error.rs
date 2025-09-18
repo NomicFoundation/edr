@@ -27,8 +27,8 @@ use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;
 
 use crate::{
-    config::IntervalConfigConversionError, debug_trace::DebugTraceError, time::TimeSinceEpoch,
-    ProviderSpec,
+    config::IntervalConfigConversionError, debug_trace::DebugTraceError,
+    gas_reports::GasReportCreationError, time::TimeSinceEpoch, ProviderSpec,
 };
 
 /// Helper type for a chain-specific [`CreationError`].
@@ -415,6 +415,30 @@ impl<
             }
             ProviderError::TransactionFailed(transaction_failure) => Some(transaction_failure),
             _ => None,
+        }
+    }
+}
+
+impl<
+        BlockConversionErrorT: std::error::Error,
+        GenesisBlockCreationErrorT: std::error::Error,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Debug,
+        ReceiptConversionErrorT: std::error::Error,
+        TransactionValidationErrorT: std::error::Error,
+    > From<GasReportCreationError>
+    for ProviderError<
+        BlockConversionErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        ReceiptConversionErrorT,
+        TransactionValidationErrorT,
+    >
+{
+    fn from(value: GasReportCreationError) -> Self {
+        match value {
+            GasReportCreationError::State(error) => ProviderError::State(error),
         }
     }
 }
