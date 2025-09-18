@@ -22,7 +22,7 @@ pub enum CachedRequestMethod<'a> {
     FeeHistory {
         block_count: &'a U256,
         newest_block: CacheableBlockSpec<'a>,
-        reward_percentiles: &'a Option<Vec<RewardPercentile>>,
+        reward_percentiles: &'a Vec<RewardPercentile>,
     },
     /// `eth_getBalance`
     GetBalance {
@@ -88,10 +88,7 @@ impl CachedRequestMethod<'_> {
                     .hash_u256(block_count)
                     .hash_block_spec(newest_block)?
                     .hash_u8(reward_percentiles.cache_key_variant());
-                match reward_percentiles {
-                    Some(reward_percentiles) => hasher.hash_reward_percentiles(reward_percentiles),
-                    None => hasher,
-                }
+                hasher.hash_reward_percentiles(reward_percentiles)
             }
             CachedRequestMethod::GetBalance {
                 address,

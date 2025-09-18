@@ -27,14 +27,14 @@ describe("Eth module", function () {
             await assertInvalidInputError(
               this.provider,
               "eth_feeHistory",
-              [numberToRpcQuantity(0), "latest"],
+              [numberToRpcQuantity(0), "latest", []],
               "blockCount should be at least 1"
             );
 
             await assertInvalidInputError(
               this.provider,
               "eth_feeHistory",
-              [numberToRpcQuantity(1025), "latest"],
+              [numberToRpcQuantity(1025), "latest", []],
               "blockCount should be at most 1024"
             );
           });
@@ -45,7 +45,7 @@ describe("Eth module", function () {
             await assertInvalidInputError(
               this.provider,
               "eth_feeHistory",
-              [numberToRpcQuantity(1), numberToRpcQuantity(block)],
+              [numberToRpcQuantity(1), numberToRpcQuantity(block), []],
               `Received invalid block tag ${block}`
             );
           });
@@ -305,6 +305,7 @@ describe("Eth module", function () {
             const { oldestBlock } = await this.provider.send("eth_feeHistory", [
               numberToRpcQuantity(2),
               "latest",
+              []
             ]);
 
             assert.equal(oldestBlock, numberToRpcQuantity(firstBlock + 2));
@@ -314,7 +315,7 @@ describe("Eth module", function () {
 
             const { oldestBlock: oldestBlock2 } = await this.provider.send(
               "eth_feeHistory",
-              [numberToRpcQuantity(3), numberToRpcQuantity(firstBlock + 4)]
+              [numberToRpcQuantity(3), numberToRpcQuantity(firstBlock + 4), []]
             );
 
             assert.equal(oldestBlock2, numberToRpcQuantity(firstBlock + 2));
@@ -333,6 +334,7 @@ describe("Eth module", function () {
             const { oldestBlock } = await this.provider.send("eth_feeHistory", [
               numberToRpcQuantity(1024),
               "latest",
+              []
             ]);
 
             assert.equal(oldestBlock, firstBlock);
@@ -353,7 +355,7 @@ describe("Eth module", function () {
 
             const { gasUsedRatio } = await this.provider.send(
               "eth_feeHistory",
-              [numberToRpcQuantity(2), "latest"]
+              [numberToRpcQuantity(2), "latest", []]
             );
 
             const block: RpcBlockOutput = await this.provider.send(
@@ -396,7 +398,7 @@ describe("Eth module", function () {
 
             const { gasUsedRatio } = await this.provider.send(
               "eth_feeHistory",
-              [numberToRpcQuantity(2), "pending"]
+              [numberToRpcQuantity(2), "pending", []]
             );
 
             assert.deepEqual(gasUsedRatio, [
@@ -430,7 +432,7 @@ describe("Eth module", function () {
 
             const { baseFeePerGas, oldestBlock } = await this.provider.send(
               "eth_feeHistory",
-              [numberToRpcQuantity(3), numberToRpcQuantity(firstBlock + 2)]
+              [numberToRpcQuantity(3), numberToRpcQuantity(firstBlock + 2), []]
             );
 
             assert.equal(oldestBlock, firstBlock);
@@ -447,7 +449,7 @@ describe("Eth module", function () {
           it("Should compute it for the pending block", async function () {
             const { baseFeePerGas, oldestBlock } = await this.provider.send(
               "eth_feeHistory",
-              [numberToRpcQuantity(1), "latest"]
+              [numberToRpcQuantity(1), "latest", []]
             );
 
             assert.equal(oldestBlock, firstBlock);
@@ -460,7 +462,7 @@ describe("Eth module", function () {
           it("Should compute it for the block after the pending one", async function () {
             const { baseFeePerGas, oldestBlock } = await this.provider.send(
               "eth_feeHistory",
-              [numberToRpcQuantity(1), "pending"]
+              [numberToRpcQuantity(1), "pending", []]
             );
 
             assert.equal(oldestBlock, numberToRpcQuantity(firstBlock + 1));

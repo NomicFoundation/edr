@@ -1127,7 +1127,7 @@ describe("Eth module - hardfork dependant tests", function () {
         useProviderAndCommon(hardfork);
 
         it(`Should be enabled when ${hardfork} is activated`, async function () {
-          await this.provider.send("eth_feeHistory", ["0x1", "latest"]);
+          await this.provider.send("eth_feeHistory", ["0x1", "latest", []]);
         });
       }
     });
