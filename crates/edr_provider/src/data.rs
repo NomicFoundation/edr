@@ -3985,12 +3985,14 @@ mod tests {
     #[cfg(feature = "test-remote")]
     mod alchemy {
         use edr_chain_l1::L1ChainSpec;
-        use edr_eth::block;
         use edr_evm::impl_full_block_tests;
         use edr_test_utils::env::get_alchemy_url;
 
         use super::*;
-        use crate::ForkConfig;
+        use crate::{
+            test_utils::{l1_header_overrides, l1_header_overrides_before_merge},
+            ForkConfig,
+        };
 
         #[test]
         fn run_call_in_hardfork_context() -> anyhow::Result<()> {
@@ -4152,42 +4154,26 @@ mod tests {
             Ok(())
         }
 
-        fn l1_header_overrides(
-            replay_header: &block::Header,
-        ) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
-            HeaderOverrides {
-                beneficiary: Some(replay_header.beneficiary),
-                gas_limit: Some(replay_header.gas_limit),
-                extra_data: Some(replay_header.extra_data.clone()),
-                mix_hash: Some(replay_header.mix_hash),
-                nonce: Some(replay_header.nonce),
-                parent_beacon_block_root: replay_header.parent_beacon_block_root,
-                state_root: Some(replay_header.state_root),
-                timestamp: Some(replay_header.timestamp),
-                ..HeaderOverrides::<edr_evm_spec::EvmSpecId>::default()
-            }
-        }
-
         impl_full_block_tests! {
             mainnet_byzantium => L1ChainSpec {
                 block_number: 4_370_001,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_constantinople => L1ChainSpec {
                 block_number: 7_280_001,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_istanbul => L1ChainSpec {
                 block_number: 9_069_001,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_muir_glacier => L1ChainSpec {
                 block_number: 9_300_077,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_shanghai => L1ChainSpec {
                 block_number: 17_050_001,
