@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
@@ -45,6 +46,28 @@ pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
             hardfork: OpSpecId::ISTHMUS,
         },
     ]),
+    base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
+        (
+            BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+            ConstantBaseFeeParams::new(50, 6),
+        ),
+        (
+            BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+            ConstantBaseFeeParams::new(250, 6),
+        ),
+        (
+            BaseFeeActivation::BlockNumber(25_955_889),
+            ConstantBaseFeeParams::new(250, 2),
+        ),
+        (
+            BaseFeeActivation::BlockNumber(30_795_009),
+            ConstantBaseFeeParams::new(50, 2),
+        ),
+        (
+            BaseFeeActivation::BlockNumber(31_747_084),
+            ConstantBaseFeeParams::new(50, 3),
+        ),
+    ])),
 });
 
 /// Base Sepolia chain ID
@@ -89,4 +112,22 @@ pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
             hardfork: OpSpecId::ISTHMUS,
         },
     ]),
+    base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
+        (
+            BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+            ConstantBaseFeeParams::new(50, 10),
+        ),
+        (
+            BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+            ConstantBaseFeeParams::new(250, 10),
+        ),
+        (
+            BaseFeeActivation::BlockNumber(21_256_270),
+            ConstantBaseFeeParams::new(250, 4),
+        ),
+        (
+            BaseFeeActivation::BlockNumber(26_299_084),
+            ConstantBaseFeeParams::new(50, 4),
+        ),
+    ])),
 });

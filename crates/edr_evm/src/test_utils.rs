@@ -3,7 +3,7 @@ use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
-    block::{self, miner_reward, HeaderOverrides},
+    block::{self, miner_reward, Header, HeaderOverrides, PartialHeader},
     withdrawal::Withdrawal,
     Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
 };
@@ -154,9 +154,9 @@ pub fn dummy_eip1559_transaction(
     transaction::validate(transaction, EvmSpecId::default())
 }
 
-/// Runs a full remote block, asserting that the mined block matches the remote
-/// block.
-pub async fn run_full_block<
+/// forks from previous block and returns `replay_block`, `blockchain` and
+/// `irregular_state`
+pub async fn get_fork_state<
     ChainSpecT: Debug
         + SyncRuntimeSpec<
             BlockReceipt: AsExecutionReceipt<
@@ -174,8 +174,11 @@ pub async fn run_full_block<
 >(
     url: String,
     block_number: u64,
-    header_overrides_constructor: impl FnOnce(&block::Header) -> HeaderOverrides<ChainSpecT::Hardfork>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<(
+    RemoteBlock<ChainSpecT>,
+    ForkedBlockchain<ChainSpecT>,
+    IrregularState,
+)> {
     let runtime = tokio::runtime::Handle::current();
 
     let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
@@ -216,8 +219,36 @@ pub async fn run_full_block<
     )
     .await?;
 
+    Ok((replay_block, blockchain, irregular_state))
+}
+/// Runs a full remote block, asserting that the mined block matches the remote
+/// block.
+pub async fn run_full_block<
+    ChainSpecT: Debug
+        + SyncRuntimeSpec<
+            BlockReceipt: AsExecutionReceipt<
+                ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
+            ExecutionReceipt<FilterLog>: PartialEq,
+            LocalBlock: BlockReceipts<
+                Arc<ChainSpecT::BlockReceipt>,
+                Error = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
+            SignedTransaction: TransactionValidation<
+                ValidationError: From<EvmTransactionValidationError> + Send + Sync,
+            >,
+        >,
+>(
+    url: String,
+    block_number: u64,
+    header_overrides_constructor: impl FnOnce(&block::Header) -> HeaderOverrides<ChainSpecT::Hardfork>,
+) -> anyhow::Result<()> {
+    let (replay_block, blockchain, irregular_state) = get_fork_state(url, block_number).await?;
+
+    let replay_header = replay_block.header();
+    let hardfork = blockchain.hardfork();
     let mut cfg = CfgEnv::<ChainSpecT::Hardfork>::new_with_spec(hardfork);
-    cfg.chain_id = chain_id;
+    cfg.chain_id = blockchain.chain_id();
     cfg.disable_eip3607 = true;
 
     let state =
@@ -236,7 +267,6 @@ pub async fn run_full_block<
         header_overrides_constructor(replay_header),
         &custom_precompiles,
     )?;
-
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);
 
     for transaction in replay_block.transactions() {
@@ -392,6 +422,56 @@ pub async fn run_full_block<
     assert_eq!(replay_header, mined_header);
 
     Ok(())
+}
+
+/// Forks from given block number to compare with locally generated header for
+/// that block
+pub async fn assert_replay_header<
+    ChainSpecT: Debug
+        + SyncRuntimeSpec<
+            BlockReceipt: AsExecutionReceipt<
+                ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
+            ExecutionReceipt<FilterLog>: PartialEq,
+            LocalBlock: BlockReceipts<
+                Arc<ChainSpecT::BlockReceipt>,
+                Error = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
+            SignedTransaction: TransactionValidation<
+                ValidationError: From<EvmTransactionValidationError> + Send + Sync,
+            >,
+        >,
+>(
+    url: String,
+    block_number: u64,
+    header_overrides_constructor: impl FnOnce(&block::Header) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_validation: impl FnOnce(&Header, &PartialHeader) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    let (replay_block, blockchain, irregular_state) = get_fork_state(url, block_number).await?;
+
+    let replay_header = replay_block.header();
+    let hardfork = blockchain.hardfork();
+    let mut cfg = CfgEnv::<ChainSpecT::Hardfork>::new_with_spec(hardfork);
+    cfg.chain_id = blockchain.chain_id();
+    cfg.disable_eip3607 = true;
+
+    let state =
+        blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
+
+    let custom_precompiles = HashMap::new();
+
+    let builder = ChainSpecT::BlockBuilder::new_block_builder(
+        &blockchain,
+        state,
+        cfg,
+        BlockInputs {
+            ommers: Vec::new(),
+            withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
+        },
+        header_overrides_constructor(replay_header),
+        &custom_precompiles,
+    )?;
+    header_validation(replay_header, builder.header())
 }
 
 /// Implements full block tests for the provided chain specs.

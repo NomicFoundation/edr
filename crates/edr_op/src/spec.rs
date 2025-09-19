@@ -2,9 +2,9 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
-use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
+use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{BlobGas, Header, PartialHeader},
+    block::{calculate_next_base_fee_per_gas, BlobGas, BlockChainCondition, Header, PartialHeader},
     eips::eip4844,
     U256,
 };
@@ -33,7 +33,7 @@ use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::{self, LocalBlock},
+    block::{self, decode_base_params, LocalBlock},
     eip1559::encode_dynamic_base_fee_params,
     eip2718::TypedEnvelope,
     hardfork,
@@ -77,18 +77,17 @@ impl GenesisBlockFactory for OpChainSpec {
 
     fn genesis_block(
         genesis_diff: edr_evm::state::StateDiff,
-        hardfork: Self::Hardfork,
+        chain_condition: BlockChainCondition<'_, Self::Hardfork>,
         mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         let config_base_fee_params = options.base_fee_params.as_ref();
-        if hardfork >= Hardfork::HOLOCENE {
+        if chain_condition.hardfork >= Hardfork::HOLOCENE {
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
             let extra_data = options.extra_data.unwrap_or_else(|| {
-                let chain_base_fee_params = Self::base_fee_params();
                 let base_fee_params = config_base_fee_params
-                    .unwrap_or(&chain_base_fee_params)
-                    .at_condition(hardfork, 0)
+                    .unwrap_or(chain_condition.base_fee_params)
+                    .at_condition(chain_condition.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
                 encode_dynamic_base_fee_params(base_fee_params)
@@ -99,7 +98,7 @@ impl GenesisBlockFactory for OpChainSpec {
 
         EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
             genesis_diff,
-            hardfork,
+            chain_condition,
             options,
         )
     }
@@ -195,22 +194,48 @@ impl RuntimeSpec for OpChainSpec {
             precompile_provider,
         ))
     }
+
+    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
+        hardfork::chain_base_fee_params(chain_id)
+    }
+
+    fn next_base_fee_per_gas(
+        header: &Header,
+        chain_id: u64,
+        hardfork: Self::Hardfork,
+        base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
+    ) -> u128 {
+        calculate_next_base_fee_per_gas(
+            header,
+            Self::base_fee_params_overrides(header, hardfork, base_fee_params_overrides.cloned())
+                .as_ref()
+                .unwrap_or(OpChainSpec::chain_base_fee_params(chain_id)),
+            hardfork,
+        )
+    }
+}
+
+impl OpChainSpec {
+    /// Defines the `base_fee_params` override to use for OP
+    pub fn base_fee_params_overrides(
+        parent_header: &Header,
+        parent_hardfork: <OpChainSpec as ChainHardfork>::Hardfork,
+        base_fee_params_overrides: Option<BaseFeeParams<<OpChainSpec as ChainHardfork>::Hardfork>>,
+    ) -> Option<BaseFeeParams<<OpChainSpec as ChainHardfork>::Hardfork>> {
+        base_fee_params_overrides.or_else(|| {
+            // For post-Holocene blocks, use the parent header extra_data to determine the
+            // base fee parameters
+            if parent_hardfork >= Hardfork::HOLOCENE {
+                let base_fee_params = decode_base_params(&parent_header.extra_data);
+                Some(BaseFeeParams::Constant(base_fee_params))
+            } else {
+                None
+            }
+        })
+    }
 }
 
 impl EthHeaderConstants for OpChainSpec {
-    fn base_fee_params() -> BaseFeeParams<Hardfork> {
-        BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
-            (
-                BaseFeeActivation::Hardfork(Hardfork::BEDROCK),
-                ConstantBaseFeeParams::new(50, 6),
-            ),
-            (
-                BaseFeeActivation::Hardfork(Hardfork::CANYON),
-                ConstantBaseFeeParams::new(250, 6),
-            ),
-        ]))
-    }
-
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
 }
 

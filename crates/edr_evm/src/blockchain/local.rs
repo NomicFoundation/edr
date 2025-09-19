@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{Address, HashSet, B256, U256};
+use edr_eth::{block::BlockChainCondition, Address, HashSet, B256, U256};
 use edr_evm_spec::EvmSpecId;
 use edr_receipt::log::FilterLog;
 
@@ -267,7 +267,10 @@ where
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            self.hardfork,
+            BlockChainCondition::new(
+                self.hardfork,
+                ChainSpecT::chain_base_fee_params(self.chain_id),
+            ),
         );
 
         Ok(())
@@ -304,7 +307,11 @@ mod tests {
     };
 
     use super::*;
-    use crate::{spec::GenesisBlockFactory as _, state::IrregularState, GenesisBlockOptions};
+    use crate::{
+        spec::{GenesisBlockFactory as _, RuntimeSpec as _},
+        state::IrregularState,
+        GenesisBlockOptions,
+    };
 
     #[test]
     fn compute_state_after_reserve() -> anyhow::Result<()> {
@@ -335,7 +342,10 @@ mod tests {
 
         let genesis_block = L1ChainSpec::genesis_block(
             genesis_diff.clone(),
-            edr_chain_l1::Hardfork::SHANGHAI,
+            BlockChainCondition::new(
+                edr_chain_l1::Hardfork::SHANGHAI,
+                edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
+            ),
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),

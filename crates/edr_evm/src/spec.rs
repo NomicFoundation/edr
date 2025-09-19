@@ -1,8 +1,11 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use edr_chain_l1::L1ChainSpec;
+use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{self, BlobGas, Header, PartialHeader},
+    block::{
+        self, calculate_next_base_fee_per_gas, BlobGas, BlockChainCondition, Header, PartialHeader,
+    },
     eips::eip4844::{self, blob_base_fee_update_fraction},
     result::ExecutionResult,
     Bytes, B256, U256,
@@ -27,7 +30,7 @@ use crate::{
     block::{transaction::TransactionAndBlockForChainSpec, LocalCreationError},
     config::CfgEnv,
     evm::Evm,
-    hardfork::{self, Activations},
+    hardfork::{self, l1::chain_base_fee_params, Activations},
     journal::Journal,
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder},
@@ -106,7 +109,7 @@ pub trait GenesisBlockFactory: ChainHardfork {
     /// Constructs a genesis block for the given chain spec.
     fn genesis_block(
         genesis_diff: StateDiff,
-        hardfork: Self::Hardfork,
+        chain_condition: BlockChainCondition<'_, Self::Hardfork>,
         options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError>;
 }
@@ -130,7 +133,7 @@ impl GenesisBlockFactory for L1ChainSpec {
 
     fn genesis_block(
         genesis_diff: StateDiff,
-        hardfork: Self::Hardfork,
+        chain_condition: BlockChainCondition<'_, Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
@@ -142,7 +145,7 @@ impl GenesisBlockFactory for L1ChainSpec {
 
         EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
             genesis_diff,
-            hardfork,
+            chain_condition,
             options,
         )
     }
@@ -276,6 +279,9 @@ pub trait RuntimeSpec:
     /// if it is associated with this chain specification.
     fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self::Hardfork>>;
 
+    /// Returns the base fee params corresponding to the provided chain ID
+    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork>;
+
     /// Returns the name corresponding to the provided chain ID, if it is
     /// associated with this chain specification.
     fn chain_name(chain_id: u64) -> Option<&'static str>;
@@ -327,6 +333,9 @@ pub trait RuntimeSpec:
         PrecompileProviderT,
         StateErrorT,
     >;
+
+    /// Returns the `base_fee_per_gas` for next block
+    fn next_base_fee_per_gas(header: &Header, chain_id: u64, hardfork: Self::Hardfork, base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>) -> u128;
 
 }
 
@@ -462,6 +471,23 @@ impl RuntimeSpec for L1ChainSpec {
             inspector,
             EthInstructions::default(),
             precompile_provider,
+        )
+    }
+
+    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
+        hardfork::l1::chain_base_fee_params(chain_id)
+    }
+
+    fn next_base_fee_per_gas(
+        header: &Header,
+        chain_id: u64,
+        hardfork: Self::Hardfork,
+        base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
+    ) -> u128 {
+        calculate_next_base_fee_per_gas(
+            header,
+            base_fee_params_overrides.unwrap_or(chain_base_fee_params(chain_id)),
+            hardfork,
         )
     }
 }

@@ -244,7 +244,7 @@ where
 fn compute_state_at_block<
     BlockReceiptT: Clone + ReceiptTrait,
     BlockT: Block<SignedTransactionT> + Clone,
-    HardforkT,
+    HardforkT: Clone,
     SignedTransactionT,
 >(
     state: &mut dyn StateCommit,

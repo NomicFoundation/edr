@@ -1,24 +1,28 @@
 use std::collections::BTreeMap;
 
 use edr_chain_l1::L1ChainSpec;
-use edr_eth::Bytecode;
+use edr_eth::{block::BlockChainCondition, Bytecode};
 use edr_evm::{
     blockchain::{Blockchain, LocalBlockchain},
     eips::eip2935::{
         add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
         HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
     },
-    spec::GenesisBlockFactory as _,
+    spec::{GenesisBlockFactory as _, RuntimeSpec},
     state::StateDiff,
     GenesisBlockOptions, RandomHashGenerator,
 };
 
 fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L1ChainSpec>> {
+    const CHAIN_ID: u64 = 0x7a69;
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
 
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        edr_chain_l1::Hardfork::PRAGUE,
+        BlockChainCondition::new(
+            edr_chain_l1::Hardfork::PRAGUE,
+            edr_chain_l1::L1ChainSpec::chain_base_fee_params(CHAIN_ID),
+        ),
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),
             ..GenesisBlockOptions::default()
@@ -28,7 +32,7 @@ fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L
     let blockchain = LocalBlockchain::new(
         genesis_block,
         genesis_diff,
-        0x7a69,
+        CHAIN_ID,
         edr_chain_l1::Hardfork::PRAGUE,
     )?;
 

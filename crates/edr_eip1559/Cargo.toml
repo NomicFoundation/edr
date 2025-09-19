@@ -5,9 +5,13 @@ edition.workspace = true
 
 [dependencies]
 alloy-eips.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 edr_chain_l1.workspace = true
+
+[features]
+serde = ["alloy-eips/serde"]
 
 [lints]
 workspace = true

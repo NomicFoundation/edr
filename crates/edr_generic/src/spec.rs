@@ -3,7 +3,7 @@ use std::sync::Arc;
 use edr_chain_l1::L1ChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{self, BlobGas, Header, PartialHeader},
+    block::{self, BlobGas, BlockChainCondition, Header, PartialHeader},
     eips::eip4844::{self, blob_base_fee_update_fraction, BlobExcessGasAndPrice},
     Bytes, U256,
 };
@@ -106,10 +106,6 @@ impl BlockEnvConstructor<PartialHeader> for GenericChainSpec {
 }
 
 impl EthHeaderConstants for GenericChainSpec {
-    fn base_fee_params() -> BaseFeeParams<Self::Hardfork> {
-        L1ChainSpec::base_fee_params()
-    }
-
     const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
 }
 
@@ -120,7 +116,7 @@ impl GenesisBlockFactory for GenericChainSpec {
 
     fn genesis_block(
         genesis_diff: edr_evm::state::StateDiff,
-        hardfork: Self::Hardfork,
+        chain_condition: BlockChainCondition<'_, Self::Hardfork>,
         mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
@@ -132,7 +128,7 @@ impl GenesisBlockFactory for GenericChainSpec {
 
         EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
             genesis_diff,
-            hardfork,
+            chain_condition,
             options,
         )
     }
@@ -249,6 +245,19 @@ impl RuntimeSpec for GenericChainSpec {
             EthInstructions::default(),
             precompile_provider,
         )
+    }
+
+    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
+        L1ChainSpec::chain_base_fee_params(chain_id)
+    }
+
+    fn next_base_fee_per_gas(
+        header: &Header,
+        chain_id: u64,
+        hardfork: Self::Hardfork,
+        base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
+    ) -> u128 {
+        L1ChainSpec::next_base_fee_per_gas(header, chain_id, hardfork, base_fee_params_overrides)
     }
 }
 
