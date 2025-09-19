@@ -52,9 +52,8 @@ describe("Eth module - hardfork dependant tests", function () {
     });
   }
 
-  const privateKey = Buffer.from(
-    DEFAULT_ACCOUNTS[1].privateKey.slice(2),
-    "hex"
+  const privateKey = new Uint8Array(
+    Buffer.from(DEFAULT_ACCOUNTS[1].privateKey.slice(2), "hex")
   );
 
   function getSampleSignedTx(common: Common) {
@@ -1116,7 +1115,7 @@ describe("Eth module - hardfork dependant tests", function () {
         await assertInvalidInputError(
           this.provider,
           "eth_feeHistory",
-          ["0x1", "latest"],
+          ["0x1", "latest", []],
           "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
         );
       });
@@ -1127,7 +1126,7 @@ describe("Eth module - hardfork dependant tests", function () {
         useProviderAndCommon(hardfork);
 
         it(`Should be enabled when ${hardfork} is activated`, async function () {
-          await this.provider.send("eth_feeHistory", ["0x1", "latest"]);
+          await this.provider.send("eth_feeHistory", ["0x1", "latest", []]);
         });
       }
     });
