@@ -1115,7 +1115,7 @@ describe("Eth module - hardfork dependant tests", function () {
         await assertInvalidInputError(
           this.provider,
           "eth_feeHistory",
-          ["0x1", "latest"],
+          ["0x1", "latest", []],
           "eth_feeHistory is disabled. It only works with the London hardfork or a later one."
         );
       });

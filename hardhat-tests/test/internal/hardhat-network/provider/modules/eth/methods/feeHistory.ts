@@ -81,6 +81,7 @@ describe("Eth module", function () {
             const { reward } = await this.provider.send("eth_feeHistory", [
               numberToRpcQuantity(1),
               "latest",
+              [],
             ]);
 
             assert.isUndefined(reward);
