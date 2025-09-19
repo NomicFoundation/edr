@@ -83,13 +83,10 @@ impl CachedRequestMethod<'_> {
                 block_count,
                 newest_block,
                 reward_percentiles,
-            } => {
-                let hasher = hasher
-                    .hash_u256(block_count)
-                    .hash_block_spec(newest_block)?
-                    .hash_u8(reward_percentiles.cache_key_variant());
-                hasher.hash_reward_percentiles(reward_percentiles)
-            }
+            } => hasher
+                .hash_u256(block_count)
+                .hash_block_spec(newest_block)?
+                .hash_reward_percentiles(reward_percentiles),
             CachedRequestMethod::GetBalance {
                 address,
                 block_spec,

@@ -23,12 +23,6 @@ impl<T> CacheKeyVariant for Option<T> {
     }
 }
 
-impl<T> CacheKeyVariant for Vec<T> {
-    fn cache_key_variant(&self) -> u8 {
-        u8::from(!self.is_empty())
-    }
-}
-
 /// A cache key that can be used to read from the cache.
 /// It's based on not-fully resolved data, so it's not safe to write to this
 /// cache key. Specifically, it's not checked whether the block number is safe
