@@ -1811,7 +1811,7 @@ where
         &mut self,
         block_count: u64,
         newest_block_spec: &BlockSpec,
-        percentiles: Option<Vec<RewardPercentile>>,
+        percentiles: Vec<RewardPercentile>,
     ) -> Result<FeeHistoryResult, ProviderErrorForChainSpec<ChainSpecT>> {
         if self.evm_spec_id() < EvmSpecId::LONDON {
             return Err(ProviderError::UnmetHardfork {
@@ -1842,13 +1842,11 @@ where
 
         let mut result = FeeHistoryResult::new(oldest_block_number);
 
-        let mut reward_and_percentile = percentiles.and_then(|percentiles| {
-            if percentiles.is_empty() {
-                None
-            } else {
-                Some((Vec::default(), percentiles))
-            }
-        });
+        let mut opt_reward = if percentiles.is_empty() {
+            None
+        } else {
+            Some(Vec::default())
+        };
 
         let range_includes_remote_blocks = self
             .fork_metadata
@@ -1875,20 +1873,16 @@ where
                 gas_used_ratio,
                 reward: remote_reward,
             } = tokio::task::block_in_place(|| {
-                self.runtime_handle.block_on(
-                    rpc_client.fee_history(
-                        remote_block_count,
-                        newest_block_spec.clone(),
-                        reward_and_percentile
-                            .as_ref()
-                            .map(|(_, percentiles)| percentiles.clone()),
-                    ),
-                )
+                self.runtime_handle.block_on(rpc_client.fee_history(
+                    remote_block_count,
+                    newest_block_spec.clone(),
+                    percentiles.clone(),
+                ))
             })?;
 
             result.base_fee_per_gas = base_fee_per_gas;
             result.gas_used_ratio = gas_used_ratio;
-            if let Some((reward, _)) = reward_and_percentile.as_mut() {
+            if let Some(reward) = opt_reward.as_mut() {
                 if let Some(remote_reward) = remote_reward {
                     *reward = remote_reward;
                 }
@@ -1924,10 +1918,10 @@ where
                         .gas_used_ratio
                         .push(gas_used_ratio(header.gas_used, header.gas_limit));
 
-                    if let Some((reward, percentiles)) = reward_and_percentile.as_mut() {
+                    if let Some(reward) = opt_reward.as_mut() {
                         reward.push(compute_rewards::<ChainSpecT, TimerT>(
                             block.as_ref(),
-                            percentiles,
+                            &percentiles,
                         )?);
                     }
                 }
@@ -1944,7 +1938,7 @@ where
                         .gas_used_ratio
                         .push(gas_used_ratio(header.gas_used, header.gas_limit));
 
-                    if let Some((reward, percentiles)) = reward_and_percentile.as_mut() {
+                    if let Some(reward) = opt_reward.as_mut() {
                         // We don't compute this for the pending block, as there's no
                         // effective miner fee yet.
                         reward.push(percentiles.iter().map(|_| U256::ZERO).collect());
@@ -1958,7 +1952,7 @@ where
             }
         }
 
-        if let Some((reward, _)) = reward_and_percentile {
+        if let Some(reward) = opt_reward {
             result.reward = Some(reward);
         }
 
@@ -3992,12 +3986,14 @@ mod tests {
     #[cfg(feature = "test-remote")]
     mod alchemy {
         use edr_chain_l1::L1ChainSpec;
-        use edr_eth::block;
         use edr_evm::impl_full_block_tests;
         use edr_test_utils::env::get_alchemy_url;
 
         use super::*;
-        use crate::ForkConfig;
+        use crate::{
+            test_utils::{l1_header_overrides, l1_header_overrides_before_merge},
+            ForkConfig,
+        };
 
         #[test]
         fn run_call_in_hardfork_context() -> anyhow::Result<()> {
@@ -4159,42 +4155,26 @@ mod tests {
             Ok(())
         }
 
-        fn l1_header_overrides(
-            replay_header: &block::Header,
-        ) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
-            HeaderOverrides {
-                beneficiary: Some(replay_header.beneficiary),
-                gas_limit: Some(replay_header.gas_limit),
-                extra_data: Some(replay_header.extra_data.clone()),
-                mix_hash: Some(replay_header.mix_hash),
-                nonce: Some(replay_header.nonce),
-                parent_beacon_block_root: replay_header.parent_beacon_block_root,
-                state_root: Some(replay_header.state_root),
-                timestamp: Some(replay_header.timestamp),
-                ..HeaderOverrides::<edr_evm_spec::EvmSpecId>::default()
-            }
-        }
-
         impl_full_block_tests! {
             mainnet_byzantium => L1ChainSpec {
                 block_number: 4_370_001,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_constantinople => L1ChainSpec {
                 block_number: 7_280_001,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_istanbul => L1ChainSpec {
                 block_number: 9_069_001,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_muir_glacier => L1ChainSpec {
                 block_number: 9_300_077,
                 url: get_alchemy_url(),
-                header_overrides_constructor: l1_header_overrides,
+                header_overrides_constructor: l1_header_overrides_before_merge,
             },
             mainnet_shanghai => L1ChainSpec {
                 block_number: 17_050_001,

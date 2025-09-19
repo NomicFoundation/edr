@@ -40,7 +40,28 @@ pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
     create_test_config_with_fork(None)
 }
 
+/// Default header overrides for replaying L1 blocks before The Merge
+pub fn l1_header_overrides_before_merge(
+    replay_header: &block::Header,
+) -> block::HeaderOverrides<edr_evm_spec::EvmSpecId> {
+    block::HeaderOverrides {
+        nonce: Some(replay_header.nonce),
+        ..l1_header_overrides(replay_header)
+    }
+}
+
 /// Default header overrides for replaying L1 blocks.
+pub fn l1_header_overrides(
+    replay_header: &block::Header,
+) -> block::HeaderOverrides<edr_evm_spec::EvmSpecId> {
+    block::HeaderOverrides {
+        // Extra_data field in L1 has arbitrary additional data
+        extra_data: Some(replay_header.extra_data.clone()),
+        ..header_overrides(replay_header)
+    }
+}
+
+/// Default header overrides for replaying blocks.
 pub fn header_overrides<HardforkT: Default>(
     replay_header: &block::Header,
 ) -> block::HeaderOverrides<HardforkT> {
