@@ -19,8 +19,7 @@ pub enum RequestMethod {
         /// newest block
         BlockSpec,
         /// reward percentiles
-        #[serde(skip_serializing_if = "Option::is_none")]
-        Option<Vec<RewardPercentile>>,
+        Vec<RewardPercentile>,
     ),
     /// `eth_chainId`
     #[serde(rename = "eth_chainId", with = "edr_eth::serde::empty_params")]

@@ -78,8 +78,7 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
         /// newest block
         BlockSpec,
         /// reward percentiles
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        Option<Vec<f64>>,
+        Vec<f64>,
     ),
     /// `eth_gasPrice`
     #[serde(rename = "eth_gasPrice", with = "edr_eth::serde::empty_params")]
