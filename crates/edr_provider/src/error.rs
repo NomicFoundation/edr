@@ -27,8 +27,8 @@ use edr_solidity::contract_decoder::ContractDecoderError;
 use serde::Serialize;
 
 use crate::{
-    config::IntervalConfigConversionError, debug_trace::DebugTraceError, time::TimeSinceEpoch,
-    ProviderSpec,
+    config::IntervalConfigConversionError, debug_trace::DebugTraceError,
+    gas_reports::GasReportCreationError, time::TimeSinceEpoch, ProviderSpec,
 };
 
 /// Helper type for a chain-specific [`CreationError`].
@@ -258,6 +258,9 @@ pub enum ProviderError<
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
     #[error(transparent)]
     OnCollectedCoverageCallback(Box<dyn std::error::Error + Send + Sync>),
+    /// An error occurred while invoking a `SyncOnCollectedGasReportCallback`.
+    #[error(transparent)]
+    OnCollectedGasReportCallback(Box<dyn std::error::Error + Send + Sync>),
     /// Rpc client error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -419,6 +422,30 @@ impl<
 impl<
         BlockConversionErrorT: std::error::Error,
         GenesisBlockCreationErrorT: std::error::Error,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Debug,
+        ReceiptConversionErrorT: std::error::Error,
+        TransactionValidationErrorT: std::error::Error,
+    > From<GasReportCreationError>
+    for ProviderError<
+        BlockConversionErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        ReceiptConversionErrorT,
+        TransactionValidationErrorT,
+    >
+{
+    fn from(value: GasReportCreationError) -> Self {
+        match value {
+            GasReportCreationError::State(error) => ProviderError::State(error),
+        }
+    }
+}
+
+impl<
+        BlockConversionErrorT: std::error::Error,
+        GenesisBlockCreationErrorT: std::error::Error,
         HaltReasonT: HaltReasonTrait + Serialize,
         HardforkT: Debug,
         ReceiptConversionErrorT: std::error::Error,
@@ -487,6 +514,7 @@ impl<
             ProviderError::MineBlock(_) => INVALID_INPUT,
             ProviderError::MineTransaction(_) => INVALID_INPUT,
             ProviderError::OnCollectedCoverageCallback(_) => INTERNAL_ERROR,
+            ProviderError::OnCollectedGasReportCallback(_) => INTERNAL_ERROR,
             ProviderError::RpcClientError(_) => INTERNAL_ERROR,
             ProviderError::RpcVersion(_) => INVALID_INPUT,
             ProviderError::RunTransaction(_) => INVALID_INPUT,

@@ -2649,6 +2649,7 @@ dependencies = [
  "auto_impl",
  "cargo_toml",
  "derive-where",
+ "derive_more 2.0.1",
  "dyn-clone",
  "edr_chain_l1",
  "edr_coverage",

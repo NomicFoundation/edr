@@ -198,6 +198,16 @@ export interface CodeCoverageConfig {
    */
   onCollectedCoverageCallback: (coverageHits: Uint8Array[]) => Promise<void>
 }
+export interface GasReportConfig {
+  /**
+   * Gas reports are collected after a block is mined or `eth_call` is
+   * executed.
+   *
+   * Exceptions thrown in the callback will be propagated to the original
+   * caller.
+   */
+  onCollectedGasReportCallback: (gasReport: GasReport) => Promise<void>
+}
 /** Configuration for forking a blockchain */
 export interface ForkConfig {
   /**
@@ -258,6 +268,8 @@ export interface MiningConfig {
 export interface ObservabilityConfig {
   /** If present, configures runtime observability to collect code coverage. */
   codeCoverage?: CodeCoverageConfig
+  /** If present, configures runtime observability to collect gas reports. */
+  gasReport?: GasReportConfig
 }
 /** Configuration for a provider */
 export interface ProviderConfig {
@@ -371,6 +383,27 @@ export interface DebugTraceLogItem {
   memory?: Array<string>
   /** Map of all stored values with keys and values encoded as hex strings. */
   storage?: Record<string, string>
+}
+export interface GasReport {
+  contracts: Record<string, ContractGasReport>
+}
+export interface ContractGasReport {
+  deployments: Array<DeploymentGasReport>
+  functions: Record<string, Array<FunctionGasReport>>
+}
+export enum GasReportExecutionStatus {
+  Success = 0,
+  Revert = 1,
+  Halt = 2
+}
+export interface DeploymentGasReport {
+  gas: bigint
+  size: bigint
+  status: GasReportExecutionStatus
+}
+export interface FunctionGasReport {
+  gas: bigint
+  status: GasReportExecutionStatus
 }
 export interface InstrumentationResult {
   /** The generated source code with coverage instrumentation. */

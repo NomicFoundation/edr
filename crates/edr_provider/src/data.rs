@@ -58,7 +58,7 @@ use edr_signer::{
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{
     request::TransactionRequestAndSender, IsEip4844, IsSupported as _, TransactionMut,
-    TransactionType,
+    TransactionType, TxKind,
 };
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
@@ -81,9 +81,10 @@ use crate::{
         TransactionFailure, TransactionFailureWithTraces,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
+    gas_reports::{GasReport, SyncOnCollectedGasReportCallback},
     logger::SyncLogger,
     mock::SyncCallOverride,
-    observability::{self, RuntimeObserver},
+    observability::{EvmObserver, EvmObserverConfig, ObservabilityConfig},
     pending::BlockchainWithPending,
     requests::hardhat::rpc_types::ForkMetadata,
     snapshot::Snapshot,
@@ -192,7 +193,7 @@ pub struct ProviderData<
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_config: MiningConfig,
     network_id: u64,
-    observability: observability::Config,
+    observability: ObservabilityConfig,
     precompile_overrides: HashMap<Address, PrecompileFn>,
     beneficiary: Address,
     min_gas_price: u128,
@@ -1338,7 +1339,7 @@ where
             &mut ProviderData<ChainSpecT, TimerT>,
             &CfgEnv<ChainSpecT::Hardfork>,
             HeaderOverrides<ChainSpecT::Hardfork>,
-            &mut RuntimeObserver<ChainSpecT::HaltReason>,
+            &mut EvmObserver<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<
                 ChainSpecT::HaltReason,
@@ -1400,7 +1401,7 @@ where
             &mut ProviderData<ChainSpecT, TimerT>,
             &CfgEnv<ChainSpecT::Hardfork>,
             HeaderOverrides<ChainSpecT::Hardfork>,
-            &mut RuntimeObserver<ChainSpecT::HaltReason>,
+            &mut EvmObserver<ChainSpecT::HaltReason>,
         ) -> Result<
             MineBlockResultAndState<
                 ChainSpecT::HaltReason,
@@ -1436,21 +1437,41 @@ where
                 .or_else(|| Some(self.parent_beacon_block_root_generator.next_value()));
         }
 
-        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
+        let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
 
-        let result = mine_fn(self, &evm_config, options, &mut runtime_observer)?;
+        let result = mine_fn(self, &evm_config, options, &mut evm_observer)?;
 
-        let RuntimeObserver {
+        let EvmObserver {
             code_coverage,
             console_logger,
             mocker: _mocker,
             trace_collector,
-        } = runtime_observer;
+        } = evm_observer;
 
         if let Some(code_coverage) = code_coverage {
             code_coverage
                 .report()
                 .map_err(ProviderError::OnCollectedCoverageCallback)?;
+        }
+
+        if let Some(callback) = self.observability.on_collected_gas_report_fn.as_ref() {
+            let mut report = GasReport::default();
+            for (transaction, execution_result) in result
+                .block
+                .transactions()
+                .iter()
+                .zip(result.transaction_results.iter())
+            {
+                report.add(
+                    &result.state,
+                    self.contract_decoder.as_ref(),
+                    execution_result,
+                    transaction.kind(),
+                    transaction.data().clone(),
+                )?;
+            }
+
+            callback(report).map_err(ProviderError::OnCollectedGasReportCallback)?;
         }
 
         let traces = trace_collector.into_traces();
@@ -1760,16 +1781,16 @@ where
     > {
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
-        let mut runtime_observer = RuntimeObserver::new(observability::Config {
+        let mut evm_observer = EvmObserver::new(EvmObserverConfig {
             call_override: None,
-            ..self.observability.clone()
+            ..EvmObserverConfig::from(&self.observability)
         });
         let mut eip3155_tracer = TracerEip3155::new(trace_config);
 
         let custom_precompiles = self.precompile_overrides.clone();
 
         self.execute_in_block_context(Some(block_spec), move |blockchain, block, state| {
-            let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut runtime_observer);
+            let mut inspector = DualInspector::new(&mut eip3155_tracer, &mut evm_observer);
 
             let result = call::run_call::<_, ChainSpecT, _, _, TimerT>(
                 blockchain,
@@ -1781,12 +1802,12 @@ where
                 &mut inspector,
             )?;
 
-            let RuntimeObserver {
+            let EvmObserver {
                 code_coverage,
                 console_logger: _console_logger,
                 mocker: _mocker,
                 trace_collector,
-            } = runtime_observer;
+            } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {
                 code_coverage
@@ -2177,10 +2198,28 @@ where
         block_spec: &BlockSpec,
         state_overrides: &StateOverrides,
     ) -> Result<CallResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>> {
+        struct GasReportArgs {
+            callback: Box<dyn SyncOnCollectedGasReportCallback>,
+            kind: TxKind,
+            input: Bytes,
+        }
+
         let cfg_env = self.create_evm_config_at_block_spec(block_spec)?;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
+        let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
+
+        let gas_report_args =
+            self.observability
+                .on_collected_gas_report_fn
+                .as_ref()
+                .map(|callback| GasReportArgs {
+                    callback: callback.clone(),
+                    kind: transaction.kind(),
+                    input: transaction.data().clone(),
+                });
+
+        let contract_decoder = Arc::clone(&self.contract_decoder);
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
@@ -2192,20 +2231,37 @@ where
                 cfg_env,
                 transaction,
                 &custom_precompiles,
-                &mut runtime_observer,
+                &mut evm_observer,
             )?;
 
-            let RuntimeObserver {
+            let EvmObserver {
                 code_coverage,
                 console_logger,
                 mocker: _mocker,
                 trace_collector,
-            } = runtime_observer;
+            } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {
                 code_coverage
                     .report()
                     .map_err(ProviderError::OnCollectedCoverageCallback)?;
+            }
+
+            if let Some(GasReportArgs {
+                callback,
+                kind,
+                input,
+            }) = gas_report_args
+            {
+                let gas_report = GasReport::new(
+                    state,
+                    contract_decoder.as_ref(),
+                    &execution_result,
+                    kind,
+                    input,
+                )?;
+
+                callback(gas_report).map_err(ProviderError::OnCollectedGasReportCallback)?;
             }
 
             let mut traces = trace_collector.into_traces();
@@ -2261,7 +2317,7 @@ where
         &mut self,
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: HeaderOverrides<ChainSpecT::Hardfork>,
-        runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
+        evm_observer: &mut EvmObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<
             ChainSpecT::HaltReason,
@@ -2282,7 +2338,7 @@ where
             self.min_gas_price,
             self.mining_config.mem_pool.order,
             reward,
-            Some(runtime_observer),
+            Some(evm_observer),
             &self.precompile_overrides,
         )?;
 
@@ -2295,7 +2351,7 @@ where
         config: &CfgEnv<ChainSpecT::Hardfork>,
         options: HeaderOverrides<ChainSpecT::Hardfork>,
         transaction: ChainSpecT::SignedTransaction,
-        runtime_observer: &mut RuntimeObserver<ChainSpecT::HaltReason>,
+        evm_observer: &mut EvmObserver<ChainSpecT::HaltReason>,
     ) -> Result<
         MineBlockResultAndState<
             ChainSpecT::HaltReason,
@@ -2315,7 +2371,7 @@ where
             options,
             self.min_gas_price,
             reward,
-            Some(runtime_observer),
+            Some(evm_observer),
             &self.precompile_overrides,
         )?;
 
@@ -2353,12 +2409,12 @@ where
             self.notify_subscribers_about_pending_transaction(&transaction_hash);
 
             let result = self.mine_and_commit_block_impl(
-                move |provider, config, options, runtime_observer| {
+                move |provider, config, options, evm_observer| {
                     provider.mine_block_with_single_transaction(
                         config,
                         options,
                         transaction,
-                        runtime_observer,
+                        evm_observer,
                     )
                 },
                 self.header_overrides(),
@@ -2485,9 +2541,9 @@ where
 
         let prev_block_number = block.header().number - 1;
         let prev_block_spec = Some(BlockSpec::Number(prev_block_number));
-        let observability = observability::Config {
+        let observer_config = EvmObserverConfig {
             call_override: None,
-            ..self.observability.clone()
+            ..EvmObserverConfig::from(&self.observability)
         };
 
         self.execute_in_block_context(
@@ -2503,7 +2559,7 @@ where
                     block_env,
                     transactions,
                     transaction_hash,
-                    observability,
+                    observer_config,
                 )
                 .map_err(ProviderError::DebugTrace)
             },
@@ -2572,7 +2628,7 @@ where
                 .initial_gas;
 
         let custom_precompiles = self.precompile_overrides.clone();
-        let mut runtime_observer = RuntimeObserver::new(self.observability.clone());
+        let mut evm_observer = EvmObserver::new(EvmObserverConfig::from(&self.observability));
 
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let header = block.header();
@@ -2587,15 +2643,15 @@ where
                 cfg_env.clone(),
                 transaction.clone(),
                 &custom_precompiles,
-                &mut runtime_observer,
+                &mut evm_observer,
             )?;
 
-            let RuntimeObserver {
+            let EvmObserver {
                 code_coverage,
                 console_logger,
                 mocker: _mocker,
                 mut trace_collector,
-            } = runtime_observer;
+            } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {
                 code_coverage

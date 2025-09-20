@@ -27,7 +27,7 @@ use edr_evm_spec::{
     HaltReasonTrait, TransactionValidation,
 };
 
-use crate::observability::{self, RuntimeObserver};
+use crate::observability::{EvmObserver, EvmObserverConfig};
 
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -41,7 +41,7 @@ pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     block: ChainSpecT::BlockEnv,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
-    observability: observability::Config,
+    observer_config: EvmObserverConfig,
 ) -> Result<
     DebugTraceResultWithTraces<ChainSpecT::HaltReason>,
     DebugTraceErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
@@ -69,7 +69,7 @@ where
     for transaction in transactions {
         if transaction.transaction_hash() == transaction_hash {
             let mut eip3155_tracer = TracerEip3155::new(trace_config);
-            let mut runtime_observer = RuntimeObserver::new(observability);
+            let mut evm_observer = EvmObserver::new(observer_config);
 
             let ExecutionResultAndState { result, .. } =
                 dry_run_with_inspector::<_, ChainSpecT, _, _>(
@@ -79,15 +79,15 @@ where
                     transaction,
                     block,
                     &edr_eth::HashMap::new(),
-                    &mut DualInspector::new(&mut eip3155_tracer, &mut runtime_observer),
+                    &mut DualInspector::new(&mut eip3155_tracer, &mut evm_observer),
                 )?;
 
-            let RuntimeObserver {
+            let EvmObserver {
                 code_coverage,
                 console_logger: _console_logger,
                 mocker: _mocker,
                 trace_collector,
-            } = runtime_observer;
+            } = evm_observer;
 
             if let Some(code_coverage) = code_coverage {
                 code_coverage

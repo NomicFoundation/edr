@@ -133,7 +133,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         min_gas_price: 0,
         mining: config::Mining::default(),
         network_id: 123,
-        observability: observability::Config::default(),
+        observability: observability::ObservabilityConfig::default(),
         owned_accounts,
         precompile_overrides: HashMap::new(),
     }

@@ -15,17 +15,30 @@ use edr_evm::{
 };
 use edr_evm_spec::HaltReasonTrait;
 
-use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
+use crate::{
+    console_log::ConsoleLogCollector, gas_reports::SyncOnCollectedGasReportCallback, mock::Mocker,
+    SyncCallOverride,
+};
 
-/// Configuration for a [`RuntimeObserver`].
+/// Convenience type alias for [`ObservabilityConfig`].
+///
+/// This allows usage like `edr_provider::observability::Config`.
+pub type Config = ObservabilityConfig;
+
+/// Configuration for collecting information about executed transactions.
+///
+/// This can happen at multiple levels:
+/// - **EVM-level**: Using a [`EvmObserver`] to inspect the EVM execution.
+/// - **Provider-level**: Using finalised execution results.
 #[derive(Clone, Default)]
-pub struct Config {
+pub struct ObservabilityConfig {
     pub call_override: Option<Arc<dyn SyncCallOverride>>,
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
+    pub on_collected_gas_report_fn: Option<Box<dyn SyncOnCollectedGasReportCallback>>,
     pub verbose_raw_tracing: bool,
 }
 
-impl Debug for Config {
+impl Debug for ObservabilityConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Config")
             .field("call_override", &self.call_override.is_some())
@@ -33,23 +46,44 @@ impl Debug for Config {
                 "on_collected_coverage_fn",
                 &self.on_collected_coverage_fn.is_some(),
             )
+            .field(
+                "on_collected_gas_report_fn",
+                &self.on_collected_gas_report_fn.is_some(),
+            )
             .field("verbose_raw_traces", &self.verbose_raw_tracing)
             .finish()
     }
 }
 
-/// An observer for the EVM runtime that collects information about the
-/// execution.
-pub struct RuntimeObserver<HaltReasonT: HaltReasonTrait> {
+/// Configuration for a [`EvmObserver`].
+pub struct EvmObserverConfig {
+    pub call_override: Option<Arc<dyn SyncCallOverride>>,
+    pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
+    pub verbose_raw_tracing: bool,
+}
+
+impl From<&ObservabilityConfig> for EvmObserverConfig {
+    fn from(value: &ObservabilityConfig) -> Self {
+        Self {
+            call_override: value.call_override.clone(),
+            on_collected_coverage_fn: value.on_collected_coverage_fn.clone(),
+            verbose_raw_tracing: value.verbose_raw_tracing,
+        }
+    }
+}
+
+/// An observer for the EVM that collects information about the execution by
+/// directly inspecting the EVM.
+pub struct EvmObserver<HaltReasonT: HaltReasonTrait> {
     pub code_coverage: Option<CodeCoverageReporter>,
     pub console_logger: ConsoleLogCollector,
     pub mocker: Mocker,
     pub trace_collector: TraceCollector<HaltReasonT>,
 }
 
-impl<HaltReasonT: HaltReasonTrait> RuntimeObserver<HaltReasonT> {
+impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
     /// Creates a new instance with the provided configuration.
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: EvmObserverConfig) -> Self {
         let code_coverage = config
             .on_collected_coverage_fn
             .map(CodeCoverageReporter::new);
@@ -73,7 +107,7 @@ impl<
         >,
         HaltReasonT: HaltReasonTrait,
         StateT: State<Error: std::error::Error>,
-    > Inspector<ContextT, EthInterpreter> for RuntimeObserver<HaltReasonT>
+    > Inspector<ContextT, EthInterpreter> for EvmObserver<HaltReasonT>
 {
     fn call(&mut self, context: &mut ContextT, inputs: &mut CallInputs) -> Option<CallOutcome> {
         self.console_logger.call(context, inputs);
