@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.8
+
+### Minor Changes
+
+- c54a499: make all parameters of `eth_feeHistory` rpc call & provider method call required
+
 ## 0.12.0-next.7
 
 ### Minor Changes
