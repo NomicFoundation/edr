@@ -9,7 +9,6 @@ use edr_eth::{
 };
 use edr_evm::{
     evm::{EthFrame, Evm},
-    hardfork::Activations,
     inspector::{Inspector, NoOpInspector},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::{EthPrecompiles, PrecompileProvider},
@@ -207,14 +206,6 @@ impl RuntimeSpec for GenericChainSpec {
         }
     }
 
-    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self::Hardfork>> {
-        L1ChainSpec::chain_hardfork_activations(chain_id)
-    }
-
-    fn chain_name(chain_id: u64) -> Option<&'static str> {
-        L1ChainSpec::chain_name(chain_id)
-    }
-
     fn evm<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
@@ -247,8 +238,10 @@ impl RuntimeSpec for GenericChainSpec {
         )
     }
 
-    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
-        L1ChainSpec::chain_base_fee_params(chain_id)
+    fn chain_config(
+        chain_id: u64,
+    ) -> Option<&'static edr_evm::hardfork::ChainConfig<Self::Hardfork>> {
+        L1ChainSpec::chain_config(chain_id)
     }
 
     fn next_base_fee_per_gas(
@@ -258,6 +251,10 @@ impl RuntimeSpec for GenericChainSpec {
         base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
     ) -> u128 {
         L1ChainSpec::next_base_fee_per_gas(header, chain_id, hardfork, base_fee_params_overrides)
+    }
+
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+        L1ChainSpec::default_base_fee_params()
     }
 }
 

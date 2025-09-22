@@ -201,8 +201,9 @@ async fn get_fork_state<
     )));
     let hardfork_activation_overrides = HashMap::new();
 
-    let hardfork_activations =
-        ChainSpecT::chain_hardfork_activations(chain_id).ok_or(anyhow!("Unsupported chain id"))?;
+    let hardfork_activations = ChainSpecT::chain_config(chain_id)
+        .map(|config| config.hardfork_activations.clone())
+        .ok_or(anyhow!("Unsupported chain id"))?;
 
     let replay_header = replay_block.header();
     let hardfork = hardfork_activations

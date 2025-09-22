@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams};
 use edr_eth::HashMap;
 
-use super::{Activation, Activations, ChainConfig, ForkCondition};
+use super::{Activation, ChainConfig, ForkCondition};
 
 /// Mainnet chain ID
 pub const MAINNET_CHAIN_ID: u64 = 0x1;
@@ -223,29 +223,13 @@ fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<edr_chain_l1::H
     })
 }
 
-/// Returns the name corresponding to the provided chain ID, if it is supported.
-pub fn chain_name(chain_id: u64) -> Option<&'static str> {
-    chain_configs()
-        .get(&chain_id)
-        .map(|config| config.name.as_str())
-}
-
-/// Returns the hardfork activations corresponding to the provided chain ID, if
+/// Returns the corresponding configuration to the provided chain ID, if
 /// it is supported.
-pub fn chain_hardfork_activations(
-    chain_id: u64,
-) -> Option<&'static Activations<edr_chain_l1::Hardfork>> {
-    chain_configs()
-        .get(&chain_id)
-        .map(|config| &config.hardfork_activations)
+pub fn chain_config(chain_id: u64) -> Option<&'static ChainConfig<edr_chain_l1::Hardfork>> {
+    chain_configs().get(&chain_id).copied()
 }
 
-/// Returns the hardfork activations corresponding to the provided chain ID, if
-/// it is supported. If not, it defaults to Mainnet values
-pub fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<edr_chain_l1::Hardfork> {
-    chain_configs()
-        .get(&chain_id)
-        .map_or(&mainnet_config().base_fee_params, |config| {
-            &config.base_fee_params
-        })
+/// Returns the default base fee params to fallback to
+pub fn default_base_fee_params() -> &'static BaseFeeParams<edr_chain_l1::Hardfork> {
+    &mainnet_config().base_fee_params
 }

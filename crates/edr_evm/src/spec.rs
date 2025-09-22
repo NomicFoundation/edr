@@ -30,7 +30,7 @@ use crate::{
     block::{transaction::TransactionAndBlockForChainSpec, LocalCreationError},
     config::CfgEnv,
     evm::Evm,
-    hardfork::{self, l1::chain_base_fee_params, Activations},
+    hardfork::{self, ChainConfig},
     journal::Journal,
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder},
@@ -275,16 +275,18 @@ pub trait RuntimeSpec:
         error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
     ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT>;
 
-    /// Returns the hardfork activations corresponding to the provided chain ID,
-    /// if it is associated with this chain specification.
-    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self::Hardfork>>;
-
-    /// Returns the base fee params corresponding to the provided chain ID
-    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork>;
-
-    /// Returns the name corresponding to the provided chain ID, if it is
+    /// Returns the corresponding configuration for the provided chain ID, if it is
     /// associated with this chain specification.
-    fn chain_name(chain_id: u64) -> Option<&'static str>;
+    fn chain_config(chain_id: u64) -> Option<&'static ChainConfig<Self::Hardfork>>;
+
+    /// Returns the default base fee params to fallback to for the given spec
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork>;
+
+    /// Returns the corresponding base fee params configured for the given chain ID. 
+    /// If it's not defined with this chain specification it fallbacks to the chain spec default.
+    fn base_fee_params_for(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
+        Self::chain_config(chain_id).map_or(Self::default_base_fee_params(), |config| &config.base_fee_params)
+    }
 
     /// Constructs an EVM instance with the provided context.
     fn evm<
@@ -447,14 +449,6 @@ impl RuntimeSpec for L1ChainSpec {
         }
     }
 
-    fn chain_hardfork_activations(chain_id: u64) -> Option<&'static Activations<Self::Hardfork>> {
-        hardfork::l1::chain_hardfork_activations(chain_id)
-    }
-
-    fn chain_name(chain_id: u64) -> Option<&'static str> {
-        hardfork::l1::chain_name(chain_id)
-    }
-
     fn evm_with_inspector<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
@@ -474,10 +468,6 @@ impl RuntimeSpec for L1ChainSpec {
         )
     }
 
-    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
-        hardfork::l1::chain_base_fee_params(chain_id)
-    }
-
     fn next_base_fee_per_gas(
         header: &Header,
         chain_id: u64,
@@ -486,9 +476,17 @@ impl RuntimeSpec for L1ChainSpec {
     ) -> u128 {
         calculate_next_base_fee_per_gas(
             header,
-            base_fee_params_overrides.unwrap_or(chain_base_fee_params(chain_id)),
+            base_fee_params_overrides.unwrap_or(Self::base_fee_params_for(chain_id)),
             hardfork,
         )
+    }
+
+    fn chain_config(chain_id: u64) -> Option<&'static ChainConfig<Self::Hardfork>> {
+        hardfork::l1::chain_config(chain_id)
+    }
+
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+        hardfork::l1::default_base_fee_params()
     }
 }
 

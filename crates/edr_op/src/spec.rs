@@ -166,16 +166,6 @@ impl RuntimeSpec for OpChainSpec {
         }
     }
 
-    fn chain_hardfork_activations(
-        chain_id: u64,
-    ) -> Option<&'static edr_evm::hardfork::Activations<Self::Hardfork>> {
-        hardfork::chain_hardfork_activations(chain_id)
-    }
-
-    fn chain_name(chain_id: u64) -> Option<&'static str> {
-        hardfork::chain_name(chain_id)
-    }
-
     fn evm_with_inspector<
         BlockchainErrorT,
         DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
@@ -195,8 +185,10 @@ impl RuntimeSpec for OpChainSpec {
         ))
     }
 
-    fn chain_base_fee_params(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
-        hardfork::chain_base_fee_params(chain_id)
+    fn chain_config(
+        chain_id: u64,
+    ) -> Option<&'static edr_evm::hardfork::ChainConfig<Self::Hardfork>> {
+        hardfork::chain_config(chain_id)
     }
 
     fn next_base_fee_per_gas(
@@ -209,9 +201,13 @@ impl RuntimeSpec for OpChainSpec {
             header,
             Self::base_fee_params_overrides(header, hardfork, base_fee_params_overrides.cloned())
                 .as_ref()
-                .unwrap_or(OpChainSpec::chain_base_fee_params(chain_id)),
+                .unwrap_or(Self::base_fee_params_for(chain_id)),
             hardfork,
         )
+    }
+
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+        hardfork::default_base_fee_params()
     }
 }
 

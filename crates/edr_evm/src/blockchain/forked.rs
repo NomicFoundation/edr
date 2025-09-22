@@ -189,7 +189,9 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
         let hardfork_activations = chain_overrides
             .get(&remote_chain_id)
             .and_then(|chain_override| chain_override.hardfork_activation_overrides.as_ref())
-            .or_else(|| ChainSpecT::chain_hardfork_activations(remote_chain_id))
+            .or_else(|| {
+                ChainSpecT::chain_config(remote_chain_id).map(|config| &config.hardfork_activations)
+            })
             .and_then(|hardfork_activations| {
                 // Ignore empty hardfork activations
                 if hardfork_activations.is_empty() {
@@ -213,8 +215,8 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
         {
             if remote_hardfork.into() < EvmSpecId::SPURIOUS_DRAGON {
                 return Err(CreationError::InvalidHardfork {
-                    chain_name: ChainSpecT::chain_name(remote_chain_id)
-                        .map_or_else(|| "unknown".to_string(), ToString::to_string),
+                    chain_name: ChainSpecT::chain_config(remote_chain_id)
+                        .map_or("unknown".to_string(), |config| config.name.clone()),
                     fork_block_number,
                     hardfork: remote_hardfork,
                 });
@@ -649,7 +651,7 @@ where
             previous_total_difficulty,
             BlockChainCondition::new(
                 self.hardfork,
-                <ChainSpecT as RuntimeSpec>::chain_base_fee_params(self.chain_id),
+                <ChainSpecT as RuntimeSpec>::base_fee_params_for(self.chain_id),
             ),
         );
 

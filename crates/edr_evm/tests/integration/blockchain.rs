@@ -87,7 +87,7 @@ async fn create_dummy_blockchains(
         genesis_diff.clone(),
         BlockChainCondition::new(
             edr_chain_l1::Hardfork::default(),
-            edr_chain_l1::L1ChainSpec::chain_base_fee_params(CHAIN_ID),
+            edr_chain_l1::L1ChainSpec::base_fee_params_for(CHAIN_ID),
         ),
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
@@ -160,7 +160,7 @@ fn create_dummy_block_with_difficulty(
         PartialHeader::new::<L1ChainSpec>(
             BlockChainCondition::new(
                 blockchain.hardfork(),
-                edr_chain_l1::L1ChainSpec::chain_base_fee_params(blockchain.chain_id()),
+                edr_chain_l1::L1ChainSpec::base_fee_params_for(blockchain.chain_id()),
             ),
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
@@ -183,10 +183,7 @@ fn create_dummy_block_with_hash(
     create_dummy_block_with_header(
         hardfork,
         PartialHeader::new::<L1ChainSpec>(
-            BlockChainCondition::new(
-                hardfork,
-                edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
-            ),
+            BlockChainCondition::new(hardfork, edr_chain_l1::L1ChainSpec::base_fee_params_for(1)),
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -231,7 +228,7 @@ fn insert_dummy_block_with_transaction(
     let mut header = PartialHeader::new::<L1ChainSpec>(
         BlockChainCondition::new(
             blockchain.hardfork(),
-            edr_chain_l1::L1ChainSpec::chain_base_fee_params(blockchain.chain_id()),
+            edr_chain_l1::L1ChainSpec::base_fee_params_for(blockchain.chain_id()),
         ),
         HeaderOverrides::default(),
         Some(blockchain.last_block()?.header()),

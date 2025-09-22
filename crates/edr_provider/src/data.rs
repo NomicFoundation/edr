@@ -2941,7 +2941,7 @@ fn create_blockchain_and_state<
                 config
                     .base_fee_params
                     .as_ref()
-                    .unwrap_or(ChainSpecT::chain_base_fee_params(config.chain_id)),
+                    .unwrap_or(ChainSpecT::base_fee_params_for(config.chain_id)),
             ),
             GenesisBlockOptions {
                 extra_data: None,

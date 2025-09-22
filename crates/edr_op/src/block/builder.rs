@@ -79,7 +79,7 @@ where
             overrides.extra_data = Some(overrides.extra_data.unwrap_or_else(|| {
                 let chain_base_fee_params =
                     overrides.base_fee_params.clone().unwrap_or_else(|| {
-                        OpChainSpec::chain_base_fee_params(blockchain.chain_id()).clone()
+                        OpChainSpec::base_fee_params_for(blockchain.chain_id()).clone()
                     });
 
                 let current_block_number = blockchain.last_block_number() + 1;

@@ -21,7 +21,7 @@ fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L
         genesis_diff.clone(),
         BlockChainCondition::new(
             edr_chain_l1::Hardfork::PRAGUE,
-            edr_chain_l1::L1ChainSpec::chain_base_fee_params(CHAIN_ID),
+            edr_chain_l1::L1ChainSpec::base_fee_params_for(CHAIN_ID),
         ),
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),

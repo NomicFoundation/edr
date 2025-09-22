@@ -139,7 +139,7 @@ fn record_hits() -> anyhow::Result<()> {
         genesis_diff.clone(),
         BlockChainCondition::new(
             edr_chain_l1::Hardfork::CANCUN,
-            edr_chain_l1::L1ChainSpec::chain_base_fee_params(CHAIN_ID),
+            edr_chain_l1::L1ChainSpec::base_fee_params_for(CHAIN_ID),
         ),
         GenesisBlockOptions {
             mix_hash: Some(B256::random()),

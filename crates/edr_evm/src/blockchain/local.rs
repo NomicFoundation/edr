@@ -269,7 +269,7 @@ where
             previous_total_difficulty,
             BlockChainCondition::new(
                 self.hardfork,
-                ChainSpecT::chain_base_fee_params(self.chain_id),
+                ChainSpecT::base_fee_params_for(self.chain_id),
             ),
         );
 
@@ -344,7 +344,7 @@ mod tests {
             genesis_diff.clone(),
             BlockChainCondition::new(
                 edr_chain_l1::Hardfork::SHANGHAI,
-                edr_chain_l1::L1ChainSpec::chain_base_fee_params(1),
+                edr_chain_l1::L1ChainSpec::base_fee_params_for(1),
             ),
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
