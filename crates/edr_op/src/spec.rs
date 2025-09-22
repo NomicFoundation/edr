@@ -29,7 +29,7 @@ use edr_napi_core::{
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::{jsonrpc, spec::RpcSpec};
 use edr_solidity::contract_decoder::ContractDecoder;
-use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
+use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -199,7 +199,7 @@ impl RuntimeSpec for OpChainSpec {
     ) -> u128 {
         calculate_next_base_fee_per_gas(
             header,
-            Self::base_fee_params_overrides(header, hardfork, base_fee_params_overrides.cloned())
+            op_base_fee_params_overrides(header, hardfork, base_fee_params_overrides.cloned())
                 .as_ref()
                 .unwrap_or(Self::base_fee_params_for(chain_id)),
             hardfork,
@@ -211,24 +211,22 @@ impl RuntimeSpec for OpChainSpec {
     }
 }
 
-impl OpChainSpec {
-    /// Defines the `base_fee_params` override to use for OP
-    pub fn base_fee_params_overrides(
-        parent_header: &Header,
-        parent_hardfork: <OpChainSpec as ChainHardfork>::Hardfork,
-        base_fee_params_overrides: Option<BaseFeeParams<<OpChainSpec as ChainHardfork>::Hardfork>>,
-    ) -> Option<BaseFeeParams<<OpChainSpec as ChainHardfork>::Hardfork>> {
-        base_fee_params_overrides.or_else(|| {
-            // For post-Holocene blocks, use the parent header extra_data to determine the
-            // base fee parameters
-            if parent_hardfork >= Hardfork::HOLOCENE {
-                let base_fee_params = decode_base_params(&parent_header.extra_data);
-                Some(BaseFeeParams::Constant(base_fee_params))
-            } else {
-                None
-            }
-        })
-    }
+/// Defines the `base_fee_params` override to use for OP
+pub(crate) fn op_base_fee_params_overrides(
+    parent_header: &Header,
+    parent_hardfork: OpSpecId,
+    base_fee_params_overrides: Option<BaseFeeParams<OpSpecId>>,
+) -> Option<BaseFeeParams<OpSpecId>> {
+    base_fee_params_overrides.or_else(|| {
+        // For post-Holocene blocks, use the parent header extra_data to determine the
+        // base fee parameters
+        if parent_hardfork >= Hardfork::HOLOCENE {
+            let base_fee_params = decode_base_params(&parent_header.extra_data);
+            Some(BaseFeeParams::Constant(base_fee_params))
+        } else {
+            None
+        }
+    })
 }
 
 impl EthHeaderConstants for OpChainSpec {

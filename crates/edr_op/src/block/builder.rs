@@ -17,6 +17,7 @@ use crate::{
     eip1559::{encode_dynamic_base_fee_params, DYNAMIC_BASE_FEE_PARAM_VERSION},
     predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
     receipt::BlockReceiptFactory,
+    spec::op_base_fee_params_overrides,
     transaction, Hardfork, OpChainSpec,
 };
 
@@ -100,7 +101,7 @@ where
                     .last_block()
                     .map_err(BlockBuilderCreationError::Blockchain)?;
 
-                OpChainSpec::base_fee_params_overrides(
+                op_base_fee_params_overrides(
                     parent_block.header(),
                     parent_hardfork,
                     overrides.base_fee_params,
