@@ -213,16 +213,16 @@ pub struct PartialHeader {
 
 /// Defines the chain conditions at which the block is created
 #[derive(Debug, Clone)]
-pub struct BlockChainCondition<'a, HardforkT> {
+pub struct BlockChainCondition<'params, HardforkT> {
     /// associated hardfork
     pub hardfork: HardforkT,
     /// associated base fee params
-    pub base_fee_params: &'a BaseFeeParams<HardforkT>,
+    pub base_fee_params: &'params BaseFeeParams<HardforkT>,
 }
 
-impl<'a, HardforkT> BlockChainCondition<'a, HardforkT> {
+impl<'params, HardforkT> BlockChainCondition<'params, HardforkT> {
     /// constructs a new `BlockChainCondition`
-    pub fn new(hardfork: HardforkT, base_fee_params: &'a BaseFeeParams<HardforkT>) -> Self {
+    pub fn new(hardfork: HardforkT, base_fee_params: &'params BaseFeeParams<HardforkT>) -> Self {
         BlockChainCondition {
             hardfork,
             base_fee_params,

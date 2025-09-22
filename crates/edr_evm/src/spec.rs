@@ -334,7 +334,7 @@ pub trait RuntimeSpec:
         StateErrorT,
     >;
 
-    /// Returns the `base_fee_per_gas` for next block
+    /// Returns the `base_fee_per_gas` for the next block.
     fn next_base_fee_per_gas(header: &Header, chain_id: u64, hardfork: Self::Hardfork, base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>) -> u128;
 
 }
