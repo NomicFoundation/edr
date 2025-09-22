@@ -13,7 +13,7 @@ derive-where.workspace = true
 dyn-clone.workspace = true
 edr_chain_l1.workspace = true
 edr_defaults = { version = "0.3.5", path = "../edr_defaults" }
-edr_eip1559 = { version = "0.3.5", path = "../edr_eip1559", features = ["serde"] }
+edr_eip1559.workspace = true
 edr_eth = { version = "0.3.5", path = "../edr_eth", features = ["serde"] }
 edr_evm_spec.workspace = true
 edr_receipt.workspace = true
