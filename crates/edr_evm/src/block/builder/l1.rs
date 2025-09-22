@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use derive_where::derive_where;
 use edr_eth::{
-    block::{BlobGas, BlockChainCondition, HeaderOverrides, PartialHeader},
+    block::{BlobGas, BlockConfig, HeaderOverrides, PartialHeader},
     eips::{eip4844, eip7691},
     result::{ExecutionResult, ExecutionResultAndState},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
@@ -156,7 +156,7 @@ where
 
         overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new::<ChainSpecT>(
-            BlockChainCondition::new(cfg.spec, ChainSpecT::base_fee_params_for(cfg.chain_id)),
+            BlockConfig::new(cfg.spec, ChainSpecT::base_fee_params_for(cfg.chain_id)),
             overrides,
             Some(parent_header),
             &inputs.ommers,

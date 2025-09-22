@@ -15,8 +15,7 @@ use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     account::{Account, AccountInfo, AccountStatus},
     block::{
-        calculate_next_base_fee_per_blob_gas, miner_reward, BlockChainCondition, Header,
-        HeaderOverrides,
+        calculate_next_base_fee_per_blob_gas, miner_reward, BlockConfig, Header, HeaderOverrides,
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -2936,7 +2935,7 @@ fn create_blockchain_and_state<
         let genesis_diff = StateDiff::from(genesis_state);
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
-            BlockChainCondition::new(
+            BlockConfig::new(
                 config.hardfork,
                 config
                     .base_fee_params

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use edr_chain_l1::L1ChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{self, BlobGas, BlockChainCondition, Header, PartialHeader},
+    block::{self, BlobGas, BlockConfig, Header, PartialHeader},
     eips::eip4844::{self, blob_base_fee_update_fraction, BlobExcessGasAndPrice},
     Bytes, U256,
 };
@@ -115,7 +115,7 @@ impl GenesisBlockFactory for GenericChainSpec {
 
     fn genesis_block(
         genesis_diff: edr_evm::state::StateDiff,
-        chain_condition: BlockChainCondition<'_, Self::Hardfork>,
+        block_config: BlockConfig<'_, Self::Hardfork>,
         mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
@@ -127,7 +127,7 @@ impl GenesisBlockFactory for GenericChainSpec {
 
         EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
             genesis_diff,
-            chain_condition,
+            block_config,
             options,
         )
     }

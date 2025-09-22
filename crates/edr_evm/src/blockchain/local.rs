@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{block::BlockChainCondition, Address, HashSet, B256, U256};
+use edr_eth::{block::BlockConfig, Address, HashSet, B256, U256};
 use edr_evm_spec::EvmSpecId;
 use edr_receipt::log::FilterLog;
 
@@ -267,7 +267,7 @@ where
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            BlockChainCondition::new(
+            BlockConfig::new(
                 self.hardfork,
                 ChainSpecT::base_fee_params_for(self.chain_id),
             ),
@@ -342,7 +342,7 @@ mod tests {
 
         let genesis_block = L1ChainSpec::genesis_block(
             genesis_diff.clone(),
-            BlockChainCondition::new(
+            BlockConfig::new(
                 edr_chain_l1::Hardfork::SHANGHAI,
                 edr_chain_l1::L1ChainSpec::base_fee_params_for(1),
             ),

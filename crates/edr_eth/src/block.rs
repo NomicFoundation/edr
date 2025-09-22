@@ -211,19 +211,19 @@ pub struct PartialHeader {
     pub requests_hash: Option<B256>,
 }
 
-/// Defines the chain conditions at which the block is created
+/// Defines the configurations needed for building a block
 #[derive(Debug, Clone)]
-pub struct BlockChainCondition<'params, HardforkT> {
+pub struct BlockConfig<'params, HardforkT> {
     /// associated hardfork
     pub hardfork: HardforkT,
     /// associated base fee params
     pub base_fee_params: &'params BaseFeeParams<HardforkT>,
 }
 
-impl<'params, HardforkT> BlockChainCondition<'params, HardforkT> {
-    /// constructs a new `BlockChainCondition`
+impl<'params, HardforkT> BlockConfig<'params, HardforkT> {
+    /// constructs a new `BlockConfig`
     pub fn new(hardfork: HardforkT, base_fee_params: &'params BaseFeeParams<HardforkT>) -> Self {
-        BlockChainCondition {
+        BlockConfig {
             hardfork,
             base_fee_params,
         }
@@ -234,13 +234,13 @@ impl PartialHeader {
     /// Constructs a new instance based on the provided [`HeaderOverrides`] and
     /// parent [`Header`] for the given [`EvmSpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
-        chain_condition: BlockChainCondition<'_, ChainSpecT::Hardfork>,
+        block_config: BlockConfig<'_, ChainSpecT::Hardfork>,
         overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         parent: Option<&Header>,
         ommers: &Vec<Header>,
         withdrawals: Option<&Vec<Withdrawal>>,
     ) -> Self {
-        let hardfork = chain_condition.hardfork;
+        let hardfork = block_config.hardfork;
         let timestamp = overrides.timestamp.unwrap_or_default();
         let number = overrides.number.unwrap_or({
             if let Some(parent) = &parent {
@@ -300,7 +300,7 @@ impl PartialHeader {
                             overrides
                                 .base_fee_params
                                 .as_ref()
-                                .unwrap_or(chain_condition.base_fee_params),
+                                .unwrap_or(block_config.base_fee_params),
                             hardfork,
                         )
                     } else {
@@ -757,7 +757,7 @@ mod tests {
             ..HeaderOverrides::default()
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            BlockChainCondition::new(
+            BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
                 edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
             ),
@@ -784,7 +784,7 @@ mod tests {
             ..HeaderOverrides::default()
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            BlockChainCondition::new(
+            BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
                 edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
             ),
@@ -808,7 +808,7 @@ mod tests {
             ..HeaderOverrides::default()
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            BlockChainCondition::new(
+            BlockConfig::new(
                 edr_chain_l1::Hardfork::BERLIN,
                 edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
             ),
@@ -826,7 +826,7 @@ mod tests {
         let ommers = vec![];
         let overrides = HeaderOverrides::default();
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            BlockChainCondition::new(
+            BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
                 edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
             ),
@@ -850,7 +850,7 @@ mod tests {
             ..HeaderOverrides::default()
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            BlockChainCondition::new(
+            BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
                 edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
             ),
@@ -881,7 +881,7 @@ mod tests {
             ..Header::default()
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            BlockChainCondition::new(
+            BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
                 edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
             ),

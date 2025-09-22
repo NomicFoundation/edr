@@ -8,7 +8,7 @@ use std::{
 use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_eth::{
-    block::{self, BlockChainCondition, Header, HeaderOverrides, PartialHeader},
+    block::{self, BlockConfig, Header, HeaderOverrides, PartialHeader},
     trie,
     withdrawal::Withdrawal,
     B256, KECCAK_EMPTY,
@@ -213,7 +213,7 @@ impl<
     /// Constructs a block with the provided genesis state and options.
     pub fn with_genesis_state<HeaderConstantsT: EthHeaderConstants<Hardfork = HardforkT>>(
         genesis_diff: StateDiff,
-        chain_condition: BlockChainCondition<'_, HardforkT>,
+        block_config: BlockConfig<'_, HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
     ) -> Result<Self, CreationError>
     where
@@ -222,7 +222,7 @@ impl<
         let mut genesis_state = TrieState::default();
         genesis_state.commit(genesis_diff.clone().into());
 
-        let evm_spec_id = chain_condition.hardfork.clone().into();
+        let evm_spec_id = block_config.hardfork.clone().into();
         if evm_spec_id >= EvmSpecId::MERGE && options.mix_hash.is_none() {
             return Err(CreationError::MissingPrevrandao);
         }
@@ -252,10 +252,10 @@ impl<
         } else {
             None
         };
-        let hardfork = chain_condition.hardfork.clone();
+        let hardfork = block_config.hardfork.clone();
 
         let partial_header = PartialHeader::new::<HeaderConstantsT>(
-            chain_condition,
+            block_config,
             options,
             None,
             &ommers,

@@ -3,7 +3,7 @@ use std::{num::NonZeroU64, sync::Arc};
 
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{BlockChainCondition, HeaderOverrides, PartialHeader},
+    block::{BlockConfig, HeaderOverrides, PartialHeader},
     Address, HashMap, HashSet, B256, U256,
 };
 use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
@@ -240,7 +240,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
         previous_base_fee: Option<u128>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
-        chain_condition: BlockChainCondition<'_, HardforkT>,
+        block_config: BlockConfig<'_, HardforkT>,
     ) {
         let reservation = Reservation {
             first_number: self.last_block_number + 1,
@@ -250,8 +250,8 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
             previous_state_root,
             previous_total_difficulty,
             previous_diff_index: self.state_diffs.len() - 1,
-            hardfork: chain_condition.hardfork,
-            base_fee_params: (*chain_condition.base_fee_params).clone(),
+            hardfork: block_config.hardfork,
+            base_fee_params: (*block_config.base_fee_params).clone(),
         };
 
         self.reservations.get_mut().push(reservation);
@@ -354,10 +354,7 @@ impl<
                 let block = BlockT::empty(
                     reservation.hardfork.clone(),
                     PartialHeader::new::<ChainSpecT>(
-                        BlockChainCondition::new(
-                            reservation.hardfork,
-                            &reservation.base_fee_params,
-                        ),
+                        BlockConfig::new(reservation.hardfork, &reservation.base_fee_params),
                         HeaderOverrides {
                             number: Some(block_number),
                             state_root: Some(reservation.previous_state_root),

@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, str::FromStr};
 use edr_chain_l1::L1ChainSpec;
 use edr_coverage::CoverageHitCollector;
 use edr_eth::{
-    block::BlockChainCondition,
+    block::BlockConfig,
     bytes,
     result::{ExecutionResult, Output},
     Address, Bytes, HashMap, HashSet, B256, U256,
@@ -137,7 +137,7 @@ fn record_hits() -> anyhow::Result<()> {
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        BlockChainCondition::new(
+        BlockConfig::new(
             edr_chain_l1::Hardfork::CANCUN,
             edr_chain_l1::L1ChainSpec::base_fee_params_for(CHAIN_ID),
         ),
