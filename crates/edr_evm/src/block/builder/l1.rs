@@ -24,7 +24,7 @@ use crate::{
     config::CfgEnv,
     receipt::ExecutionReceiptBuilder as _,
     runtime::{dry_run, dry_run_with_inspector},
-    spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
+    spec::{base_fee_params_for, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, DatabaseComponents, StateCommit as _, StateDebug as _, StateDiff,
         SyncState, WrapDatabaseRef,
@@ -156,7 +156,7 @@ where
 
         overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new::<ChainSpecT>(
-            BlockConfig::new(cfg.spec, ChainSpecT::base_fee_params_for(cfg.chain_id)),
+            BlockConfig::new(cfg.spec, base_fee_params_for::<ChainSpecT>(cfg.chain_id)),
             overrides,
             Some(parent_header),
             &inputs.ommers,

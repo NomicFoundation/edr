@@ -36,7 +36,7 @@ use crate::{
         },
     },
     hardfork::{self, ChainOverride},
-    spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
     RandomHashGenerator, RemoteBlock,
@@ -648,7 +648,7 @@ where
             previous_total_difficulty,
             BlockConfig::new(
                 self.hardfork,
-                <ChainSpecT as RuntimeSpec>::base_fee_params_for(self.chain_id),
+                base_fee_params_for::<ChainSpecT>(self.chain_id),
             ),
         );
 

@@ -12,7 +12,10 @@ use edr_evm::{
     evm::Evm,
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::PrecompileProvider,
-    spec::{BlockEnvConstructor, ContextForChainSpec, GenesisBlockFactory, RuntimeSpec},
+    spec::{
+        base_fee_params_for, BlockEnvConstructor, ContextForChainSpec, GenesisBlockFactory,
+        RuntimeSpec,
+    },
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec},
     BlockReceipts, EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock,
@@ -201,7 +204,7 @@ impl RuntimeSpec for OpChainSpec {
             header,
             op_base_fee_params_overrides(header, hardfork, base_fee_params_overrides.cloned())
                 .as_ref()
-                .unwrap_or(Self::base_fee_params_for(chain_id)),
+                .unwrap_or(base_fee_params_for::<Self>(chain_id)),
             hardfork,
         )
     }

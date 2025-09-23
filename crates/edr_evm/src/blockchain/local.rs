@@ -12,7 +12,7 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    spec::SyncRuntimeSpec,
+    spec::{base_fee_params_for, SyncRuntimeSpec},
     state::{StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
@@ -269,7 +269,7 @@ where
             previous_total_difficulty,
             BlockConfig::new(
                 self.hardfork,
-                ChainSpecT::base_fee_params_for(self.chain_id),
+                base_fee_params_for::<ChainSpecT>(self.chain_id),
             ),
         );
 
@@ -307,11 +307,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::{
-        spec::{GenesisBlockFactory as _, RuntimeSpec as _},
-        state::IrregularState,
-        GenesisBlockOptions,
-    };
+    use crate::{spec::GenesisBlockFactory as _, state::IrregularState, GenesisBlockOptions};
 
     #[test]
     fn compute_state_after_reserve() -> anyhow::Result<()> {
@@ -344,7 +340,7 @@ mod tests {
             genesis_diff.clone(),
             BlockConfig::new(
                 edr_chain_l1::Hardfork::SHANGHAI,
-                edr_chain_l1::L1ChainSpec::base_fee_params_for(1),
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(1),
             ),
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),

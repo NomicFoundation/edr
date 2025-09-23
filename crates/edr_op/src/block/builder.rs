@@ -5,7 +5,7 @@ use edr_evm::{
     config::CfgEnv,
     inspector::Inspector,
     precompile::PrecompileFn,
-    spec::{ContextForChainSpec, RuntimeSpec},
+    spec::{base_fee_params_for, ContextForChainSpec},
     state::{DatabaseComponents, SyncState, WrapDatabaseRef},
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionErrorForChainSpec,
     EthBlockBuilder, MineBlockResultAndState,
@@ -80,7 +80,7 @@ where
             overrides.extra_data = Some(overrides.extra_data.unwrap_or_else(|| {
                 let chain_base_fee_params =
                     overrides.base_fee_params.clone().unwrap_or_else(|| {
-                        OpChainSpec::base_fee_params_for(blockchain.chain_id()).clone()
+                        base_fee_params_for::<OpChainSpec>(blockchain.chain_id()).clone()
                     });
 
                 let current_block_number = blockchain.last_block_number() + 1;

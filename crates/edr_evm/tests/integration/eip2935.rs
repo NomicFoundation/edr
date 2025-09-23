@@ -8,7 +8,7 @@ use edr_evm::{
         add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
         HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
     },
-    spec::{GenesisBlockFactory as _, RuntimeSpec},
+    spec::{base_fee_params_for, GenesisBlockFactory as _},
     state::StateDiff,
     GenesisBlockOptions, RandomHashGenerator,
 };
@@ -21,7 +21,7 @@ fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L
         genesis_diff.clone(),
         BlockConfig::new(
             edr_chain_l1::Hardfork::PRAGUE,
-            edr_chain_l1::L1ChainSpec::base_fee_params_for(CHAIN_ID),
+            base_fee_params_for::<edr_chain_l1::L1ChainSpec>(CHAIN_ID),
         ),
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),

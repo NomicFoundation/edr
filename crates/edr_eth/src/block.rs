@@ -487,7 +487,7 @@ mod tests {
     use std::str::FromStr;
 
     use alloy_eips::eip1559::{BaseFeeParams as ConstantBaseFeeParams, INITIAL_BASE_FEE};
-    use edr_evm::{hardfork::l1::MAINNET_CHAIN_ID, spec::RuntimeSpec as _};
+    use edr_evm::{hardfork::l1::MAINNET_CHAIN_ID, spec::base_fee_params_for};
 
     use super::*;
     use crate::trie::KECCAK_RLP_EMPTY_ARRAY;
@@ -759,7 +759,7 @@ mod tests {
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
-                edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(MAINNET_CHAIN_ID),
             ),
             overrides,
             None,
@@ -786,7 +786,7 @@ mod tests {
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
-                edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(MAINNET_CHAIN_ID),
             ),
             overrides,
             None,
@@ -810,7 +810,7 @@ mod tests {
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig::new(
                 edr_chain_l1::Hardfork::BERLIN,
-                edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(MAINNET_CHAIN_ID),
             ),
             overrides,
             None,
@@ -828,7 +828,7 @@ mod tests {
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
-                edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(MAINNET_CHAIN_ID),
             ),
             overrides,
             None,
@@ -852,7 +852,7 @@ mod tests {
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
-                edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(MAINNET_CHAIN_ID),
             ),
             overrides,
             None,
@@ -883,7 +883,7 @@ mod tests {
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig::new(
                 edr_chain_l1::Hardfork::LONDON,
-                edr_chain_l1::L1ChainSpec::base_fee_params_for(MAINNET_CHAIN_ID),
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(MAINNET_CHAIN_ID),
             ),
             overrides,
             Some(&parent_header),

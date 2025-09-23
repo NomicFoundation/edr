@@ -36,7 +36,7 @@ use edr_evm::{
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
     precompile::PrecompileFn,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
         StateOverrides, StateRefOverrider, SyncState,
@@ -2940,7 +2940,7 @@ fn create_blockchain_and_state<
                 config
                     .base_fee_params
                     .as_ref()
-                    .unwrap_or(ChainSpecT::base_fee_params_for(config.chain_id)),
+                    .unwrap_or(base_fee_params_for::<ChainSpecT>(config.chain_id)),
             ),
             GenesisBlockOptions {
                 extra_data: None,

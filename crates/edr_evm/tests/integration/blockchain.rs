@@ -11,7 +11,10 @@ use edr_eth::{
 use edr_evm::{
     blockchain::{BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain, SyncBlockchain},
     receipt::{self, ExecutionReceiptBuilder as _},
-    spec::{ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory, RuntimeSpec},
+    spec::{
+        base_fee_params_for, ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory,
+        RuntimeSpec,
+    },
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
     EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
@@ -87,7 +90,7 @@ async fn create_dummy_blockchains(
         genesis_diff.clone(),
         BlockConfig::new(
             edr_chain_l1::Hardfork::default(),
-            edr_chain_l1::L1ChainSpec::base_fee_params_for(CHAIN_ID),
+            base_fee_params_for::<edr_chain_l1::L1ChainSpec>(CHAIN_ID),
         ),
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
@@ -160,7 +163,7 @@ fn create_dummy_block_with_difficulty(
         PartialHeader::new::<L1ChainSpec>(
             BlockConfig::new(
                 blockchain.hardfork(),
-                edr_chain_l1::L1ChainSpec::base_fee_params_for(blockchain.chain_id()),
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(blockchain.chain_id()),
             ),
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
@@ -183,7 +186,10 @@ fn create_dummy_block_with_hash(
     create_dummy_block_with_header(
         hardfork,
         PartialHeader::new::<L1ChainSpec>(
-            BlockConfig::new(hardfork, edr_chain_l1::L1ChainSpec::base_fee_params_for(1)),
+            BlockConfig::new(
+                hardfork,
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(1),
+            ),
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -228,7 +234,7 @@ fn insert_dummy_block_with_transaction(
     let mut header = PartialHeader::new::<L1ChainSpec>(
         BlockConfig::new(
             blockchain.hardfork(),
-            edr_chain_l1::L1ChainSpec::base_fee_params_for(blockchain.chain_id()),
+            base_fee_params_for::<edr_chain_l1::L1ChainSpec>(blockchain.chain_id()),
         ),
         HeaderOverrides::default(),
         Some(blockchain.last_block()?.header()),

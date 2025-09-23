@@ -280,12 +280,6 @@ pub trait RuntimeSpec:
     /// Returns the default base fee params to fallback to for the given spec
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork>;
 
-    /// Returns the corresponding base fee params configured for the given chain ID. 
-    /// If it's not defined with this chain specification it fallbacks to the chain spec default.
-    fn base_fee_params_for(chain_id: u64) -> &'static BaseFeeParams<Self::Hardfork> {
-        Self::chain_config(chain_id).map_or(Self::default_base_fee_params(), |config| &config.base_fee_params)
-    }
-
     /// Constructs an EVM instance with the provided context.
     fn evm<
         BlockchainErrorT,
@@ -339,6 +333,16 @@ pub trait RuntimeSpec:
 
 }
 
+/// Returns the corresponding base fee params configured for the given chain ID.
+/// If it's not defined in the defined chain specification it fallbacks to the
+/// chain spec default.
+pub fn base_fee_params_for<ChainSpecT: RuntimeSpec>(
+    chain_id: u64,
+) -> &'static BaseFeeParams<ChainSpecT::Hardfork> {
+    ChainSpecT::chain_config(chain_id).map_or(ChainSpecT::default_base_fee_params(), |config| {
+        &config.base_fee_params
+    })
+}
 /// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<HeaderT>: ChainSpec {
     /// Converts the instance into an EVM block.
@@ -474,7 +478,7 @@ impl RuntimeSpec for L1ChainSpec {
     ) -> u128 {
         calculate_next_base_fee_per_gas(
             header,
-            base_fee_params_overrides.unwrap_or(Self::base_fee_params_for(chain_id)),
+            base_fee_params_overrides.unwrap_or(base_fee_params_for::<Self>(chain_id)),
             hardfork,
         )
     }

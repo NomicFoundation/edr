@@ -12,7 +12,7 @@ use edr_evm::{
     blockchain::{Blockchain, LocalBlockchain},
     config::CfgEnv,
     runtime::{dry_run_with_inspector, run},
-    spec::{GenesisBlockFactory as _, RuntimeSpec},
+    spec::{base_fee_params_for, GenesisBlockFactory as _},
     state::{AccountModifierFn, StateDiff, StateError, SyncState},
     GenesisBlockOptions,
 };
@@ -139,7 +139,7 @@ fn record_hits() -> anyhow::Result<()> {
         genesis_diff.clone(),
         BlockConfig::new(
             edr_chain_l1::Hardfork::CANCUN,
-            edr_chain_l1::L1ChainSpec::base_fee_params_for(CHAIN_ID),
+            base_fee_params_for::<edr_chain_l1::L1ChainSpec>(CHAIN_ID),
         ),
         GenesisBlockOptions {
             mix_hash: Some(B256::random()),
