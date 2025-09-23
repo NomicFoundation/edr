@@ -2342,6 +2342,7 @@ version = "0.3.8"
 dependencies = [
  "alloy-eips",
  "edr_chain_l1",
+ "serde",
 ]
 
 [[package]]
@@ -2376,6 +2377,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_evm",
  "edr_evm_spec",
  "edr_receipt",
  "edr_rpc_eth",

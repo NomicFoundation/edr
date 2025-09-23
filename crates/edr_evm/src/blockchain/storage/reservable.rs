@@ -1,8 +1,9 @@
 use core::fmt::Debug;
 use std::{num::NonZeroU64, sync::Arc};
 
+use edr_eip1559::BaseFeeParams;
 use edr_eth::{
-    block::{HeaderOverrides, PartialHeader},
+    block::{BlockConfig, HeaderOverrides, PartialHeader},
     Address, HashMap, HashSet, B256, U256,
 };
 use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
@@ -24,6 +25,7 @@ struct Reservation<HardforkT> {
     previous_total_difficulty: U256,
     previous_diff_index: usize,
     hardfork: HardforkT,
+    base_fee_params: BaseFeeParams<HardforkT>,
 }
 
 /// Helper type for a chain-specific [`ReservableSparseBlockchainStorage`].
@@ -167,7 +169,7 @@ impl<
     }
 }
 
-impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransactionT>
+impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, SignedTransactionT>
     ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the block by hash, if it exists.
@@ -238,7 +240,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
         previous_base_fee: Option<u128>,
         previous_state_root: B256,
         previous_total_difficulty: U256,
-        hardfork: HardforkT,
+        block_config: BlockConfig<'_, HardforkT>,
     ) {
         let reservation = Reservation {
             first_number: self.last_block_number + 1,
@@ -248,7 +250,8 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT, SignedTransa
             previous_state_root,
             previous_total_difficulty,
             previous_diff_index: self.state_diffs.len() - 1,
-            hardfork,
+            hardfork: block_config.hardfork,
+            base_fee_params: (*block_config.base_fee_params).clone(),
         };
 
         self.reservations.get_mut().push(reservation);
@@ -351,7 +354,7 @@ impl<
                 let block = BlockT::empty(
                     reservation.hardfork.clone(),
                     PartialHeader::new::<ChainSpecT>(
-                        reservation.hardfork,
+                        BlockConfig::new(reservation.hardfork, &reservation.base_fee_params),
                         HeaderOverrides {
                             number: Some(block_number),
                             state_root: Some(reservation.previous_state_root),

@@ -15,8 +15,7 @@ use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     account::{Account, AccountInfo, AccountStatus},
     block::{
-        calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
-        HeaderOverrides,
+        calculate_next_base_fee_per_blob_gas, miner_reward, BlockConfig, Header, HeaderOverrides,
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -37,7 +36,7 @@ use edr_evm::{
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
     precompile::PrecompileFn,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
         StateOverrides, StateRefOverrider, SyncState,
@@ -1685,11 +1684,7 @@ where
             .map_or_else(
                 || {
                     let last_block = self.last_block()?;
-                    Ok(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        last_block.header(),
-                        self.base_fee_params.as_ref(),
-                        self.hardfork(),
-                    ))
+                    Ok(self.calculate_next_block_base_fee(last_block.header()))
                 },
                 Ok,
             )
@@ -1719,6 +1714,15 @@ where
             // We return a hardcoded value for networks without EIP-1559
             Ok(8_000_000_000)
         }
+    }
+
+    fn calculate_next_block_base_fee(&self, header: &Header) -> u128 {
+        ChainSpecT::next_base_fee_per_gas(
+            header,
+            self.chain_id(),
+            self.hardfork(),
+            self.base_fee_params.as_ref(),
+        )
     }
 
     /// Wrapper over `Blockchain::chain_id_at_block_number` that handles error
@@ -1964,11 +1968,7 @@ where
                 let block = pending_block.as_ref().expect("We mined the pending block");
                 result
                     .base_fee_per_gas
-                    .push(calculate_next_base_fee_per_gas::<ChainSpecT>(
-                        block.header(),
-                        self.base_fee_params.as_ref(),
-                        self.hardfork(),
-                    ));
+                    .push(self.calculate_next_block_base_fee(block.header()));
             }
         }
 
@@ -2991,7 +2991,13 @@ fn create_blockchain_and_state<
         let genesis_diff = StateDiff::from(genesis_state);
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
-            config.hardfork,
+            BlockConfig::new(
+                config.hardfork,
+                config
+                    .base_fee_params
+                    .as_ref()
+                    .unwrap_or(base_fee_params_for::<ChainSpecT>(config.chain_id)),
+            ),
             GenesisBlockOptions {
                 extra_data: None,
                 gas_limit: Some(config.block_gas_limit.get()),

@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{Address, HashSet, B256, U256};
+use edr_eth::{block::BlockConfig, Address, HashSet, B256, U256};
 use edr_evm_spec::EvmSpecId;
 use edr_receipt::log::FilterLog;
 
@@ -12,7 +12,7 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    spec::SyncRuntimeSpec,
+    spec::{base_fee_params_for, SyncRuntimeSpec},
     state::{StateDiff, StateError, StateOverride, SyncState, TrieState},
     Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
@@ -267,7 +267,10 @@ where
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            self.hardfork,
+            BlockConfig::new(
+                self.hardfork,
+                base_fee_params_for::<ChainSpecT>(self.chain_id),
+            ),
         );
 
         Ok(())
@@ -335,7 +338,10 @@ mod tests {
 
         let genesis_block = L1ChainSpec::genesis_block(
             genesis_diff.clone(),
-            edr_chain_l1::Hardfork::SHANGHAI,
+            BlockConfig::new(
+                edr_chain_l1::Hardfork::SHANGHAI,
+                base_fee_params_for::<edr_chain_l1::L1ChainSpec>(1),
+            ),
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
                 mix_hash: Some(B256::random()),

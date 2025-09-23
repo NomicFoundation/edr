@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use derive_where::derive_where;
 use edr_eth::{
-    block::{BlobGas, HeaderOverrides, PartialHeader},
+    block::{BlobGas, BlockConfig, HeaderOverrides, PartialHeader},
     eips::{eip4844, eip7691},
     result::{ExecutionResult, ExecutionResultAndState},
     trie::{ordered_trie_root, KECCAK_NULL_RLP},
@@ -24,7 +24,7 @@ use crate::{
     config::CfgEnv,
     receipt::ExecutionReceiptBuilder as _,
     runtime::{dry_run, dry_run_with_inspector},
-    spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
+    spec::{base_fee_params_for, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, DatabaseComponents, StateCommit as _, StateDebug as _, StateDiff,
         SyncState, WrapDatabaseRef,
@@ -156,7 +156,7 @@ where
 
         overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new::<ChainSpecT>(
-            cfg.spec,
+            BlockConfig::new(cfg.spec, base_fee_params_for::<ChainSpecT>(cfg.chain_id)),
             overrides,
             Some(parent_header),
             &inputs.ommers,

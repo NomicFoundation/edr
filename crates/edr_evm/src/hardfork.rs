@@ -1,3 +1,5 @@
+use edr_eip1559::BaseFeeParams;
+
 /// Ethereum L1 hardforks.
 pub mod l1;
 
@@ -87,6 +89,8 @@ pub struct ChainConfig<HardforkT> {
     pub name: String,
     /// Hardfork activations for the chain
     pub hardfork_activations: Activations<HardforkT>,
+    /// Base fee param activations for the chain
+    pub base_fee_params: BaseFeeParams<HardforkT>,
 }
 
 /// Type that stores the configuration for a chain.

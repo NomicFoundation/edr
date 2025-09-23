@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, str::FromStr};
 use edr_chain_l1::L1ChainSpec;
 use edr_coverage::CoverageHitCollector;
 use edr_eth::{
+    block::BlockConfig,
     bytes,
     result::{ExecutionResult, Output},
     Address, Bytes, HashMap, HashSet, B256, U256,
@@ -11,7 +12,7 @@ use edr_evm::{
     blockchain::{Blockchain, LocalBlockchain},
     config::CfgEnv,
     runtime::{dry_run_with_inspector, run},
-    spec::GenesisBlockFactory as _,
+    spec::{base_fee_params_for, GenesisBlockFactory as _},
     state::{AccountModifierFn, StateDiff, StateError, SyncState},
     GenesisBlockOptions,
 };
@@ -136,7 +137,10 @@ fn record_hits() -> anyhow::Result<()> {
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        edr_chain_l1::Hardfork::CANCUN,
+        BlockConfig::new(
+            edr_chain_l1::Hardfork::CANCUN,
+            base_fee_params_for::<edr_chain_l1::L1ChainSpec>(CHAIN_ID),
+        ),
         GenesisBlockOptions {
             mix_hash: Some(B256::random()),
             ..GenesisBlockOptions::default()

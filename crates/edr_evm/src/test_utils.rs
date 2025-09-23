@@ -3,7 +3,7 @@ use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 use anyhow::anyhow;
 use edr_eth::{
     account::AccountInfo,
-    block::{self, miner_reward, HeaderOverrides},
+    block::{self, miner_reward, Header, HeaderOverrides, PartialHeader},
     withdrawal::Withdrawal,
     Address, Bytes, HashMap, PreEip1898BlockSpec, U256,
 };
@@ -15,7 +15,7 @@ use edr_transaction::TxKind;
 use crate::{
     blockchain::{Blockchain as _, BlockchainErrorForChainSpec, ForkedBlockchain},
     config::CfgEnv,
-    spec::SyncRuntimeSpec,
+    spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{AccountTrie, IrregularState, StateError, TrieState},
     transaction, Block, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
@@ -154,6 +154,81 @@ pub fn dummy_eip1559_transaction(
     transaction::validate(transaction, EvmSpecId::default())
 }
 
+struct ForkedStateAndBlockchain<ChainSpecT: RuntimeSpec> {
+    pub expected_block: RemoteBlock<ChainSpecT>,
+    pub prior_blockchain: ForkedBlockchain<ChainSpecT>,
+    pub prior_irregular_state: IrregularState,
+}
+
+/// Creates forked state at the previous block and returns the corresponding
+/// `ForkedStateAndBlockchain`
+async fn get_fork_state<
+    ChainSpecT: Debug
+        + SyncRuntimeSpec<
+            BlockReceipt: AsExecutionReceipt<
+                ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
+            ExecutionReceipt<FilterLog>: PartialEq,
+            LocalBlock: BlockReceipts<
+                Arc<ChainSpecT::BlockReceipt>,
+                Error = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
+            SignedTransaction: TransactionValidation<
+                ValidationError: From<EvmTransactionValidationError> + Send + Sync,
+            >,
+        >,
+>(
+    url: String,
+    block_number: u64,
+) -> anyhow::Result<ForkedStateAndBlockchain<ChainSpecT>> {
+    let runtime = tokio::runtime::Handle::current();
+
+    let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
+    let chain_id = rpc_client.chain_id().await?;
+
+    let rpc_client = Arc::new(rpc_client);
+    let replay_block = {
+        let block = rpc_client
+            .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(block_number))
+            .await?;
+
+        RemoteBlock::new(block, rpc_client.clone(), runtime.clone())?
+    };
+
+    let mut irregular_state = IrregularState::default();
+    let state_root_generator = Arc::new(parking_lot::Mutex::new(RandomHashGenerator::with_seed(
+        edr_defaults::STATE_ROOT_HASH_SEED,
+    )));
+    let hardfork_activation_overrides = HashMap::new();
+
+    let hardfork_activations = ChainSpecT::chain_config(chain_id)
+        .map(|config| config.hardfork_activations.clone())
+        .ok_or(anyhow!("Unsupported chain id"))?;
+
+    let replay_header = replay_block.header();
+    let hardfork = hardfork_activations
+        .hardfork_at_block(block_number, replay_header.timestamp)
+        .ok_or(anyhow!("Unsupported block number"))?;
+
+    let blockchain = ForkedBlockchain::new(
+        runtime.clone(),
+        Some(chain_id),
+        hardfork,
+        rpc_client,
+        Some(block_number - 1),
+        &mut irregular_state,
+        state_root_generator,
+        &hardfork_activation_overrides,
+    )
+    .await?;
+
+    Ok(ForkedStateAndBlockchain {
+        expected_block: replay_block,
+        prior_blockchain: blockchain,
+        prior_irregular_state: irregular_state,
+    })
+}
+
 /// Runs a full remote block, asserting that the mined block matches the remote
 /// block.
 pub async fn run_full_block<
@@ -176,70 +251,37 @@ pub async fn run_full_block<
     block_number: u64,
     header_overrides_constructor: impl FnOnce(&block::Header) -> HeaderOverrides<ChainSpecT::Hardfork>,
 ) -> anyhow::Result<()> {
-    let runtime = tokio::runtime::Handle::current();
+    let ForkedStateAndBlockchain {
+        expected_block,
+        prior_blockchain,
+        prior_irregular_state,
+    } = get_fork_state(url, block_number).await?;
 
-    let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
-    let chain_id = rpc_client.chain_id().await?;
-
-    let rpc_client = Arc::new(rpc_client);
-    let replay_block = {
-        let block = rpc_client
-            .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(block_number))
-            .await?;
-
-        RemoteBlock::new(block, rpc_client.clone(), runtime.clone())?
-    };
-
-    let mut irregular_state = IrregularState::default();
-    let state_root_generator = Arc::new(parking_lot::Mutex::new(RandomHashGenerator::with_seed(
-        edr_defaults::STATE_ROOT_HASH_SEED,
-    )));
-    let hardfork_activation_overrides = HashMap::new();
-
-    let hardfork_activations =
-        ChainSpecT::chain_hardfork_activations(chain_id).ok_or(anyhow!("Unsupported chain id"))?;
-
-    let replay_header = replay_block.header();
-    let hardfork = hardfork_activations
-        .hardfork_at_block(block_number, replay_header.timestamp)
-        .ok_or(anyhow!("Unsupported block number"))?;
-
-    let blockchain = ForkedBlockchain::new(
-        runtime.clone(),
-        Some(chain_id),
-        hardfork,
-        rpc_client,
-        Some(block_number - 1),
-        &mut irregular_state,
-        state_root_generator,
-        &hardfork_activation_overrides,
-    )
-    .await?;
-
+    let replay_header = expected_block.header();
+    let hardfork = prior_blockchain.hardfork();
     let mut cfg = CfgEnv::<ChainSpecT::Hardfork>::new_with_spec(hardfork);
-    cfg.chain_id = chain_id;
+    cfg.chain_id = prior_blockchain.chain_id();
     cfg.disable_eip3607 = true;
 
-    let state =
-        blockchain.state_at_block_number(block_number - 1, irregular_state.state_overrides())?;
+    let state = prior_blockchain
+        .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
 
     let custom_precompiles = HashMap::new();
 
     let mut builder = ChainSpecT::BlockBuilder::new_block_builder(
-        &blockchain,
+        &prior_blockchain,
         state,
         cfg,
         BlockInputs {
             ommers: Vec::new(),
-            withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
+            withdrawals: expected_block.withdrawals().map(<[Withdrawal]>::to_vec),
         },
         header_overrides_constructor(replay_header),
         &custom_precompiles,
     )?;
-
     assert_eq!(replay_header.base_fee_per_gas, builder.header().base_fee);
 
-    for transaction in replay_block.transactions() {
+    for transaction in expected_block.transactions() {
         builder.add_transaction(transaction.clone())?;
     }
 
@@ -250,7 +292,7 @@ pub async fn run_full_block<
     let mined_block = builder.finalize(rewards)?;
 
     let mined_header = mined_block.block.header();
-    for (expected, actual) in replay_block
+    for (expected, actual) in expected_block
         .fetch_transaction_receipts()?
         .into_iter()
         .zip(mined_block.block.transaction_receipts().iter())
@@ -259,7 +301,7 @@ pub async fn run_full_block<
             expected.block_number(),
             actual.block_number(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -268,7 +310,7 @@ pub async fn run_full_block<
             expected.transaction_hash(),
             actual.transaction_hash(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -277,7 +319,7 @@ pub async fn run_full_block<
             expected.transaction_index(),
             actual.transaction_index(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -286,7 +328,7 @@ pub async fn run_full_block<
             expected.from(),
             actual.from(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -295,7 +337,7 @@ pub async fn run_full_block<
             expected.to(),
             actual.to(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -304,7 +346,7 @@ pub async fn run_full_block<
             expected.contract_address(),
             actual.contract_address(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -313,7 +355,7 @@ pub async fn run_full_block<
             expected.gas_used(),
             actual.gas_used(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -329,7 +371,7 @@ pub async fn run_full_block<
             expected.cumulative_gas_used(),
             actual.cumulative_gas_used(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -344,7 +386,7 @@ pub async fn run_full_block<
                     expected.inner.address,
                     actual.inner.address,
                     "{:?}",
-                    replay_block
+                    expected_block
                         .transactions()
                         .get(expected.transaction_index as usize)
                         .expect("transaction index is valid")
@@ -353,7 +395,7 @@ pub async fn run_full_block<
                     expected.inner.topics(),
                     actual.inner.topics(),
                     "{:?}",
-                    replay_block
+                    expected_block
                         .transactions()
                         .get(expected.transaction_index as usize)
                         .expect("transaction index is valid")
@@ -362,7 +404,7 @@ pub async fn run_full_block<
                     expected.inner.data.data,
                     actual.inner.data.data,
                     "{:?}",
-                    replay_block
+                    expected_block
                         .transactions()
                         .get(expected.transaction_index as usize)
                         .expect("transaction index is valid")
@@ -373,7 +415,7 @@ pub async fn run_full_block<
             expected.root_or_status(),
             actual.root_or_status(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -382,7 +424,7 @@ pub async fn run_full_block<
             expected.as_execution_receipt(),
             actual.as_execution_receipt(),
             "{:?}",
-            replay_block
+            expected_block
                 .transactions()
                 .get(expected.transaction_index() as usize)
                 .expect("transaction index is valid")
@@ -392,6 +434,64 @@ pub async fn run_full_block<
     assert_eq!(replay_header, mined_header);
 
     Ok(())
+}
+
+/// Forks the block at the provided block number and compares it with the
+/// locally mined block header for that block without transactions.
+///
+/// It does not add the transactions of the block being replayed to keep it
+/// lightweight. If you need to compare header values that change depending on
+/// the transactions included in the block use `run_full_block` instead.
+pub async fn assert_replay_header<
+    ChainSpecT: Debug
+        + SyncRuntimeSpec<
+            BlockReceipt: AsExecutionReceipt<
+                ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
+            >,
+            ExecutionReceipt<FilterLog>: PartialEq,
+            LocalBlock: BlockReceipts<
+                Arc<ChainSpecT::BlockReceipt>,
+                Error = BlockchainErrorForChainSpec<ChainSpecT>,
+            >,
+            SignedTransaction: TransactionValidation<
+                ValidationError: From<EvmTransactionValidationError> + Send + Sync,
+            >,
+        >,
+>(
+    url: String,
+    block_number: u64,
+    header_overrides_constructor: impl FnOnce(&block::Header) -> HeaderOverrides<ChainSpecT::Hardfork>,
+    header_validation: impl FnOnce(&Header, &PartialHeader) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    let ForkedStateAndBlockchain {
+        expected_block,
+        prior_blockchain,
+        prior_irregular_state,
+    } = get_fork_state(url, block_number).await?;
+
+    let replay_header = expected_block.header();
+    let hardfork = prior_blockchain.hardfork();
+    let mut cfg = CfgEnv::<ChainSpecT::Hardfork>::new_with_spec(hardfork);
+    cfg.chain_id = prior_blockchain.chain_id();
+    cfg.disable_eip3607 = true;
+
+    let state = prior_blockchain
+        .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
+
+    let custom_precompiles = HashMap::new();
+
+    let builder = ChainSpecT::BlockBuilder::new_block_builder(
+        &prior_blockchain,
+        state,
+        cfg,
+        BlockInputs {
+            ommers: Vec::new(),
+            withdrawals: expected_block.withdrawals().map(<[Withdrawal]>::to_vec),
+        },
+        header_overrides_constructor(replay_header),
+        &custom_precompiles,
+    )?;
+    header_validation(replay_header, builder.header())
 }
 
 /// Implements full block tests for the provided chain specs.

@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 use derive_where::derive_where;
 use edr_eth::{
     account::{Account, AccountStatus},
-    block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
+    block::{largest_safe_block_number, safe_block_depth, BlockConfig, LargestSafeBlockNumberArgs},
     Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
 };
 use edr_evm_spec::EvmSpecId;
@@ -36,7 +36,7 @@ use crate::{
         },
     },
     hardfork::{self, ChainOverride},
-    spec::{RuntimeSpec, SyncRuntimeSpec},
+    spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
     state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
     Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
     RandomHashGenerator, RemoteBlock,
@@ -186,7 +186,9 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
         let hardfork_activations = chain_overrides
             .get(&remote_chain_id)
             .and_then(|chain_override| chain_override.hardfork_activation_overrides.as_ref())
-            .or_else(|| ChainSpecT::chain_hardfork_activations(remote_chain_id))
+            .or_else(|| {
+                ChainSpecT::chain_config(remote_chain_id).map(|config| &config.hardfork_activations)
+            })
             .and_then(|hardfork_activations| {
                 // Ignore empty hardfork activations
                 if hardfork_activations.is_empty() {
@@ -210,8 +212,8 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
         {
             if remote_hardfork.into() < EvmSpecId::SPURIOUS_DRAGON {
                 return Err(CreationError::InvalidHardfork {
-                    chain_name: ChainSpecT::chain_name(remote_chain_id)
-                        .map_or_else(|| "unknown".to_string(), ToString::to_string),
+                    chain_name: ChainSpecT::chain_config(remote_chain_id)
+                        .map_or("unknown".to_string(), |config| config.name.clone()),
                     fork_block_number,
                     hardfork: remote_hardfork,
                 });
@@ -644,7 +646,10 @@ where
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            self.hardfork,
+            BlockConfig::new(
+                self.hardfork,
+                base_fee_params_for::<ChainSpecT>(self.chain_id),
+            ),
         );
 
         Ok(())
