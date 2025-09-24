@@ -1,4 +1,4 @@
-use edr_eth::B256;
+use edr_primitives::B256;
 pub use semver::Version;
 use serde::Serialize;
 use sha3::{Digest, Keccak256};
@@ -203,7 +203,7 @@ pub fn instrument_code(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::b256;
+    use edr_primitives::b256;
 
     use super::*;
 

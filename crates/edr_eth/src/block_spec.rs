@@ -3,7 +3,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use crate::B256;
+use edr_primitives::B256;
 
 /// for representing block specifications per EIP-1898
 #[derive(Clone, Debug, PartialEq)]
@@ -39,9 +39,8 @@ impl<'de> serde::Deserialize<'de> for Eip1898BlockSpec {
     {
         use std::borrow::Cow;
 
+        use edr_primitives::U64;
         use serde::de;
-
-        use crate::U64;
 
         const BLOCK_HASH_FIELD: &str = "blockHash";
         const REQUIRE_CANONICAL_FIELD: &str = "requireCanonical";
@@ -196,7 +195,7 @@ impl<'de> serde::de::Deserialize<'de> for BlockSpec {
     where
         D: serde::de::Deserializer<'de>,
     {
-        use crate::U64;
+        use edr_primitives::U64;
 
         struct BlockSpecVisitor;
 

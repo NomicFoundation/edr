@@ -5,12 +5,12 @@ use edr_chain_l1::L1ChainSpec;
 use edr_eth::{
     eips::eip4844::{self, blob_base_fee_update_fraction},
     result::ExecutionResult,
-    Bytes, B256, U256,
 };
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, EvmTransactionValidationError,
     ExecutableTransaction, TransactionValidation,
 };
+use edr_primitives::{Bytes, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,

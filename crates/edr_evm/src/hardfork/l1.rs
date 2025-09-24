@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use edr_eth::HashMap;
+use edr_primitives::HashMap;
 
 use super::{Activation, Activations, ChainConfig, ForkCondition};
 

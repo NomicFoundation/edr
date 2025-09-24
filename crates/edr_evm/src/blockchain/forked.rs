@@ -3,9 +3,10 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 use derive_where::derive_where;
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
-    Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
+    BlockSpec, PreEip1898BlockSpec,
 };
 use edr_evm_spec::EvmSpecId;
+use edr_primitives::{Address, ChainId, HashMap, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},

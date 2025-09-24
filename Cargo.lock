@@ -2408,6 +2408,7 @@ dependencies = [
  "edr_eip2930",
  "edr_eip7702",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
  "edr_signer",
@@ -2419,10 +2420,8 @@ dependencies = [
  "log",
  "once_cell",
  "paste",
- "revm-bytecode",
  "revm-context",
  "revm-context-interface",
- "revm-primitives",
  "revm-state",
  "serde",
  "serde_json",
@@ -2537,7 +2536,7 @@ name = "edr_instrument"
 version = "0.3.8"
 dependencies = [
  "anyhow",
- "edr_eth",
+ "edr_primitives",
  "semver 1.0.26",
  "serde",
  "serde_json",
@@ -2754,6 +2753,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_rpc_eth",
  "edr_test_utils",
  "edr_transaction",
@@ -2774,6 +2774,7 @@ version = "0.3.8"
 dependencies = [
  "anyhow",
  "edr_eth",
+ "edr_primitives",
  "edr_test_utils",
  "futures",
  "hex",
@@ -2866,11 +2867,12 @@ dependencies = [
 name = "edr_signer"
 version = "0.3.8"
 dependencies = [
+ "alloy-primitives",
  "alloy-rlp",
+ "edr_primitives",
  "edr_test_utils",
  "hex",
  "k256",
- "revm-primitives",
  "serde",
  "sha3",
  "thiserror 1.0.69",

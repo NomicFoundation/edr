@@ -2,6 +2,7 @@ use core::fmt;
 use std::str::FromStr;
 
 use alloy_rlp::BufMut;
+use edr_primitives::{Address, Bytes, B256, U256};
 use k256::{
     ecdsa::{
         signature::hazmat::PrehashSigner, RecoveryId, Signature as ECDSASignature, SigningKey,
@@ -9,7 +10,6 @@ use k256::{
     },
     FieldBytes, SecretKey,
 };
-use revm_primitives::{Address, Bytes, B256, U256};
 
 use super::{public_key_to_address, Recoverable, RecoveryMessage, Signature, SignatureError};
 use crate::utils::hash_message;

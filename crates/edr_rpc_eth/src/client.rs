@@ -5,8 +5,9 @@ use edr_eth::{
     fee_history::FeeHistoryResult,
     filter::{LogFilterOptions, OneOrMore},
     reward_percentile::RewardPercentile,
-    Address, BlockSpec, Bytecode, Bytes, PreEip1898BlockSpec, B256, KECCAK_EMPTY, U256, U64,
+    BlockSpec, PreEip1898BlockSpec,
 };
+use edr_primitives::{Address, Bytecode, Bytes, B256, KECCAK_EMPTY, U256, U64};
 use edr_receipt::log::FilterLog;
 use edr_rpc_client::RpcClient;
 pub use edr_rpc_client::{header, HeaderMap, RpcClientError};

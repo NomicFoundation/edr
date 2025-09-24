@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
-use edr_eth::Bytecode;
-use edr_primitives::{Address, HashMap, B256, KECCAK_EMPTY, U256};
+use edr_primitives::{Address, Bytecode, HashMap, B256, KECCAK_EMPTY, U256};
 use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
 use edr_state::account::AccountInfo;
 

@@ -1,12 +1,8 @@
 use std::fmt::Debug;
 
 use derive_where::derive_where;
-use edr_eth::{
-    bytecode::opcode,
-    result::{ExecutionResult, Output},
-    Address, Bytecode, Bytes, U256,
-};
 use edr_evm_spec::HaltReasonTrait;
+use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
 use revm::Inspector;
 
 use crate::{
@@ -16,6 +12,7 @@ use crate::{
         EthInterpreter, Interpreter, Jumps as _, SuccessOrHalt,
     },
     journal::{JournalExt, JournalTrait},
+    result::{ExecutionResult, Output},
     spec::ContextTrait,
     state::{DatabaseComponents, State, WrapDatabaseRef},
 };

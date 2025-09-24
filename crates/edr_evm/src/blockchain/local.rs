@@ -1,8 +1,8 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_eth::{Address, HashSet, B256, U256};
 use edr_evm_spec::EvmSpecId;
+use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 
 use super::{

@@ -1,7 +1,8 @@
 //! Types related to EIP-2718.
 
 use alloy_rlp::Buf as _;
-use edr_receipt::{Bloom, ExecutionReceipt, MapReceiptLogs, RootOrStatus};
+use edr_primitives::Bloom;
+use edr_receipt::{ExecutionReceipt, MapReceiptLogs, RootOrStatus};
 use edr_transaction::TransactionType;
 
 use crate::L1TransactionType;
