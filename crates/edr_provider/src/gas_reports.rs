@@ -1,8 +1,8 @@
 use derive_more::Debug;
 use dyn_clone::DynClone;
-use edr_eth::{hash_map, Address, Bytecode, Bytes, HashMap};
 use edr_evm::state::{State, StateError};
 use edr_evm_spec::HaltReasonTrait;
+use edr_primitives::{hash_map, Address, Bytecode, Bytes, HashMap};
 use edr_receipt::ExecutionResult;
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature},

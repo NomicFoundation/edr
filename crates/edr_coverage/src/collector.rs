@@ -1,5 +1,5 @@
-use edr_eth::{Bytes, HashSet};
 use edr_evm::{inspector::Inspector, interpreter::InterpreterTypes, spec::ContextTrait};
+use edr_primitives::{Bytes, HashSet};
 
 use crate::COVERAGE_ADDRESS;
 

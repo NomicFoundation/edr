@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
-use edr_eth::{hash_map::OccupiedError, Address, HashMap, HashSet, B256, U256};
 use edr_evm_spec::ExecutableTransaction;
+use edr_primitives::{hash_map::OccupiedError, Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{
     log::{matches_address_filter, matches_topics_filter, FilterLog},
     ExecutionReceipt, ReceiptTrait,

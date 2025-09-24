@@ -1,6 +1,6 @@
+use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
-    log::FilterLog, Address, AsExecutionReceipt, BlockReceipt, Bloom, ExecutionReceipt,
-    ReceiptTrait, RootOrStatus, B256,
+    log::FilterLog, AsExecutionReceipt, BlockReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus,
 };
 use op_alloy_rpc_types::L1BlockInfo;
 

@@ -2,13 +2,15 @@
 
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{bytes, Address, Bytes, HashSet, B256};
+use edr_chain_l1::{
+    rpc::{call::L1CallRequest, receipt::L1BlockReceipt, TransactionRequest},
+    L1ChainSpec,
+};
+use edr_primitives::{bytes, Address, Bytes, HashSet, B256};
 use edr_provider::{
     gas_reports::GasReport, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
 use parking_lot::Mutex;
@@ -113,7 +115,7 @@ fn provider_with_deployed_test_contract(
             ))
             .expect("Failed to get transaction receipt");
 
-        let receipt: edr_rpc_eth::receipt::Block = serde_json::from_value(response.result)
+        let receipt: L1BlockReceipt = serde_json::from_value(response.result)
             .expect("Failed to deserialize transaction receipt");
 
         receipt
@@ -141,11 +143,11 @@ async fn call() -> anyhow::Result<()> {
 
     let _response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            CallRequest {
+            L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
                 data: Some(INCREMENT_CALLDATA),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             None,
             None,
@@ -169,11 +171,11 @@ async fn debug_trace_call() -> anyhow::Result<()> {
 
     let _response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DebugTraceCall(
-            CallRequest {
+            L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
                 data: Some(INCREMENT_CALLDATA),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             None,
             None,
@@ -234,11 +236,11 @@ async fn estimate_gas() -> anyhow::Result<()> {
 
     let _response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-            CallRequest {
+            L1CallRequest {
                 from: Some(from),
                 to: Some(deployed_address),
                 data: Some(INCREMENT_CALLDATA),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             None,
         )))?;

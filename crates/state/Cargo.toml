@@ -1,0 +1,13 @@
+[package]
+name = "edr_state"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-rlp.workspace = true
+edr_primitives.workspace = true
+edr_trie.workspace = true
+revm-state.workspace = true
+
+[lints]
+workspace = true

@@ -2277,26 +2277,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_block_header"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+ "alloy-rlp",
+ "alloy-serde",
+ "edr_chain_l1",
+ "edr_eip1559",
+ "edr_eip4844",
+ "edr_evm",
+ "edr_evm_spec",
+ "edr_primitives",
+ "edr_trie",
+ "serde",
+]
+
+[[package]]
 name = "edr_chain_l1"
 version = "0.3.8"
 dependencies = [
+ "alloy-eips",
  "alloy-rlp",
+ "alloy-serde",
  "anyhow",
+ "assert-json-diff",
  "const-hex",
+ "edr_block_header",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_receipt",
+ "edr_rpc_spec",
  "edr_signer",
  "edr_test_utils",
  "edr_transaction",
+ "log",
  "paste",
  "revm-context",
  "revm-context-interface",
  "revm-primitives",
  "serde",
+ "serde_json",
  "thiserror 1.0.69",
 ]
 
@@ -2320,10 +2346,11 @@ dependencies = [
  "anyhow",
  "derive_more 2.0.1",
  "dyn-clone",
+ "edr_block_header",
  "edr_chain_l1",
  "edr_defaults",
- "edr_eth",
  "edr_evm",
+ "edr_primitives",
  "edr_signer",
  "edr_test_utils",
  "edr_transaction",
@@ -2353,6 +2380,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_eip4844"
+version = "0.3.8"
+dependencies = [
+ "alloy-rlp",
+ "serde",
+]
+
+[[package]]
 name = "edr_eip7702"
 version = "0.3.8"
 dependencies = [
@@ -2365,10 +2400,8 @@ name = "edr_eth"
 version = "0.3.8"
 dependencies = [
  "alloy-eips",
- "alloy-rlp",
  "alloy-serde",
  "anyhow",
- "assert-json-diff",
  "auto_impl",
  "c-kzg",
  "derive-where",
@@ -2379,12 +2412,11 @@ dependencies = [
  "edr_eip7702",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
  "edr_signer",
  "edr_test_utils",
- "hash-db",
- "hash256-std-hasher",
  "hashbrown 0.14.5",
  "hex",
  "itertools 0.10.5",
@@ -2392,24 +2424,20 @@ dependencies = [
  "log",
  "once_cell",
  "paste",
- "revm-bytecode",
  "revm-context",
  "revm-context-interface",
- "revm-primitives",
  "revm-state",
  "serde",
  "serde_json",
- "sha3",
  "thiserror 1.0.69",
  "tokio",
- "tracing",
- "triehash",
 ]
 
 [[package]]
 name = "edr_evm"
 version = "0.3.8"
 dependencies = [
+ "alloy-eips",
  "alloy-rlp",
  "anyhow",
  "async-rwlock",
@@ -2418,17 +2446,22 @@ dependencies = [
  "criterion 0.4.0",
  "derive-where",
  "dyn-clone",
+ "edr_block_header",
  "edr_chain_l1",
  "edr_defaults",
  "edr_eip1559",
  "edr_eth",
  "edr_evm_spec",
  "edr_generic",
+ "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
+ "edr_rpc_spec",
  "edr_signer",
+ "edr_state",
  "edr_test_utils",
  "edr_transaction",
+ "edr_trie",
  "edr_utils",
  "futures",
  "hasher",
@@ -2471,10 +2504,12 @@ dependencies = [
 name = "edr_generic"
 version = "0.3.8"
 dependencies = [
+ "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
  "anyhow",
  "derive-where",
+ "edr_block_header",
  "edr_chain_l1",
  "edr_defaults",
  "edr_eip1559",
@@ -2483,10 +2518,12 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_provider",
  "edr_receipt",
  "edr_rpc_client",
  "edr_rpc_eth",
+ "edr_rpc_spec",
  "edr_signer",
  "edr_solidity",
  "edr_test_utils",
@@ -2506,7 +2543,7 @@ name = "edr_instrument"
 version = "0.3.8"
 dependencies = [
  "anyhow",
- "edr_eth",
+ "edr_primitives",
  "semver 1.0.26",
  "serde",
  "serde_json",
@@ -2534,22 +2571,24 @@ dependencies = [
  "alloy-sol-types",
  "derive-where",
  "derive_more 2.0.1",
+ "edr_block_header",
  "edr_chain_l1",
  "edr_common",
  "edr_coverage",
  "edr_defaults",
  "edr_eip1559",
- "edr_eth",
  "edr_evm",
  "edr_evm_spec",
  "edr_generic",
  "edr_instrument",
  "edr_napi_core",
  "edr_op",
+ "edr_primitives",
  "edr_provider",
  "edr_receipt",
  "edr_rpc_client",
  "edr_rpc_eth",
+ "edr_rpc_spec",
  "edr_scenarios",
  "edr_signer",
  "edr_solidity",
@@ -2581,12 +2620,14 @@ version = "0.3.8"
 dependencies = [
  "ansi_term",
  "derive-where",
+ "edr_block_header",
  "edr_chain_l1",
  "edr_eip1559",
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
  "edr_generic",
+ "edr_primitives",
  "edr_provider",
  "edr_rpc_client",
  "edr_signer",
@@ -2605,9 +2646,11 @@ dependencies = [
 name = "edr_op"
 version = "0.3.8"
 dependencies = [
+ "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
  "anyhow",
+ "edr_block_header",
  "edr_chain_l1",
  "edr_defaults",
  "edr_eip1559",
@@ -2618,9 +2661,11 @@ dependencies = [
  "edr_evm_spec",
  "edr_generic",
  "edr_napi_core",
+ "edr_primitives",
  "edr_provider",
  "edr_receipt",
  "edr_rpc_eth",
+ "edr_rpc_spec",
  "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
@@ -2641,10 +2686,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_primitives"
+version = "0.3.8"
+dependencies = [
+ "revm-bytecode",
+ "revm-primitives",
+]
+
+[[package]]
 name = "edr_provider"
 version = "0.3.8"
 dependencies = [
  "alloy-dyn-abi",
+ "alloy-eips",
+ "alloy-rlp",
  "alloy-serde",
  "alloy-sol-types",
  "anyhow",
@@ -2653,6 +2708,7 @@ dependencies = [
  "derive-where",
  "derive_more 2.0.1",
  "dyn-clone",
+ "edr_block_header",
  "edr_chain_l1",
  "edr_coverage",
  "edr_defaults",
@@ -2662,10 +2718,13 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
+ "edr_rpc_spec",
  "edr_signer",
  "edr_solidity",
+ "edr_state",
  "edr_test_utils",
  "edr_transaction",
  "edr_utils",
@@ -2704,9 +2763,11 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_rpc_eth",
  "edr_test_utils",
  "edr_transaction",
+ "edr_trie",
  "paste",
  "revm-context-interface",
  "revm-primitives",
@@ -2723,6 +2784,7 @@ version = "0.3.8"
 dependencies = [
  "anyhow",
  "edr_eth",
+ "edr_primitives",
  "edr_test_utils",
  "futures",
  "hex",
@@ -2761,9 +2823,12 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_receipt",
  "edr_rpc_client",
+ "edr_rpc_spec",
  "edr_signer",
+ "edr_state",
  "edr_test_utils",
  "edr_transaction",
  "futures",
@@ -2782,16 +2847,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_rpc_spec"
+version = "0.3.8"
+dependencies = [
+ "edr_receipt",
+ "serde",
+]
+
+[[package]]
 name = "edr_scenarios"
 version = "0.3.8"
 dependencies = [
  "alloy-serde",
  "anyhow",
  "chrono",
+ "edr_block_header",
  "edr_defaults",
  "edr_eth",
  "edr_evm",
  "edr_napi_core",
+ "edr_primitives",
  "edr_provider",
  "edr_test_utils",
  "k256",
@@ -2802,11 +2877,12 @@ dependencies = [
 name = "edr_signer"
 version = "0.3.8"
 dependencies = [
+ "alloy-primitives",
  "alloy-rlp",
+ "edr_primitives",
  "edr_test_utils",
  "hex",
  "k256",
- "revm-primitives",
  "serde",
  "sha3",
  "thiserror 1.0.69",
@@ -2826,6 +2902,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "foundry-compilers",
  "indexmap 2.9.0",
  "itertools 0.10.5",
@@ -2853,9 +2930,9 @@ dependencies = [
  "edr_common",
  "edr_coverage",
  "edr_defaults",
- "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_solidity",
  "edr_test_utils",
  "evm-disassembler",
@@ -2886,11 +2963,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_state"
+version = "0.3.8"
+dependencies = [
+ "alloy-rlp",
+ "edr_primitives",
+ "edr_trie",
+ "revm-state",
+]
+
+[[package]]
 name = "edr_test_utils"
 version = "0.3.8"
 dependencies = [
  "edr_common",
- "edr_eth",
+ "edr_primitives",
  "edr_signer",
  "fd-lock",
  "foundry-compilers",
@@ -2924,6 +3011,17 @@ dependencies = [
  "serde",
  "sha2 0.10.9",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "edr_trie"
+version = "0.3.8"
+dependencies = [
+ "edr_primitives",
+ "hash-db",
+ "hash256-std-hasher",
+ "sha3",
+ "triehash",
 ]
 
 [[package]]
@@ -7630,9 +7728,9 @@ dependencies = [
  "clap 3.2.25",
  "derive-where",
  "difference",
+ "edr_block_header",
  "edr_chain_l1",
  "edr_defaults",
- "edr_eth",
  "edr_evm",
  "edr_evm_spec",
  "edr_generic",

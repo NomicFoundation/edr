@@ -10,9 +10,12 @@ mod zeroed_chain_id;
 
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{address, Address, Bytes, B256, U256};
+use edr_chain_l1::{
+    rpc::{transaction::L1RpcTransactionWithSignature, TransactionRequest},
+    L1ChainSpec,
+};
 use edr_evm_spec::ExecutableTransaction as _;
+use edr_primitives::{address, Address, Bytes, B256, U256};
 use edr_provider::{
     test_utils::{
         create_test_config, one_ether, set_genesis_state_with_owned_accounts, sign_authorization,
@@ -20,7 +23,6 @@ use edr_provider::{
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderConfig, ProviderRequest,
 };
-use edr_rpc_eth::TransactionRequest;
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
@@ -147,11 +149,10 @@ async fn get_transaction() -> anyhow::Result<()> {
         MethodInvocation::GetTransactionByHash(transaction_hash),
     ))?;
 
-    let transaction: edr_rpc_eth::TransactionWithSignature =
-        serde_json::from_value(response.result)?;
-    let transaction = edr_chain_l1::Signed::try_from(transaction)?;
+    let transaction: L1RpcTransactionWithSignature = serde_json::from_value(response.result)?;
+    let transaction = edr_chain_l1::L1SignedTransaction::try_from(transaction)?;
 
-    if let edr_chain_l1::Signed::Eip7702(transaction) = transaction {
+    if let edr_chain_l1::L1SignedTransaction::Eip7702(transaction) = transaction {
         assert_eq!(Some(transaction.chain_id), transaction_request.chain_id);
         assert_eq!(Some(transaction.nonce), transaction_request.nonce);
         assert_eq!(*transaction.caller(), transaction_request.from);

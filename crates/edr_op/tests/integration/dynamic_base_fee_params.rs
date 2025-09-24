@@ -1,6 +1,6 @@
 #![cfg(feature = "test-remote")]
 
-use edr_eth::block::{Header, PartialHeader};
+use edr_block_header::{BlockHeader, PartialHeader};
 use edr_evm::test_utils::assert_replay_header;
 use edr_op::OpChainSpec;
 use edr_provider::test_utils::header_overrides;
@@ -31,7 +31,7 @@ macro_rules! impl_test_dynamic_base_fee_params{
 }
 
 async fn assert_base_fee_activation(url: String, block_number: u64) -> anyhow::Result<()> {
-    let block_validation = |remote_header: &Header, local_header: &PartialHeader| {
+    let block_validation = |remote_header: &BlockHeader, local_header: &PartialHeader| {
         assert_eq!(remote_header.extra_data, local_header.extra_data);
         assert_eq!(remote_header.base_fee_per_gas, local_header.base_fee);
         Ok(())

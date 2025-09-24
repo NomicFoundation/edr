@@ -1,4 +1,4 @@
-use edr_eth::Address;
+use edr_primitives::Address;
 
 use crate::{
     data::ProviderData, spec::ProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,

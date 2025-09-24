@@ -37,8 +37,10 @@ impl alloy_rlp::Encodable for ReceiptLog {
 mod tests {
     use std::str::FromStr;
 
+    use edr_primitives::{Address, Bytes};
+
     use super::*;
-    use crate::{log::ExecutionLog, Address, Bytes};
+    use crate::log::ExecutionLog;
 
     #[test]
     fn test_receipt_log_serde() -> anyhow::Result<()> {

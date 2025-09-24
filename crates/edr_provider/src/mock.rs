@@ -2,7 +2,6 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use dyn_clone::DynClone;
-use edr_eth::{Address, Bytes};
 use edr_evm::{
     inspector::Inspector,
     interpreter::{
@@ -10,6 +9,7 @@ use edr_evm::{
     },
     spec::ContextTrait,
 };
+use edr_primitives::{Address, Bytes};
 
 /// The result of executing a call override.
 #[derive(Debug)]

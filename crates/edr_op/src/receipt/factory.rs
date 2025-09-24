@@ -1,5 +1,6 @@
 use edr_evm::EthBlockReceiptFactory;
-use edr_receipt::{log::FilterLog, ReceiptFactory, TransactionReceipt, B256};
+use edr_primitives::B256;
+use edr_receipt::{log::FilterLog, ReceiptFactory, TransactionReceipt};
 use op_revm::L1BlockInfo;
 
 use crate::{eip2718::TypedEnvelope, receipt, transaction, transaction::OpTxTrait as _, Hardfork};

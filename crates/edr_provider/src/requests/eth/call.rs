@@ -1,6 +1,7 @@
-use edr_eth::{BlockSpec, Bytes};
+use edr_eth::BlockSpec;
 use edr_evm::{state::StateOverrides, trace::Trace, transaction};
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
 use edr_signer::FakeSign as _;
 

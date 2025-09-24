@@ -1,22 +1,21 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
+use alloy_eips::eip7840::BlobParams;
+use edr_block_header::{
+    calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, PartialHeader,
+};
 use edr_chain_l1::L1ChainSpec;
 use edr_eip1559::BaseFeeParams;
-use edr_eth::{
-    block::{self, calculate_next_base_fee_per_gas, BlobGas, BlockConfig, Header, PartialHeader},
-    eips::eip4844::{self, blob_base_fee_update_fraction},
-    result::ExecutionResult,
-    Bytes, B256, U256,
-};
 use edr_evm_spec::{
-    ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, EvmTransactionValidationError,
-    ExecutableTransaction, TransactionValidation,
+    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
+    EvmTransactionValidationError, ExecutableTransaction, TransactionValidation,
 };
+use edr_primitives::{Bytes, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
 };
-use edr_rpc_eth::{spec::RpcSpec, RpcTypeFrom, TransactionConversionError};
+use edr_rpc_spec::{RpcSpec, RpcTypeFrom};
 use edr_transaction::TransactionType;
 use edr_utils::types::TypeConstructor;
 use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector};
@@ -32,7 +31,7 @@ use crate::{
     journal::Journal,
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder},
-    result::EVMErrorForChain,
+    result::{EVMErrorForChain, ExecutionResult},
     state::{Database, DatabaseComponentError, EvmState, StateDiff},
     transaction::{remote::EthRpcTransaction, TransactionError, TransactionErrorForChainSpec},
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
@@ -168,7 +167,7 @@ pub trait RuntimeSpec:
           + TransactionType
           + TransactionValidation<ValidationError: From<EvmTransactionValidationError>>,
     >
-    + BlockEnvConstructor<block::PartialHeader> + BlockEnvConstructor<block::Header>
+    + BlockEnvConstructor<PartialHeader> + BlockEnvConstructor<BlockHeader>
     // Defines an RPC spec and conversion between RPC <-> EVM types
     + RpcSpec<
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
@@ -329,7 +328,7 @@ pub trait RuntimeSpec:
     >;
 
     /// Returns the `base_fee_per_gas` for the next block.
-    fn next_base_fee_per_gas(header: &Header, chain_id: u64, hardfork: Self::Hardfork, base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>) -> u128;
+    fn next_base_fee_per_gas(header: &BlockHeader, chain_id: u64, hardfork: Self::Hardfork, base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>) -> u128;
 
 }
 
@@ -429,8 +428,8 @@ impl RuntimeSpec for L1ChainSpec {
 
     type ReceiptBuilder = receipt::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
-    type RpcReceiptConversionError = edr_rpc_eth::receipt::ConversionError;
-    type RpcTransactionConversionError = TransactionConversionError;
+    type RpcReceiptConversionError = edr_chain_l1::rpc::receipt::ConversionError;
+    type RpcTransactionConversionError = edr_chain_l1::rpc::transaction::ConversionError;
 
     fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block> {
         local_block
@@ -471,7 +470,7 @@ impl RuntimeSpec for L1ChainSpec {
     }
 
     fn next_base_fee_per_gas(
-        header: &Header,
+        header: &BlockHeader,
         chain_id: u64,
         hardfork: Self::Hardfork,
         base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
@@ -510,9 +509,18 @@ impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(
+                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
+                        BlobParams::prague()
+                    } else {
+                        BlobParams::cancun()
+                    };
+
+                    BlobExcessGasAndPrice::new(
                         *excess_gas,
-                        blob_base_fee_update_fraction(hardfork),
+                        blob_params
+                            .update_fraction
+                            .try_into()
+                            .expect("blob update fraction is too large"),
                     )
                 },
             ),
@@ -520,8 +528,8 @@ impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
     }
 }
 
-impl BlockEnvConstructor<Header> for L1ChainSpec {
-    fn new_block_env(header: &Header, hardfork: EvmSpecId) -> Self::BlockEnv {
+impl BlockEnvConstructor<BlockHeader> for L1ChainSpec {
+    fn new_block_env(header: &BlockHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
         edr_chain_l1::BlockEnv {
             number: U256::from(header.number),
             beneficiary: header.beneficiary,
@@ -538,9 +546,18 @@ impl BlockEnvConstructor<Header> for L1ChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(
+                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
+                        BlobParams::prague()
+                    } else {
+                        BlobParams::cancun()
+                    };
+
+                    BlobExcessGasAndPrice::new(
                         *excess_gas,
-                        blob_base_fee_update_fraction(hardfork),
+                        blob_params
+                            .update_fraction
+                            .try_into()
+                            .expect("blob update fraction is too large"),
                     )
                 },
             ),
@@ -550,15 +567,13 @@ impl BlockEnvConstructor<Header> for L1ChainSpec {
 
 #[cfg(test)]
 mod l1_chain_spec_tests {
-    use edr_eth::{
-        block::{BlobGas, Header},
-        Address, Bloom, Bytes, B256, B64, U256,
-    };
+    use edr_block_header::{BlobGas, BlockHeader};
+    use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
     use crate::spec::{BlockEnvConstructor as _, L1ChainSpec};
 
-    fn build_block_header(blob_gas: Option<BlobGas>) -> Header {
-        Header {
+    fn build_block_header(blob_gas: Option<BlobGas>) -> BlockHeader {
+        BlockHeader {
             parent_hash: B256::default(),
             ommers_hash: B256::default(),
             beneficiary: Address::default(),

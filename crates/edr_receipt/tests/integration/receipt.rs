@@ -12,13 +12,11 @@ mod remote {
                     #[serial]
                     async fn [<remote_block_receipt_root_ $name>]() -> anyhow::Result<()> {
                         use edr_chain_l1::{L1ChainSpec, TypedEnvelope};
-                        use edr_eth::{
-                            trie::ordered_trie_root,
-                            PreEip1898BlockSpec,
-                        };
+                        use edr_eth::PreEip1898BlockSpec;
                         use edr_receipt::{log::FilterLog, BlockReceipt};
                         use edr_rpc_eth::{client::EthRpcClient};
                         use edr_test_utils::env::get_alchemy_url;
+                        use edr_trie::ordered_trie_root;
 
                         let client = EthRpcClient::<L1ChainSpec>::new(&get_alchemy_url(), edr_defaults::CACHE_DIR.into(), None)?;
 
@@ -67,7 +65,8 @@ mod remote {
                     async fn [<receipt_rlp_encoding_ $name>]() -> anyhow::Result<()> {
                         use alloy_rlp::Decodable as _;
                         use edr_chain_l1::{L1ChainSpec, TypedEnvelope};
-                        use edr_receipt::{log::{ExecutionLog, FilterLog}, BlockReceipt, MapReceiptLogs as _, B256};
+                        use edr_primitives::B256;
+                        use edr_receipt::{log::{ExecutionLog, FilterLog}, BlockReceipt, MapReceiptLogs as _};
                         use edr_rpc_eth::{client::EthRpcClient};
                         use edr_test_utils::env::get_alchemy_url;
                         use tempfile::TempDir;

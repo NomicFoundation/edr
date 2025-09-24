@@ -7,9 +7,9 @@
 
 use std::sync::Arc;
 
-use edr_eth::bytecode::opcode::OpCode;
 use edr_evm::trace::BeforeMessage;
 use edr_evm_spec::EvmHaltReason;
+use edr_primitives::bytecode::opcode::OpCode;
 use napi::bindgen_prelude::{BigInt, Either3, Uint8Array};
 use napi_derive::napi;
 
@@ -145,7 +145,7 @@ impl TracingStep {
     }
 }
 
-pub(crate) fn u256_to_bigint(v: &edr_eth::U256) -> BigInt {
+pub(crate) fn u256_to_bigint(v: &edr_primitives::U256) -> BigInt {
     BigInt {
         sign_bit: false,
         words: v.into_limbs().to_vec(),

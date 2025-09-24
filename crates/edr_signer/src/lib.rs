@@ -11,9 +11,9 @@ mod recovery_id;
 pub mod utils;
 mod y_parity;
 
+use edr_primitives::{Address, B256, U256};
 pub use k256::SecretKey;
 use k256::{elliptic_curve::sec1::ToEncodedPoint, FieldBytes, PublicKey};
-pub use revm_primitives::{Address, B256, U256};
 use sha3::{Digest, Keccak256};
 
 pub use self::{

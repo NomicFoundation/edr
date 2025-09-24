@@ -8,9 +8,10 @@ pub mod old;
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use chrono::{DateTime, Utc};
-use edr_eth::{block::BlobGas, hash_map::HashMap, Address, ChainId, B256};
+use edr_block_header::BlobGas;
 use edr_evm::hardfork::ChainOverride;
 use edr_napi_core::provider::Config as ProviderConfig;
+use edr_primitives::{hash_map::HashMap, Address, ChainId, B256};
 use edr_provider::{AccountOverride, ForkConfig, MiningConfig};
 use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_str};
 use serde::{Deserialize, Serialize};

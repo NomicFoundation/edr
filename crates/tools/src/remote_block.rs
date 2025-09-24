@@ -2,8 +2,8 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use clap::ValueEnum;
+use edr_block_header::{BlockHeader, HeaderOverrides};
 use edr_chain_l1::L1ChainSpec;
-use edr_eth::block;
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block, BlockReceipts};
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_op::{test_utils::isthmus_header_overrides, OpChainSpec};
@@ -47,9 +47,7 @@ pub async fn replay(
 pub async fn replay_chain_specific_block<ChainSpecT>(
     chain_type: &str,
     url: String,
-    header_overrides_constructor: impl FnOnce(
-        &block::Header,
-    ) -> block::HeaderOverrides<ChainSpecT::Hardfork>,
+    header_overrides_constructor: impl FnOnce(&BlockHeader) -> HeaderOverrides<ChainSpecT::Hardfork>,
     block_number: Option<u64>,
 ) -> anyhow::Result<()>
 where

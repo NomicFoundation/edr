@@ -4,10 +4,8 @@ mod state_trie;
 mod storage_trie;
 mod trie_query;
 
-use edr_eth::{
-    account::{Account, AccountInfo, KECCAK_EMPTY},
-    Address, Bytecode, HashMap, B256, U256,
-};
+use edr_primitives::{Address, Bytecode, HashMap, B256, KECCAK_EMPTY, U256};
+use edr_state::account::{Account, AccountInfo};
 
 pub use self::account::AccountTrie;
 use super::{State, StateCommit, StateDebug, StateError};
@@ -249,7 +247,7 @@ impl StateDebug for TrieState {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::Bytes;
+    use edr_primitives::Bytes;
 
     use super::*;
     use crate::state::AccountModifierFn;

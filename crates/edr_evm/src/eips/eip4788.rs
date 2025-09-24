@@ -1,4 +1,5 @@
-use edr_eth::{account::AccountInfo, address, bytes, Address, Bytecode, Bytes};
+use edr_primitives::{address, bytes, Address, Bytecode, Bytes};
+use edr_state::account::AccountInfo;
 
 use crate::state::StateDiff;
 

@@ -1,11 +1,14 @@
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{
-    eips::eip4844::GAS_PER_BLOB,
-    filter::{LogFilterOptions, LogOutput, OneOrMore},
-    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, U160, U256,
+use alloy_eips::eip4844::BYTES_PER_BLOB;
+use edr_chain_l1::{
+    rpc::{call::L1CallRequest, TransactionRequest},
+    L1ChainSpec,
 };
+use edr_eth::{
+    filter::{LogFilterOptions, LogOutput, OneOrMore},
+    Blob, BlockSpec, BlockTag, PreEip1898BlockSpec,
+};
+use edr_primitives::{Address, Bytes, B256, U160, U256};
 use edr_provider::{IntervalConfigRequest, MethodInvocation, Timestamp};
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 
 use crate::common::{
     help_test_method_invocation_serde, help_test_method_invocation_serde_with_expected,
@@ -23,7 +26,7 @@ fn test_serde_eth_block_number() {
 
 #[test]
 fn test_serde_eth_call() {
-    let tx = CallRequest {
+    let tx = L1CallRequest {
         from: Some(Address::from(U160::from(1))),
         to: Some(Address::from(U160::from(2))),
         gas: Some(3),
@@ -34,7 +37,7 @@ fn test_serde_eth_call() {
         data: Some(Bytes::from(&b"whatever"[..])),
         access_list: None,
         transaction_type: None,
-        blobs: Some(vec![Blob::new([1u8; GAS_PER_BLOB as usize])]),
+        blobs: Some(vec![Blob::new([1u8; BYTES_PER_BLOB])]),
         blob_hashes: Some(vec![B256::from(U256::from(1))]),
         authorization_list: Some(vec![edr_eip7702::SignedAuthorization::new_unchecked(
             edr_eip7702::Authorization {
@@ -70,7 +73,7 @@ fn test_serde_eth_coinbase() {
 
 #[test]
 fn test_serde_eth_estimate_gas() {
-    let tx = CallRequest {
+    let tx = L1CallRequest {
         from: Some(Address::from(U160::from(1))),
         to: Some(Address::from(U160::from(2))),
         gas: Some(3),
@@ -374,7 +377,7 @@ fn test_serde_eth_send_transaction() {
             access_list: None,
             max_priority_fee_per_gas: None,
             transaction_type: None,
-            blobs: Some(vec![Blob::new([1u8; GAS_PER_BLOB as usize])]),
+            blobs: Some(vec![Blob::new([1u8; BYTES_PER_BLOB])]),
             blob_hashes: Some(vec![B256::from(U256::from(1))]),
             authorization_list: Some(vec![edr_eip7702::SignedAuthorization::new_unchecked(
                 edr_eip7702::Authorization {

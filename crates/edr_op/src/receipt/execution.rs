@@ -1,11 +1,12 @@
 mod deposit;
 
-use edr_eth::result::ExecutionResult;
-use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
+use edr_block_header::PartialHeader;
+use edr_evm::{receipt::ExecutionReceiptBuilder, result::ExecutionResult, state::State};
+use edr_primitives::Bloom;
 pub use edr_receipt::execution::{Eip658, Legacy};
 use edr_receipt::{
     log::{logs_to_bloom, ExecutionLog},
-    Bloom, ExecutionReceipt, MapReceiptLogs, RootOrStatus,
+    ExecutionReceipt, MapReceiptLogs, RootOrStatus,
 };
 use edr_transaction::{Transaction as _, TransactionType as _};
 
@@ -120,7 +121,7 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, transaction::Signed> for Buil
 
     fn build_receipt(
         self,
-        header: &edr_eth::block::PartialHeader,
+        header: &PartialHeader,
         transaction: &transaction::Signed,
         result: &ExecutionResult<HaltReason>,
         hardfork: Hardfork,
@@ -197,7 +198,8 @@ impl<LogT> ExecutionReceipt for Execution<LogT> {
 #[cfg(test)]
 mod tests {
     use alloy_rlp::Decodable as _;
-    use edr_receipt::{log::ExecutionLog, Address, Bytes, B256};
+    use edr_primitives::{Address, Bytes, B256};
+    use edr_receipt::log::ExecutionLog;
 
     use super::*;
     use crate::eip2718::TypedEnvelope;

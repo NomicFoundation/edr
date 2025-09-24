@@ -1,5 +1,5 @@
-use edr_eth::result::ExecutionResult;
-use edr_evm::{receipt::ExecutionReceiptBuilder, state::State};
+use edr_block_header::PartialHeader;
+use edr_evm::{receipt::ExecutionReceiptBuilder, result::ExecutionResult, state::State};
 use edr_receipt::log::{logs_to_bloom, ExecutionLog};
 use edr_transaction::TransactionType;
 
@@ -25,7 +25,7 @@ impl
 
     fn build_receipt(
         self,
-        header: &edr_eth::block::PartialHeader,
+        header: &PartialHeader,
         transaction: &crate::transaction::SignedWithFallbackToPostEip155,
         result: &ExecutionResult<edr_chain_l1::HaltReason>,
         _hardfork: edr_chain_l1::Hardfork,

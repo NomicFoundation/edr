@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use edr_eth::HashMap;
 use edr_napi_core::{provider::SyncProviderFactory, solidity};
+use edr_primitives::HashMap;
 use edr_solidity_tests::{
     decode::RevertDecoder,
     multi_runner::{SuiteResultAndArtifactId, TestContract, TestContracts},

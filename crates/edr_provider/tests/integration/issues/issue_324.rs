@@ -1,12 +1,11 @@
 use std::{str::FromStr, sync::Arc};
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{Address, Bytes, HashMap, U256};
+use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
+use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_provider::{
     test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::env::get_alchemy_url;
 use tokio::runtime;
@@ -44,10 +43,10 @@ async fn issue_324() -> anyhow::Result<()> {
     )?;
 
     let x = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-        CallRequest {
+        L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0x0c55699c").unwrap()), // x()
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         },
         None,
         None,
@@ -59,10 +58,10 @@ async fn issue_324() -> anyhow::Result<()> {
     );
 
     let y = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-        CallRequest {
+        L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0xa56dfe4a").unwrap()), // y()
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         },
         None,
         None,
@@ -90,10 +89,10 @@ async fn issue_324() -> anyhow::Result<()> {
     assert_eq!(new_x.result, expected_x);
 
     let new_x = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-        CallRequest {
+        L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0x0c55699c").unwrap()), // x()
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         },
         None,
         None,
@@ -118,10 +117,10 @@ async fn issue_324() -> anyhow::Result<()> {
     assert_eq!(new_y.result, expected_y);
 
     let new_y = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-        CallRequest {
+        L1CallRequest {
             to: Some(contract_address),
             data: Some(Bytes::from_str("0xa56dfe4a").unwrap()), // y()
-            ..CallRequest::default()
+            ..L1CallRequest::default()
         },
         None,
         None,

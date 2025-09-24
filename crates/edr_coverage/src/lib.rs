@@ -2,7 +2,7 @@ mod collector;
 /// Types for code coverage reporting.
 pub mod reporter;
 
-use edr_eth::{address, Address};
+use edr_primitives::{address, Address};
 
 pub use self::{collector::CoverageHitCollector, reporter::CodeCoverageReporter};
 

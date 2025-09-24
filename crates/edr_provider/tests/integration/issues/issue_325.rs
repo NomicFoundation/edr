@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{Address, PreEip1898BlockSpec, B256};
+use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
+use edr_eth::PreEip1898BlockSpec;
+use edr_primitives::{Address, B256};
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,
     AccountOverride, MethodInvocation, MiningConfig, NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::TransactionRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 

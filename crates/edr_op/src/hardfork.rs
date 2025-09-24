@@ -1,8 +1,8 @@
 use std::sync::OnceLock;
 
 use edr_eip1559::BaseFeeParams;
-use edr_eth::HashMap;
 use edr_evm::hardfork::ChainConfig;
+use edr_primitives::HashMap;
 pub use op_revm::name;
 
 use crate::Hardfork;

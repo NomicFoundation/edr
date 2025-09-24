@@ -4,14 +4,20 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+alloy-eips.workspace = true
 alloy-rlp.workspace = true
+alloy-serde.workspace = true
+edr_block_header.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_evm_spec.workspace = true
+edr_primitives.workspace = true
 edr_receipt.workspace = true
+edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_transaction.workspace = true
+log.workspace = true
 revm-context.workspace = true
 revm-context-interface.workspace = true
 revm-primitives.workspace = true
@@ -20,10 +26,14 @@ thiserror.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+assert-json-diff = "2.0.2"
 edr_defaults.workspace = true
+edr_evm.workspace = true
+edr_rpc_spec = { workspace = true, features = ["test-utils"] }
 edr_test_utils.workspace = true
 hex.workspace = true
 paste.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

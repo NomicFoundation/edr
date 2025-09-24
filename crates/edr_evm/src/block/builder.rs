@@ -2,13 +2,10 @@ mod l1;
 
 use std::fmt::Debug;
 
+use edr_block_header::{BlobGas, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_eip1559::BaseFeeParams;
-use edr_eth::{
-    block::{self, BlobGas, HeaderOverrides, PartialHeader},
-    withdrawal::Withdrawal,
-    Address, Bytes, HashMap, B256,
-};
 use edr_evm_spec::{ChainHardfork, ChainSpec, EvmSpecId, TransactionValidation};
+use edr_primitives::{Address, Bytes, HashMap, B256};
 use revm::{precompile::PrecompileFn, Inspector};
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
@@ -65,7 +62,7 @@ impl<BlockchainErrorT, HardforkT: Debug, StateErrorT>
 #[derive(Debug, Default)]
 pub struct BlockInputs {
     /// The ommers of the block.
-    pub ommers: Vec<block::Header>,
+    pub ommers: Vec<BlockHeader>,
     /// The withdrawals of the block. Present post-Shanghai hardfork.
     pub withdrawals: Option<Vec<Withdrawal>>,
 }

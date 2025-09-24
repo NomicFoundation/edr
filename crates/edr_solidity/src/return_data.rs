@@ -1,7 +1,7 @@
 //! Rewrite of `hardhat-network/provider/return-data.ts` from Hardhat.
 
 use alloy_sol_types::SolError;
-use edr_eth::{Bytes, U256};
+use edr_primitives::{Bytes, U256};
 
 // Built-in error types
 // See <https://docs.soliditylang.org/en/v0.8.26/control-structures.html#error-handling-assert-require-revert-and-exceptions>

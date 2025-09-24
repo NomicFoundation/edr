@@ -1,4 +1,4 @@
-use edr_eth::B256;
+use edr_primitives::B256;
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, spec::SyncProviderSpec,

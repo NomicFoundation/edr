@@ -58,7 +58,7 @@ pub struct Deposit {
 
 impl alloy_rlp::Decodable for Signed {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        match edr_chain_l1::Signed::decode(buf) {
+        match edr_chain_l1::L1SignedTransaction::decode(buf) {
             Ok(transaction) => Ok(transaction.into()),
             Err(alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE)) => {
                 let first = buf.first().ok_or(alloy_rlp::Error::InputTooShort)?;
@@ -113,15 +113,15 @@ impl Default for Signed {
     }
 }
 
-impl From<edr_chain_l1::Signed> for Signed {
-    fn from(value: edr_chain_l1::Signed) -> Self {
+impl From<edr_chain_l1::L1SignedTransaction> for Signed {
+    fn from(value: edr_chain_l1::L1SignedTransaction) -> Self {
         match value {
-            edr_chain_l1::Signed::PreEip155Legacy(tx) => Self::PreEip155Legacy(tx),
-            edr_chain_l1::Signed::PostEip155Legacy(tx) => Self::PostEip155Legacy(tx),
-            edr_chain_l1::Signed::Eip2930(tx) => Self::Eip2930(tx),
-            edr_chain_l1::Signed::Eip1559(tx) => Self::Eip1559(tx),
-            edr_chain_l1::Signed::Eip4844(tx) => Self::Eip4844(tx),
-            edr_chain_l1::Signed::Eip7702(tx) => Self::Eip7702(tx),
+            edr_chain_l1::L1SignedTransaction::PreEip155Legacy(tx) => Self::PreEip155Legacy(tx),
+            edr_chain_l1::L1SignedTransaction::PostEip155Legacy(tx) => Self::PostEip155Legacy(tx),
+            edr_chain_l1::L1SignedTransaction::Eip2930(tx) => Self::Eip2930(tx),
+            edr_chain_l1::L1SignedTransaction::Eip1559(tx) => Self::Eip1559(tx),
+            edr_chain_l1::L1SignedTransaction::Eip4844(tx) => Self::Eip4844(tx),
+            edr_chain_l1::L1SignedTransaction::Eip7702(tx) => Self::Eip7702(tx),
         }
     }
 }
@@ -486,7 +486,7 @@ impl_revm_transaction_trait!(Signed);
 #[cfg(test)]
 mod tests {
     use alloy_rlp::Decodable as _;
-    use edr_eth::hex;
+    use edr_primitives::hex;
 
     use super::*;
 

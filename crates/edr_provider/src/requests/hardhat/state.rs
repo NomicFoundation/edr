@@ -1,4 +1,4 @@
-use edr_eth::{Address, Bytes, U256};
+use edr_primitives::{Address, Bytes, U256};
 
 use crate::{
     data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderErrorForChainSpec,

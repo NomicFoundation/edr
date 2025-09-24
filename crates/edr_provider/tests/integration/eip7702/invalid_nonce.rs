@@ -1,7 +1,6 @@
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{address, bytes, Bytes, U256};
+use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
+use edr_primitives::{address, bytes, Bytes, U256};
 use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
-use edr_rpc_eth::TransactionRequest;
 use edr_signer::public_key_to_address;
 use edr_test_utils::secret_key::{secret_key_from_str, SecretKey};
 

@@ -1,4 +1,4 @@
-use crate::U256;
+use edr_primitives::U256;
 
 /// Fee history for the returned block range. This can be a subsection of the
 /// requested range if not all blocks are available.

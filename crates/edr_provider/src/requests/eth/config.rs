@@ -1,4 +1,4 @@
-use edr_eth::{Address, U256};
+use edr_primitives::{Address, U256};
 
 use crate::{
     data::ProviderData,

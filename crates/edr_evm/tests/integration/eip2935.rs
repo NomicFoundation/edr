@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
+use edr_block_header::BlockConfig;
 use edr_chain_l1::L1ChainSpec;
-use edr_eth::{block::BlockConfig, Bytecode};
 use edr_evm::{
     blockchain::{Blockchain, LocalBlockchain},
     eips::eip2935::{
@@ -12,6 +12,7 @@ use edr_evm::{
     state::StateDiff,
     GenesisBlockOptions, RandomHashGenerator,
 };
+use edr_primitives::Bytecode;
 
 fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L1ChainSpec>> {
     const CHAIN_ID: u64 = 0x7a69;
@@ -19,10 +20,10 @@ fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L
 
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        BlockConfig::new(
-            edr_chain_l1::Hardfork::PRAGUE,
-            base_fee_params_for::<edr_chain_l1::L1ChainSpec>(CHAIN_ID),
-        ),
+        BlockConfig {
+            hardfork: edr_chain_l1::Hardfork::PRAGUE,
+            base_fee_params: base_fee_params_for::<edr_chain_l1::L1ChainSpec>(CHAIN_ID),
+        },
         GenesisBlockOptions {
             mix_hash: Some(prev_randao_generator.generate_next()),
             ..GenesisBlockOptions::default()
@@ -81,11 +82,11 @@ fn local_blockchain_with_history() -> anyhow::Result<()> {
 mod remote {
     use std::sync::Arc;
 
-    use edr_eth::{bytes, Bytes, HashMap};
     use edr_evm::{
         blockchain::{ForkedBlockchain, ForkedCreationError},
         state::IrregularState,
     };
+    use edr_primitives::{bytes, Bytes, HashMap};
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use parking_lot::Mutex;
@@ -128,7 +129,7 @@ mod remote {
     #[tokio::test(flavor = "multi_thread")]
     #[serial_test::serial]
     async fn forked_blockchain_pre_prague_activation_with_cancun() -> anyhow::Result<()> {
-        use edr_eth::account::AccountInfo;
+        use edr_state::account::AccountInfo;
 
         const PRE_PRAGUE_BLOCK_NUMBER: u64 = 19_426_589;
 

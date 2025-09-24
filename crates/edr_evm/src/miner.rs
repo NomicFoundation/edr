@@ -1,14 +1,11 @@
 use std::{cmp::Ordering, fmt::Debug};
 
-use edr_eth::{
-    block::{calculate_next_base_fee_per_blob_gas, HeaderOverrides},
-    result::ExecutionResult,
-    Address, HashMap,
-};
+use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides};
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EvmTransactionValidationError, ExecutableTransaction,
     HaltReasonTrait, TransactionValidation,
 };
+use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;
 use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};
@@ -18,6 +15,7 @@ use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     mempool::OrderedTransaction,
+    result::ExecutionResult,
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,
@@ -462,7 +460,8 @@ fn priority_comparator<SignedTransactionT: ExecutableTransaction>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{account::AccountInfo, Address, U256};
+    use edr_primitives::U256;
+    use edr_state::account::AccountInfo;
 
     use super::*;
     use crate::test_utils::{

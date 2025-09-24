@@ -12,11 +12,9 @@ use std::fmt::Debug;
 
 use auto_impl::auto_impl;
 use dyn_clone::DynClone;
-use edr_eth::{
-    account::{Account, AccountInfo},
-    Address, Bytecode, HashMap, B256, U256,
-};
+use edr_primitives::{Address, Bytecode, HashMap, B256, U256};
 use edr_rpc_eth::client::RpcClientError;
+use edr_state::account::{Account, AccountInfo};
 pub use revm::state::{EvmState, EvmStorage, EvmStorageSlot};
 use revm::{context_interface::DBErrorMarker, DatabaseRef};
 pub use revm_database_interface::{Database, DatabaseCommit as StateCommit, WrapDatabaseRef};

@@ -2,7 +2,7 @@
 //! Ported from `hardhat-network/stack-traces/library-utils.ts`.
 
 use anyhow::Context;
-use edr_eth::hex;
+use edr_primitives::hex;
 
 use crate::artifacts::CompilerOutputBytecode;
 

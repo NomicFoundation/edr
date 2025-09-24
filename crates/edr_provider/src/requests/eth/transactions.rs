@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::{rlp::Decodable, Bytes, PreEip1898BlockSpec, B256, U256};
+use edr_eth::PreEip1898BlockSpec;
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainErrorForChainSpec,
@@ -9,7 +9,8 @@ use edr_evm::{
 use edr_evm_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
-use edr_rpc_eth::RpcTypeFrom as _;
+use edr_primitives::{Bytes, B256, U256};
+use edr_rpc_spec::RpcTypeFrom as _;
 use edr_transaction::{
     request::TransactionRequestAndSender, IsEip155, IsEip4844, TransactionType,
     INVALID_TX_TYPE_ERROR_MESSAGE,
@@ -206,10 +207,12 @@ pub fn handle_send_raw_transaction_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     raw_transaction: Bytes,
 ) -> ProviderResultWithTraces<B256, ChainSpecT> {
+    use alloy_rlp::Decodable as _;
+
     let mut raw_transaction: &[u8] = raw_transaction.as_ref();
     let pooled_transaction =
     ChainSpecT::PooledTransaction::decode(&mut raw_transaction).map_err(|err| match err {
-            edr_eth::rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE) => {
+            alloy_rlp::Error::Custom(INVALID_TX_TYPE_ERROR_MESSAGE) => {
                 let type_id = *raw_transaction.first().expect("We already validated that the transaction is not empty if it's an invalid transaction type error.");
                 ProviderError::InvalidTransactionType(type_id)
             }
@@ -380,7 +383,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 mod tests {
     use anyhow::Context;
     use edr_chain_l1::L1ChainSpec;
-    use edr_eth::{Address, Bytes, U256};
+    use edr_primitives::{Address, Bytes, U256};
     use edr_signer::FakeSign as _;
     use edr_transaction::TxKind;
 
@@ -402,16 +405,17 @@ mod tests {
 
         let chain_id = fixture.provider_data.chain_id();
 
-        let transaction = edr_chain_l1::Request::Eip155(edr_chain_l1::request::Eip155 {
-            kind: TxKind::Call(Address::ZERO),
-            gas_limit: 30_000,
-            gas_price: 42_000_000_000,
-            value: U256::from(1),
-            input: Bytes::default(),
-            nonce: 0,
-            chain_id,
-        })
-        .fake_sign(impersonated_account);
+        let transaction =
+            edr_chain_l1::L1TransactionRequest::Eip155(edr_chain_l1::request::Eip155 {
+                kind: TxKind::Call(Address::ZERO),
+                gas_limit: 30_000,
+                gas_price: 42_000_000_000,
+                value: U256::from(1),
+                input: Bytes::default(),
+                nonce: 0,
+                chain_id,
+            })
+            .fake_sign(impersonated_account);
         let transaction = transaction::validate(transaction, fixture.provider_data.evm_spec_id())?;
 
         fixture.provider_data.set_auto_mining(true);

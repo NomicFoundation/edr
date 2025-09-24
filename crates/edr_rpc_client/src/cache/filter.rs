@@ -1,7 +1,5 @@
-use edr_eth::{
-    filter::{LogFilterOptions, OneOrMore},
-    Address, B256,
-};
+use edr_eth::filter::{LogFilterOptions, OneOrMore};
+use edr_primitives::{Address, B256};
 
 use super::{block_spec::CacheableBlockSpec, key::CacheKeyVariant};
 

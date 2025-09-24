@@ -2,9 +2,11 @@
 
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{eips::eip4844::GAS_PER_BLOB, PreEip1898BlockSpec, B256};
+use alloy_eips::eip4844::DATA_GAS_PER_BLOB;
+use edr_chain_l1::{rpc::block::L1RpcBlock, L1ChainSpec};
+use edr_eth::PreEip1898BlockSpec;
 use edr_evm_spec::ExecutableTransaction as _;
+use edr_primitives::B256;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
@@ -46,12 +48,12 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let first_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(first_block.blob_gas_used, Some(GAS_PER_BLOB));
+    let first_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    assert_eq!(first_block.blob_gas_used, Some(DATA_GAS_PER_BLOB));
 
     assert_eq!(
         first_block.excess_blob_gas,
-        Some(excess_blobs * GAS_PER_BLOB)
+        Some(excess_blobs * DATA_GAS_PER_BLOB)
     );
 
     // The first block does not affect the number of excess blobs, as it has less
@@ -69,12 +71,12 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let second_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(second_block.blob_gas_used, Some(7 * GAS_PER_BLOB));
+    let second_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    assert_eq!(second_block.blob_gas_used, Some(7 * DATA_GAS_PER_BLOB));
 
     assert_eq!(
         second_block.excess_blob_gas,
-        Some(excess_blobs * GAS_PER_BLOB)
+        Some(excess_blobs * DATA_GAS_PER_BLOB)
     );
 
     // The second block increases the excess by 1 blob (7 - 6)
@@ -93,12 +95,12 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let third_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
-    assert_eq!(third_block.blob_gas_used, Some(8 * GAS_PER_BLOB));
+    let third_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
+    assert_eq!(third_block.blob_gas_used, Some(8 * DATA_GAS_PER_BLOB));
 
     assert_eq!(
         third_block.excess_blob_gas,
-        Some(excess_blobs * GAS_PER_BLOB)
+        Some(excess_blobs * DATA_GAS_PER_BLOB)
     );
 
     // The third block increases the excess by 2 blob (8 - 6)
@@ -113,12 +115,12 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fourth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fourth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fourth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
         fourth_block.excess_blob_gas,
-        Some(excess_blobs * GAS_PER_BLOB)
+        Some(excess_blobs * DATA_GAS_PER_BLOB)
     );
 
     // The fourth block decreases the excess by 6 blob (0 - 6), but should not go
@@ -134,12 +136,12 @@ async fn block_header() -> anyhow::Result<()> {
         MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
     ))?;
 
-    let fifth_block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+    let fifth_block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
     assert_eq!(fifth_block.blob_gas_used, Some(0u64));
 
     assert_eq!(
         fifth_block.excess_blob_gas,
-        Some(excess_blobs * GAS_PER_BLOB)
+        Some(excess_blobs * DATA_GAS_PER_BLOB)
     );
 
     Ok(())

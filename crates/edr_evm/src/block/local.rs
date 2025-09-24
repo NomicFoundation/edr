@@ -7,19 +7,16 @@ use std::{
 
 use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
-use edr_eth::{
-    block::{self, BlockConfig, Header, HeaderOverrides, PartialHeader},
-    trie,
-    withdrawal::Withdrawal,
-    B256, KECCAK_EMPTY,
-};
+use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, ExecutableTransaction,
 };
+use edr_primitives::{B256, KECCAK_EMPTY};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     MapReceiptLogs, ReceiptFactory, ReceiptTrait, TransactionReceipt,
 };
+use edr_trie::ordered_trie_root;
 use edr_utils::types::TypeConstructor;
 use itertools::izip;
 
@@ -64,10 +61,10 @@ pub struct EthLocalBlock<
     ReceiptConversionErrorT,
     SignedTransactionT,
 > {
-    header: block::Header,
+    header: BlockHeader,
     transactions: Vec<SignedTransactionT>,
     transaction_receipts: Vec<Arc<BlockReceiptT>>,
-    ommers: Vec<block::Header>,
+    ommers: Vec<BlockHeader>,
     ommer_hashes: Vec<B256>,
     withdrawals: Option<Vec<Withdrawal>>,
     hash: B256,
@@ -112,14 +109,14 @@ impl<
                 <ExecutionReceiptTypeConstructorT as TypeConstructor<ExecutionLog>>::Type,
             >,
         >,
-        ommers: Vec<Header>,
+        ommers: Vec<BlockHeader>,
         withdrawals: Option<Vec<Withdrawal>>,
     ) -> Self {
-        let ommer_hashes = ommers.iter().map(Header::hash).collect::<Vec<_>>();
+        let ommer_hashes = ommers.iter().map(BlockHeader::hash).collect::<Vec<_>>();
         let transactions_root =
-            trie::ordered_trie_root(transactions.iter().map(ExecutableTransaction::rlp_encoding));
+            ordered_trie_root(transactions.iter().map(ExecutableTransaction::rlp_encoding));
 
-        let header = Header::new(partial_header, transactions_root);
+        let header = BlockHeader::new(partial_header, transactions_root);
 
         let hash = header.hash();
         let transaction_receipts =
@@ -287,7 +284,7 @@ impl<
         &self.hash
     }
 
-    fn header(&self) -> &block::Header {
+    fn header(&self) -> &BlockHeader {
         &self.header
     }
 
@@ -364,7 +361,7 @@ impl<
             None
         };
 
-        let header = Header::new(partial_header, KECCAK_EMPTY);
+        let header = BlockHeader::new(partial_header, KECCAK_EMPTY);
         let hash = header.hash();
 
         Self {

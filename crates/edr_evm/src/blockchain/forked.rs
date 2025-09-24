@@ -1,17 +1,19 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
+use edr_block_header::BlockConfig;
 use edr_eth::{
-    account::{Account, AccountStatus},
-    block::{largest_safe_block_number, safe_block_depth, BlockConfig, LargestSafeBlockNumberArgs},
-    Address, BlockSpec, ChainId, HashMap, HashSet, PreEip1898BlockSpec, B256, U256,
+    block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
+    BlockSpec, PreEip1898BlockSpec,
 };
 use edr_evm_spec::EvmSpecId;
+use edr_primitives::{Address, ChainId, HashMap, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
 };
+use edr_state::account::{Account, AccountStatus};
 use parking_lot::Mutex;
 use tokio::runtime;
 
@@ -646,10 +648,10 @@ where
             last_header.base_fee_per_gas,
             last_header.state_root,
             previous_total_difficulty,
-            BlockConfig::new(
-                self.hardfork,
-                base_fee_params_for::<ChainSpecT>(self.chain_id),
-            ),
+            BlockConfig {
+                hardfork: self.hardfork,
+                base_fee_params: base_fee_params_for::<ChainSpecT>(self.chain_id),
+            },
         );
 
         Ok(())

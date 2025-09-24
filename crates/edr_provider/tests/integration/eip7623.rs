@@ -5,14 +5,16 @@ mod send_data_to_eoa;
 
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{B256, U64};
+use edr_chain_l1::{
+    rpc::{call::L1CallRequest, receipt::L1BlockReceipt, TransactionRequest},
+    L1ChainSpec,
+};
+use edr_primitives::{B256, U64};
 use edr_provider::{
     test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
     time::CurrentTime,
     MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_test_utils::secret_key::secret_key_from_str;
 use tokio::runtime;
@@ -30,7 +32,7 @@ fn assert_transaction_gas_usage(
     assert_eq!(gas_used, expected_gas_usage);
 }
 
-fn estimate_gas(provider: &Provider<L1ChainSpec>, request: CallRequest) -> u64 {
+fn estimate_gas(provider: &Provider<L1ChainSpec>, request: L1CallRequest) -> u64 {
     let response = provider
         .handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
             request, None,
@@ -49,7 +51,7 @@ fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
         ))
         .expect("eth_getTransactionReceipt should succeed");
 
-    let receipt: Option<edr_rpc_eth::receipt::Block> =
+    let receipt: Option<L1BlockReceipt> =
         serde_json::from_value(response.result).expect("response should be Receipt");
 
     let receipt = receipt.expect("receipt should exist");

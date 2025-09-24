@@ -1,12 +1,9 @@
 use std::sync::Arc;
 
+use alloy_eips::eip7840::BlobParams;
+use edr_block_header::{BlobGas, BlockConfig, BlockHeader, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
 use edr_eip1559::BaseFeeParams;
-use edr_eth::{
-    block::{self, BlobGas, BlockConfig, Header, PartialHeader},
-    eips::eip4844::{self, blob_base_fee_update_fraction, BlobExcessGasAndPrice},
-    Bytes, U256,
-};
 use edr_evm::{
     evm::{EthFrame, Evm},
     inspector::{Inspector, NoOpInspector},
@@ -22,8 +19,10 @@ use edr_evm::{
     EthLocalBlockForChainSpec, RemoteBlock, SyncBlock,
 };
 use edr_evm_spec::{
-    ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, TransactionValidation,
+    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
+    TransactionValidation,
 };
+use edr_primitives::{Bytes, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_receipt::{log::FilterLog, BlockReceipt};
 
@@ -44,26 +43,32 @@ fn blob_excess_gas_and_price(
     blob_gas: &Option<BlobGas>,
     hardfork: edr_chain_l1::Hardfork,
 ) -> Option<BlobExcessGasAndPrice> {
-    let update_fraction = blob_base_fee_update_fraction(hardfork);
+    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
+        BlobParams::prague()
+    } else {
+        BlobParams::cancun()
+    };
+    let update_fraction = blob_params
+        .update_fraction
+        .try_into()
+        .expect("blob update fraction is too large");
 
     blob_gas
         .as_ref()
-        .map(|BlobGas { excess_gas, .. }| {
-            eip4844::BlobExcessGasAndPrice::new(*excess_gas, update_fraction)
-        })
+        .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas, update_fraction))
         .or_else(|| {
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
             if hardfork >= edr_chain_l1::Hardfork::CANCUN {
-                Some(eip4844::BlobExcessGasAndPrice::new(0u64, update_fraction))
+                Some(BlobExcessGasAndPrice::new(0u64, update_fraction))
             } else {
                 None
             }
         })
 }
 
-impl BlockEnvConstructor<block::Header> for GenericChainSpec {
-    fn new_block_env(header: &Header, hardfork: EvmSpecId) -> Self::BlockEnv {
+impl BlockEnvConstructor<BlockHeader> for GenericChainSpec {
+    fn new_block_env(header: &BlockHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
         edr_chain_l1::BlockEnv {
             number: U256::from(header.number),
             beneficiary: header.beneficiary,
@@ -245,7 +250,7 @@ impl RuntimeSpec for GenericChainSpec {
     }
 
     fn next_base_fee_per_gas(
-        header: &Header,
+        header: &BlockHeader,
         chain_id: u64,
         hardfork: Self::Hardfork,
         base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
@@ -259,7 +264,7 @@ impl RuntimeSpec for GenericChainSpec {
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
-    type PooledTransaction = edr_chain_l1::PooledTransaction;
+    type PooledTransaction = edr_chain_l1::L1PooledTransaction;
     type TransactionRequest = crate::transaction::Request;
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
@@ -269,17 +274,14 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{
-        block::{BlobGas, Header},
-        eips::eip4844,
-        Address, Bloom, Bytes, B256, B64, U256,
-    };
     use edr_evm::spec::BlockEnvConstructor as _;
+    use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
+    use super::*;
     use crate::spec::GenericChainSpec;
 
-    fn build_block_header(blob_gas: Option<BlobGas>) -> Header {
-        Header {
+    fn build_block_header(blob_gas: Option<BlobGas>) -> BlockHeader {
+        BlockHeader {
             parent_hash: B256::default(),
             ommers_hash: B256::default(),
             beneficiary: Address::default(),
@@ -311,9 +313,12 @@ mod tests {
         let block = GenericChainSpec::new_block_env(&header, spec_id);
         assert_eq!(
             block.blob_excess_gas_and_price,
-            Some(eip4844::BlobExcessGasAndPrice::new(
+            Some(BlobExcessGasAndPrice::new(
                 0u64,
-                eip4844::blob_base_fee_update_fraction(spec_id)
+                BlobParams::cancun()
+                    .update_fraction
+                    .try_into()
+                    .expect("blob update fraction is too large")
             ))
         );
     }
@@ -326,9 +331,12 @@ mod tests {
         let block = GenericChainSpec::new_block_env(&header, spec_id);
         assert_eq!(
             block.blob_excess_gas_and_price,
-            Some(eip4844::BlobExcessGasAndPrice::new(
+            Some(BlobExcessGasAndPrice::new(
                 0u64,
-                eip4844::blob_base_fee_update_fraction(spec_id)
+                BlobParams::prague()
+                    .update_fraction
+                    .try_into()
+                    .expect("blob update fraction is too large")
             ))
         );
     }

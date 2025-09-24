@@ -1,10 +1,10 @@
 use alloy_rlp::BufMut;
+use edr_primitives::{Address, U256};
 
 use super::{
     Recoverable, RecoveryMessage, Signature, SignatureError, SignatureWithRecoveryId,
     SignatureWithYParity, SignatureWithYParityArgs,
 };
-use crate::{Address, U256};
 
 /// Signature with a recoverable caller address.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -158,7 +158,7 @@ impl<SignatureT: Recoverable + Signature> serde::Serialize for FakeableSignature
     where
         S: serde::Serializer,
     {
-        use revm_primitives::alloy_primitives::U64;
+        use edr_primitives::U64;
         use serde::ser::SerializeMap;
 
         let mut map = serializer.serialize_map(Some(3))?;

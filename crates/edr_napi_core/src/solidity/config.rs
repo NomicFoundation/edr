@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use edr_eth::{Address, U256};
+use edr_primitives::{Address, U256};
 use edr_solidity_tests::{
     backend::Predeploy,
     evm_context::HardforkTr,

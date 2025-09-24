@@ -2,15 +2,17 @@
 
 use std::sync::Arc;
 
+use edr_chain_l1::rpc::call::L1CallRequest;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_eth::{address, bytes, Address, BlockSpec, HashMap, PreEip1898BlockSpec, U64};
+use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_op::{Hardfork, OpChainSpec};
+use edr_primitives::{address, bytes, Address, HashMap, U64};
 use edr_provider::{
     test_utils::{create_test_config, create_test_config_with_fork, ProviderTestFixture},
     time::CurrentTime,
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_eth::{Block, CallRequest, RpcSpec};
+use edr_rpc_spec::RpcSpec;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 
@@ -57,11 +59,11 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     );
     let _response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            CallRequest {
+            L1CallRequest {
                 from: Some(address!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266")),
                 to: Some(GAS_PRICE_ORACLE_L1_BLOCK_ADDRESS),
                 data: Some(data),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             Some(BlockSpec::Number(last_block_number)),
             None,
@@ -130,11 +132,11 @@ async fn custom_base_fee_params() -> anyhow::Result<()> {
     );
     let _response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            CallRequest {
+            L1CallRequest {
                 from: Some(address!("f39fd6e51aad88f6f4ce6ab8827279cfffb92266")),
                 to: Some(GAS_PRICE_ORACLE_L1_BLOCK_ADDRESS),
                 data: Some(data),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             None,
             None,
@@ -147,7 +149,9 @@ async fn custom_base_fee_params() -> anyhow::Result<()> {
                 false,
             ),
         ))?;
-        serde_json::from_value::<Block<<OpChainSpec as RpcSpec>::RpcTransaction>>(response.result)?
+        serde_json::from_value::<edr_chain_l1::rpc::Block<<OpChainSpec as RpcSpec>::RpcTransaction>>(
+            response.result,
+        )?
     };
     let block_base_fee_params = edr_op::block::decode_base_params(&last_block.extra_data);
 

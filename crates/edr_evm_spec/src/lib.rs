@@ -5,6 +5,7 @@ mod transaction;
 use core::fmt::Debug;
 
 pub use revm_context_interface::{
+    block::BlobExcessGasAndPrice,
     result::{HaltReasonTr as HaltReasonTrait, OutOfGasError},
     Block, Transaction,
 };

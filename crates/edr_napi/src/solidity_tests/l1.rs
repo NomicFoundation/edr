@@ -1,10 +1,10 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use edr_eth::Bytes;
 use edr_napi_core::solidity::{
     config::{TestRunnerConfig, TracingConfigWithBuffers},
     SyncTestRunner, SyncTestRunnerFactory,
 };
+use edr_primitives::Bytes;
 use edr_solidity::artifacts::ArtifactId;
 use edr_solidity_tests::{
     contracts::ContractsByArtifact, decode::RevertDecoder, evm_context::L1EvmBuilder,

@@ -1,6 +1,7 @@
 use derive_where::derive_where;
-use edr_eth::{account::AccountInfo, hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
-use edr_rpc_eth::spec::RpcSpec;
+use edr_primitives::{hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
+use edr_rpc_spec::RpcSpec;
+use edr_state::account::AccountInfo;
 
 use super::RemoteState;
 use crate::state::{account::EdrAccount, State, StateError, StateMut};

@@ -1,6 +1,6 @@
 use derive_more::Debug;
 use dyn_clone::DynClone;
-use edr_eth::{Bytes, HashSet};
+use edr_primitives::{Bytes, HashSet};
 
 use crate::CoverageHitCollector;
 

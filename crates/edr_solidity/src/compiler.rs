@@ -5,7 +5,7 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anyhow::{self, Context as _};
-use edr_eth::{hex, keccak256};
+use edr_primitives::{hex, keccak256};
 use indexmap::IndexMap;
 use parking_lot::RwLock;
 

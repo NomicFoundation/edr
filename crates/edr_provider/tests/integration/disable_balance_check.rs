@@ -2,13 +2,12 @@
 
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{address, bytes, U256};
+use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
+use edr_primitives::{address, bytes, U256};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
-use edr_rpc_eth::CallRequest;
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
@@ -50,11 +49,11 @@ async fn estimate_gas() -> anyhow::Result<()> {
 
     let _response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-            CallRequest {
+            L1CallRequest {
                 from: Some(from),
                 to: Some(address!("0xdf951d2061b12922bfbf22cb17b17f3b39183570")),
                 data: Some(bytes!("0x3e6fec0490f79bf6eb2c4f870365e785982e1f101e93b906")),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             None,
         )))?;
@@ -101,12 +100,12 @@ async fn estimate_gas_with_value() -> anyhow::Result<()> {
 
     let _response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
-            CallRequest {
+            L1CallRequest {
                 from: Some(from),
                 to: Some(address!("0xdf951d2061b12922bfbf22cb17b17f3b39183570")),
                 value: Some(value),
                 data: Some(bytes!("0x3e6fec0490f79bf6eb2c4f870365e785982e1f101e93b906")),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             None,
         )))?;

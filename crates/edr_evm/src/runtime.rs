@@ -1,8 +1,5 @@
-use edr_eth::{
-    result::{ExecutionResult, ExecutionResultAndState},
-    Address, HashMap,
-};
 use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
+use edr_primitives::{Address, HashMap};
 use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
 use revm_context::{JournalTr as _, LocalContext};
 
@@ -10,7 +7,7 @@ use crate::{
     blockchain::BlockHash,
     config::CfgEnv,
     precompile::OverriddenPrecompileProvider,
-    result::EVMError,
+    result::{EVMError, ExecutionResult, ExecutionResultAndState},
     spec::{ContextForChainSpec, RuntimeSpec},
     state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
     transaction::{TransactionError, TransactionErrorForChainSpec},

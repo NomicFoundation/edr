@@ -1,12 +1,5 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use edr_eth::{
-    bytecode::opcode::{self, OpCode},
-    hex,
-    result::{ExecutionResult, ExecutionResultAndState},
-    utils::u256_to_padded_hex,
-    Address, Bytes, B256, U256,
-};
 use edr_evm::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -16,6 +9,7 @@ use edr_evm::{
         Interpreter, InterpreterResult, Jumps as _,
     },
     journal::{JournalEntry, JournalExt, JournalTrait as _},
+    result::{ExecutionResult, ExecutionResultAndState},
     runtime::{dry_run_with_inspector, run},
     spec::{ContextTrait, RuntimeSpec},
     state::SyncState,
@@ -26,8 +20,15 @@ use edr_evm_spec::{
     Block as _, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
     HaltReasonTrait, TransactionValidation,
 };
+use edr_primitives::{
+    bytecode::opcode::{self, OpCode},
+    hex, Address, Bytes, B256, U256,
+};
 
-use crate::observability::{EvmObserver, EvmObserverConfig};
+use crate::{
+    observability::{EvmObserver, EvmObserverConfig},
+    utils::u256_to_padded_hex,
+};
 
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -78,7 +79,7 @@ where
                     evm_config,
                     transaction,
                     block,
-                    &edr_eth::HashMap::new(),
+                    &edr_primitives::HashMap::new(),
                     &mut DualInspector::new(&mut eip3155_tracer, &mut evm_observer),
                 )?;
 
@@ -107,7 +108,7 @@ where
                 evm_config.clone(),
                 transaction,
                 block.clone(),
-                &edr_eth::HashMap::new(),
+                &edr_primitives::HashMap::new(),
             )?;
         }
     }

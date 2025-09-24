@@ -1,12 +1,9 @@
 use derive_where::derive_where;
-use edr_eth::{
-    block::{BlobGas, Header},
-    withdrawal::Withdrawal,
-    Address, Bloom, Bytes, B256, B64, U256,
-};
+use edr_block_header::{BlobGas, BlockHeader, Withdrawal};
 use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
 use edr_evm_spec::ExecutableTransaction;
-use edr_rpc_eth::spec::GetBlockNumber;
+use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
+use edr_rpc_spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 
 use crate::GenericChainSpec;
@@ -150,7 +147,7 @@ where
     type Error = ConversionError<GenericChainSpec>;
 
     fn try_from(value: Block<TransactionT>) -> Result<Self, Self::Error> {
-        let header = Header {
+        let header = BlockHeader {
             parent_hash: value.parent_hash,
             ommers_hash: value.sha3_uncles,
             beneficiary: value.miner.ok_or(ConversionError::MissingMiner)?,
@@ -234,10 +231,7 @@ impl<BlockT: edr_evm::Block<SignedTransactionT>, SignedTransactionT: ExecutableT
             nonce: Some(header.nonce),
             base_fee_per_gas: header.base_fee_per_gas,
             miner: Some(header.beneficiary),
-            withdrawals: value
-                .block
-                .withdrawals()
-                .map(<[edr_eth::withdrawal::Withdrawal]>::to_vec),
+            withdrawals: value.block.withdrawals().map(<[Withdrawal]>::to_vec),
             withdrawals_root: header.withdrawals_root,
             blob_gas_used: header.blob_gas.as_ref().map(|bg| bg.gas_used),
             excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),
@@ -254,6 +248,7 @@ mod tests {
     use edr_evm::RemoteBlock;
     use edr_rpc_client::jsonrpc;
     use edr_rpc_eth::client::EthRpcClient;
+    use edr_rpc_spec::RpcSpec;
 
     use crate::{rpc::transaction::TransactionWithSignature, GenericChainSpec};
 
@@ -289,7 +284,7 @@ mod tests {
         }"#;
 
         type BlockResponsePayload =
-            <GenericChainSpec as edr_rpc_eth::RpcSpec>::RpcBlock<TransactionWithSignature>;
+            <GenericChainSpec as RpcSpec>::RpcBlock<TransactionWithSignature>;
 
         let response: jsonrpc::Response<BlockResponsePayload> = serde_json::from_str(DATA).unwrap();
         let rpc_block = match response.data {

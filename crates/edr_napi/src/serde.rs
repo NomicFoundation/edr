@@ -1,4 +1,4 @@
-use edr_eth::hex;
+use edr_primitives::hex;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use serde::Serializer;
 

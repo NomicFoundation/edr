@@ -28,7 +28,7 @@ pub mod test_utils;
 /// OP transaction types
 pub mod transaction;
 
-use edr_eth::U256;
+use edr_primitives::U256;
 
 pub use self::spec::OpChainSpec;
 

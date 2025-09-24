@@ -1,4 +1,4 @@
-use edr_eth::Address;
+use edr_primitives::Address;
 #[allow(deprecated)]
 // This is test code, it's ok to use `DangerousSecretKeyStr`
 use edr_signer::{public_key_to_address, DangerousSecretKeyStr};

@@ -1,4 +1,4 @@
-use edr_eth::Address;
+use edr_primitives::Address;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
@@ -16,21 +16,21 @@ pub struct Withdrawal {
     pub amount: BigInt,
 }
 
-impl From<edr_eth::withdrawal::Withdrawal> for Withdrawal {
-    fn from(withdrawal: edr_eth::withdrawal::Withdrawal) -> Self {
+impl From<edr_block_header::Withdrawal> for Withdrawal {
+    fn from(withdrawal: edr_block_header::Withdrawal) -> Self {
         Self {
             index: BigInt::from(withdrawal.index),
             validator_index: BigInt::from(withdrawal.validator_index),
             address: Uint8Array::with_data_copied(withdrawal.address),
             amount: BigInt {
                 sign_bit: false,
-                words: withdrawal.amount.as_limbs().to_vec(),
+                words: vec![withdrawal.amount],
             },
         }
     }
 }
 
-impl TryFrom<Withdrawal> for edr_eth::withdrawal::Withdrawal {
+impl TryFrom<Withdrawal> for edr_block_header::Withdrawal {
     type Error = napi::Error;
 
     fn try_from(value: Withdrawal) -> Result<Self, Self::Error> {

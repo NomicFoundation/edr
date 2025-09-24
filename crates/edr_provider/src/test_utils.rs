@@ -2,15 +2,14 @@ use core::fmt::Debug;
 use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 
 use anyhow::anyhow;
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{
-    block::{self, BlobGas},
-    trie::KECCAK_NULL_RLP,
-    Address, Bytes, HashMap, B256, U160, U256,
+use edr_block_header::{BlobGas, BlockHeader, HeaderOverrides};
+use edr_chain_l1::{
+    rpc::{receipt::L1BlockReceipt, TransactionRequest},
+    L1ChainSpec,
 };
 use edr_evm::Block as _;
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
-use edr_rpc_eth::TransactionRequest;
+use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{request::TransactionRequestAndSender, TxKind};
@@ -42,9 +41,9 @@ pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
 
 /// Default header overrides for replaying L1 blocks before The Merge
 pub fn l1_header_overrides_before_merge(
-    replay_header: &block::Header,
-) -> block::HeaderOverrides<edr_evm_spec::EvmSpecId> {
-    block::HeaderOverrides {
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
+    HeaderOverrides {
         nonce: Some(replay_header.nonce),
         ..l1_header_overrides(replay_header)
     }
@@ -52,9 +51,9 @@ pub fn l1_header_overrides_before_merge(
 
 /// Default header overrides for replaying L1 blocks.
 pub fn l1_header_overrides(
-    replay_header: &block::Header,
-) -> block::HeaderOverrides<edr_evm_spec::EvmSpecId> {
-    block::HeaderOverrides {
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
+    HeaderOverrides {
         // Extra_data field in L1 has arbitrary additional data
         extra_data: Some(replay_header.extra_data.clone()),
         ..header_overrides(replay_header)
@@ -63,16 +62,16 @@ pub fn l1_header_overrides(
 
 /// Default header overrides for replaying blocks.
 pub fn header_overrides<HardforkT: Default>(
-    replay_header: &block::Header,
-) -> block::HeaderOverrides<HardforkT> {
-    block::HeaderOverrides {
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<HardforkT> {
+    HeaderOverrides {
         beneficiary: Some(replay_header.beneficiary),
         gas_limit: Some(replay_header.gas_limit),
         mix_hash: Some(replay_header.mix_hash),
         parent_beacon_block_root: replay_header.parent_beacon_block_root,
         state_root: Some(replay_header.state_root),
         timestamp: Some(replay_header.timestamp),
-        ..block::HeaderOverrides::<HardforkT>::default()
+        ..HeaderOverrides::<HardforkT>::default()
     }
 }
 
@@ -186,7 +185,7 @@ where
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
-    let receipt: edr_rpc_eth::receipt::Block = serde_json::from_value(result.result)?;
+    let receipt: L1BlockReceipt = serde_json::from_value(result.result)?;
     let contract_address = receipt.contract_address.expect("Call must create contract");
 
     Ok(contract_address)
@@ -292,8 +291,8 @@ impl ProviderTestFixture<L1ChainSpec> {
         local_account_index: usize,
         gas_limit: u64,
         nonce: Option<u64>,
-    ) -> anyhow::Result<TransactionRequestAndSender<edr_chain_l1::Request>> {
-        let request = edr_chain_l1::Request::Eip155(edr_chain_l1::request::Eip155 {
+    ) -> anyhow::Result<TransactionRequestAndSender<edr_chain_l1::L1TransactionRequest>> {
+        let request = edr_chain_l1::L1TransactionRequest::Eip155(edr_chain_l1::request::Eip155 {
             kind: TxKind::Call(Address::ZERO),
             gas_limit,
             gas_price: 42_000_000_000_u128,
@@ -307,7 +306,9 @@ impl ProviderTestFixture<L1ChainSpec> {
         Ok(TransactionRequestAndSender { request, sender })
     }
 
-    pub fn impersonated_dummy_transaction(&self) -> anyhow::Result<edr_chain_l1::Signed> {
+    pub fn impersonated_dummy_transaction(
+        &self,
+    ) -> anyhow::Result<edr_chain_l1::L1SignedTransaction> {
         let mut transaction = self.dummy_transaction_request(0, 30_000, None)?;
         transaction.sender = self.impersonated_account;
 
@@ -318,7 +319,7 @@ impl ProviderTestFixture<L1ChainSpec> {
         &self,
         local_account_index: usize,
         nonce: Option<u64>,
-    ) -> anyhow::Result<edr_chain_l1::Signed> {
+    ) -> anyhow::Result<edr_chain_l1::L1SignedTransaction> {
         let transaction = self.dummy_transaction_request(local_account_index, 30_000, nonce)?;
         Ok(self.provider_data.sign_transaction_request(transaction)?)
     }

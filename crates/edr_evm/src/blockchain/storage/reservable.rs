@@ -1,12 +1,10 @@
 use core::fmt::Debug;
 use std::{num::NonZeroU64, sync::Arc};
 
+use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_eip1559::BaseFeeParams;
-use edr_eth::{
-    block::{BlockConfig, HeaderOverrides, PartialHeader},
-    Address, HashMap, HashSet, B256, U256,
-};
 use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
+use edr_primitives::{Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
@@ -354,7 +352,10 @@ impl<
                 let block = BlockT::empty(
                     reservation.hardfork.clone(),
                     PartialHeader::new::<ChainSpecT>(
-                        BlockConfig::new(reservation.hardfork, &reservation.base_fee_params),
+                        BlockConfig {
+                            hardfork: reservation.hardfork,
+                            base_fee_params: &reservation.base_fee_params,
+                        },
                         HeaderOverrides {
                             number: Some(block_number),
                             state_root: Some(reservation.previous_state_root),

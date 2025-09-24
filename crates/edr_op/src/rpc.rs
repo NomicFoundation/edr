@@ -3,8 +3,9 @@ pub mod receipt;
 /// Types for OP RPC transaction.
 pub mod transaction;
 
-use edr_eth::U256;
-use edr_receipt::{log::FilterLog, Address, Bloom, B256};
+use edr_chain_l1::rpc::transaction::L1RpcTransaction;
+use edr_primitives::{Address, Bloom, B256, U256};
+use edr_receipt::log::FilterLog;
 use op_alloy_rpc_types::L1BlockInfo;
 use serde::{Deserialize, Serialize};
 
@@ -105,7 +106,7 @@ pub struct BlockReceipt {
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {
     #[serde(flatten)]
-    l1: edr_rpc_eth::Transaction,
+    l1: L1RpcTransaction,
     /// ECDSA recovery id
     #[serde(
         default,

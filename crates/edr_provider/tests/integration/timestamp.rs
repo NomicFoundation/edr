@@ -2,8 +2,9 @@
 
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{PreEip1898BlockSpec, B256};
+use edr_chain_l1::{rpc::block::L1RpcBlock, L1ChainSpec};
+use edr_eth::PreEip1898BlockSpec;
+use edr_primitives::B256;
 use edr_provider::{
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},
@@ -73,7 +74,7 @@ impl TimestampFixture {
             MethodInvocation::GetBlockByNumber(PreEip1898BlockSpec::latest(), false),
         ))?;
 
-        let block: edr_rpc_eth::Block<B256> = serde_json::from_value(result.result)?;
+        let block: L1RpcBlock<B256> = serde_json::from_value(result.result)?;
         Ok(block.timestamp)
     }
 

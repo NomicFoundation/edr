@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cita_trie::{PatriciaTrie, Trie};
-use edr_eth::B256;
+use edr_primitives::B256;
 use hasher::{Hasher, HasherKeccak};
 
 use crate::state::trie::persistent_memory_db::PersistentMemoryDB;

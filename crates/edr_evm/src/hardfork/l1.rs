@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams};
-use edr_eth::HashMap;
+use edr_primitives::HashMap;
 
 use super::{Activation, ChainConfig, ForkCondition};
 

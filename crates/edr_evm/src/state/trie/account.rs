@@ -1,9 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
-use edr_eth::{
-    account::{Account, AccountInfo, BasicAccount},
-    Address, HashMap, B256, U256,
-};
+use edr_primitives::{Address, HashMap, B256, U256};
+use edr_state::account::{Account, AccountInfo, BasicAccount};
 use hasher::{Hasher, HasherKeccak};
 use rpds::HashTrieMapSync;
 
@@ -310,7 +308,8 @@ impl AccountTrieMutation<'_> {
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{state::state_root, trie::KECCAK_NULL_RLP};
+    use edr_primitives::KECCAK_NULL_RLP;
+    use edr_state::state_root;
 
     use super::*;
 

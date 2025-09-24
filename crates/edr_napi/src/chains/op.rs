@@ -1,12 +1,12 @@
 use std::{str::FromStr, sync::Arc};
 
-use edr_eth::hex;
 use edr_napi_core::{
     logger::Logger,
     provider::{SyncProvider, SyncProviderFactory},
     subscription::subscriber_callback_for_chain_spec,
 };
 use edr_op::{predeploys::GAS_PRICE_ORACLE_ADDRESS, OpChainSpec};
+use edr_primitives::hex;
 use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
 use napi::{

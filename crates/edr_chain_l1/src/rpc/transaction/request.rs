@@ -1,9 +1,10 @@
-use edr_eth::{Address, Blob, Bytes, B256, U256};
+use edr_primitives::{Address, Bytes, B256, U256};
+use edr_transaction::pooled::eip4844::Blob;
 
 /// Represents _all_ transaction requests received from RPC
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TransactionRequest {
+pub struct L1RpcTransactionRequest {
     /// from address
     pub from: Address,
     /// to address

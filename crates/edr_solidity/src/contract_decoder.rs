@@ -2,8 +2,8 @@
 
 use std::{fmt::Debug, sync::Arc};
 
-use edr_eth::Bytes;
 use edr_evm_spec::HaltReasonTrait;
+use edr_primitives::Bytes;
 use parking_lot::RwLock;
 
 use super::{

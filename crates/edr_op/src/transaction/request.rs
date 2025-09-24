@@ -1,5 +1,6 @@
-use edr_eth::{Address, Bytes, U256};
+use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_evm_spec::EvmSpecId;
+use edr_primitives::{Address, Bytes, U256};
 use edr_provider::{
     calculate_eip1559_fee_parameters,
     requests::validation::{validate_call_request, validate_send_transaction_request},
@@ -7,7 +8,6 @@ use edr_provider::{
     time::TimeSinceEpoch,
     ProviderError, ProviderErrorForChainSpec,
 };
-use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_signer::{FakeSign, SecretKey, Sign, SignatureError};
 pub use edr_transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::TxKind;
@@ -67,12 +67,15 @@ impl Sign for Request {
     }
 }
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Request {
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for Request {
     type Context<'context> = CallContext<'context, OpChainSpec, TimerT>;
 
     type Error = ProviderErrorForChainSpec<OpChainSpec>;
 
-    fn from_rpc_type(value: CallRequest, context: Self::Context<'_>) -> Result<Self, Self::Error> {
+    fn from_rpc_type(
+        value: L1CallRequest,
+        context: Self::Context<'_>,
+    ) -> Result<Self, Self::Error> {
         let CallContext {
             data,
             block_spec,
@@ -83,7 +86,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<CallRequest, TimerT> for Reques
 
         validate_call_request::<OpChainSpec, TimerT>(data.hardfork(), &value, block_spec)?;
 
-        let CallRequest {
+        let L1CallRequest {
             from,
             to,
             gas,

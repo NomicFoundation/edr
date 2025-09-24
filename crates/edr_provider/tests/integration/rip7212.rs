@@ -2,13 +2,12 @@
 
 use std::sync::Arc;
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{bytes, Bytes, HashMap};
+use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
+use edr_primitives::{bytes, Bytes, HashMap};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
-use edr_rpc_eth::CallRequest;
 use edr_solidity::contract_decoder::ContractDecoder;
 use revm_precompile::secp256r1;
 use tokio::runtime;
@@ -36,10 +35,10 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
 
     let response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            CallRequest {
+            L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             None,
             None,
@@ -71,10 +70,10 @@ async fn rip7212_enabled() -> anyhow::Result<()> {
 
     let response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-            CallRequest {
+            L1CallRequest {
                 to: Some(*secp256r1::P256VERIFY.address()),
                 data: Some(CALLDATA.clone()),
-                ..CallRequest::default()
+                ..L1CallRequest::default()
             },
             None,
             None,

@@ -1,7 +1,7 @@
 use std::sync::{mpsc::channel, Arc};
 
-use edr_eth::Bytes;
 use edr_napi_core::logger::LoggerError;
+use edr_primitives::Bytes;
 use napi::{
     threadsafe_function::{
         ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction, ThreadsafeFunctionCallMode,

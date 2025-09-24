@@ -7,10 +7,8 @@ use std::{
     time::Duration,
 };
 
-use edr_eth::{
-    block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs},
-    U64,
-};
+use edr_eth::block::{block_time, is_safe_block_number, IsSafeBlockNumberArgs};
+use edr_primitives::U64;
 use futures::{future, TryFutureExt};
 use hyper::header::HeaderValue;
 pub use hyper::{header, HeaderMap};
@@ -845,7 +843,7 @@ mod tests {
     mod alchemy {
         use std::ops::Deref;
 
-        use edr_eth::U64;
+        use edr_primitives::U64;
         use edr_test_utils::env::get_alchemy_url;
         use futures::future::join_all;
         use hyper::StatusCode;

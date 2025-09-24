@@ -1,8 +1,7 @@
 #![cfg(feature = "test-remote")]
 use std::str::FromStr as _;
 
-use edr_chain_l1::L1ChainSpec;
-use edr_eth::{address, B256};
+use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_evm::{
     hardfork::{self, ChainOverride},
     transaction::TransactionError,
@@ -11,6 +10,7 @@ use edr_evm_spec::{
     EvmHeaderValidationError, EvmTransactionValidationError, TransactionValidation,
 };
 use edr_generic::GenericChainSpec;
+use edr_primitives::{address, B256};
 use edr_provider::{
     time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, ProviderRequest,
     ProviderSpec, SyncProviderSpec,
@@ -126,10 +126,10 @@ async fn issue_947_should_succeed_on_generic_before_cancun() -> anyhow::Result<(
     )?;
 
     let result = provider.handle_request(ProviderRequest::with_single(
-        MethodInvocation::SendTransaction(edr_rpc_eth::TransactionRequest {
+        MethodInvocation::SendTransaction(TransactionRequest {
             from: address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"),
             to: Some(address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")),
-            ..edr_rpc_eth::TransactionRequest::default()
+            ..TransactionRequest::default()
         }),
     ));
 
