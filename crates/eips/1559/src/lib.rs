@@ -3,7 +3,7 @@
 pub use alloy_eips::eip1559::BaseFeeParams as ConstantBaseFeeParams;
 
 /// Possible activation points of different base fee parameters
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum BaseFeeActivation<HardforkT> {
     /// block number
     BlockNumber(u64),
@@ -12,7 +12,7 @@ pub enum BaseFeeActivation<HardforkT> {
 }
 /// A mapping of hardfork to [`ConstantBaseFeeParams`]. This is used to specify
 /// dynamic EIP-1559 parameters for chains like OP.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct DynamicBaseFeeParams<HardforkT> {
     activations: Vec<(BaseFeeActivation<HardforkT>, ConstantBaseFeeParams)>,
 }
@@ -49,7 +49,7 @@ impl<HardforkT: PartialOrd> DynamicBaseFeeParams<HardforkT> {
 
 /// Type that allows specifying constant or dynamic EIP-1559 parameters based on
 /// the active hardfork.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum BaseFeeParams<HardforkT> {
     /// Constant [`ConstantBaseFeeParams`]; used for chains that don't have
     /// dynamic EIP-1559 parameters

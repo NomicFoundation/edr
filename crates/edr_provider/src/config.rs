@@ -7,7 +7,9 @@ use edr_primitives::{Address, Bytecode, ChainId, HashMap, B256, U256};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{observability, requests::IntervalConfig as IntervalConfigRequest};
+use crate::{
+    observability::ObservabilityConfig, requests::IntervalConfig as IntervalConfigRequest,
+};
 
 /// Specification of overrides for an account and its storage.
 ///
@@ -126,7 +128,7 @@ pub struct Provider<HardforkT> {
     pub min_gas_price: u128,
     pub mining: Mining,
     pub network_id: u64,
-    pub observability: observability::Config,
+    pub observability: ObservabilityConfig,
     pub owned_accounts: Vec<k256::SecretKey>,
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
 }

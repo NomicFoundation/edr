@@ -2,13 +2,17 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use edr_block_header::{HeaderOverrides, PartialHeader};
+use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
 use edr_evm::{
     blockchain::{BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain, SyncBlockchain},
+    hardfork::l1,
     receipt::{self, ExecutionReceiptBuilder as _},
     result::{ExecutionResult, Output, SuccessReason},
-    spec::{ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory, RuntimeSpec},
+    spec::{
+        base_fee_params_for, ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory,
+        RuntimeSpec,
+    },
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
     EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
@@ -75,13 +79,17 @@ async fn create_forked_dummy_blockchain(
 async fn create_dummy_blockchains(
 ) -> Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>>>
 {
+    const CHAIN_ID: u64 = 1;
     const DEFAULT_GAS_LIMIT: u64 = 0xffffffffffffff;
     const DEFAULT_INITIAL_BASE_FEE: u128 = 1000000000;
 
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        edr_chain_l1::Hardfork::default(),
+        BlockConfig {
+            hardfork: edr_chain_l1::Hardfork::default(),
+            base_fee_params: base_fee_params_for::<L1ChainSpec>(CHAIN_ID),
+        },
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
             mix_hash: Some(B256::ZERO),
@@ -94,7 +102,7 @@ async fn create_dummy_blockchains(
     let local_blockchain = LocalBlockchain::new(
         genesis_block,
         genesis_diff,
-        1,
+        CHAIN_ID,
         edr_chain_l1::Hardfork::default(),
     )
     .expect("Should construct without issues");
@@ -151,7 +159,10 @@ fn create_dummy_block_with_difficulty(
     create_dummy_block_with_header(
         blockchain.hardfork(),
         PartialHeader::new::<L1ChainSpec>(
-            blockchain.hardfork(),
+            BlockConfig {
+                hardfork: blockchain.hardfork(),
+                base_fee_params: base_fee_params_for::<L1ChainSpec>(blockchain.chain_id()),
+            },
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -173,7 +184,10 @@ fn create_dummy_block_with_hash(
     create_dummy_block_with_header(
         hardfork,
         PartialHeader::new::<L1ChainSpec>(
-            hardfork,
+            BlockConfig {
+                hardfork,
+                base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+            },
             HeaderOverrides {
                 parent_hash: Some(parent_hash),
                 number: Some(number),
@@ -216,7 +230,10 @@ fn insert_dummy_block_with_transaction(
     let transaction_hash = *transaction.transaction_hash();
 
     let mut header = PartialHeader::new::<L1ChainSpec>(
-        blockchain.hardfork(),
+        BlockConfig {
+            hardfork: blockchain.hardfork(),
+            base_fee_params: base_fee_params_for::<L1ChainSpec>(blockchain.chain_id()),
+        },
         HeaderOverrides::default(),
         Some(blockchain.last_block()?.header()),
         &Vec::new(),

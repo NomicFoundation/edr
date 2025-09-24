@@ -161,12 +161,17 @@ impl PartialHeader {
     /// Constructs a new instance based on the provided [`HeaderOverrides`] and
     /// parent [`BlockHeader`] for the given [`EvmSpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
-        hardfork: ChainSpecT::Hardfork,
+        block_config: BlockConfig<'_, ChainSpecT::Hardfork>,
         overrides: HeaderOverrides<ChainSpecT::Hardfork>,
         parent: Option<&BlockHeader>,
         ommers: &Vec<BlockHeader>,
         withdrawals: Option<&Vec<Withdrawal>>,
     ) -> Self {
+        let BlockConfig {
+            hardfork,
+            base_fee_params,
+        } = block_config;
+
         let timestamp = overrides.timestamp.unwrap_or_default();
         let number = overrides.number.unwrap_or({
             if let Some(parent) = &parent {
@@ -221,9 +226,12 @@ impl PartialHeader {
             base_fee: overrides.base_fee.or_else(|| {
                 if hardfork.into() >= EvmSpecId::LONDON {
                     Some(if let Some(parent) = &parent {
-                        calculate_next_base_fee_per_gas::<ChainSpecT>(
+                        calculate_next_base_fee_per_gas(
                             parent,
-                            overrides.base_fee_params.as_ref(),
+                            overrides
+                                .base_fee_params
+                                .as_ref()
+                                .unwrap_or(base_fee_params),
                             hardfork,
                         )
                     } else {
@@ -320,19 +328,27 @@ impl From<BlockHeader> for PartialHeader {
     }
 }
 
+/// Defines the configurations needed for building a block
+#[derive(Clone, Debug)]
+pub struct BlockConfig<'params, HardforkT> {
+    /// associated hardfork
+    pub hardfork: HardforkT,
+    /// associated base fee params
+    pub base_fee_params: &'params BaseFeeParams<HardforkT>,
+}
+
 /// Calculates the next base fee for a post-London block, given the parent's
 /// header.
 ///
 /// # Panics
 ///
 /// Panics if the parent header does not contain a base fee.
-pub fn calculate_next_base_fee_per_gas<ChainSpecT: EthHeaderConstants>(
+pub fn calculate_next_base_fee_per_gas<HardforkT: PartialOrd>(
     parent: &BlockHeader,
-    base_fee_params: Option<&BaseFeeParams<ChainSpecT::Hardfork>>,
-    hardfork: ChainSpecT::Hardfork,
+    base_fee_params: &BaseFeeParams<HardforkT>,
+    hardfork: HardforkT,
 ) -> u128 {
     let base_fee_params = base_fee_params
-        .unwrap_or(&ChainSpecT::base_fee_params())
         .at_condition(hardfork, parent.number + 1)
         .copied()
         .expect("Chain must have base fee params for post-London hardforks");
@@ -412,6 +428,7 @@ mod tests {
     use alloy_rlp::Decodable as _;
     use edr_chain_l1::L1ChainSpec;
     use edr_eip1559::ConstantBaseFeeParams;
+    use edr_evm::{hardfork::l1, spec::base_fee_params_for};
     use edr_primitives::{hex, KECCAK_RLP_EMPTY_ARRAY};
 
     use super::*;
@@ -681,7 +698,10 @@ mod tests {
             ..HeaderOverrides::default()
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            edr_chain_l1::Hardfork::LONDON,
+            BlockConfig {
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+            },
             overrides,
             None,
             &ommers,
@@ -705,7 +725,10 @@ mod tests {
             ..HeaderOverrides::default()
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            edr_chain_l1::Hardfork::LONDON,
+            BlockConfig {
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+            },
             overrides,
             None,
             &ommers,
@@ -726,7 +749,10 @@ mod tests {
             ..HeaderOverrides::default()
         };
         let partial_header = PartialHeader::new::<L1ChainSpec>(
-            edr_chain_l1::Hardfork::BERLIN,
+            BlockConfig {
+                hardfork: edr_chain_l1::Hardfork::BERLIN,
+                base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+            },
             overrides,
             None,
             &ommers,
@@ -741,7 +767,10 @@ mod tests {
         let ommers = vec![];
         let overrides = HeaderOverrides::default();
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            edr_chain_l1::Hardfork::LONDON,
+            BlockConfig {
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+            },
             overrides,
             None,
             &ommers,
@@ -762,7 +791,10 @@ mod tests {
             ..HeaderOverrides::default()
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            edr_chain_l1::Hardfork::LONDON,
+            BlockConfig {
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+            },
             overrides,
             None,
             &ommers,
@@ -790,7 +822,10 @@ mod tests {
             ..BlockHeader::default()
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
-            edr_chain_l1::Hardfork::LONDON,
+            BlockConfig {
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+            },
             overrides,
             Some(&parent_header),
             &ommers,
@@ -799,13 +834,11 @@ mod tests {
 
         assert_eq!(
             partial_header.base_fee,
-            Some(
-                calculate_next_base_fee_per_gas::<edr_chain_l1::L1ChainSpec>(
-                    &parent_header,
-                    Some(&base_fee_params),
-                    edr_chain_l1::Hardfork::LONDON
-                )
-            )
+            Some(calculate_next_base_fee_per_gas(
+                &parent_header,
+                &base_fee_params,
+                edr_chain_l1::Hardfork::LONDON
+            ))
         );
     }
 }

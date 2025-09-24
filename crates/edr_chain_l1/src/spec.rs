@@ -1,5 +1,4 @@
 use alloy_rlp::RlpEncodable;
-use edr_eip1559::{BaseFeeParams, ConstantBaseFeeParams};
 use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants};
 use edr_rpc_spec::RpcSpec;
 use serde::{de::DeserializeOwned, Serialize};
@@ -30,10 +29,6 @@ impl ChainSpec for L1ChainSpec {
 }
 
 impl EthHeaderConstants for L1ChainSpec {
-    fn base_fee_params() -> BaseFeeParams<Self::Hardfork> {
-        BaseFeeParams::Constant(ConstantBaseFeeParams::ethereum())
-    }
-
     const MIN_ETHASH_DIFFICULTY: u64 = 131072;
 }
 

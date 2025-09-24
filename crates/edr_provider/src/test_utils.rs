@@ -39,7 +39,28 @@ pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
     create_test_config_with_fork(None)
 }
 
+/// Default header overrides for replaying L1 blocks before The Merge
+pub fn l1_header_overrides_before_merge(
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
+    HeaderOverrides {
+        nonce: Some(replay_header.nonce),
+        ..l1_header_overrides(replay_header)
+    }
+}
+
 /// Default header overrides for replaying L1 blocks.
+pub fn l1_header_overrides(
+    replay_header: &BlockHeader,
+) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
+    HeaderOverrides {
+        // Extra_data field in L1 has arbitrary additional data
+        extra_data: Some(replay_header.extra_data.clone()),
+        ..header_overrides(replay_header)
+    }
+}
+
+/// Default header overrides for replaying blocks.
 pub fn header_overrides<HardforkT: Default>(
     replay_header: &BlockHeader,
 ) -> HeaderOverrides<HardforkT> {
@@ -111,7 +132,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         min_gas_price: 0,
         mining: config::Mining::default(),
         network_id: 123,
-        observability: observability::Config::default(),
+        observability: observability::ObservabilityConfig::default(),
         owned_accounts,
         precompile_overrides: HashMap::new(),
     }

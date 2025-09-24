@@ -1,59 +1,66 @@
 #![cfg(feature = "test-remote")]
 
-use std::sync::LazyLock;
-
-use edr_block_header::{BlockHeader, HeaderOverrides};
-use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_evm::impl_full_block_tests;
-use edr_op::{Hardfork, OpChainSpec};
+use edr_block_header::{BlockHeader, PartialHeader};
+use edr_evm::test_utils::assert_replay_header;
+use edr_op::OpChainSpec;
 use edr_provider::test_utils::header_overrides;
 
-use super::op::mainnet_url;
+use crate::integration::{base, op};
 
-static OP_BASE_FEE_PARAMS: LazyLock<BaseFeeParams<Hardfork>> = LazyLock::new(|| {
-    BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
-        (
-            BaseFeeActivation::Hardfork(Hardfork::BEDROCK),
-            ConstantBaseFeeParams::new(50, 6),
-        ),
-        (
-            BaseFeeActivation::Hardfork(Hardfork::CANYON),
-            ConstantBaseFeeParams::new(250, 6),
-        ),
-        // On OP mainnet, the first block to have extra_data field with (250, 4) is 135_513_415
-        // but we are configuring 135_513_416 here since it is the first block to which those
-        // params must be applied for the base_fee calculation
-        (
-            BaseFeeActivation::BlockNumber(135_513_416),
-            ConstantBaseFeeParams::new(250, 4),
-        ), // ConfigUpdate timestamp: 0x681b63b7, logIndex: 0x1e8
-        (
-            BaseFeeActivation::BlockNumber(136_165_876),
-            ConstantBaseFeeParams::new(250, 2),
-        ), // ConfigUpdate timestamp: 0x682f4d53, logIndex: 0x1ed
-    ]))
-});
-
-fn op_header_overrides(replay_header: &BlockHeader) -> HeaderOverrides<Hardfork> {
-    HeaderOverrides {
-        base_fee_params: Some(OP_BASE_FEE_PARAMS.clone()),
-        ..header_overrides(replay_header)
-    }
+macro_rules! impl_test_dynamic_base_fee_params{
+    ($($net:ident: $url:expr => [
+        $($block_number:literal,)+
+    ],)+) => {
+        $(
+            $(
+                paste::item! {
+                    #[serial_test::serial]
+                    #[tokio::test(flavor = "multi_thread")]
+                    async fn [<test_dynamic_base_fee_ $net _ $block_number>]() -> anyhow::Result<()> {
+                        let url = $url;
+                        assert_base_fee_activation(
+                            url,
+                            $block_number,
+                        )
+                        .await
+                    }
+                }
+            )+
+        )+
+    };
 }
-impl_full_block_tests! {
-    // Validate that overriding base fee params
-    // EDR behaves the same way as the chain:
-    //  - First updates the previous activation block extra data field
-    //  - On the following block - on the activation point - uses the new base fee params
-    // We can validate this by comparing with the replay block without overriding the `extra_data` field
-    mainnet_system_config_update_on_extra_data => OpChainSpec {
-        block_number: 135_513_415,
-        url: mainnet_url(),
-        header_overrides_constructor: op_header_overrides,
-    },
-    mainnet_after_system_config_update => OpChainSpec {
-        block_number: 135_513_416,
-        url: mainnet_url(),
-        header_overrides_constructor: op_header_overrides,
-    },
+
+async fn assert_base_fee_activation(url: String, block_number: u64) -> anyhow::Result<()> {
+    let block_validation = |remote_header: &BlockHeader, local_header: &PartialHeader| {
+        assert_eq!(remote_header.extra_data, local_header.extra_data);
+        assert_eq!(remote_header.base_fee_per_gas, local_header.base_fee);
+        Ok(())
+    };
+    assert_replay_header::<OpChainSpec>(
+        url.clone(),
+        block_number - 1,
+        header_overrides,
+        block_validation,
+    )
+    .await?;
+    assert_replay_header::<OpChainSpec>(url, block_number, header_overrides, block_validation).await
+}
+
+impl_test_dynamic_base_fee_params! {
+    op_mainnet: op::mainnet_url() => [
+        135_513_416,
+        136_165_876,
+    ],
+    base_mainnet: base::mainnet_url() => [
+        25_955_889,
+        30_795_009,
+        31_747_084,
+    ],
+    op_sepolia: op::sepolia_url() => [
+        26_806_602,
+    ],
+    base_sepolia: base::sepolia_url() => [
+        21_256_270,
+        26_299_084,
+    ],
 }

@@ -2286,6 +2286,7 @@ dependencies = [
  "edr_chain_l1",
  "edr_eip1559",
  "edr_eip4844",
+ "edr_evm",
  "edr_evm_spec",
  "edr_primitives",
  "edr_trie",
@@ -2345,6 +2346,7 @@ dependencies = [
  "anyhow",
  "derive_more 2.0.1",
  "dyn-clone",
+ "edr_block_header",
  "edr_chain_l1",
  "edr_defaults",
  "edr_evm",
@@ -2367,6 +2369,7 @@ version = "0.3.8"
 dependencies = [
  "alloy-eips",
  "edr_chain_l1",
+ "serde",
 ]
 
 [[package]]
@@ -2407,6 +2410,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_evm",
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
@@ -2702,6 +2706,7 @@ dependencies = [
  "auto_impl",
  "cargo_toml",
  "derive-where",
+ "derive_more 2.0.1",
  "dyn-clone",
  "edr_block_header",
  "edr_chain_l1",

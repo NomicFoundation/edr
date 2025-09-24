@@ -62,7 +62,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
         &self,
         block_count: u64,
         newest_block: BlockSpec,
-        reward_percentiles: Option<Vec<RewardPercentile>>,
+        reward_percentiles: Vec<RewardPercentile>,
     ) -> Result<FeeHistoryResult, RpcClientError> {
         self.inner
             .call(RequestMethod::FeeHistory(
@@ -989,7 +989,7 @@ mod tests {
                 .fee_history(
                     /* block count */ 1,
                     BlockSpec::latest(),
-                    /* reward percentiles */ None,
+                    /* reward percentiles */ vec![],
                 )
                 .await
                 .expect("should have succeeded");

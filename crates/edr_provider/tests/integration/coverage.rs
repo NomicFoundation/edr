@@ -8,8 +8,8 @@ use edr_chain_l1::{
 };
 use edr_primitives::{bytes, Address, Bytes, HashSet, B256};
 use edr_provider::{
-    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
-    ProviderRequest,
+    gas_reports::GasReport, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
+    NoopLogger, Provider, ProviderRequest,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -26,6 +26,11 @@ const INCREMENT_CALLDATA: Bytes =
 #[derive(Default)]
 struct CoverageReporter {
     hits: HashSet<Bytes>,
+}
+
+#[derive(Default)]
+pub struct GasReporter {
+    report: GasReport,
 }
 
 struct Fixture {
@@ -49,11 +54,17 @@ fn assert_hits(reporter: &CoverageReporter) {
 
 fn provider_with_deployed_test_contract(
     coverage_reporter: Arc<Mutex<CoverageReporter>>,
+    gas_reporter: Arc<Mutex<GasReporter>>,
 ) -> Fixture {
     let mut config = create_test_config();
     config.observability.on_collected_coverage_fn = Some(Box::new(move |hits| {
         coverage_reporter.lock().hits.extend(hits);
 
+        Ok(())
+    }));
+    config.observability.on_collected_gas_report_fn = Some(Box::new(move |report| {
+        let mut gas_reporter = gas_reporter.lock();
+        gas_reporter.report.merge(report);
         Ok(())
     }));
 
@@ -122,12 +133,13 @@ fn provider_with_deployed_test_contract(
 #[tokio::test(flavor = "multi_thread")]
 async fn call() -> anyhow::Result<()> {
     let coverage_reporter = Arc::new(Mutex::default());
+    let gas_reporter = Arc::new(Mutex::default());
 
     let Fixture {
         deployed_address,
         from,
         provider,
-    } = provider_with_deployed_test_contract(coverage_reporter.clone());
+    } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let _response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
@@ -149,12 +161,13 @@ async fn call() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn debug_trace_call() -> anyhow::Result<()> {
     let coverage_reporter = Arc::new(Mutex::default());
+    let gas_reporter = Arc::new(Mutex::default());
 
     let Fixture {
         deployed_address,
         from,
         provider,
-    } = provider_with_deployed_test_contract(coverage_reporter.clone());
+    } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let _response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::DebugTraceCall(
@@ -177,12 +190,13 @@ async fn debug_trace_call() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn debug_trace_transaction() -> anyhow::Result<()> {
     let coverage_reporter = Arc::new(Mutex::default());
+    let gas_reporter = Arc::new(Mutex::default());
 
     let Fixture {
         deployed_address,
         from,
         provider,
-    } = provider_with_deployed_test_contract(coverage_reporter.clone());
+    } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let transaction_hash: B256 = {
         let response = provider.handle_request(ProviderRequest::with_single(
@@ -212,12 +226,13 @@ async fn debug_trace_transaction() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn estimate_gas() -> anyhow::Result<()> {
     let coverage_reporter = Arc::new(Mutex::default());
+    let gas_reporter = Arc::new(Mutex::default());
 
     let Fixture {
         deployed_address,
         from,
         provider,
-    } = provider_with_deployed_test_contract(coverage_reporter.clone());
+    } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let _response =
         provider.handle_request(ProviderRequest::with_single(MethodInvocation::EstimateGas(
@@ -238,12 +253,13 @@ async fn estimate_gas() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn send_transaction() -> anyhow::Result<()> {
     let coverage_reporter = Arc::new(Mutex::default());
+    let gas_reporter = Arc::new(Mutex::default());
 
     let Fixture {
         deployed_address,
         from,
         provider,
-    } = provider_with_deployed_test_contract(coverage_reporter.clone());
+    } = provider_with_deployed_test_contract(coverage_reporter.clone(), gas_reporter.clone());
 
     let _response = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::SendTransaction(TransactionRequest {

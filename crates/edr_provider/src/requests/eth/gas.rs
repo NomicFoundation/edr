@@ -68,7 +68,7 @@ pub fn handle_fee_history<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_count: U256,
     newest_block: BlockSpec,
-    reward_percentiles: Option<Vec<f64>>,
+    reward_percentiles: Vec<f64>,
 ) -> Result<FeeHistoryResult, ProviderErrorForChainSpec<ChainSpecT>> {
     if data.evm_spec_id() < EvmSpecId::LONDON {
         return Err(ProviderError::InvalidInput(
@@ -93,9 +93,9 @@ pub fn handle_fee_history<
 
     validate_post_merge_block_tags::<ChainSpecT, TimerT>(data.hardfork(), &newest_block)?;
 
-    let reward_percentiles = reward_percentiles.map(|percentiles| {
-        let mut validated_percentiles = Vec::with_capacity(percentiles.len());
-        for (i, percentile) in percentiles.iter().copied().enumerate() {
+    let reward_percentiles = {
+        let mut validated_percentiles = Vec::with_capacity(reward_percentiles.len());
+        for (i, percentile) in reward_percentiles.iter().copied().enumerate() {
             validated_percentiles.push(RewardPercentile::try_from(percentile).map_err(|_err| {
                 ProviderError::InvalidInput(format!(
                     "The reward percentile number {} is invalid. It must be a float between 0 and 100, but is {} instead.",
@@ -104,7 +104,7 @@ pub fn handle_fee_history<
                 ))
             })?);
             if i > 0 {
-                let prev = *percentiles
+                let prev = *reward_percentiles
                     .get(i - 1)
                     .expect("previous percentile should exist");
                 if prev > percentile {
@@ -113,8 +113,8 @@ The reward percentiles should be in non-decreasing order, but the percentile num
                 }
             }
         }
-        Ok(validated_percentiles)
-    }).transpose()?;
+        validated_percentiles
+    };
 
     data.fee_history(block_count, &newest_block, reward_percentiles)
 }

@@ -9,7 +9,7 @@ use edr_evm::{
 };
 use edr_evm_spec::EvmSpecId;
 use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
-use edr_provider::{config, AccountOverride, ForkConfig};
+use edr_provider::{config, observability::ObservabilityConfig, AccountOverride, ForkConfig};
 use edr_signer::SecretKey;
 
 /// Chain-agnostic configuration for a provider.
@@ -35,7 +35,7 @@ pub struct Config {
     pub min_gas_price: u128,
     pub mining: config::Mining,
     pub network_id: u64,
-    pub observability: edr_provider::observability::Config,
+    pub observability: ObservabilityConfig,
     /// Secret keys of owned accounts.
     pub owned_accounts: Vec<SecretKey>,
     pub precompile_overrides: HashMap<Address, PrecompileFn>,

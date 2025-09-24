@@ -61,8 +61,9 @@ async fn block_with_deposit_transaction() -> anyhow::Result<()> {
     )));
     let hardfork_activation_overrides = HashMap::new();
 
-    let hardfork_activations =
-        hardfork::chain_hardfork_activations(CHAIN_ID).ok_or(anyhow!("Unsupported chain id"))?;
+    let hardfork_activations = hardfork::chain_config(CHAIN_ID)
+        .map(|config| &config.hardfork_activations)
+        .ok_or(anyhow!("Unsupported chain id"))?;
 
     let spec_id = hardfork_activations
         .hardfork_at_block(BLOCK_NUMBER_WITH_DEPOSIT, replay_block.header().timestamp)

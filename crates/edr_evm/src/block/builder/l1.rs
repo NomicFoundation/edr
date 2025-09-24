@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use alloy_eips::eip7840::BlobParams;
 use derive_where::derive_where;
-use edr_block_header::{BlobGas, HeaderOverrides, PartialHeader, Withdrawal};
+use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_evm_spec::{EvmSpecId, ExecutableTransaction as _};
 use edr_primitives::{Address, Bloom, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
@@ -21,7 +21,7 @@ use crate::{
     receipt::ExecutionReceiptBuilder as _,
     result::{ExecutionResult, ExecutionResultAndState},
     runtime::{dry_run, dry_run_with_inspector},
-    spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
+    spec::{base_fee_params_for, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, DatabaseComponents, StateCommit as _, StateDebug as _, StateDiff,
         SyncState, WrapDatabaseRef,
@@ -153,7 +153,10 @@ where
 
         overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new::<ChainSpecT>(
-            cfg.spec,
+            BlockConfig {
+                hardfork: cfg.spec,
+                base_fee_params: base_fee_params_for::<ChainSpecT>(cfg.chain_id),
+            },
             overrides,
             Some(parent_header),
             &inputs.ommers,

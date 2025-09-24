@@ -3,14 +3,19 @@ use std::sync::Arc;
 
 use alloy_eips::eip7840::BlobParams;
 use alloy_rlp::RlpEncodable;
-use edr_block_header::{BlobGas, BlockHeader, PartialHeader};
+use edr_block_header::{
+    calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, PartialHeader,
+};
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
-use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
+use edr_eip1559::BaseFeeParams;
 use edr_evm::{
     evm::Evm,
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::PrecompileProvider,
-    spec::{BlockEnvConstructor, ContextForChainSpec, GenesisBlockFactory, RuntimeSpec},
+    spec::{
+        base_fee_params_for, BlockEnvConstructor, ContextForChainSpec, GenesisBlockFactory,
+        RuntimeSpec,
+    },
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec},
     BlockReceipts, EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock,
@@ -29,11 +34,11 @@ use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason}
 use edr_rpc_eth::jsonrpc;
 use edr_rpc_spec::RpcSpec;
 use edr_solidity::contract_decoder::ContractDecoder;
-use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
+use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    block::{self, LocalBlock},
+    block::{self, decode_base_params, LocalBlock},
     eip1559::encode_dynamic_base_fee_params,
     eip2718::TypedEnvelope,
     hardfork,
@@ -77,18 +82,17 @@ impl GenesisBlockFactory for OpChainSpec {
 
     fn genesis_block(
         genesis_diff: edr_evm::state::StateDiff,
-        hardfork: Self::Hardfork,
+        block_config: BlockConfig<'_, Self::Hardfork>,
         mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
         let config_base_fee_params = options.base_fee_params.as_ref();
-        if hardfork >= Hardfork::HOLOCENE {
+        if block_config.hardfork >= Hardfork::HOLOCENE {
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
             let extra_data = options.extra_data.unwrap_or_else(|| {
-                let chain_base_fee_params = Self::base_fee_params();
                 let base_fee_params = config_base_fee_params
-                    .unwrap_or(&chain_base_fee_params)
-                    .at_condition(hardfork, 0)
+                    .unwrap_or(block_config.base_fee_params)
+                    .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
                 encode_dynamic_base_fee_params(base_fee_params)
@@ -99,7 +103,7 @@ impl GenesisBlockFactory for OpChainSpec {
 
         EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
             genesis_diff,
-            hardfork,
+            block_config,
             options,
         )
     }
@@ -167,16 +171,6 @@ impl RuntimeSpec for OpChainSpec {
         }
     }
 
-    fn chain_hardfork_activations(
-        chain_id: u64,
-    ) -> Option<&'static edr_evm::hardfork::Activations<Self::Hardfork>> {
-        hardfork::chain_hardfork_activations(chain_id)
-    }
-
-    fn chain_name(chain_id: u64) -> Option<&'static str> {
-        hardfork::chain_name(chain_id)
-    }
-
     fn evm_with_inspector<
         BlockchainErrorT,
         DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
@@ -195,22 +189,52 @@ impl RuntimeSpec for OpChainSpec {
             precompile_provider,
         ))
     }
+
+    fn chain_config(
+        chain_id: u64,
+    ) -> Option<&'static edr_evm::hardfork::ChainConfig<Self::Hardfork>> {
+        hardfork::chain_config(chain_id)
+    }
+
+    fn next_base_fee_per_gas(
+        header: &BlockHeader,
+        chain_id: u64,
+        hardfork: Self::Hardfork,
+        base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
+    ) -> u128 {
+        calculate_next_base_fee_per_gas(
+            header,
+            op_base_fee_params_overrides(header, hardfork, base_fee_params_overrides.cloned())
+                .as_ref()
+                .unwrap_or(base_fee_params_for::<Self>(chain_id)),
+            hardfork,
+        )
+    }
+
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+        hardfork::default_base_fee_params()
+    }
+}
+
+/// Defines the `base_fee_params` override to use for OP
+pub(crate) fn op_base_fee_params_overrides(
+    parent_header: &BlockHeader,
+    parent_hardfork: OpSpecId,
+    base_fee_params_overrides: Option<BaseFeeParams<OpSpecId>>,
+) -> Option<BaseFeeParams<OpSpecId>> {
+    base_fee_params_overrides.or_else(|| {
+        // For post-Holocene blocks, use the parent header extra_data to determine the
+        // base fee parameters
+        if parent_hardfork >= Hardfork::HOLOCENE {
+            let base_fee_params = decode_base_params(&parent_header.extra_data);
+            Some(BaseFeeParams::Constant(base_fee_params))
+        } else {
+            None
+        }
+    })
 }
 
 impl EthHeaderConstants for OpChainSpec {
-    fn base_fee_params() -> BaseFeeParams<Hardfork> {
-        BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
-            (
-                BaseFeeActivation::Hardfork(Hardfork::BEDROCK),
-                ConstantBaseFeeParams::new(50, 6),
-            ),
-            (
-                BaseFeeActivation::Hardfork(Hardfork::CANYON),
-                ConstantBaseFeeParams::new(250, 6),
-            ),
-        ]))
-    }
-
     const MIN_ETHASH_DIFFICULTY: u64 = 0;
 }
 

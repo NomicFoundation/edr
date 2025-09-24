@@ -4,7 +4,6 @@ mod transaction;
 
 use core::fmt::Debug;
 
-use edr_eip1559::BaseFeeParams;
 pub use revm_context_interface::{
     block::BlobExcessGasAndPrice,
     result::{HaltReasonTr as HaltReasonTrait, OutOfGasError},
@@ -47,11 +46,6 @@ pub trait ChainSpec {
 
 /// Constants for constructing Ethereum headers.
 pub trait EthHeaderConstants: ChainHardfork<Hardfork: 'static + PartialOrd> {
-    /// Parameters for the EIP-1559 base fee calculation.
-    // TODO: Ani should this be moved to another trait? No longer a const since
-    // VariableBaseFeeParams contains a Vec
-    fn base_fee_params() -> BaseFeeParams<Self::Hardfork>;
-
     /// The minimum difficulty for the Ethash proof-of-work algorithm.
     const MIN_ETHASH_DIFFICULTY: u64;
 }
