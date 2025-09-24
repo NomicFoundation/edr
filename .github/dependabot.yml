@@ -8,4 +8,4 @@ updates:
     schedule:
       interval: "daily"
     commit-message:
-      prefix: "bump"
+      prefix: "build"
