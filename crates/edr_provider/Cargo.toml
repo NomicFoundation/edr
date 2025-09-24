@@ -72,7 +72,7 @@ serial_test = "2.0.0"
 tempfile = "3.7.1"
 
 [build-dependencies]
-cargo_toml = { version = "0.15.3", default-features = false }
+cargo_toml = { version = "0.22.1", default-features = false }
 toml = { version = "0.5.9", default-features = false }
 
 [features]
