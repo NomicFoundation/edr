@@ -9,11 +9,9 @@ mod alchemy {
                     #[tokio::test]
                     async fn [<transaction_remote_ $name _hash>]() {
                         use edr_chain_l1::{L1ChainSpec, L1SignedTransaction};
-                        use edr_eth::{
-                            PreEip1898BlockSpec,
-                            B256
-                        };
+                        use edr_eth::PreEip1898BlockSpec;
                         use edr_evm_spec::ExecutableTransaction;
+                        use edr_primitives::B256;
                         use edr_rpc_eth::client::EthRpcClient;
                         use edr_test_utils::env::get_alchemy_url;
 

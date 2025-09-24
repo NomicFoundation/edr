@@ -2,11 +2,12 @@ use core::cmp;
 use std::sync::Arc;
 
 use edr_block_header::BlockHeader;
-use edr_eth::{result::ExecutionResult, reward_percentile::RewardPercentile};
+use edr_eth::reward_percentile::RewardPercentile;
 use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchain},
     config::CfgEnv,
     precompile::PrecompileFn,
+    result::ExecutionResult,
     spec::SyncRuntimeSpec,
     state::{StateError, SyncState},
     trace::TraceCollector,

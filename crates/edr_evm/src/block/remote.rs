@@ -3,8 +3,8 @@ use std::sync::{Arc, OnceLock};
 use derive_where::derive_where;
 use edr_block_header::{BlockHeader, Withdrawal};
 use edr_chain_l1::rpc::block::L1RpcBlock;
-use edr_eth::{B256, U256};
 use edr_evm_spec::ExecutableTransaction as _;
+use edr_primitives::{B256, U256};
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 

@@ -5,10 +5,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use edr_eth::{
-    filter::{FilteredEvents, LogOutput, SubscriptionType},
-    B256,
-};
+use edr_eth::filter::{FilteredEvents, LogOutput, SubscriptionType};
+use edr_primitives::B256;
 
 pub use self::criteria::*;
 

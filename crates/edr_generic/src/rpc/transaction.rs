@@ -3,6 +3,7 @@ use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
     transaction::remote::EthRpcTransaction,
 };
+use edr_primitives::B256;
 use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::SignedTransaction as _;
 use serde::{Deserialize, Serialize};
@@ -19,7 +20,7 @@ use crate::{transaction, GenericChainSpec};
 pub struct TransactionWithSignature(L1RpcTransactionWithSignature);
 
 impl EthRpcTransaction for TransactionWithSignature {
-    fn block_hash(&self) -> Option<&edr_eth::B256> {
+    fn block_hash(&self) -> Option<&B256> {
         self.0.block_hash()
     }
 }

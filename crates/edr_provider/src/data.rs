@@ -19,10 +19,8 @@ use edr_eth::{
     block::miner_reward,
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
-    result::ExecutionResult,
     reward_percentile::RewardPercentile,
-    Address, BlockSpec, BlockTag, Bytecode, Bytes, Eip1898BlockSpec, HashMap, HashSet, B256,
-    KECCAK_EMPTY, U256,
+    BlockSpec, BlockTag, Eip1898BlockSpec,
 };
 use edr_evm::{
     block::transaction::{
@@ -36,6 +34,7 @@ use edr_evm::{
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
     precompile::PrecompileFn,
+    result::ExecutionResult,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{
         AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
@@ -49,6 +48,7 @@ use edr_evm_spec::{
     ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
     TransactionValidation,
 };
+use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
 use edr_signer::{
@@ -3016,8 +3016,8 @@ fn get_max_cached_states_from_env<
 mod tests {
     use anyhow::Context;
     use edr_chain_l1::L1ChainSpec;
-    use edr_eth::hex;
     use edr_evm::MineOrdering;
+    use edr_primitives::hex;
     use serde_json::json;
 
     use super::*;

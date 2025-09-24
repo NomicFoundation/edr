@@ -1,8 +1,6 @@
-use edr_eth::{filter::LogOutput, Address, Bloom, HashSet, B256};
-use edr_receipt::{
-    log::{matches_address_filter, matches_topics_filter, FilterLog},
-    BloomInput,
-};
+use edr_eth::filter::LogOutput;
+use edr_primitives::{Address, Bloom, BloomInput, HashSet, B256};
+use edr_receipt::log::{matches_address_filter, matches_topics_filter, FilterLog};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LogFilter {

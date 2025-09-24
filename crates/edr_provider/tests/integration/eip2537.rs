@@ -4,7 +4,7 @@ use core::str::FromStr as _;
 use std::sync::Arc;
 
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
-use edr_eth::{address, Bytes};
+use edr_primitives::{address, Bytes};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,

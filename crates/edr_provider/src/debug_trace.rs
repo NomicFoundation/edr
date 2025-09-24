@@ -1,11 +1,5 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use edr_eth::{
-    bytecode::opcode::{self, OpCode},
-    hex,
-    result::{ExecutionResult, ExecutionResultAndState},
-    Address, Bytes, B256, U256,
-};
 use edr_evm::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
@@ -15,6 +9,7 @@ use edr_evm::{
         Interpreter, InterpreterResult, Jumps as _,
     },
     journal::{JournalEntry, JournalExt, JournalTrait as _},
+    result::{ExecutionResult, ExecutionResultAndState},
     runtime::{dry_run_with_inspector, run},
     spec::{ContextTrait, RuntimeSpec},
     state::SyncState,
@@ -24,6 +19,10 @@ use edr_evm::{
 use edr_evm_spec::{
     Block as _, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
     HaltReasonTrait, TransactionValidation,
+};
+use edr_primitives::{
+    bytecode::opcode::{self, OpCode},
+    hex, Address, Bytes, B256, U256,
 };
 
 use crate::{
@@ -80,7 +79,7 @@ where
                     evm_config,
                     transaction,
                     block,
-                    &edr_eth::HashMap::new(),
+                    &edr_primitives::HashMap::new(),
                     &mut DualInspector::new(&mut eip3155_tracer, &mut runtime_observer),
                 )?;
 
@@ -109,7 +108,7 @@ where
                 evm_config.clone(),
                 transaction,
                 block.clone(),
-                &edr_eth::HashMap::new(),
+                &edr_primitives::HashMap::new(),
             )?;
         }
     }

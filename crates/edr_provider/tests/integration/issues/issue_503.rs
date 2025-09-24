@@ -1,7 +1,7 @@
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_chain_l1::L1ChainSpec;
-use edr_eth::{Address, HashMap, U256};
+use edr_primitives::{Address, HashMap, U256};
 use edr_provider::{
     test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, MethodInvocation,
     NoopLogger, Provider, ProviderRequest,

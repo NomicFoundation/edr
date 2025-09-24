@@ -5,6 +5,7 @@ edition.workspace = true
 description = "A generic chain specification for Ethereum Layer 1 chains."
 
 [dependencies]
+alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
 derive-where.workspace = true
@@ -16,6 +17,7 @@ edr_eip7702.workspace = true
 edr_eth.workspace = true
 edr_evm = { path = "../edr_evm" }
 edr_evm_spec.workspace = true
+edr_primitives.workspace = true
 edr_provider = { path = "../edr_provider" }
 edr_receipt.workspace = true
 edr_rpc_spec.workspace = true

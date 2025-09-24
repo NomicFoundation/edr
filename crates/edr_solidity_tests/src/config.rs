@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 pub use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
-use edr_eth::{Address, B256, U256};
+use edr_primitives::{Address, B256, U256};
 use foundry_evm::{
     backend::Predeploy,
     evm_context::{BlockEnvTr, HardforkTr, TransactionEnvTr},

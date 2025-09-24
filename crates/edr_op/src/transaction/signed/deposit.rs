@@ -113,8 +113,8 @@ impl ExecutableTransaction for Deposit {
 mod tests {
     use std::{str::FromStr as _, sync::OnceLock};
 
-    use edr_eth::{address, b256, Bytes, U256};
     use edr_evm_spec::ExecutableTransaction as _;
+    use edr_primitives::{address, b256, Bytes, U256};
     use edr_transaction::TxKind;
 
     use super::*;

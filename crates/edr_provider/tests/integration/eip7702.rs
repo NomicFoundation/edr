@@ -14,8 +14,8 @@ use edr_chain_l1::{
     rpc::{transaction::L1RpcTransactionWithSignature, TransactionRequest},
     L1ChainSpec,
 };
-use edr_eth::{address, Address, Bytes, B256, U256};
 use edr_evm_spec::ExecutableTransaction as _;
+use edr_primitives::{address, Address, Bytes, B256, U256};
 use edr_provider::{
     test_utils::{
         create_test_config, one_ether, set_genesis_state_with_owned_accounts, sign_authorization,

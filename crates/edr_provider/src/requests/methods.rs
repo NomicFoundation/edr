@@ -3,8 +3,9 @@ use derive_where::derive_where;
 use edr_eth::{
     filter::{LogFilterOptions, SubscriptionType},
     serde::{optional_single_to_sequence, sequence_to_optional_single},
-    Address, BlockSpec, Bytes, PreEip1898BlockSpec, B256, U128, U256, U64,
+    BlockSpec, PreEip1898BlockSpec,
 };
+use edr_primitives::{Address, Bytes, B256, U128, U256, U64};
 use edr_rpc_eth::StateOverrideOptions;
 use edr_rpc_spec::RpcSpec;
 use serde::{Deserialize, Serialize};

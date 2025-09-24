@@ -1,10 +1,10 @@
 use edr_block_header::BlockHeader;
-use edr_eth::result::ExecutionResult;
 use edr_evm::{
     blockchain::{BlockHash, BlockchainErrorForChainSpec},
     config::CfgEnv,
     inspector::Inspector,
     precompile::PrecompileFn,
+    result::ExecutionResult,
     runtime::guaranteed_dry_run_with_inspector,
     spec::ContextForChainSpec,
     state::{DatabaseComponents, State, StateError, WrapDatabaseRef},

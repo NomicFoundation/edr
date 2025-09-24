@@ -1,5 +1,5 @@
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
-use edr_eth::{address, bytes};
+use edr_primitives::{address, bytes};
 
 use super::new_provider;
 use crate::integration::eip7623::assert_transaction_gas_usage;

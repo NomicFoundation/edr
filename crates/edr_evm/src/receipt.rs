@@ -1,11 +1,10 @@
 use edr_block_header::PartialHeader;
 use edr_chain_l1::TypedEnvelope;
-use edr_eth::result::ExecutionResult;
 use edr_evm_spec::{ExecutableTransaction, HaltReasonTrait, TransactionValidation};
 use edr_receipt::log::{logs_to_bloom, ExecutionLog};
 use edr_transaction::TransactionType as _;
 
-use crate::state::State;
+use crate::{result::ExecutionResult, state::State};
 
 /// Trait for a builder that constructs an execution receipt.
 pub trait ExecutionReceiptBuilder<HaltReasonT, HardforkT, TransactionT>: Sized

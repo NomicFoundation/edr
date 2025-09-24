@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 edr_common.workspace = true
-edr_eth = { workspace = true, features = ["rand", "serde"] }
+edr_primitives.workspace = true
 edr_signer.workspace = true
 fd-lock = "4.0.0"
 foundry-compilers = { workspace = true, features = ["project-util"] }

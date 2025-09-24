@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use edr_block_header::Withdrawal;
 use edr_chain_l1::rpc::block::L1RpcBlock;
-use edr_eth::{BlockSpec, PreEip1898BlockSpec, B256, U256, U64};
+use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     spec::RuntimeSpec,
@@ -12,6 +12,7 @@ use edr_evm::{
 use edr_evm_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
+use edr_primitives::{B256, U256, U64};
 use edr_rpc_spec::RpcTypeFrom as _;
 
 use crate::{

@@ -9,7 +9,7 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, receipt::L1BlockReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_eth::{B256, U64};
+use edr_primitives::{B256, U64};
 use edr_provider::{
     test_utils::{create_test_config, one_ether, set_genesis_state_with_owned_accounts},
     time::CurrentTime,

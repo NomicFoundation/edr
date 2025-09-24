@@ -1,7 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug};
 
 use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides};
-use edr_eth::result::ExecutionResult;
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EvmTransactionValidationError, ExecutableTransaction,
     HaltReasonTrait, TransactionValidation,
@@ -16,6 +15,7 @@ use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     mempool::OrderedTransaction,
+    result::ExecutionResult,
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
     transaction::TransactionError,

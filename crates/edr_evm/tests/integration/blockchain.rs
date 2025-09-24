@@ -4,13 +4,10 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_header::{HeaderOverrides, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
-use edr_eth::{
-    result::{ExecutionResult, Output, SuccessReason},
-    Address, Bytes, HashSet, B256, U256,
-};
 use edr_evm::{
     blockchain::{BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain, SyncBlockchain},
     receipt::{self, ExecutionReceiptBuilder as _},
+    result::{ExecutionResult, Output, SuccessReason},
     spec::{ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory, RuntimeSpec},
     state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
@@ -18,6 +15,7 @@ use edr_evm::{
     GenesisBlockOptions, RemoteBlockConversionError,
 };
 use edr_evm_spec::ExecutableTransaction as _;
+use edr_primitives::{Address, Bytes, HashSet, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
@@ -43,8 +41,8 @@ const REMOTE_BLOCK_LAST_TRANSACTION_HASH: &str =
 async fn create_forked_dummy_blockchain(
     fork_block_number: Option<u64>,
 ) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>> {
-    use edr_eth::HashMap;
     use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
+    use edr_primitives::HashMap;
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use parking_lot::Mutex;

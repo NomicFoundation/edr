@@ -1,5 +1,6 @@
-use edr_eth::{Address, BlockSpec, U256, U64};
+use edr_eth::BlockSpec;
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_primitives::{Address, U256, U64};
 
 use crate::{
     data::ProviderData, requests::validation::validate_post_merge_block_tags,

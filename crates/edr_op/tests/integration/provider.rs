@@ -4,8 +4,9 @@ use std::sync::Arc;
 
 use edr_chain_l1::rpc::call::L1CallRequest;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_eth::{address, bytes, Address, BlockSpec, HashMap, PreEip1898BlockSpec, U64};
+use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_op::{Hardfork, OpChainSpec};
+use edr_primitives::{address, bytes, Address, HashMap, U64};
 use edr_provider::{
     test_utils::{create_test_config, create_test_config_with_fork, ProviderTestFixture},
     time::CurrentTime,

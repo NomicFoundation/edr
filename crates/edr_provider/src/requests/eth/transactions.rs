@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_eth::{Bytes, PreEip1898BlockSpec, B256, U256};
+use edr_eth::PreEip1898BlockSpec;
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainErrorForChainSpec,
@@ -9,6 +9,7 @@ use edr_evm::{
 use edr_evm_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
+use edr_primitives::{Bytes, B256, U256};
 use edr_rpc_spec::RpcTypeFrom as _;
 use edr_transaction::{
     request::TransactionRequestAndSender, IsEip155, IsEip4844, TransactionType,
@@ -382,7 +383,7 @@ You can use them by running Hardhat Network with 'hardfork' {minimum_hardfork:?}
 mod tests {
     use anyhow::Context;
     use edr_chain_l1::L1ChainSpec;
-    use edr_eth::{Address, Bytes, U256};
+    use edr_primitives::{Address, Bytes, U256};
     use edr_signer::FakeSign as _;
     use edr_transaction::TxKind;
 

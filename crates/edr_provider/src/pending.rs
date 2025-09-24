@@ -10,7 +10,8 @@ use edr_evm::{
     Block as _, BlockAndTotalDifficulty, BlockReceipts,
 };
 use edr_evm_spec::ExecutableTransaction as _;
-use edr_receipt::{log::FilterLog, HashSet, ReceiptTrait as _, B256};
+use edr_primitives::{Address, HashSet, B256};
+use edr_receipt::{log::FilterLog, ReceiptTrait as _};
 use edr_transaction::U256;
 
 /// A blockchain with a pending block.
@@ -128,7 +129,7 @@ where
         &self,
         _from_block: u64,
         _to_block: u64,
-        _addresses: &HashSet<edr_eth::Address>,
+        _addresses: &HashSet<Address>,
         _normalized_topics: &[Option<Vec<B256>>],
     ) -> Result<Vec<FilterLog>, Self::BlockchainError> {
         panic!("Retrieving logs from a pending blockchain is not supported.");

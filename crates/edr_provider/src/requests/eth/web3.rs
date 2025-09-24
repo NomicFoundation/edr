@@ -1,4 +1,4 @@
-use edr_eth::{Bytes, B256};
+use edr_primitives::{Bytes, B256};
 use sha3::{Digest, Keccak256};
 
 use crate::{time::TimeSinceEpoch, ProviderErrorForChainSpec, ProviderSpec};

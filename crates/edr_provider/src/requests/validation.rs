@@ -1,8 +1,7 @@
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
-use edr_eth::{
-    Address, Blob, BlockSpec, BlockTag, Bytes, PreEip1898BlockSpec, B256, MAX_INITCODE_SIZE,
-};
+use edr_eth::{Blob, BlockSpec, BlockTag, PreEip1898BlockSpec};
 use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
+use edr_primitives::{Address, Bytes, B256, MAX_INITCODE_SIZE};
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, spec::HardforkValidationData,
@@ -411,7 +410,7 @@ pub(crate) fn validate_post_merge_block_tags<
 #[cfg(test)]
 mod tests {
     use edr_chain_l1::L1ChainSpec;
-    use edr_eth::U256;
+    use edr_primitives::U256;
 
     use super::*;
     use crate::time::CurrentTime;

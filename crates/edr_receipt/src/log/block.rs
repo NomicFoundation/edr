@@ -74,8 +74,10 @@ impl alloy_rlp::Encodable for FullBlockLog {
 mod tests {
     use std::str::FromStr;
 
+    use edr_primitives::{Address, Bytes};
+
     use super::*;
-    use crate::{log::ExecutionLog, Address, Bytes};
+    use crate::log::ExecutionLog;
 
     #[test]
     fn test_block_log_full_serde() -> anyhow::Result<()> {

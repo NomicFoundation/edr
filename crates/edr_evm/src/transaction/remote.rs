@@ -1,5 +1,5 @@
 use edr_chain_l1::rpc::transaction::L1RpcTransactionWithSignature;
-use edr_eth::B256;
+use edr_primitives::B256;
 
 /// Trait for retrieving information from an Ethereum JSON-RPC transaction.
 pub trait EthRpcTransaction {

@@ -9,32 +9,14 @@
 pub mod block;
 /// Ethereum block spec
 mod block_spec;
-/// Types and constants for Ethereum improvements proposals (EIPs)
-pub mod eips;
 /// Ethereum fee history types
 pub mod fee_history;
 pub mod filter;
-/// Ethereum result types
-pub mod result;
 /// Ethereum gas related types
 pub mod reward_percentile;
 #[cfg(feature = "serde")]
 pub mod serde;
 
 pub use c_kzg::{Blob, Bytes48};
-pub use revm_bytecode::{self as bytecode, Bytecode};
-pub use revm_primitives::{
-    address,
-    alloy_primitives::{Bloom, ChainId, B512, B64, U128, U160, U64, U8},
-    b256, bytes,
-    eip3860::MAX_INITCODE_SIZE,
-    hash_map, hash_set, hex, hex_literal, keccak256, Address, Bytes, HashMap, HashSet, B256,
-    KECCAK_EMPTY, U256,
-};
 
 pub use self::block_spec::{BlockSpec, BlockTag, Eip1898BlockSpec, PreEip1898BlockSpec};
-
-/// A secret key
-pub type Secret = B256;
-/// A public key
-pub type Public = B512;

@@ -1,8 +1,10 @@
 use std::str::FromStr as _;
 
 use alloy_rlp::{self, Decodable as _};
-use edr_eth::{eips::eip4844::ethereum_kzg_settings, Address, Blob, Bytes, Bytes48, B256};
+use edr_eth::{Blob, Bytes48};
+use edr_primitives::{Address, Bytes, B256};
 use edr_test_utils::secret_key::secret_key_from_str;
+use edr_transaction::pooled::eip4844::ethereum_kzg_settings;
 
 /// Helper struct to modify the pooled transaction from the value in
 /// `fixtures/eip4844.txt`. It reuses the secret key from `SECRET_KEYS[0]`.

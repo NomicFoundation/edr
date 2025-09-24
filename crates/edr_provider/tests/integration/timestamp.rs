@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use edr_chain_l1::{rpc::block::L1RpcBlock, L1ChainSpec};
-use edr_eth::{PreEip1898BlockSpec, B256};
+use edr_eth::PreEip1898BlockSpec;
+use edr_primitives::B256;
 use edr_provider::{
     test_utils::create_test_config,
     time::{MockTime, TimeSinceEpoch},

@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use derive_where::derive_where;
-use edr_eth::{filter::OneOrMore, Address, BlockSpec, HashSet, PreEip1898BlockSpec, B256, U256};
+use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
+use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;

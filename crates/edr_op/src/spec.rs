@@ -1,11 +1,11 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
+use alloy_eips::eip7840::BlobParams;
 use alloy_rlp::RlpEncodable;
 use edr_block_header::{BlobGas, BlockHeader, PartialHeader};
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_eth::{eips::eip4844, U256};
 use edr_evm::{
     evm::Evm,
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
@@ -17,13 +17,14 @@ use edr_evm::{
     RemoteBlockConversionError, SyncBlock,
 };
 use edr_evm_spec::{
-    ChainHardfork, ChainSpec, EthHeaderConstants, EvmHaltReason, EvmSpecId,
+    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmHaltReason, EvmSpecId,
     EvmTransactionValidationError, TransactionValidation,
 };
 use edr_napi_core::{
     napi,
     spec::{marshal_response_data, Response, SyncNapiSpec},
 };
+use edr_primitives::U256;
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::jsonrpc;
 use edr_rpc_spec::RpcSpec;
@@ -273,9 +274,18 @@ impl BlockEnvConstructor<PartialHeader> for OpChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(
+                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
+                        BlobParams::prague()
+                    } else {
+                        BlobParams::cancun()
+                    };
+
+                    BlobExcessGasAndPrice::new(
                         *excess_gas,
-                        eip4844::blob_base_fee_update_fraction(hardfork),
+                        blob_params
+                            .update_fraction
+                            .try_into()
+                            .expect("blob update fraction is too large"),
                     )
                 },
             ),
@@ -301,9 +311,18 @@ impl BlockEnvConstructor<BlockHeader> for OpChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(
+                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
+                        BlobParams::prague()
+                    } else {
+                        BlobParams::cancun()
+                    };
+
+                    BlobExcessGasAndPrice::new(
                         *excess_gas,
-                        eip4844::blob_base_fee_update_fraction(hardfork),
+                        blob_params
+                            .update_fraction
+                            .try_into()
+                            .expect("blob update fraction is too large"),
                     )
                 },
             ),

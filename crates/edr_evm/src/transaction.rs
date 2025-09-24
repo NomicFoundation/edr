@@ -4,11 +4,11 @@ pub mod remote;
 
 use std::fmt::Debug;
 
-use edr_eth::U256;
 use edr_evm_spec::{
     ChainSpec, EvmHeaderValidationError, EvmSpecId, EvmTransactionValidationError,
     TransactionValidation,
 };
+use edr_primitives::U256;
 use edr_transaction::TxKind;
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
@@ -142,7 +142,7 @@ pub fn validate<TransactionT: revm_context_interface::Transaction>(
 
 #[cfg(test)]
 mod tests {
-    use edr_eth::{Address, Bytes};
+    use edr_primitives::{Address, Bytes};
 
     use super::*;
 

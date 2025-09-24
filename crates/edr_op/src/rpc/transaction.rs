@@ -1,11 +1,11 @@
 use std::sync::OnceLock;
 
 use edr_chain_l1::rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature};
-use edr_eth::B256;
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
     transaction::remote::EthRpcTransaction,
 };
+use edr_primitives::B256;
 use edr_rpc_spec::RpcTypeFrom;
 use edr_signer::Signature;
 use edr_transaction::{MaybeSignedTransaction as _, TxKind};

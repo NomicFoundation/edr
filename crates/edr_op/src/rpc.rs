@@ -4,8 +4,8 @@ pub mod receipt;
 pub mod transaction;
 
 use edr_chain_l1::rpc::transaction::L1RpcTransaction;
-use edr_eth::U256;
-use edr_receipt::{log::FilterLog, Address, Bloom, B256};
+use edr_primitives::{Address, Bloom, B256, U256};
+use edr_receipt::log::FilterLog;
 use op_alloy_rpc_types::L1BlockInfo;
 use serde::{Deserialize, Serialize};
 

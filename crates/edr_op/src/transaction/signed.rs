@@ -486,7 +486,7 @@ impl_revm_transaction_trait!(Signed);
 #[cfg(test)]
 mod tests {
     use alloy_rlp::Decodable as _;
-    use edr_eth::hex;
+    use edr_primitives::hex;
 
     use super::*;
 

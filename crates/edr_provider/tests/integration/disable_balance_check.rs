@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
-use edr_eth::{address, bytes, U256};
+use edr_primitives::{address, bytes, U256};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,

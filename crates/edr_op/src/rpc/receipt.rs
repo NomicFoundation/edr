@@ -158,8 +158,8 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
 #[cfg(test)]
 mod tests {
-    use edr_primitives::U256;
-    use edr_receipt::{log::ExecutionLog, Bloom, Bytes};
+    use edr_primitives::{Bloom, Bytes, U256};
+    use edr_receipt::log::ExecutionLog;
     use edr_rpc_spec::impl_execution_receipt_serde_tests;
     use receipt::BlockReceiptFactory;
 

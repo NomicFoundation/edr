@@ -2347,8 +2347,8 @@ dependencies = [
  "dyn-clone",
  "edr_chain_l1",
  "edr_defaults",
- "edr_eth",
  "edr_evm",
+ "edr_primitives",
  "edr_signer",
  "edr_test_utils",
  "edr_transaction",
@@ -2408,6 +2408,7 @@ dependencies = [
  "edr_eip2930",
  "edr_eip7702",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
  "edr_signer",
@@ -2419,10 +2420,8 @@ dependencies = [
  "log",
  "once_cell",
  "paste",
- "revm-bytecode",
  "revm-context",
  "revm-context-interface",
- "revm-primitives",
  "revm-state",
  "serde",
  "serde_json",
@@ -2434,6 +2433,7 @@ dependencies = [
 name = "edr_evm"
 version = "0.3.8"
 dependencies = [
+ "alloy-eips",
  "alloy-rlp",
  "anyhow",
  "async-rwlock",
@@ -2500,6 +2500,7 @@ dependencies = [
 name = "edr_generic"
 version = "0.3.8"
 dependencies = [
+ "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
  "anyhow",
@@ -2513,6 +2514,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_provider",
  "edr_receipt",
  "edr_rpc_client",
@@ -2537,7 +2539,7 @@ name = "edr_instrument"
 version = "0.3.8"
 dependencies = [
  "anyhow",
- "edr_eth",
+ "edr_primitives",
  "semver 1.0.26",
  "serde",
  "serde_json",
@@ -2640,6 +2642,7 @@ dependencies = [
 name = "edr_op"
 version = "0.3.8"
 dependencies = [
+ "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
  "anyhow",
@@ -2691,6 +2694,7 @@ name = "edr_provider"
 version = "0.3.8"
 dependencies = [
  "alloy-dyn-abi",
+ "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
  "alloy-sol-types",
@@ -2754,6 +2758,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_rpc_eth",
  "edr_test_utils",
  "edr_transaction",
@@ -2774,6 +2779,7 @@ version = "0.3.8"
 dependencies = [
  "anyhow",
  "edr_eth",
+ "edr_primitives",
  "edr_test_utils",
  "futures",
  "hex",
@@ -2866,11 +2872,12 @@ dependencies = [
 name = "edr_signer"
 version = "0.3.8"
 dependencies = [
+ "alloy-primitives",
  "alloy-rlp",
+ "edr_primitives",
  "edr_test_utils",
  "hex",
  "k256",
- "revm-primitives",
  "serde",
  "sha3",
  "thiserror 1.0.69",
@@ -2890,6 +2897,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "foundry-compilers",
  "indexmap 2.9.0",
  "itertools 0.10.5",
@@ -2917,9 +2925,9 @@ dependencies = [
  "edr_common",
  "edr_coverage",
  "edr_defaults",
- "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_primitives",
  "edr_solidity",
  "edr_test_utils",
  "evm-disassembler",
@@ -2964,7 +2972,7 @@ name = "edr_test_utils"
 version = "0.3.8"
 dependencies = [
  "edr_common",
- "edr_eth",
+ "edr_primitives",
  "edr_signer",
  "fd-lock",
  "foundry-compilers",

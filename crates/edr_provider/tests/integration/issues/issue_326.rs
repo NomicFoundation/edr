@@ -4,7 +4,7 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
-use edr_eth::Address;
+use edr_primitives::Address;
 use edr_provider::{
     test_utils::{create_test_config_with_fork, one_ether},
     time::CurrentTime,

@@ -2,9 +2,8 @@ use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_block_header::BlobGas;
 use edr_eip1559::BaseFeeParams;
-use edr_eth::Bytecode;
 use edr_evm::{hardfork::ChainOverride, precompile::PrecompileFn, state::EvmStorage, MineOrdering};
-use edr_primitives::{Address, ChainId, HashMap, B256, U256};
+use edr_primitives::{Address, Bytecode, ChainId, HashMap, B256, U256};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -12,8 +11,8 @@ use crate::{observability, requests::IntervalConfig as IntervalConfigRequest};
 
 /// Specification of overrides for an account and its storage.
 ///
-/// Similar to `edr_eth::Account` but without the `status` field and optional
-/// fields.
+/// Similar to `edr_state_api::Account` but without the `status` field and
+/// optional fields.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountOverride {

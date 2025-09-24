@@ -159,7 +159,7 @@ pub struct PartialHeader {
 
 impl PartialHeader {
     /// Constructs a new instance based on the provided [`HeaderOverrides`] and
-    /// parent [`Header`] for the given [`EvmSpecId`].
+    /// parent [`BlockHeader`] for the given [`EvmSpecId`].
     pub fn new<ChainSpecT: EthHeaderConstants>(
         hardfork: ChainSpecT::Hardfork,
         overrides: HeaderOverrides<ChainSpecT::Hardfork>,

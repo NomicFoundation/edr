@@ -2,9 +2,12 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use edr_eth::{result::ExecutionResult, Address, Bytes, U160, U256};
-use edr_evm::trace::{BeforeMessage, Step};
+use edr_evm::{
+    result::ExecutionResult,
+    trace::{BeforeMessage, Step},
+};
 use edr_evm_spec::HaltReasonTrait;
+use edr_primitives::{Address, Bytes, U160, U256};
 
 use crate::{
     exit_code::ExitCode,

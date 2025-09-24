@@ -4,8 +4,8 @@ use std::fmt::Debug;
 
 use edr_block_header::{BlobGas, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_eip1559::BaseFeeParams;
-use edr_eth::{Address, Bytes, HashMap, B256};
 use edr_evm_spec::{ChainHardfork, ChainSpec, EvmSpecId, TransactionValidation};
+use edr_primitives::{Address, Bytes, HashMap, B256};
 use revm::{precompile::PrecompileFn, Inspector};
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};

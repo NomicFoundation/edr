@@ -2,7 +2,7 @@ mod contiguous;
 mod reservable;
 mod sparse;
 
-use edr_eth::B256;
+use edr_primitives::B256;
 
 pub use self::{
     contiguous::ContiguousBlockchainStorage,

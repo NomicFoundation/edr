@@ -1,12 +1,9 @@
 use core::{fmt::Debug, marker::PhantomData};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use alloy_eips::eip7840::BlobParams;
 use derive_where::derive_where;
 use edr_block_header::{BlobGas, HeaderOverrides, PartialHeader, Withdrawal};
-use edr_eth::{
-    eips::{eip4844, eip7691},
-    result::{ExecutionResult, ExecutionResultAndState},
-};
 use edr_evm_spec::{EvmSpecId, ExecutableTransaction as _};
 use edr_primitives::{Address, Bloom, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
@@ -22,6 +19,7 @@ use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     receipt::ExecutionReceiptBuilder as _,
+    result::{ExecutionResult, ExecutionResultAndState},
     runtime::{dry_run, dry_run_with_inspector},
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{
@@ -102,13 +100,13 @@ where
             ..
         }) = self.header.blob_gas.as_ref()
         {
-            let max_blob_gas_per_block = if self.config().spec.into() >= EvmSpecId::PRAGUE {
-                eip7691::MAX_BLOBS_PER_BLOCK_ELECTRA * eip4844::GAS_PER_BLOB
+            let blob_params = if self.config().spec.into() >= EvmSpecId::PRAGUE {
+                BlobParams::prague()
             } else {
-                eip4844::MAX_BLOB_GAS_PER_BLOCK_CANCUN
+                BlobParams::cancun()
             };
 
-            if block_blob_gas_used + blob_gas_used > max_blob_gas_per_block {
+            if block_blob_gas_used + blob_gas_used > blob_params.max_blob_gas_per_block() {
                 return Err(BlockTransactionError::ExceedsBlockBlobGasLimit);
             }
         }

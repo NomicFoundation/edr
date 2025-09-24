@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use edr_eth::{keccak256, B256};
+use edr_primitives::{keccak256, B256};
 
 /// A pseudorandom hash generator which allows overriding of the next generated
 /// hash.

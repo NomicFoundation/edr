@@ -28,11 +28,11 @@ mod utils;
 
 use core::fmt::Debug;
 
-use edr_eth::HashSet;
 // Re-export parts of `edr_evm`
 pub use edr_evm::hardfork;
 use edr_evm::trace::Trace;
 use edr_evm_spec::{ChainSpec, HaltReasonTrait};
+use edr_primitives::HashSet;
 use lazy_static::lazy_static;
 
 pub use self::{

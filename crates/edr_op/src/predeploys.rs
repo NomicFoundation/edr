@@ -1,4 +1,4 @@
-use edr_eth::{address, Address};
+use edr_primitives::{address, Address};
 
 /// The address of the `GasPriceOracle` predeploy.
 pub const GAS_PRICE_ORACLE_ADDRESS: Address =

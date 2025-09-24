@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
 use dyn_clone::DynClone;
-use edr_eth::{filter::LogOutput, B256, U256};
+use edr_eth::filter::LogOutput;
 use edr_evm::BlockAndTotalDifficulty;
+use edr_primitives::{B256, U256};
 
 /// Subscription event.
 #[derive(Clone, Debug)]

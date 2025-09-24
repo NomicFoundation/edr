@@ -4,7 +4,7 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
-use edr_eth::{Address, Blob, BlockSpec, B256};
+use edr_eth::{Blob, BlockSpec};
 pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
@@ -13,6 +13,7 @@ use edr_evm::{
     BlockAndTotalDifficulty, BlockReceipts,
 };
 use edr_evm_spec::ExecutableTransaction;
+use edr_primitives::{Address, B256};
 use edr_signer::{FakeSign, Sign};
 use edr_transaction::IsSupported;
 

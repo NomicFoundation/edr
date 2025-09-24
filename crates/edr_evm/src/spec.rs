@@ -1,16 +1,13 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
+use alloy_eips::eip7840::BlobParams;
 use edr_block_header::{BlobGas, BlockHeader, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
-use edr_eth::{
-    eips::eip4844::{self, blob_base_fee_update_fraction},
-    result::ExecutionResult,
-    Bytes, B256, U256,
-};
 use edr_evm_spec::{
-    ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, EvmTransactionValidationError,
-    ExecutableTransaction, TransactionValidation,
+    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
+    EvmTransactionValidationError, ExecutableTransaction, TransactionValidation,
 };
+use edr_primitives::{Bytes, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
@@ -31,7 +28,7 @@ use crate::{
     journal::Journal,
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder},
-    result::EVMErrorForChain,
+    result::{EVMErrorForChain, ExecutionResult},
     state::{Database, DatabaseComponentError, EvmState, StateDiff},
     transaction::{remote::EthRpcTransaction, TransactionError, TransactionErrorForChainSpec},
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
@@ -484,9 +481,18 @@ impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(
+                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
+                        BlobParams::prague()
+                    } else {
+                        BlobParams::cancun()
+                    };
+
+                    BlobExcessGasAndPrice::new(
                         *excess_gas,
-                        blob_base_fee_update_fraction(hardfork),
+                        blob_params
+                            .update_fraction
+                            .try_into()
+                            .expect("blob update fraction is too large"),
                     )
                 },
             ),
@@ -512,9 +518,18 @@ impl BlockEnvConstructor<BlockHeader> for L1ChainSpec {
             },
             blob_excess_gas_and_price: header.blob_gas.as_ref().map(
                 |BlobGas { excess_gas, .. }| {
-                    eip4844::BlobExcessGasAndPrice::new(
+                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
+                        BlobParams::prague()
+                    } else {
+                        BlobParams::cancun()
+                    };
+
+                    BlobExcessGasAndPrice::new(
                         *excess_gas,
-                        blob_base_fee_update_fraction(hardfork),
+                        blob_params
+                            .update_fraction
+                            .try_into()
+                            .expect("blob update fraction is too large"),
                     )
                 },
             ),

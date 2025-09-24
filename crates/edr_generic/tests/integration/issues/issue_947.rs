@@ -2,7 +2,6 @@
 use std::str::FromStr as _;
 
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
-use edr_eth::{address, B256};
 use edr_evm::{
     hardfork::{self, ChainOverride},
     transaction::TransactionError,
@@ -11,6 +10,7 @@ use edr_evm_spec::{
     EvmHeaderValidationError, EvmTransactionValidationError, TransactionValidation,
 };
 use edr_generic::GenericChainSpec;
+use edr_primitives::{address, B256};
 use edr_provider::{
     time::CurrentTime, DebugTraceError, MethodInvocation, Provider, ProviderError, ProviderRequest,
     ProviderSpec, SyncProviderSpec,

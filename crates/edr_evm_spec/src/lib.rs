@@ -6,6 +6,7 @@ use core::fmt::Debug;
 
 use edr_eip1559::BaseFeeParams;
 pub use revm_context_interface::{
+    block::BlobExcessGasAndPrice,
     result::{HaltReasonTr as HaltReasonTrait, OutOfGasError},
     Block, Transaction,
 };

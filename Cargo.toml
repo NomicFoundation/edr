@@ -154,14 +154,14 @@ revm = { version = "27.1.0", default-features = false, features = [
     "serde",
     "std",
 ] }
-revm-bytecode = { version = "6.1.0", default-features = false }
+revm-bytecode = { version = "6.1.0", default-features = false, features = ["serde", "std"] }
 revm-context = { version = "8.0.4", default-features = false }
 revm-context-interface = { version = "9.0.0", default-features = false }
 revm-database-interface = { version = "7.0.2", default-features = false }
 revm-handler = { version = "8.1.0", default-features = false }
 revm-interpreter = { version = "24.0.0", default-features = false }
 revm-precompile = { version = "25.0.0", default-features = false, features = ["blst", "c-kzg", "std"] }
-revm-primitives = { version = "20.1.0", default-features = false, features = ["hashbrown", "rand"] }
+revm-primitives = { version = "20.1.0", default-features = false, features = ["hashbrown", "rand", "serde", "std"] }
 revm-state = { version = "7.0.2", default-features = false }
 c-kzg = { version = "2.1.0", default-features = false, features = ["ethereum_kzg_settings"] }
 

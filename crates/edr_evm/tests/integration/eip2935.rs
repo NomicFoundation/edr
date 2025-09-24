@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use edr_chain_l1::L1ChainSpec;
-use edr_eth::Bytecode;
 use edr_evm::{
     blockchain::{Blockchain, LocalBlockchain},
     eips::eip2935::{
@@ -12,6 +11,7 @@ use edr_evm::{
     state::StateDiff,
     GenesisBlockOptions, RandomHashGenerator,
 };
+use edr_primitives::Bytecode;
 
 fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L1ChainSpec>> {
     let mut prev_randao_generator = RandomHashGenerator::with_seed(edr_defaults::MIX_HASH_SEED);
@@ -77,11 +77,11 @@ fn local_blockchain_with_history() -> anyhow::Result<()> {
 mod remote {
     use std::sync::Arc;
 
-    use edr_eth::{bytes, Bytes, HashMap};
     use edr_evm::{
         blockchain::{ForkedBlockchain, ForkedCreationError},
         state::IrregularState,
     };
+    use edr_primitives::{bytes, Bytes, HashMap};
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
     use parking_lot::Mutex;

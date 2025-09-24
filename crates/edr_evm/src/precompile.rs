@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use edr_eth::{Address, Bytes, HashMap, HashSet};
+use edr_primitives::{Address, Bytes, HashMap, HashSet};
 pub use revm_handler::{EthPrecompiles, PrecompileProvider};
 use revm_interpreter::{Gas, InstructionResult, InterpreterResult};
 pub use revm_precompile::{

@@ -1,9 +1,9 @@
 #![cfg(feature = "test-remote")]
 use std::str::FromStr as _;
 
-use edr_eth::B256;
 use edr_evm::hardfork::{self, ChainOverride};
 use edr_generic::GenericChainSpec;
+use edr_primitives::B256;
 use edr_provider::{MethodInvocation, Provider, ProviderError, ProviderRequest};
 use edr_test_utils::env::get_alchemy_url;
 use serial_test::serial;

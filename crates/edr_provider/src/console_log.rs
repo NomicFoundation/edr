@@ -1,9 +1,9 @@
-use edr_eth::{address, Address, Bytes};
 use edr_evm::{
     inspector::Inspector,
     interpreter::{CallInputs, CallOutcome, EthInterpreter},
     spec::ContextTrait,
 };
+use edr_primitives::{address, Address, Bytes};
 
 const CONSOLE_ADDRESS: Address = address!("000000000000000000636F6e736F6c652e6c6f67");
 
@@ -37,7 +37,7 @@ impl<ContextT: ContextTrait> Inspector<ContextT, EthInterpreter> for ConsoleLogC
 pub(crate) mod tests {
     use anyhow::Context;
     use edr_chain_l1::L1ChainSpec;
-    use edr_eth::{hex, Bytes, U256};
+    use edr_primitives::{hex, Bytes, U256};
     use edr_transaction::{request::TransactionRequestAndSender, TxKind};
 
     use crate::{data::ProviderData, time::TimeSinceEpoch};

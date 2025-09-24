@@ -1,8 +1,8 @@
 use derive_where::derive_where;
 use edr_block_header::{BlobGas, BlockHeader, Withdrawal};
-use edr_eth::{Address, Bloom, Bytes, B256, B64, U256};
 use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
 use edr_evm_spec::ExecutableTransaction;
+use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 use edr_rpc_spec::GetBlockNumber;
 use serde::{Deserialize, Serialize};
 
