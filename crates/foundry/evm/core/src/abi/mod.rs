@@ -14,4 +14,4 @@ pub use hardhat_console::{
 };
 
 mod test_function_ext;
-pub use test_function_ext::TestFunctionExt;
+pub use test_function_ext::{TestFunctionExt, TestFunctionKind};
