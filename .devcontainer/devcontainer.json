@@ -6,7 +6,12 @@
       "version": "22"
     }
   },
-  "postCreateCommand": "scripts/setup.sh",
+  "postCreateCommand": {
+    // Fix target volumes permissions is needed
+    // since when the volume is created is owned by root
+    "fixTargetVolumePerms": "sudo chown -R $(whoami): /workspaces/${localWorkspaceFolderBasename}/target /workspaces/${localWorkspaceFolderBasename}/node_modules",
+    "setup": "scripts/setup.sh"
+  },
   "portsAttributes": {
     // The default port of mdbook
     "3000": {
@@ -34,5 +39,17 @@
         ]
       }
     }
-  }
+  },
+  "mounts": [
+    {
+      "source": "edr_cargo_target",
+      "target": "/workspaces/${localWorkspaceFolderBasename}/target",
+      "type": "volume"
+    },  
+    {
+      "source": "edr_node_modules",
+      "target": "/workspaces/${localWorkspaceFolderBasename}/node_modules",
+      "type": "volume"
+    }  
+  ]
 }
