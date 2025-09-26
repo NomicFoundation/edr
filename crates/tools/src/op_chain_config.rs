@@ -15,16 +15,15 @@ use tempfile::tempdir; // Required for `fmt::Write` trait
 
 pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     // let out_dir = env::var_os("OUT_DIR").unwrap();
-    // println!("cargo::warning=Out dir: {}", out_dir.into_string().unwrap());
-    let modules_dir = Path::new("crates/edr_op/src/hardfork/generated");
+    let modules_dir = Path::new("./crates/edr_op/src/hardfork/generated");
     create_dir_all(modules_dir)?;
 
-    let generated_module_path = Path::new("src/hardfork/generated.rs");
+    let generated_module_path = Path::new("./crates/edr_op/src/hardfork/generated.rs");
     let mut generated_module = File::create(generated_module_path)?;
 
     println!(
         "cargo::warning=Modules dir: {}",
-        modules_dir.to_str().unwrap()
+        modules_dir.canonicalize()?.to_str().unwrap()
     );
     // Create a temporary directory that will be automatically deleted on drop
     let temp_dir = tempdir()?;
@@ -91,19 +90,18 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
             Err(_) => (),
         };
     }
-    update_generated_module(&mut generated_module, chains_by_module)?;
+    update_generated_module(&mut generated_module, &mut chains_by_module)?;
     Command::new("rustfmt")
         .arg("+nightly")
         .arg(generated_module_path)
         .output()?;
 
-    println!("cargo::rerun-if-changed=build.rs");
     Ok(())
 }
 
 fn update_generated_module(
     generated_module: &mut File,
-    chains_by_module: Vec<(String, String)>,
+    chains_by_module: &mut Vec<(String, String)>,
 ) -> Result<(), anyhow::Error> {
     write!(
         generated_module,
@@ -117,6 +115,7 @@ fn update_generated_module(
     "
     )?;
 
+    chains_by_module.sort();
     for (module, network) in chains_by_module.into_iter() {
         write!(
             generated_module,

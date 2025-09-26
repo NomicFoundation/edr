@@ -7,6 +7,7 @@ pub const MAINNET_CHAIN_ID: u64 = 0x6D6;
 
 pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "Metal L2".into(),
+    base_fee_params: None,
     hardfork_activations: Activations::new(vec![
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
@@ -42,6 +43,7 @@ pub const SEPOLIA_CHAIN_ID: u64 = 0x6CC;
 
 pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "Metal L2 Testnet".into(),
+    base_fee_params: None,
     hardfork_activations: Activations::new(vec![
         hardfork::Activation {
             condition: ForkCondition::Timestamp(1708129622),

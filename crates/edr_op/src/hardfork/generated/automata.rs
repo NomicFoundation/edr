@@ -7,6 +7,7 @@ pub const MAINNET_CHAIN_ID: u64 = 0x10000;
 
 pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "Automata Mainnet".into(),
+    base_fee_params: None,
     hardfork_activations: Activations::new(vec![
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),

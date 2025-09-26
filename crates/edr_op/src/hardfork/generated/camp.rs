@@ -7,6 +7,7 @@ pub const SEPOLIA_CHAIN_ID: u64 = 0x4F588;
 
 pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "Camp Network Testnet V2".into(),
+    base_fee_params: None,
     hardfork_activations: Activations::new(vec![
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
