@@ -1,7 +1,7 @@
 use alloy_primitives::map::rustc_hash::FxHashSet;
 use eyre::ensure;
 use foundry_compilers::artifacts::sourcemap::{SourceElement, SourceMap};
-use foundry_evm_core::utils::IcPcMap;
+use foundry_evm_core::ic::IcPcMap;
 use revm::bytecode::opcode;
 
 use super::{CoverageItemKind, ItemAnchor, SourceLocation};

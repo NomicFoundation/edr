@@ -164,7 +164,7 @@ where
         let gas_limit = gas_limit.unwrap_or(env.block.gas_limit());
 
         Executor::new(
-            Backend::spawn(fork, local_predeploys),
+            Backend::spawn(fork, local_predeploys).unwrap(), // TODO
             env,
             chain_context,
             stack.build(),

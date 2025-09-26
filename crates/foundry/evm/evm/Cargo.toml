@@ -6,6 +6,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+edr_common.workspace = true
 edr_coverage.workspace = true
 edr_solidity.workspace = true
 foundry-cheatcodes.workspace = true

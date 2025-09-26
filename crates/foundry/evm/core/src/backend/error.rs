@@ -1,22 +1,20 @@
-use std::convert::Infallible;
-
 use alloy_primitives::Address;
 pub use foundry_fork_db::{DatabaseError, DatabaseResult};
 use revm::context_interface::result::EVMError;
+use std::convert::Infallible;
 
-/// Result alias with `DatabaseError` as error
 pub type BackendResult<T> = Result<T, BackendError>;
 
 /// Errors that can happen when working with [`revm::Database`]
 #[derive(Debug, thiserror::Error)]
-#[allow(missing_docs)]
+#[expect(missing_docs)]
 pub enum BackendError {
     #[error("{0}")]
     Message(String),
     #[error("cheatcodes are not enabled for {0}; see `vm.allowCheatcodes(address)`")]
     NoCheats(Address),
     #[error(transparent)]
-    Backend(#[from] DatabaseError),
+    Database(#[from] DatabaseError),
     #[error("failed to fetch account info for {0}")]
     MissingAccount(Address),
     #[error(
@@ -33,18 +31,18 @@ pub enum BackendError {
 impl BackendError {
     /// Create a new error with a message
     pub fn msg(msg: impl Into<String>) -> Self {
-        BackendError::Message(msg.into())
+        Self::Message(msg.into())
     }
 
     /// Create a new error with a message
     pub fn display(msg: impl std::fmt::Display) -> Self {
-        BackendError::Message(msg.to_string())
+        Self::Message(msg.to_string())
     }
 }
 
 impl From<tokio::task::JoinError> for BackendError {
     fn from(value: tokio::task::JoinError) -> Self {
-        BackendError::display(value)
+        Self::display(value)
     }
 }
 
@@ -54,8 +52,7 @@ impl From<Infallible> for BackendError {
     }
 }
 
-// Note: this is mostly necessary to use some revm internals that return an
-// [EVMError]
+// Note: this is mostly necessary to use some revm internals that return an [EVMError]
 impl<T: Into<Self>> From<EVMError<T>> for BackendError {
     fn from(err: EVMError<T>) -> Self {
         match err {

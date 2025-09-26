@@ -839,7 +839,7 @@ impl Cheatcode for prevrandao_0Call {
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
-        ccx.ecx.block.set_prevrandao(*newPrevrandao);
+        ccx.ecx.block.set_prevrandao(Some(*newPrevrandao));
         Ok(Vec::default())
     }
 }
@@ -882,7 +882,7 @@ impl Cheatcode for prevrandao_1Call {
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
-        ccx.ecx.block.set_prevrandao((*newPrevrandao).into());
+        ccx.ecx.block.set_prevrandao(Some((*newPrevrandao).into()));
         Ok(Vec::default())
     }
 }
@@ -925,7 +925,7 @@ impl Cheatcode for blobhashesCall {
             "`blobhash` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
-        ccx.ecx.tx.set_blob_versioned_hashes(hashes.clone());
+        ccx.ecx.tx.set_blob_hashes(hashes.clone());
         Ok(Vec::default())
     }
 }
@@ -1009,7 +1009,7 @@ impl Cheatcode for rollCall {
             *newHeight <= U256::from(u64::MAX),
             "block height must be less than 2^64 - 1"
         );
-        ccx.ecx.block.set_block_number(newHeight.saturating_to());
+        ccx.ecx.block.set_number(newHeight.saturating_to());
         Ok(Vec::default())
     }
 }

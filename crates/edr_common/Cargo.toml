@@ -5,17 +5,29 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+alloy-dyn-abi = { workspace = true, features = ["eip712"] }
 alloy-primitives = { workspace = true, features = ["serde", "getrandom", "arbitrary", "rlp"] }
+alloy-provider.workspace = true
 
 dunce.workspace = true
-serde_json.workspace = true
+eyre.workspace = true
+alloy-consensus.workspace = true
+alloy-network.workspace = true
+alloy-rpc-types = { workspace = true, features = ["eth"] }
+alloy-serde.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+yansi.workspace = true
+
 thiserror = "1"
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 walkdir = "2"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+similar-asserts.workspace = true
+edr_macros.workspace = true
 
 [lints]
 workspace = true

@@ -17,6 +17,7 @@ foundry-evm-core.workspace = true
 
 alloy-chains = { workspace = true, features = ["serde"] }
 alloy-dyn-abi.workspace = true
+alloy-ens.workspace = true
 alloy-primitives.workspace = true
 alloy-genesis.workspace = true
 alloy-sol-types.workspace = true

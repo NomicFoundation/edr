@@ -3,7 +3,6 @@
 //! Foundry cheatcodes implementations.
 
 #![warn(
-    missing_docs,
     unreachable_pub,
     unused_crate_dependencies,
     rust_2018_idioms
@@ -11,6 +10,7 @@
 #![allow(elided_lifetimes_in_paths)] // Cheats context uses 3 lifetimes
 // TODO https://github.com/NomicFoundation/edr/issues/1076
 #![allow(clippy::indexing_slicing)]
+#![allow(clippy::match_same_arms)]
 
 #[macro_use]
 pub extern crate foundry_cheatcodes_spec as spec;
@@ -19,7 +19,7 @@ extern crate tracing;
 
 use alloy_primitives::Address;
 pub use config::{CheatsConfig, CheatsConfigOptions, ExecutionContextConfig};
-pub use endpoints::{RpcEndpoint, RpcEndpoints};
+pub use endpoints::{RpcEndpoint, RpcEndpointUrl, RpcEndpoints};
 pub use error::{Error, ErrorKind, Result};
 use foundry_evm_core::{
     backend::CheatcodeBackend,
@@ -34,7 +34,6 @@ use revm::{
 use spec::Status;
 pub use spec::{CheatcodeDef, Vm};
 
-mod ens;
 #[macro_use]
 mod error;
 mod base64;

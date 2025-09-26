@@ -4,12 +4,12 @@ use std::{fmt, str::FromStr};
 
 use alloy_chains::Chain;
 
-/// Settings to configure caching of remote
+/// Settings to configure caching of remote.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct StorageCachingConfig {
-    /// chains to cache
+    /// Chains to cache.
     pub chains: CachedChains,
-    /// endpoints to cache
+    /// Endpoints to cache.
     pub endpoints: CachedEndpoints,
 }
 
@@ -44,9 +44,9 @@ impl CachedChains {
     /// Whether the `endpoint` matches
     pub fn is_match(&self, chain: u64) -> bool {
         match self {
-            CachedChains::All => true,
-            CachedChains::None => false,
-            CachedChains::Chains(chains) => chains.iter().any(|c| c.id() == chain),
+            Self::All => true,
+            Self::None => false,
+            Self::Chains(chains) => chains.iter().any(|c| c.id() == chain),
         }
     }
 }
@@ -68,11 +68,9 @@ impl CachedEndpoints {
     pub fn is_match(&self, endpoint: impl AsRef<str>) -> bool {
         let endpoint = endpoint.as_ref();
         match self {
-            CachedEndpoints::All => true,
-            CachedEndpoints::Remote => {
-                !endpoint.contains("localhost:") && !endpoint.contains("127.0.0.1:")
-            }
-            CachedEndpoints::Pattern(re) => re.is_match(endpoint),
+            Self::All => true,
+            Self::Remote => !endpoint.contains("localhost:") && !endpoint.contains("127.0.0.1:"),
+            Self::Pattern(re) => re.is_match(endpoint),
         }
     }
 }
@@ -80,9 +78,9 @@ impl CachedEndpoints {
 impl PartialEq for CachedEndpoints {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (CachedEndpoints::Pattern(a), CachedEndpoints::Pattern(b)) => a.as_str() == b.as_str(),
-            (&CachedEndpoints::All, &CachedEndpoints::All)
-            | (&CachedEndpoints::Remote, &CachedEndpoints::Remote) => true,
+            (Self::Pattern(a), Self::Pattern(b)) => a.as_str() == b.as_str(),
+            (&Self::All, &Self::All) => true,
+            (&Self::Remote, &Self::Remote) => true,
             _ => false,
         }
     }
@@ -93,9 +91,9 @@ impl Eq for CachedEndpoints {}
 impl fmt::Display for CachedEndpoints {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CachedEndpoints::All => f.write_str("all"),
-            CachedEndpoints::Remote => f.write_str("remote"),
-            CachedEndpoints::Pattern(s) => s.fmt(f),
+            Self::All => f.write_str("all"),
+            Self::Remote => f.write_str("remote"),
+            Self::Pattern(s) => s.fmt(f),
         }
     }
 }
@@ -105,9 +103,9 @@ impl FromStr for CachedEndpoints {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "all" => Ok(CachedEndpoints::All),
-            "remote" => Ok(CachedEndpoints::Remote),
-            _ => Ok(CachedEndpoints::Pattern(s.parse()?)),
+            "all" => Ok(Self::All),
+            "remote" => Ok(Self::Remote),
+            _ => Ok(Self::Pattern(s.parse()?)),
         }
     }
 }
