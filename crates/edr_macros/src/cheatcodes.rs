@@ -328,9 +328,9 @@ fn get_docstring(attrs: &[Attribute]) -> String {
             continue;
         }
         let syn::Meta::NameValue(syn::MetaNameValue {
-            value: syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), .. }),
-            ..
-        }) = &attr.meta
+                                     value: syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), .. }),
+                                     ..
+                                 }) = &attr.meta
         else {
             continue;
         };

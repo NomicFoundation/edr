@@ -1672,11 +1672,14 @@ fn convert_executed_result<
 
     let InspectorData {
         logs,
+        assertion_failure_messages,
         labels,
         traces,
         coverage,
         cheatcodes,
     } = inspector.collect()?;
+
+    todo!("handle assertion failure messages");
 
     Ok(RawCallResult {
         exit_reason: Some(exit_reason),

@@ -298,16 +298,11 @@ impl<
         self.backend_mut(context.to_owned_env()).roll_fork_to_transaction(id, transaction, context)
     }
 
-    fn transact<InspectorT>(
+    fn transact(
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        inspector: &mut InspectorT,
-        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<()>
-    where
-        InspectorT: CheatcodeInspectorTr<
+        inspector: &mut dyn CheatcodeInspectorTr<
             BlockT,
             TxT,
             HardforkT,
@@ -322,7 +317,9 @@ impl<
             >,
             ChainContextT,
         >,
-    {
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()> {
         self.backend_mut(env.clone().into()).transact(
             id,
             transaction,

@@ -34,15 +34,16 @@ foundry-compilers.workspace = true
 
 op-revm.workspace = true
 revm.workspace = true
+revm-inspectors.workspace = true
 revm-primitives.workspace = true
 
-auto_impl = "1"
+auto_impl.workspace = true
 derive_more.workspace = true
 derive-where.workspace = true
 eyre = "0.6"
 futures = "0.3"
 itertools.workspace = true
-parking_lot = "0.12"
+parking_lot.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
