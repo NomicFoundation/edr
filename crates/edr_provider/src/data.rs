@@ -893,10 +893,10 @@ where
         let slot = EvmStorageSlot::new_changed(old_value, value, 0);
         let account_info = modified_state.basic(address).and_then(|mut account_info| {
             // Retrieve the code if it's not empty. This is needed for the irregular state.
-            if let Some(account_info) = &mut account_info {
-                if account_info.code_hash != KECCAK_EMPTY {
-                    account_info.code = Some(modified_state.code_by_hash(account_info.code_hash)?);
-                }
+            if let Some(account_info) = &mut account_info
+                && account_info.code_hash != KECCAK_EMPTY
+            {
+                account_info.code = Some(modified_state.code_by_hash(account_info.code_hash)?);
             }
 
             Ok(account_info)
@@ -1903,10 +1903,10 @@ where
 
             result.base_fee_per_gas = base_fee_per_gas;
             result.gas_used_ratio = gas_used_ratio;
-            if let Some(reward) = opt_reward.as_mut() {
-                if let Some(remote_reward) = remote_reward {
-                    *reward = remote_reward;
-                }
+            if let Some(reward) = opt_reward.as_mut()
+                && let Some(remote_reward) = remote_reward
+            {
+                *reward = remote_reward;
             }
         }
 

@@ -291,44 +291,42 @@ impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
     ) -> Option<OrderedTransaction<SignedTransactionT>> {
         if let Some(old_transaction) = self.hash_to_transaction.remove(hash) {
             let caller = old_transaction.caller();
-            if let Some(pending_transactions) = self.pending_transactions.get_mut(caller) {
-                if let Some((idx, _)) = pending_transactions
+            if let Some(pending_transactions) = self.pending_transactions.get_mut(caller)
+                && let Some((idx, _)) = pending_transactions
                     .iter()
                     .enumerate()
                     .find(|(_, transaction)| *transaction.hash() == *hash)
-                {
-                    let mut invalidated_transactions = pending_transactions.split_off(idx + 1);
-                    let removed = pending_transactions.remove(idx);
+            {
+                let mut invalidated_transactions = pending_transactions.split_off(idx + 1);
+                let removed = pending_transactions.remove(idx);
 
-                    if pending_transactions.is_empty() {
-                        self.pending_transactions.shift_remove(caller);
-                    }
-
-                    self.future_transactions
-                        .entry(*caller)
-                        .and_modify(|transactions| {
-                            transactions.append(&mut invalidated_transactions);
-                        })
-                        .or_insert(invalidated_transactions);
-
-                    return Some(removed);
+                if pending_transactions.is_empty() {
+                    self.pending_transactions.shift_remove(caller);
                 }
+
+                self.future_transactions
+                    .entry(*caller)
+                    .and_modify(|transactions| {
+                        transactions.append(&mut invalidated_transactions);
+                    })
+                    .or_insert(invalidated_transactions);
+
+                return Some(removed);
             }
 
-            if let Some(future_transactions) = self.future_transactions.get_mut(caller) {
-                if let Some((idx, _)) = future_transactions
+            if let Some(future_transactions) = self.future_transactions.get_mut(caller)
+                && let Some((idx, _)) = future_transactions
                     .iter()
                     .enumerate()
                     .find(|(_, transaction)| *transaction.hash() == *hash)
-                {
-                    let removed = future_transactions.remove(idx);
+            {
+                let removed = future_transactions.remove(idx);
 
-                    if future_transactions.is_empty() {
-                        self.future_transactions.shift_remove(caller);
-                    }
-
-                    return Some(removed);
+                if future_transactions.is_empty() {
+                    self.future_transactions.shift_remove(caller);
                 }
+
+                return Some(removed);
             }
         }
 

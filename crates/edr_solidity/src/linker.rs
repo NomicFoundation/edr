@@ -193,10 +193,10 @@ impl<'a> Linker<'a> {
         if let Some(bytecode) = &contract.bytecode {
             references.extend(bytecode.link_references.clone());
         }
-        if let Some(deployed_bytecode) = &contract.deployed_bytecode {
-            if let Some(bytecode) = &deployed_bytecode.bytecode {
-                references.extend(bytecode.link_references.clone());
-            }
+        if let Some(deployed_bytecode) = &contract.deployed_bytecode
+            && let Some(bytecode) = &deployed_bytecode.bytecode
+        {
+            references.extend(bytecode.link_references.clone());
         }
 
         for (file_path, libs) in &references {
@@ -451,13 +451,12 @@ impl<'a> Linker<'a> {
                     .deployed_bytecode
                     .as_mut()
                     .and_then(|b| b.to_mut().bytecode.as_mut())
+                    && !deployed_bytecode.link(&file.to_string_lossy(), name, address)
                 {
-                    if !deployed_bytecode.link(&file.to_string_lossy(), name, address) {
-                        // If we didn't link, there is nothing to link. By calling `resolve()` we
-                        // make sure that the `BytecodeObject::Unlinked` is turned into
-                        // `BytecodeObject:Bytecode`.
-                        deployed_bytecode.object.resolve();
-                    }
+                    // If we didn't link, there is nothing to link. By calling `resolve()` we
+                    // make sure that the `BytecodeObject::Unlinked` is turned into
+                    // `BytecodeObject:Bytecode`.
+                    deployed_bytecode.object.resolve();
                 }
             }
         }

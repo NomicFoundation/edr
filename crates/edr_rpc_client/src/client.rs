@@ -350,15 +350,15 @@ impl<MethodT: RpcMethod + Serialize> RpcClient<MethodT> {
         result: ResultT,
         resolve_block_number: impl Fn(ResultT) -> Option<u64>,
     ) -> Result<Option<String>, RpcClientError> {
-        if let Some(block_number) = resolve_block_number(result) {
-            if let Some(resolved_cache_key) = block_tag_resolver.resolve_block_tag(block_number) {
-                return match resolved_cache_key {
-                    ResolvedSymbolicTag::NeedsSafetyCheck(safety_checker) => {
-                        self.validate_block_number(safety_checker).await
-                    }
-                    ResolvedSymbolicTag::Resolved(cache_key) => Ok(Some(cache_key)),
-                };
-            }
+        if let Some(block_number) = resolve_block_number(result)
+            && let Some(resolved_cache_key) = block_tag_resolver.resolve_block_tag(block_number)
+        {
+            return match resolved_cache_key {
+                ResolvedSymbolicTag::NeedsSafetyCheck(safety_checker) => {
+                    self.validate_block_number(safety_checker).await
+                }
+                ResolvedSymbolicTag::Resolved(cache_key) => Ok(Some(cache_key)),
+            };
         }
         Ok(None)
     }

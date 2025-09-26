@@ -704,7 +704,9 @@ async fn test_logs() {
 async fn test_env_vars() {
     let env_var_key = "_foundryCheatcodeSetEnvTestKey";
     let env_var_val = "_foundryCheatcodeSetEnvTestVal";
-    env::remove_var(env_var_key);
+    unsafe {
+        env::remove_var(env_var_key);
+    }
 
     let filter = SolidityTestFilter::new("testSetEnv", ".*", ".*");
     let runner = TEST_DATA_DEFAULT.runner().await;
