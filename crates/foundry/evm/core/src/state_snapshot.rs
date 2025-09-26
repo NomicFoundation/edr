@@ -1,8 +1,7 @@
-//! support for snapshotting different states
+//! Support for snapshotting different states
 
-use std::{collections::HashMap, ops::Add};
-
-use alloy_primitives::U256;
+use alloy_primitives::{U256, map::HashMap};
+use std::ops::Add;
 
 /// Represents all state snapshots
 #[derive(Clone, Debug)]
@@ -25,11 +24,10 @@ impl<T> StateSnapshots<T> {
 
     /// Removes the state snapshot with the given `id`.
     ///
-    /// This will also remove any state snapshots taken after the state snapshot
-    /// with the `id`. e.g.: reverting to id 1 will delete snapshots with
-    /// ids 1, 2, 3, etc.)
+    /// This will also remove any state snapshots taken after the state snapshot with the `id`.
+    /// e.g.: reverting to id 1 will delete snapshots with ids 1, 2, 3, etc.)
     pub fn remove(&mut self, id: U256) -> Option<T> {
-        let snapshot = self.state_snapshots.remove(&id);
+        let snapshot_state = self.state_snapshots.remove(&id);
 
         // Revert all state snapshots taken after the state snapshot with the `id`
         let mut to_revert = id.add(U256::from(1));
@@ -38,10 +36,10 @@ impl<T> StateSnapshots<T> {
             to_revert += U256::from(1);
         }
 
-        snapshot
+        snapshot_state
     }
 
-    /// Removes all state snapshots
+    /// Removes all state snapshots.
     pub fn clear(&mut self) {
         self.state_snapshots.clear();
     }
@@ -54,9 +52,9 @@ impl<T> StateSnapshots<T> {
     }
 
     /// Inserts the new state snapshot and returns the id.
-    pub fn insert(&mut self, snapshot: T) -> U256 {
+    pub fn insert(&mut self, state_snapshot: T) -> U256 {
         let id = self.next_id();
-        self.state_snapshots.insert(id, snapshot);
+        self.state_snapshots.insert(id, state_snapshot);
         id
     }
 
@@ -71,9 +69,6 @@ impl<T> StateSnapshots<T> {
 
 impl<T> Default for StateSnapshots<T> {
     fn default() -> Self {
-        Self {
-            id: U256::ZERO,
-            state_snapshots: HashMap::new(),
-        }
+        Self { id: U256::ZERO, state_snapshots: HashMap::default() }
     }
 }

@@ -3,3 +3,8 @@ imports_granularity = "Crate"
 wrap_comments = true
 group_imports = "StdExternalCrate"
 style_edition = "2021"
+ignore = [
+  "crates/edr_common",
+  "crates/edr_macros",
+  "crates/foundry",
+]

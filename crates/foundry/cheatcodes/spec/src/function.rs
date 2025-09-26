@@ -1,6 +1,5 @@
-use std::fmt;
-
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Solidity function.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -8,17 +7,17 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct Function<'a> {
-    /// The function's unique identifier. This is the function name, optionally
-    /// appended with an index if it is overloaded.
+    /// The function's unique identifier. This is the function name, optionally appended with an
+    /// index if it is overloaded.
     pub id: &'a str,
     /// The description of the function.
-    /// This is a markdown string derived from the `NatSpec` documentation.
+    /// This is a markdown string derived from the NatSpec documentation.
     pub description: &'a str,
-    /// The Solidity function declaration, including full type and parameter
-    /// names, visibility, etc.
+    /// The Solidity function declaration, including full type and parameter names, visibility,
+    /// etc.
     pub declaration: &'a str,
-    /// The Solidity function visibility attribute. This is currently always
-    /// `external`, but this may change in the future.
+    /// The Solidity function visibility attribute. This is currently always `external`, but this
+    /// may change in the future.
     pub visibility: Visibility,
     /// The Solidity function state mutability attribute.
     pub mutability: Mutability,
@@ -40,8 +39,7 @@ impl fmt::Display for Function<'_> {
     }
 }
 
-/// Solidity function visibility attribute. See the [Solidity docs] for more
-/// information.
+/// Solidity function visibility attribute. See the [Solidity docs] for more information.
 ///
 /// [Solidity docs]: https://docs.soliditylang.org/en/latest/contracts.html#function-visibility
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -77,8 +75,7 @@ impl Visibility {
     }
 }
 
-/// Solidity function state mutability attribute. See the [Solidity docs] for
-/// more information.
+/// Solidity function state mutability attribute. See the [Solidity docs] for more information.
 ///
 /// [Solidity docs]: https://docs.soliditylang.org/en/latest/contracts.html#state-mutability
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

@@ -1,10 +1,10 @@
-// We don't document function parameters individually so we can't enable
-// `missing_docs` for this module. Instead, we emit custom diagnostics in
-// `#[derive(Cheatcode)]`.
+// We don't document function parameters individually so we can't enable `missing_docs` for this
+// module. Instead, we emit custom diagnostics in `#[derive(Cheatcode)]`.
 #![allow(missing_docs)]
 
 use alloy_sol_types::sol;
 use edr_macros::Cheatcode;
+use std::fmt;
 
 use super::{
     Cheatcode, CheatcodeDef, Cow, Enum, EnumVariant, Error, Function, Group, Mutability, Safety,
@@ -70,7 +70,7 @@ interface Vm {
 
     /// Solidity test execution contexts.
     enum ExecutionContext {
-        /// Test group execution context: any of test, coverage or snapshot.
+        /// Test group execution context (test, coverage or snapshot).
         TestGroup,
         /// Test execution context.
         Test,
@@ -274,7 +274,7 @@ interface Vm {
     #[cheatcode(group = Evm, safety = Safe)]
     function load(address target, bytes32 slot) external view returns (bytes32 data);
 
-    /// Load a genesis JSON file's `allocs` into the in-memory revm state.
+    /// Load a genesis JSON file's `allocs` into the in-memory EVM state.
     #[cheatcode(group = Evm, safety = Unsafe)]
     function loadAllocs(string calldata pathToAllocsJson) external;
 
@@ -437,7 +437,7 @@ interface Vm {
     function store(address target, bytes32 slot, bytes32 value) external;
 
     /// Marks the slots of an account and the account address as cold.
-    #[cheatcode(group = Evm, safety = Unsafe, status = Experimental)]
+    #[cheatcode(group = Evm, safety = Unsafe)]
     function cool(address target) external;
 
     // -------- Call Manipulation --------
@@ -656,7 +656,7 @@ interface Vm {
 
     /// Gets all the logs according to specified filter.
     #[cheatcode(group = Evm, safety = Safe)]
-    function eth_getLogs(uint256 fromBlock, uint256 toBlock, address target, bytes32[] memory topics)
+    function eth_getLogs(uint256 fromBlock, uint256 toBlock, address target, bytes32[] calldata topics)
         external
         returns (EthGetLogs[] memory logs);
 
@@ -934,7 +934,7 @@ interface Vm {
     #[cheatcode(group = Testing, safety = Unsafe)]
     function expectSafeMemoryCall(uint64 min, uint64 max) external;
 
-    /// Marks a test as skipped. Must be called at the top of the test.
+    /// Marks a test as skipped. Must be called at the top level of a test.
     #[cheatcode(group = Testing, safety = Unsafe)]
     function skip(bool skipTest) external;
 
@@ -1490,7 +1490,7 @@ interface Vm {
 
     /// Returns true if the given path points to an existing entity, else returns false.
     #[cheatcode(group = Filesystem)]
-    function exists(string calldata path) external returns (bool result);
+    function exists(string calldata path) external view returns (bool result);
 
     /// Given a path, query the file system to get information about a file, directory, etc.
     #[cheatcode(group = Filesystem)]
@@ -1498,11 +1498,11 @@ interface Vm {
 
     /// Returns true if the path exists on disk and is pointing at a directory, else returns false.
     #[cheatcode(group = Filesystem)]
-    function isDir(string calldata path) external returns (bool result);
+    function isDir(string calldata path) external view returns (bool result);
 
     /// Returns true if the path exists on disk and is pointing at a regular file, else returns false.
     #[cheatcode(group = Filesystem)]
-    function isFile(string calldata path) external returns (bool result);
+    function isFile(string calldata path) external view returns (bool result);
 
     /// Get the path of the current project root.
     #[cheatcode(group = Filesystem)]
@@ -1510,7 +1510,7 @@ interface Vm {
 
     /// Returns the time since unix epoch in milliseconds.
     #[cheatcode(group = Filesystem)]
-    function unixTime() external returns (uint256 milliseconds);
+    function unixTime() external view returns (uint256 milliseconds);
 
     // -------- Reading and writing --------
 
@@ -2175,4 +2175,24 @@ interface Vm {
     #[cheatcode(group = Utilities)]
     function ensNamehash(string calldata name) external pure returns (bytes32);
 }
+}
+
+
+impl fmt::Display for Vm::CheatcodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.message.fmt(f)
+    }
+}
+
+impl fmt::Display for Vm::VmErrors {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CheatcodeError(err) => err.fmt(f),
+        }
+    }
+}
+
+#[track_caller]
+const fn panic_unknown_safety() -> ! {
+    panic!("cannot determine safety from the group, add a `#[cheatcode(safety = ...)]` attribute")
 }
