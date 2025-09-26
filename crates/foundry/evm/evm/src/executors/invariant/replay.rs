@@ -390,10 +390,10 @@ fn set_up_inner_replay<
     >,
     inner_sequence: &[Option<BasicTxDetails>],
 ) {
-    if let Some(fuzzer) = &mut executor.inspector.fuzzer {
-        if let Some(call_generator) = &mut fuzzer.call_generator {
-            call_generator.last_sequence = Arc::new(RwLock::new(inner_sequence.to_owned()));
-            call_generator.set_replay(true);
-        }
+    if let Some(fuzzer) = &mut executor.inspector.fuzzer
+        && let Some(call_generator) = &mut fuzzer.call_generator
+    {
+        call_generator.last_sequence = Arc::new(RwLock::new(inner_sequence.to_owned()));
+        call_generator.set_replay(true);
     }
 }

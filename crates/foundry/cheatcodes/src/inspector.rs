@@ -599,48 +599,48 @@ impl<
 
         // Record account access via SELFDESTRUCT if `recordAccountAccesses` has been
         // called
-        if let Some(account_accesses) = &mut self.recorded_account_diffs_stack {
-            if interpreter.bytecode.opcode() == opcode::SELFDESTRUCT {
-                let target = try_or_continue!(interpreter.stack.peek(0));
-                // load balance of this account
-                let value = ecx
-                    .balance(interpreter.input.target_address)
-                    .map_or(U256::ZERO, |b| b.data);
-                let account = Address::from_word(B256::from(target));
-                // get previous balance and initialized status of the target account
-                let (initialized, old_balance) = ecx
-                    .journaled_state
-                    .load_account(account)
-                    .map(|account| (account.info.exists(), account.info.balance))
-                    .unwrap_or_default();
+        if let Some(account_accesses) = &mut self.recorded_account_diffs_stack
+            && interpreter.bytecode.opcode() == opcode::SELFDESTRUCT
+        {
+            let target = try_or_continue!(interpreter.stack.peek(0));
+            // load balance of this account
+            let value = ecx
+                .balance(interpreter.input.target_address)
+                .map_or(U256::ZERO, |b| b.data);
+            let account = Address::from_word(B256::from(target));
+            // get previous balance and initialized status of the target account
+            let (initialized, old_balance) = ecx
+                .journaled_state
+                .load_account(account)
+                .map(|account| (account.info.exists(), account.info.balance))
+                .unwrap_or_default();
 
-                // register access for the target account
-                let access = crate::Vm::AccountAccess {
-                    chainInfo: crate::Vm::ChainInfo {
-                        forkId: ecx
-                            .journaled_state
-                            .database
-                            .active_fork_id()
-                            .unwrap_or_default(),
-                        chainId: U256::from(ecx.cfg.chain_id),
-                    },
-                    accessor: interpreter.input.target_address,
-                    account,
-                    kind: crate::Vm::AccountAccessKind::SelfDestruct,
-                    initialized,
-                    oldBalance: old_balance,
-                    newBalance: old_balance + value,
-                    value,
-                    data: Bytes::new(),
-                    reverted: false,
-                    deployedCode: Bytes::new(),
-                    storageAccesses: vec![],
-                    depth: ecx.journaled_state.depth() as u64,
-                };
-                // Ensure that we're not selfdestructing a context recording was initiated on
-                if let Some(last) = account_accesses.last_mut() {
-                    last.push(access);
-                }
+            // register access for the target account
+            let access = crate::Vm::AccountAccess {
+                chainInfo: crate::Vm::ChainInfo {
+                    forkId: ecx
+                        .journaled_state
+                        .database
+                        .active_fork_id()
+                        .unwrap_or_default(),
+                    chainId: U256::from(ecx.cfg.chain_id),
+                },
+                accessor: interpreter.input.target_address,
+                account,
+                kind: crate::Vm::AccountAccessKind::SelfDestruct,
+                initialized,
+                oldBalance: old_balance,
+                newBalance: old_balance + value,
+                value,
+                data: Bytes::new(),
+                reverted: false,
+                deployedCode: Bytes::new(),
+                storageAccesses: vec![],
+                depth: ecx.journaled_state.depth() as u64,
+            };
+            // Ensure that we're not selfdestructing a context recording was initiated on
+            if let Some(last) = account_accesses.last_mut() {
+                last.push(access);
             }
         }
 
@@ -656,10 +656,10 @@ impl<
                     // it's not set (zero value)
                     let mut present_value = U256::ZERO;
                     // Try to load the account and the slot's present value
-                    if ecx.journaled_state.load_account(address).is_ok() {
-                        if let Some(previous) = ecx.sload(address, key) {
-                            present_value = previous.data;
-                        }
+                    if ecx.journaled_state.load_account(address).is_ok()
+                        && let Some(previous) = ecx.sload(address, key)
+                    {
+                        present_value = previous.data;
                     }
                     let access = crate::Vm::StorageAccess {
                         account: interpreter.input.target_address,
@@ -679,10 +679,10 @@ impl<
                     // Try to load the account and the slot's previous value, otherwise, assume it's
                     // not set (zero value)
                     let mut previous_value = U256::ZERO;
-                    if ecx.journaled_state.load_account(address).is_ok() {
-                        if let Some(previous) = ecx.sload(address, key) {
-                            previous_value = previous.data;
-                        }
+                    if ecx.journaled_state.load_account(address).is_ok()
+                        && let Some(previous) = ecx.sload(address, key)
+                    {
+                        previous_value = previous.data;
                     }
 
                     let access = crate::Vm::StorageAccess {
@@ -1103,28 +1103,27 @@ impl<
         let curr_depth = ecx.journaled_state.depth() as u64;
 
         // Apply our prank
-        if let Some(prank) = &self.prank {
-            if curr_depth >= prank.depth && call.caller == prank.prank_caller {
-                let mut prank_applied = false;
+        if let Some(prank) = &self.prank
+            && curr_depth >= prank.depth
+            && call.caller == prank.prank_caller
+        {
+            let mut prank_applied = false;
 
-                // At the target depth we set `msg.sender`
-                if curr_depth == prank.depth {
-                    call.caller = prank.new_caller;
-                    prank_applied = true;
-                }
+            // At the target depth we set `msg.sender`
+            if curr_depth == prank.depth {
+                call.caller = prank.new_caller;
+                prank_applied = true;
+            }
 
-                // At the target depth, or deeper, we set `tx.origin`
-                if let Some(new_origin) = prank.new_origin {
-                    ecx.tx.set_caller(new_origin);
-                    prank_applied = true;
-                }
+            // At the target depth, or deeper, we set `tx.origin`
+            if let Some(new_origin) = prank.new_origin {
+                ecx.tx.set_caller(new_origin);
+                prank_applied = true;
+            }
 
-                // If prank applied for first time, then update
-                if prank_applied {
-                    if let Some(applied_prank) = prank.first_time_applied() {
-                        self.prank = Some(applied_prank);
-                    }
-                }
+            // If prank applied for first time, then update
+            if prank_applied && let Some(applied_prank) = prank.first_time_applied() {
+                self.prank = Some(applied_prank);
             }
         }
 
@@ -1201,14 +1200,14 @@ impl<
         // because we might exit early there
         if !cheatcode_call {
             // Clean up pranks
-            if let Some(prank) = &self.prank {
-                if curr_depth == prank.depth {
-                    ecx.tx.set_caller(prank.prank_origin);
+            if let Some(prank) = &self.prank
+                && curr_depth == prank.depth
+            {
+                ecx.tx.set_caller(prank.prank_origin);
 
-                    // Clean single-call prank once we have returned to the original depth
-                    if prank.single_call {
-                        let _ = self.prank.take();
-                    }
+                // Clean single-call prank once we have returned to the original depth
+                if prank.single_call {
+                    let _ = self.prank.take();
                 }
             }
         }
@@ -1319,11 +1318,11 @@ impl<
                 // there may not be any pending calls to update if execution has
                 // percolated up to a higher depth.
                 let curr_depth = ecx.journaled_state.depth() as u64;
-                if call_access.depth == curr_depth {
-                    if let Ok(acc) = ecx.journaled_state.load_account(call.target_address) {
-                        debug_assert!(access_is_call(call_access.kind));
-                        call_access.newBalance = acc.info.balance;
-                    }
+                if call_access.depth == curr_depth
+                    && let Ok(acc) = ecx.journaled_state.load_account(call.target_address)
+                {
+                    debug_assert!(access_is_call(call_access.kind));
+                    call_access.newBalance = acc.info.balance;
                 }
                 // Merge the last depth's AccountAccesses into the AccountAccesses at the
                 // current depth, or push them back onto the pending vector if
@@ -1426,11 +1425,11 @@ impl<
 
         // if there's a revert and a previous call was diagnosed as fork related revert
         // then we can return a better error here
-        if outcome.result.is_revert() {
-            if let Some(err) = diag {
-                outcome.result.output = Error::encode(err.to_error_msg(&self.labels));
-                return;
-            }
+        if outcome.result.is_revert()
+            && let Some(err) = diag
+        {
+            outcome.result.output = Error::encode(err.to_error_msg(&self.labels));
+            return;
         }
 
         // try to diagnose reverts in multi-fork mode where a call is made to an address
@@ -1566,17 +1565,18 @@ impl<
         let curr_depth = ecx.journaled_state.depth() as u64;
 
         // Apply our prank
-        if let Some(prank) = &self.prank {
-            if curr_depth >= prank.depth && call.caller == prank.prank_caller {
-                // At the target depth we set `msg.sender`
-                if curr_depth == prank.depth {
-                    call.caller = prank.new_caller;
-                }
+        if let Some(prank) = &self.prank
+            && curr_depth >= prank.depth
+            && call.caller == prank.prank_caller
+        {
+            // At the target depth we set `msg.sender`
+            if curr_depth == prank.depth {
+                call.caller = prank.new_caller;
+            }
 
-                // At the target depth, or deeper, we set `tx.origin`
-                if let Some(new_origin) = prank.new_origin {
-                    ecx.tx.set_caller(new_origin);
-                }
+            // At the target depth, or deeper, we set `tx.origin`
+            if let Some(new_origin) = prank.new_origin {
+                ecx.tx.set_caller(new_origin);
             }
         }
 
@@ -1631,48 +1631,47 @@ impl<
         let curr_depth = ecx.journaled_state.depth() as u64;
 
         // Clean up pranks
-        if let Some(prank) = &self.prank {
-            if curr_depth == prank.depth {
-                ecx.tx.set_caller(prank.prank_origin);
+        if let Some(prank) = &self.prank
+            && curr_depth == prank.depth
+        {
+            ecx.tx.set_caller(prank.prank_origin);
 
-                // Clean single-call prank once we have returned to the original depth
-                if prank.single_call {
-                    std::mem::take(&mut self.prank);
-                }
+            // Clean single-call prank once we have returned to the original depth
+            if prank.single_call {
+                std::mem::take(&mut self.prank);
             }
         }
 
         // Handle expected reverts
-        if let Some(expected_revert) = &self.expected_revert {
-            if curr_depth <= expected_revert.depth
-                && matches!(expected_revert.kind, ExpectedRevertKind::Default)
-            {
-                let mut expected_revert = std::mem::take(&mut self.expected_revert).unwrap();
-                return match revert_handlers::handle_expect_revert(
-                    false,
-                    true,
-                    self.config.internal_expect_revert,
-                    &expected_revert,
-                    outcome.result.result,
-                    outcome.result.output.clone(),
-                    Some(&self.config.available_artifacts),
-                ) {
-                    Ok((address, retdata)) => {
-                        expected_revert.actual_count += 1;
-                        if expected_revert.actual_count < expected_revert.count {
-                            self.expected_revert = Some(expected_revert.clone());
-                        }
+        if let Some(expected_revert) = &self.expected_revert
+            && curr_depth <= expected_revert.depth
+            && matches!(expected_revert.kind, ExpectedRevertKind::Default)
+        {
+            let mut expected_revert = std::mem::take(&mut self.expected_revert).unwrap();
+            return match revert_handlers::handle_expect_revert(
+                false,
+                true,
+                self.config.internal_expect_revert,
+                &expected_revert,
+                outcome.result.result,
+                outcome.result.output.clone(),
+                Some(&self.config.available_artifacts),
+            ) {
+                Ok((address, retdata)) => {
+                    expected_revert.actual_count += 1;
+                    if expected_revert.actual_count < expected_revert.count {
+                        self.expected_revert = Some(expected_revert.clone());
+                    }
 
-                        outcome.result.result = InstructionResult::Return;
-                        outcome.result.output = retdata;
-                        outcome.address = address;
-                    }
-                    Err(err) => {
-                        outcome.result.result = InstructionResult::Revert;
-                        outcome.result.output = Error::encode(err);
-                    }
-                };
-            }
+                    outcome.result.result = InstructionResult::Return;
+                    outcome.result.output = retdata;
+                    outcome.address = address;
+                }
+                Err(err) => {
+                    outcome.result.result = InstructionResult::Revert;
+                    outcome.result.output = Error::encode(err);
+                }
+            };
         }
 
         // If `startStateDiffRecording` has been called, update the `reverted` status of
@@ -1704,16 +1703,16 @@ impl<
                         create_access.kind as u8,
                         crate::Vm::AccountAccessKind::Create as u8
                     );
-                    if let Some(address) = outcome.address {
-                        if let Ok(created_acc) = ecx.journaled_state.load_account(address) {
-                            create_access.newBalance = created_acc.info.balance;
-                            create_access.deployedCode = created_acc
-                                .info
-                                .code
-                                .clone()
-                                .unwrap_or_default()
-                                .original_bytes();
-                        }
+                    if let Some(address) = outcome.address
+                        && let Ok(created_acc) = ecx.journaled_state.load_account(address)
+                    {
+                        create_access.newBalance = created_acc.info.balance;
+                        create_access.deployedCode = created_acc
+                            .info
+                            .code
+                            .clone()
+                            .unwrap_or_default()
+                            .original_bytes();
                     }
                 }
                 // Merge the last depth's AccountAccesses into the AccountAccesses at the
@@ -1729,27 +1728,26 @@ impl<
         }
 
         // Match the create against expected_creates
-        if !self.expected_creates.is_empty() {
-            if let (Some(address), call) = (outcome.address, call) {
-                if let Ok(created_acc) = ecx.journaled_state.load_account(address) {
-                    let bytecode = created_acc
-                        .info
-                        .code
-                        .clone()
-                        .unwrap_or_default()
-                        .original_bytes();
-                    if let Some((index, _)) =
-                        self.expected_creates
-                            .iter()
-                            .find_position(|expected_create| {
-                                expected_create.deployer == call.caller
-                                    && expected_create.create_scheme.eq(call.scheme.into())
-                                    && expected_create.bytecode == bytecode
-                            })
-                    {
-                        self.expected_creates.swap_remove(index);
-                    }
-                }
+        if !self.expected_creates.is_empty()
+            && let (Some(address), call) = (outcome.address, call)
+            && let Ok(created_acc) = ecx.journaled_state.load_account(address)
+        {
+            let bytecode = created_acc
+                .info
+                .code
+                .clone()
+                .unwrap_or_default()
+                .original_bytes();
+            if let Some((index, _)) =
+                self.expected_creates
+                    .iter()
+                    .find_position(|expected_create| {
+                        expected_create.deployer == call.caller
+                            && expected_create.create_scheme.eq(call.scheme.into())
+                            && expected_create.bytecode == bytecode
+                    })
+            {
+                self.expected_creates.swap_remove(index);
             }
         }
     }
@@ -1836,10 +1834,10 @@ impl<
     #[cold]
     fn meter_gas_end(&mut self, interpreter: &mut Interpreter) {
         // Remove recorded gas if we exit frame.
-        if let Some(interpreter_action) = interpreter.bytecode.action.as_ref() {
-            if will_exit(interpreter_action) {
-                self.gas_metering.paused_frames.pop();
-            }
+        if let Some(interpreter_action) = interpreter.bytecode.action.as_ref()
+            && will_exit(interpreter_action)
+        {
+            self.gas_metering.paused_frames.pop();
         }
     }
 
@@ -1851,16 +1849,16 @@ impl<
 
     #[cold]
     fn meter_gas_check(interpreter: &mut Interpreter) {
-        if let Some(interpreter_action) = interpreter.bytecode.action.as_ref() {
-            if will_exit(interpreter_action) {
-                // Reset gas if spent is less than refunded.
-                // This can happen if gas was paused / resumed or reset.
-                // https://github.com/foundry-rs/foundry/issues/4370
-                if interpreter.gas.spent()
-                    < u64::try_from(interpreter.gas.refunded()).unwrap_or_default()
-                {
-                    interpreter.gas = Gas::new(interpreter.gas.limit());
-                }
+        if let Some(interpreter_action) = interpreter.bytecode.action.as_ref()
+            && will_exit(interpreter_action)
+        {
+            // Reset gas if spent is less than refunded.
+            // This can happen if gas was paused / resumed or reset.
+            // https://github.com/foundry-rs/foundry/issues/4370
+            if interpreter.gas.spent()
+                < u64::try_from(interpreter.gas.refunded()).unwrap_or_default()
+            {
+                interpreter.gas = Gas::new(interpreter.gas.limit());
             }
         }
     }

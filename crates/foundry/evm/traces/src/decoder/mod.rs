@@ -302,10 +302,10 @@ impl CallTraceDecoder {
         for error in abi.errors() {
             self.push_error(error.clone());
         }
-        if let Some(address) = address {
-            if abi.receive.is_some() {
-                self.receive_contracts.push(*address);
-            }
+        if let Some(address) = address
+            && abi.receive.is_some()
+        {
+            self.receive_contracts.push(*address);
         }
     }
 
@@ -352,12 +352,11 @@ impl CallTraceDecoder {
             let functions = match self.functions.get(selector) {
                 Some(fs) => fs,
                 None => {
-                    if let Some(identifier) = &self.signature_identifier {
-                        if let Some(function) =
+                    if let Some(identifier) = &self.signature_identifier
+                        && let Some(function) =
                             identifier.write().await.identify_function(selector).await
-                        {
-                            functions.push(function);
-                        }
+                    {
+                        functions.push(function);
                     }
                     &functions
                 }
@@ -411,10 +410,10 @@ impl CallTraceDecoder {
                 }
             }
 
-            if args.is_none() {
-                if let Ok(v) = func.abi_decode_input(&trace.data[edr_defaults::SELECTOR_LEN..]) {
-                    args = Some(v.iter().map(|value| self.apply_label(value)).collect());
-                }
+            if args.is_none()
+                && let Ok(v) = func.abi_decode_input(&trace.data[edr_defaults::SELECTOR_LEN..])
+            {
+                args = Some(v.iter().map(|value| self.apply_label(value)).collect());
             }
         }
 
@@ -531,13 +530,12 @@ impl CallTraceDecoder {
     fn decode_function_output(&self, trace: &CallTrace, funcs: &[Function]) -> Option<String> {
         let data = &trace.output;
         if trace.success {
-            if trace.address == CHEATCODE_ADDRESS {
-                if let Some(decoded) = funcs
+            if trace.address == CHEATCODE_ADDRESS
+                && let Some(decoded) = funcs
                     .iter()
                     .find_map(|func| self.decode_cheatcode_outputs(func))
-                {
-                    return Some(decoded);
-                }
+            {
+                return Some(decoded);
             }
 
             if let Some(values) = funcs
@@ -593,10 +591,10 @@ impl CallTraceDecoder {
         let events = match self.events.get(&(t0, log.topics().len() - 1)) {
             Some(es) => es,
             None => {
-                if let Some(identifier) = &self.signature_identifier {
-                    if let Some(event) = identifier.write().await.identify_event(&t0[..]).await {
-                        events.push(get_indexed_event(event, log));
-                    }
+                if let Some(identifier) = &self.signature_identifier
+                    && let Some(event) = identifier.write().await.identify_event(&t0[..]).await
+                {
+                    events.push(get_indexed_event(event, log));
                 }
                 &events
             }
@@ -658,10 +656,10 @@ impl CallTraceDecoder {
     }
 
     fn apply_label(&self, value: &DynSolValue) -> String {
-        if let DynSolValue::Address(addr) = value {
-            if let Some(label) = self.labels.get(addr) {
-                return format!("{label}: [{addr}]");
-            }
+        if let DynSolValue::Address(addr) = value
+            && let Some(label) = self.labels.get(addr)
+        {
+            return format!("{label}: [{addr}]");
         }
         format_token(value)
     }

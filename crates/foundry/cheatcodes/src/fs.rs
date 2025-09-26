@@ -814,23 +814,22 @@ impl<'a> ArtifactIdQuery<'a> {
             .next()
             .expect("split always returns at least one element");
 
-        if let Some(path) = &self.file {
-            if !id.source.ends_with(path) {
-                return false;
-            }
+        if let Some(path) = &self.file
+            && !id.source.ends_with(path)
+        {
+            return false;
         }
-        if let Some(name) = self.contract_name {
-            if id_name != name {
-                return false;
-            }
+        if let Some(name) = self.contract_name
+            && id_name != name
+        {
+            return false;
         }
-        if let Some(version) = &self.version {
-            if id.version.minor != version.minor
+        if let Some(version) = &self.version
+            && (id.version.minor != version.minor
                 || id.version.major != version.major
-                || id.version.patch != version.patch
-            {
-                return false;
-            }
+                || id.version.patch != version.patch)
+        {
+            return false;
         }
         true
     }

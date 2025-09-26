@@ -214,12 +214,11 @@ impl ContractsIdentifier {
 
         let result = self.search_bytecode_from_root(is_create, &normalized_code);
 
-        if self.enable_cache {
-            if let Some(result) = &result {
-                if !self.cache.contains_key(&*normalized_code) {
-                    self.cache.insert(normalized_code.to_vec(), result.clone());
-                }
-            }
+        if self.enable_cache
+            && let Some(result) = &result
+            && !self.cache.contains_key(&*normalized_code)
+        {
+            self.cache.insert(normalized_code.to_vec(), result.clone());
         }
 
         result

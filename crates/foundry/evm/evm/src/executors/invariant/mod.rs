@@ -1047,7 +1047,8 @@ impl<
             HardforkT,
             TransactionErrorT,
         >,
-        impl Strategy<Value = BasicTxDetails>,
+        impl Strategy<Value = BasicTxDetails>
+            + use<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
     )> {
         // Finds out the chosen deployed contracts and/or senders.
         self.select_contract_artifacts(invariant_contract.address)?;

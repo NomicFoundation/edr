@@ -157,10 +157,10 @@ impl RevertDecoder {
     /// See [`decode_revert`] for more information.
     pub fn maybe_decode(&self, err: &[u8], status: Option<InstructionResult>) -> Option<String> {
         if err.len() < edr_defaults::SELECTOR_LEN {
-            if let Some(status) = status {
-                if !status.is_ok() {
-                    return Some(format!("EvmError: {status:?}"));
-                }
+            if let Some(status) = status
+                && !status.is_ok()
+            {
+                return Some(format!("EvmError: {status:?}"));
             }
             return if err.is_empty() {
                 None

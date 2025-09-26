@@ -1142,10 +1142,10 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 
     /// Retrieves the collapsed method with the provided name, if it exists.
     fn collapsed_method(&mut self, method: &str) -> Option<&mut CollapsedMethod> {
-        if let LoggingState::CollapsingMethod(collapsed_method) = &mut self.state {
-            if collapsed_method.method == method {
-                return Some(collapsed_method);
-            }
+        if let LoggingState::CollapsingMethod(collapsed_method) = &mut self.state
+            && collapsed_method.method == method
+        {
+            return Some(collapsed_method);
         }
 
         None

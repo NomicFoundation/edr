@@ -49,14 +49,13 @@ fn handle_revert(
     // If expected reverter address is set then check it matches the actual
     // reverter.
     if let (Some(expected_reverter), Some(&actual_reverter)) = (revert_params.reverter(), reverter)
+        && expected_reverter != actual_reverter
     {
-        if expected_reverter != actual_reverter {
-            return Err(fmt_err!(
-                "Reverter != expected reverter: {} != {}",
-                actual_reverter,
-                expected_reverter
-            ));
-        }
+        return Err(fmt_err!(
+            "Reverter != expected reverter: {} != {}",
+            actual_reverter,
+            expected_reverter
+        ));
     }
 
     let expected_reason = revert_params.reason();
@@ -148,10 +147,9 @@ pub(crate) fn handle_expect_revert(
         // Reverter check
         if let (Some(expected_reverter), Some(actual_reverter)) =
             (expected_revert.reverter, expected_revert.reverted_by)
+            && expected_reverter == actual_reverter
         {
-            if expected_reverter == actual_reverter {
-                reverter_match = Some(true);
-            }
+            reverter_match = Some(true);
         }
 
         // Reason check
@@ -203,10 +201,9 @@ fn decode_revert(revert: Vec<u8>) -> Vec<u8> {
     if matches!(
         revert.get(..4).map(|s| s.try_into().unwrap()),
         Some(Vm::CheatcodeError::SELECTOR | alloy_sol_types::Revert::SELECTOR)
-    ) {
-        if let Ok(decoded) = Vec::<u8>::abi_decode(&revert[4..]) {
-            return decoded;
-        }
+    ) && let Ok(decoded) = Vec::<u8>::abi_decode(&revert[4..])
+    {
+        return decoded;
     }
     revert
 }

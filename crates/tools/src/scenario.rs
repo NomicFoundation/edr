@@ -99,10 +99,10 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
         anyhow::bail!("This scenario expects logging, but logging is not yet implemented")
     }
 
-    if let Some(chain_type) = config.chain_type {
-        if chain_type != edr_generic::CHAIN_TYPE {
-            anyhow::bail!("Unsupported chain type: {chain_type}")
-        }
+    if let Some(chain_type) = config.chain_type
+        && chain_type != edr_generic::CHAIN_TYPE
+    {
+        anyhow::bail!("Unsupported chain type: {chain_type}")
     }
 
     let provider_config = edr_provider::ProviderConfig::<edr_chain_l1::Hardfork>::try_from(
@@ -147,10 +147,10 @@ pub async fn execute(scenario_path: &Path, max_count: Option<usize>) -> anyhow::
     let mut success: usize = 0;
     let mut failure: usize = 0;
     for (i, request) in requests.into_iter().enumerate() {
-        if let Some(max_count) = max_count {
-            if i >= max_count {
-                break;
-            }
+        if let Some(max_count) = max_count
+            && i >= max_count
+        {
+            break;
         }
         let p = provider.clone();
         let response = task::spawn_blocking(move || p.handle_request(request))

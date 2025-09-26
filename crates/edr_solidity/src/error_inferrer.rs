@@ -257,16 +257,13 @@ pub(crate) fn infer_before_tracing_call_message<HaltReasonT: HaltReasonTrait>(
         ),
     );
 
-    if let Some(called_function) = called_function {
-        if is_function_not_payable_error(trace, called_function)? {
-            return Ok(Some(vec![StackTraceEntry::FunctionNotPayableError {
-                source_reference: get_function_start_source_reference(
-                    trace.into(),
-                    called_function,
-                )?,
-                value: trace.value,
-            }]));
-        }
+    if let Some(called_function) = called_function
+        && is_function_not_payable_error(trace, called_function)?
+    {
+        return Ok(Some(vec![StackTraceEntry::FunctionNotPayableError {
+            source_reference: get_function_start_source_reference(trace.into(), called_function)?,
+            value: trace.value,
+        }]));
     }
 
     let called_function = called_function.map(AsRef::as_ref);
@@ -401,12 +398,12 @@ fn call_instruction_to_call_failed_to_execute_stack_trace_entry<HaltReasonT: Hal
 fn check_contract_too_large<HaltReasonT: HaltReasonTrait>(
     trace: CreateOrCallMessageRef<'_, HaltReasonT>,
 ) -> Result<Option<Vec<StackTraceEntry>>, InferrerError<HaltReasonT>> {
-    if let CreateOrCallMessageRef::Create(create) = trace {
-        if create.exit.is_contract_too_large_error() {
-            return Ok(Some(vec![StackTraceEntry::ContractTooLargeError {
-                source_reference: Some(get_constructor_start_source_reference(create)?),
-            }]));
-        }
+    if let CreateOrCallMessageRef::Create(create) = trace
+        && create.exit.is_contract_too_large_error()
+    {
+        return Ok(Some(vec![StackTraceEntry::ContractTooLargeError {
+            source_reference: Some(get_constructor_start_source_reference(create)?),
+        }]));
     }
     Ok(None)
 }
@@ -494,21 +491,18 @@ fn check_failed_last_call<HaltReasonT: HaltReasonTrait>(
 
         let inst = contract_meta.get_instruction(step.pc)?;
 
-        if let (OpCode::CALL | OpCode::CREATE, NestedTraceStep::Evm(_)) = (inst.opcode, next_step) {
-            if is_call_failed_error(trace, step_index as u32, inst)? {
-                let mut inferred_stacktrace = stacktrace.clone();
-                inferred_stacktrace.push(
-                    call_instruction_to_call_failed_to_execute_stack_trace_entry(
-                        &contract_meta,
-                        inst,
-                    )?,
-                );
+        if let (OpCode::CALL | OpCode::CREATE, NestedTraceStep::Evm(_)) = (inst.opcode, next_step)
+            && is_call_failed_error(trace, step_index as u32, inst)?
+        {
+            let mut inferred_stacktrace = stacktrace.clone();
+            inferred_stacktrace.push(
+                call_instruction_to_call_failed_to_execute_stack_trace_entry(&contract_meta, inst)?,
+            );
 
-                return Ok(Heuristic::Hit(fix_initial_modifier(
-                    trace,
-                    inferred_stacktrace,
-                )?));
-            }
+            return Ok(Heuristic::Hit(fix_initial_modifier(
+                trace,
+                inferred_stacktrace,
+            )?));
         }
     }
 
@@ -812,27 +806,27 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
 
     let mut inferred_stacktrace = stacktrace.clone();
 
-    if let Some(location) = &last_instruction.location {
-        if jumped_into_function || matches!(trace, CreateOrCallMessageRef::Create(_)) {
-            // There should always be a function here, but that's not the case with
-            // optimizations.
-            //
-            // If this is a create trace, we already checked args and nonpayable failures
-            // before calling this function.
-            //
-            // If it's a call trace, we already jumped into a function. But optimizations
-            // can happen.
-            let failing_function = location.get_containing_function()?;
+    if let Some(location) = &last_instruction.location
+        && (jumped_into_function || matches!(trace, CreateOrCallMessageRef::Create(_)))
+    {
+        // There should always be a function here, but that's not the case with
+        // optimizations.
+        //
+        // If this is a create trace, we already checked args and nonpayable failures
+        // before calling this function.
+        //
+        // If it's a call trace, we already jumped into a function. But optimizations
+        // can happen.
+        let failing_function = location.get_containing_function()?;
 
-            // If the failure is in a modifier we add an entry with the function/constructor
-            match failing_function {
-                Some(func) if func.r#type == ContractFunctionType::Modifier => {
-                    let frame = get_entry_before_failure_in_modifier(trace, function_jumpdests)?;
+        // If the failure is in a modifier we add an entry with the function/constructor
+        match failing_function {
+            Some(func) if func.r#type == ContractFunctionType::Modifier => {
+                let frame = get_entry_before_failure_in_modifier(trace, function_jumpdests)?;
 
-                    inferred_stacktrace.push(frame);
-                }
-                _ => {}
+                inferred_stacktrace.push(frame);
             }
+            _ => {}
         }
     }
 
@@ -849,60 +843,59 @@ fn check_revert_or_invalid_opcode<HaltReasonT: HaltReasonTrait>(
         Heuristic::Miss(stacktrace) => stacktrace,
     };
 
-    if let Some(location) = &last_instruction.location {
-        if jumped_into_function || matches!(trace, CreateOrCallMessageRef::Create(_)) {
-            let failing_function = location.get_containing_function()?;
+    if let Some(location) = &last_instruction.location
+        && (jumped_into_function || matches!(trace, CreateOrCallMessageRef::Create(_)))
+    {
+        let failing_function = location.get_containing_function()?;
 
-            if failing_function.is_some() {
-                let frame = instruction_within_function_to_revert_stack_trace_entry(
-                    trace,
-                    last_instruction,
-                )?;
+        if failing_function.is_some() {
+            let frame =
+                instruction_within_function_to_revert_stack_trace_entry(trace, last_instruction)?;
 
-                inferred_stacktrace.push(frame);
-            } else {
-                let is_invalid_opcode_error = last_instruction.opcode == OpCode::INVALID;
+            inferred_stacktrace.push(frame);
+        } else {
+            let is_invalid_opcode_error = last_instruction.opcode == OpCode::INVALID;
 
-                match &trace {
-                    CreateOrCallMessageRef::Call(CallMessage { calldata, .. }) => {
-                        let contract = contract_meta.contract.read();
+            match &trace {
+                CreateOrCallMessageRef::Call(CallMessage { calldata, .. }) => {
+                    let contract = contract_meta.contract.read();
 
-                        // This is here because of the optimizations
-                        let function_from_selector =
-                            contract.get_function_from_selector(calldata.get(..4).unwrap_or(
-                                calldata.get(..).expect("calldata should be accessible"),
-                            ));
+                    // This is here because of the optimizations
+                    let function_from_selector = contract.get_function_from_selector(
+                        calldata
+                            .get(..4)
+                            .unwrap_or(calldata.get(..).expect("calldata should be accessible")),
+                    );
 
-                        // in general this shouldn't happen, but it does when viaIR is enabled,
-                        // "optimizerSteps": "u" is used, and the called function is fallback or
-                        // receive
-                        let Some(function) = function_from_selector else {
-                            return Ok(Heuristic::Miss(inferred_stacktrace));
-                        };
+                    // in general this shouldn't happen, but it does when viaIR is enabled,
+                    // "optimizerSteps": "u" is used, and the called function is fallback or
+                    // receive
+                    let Some(function) = function_from_selector else {
+                        return Ok(Heuristic::Miss(inferred_stacktrace));
+                    };
 
-                        let frame = StackTraceEntry::RevertError {
-                            source_reference: get_function_start_source_reference(trace, function)?,
-                            return_data: return_data.clone(),
-                            is_invalid_opcode_error,
-                        };
+                    let frame = StackTraceEntry::RevertError {
+                        source_reference: get_function_start_source_reference(trace, function)?,
+                        return_data: return_data.clone(),
+                        is_invalid_opcode_error,
+                    };
 
-                        inferred_stacktrace.push(frame);
-                    }
-                    CreateOrCallMessageRef::Create(create) => {
-                        // This is here because of the optimizations
-                        let frame = StackTraceEntry::RevertError {
-                            source_reference: get_constructor_start_source_reference(create)?,
-                            return_data: return_data.clone(),
-                            is_invalid_opcode_error,
-                        };
+                    inferred_stacktrace.push(frame);
+                }
+                CreateOrCallMessageRef::Create(create) => {
+                    // This is here because of the optimizations
+                    let frame = StackTraceEntry::RevertError {
+                        source_reference: get_constructor_start_source_reference(create)?,
+                        return_data: return_data.clone(),
+                        is_invalid_opcode_error,
+                    };
 
-                        inferred_stacktrace.push(frame);
-                    }
+                    inferred_stacktrace.push(frame);
                 }
             }
-
-            return fix_initial_modifier(trace, inferred_stacktrace).map(Heuristic::Hit);
         }
+
+        return fix_initial_modifier(trace, inferred_stacktrace).map(Heuristic::Hit);
     }
 
     // If the revert instruction is not mapped but there is return data,
@@ -1641,10 +1634,11 @@ fn is_constructor_invalid_arguments_error<HaltReasonT: HaltReasonTrait>(
 
         let inst = contract_meta.get_instruction(step.pc)?;
 
-        if let Some(inst_location) = &inst.location {
-            if contract.location != *inst_location && constructor.location != *inst_location {
-                return Ok(false);
-            }
+        if let Some(inst_location) = &inst.location
+            && contract.location != *inst_location
+            && constructor.location != *inst_location
+        {
+            return Ok(false);
         }
 
         if inst.opcode == OpCode::CODESIZE {
@@ -1806,10 +1800,10 @@ fn is_last_location<HaltReasonT: HaltReasonTrait>(
 
         let step_inst = contract_meta.get_instruction(step.pc)?;
 
-        if let Some(step_inst_location) = &step_inst.location {
-            if **step_inst_location != *location {
-                return Ok(false);
-            }
+        if let Some(step_inst_location) = &step_inst.location
+            && **step_inst_location != *location
+        {
+            return Ok(false);
         }
     }
 
