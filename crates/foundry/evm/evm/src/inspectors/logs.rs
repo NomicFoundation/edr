@@ -1,10 +1,8 @@
-use alloy_primitives::{Address, Bytes, Log};
+use alloy_primitives::{Bytes, Log};
 use alloy_sol_types::{SolEvent, SolInterface, SolValue};
+use edr_common::fmt::{ConsoleFmt, FormatSpec};
 use foundry_evm_core::{
-    abi::{
-        fmt::{ConsoleFmt, FormatSpec},
-        patch_hh_console_selector, Console, HardhatConsole,
-    },
+    abi::console,
     backend::DatabaseError,
     constants::HARDHAT_CONSOLE_ADDRESS,
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
@@ -30,12 +28,9 @@ pub struct LogCollector {
 }
 
 impl LogCollector {
-    fn hardhat_log(&mut self, mut input: Vec<u8>) -> (Option<InstructionResult>, Bytes) {
-        // Patch the Hardhat-style selector (`uint` instead of `uint256`)
-        patch_hh_console_selector(&mut input);
-
+    fn hardhat_log(&mut self, input: Vec<u8>) -> (Option<InstructionResult>, Bytes) {
         // Decode the call
-        let decoded = match HardhatConsole::HardhatConsoleCalls::abi_decode(&input) {
+        let decoded = match console::hh::Console::ConsoleCalls::abi_decode(&input) {
             Ok(inner) => inner,
             Err(err) => return (Some(InstructionResult::Revert), err.abi_encode_revert()),
         };
@@ -105,18 +100,18 @@ impl<
     }
 }
 
-/// Converts a call to Hardhat's `console.log` to a `DSTest` `log(string)`
-/// event.
-fn convert_hh_log_to_event(call: HardhatConsole::HardhatConsoleCalls) -> Log {
-    // Convert the parameters of the call to their string representation using
-    // `ConsoleFmt`.
-    let fmt = call.fmt(FormatSpec::default());
-    Log::new(
-        Address::default(),
-        vec![Console::log::SIGNATURE_HASH],
-        fmt.abi_encode().into(),
+/// Converts a Hardhat `console.log` call to a `DSTest` `log(string)` event.
+fn convert_hh_log_to_event(call: console::hh::Console::ConsoleCalls) -> Log {
+    // Convert the parameters of the call to their string representation using `ConsoleFmt`.
+    let msg = call.fmt(FormatSpec::default());
+    new_console_log(&msg)
+}
+
+/// Creates a `console.log(string)` event.
+fn new_console_log(msg: &str) -> Log {
+    Log::new_unchecked(
+        HARDHAT_CONSOLE_ADDRESS,
+        vec![console::ds::log::SIGNATURE_HASH],
+        msg.abi_encode().into(),
     )
-    .unwrap_or_else(|| Log {
-        ..Default::default()
-    })
 }

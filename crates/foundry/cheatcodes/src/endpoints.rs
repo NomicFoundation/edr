@@ -1,14 +1,16 @@
 //! Support for multiple RPC-endpoints
 
-use std::{collections::BTreeMap, fmt, ops::Deref};
+use std::{
+    collections::BTreeMap,
+    fmt,
+    ops::Deref,
+};
 
 /// Container type for API endpoints, like various RPC endpoints
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RpcEndpoints {
-    endpoints: BTreeMap<String, RpcEndpointConfig>,
+    endpoints: BTreeMap<String, RpcEndpoint>,
 }
-
-// === impl RpcEndpoints ===
 
 impl RpcEndpoints {
     /// Creates a new list of endpoints
@@ -19,13 +21,7 @@ impl RpcEndpoints {
             endpoints: endpoints
                 .into_iter()
                 .map(|(name, e)| match e.into() {
-                    RpcEndpointType::String(url) => (
-                        name.into(),
-                        RpcEndpointConfig {
-                            endpoint: url,
-                            ..Default::default()
-                        },
-                    ),
+                    RpcEndpointType::String(url) => (name.into(), RpcEndpoint::new(url)),
                     RpcEndpointType::Config(config) => (name.into(), config),
                 })
                 .collect(),
@@ -39,7 +35,7 @@ impl RpcEndpoints {
 }
 
 impl Deref for RpcEndpoints {
-    type Target = BTreeMap<String, RpcEndpointConfig>;
+    type Target = BTreeMap<String, RpcEndpoint>;
 
     fn deref(&self) -> &Self::Target {
         &self.endpoints
@@ -50,25 +46,25 @@ impl Deref for RpcEndpoints {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RpcEndpointType {
     /// Raw Endpoint url string
-    String(RpcEndpoint),
+    String(RpcEndpointUrl),
     /// Config object
-    Config(RpcEndpointConfig),
+    Config(RpcEndpoint),
 }
 
 impl RpcEndpointType {
     /// Returns the string variant
-    pub fn as_endpoint_string(&self) -> Option<&RpcEndpoint> {
+    pub fn as_endpoint_string(&self) -> Option<&RpcEndpointUrl> {
         match self {
-            RpcEndpointType::String(url) => Some(url),
-            RpcEndpointType::Config(_) => None,
+            Self::String(url) => Some(url),
+            Self::Config(_) => None,
         }
     }
 
     /// Returns the config variant
-    pub fn as_endpoint_config(&self) -> Option<&RpcEndpointConfig> {
+    pub fn as_endpoint_config(&self) -> Option<&RpcEndpoint> {
         match self {
-            RpcEndpointType::Config(config) => Some(config),
-            RpcEndpointType::String(_) => None,
+            Self::Config(config) => Some(config),
+            Self::String(_) => None,
         }
     }
 }
@@ -76,21 +72,15 @@ impl RpcEndpointType {
 impl fmt::Display for RpcEndpointType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RpcEndpointType::String(url) => url.fmt(f),
-            RpcEndpointType::Config(config) => config.fmt(f),
+            Self::String(url) => url.fmt(f),
+            Self::Config(config) => config.fmt(f),
         }
     }
 }
 
 /// Represents a single endpoint
-///
-/// This type preserves the value as it's stored in the config. If the value is
-/// a reference to an env var, then the `Endpoint::Env` var will hold the
-/// reference (`${MAIN_NET}`) and _not_ the value of the env var itself.
-/// In other words, this type does not resolve env vars when it's being
-/// deserialized
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RpcEndpoint {
+pub enum RpcEndpointUrl {
     /// A raw Url (ws, http)
     Url(String),
     /// An endpoint that contains at least one `${ENV_VAR}` placeholder
@@ -99,56 +89,65 @@ pub enum RpcEndpoint {
     Env(String),
 }
 
-// === impl RpcEndpoint ===
-
-impl RpcEndpoint {
+impl RpcEndpointUrl {
     /// Returns the url variant
     pub fn as_url(&self) -> Option<&str> {
         match self {
-            RpcEndpoint::Url(url) => Some(url),
-            RpcEndpoint::Env(_) => None,
+            Self::Url(url) => Some(url),
+            Self::Env(_) => None,
         }
     }
 
     /// Returns the env variant
     pub fn as_env(&self) -> Option<&str> {
         match self {
-            RpcEndpoint::Env(val) => Some(val),
-            RpcEndpoint::Url(_) => None,
+            Self::Env(val) => Some(val),
+            Self::Url(_) => None,
         }
     }
 }
 
-impl fmt::Display for RpcEndpoint {
+impl fmt::Display for RpcEndpointUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RpcEndpoint::Url(url) => url.fmt(f),
-            RpcEndpoint::Env(var) => var.fmt(f),
+            Self::Url(url) => url.fmt(f),
+            Self::Env(var) => var.fmt(f),
         }
     }
 }
 
-impl From<RpcEndpoint> for RpcEndpointType {
-    fn from(endpoint: RpcEndpoint) -> Self {
-        RpcEndpointType::String(endpoint)
+impl From<RpcEndpointUrl> for RpcEndpointType {
+    fn from(endpoint: RpcEndpointUrl) -> Self {
+        Self::String(endpoint)
     }
 }
 
-impl From<RpcEndpoint> for RpcEndpointConfig {
-    fn from(endpoint: RpcEndpoint) -> Self {
-        RpcEndpointConfig {
-            endpoint,
-            ..Default::default()
+impl From<RpcEndpointUrl> for RpcEndpoint {
+    fn from(endpoint: RpcEndpointUrl) -> Self {
+        Self { endpoint, ..Default::default() }
+    }
+}
+
+/// The auth token to be used for RPC endpoints
+/// It works in the same way as the `RpcEndpoint` type, where it can be a raw string or a reference
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RpcAuth {
+    Raw(String),
+    Env(String),
+}
+
+impl fmt::Display for RpcAuth {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Raw(url) => url.fmt(f),
+            Self::Env(var) => var.fmt(f),
         }
     }
 }
 
-/// Rpc endpoint configuration variant
-#[derive(Debug, Clone, PartialEq, Eq)]
+// Rpc endpoint configuration
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RpcEndpointConfig {
-    /// endpoint url or env
-    pub endpoint: RpcEndpoint,
-
     /// The number of retries.
     pub retries: Option<u32>,
 
@@ -163,14 +162,7 @@ pub struct RpcEndpointConfig {
 
 impl fmt::Display for RpcEndpointConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let RpcEndpointConfig {
-            endpoint,
-            retries,
-            retry_backoff,
-            compute_units_per_second,
-        } = self;
-
-        write!(f, "{endpoint}")?;
+        let Self { retries, retry_backoff, compute_units_per_second } = self;
 
         if let Some(retries) = retries {
             write!(f, ", retries={retries}")?;
@@ -188,19 +180,49 @@ impl fmt::Display for RpcEndpointConfig {
     }
 }
 
-impl From<RpcEndpointConfig> for RpcEndpointType {
-    fn from(config: RpcEndpointConfig) -> Self {
-        RpcEndpointType::Config(config)
+/// Rpc endpoint configuration variant
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RpcEndpoint {
+    /// endpoint url or env
+    pub endpoint: RpcEndpointUrl,
+
+    /// Token to be used as authentication
+    pub auth: Option<RpcAuth>,
+
+    /// additional configuration
+    pub config: RpcEndpointConfig,
+}
+
+impl RpcEndpoint {
+    pub fn new(endpoint: RpcEndpointUrl) -> Self {
+        Self { endpoint, ..Default::default() }
     }
 }
 
-impl Default for RpcEndpointConfig {
+impl fmt::Display for RpcEndpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { endpoint, auth, config } = self;
+        write!(f, "{endpoint}")?;
+        write!(f, "{config}")?;
+        if let Some(auth) = auth {
+            write!(f, ", auth={auth}")?;
+        }
+        Ok(())
+    }
+}
+
+impl From<RpcEndpoint> for RpcEndpointType {
+    fn from(config: RpcEndpoint) -> Self {
+        Self::Config(config)
+    }
+}
+
+impl Default for RpcEndpoint {
     fn default() -> Self {
         Self {
-            endpoint: RpcEndpoint::Url("http://localhost:8545".to_string()),
-            retries: None,
-            retry_backoff: None,
-            compute_units_per_second: None,
+            endpoint: RpcEndpointUrl::Url("http://localhost:8545".to_string()),
+            config: RpcEndpointConfig::default(),
+            auth: None,
         }
     }
 }

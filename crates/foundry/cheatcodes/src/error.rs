@@ -1,6 +1,5 @@
-use std::{borrow::Cow, fmt};
-
-use alloy_primitives::{Address, Bytes};
+use crate::Vm;
+use alloy_primitives::{Address, Bytes, hex};
 use alloy_signer::Error as SignerError;
 use alloy_signer_local::LocalSignerError;
 use alloy_sol_types::SolError;
@@ -8,13 +7,11 @@ use edr_common::errors::FsPathError;
 use foundry_evm_core::backend::{BackendError, DatabaseError};
 use k256::ecdsa::signature::Error as SignatureError;
 use revm::context_interface::result::EVMError;
-
-use crate::Vm;
+use std::{borrow::Cow, fmt};
 
 /// Cheatcode result type.
 ///
-/// Type alias with a default Ok type of [`Vec<u8>`], and default Err type of
-/// [`Error`].
+/// Type alias with a default Ok type of [`Vec<u8>`], and default Err type of [`Error`].
 pub type Result<T = Vec<u8>, E = Error> = std::result::Result<T, E>;
 
 macro_rules! fmt_err {
@@ -69,28 +66,24 @@ macro_rules! ensure {
 macro_rules! ensure_not_precompile {
     ($address:expr, $ctxt:expr) => {
         if $ctxt.is_precompile($address) {
-            return Err($crate::error::precompile_error(
-                <Self as $crate::CheatcodeDef>::CHEATCODE.func.id,
-                $address,
-            ));
+            return Err($crate::error::precompile_error($address));
         }
     };
 }
 
 #[cold]
-pub(crate) fn precompile_error(id: &'static str, address: &Address) -> Error {
-    fmt_err!("cannot call `{id}` on precompile {address}")
+pub(crate) fn precompile_error(address: &Address) -> Error {
+    fmt_err!("cannot use precompile {address} as an argument")
 }
 
 /// Error thrown by cheatcodes.
 // This uses a custom repr to minimize the size of the error.
 // The repr is basically `enum { Cow<'static, str>, Cow<'static, [u8]> }`
 pub struct Error {
-    /// If true, encode `data` as `Error(string)`, otherwise encode it directly
-    /// as `bytes`.
+    /// If true, encode `data` as `Error(string)`, otherwise encode it directly as `bytes`.
     is_str: bool,
-    /// Whether this was constructed from an owned byte vec, which means we have
-    /// to drop the data in `impl Drop`.
+    /// Whether this was constructed from an owned byte vec, which means we have to drop the data
+    /// in `impl Drop`.
     drop: bool,
     /// The error data. Always a valid pointer, and never modified.
     data: *const [u8],
@@ -150,20 +143,17 @@ impl Error {
         }
     }
 
-    /// ABI-encodes this error as `CheatcodeError(string)` if the inner message
-    /// is a string, otherwise returns the raw bytes.
+    /// ABI-encodes this error as `CheatcodeError(string)` if the inner message is a string,
+    /// otherwise returns the raw bytes.
     pub fn abi_encode(&self) -> Vec<u8> {
         match self.kind() {
-            ErrorKind::String(string) => Vm::CheatcodeError {
-                message: string.into(),
-            }
-            .abi_encode(),
+            ErrorKind::String(string) => Vm::CheatcodeError { message: string.into() }.abi_encode(),
             ErrorKind::Bytes(bytes) => bytes.into(),
         }
     }
 
     /// Returns the kind of this error.
-    #[inline(always)]
+    #[inline]
     pub fn kind(&self) -> ErrorKind<'_> {
         let data = self.data();
         if self.is_str {
@@ -175,36 +165,38 @@ impl Error {
     }
 
     /// Returns the raw data of this error.
-    #[inline(always)]
+    #[inline]
     pub fn data(&self) -> &[u8] {
         unsafe { &*self.data }
     }
 
-    #[inline(always)]
+    /// Returns `true` if this error is a human-readable string.
+    #[inline]
+    pub fn is_str(&self) -> bool {
+        self.is_str
+    }
+
+    #[inline]
     fn new_str(data: &'static str) -> Self {
         Self::_new(true, false, data.as_bytes())
     }
 
-    #[inline(always)]
+    #[inline]
     fn new_string(data: String) -> Self {
-        Self::_new(
-            true,
-            true,
-            Box::into_raw(data.into_boxed_str().into_boxed_bytes()),
-        )
+        Self::_new(true, true, Box::into_raw(data.into_boxed_str().into_boxed_bytes()))
     }
 
-    #[inline(always)]
+    #[inline]
     fn new_bytes(data: &'static [u8]) -> Self {
         Self::_new(false, false, data)
     }
 
-    #[inline(always)]
+    #[inline]
     fn new_vec(data: Vec<u8>) -> Self {
         Self::_new(false, true, Box::into_raw(data.into_boxed_slice()))
     }
 
-    #[inline(always)]
+    #[inline]
     fn _new(is_str: bool, drop: bool, data: *const [u8]) -> Self {
         debug_assert!(!data.is_null());
         Self { is_str, drop, data }
@@ -212,7 +204,6 @@ impl Error {
 }
 
 impl Drop for Error {
-    #[inline]
     fn drop(&mut self) {
         if self.drop {
             drop(unsafe { Box::<[u8]>::from_raw(self.data.cast_mut()) });
@@ -230,21 +221,18 @@ impl From<Cow<'static, str>> for Error {
 }
 
 impl From<String> for Error {
-    #[inline]
     fn from(value: String) -> Self {
         Self::new_string(value)
     }
 }
 
 impl From<&'static str> for Error {
-    #[inline]
     fn from(value: &'static str) -> Self {
         Self::new_str(value)
     }
 }
 
 impl From<Cow<'static, [u8]>> for Error {
-    #[inline]
     fn from(value: Cow<'static, [u8]>) -> Self {
         match value {
             Cow::Borrowed(bytes) => Self::new_bytes(bytes),
@@ -254,21 +242,18 @@ impl From<Cow<'static, [u8]>> for Error {
 }
 
 impl From<&'static [u8]> for Error {
-    #[inline]
     fn from(value: &'static [u8]) -> Self {
         Self::new_bytes(value)
     }
 }
 
 impl<const N: usize> From<&'static [u8; N]> for Error {
-    #[inline]
     fn from(value: &'static [u8; N]) -> Self {
         Self::new_bytes(value)
     }
 }
 
 impl From<Vec<u8>> for Error {
-    #[inline]
     fn from(value: Vec<u8>) -> Self {
         Self::new_vec(value)
     }
@@ -285,7 +270,6 @@ impl From<Bytes> for Error {
 macro_rules! impl_from {
     ($($t:ty),* $(,)?) => {$(
         impl From<$t> for Error {
-            #[inline]
             fn from(value: $t) -> Self {
                 Self::display(value)
             }
@@ -295,10 +279,11 @@ macro_rules! impl_from {
 
 impl_from!(
     alloy_sol_types::Error,
+    alloy_dyn_abi::Error,
     alloy_primitives::SignatureError,
+    eyre::Report,
     FsPathError,
     hex::FromHexError,
-    eyre::Error,
     BackendError,
     DatabaseError,
     jsonpath_lib::JsonPathError,
@@ -313,7 +298,6 @@ impl_from!(
 );
 
 impl<T: Into<BackendError>> From<EVMError<T>> for Error {
-    #[inline]
     fn from(err: EVMError<T>) -> Self {
         Self::display(BackendError::from(err))
     }
@@ -325,10 +309,7 @@ mod tests {
 
     #[test]
     fn encode() {
-        let error = Vm::CheatcodeError {
-            message: "hello".into(),
-        }
-        .abi_encode();
+        let error = Vm::CheatcodeError { message: "hello".into() }.abi_encode();
         assert_eq!(Error::from("hello").abi_encode(), error);
         assert_eq!(Error::encode("hello"), error);
 

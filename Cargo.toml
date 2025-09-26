@@ -208,7 +208,9 @@ ethers-contract-abigen = { version = "2.0.14", default-features = false }
 alloy-consensus = { version = "1.0.22", default-features = false }
 alloy-contract = { version = "1.0.22", default-features = false }
 alloy-eips = { version = "1.0.22", default-features = false }
+alloy-ens = { version = "1.0.22", default-features = false }
 alloy-genesis = { version = "1.0.22", default-features = false }
+alloy-hardforks = { version = "0.2.12", default-features = false }
 alloy-json-rpc = { version = "1.0.22", default-features = false }
 alloy-network = { version = "1.0.22", default-features = false }
 alloy-node-bindings = { version = "0.13.0", default-features = false }
@@ -273,7 +275,7 @@ paste = { version = "1.0.14", default-features = false }
 semver = { version = "1.0.26", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
-similar-asserts = "1.5"
+similar-asserts = "1.7"
 rand = "0.9"
 rustc-hash = "1.1"
 serde = { version = "1.0", features = ["derive", "std"] }
@@ -301,6 +303,7 @@ hyper = "1.0"
 reqwest = { version = "0.12", default-features = false }
 tower = "0.4"
 tower-http = "0.5"
+axum = "0.8"
 
 [workspace.lints.rust]
 future_incompatible = "warn"

@@ -91,32 +91,31 @@ impl BaseCounterExample {
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
         if let Some((name, abi)) = &contracts.get(&addr)
-            && let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4])
-        {
-            // skip the function selector when decoding
-            if let Ok(args) = func.abi_decode_input(&bytes[4..]) {
-                return Self {
-                    sender: Some(sender),
-                    addr: Some(addr),
-                    calldata: bytes.clone(),
-                    contract_name: Some(name.clone()),
-                    func_name: Some(func.name.clone()),
-                    signature: Some(func.signature()),
-                    args: Some(
-                        foundry_evm_core::abi::fmt::format_tokens(&args)
-                            .format(", ")
-                            .to_string(),
-                    ),
-                    raw_args: Some(
-                        foundry_evm_core::abi::fmt::format_tokens_raw(&args)
-                            .format(", ")
-                            .to_string(),
-                    ),
-                    traces,
-                    show_solidity,
-                    indeterminism_reasons,
-                };
-            }
+            && let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4]) {
+                // skip the function selector when decoding
+                if let Ok(args) = func.abi_decode_input(&bytes[4..]) {
+                    return Self {
+                        sender: Some(sender),
+                        addr: Some(addr),
+                        calldata: bytes.clone(),
+                        contract_name: Some(name.clone()),
+                        func_name: Some(func.name.clone()),
+                        signature: Some(func.signature()),
+                        args: Some(
+                            edr_common::fmt::format_tokens(&args)
+                                .format(", ")
+                                .to_string(),
+                        ),
+                        raw_args: Some(
+                            edr_common::fmt::format_tokens_raw(&args)
+                                .format(", ")
+                                .to_string(),
+                        ),
+                        traces,
+                        show_solidity,
+                        indeterminism_reasons,
+                    };
+                }
         }
 
         Self {
@@ -149,12 +148,12 @@ impl BaseCounterExample {
             func_name: None,
             signature: None,
             args: Some(
-                foundry_evm_core::abi::fmt::format_tokens(&args)
+                edr_common::fmt::format_tokens(&args)
                     .format(", ")
                     .to_string(),
             ),
             raw_args: Some(
-                foundry_evm_core::abi::fmt::format_tokens_raw(&args)
+                edr_common::fmt::format_tokens_raw(&args)
                     .format(", ")
                     .to_string(),
             ),

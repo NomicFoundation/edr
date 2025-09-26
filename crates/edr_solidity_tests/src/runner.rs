@@ -541,7 +541,7 @@ impl<
             Err(EvmError::Skip(reason)) => {
                 return TestResult {
                     status: TestStatus::Skipped,
-                    reason: reason.into(),
+                    reason: reason.0,
                     decoded_logs: decode_console_logs(&logs),
                     traces,
                     labeled_addresses,
@@ -951,7 +951,7 @@ impl<
         ) {
             return TestResult {
                 status: TestStatus::Skipped,
-                reason: reason.into(),
+                reason: reason.0,
                 decoded_logs: decode_console_logs(&logs),
                 labeled_addresses,
                 kind: TestKind::Invariant {
