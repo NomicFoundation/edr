@@ -46,7 +46,7 @@ pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
             hardfork: OpSpecId::ISTHMUS,
         },
     ]),
-    base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
+    base_fee_params: Some(BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
         (
             BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
             ConstantBaseFeeParams::new(50, 6),
@@ -67,7 +67,7 @@ pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
             BaseFeeActivation::BlockNumber(31_747_084),
             ConstantBaseFeeParams::new(50, 3),
         ),
-    ])),
+    ]))),
 });
 
 /// Base Sepolia chain ID
@@ -112,7 +112,7 @@ pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
             hardfork: OpSpecId::ISTHMUS,
         },
     ]),
-    base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
+    base_fee_params: Some(BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
         (
             BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
             ConstantBaseFeeParams::new(50, 10),
@@ -129,5 +129,5 @@ pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
             BaseFeeActivation::BlockNumber(26_299_084),
             ConstantBaseFeeParams::new(50, 4),
         ),
-    ])),
+    ]))),
 });

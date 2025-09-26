@@ -99,7 +99,7 @@ fn mainnet_config() -> &'static ChainConfig<edr_chain_l1::Hardfork> {
         ChainConfig {
             name: "Mainnet".to_owned(),
             hardfork_activations,
-            base_fee_params: BASE_FEE_PARAMS,
+            base_fee_params: Some(BASE_FEE_PARAMS),
         }
     })
 }
@@ -135,7 +135,7 @@ fn holesky_config() -> &'static ChainConfig<edr_chain_l1::Hardfork> {
         ChainConfig {
             name: "Holesky".to_owned(),
             hardfork_activations,
-            base_fee_params: BASE_FEE_PARAMS,
+            base_fee_params: Some(BASE_FEE_PARAMS),
         }
     })
 }
@@ -163,7 +163,7 @@ fn hoodi_config() -> &'static ChainConfig<edr_chain_l1::Hardfork> {
         ChainConfig {
             name: "Hoodi".to_owned(),
             hardfork_activations,
-            base_fee_params: BASE_FEE_PARAMS,
+            base_fee_params: Some(BASE_FEE_PARAMS),
         }
     })
 }
@@ -203,7 +203,7 @@ fn sepolia_config() -> &'static ChainConfig<edr_chain_l1::Hardfork> {
         ChainConfig {
             name: "Sepolia".to_owned(),
             hardfork_activations,
-            base_fee_params: BASE_FEE_PARAMS,
+            base_fee_params: Some(BASE_FEE_PARAMS),
         }
     })
 }
@@ -231,5 +231,5 @@ pub fn chain_config(chain_id: u64) -> Option<&'static ChainConfig<edr_chain_l1::
 
 /// Returns the default base fee params to fallback to
 pub fn default_base_fee_params() -> &'static BaseFeeParams<edr_chain_l1::Hardfork> {
-    &mainnet_config().base_fee_params
+    &BASE_FEE_PARAMS
 }
