@@ -25,7 +25,6 @@ use revm::{
     },
     DatabaseCommit, ExecuteEvm, Inspector, Journal,
 };
-
 use super::{Cheatcodes, CheatsConfig, CoverageCollector, Fuzzer, LogCollector, TracingInspector};
 
 #[derive(Clone, Debug, Default)]
@@ -270,6 +269,8 @@ pub struct InspectorData<
     TransactionErrorT: TransactionErrorTrait,
 > {
     pub logs: Vec<Log>,
+    /// Assertion failure messages if `assertions_revert` is set to false.
+    pub assertion_failure_messages: Vec<String>,
     pub labels: AddressHashMap<String>,
     pub traces: Option<SparsedTraceArena>,
     pub coverage: Option<HitMaps>,
@@ -461,7 +462,7 @@ impl<
     /// Collects all the data gathered during inspection into a single struct.
     #[inline]
     pub fn collect(
-        self,
+        mut self,
     ) -> eyre::Result<
         InspectorData<
             BlockT,
@@ -487,20 +488,28 @@ impl<
             code_coverage.report().map_err(|error| eyre!(error))?;
         }
 
+        let labels = self
+            .cheatcodes
+            .as_ref()
+            .map(|cheatcodes| {
+                cheatcodes
+                    .labels
+                    .clone()
+                    .into_iter()
+                    .map(|l| (l.0, l.1))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let logs = self.log_collector.map(|logs| logs.logs).unwrap_or_default();
+
+        // We take the assertion failure messages, because we don't want to mix them in nested cont
+        let assertion_failure_messages = self.cheatcodes.as_mut().map(|cheatcodes| std::mem::take(&mut cheatcodes.assertion_failure_messages)).unwrap_or_default();
+
         Ok(InspectorData {
-            logs: self.log_collector.map(|logs| logs.logs).unwrap_or_default(),
-            labels: self
-                .cheatcodes
-                .as_ref()
-                .map(|cheatcodes| {
-                    cheatcodes
-                        .labels
-                        .clone()
-                        .into_iter()
-                        .map(|l| (l.0, l.1))
-                        .collect()
-                })
-                .unwrap_or_default(),
+            logs,
+            assertion_failure_messages,
+            labels,
             traces,
             coverage: self
                 .coverage

@@ -108,7 +108,7 @@ fn convert_hh_log_to_event(call: console::hh::Console::ConsoleCalls) -> Log {
 }
 
 /// Creates a `console.log(string)` event.
-fn new_console_log(msg: &str) -> Log {
+pub(crate) fn new_console_log(msg: &str) -> Log {
     Log::new_unchecked(
         HARDHAT_CONSOLE_ADDRESS,
         vec![console::ds::log::SIGNATURE_HASH],

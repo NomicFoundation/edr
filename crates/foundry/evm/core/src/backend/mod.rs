@@ -278,16 +278,11 @@ pub trait CheatcodeBackend<
         'a: 'c;
 
     /// Fetches the given transaction for the fork and executes it, committing the state in the DB
-    fn transact<InspectorT>(
+    fn transact(
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        inspector: &mut InspectorT,
-        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<()>
-    where
-        InspectorT: CheatcodeInspectorTr<
+        inspector: &mut dyn CheatcodeInspectorTr<
             BlockT,
             TxT,
             HardforkT,
@@ -302,6 +297,10 @@ pub trait CheatcodeBackend<
             >,
             ChainContextT,
         >,
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()>
+    where
         Self: Sized;
 
     /// Executes a given TransactionRequest, commits the new state to the DB
@@ -1605,16 +1604,11 @@ impl<
         Ok(())
     }
 
-    fn transact<InspectorT>(
+    fn transact(
         &mut self,
         maybe_id: Option<LocalForkId>,
         transaction: B256,
-        inspector: &mut InspectorT,
-        mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<()>
-    where
-        InspectorT: CheatcodeInspectorTr<
+        inspector: &mut dyn CheatcodeInspectorTr<
             BlockT,
             TxT,
             HardforkT,
@@ -1629,6 +1623,9 @@ impl<
             >,
             ChainContextT,
         >,
+        mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()>
     {
         trace!(?maybe_id, ?transaction, "execute transaction");
         let persistent_accounts = self.inner.persistent_accounts.clone();

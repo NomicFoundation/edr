@@ -375,7 +375,7 @@ impl<
         let deprecated_cheatcodes = call
             .cheatcodes
             .as_ref()
-            .map_or_else(Default::default, |cheatcodes| cheatcodes.deprecated.clone());
+            .map_or_else(Default::default, |cheatcodes| cheatcodes.deprecated.clone().into_iter().collect());
 
         let success = self
             .executor
