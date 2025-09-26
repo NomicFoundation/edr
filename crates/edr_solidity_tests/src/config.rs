@@ -115,11 +115,11 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
                 gas_price: Some(0),
                 block_base_fee_per_gas: 0,
                 tx_origin: edr_defaults::SOLIDITY_TESTS_SENDER,
-                block_number: 1,
+                block_number: U256::from(1),
                 block_difficulty: 0,
                 block_prevrandao: B256::default(),
                 block_gas_limit: None,
-                block_timestamp: 1,
+                block_timestamp: U256::from(1),
                 block_coinbase: Address::default(),
                 code_size_limit: None,
             },
@@ -136,6 +136,7 @@ impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {
             memory_limit: 1 << 25, // 2**25 = 32MiB
             isolate: false,
             disable_block_gas_limit: false,
+            fork_headers: None,
         }
     }
 }

@@ -47,6 +47,9 @@ pub const STATE_ROOT_HASH_SEED: &str = "seed";
 /// Alchemy free tier cups: <https://docs.alchemy.com/reference/pricing-plans>
 pub const ALCHEMY_FREE_TIER_CUPS: u64 = 330;
 
+/// Default user agent set as the header for requests that don't specify one.
+pub const DEFAULT_USER_AGENT: &str = concat!("edr/", env!("CARGO_PKG_VERSION"));
+
 /// The dev chain-id, inherited from hardhat
 pub const DEV_CHAIN_ID: u64 = 31337;
 

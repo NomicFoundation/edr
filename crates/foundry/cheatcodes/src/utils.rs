@@ -1,5 +1,6 @@
 //! Implementations of [`Utils`](crate::Group::Utils) cheatcodes.
 
+use alloy_ens::namehash;
 use alloy_primitives::{B256, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
@@ -16,7 +17,6 @@ use p256::ecdsa::{signature::hazmat::PrehashSigner, Signature, SigningKey as P25
 use revm::context::result::HaltReasonTr;
 
 use crate::{
-    ens::namehash,
     impl_is_pure_true, Cheatcode, Cheatcodes, Result,
     Vm::{
         computeCreate2Address_0Call, computeCreate2Address_1Call, computeCreateAddressCall,
