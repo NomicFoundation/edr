@@ -145,17 +145,3 @@ impl<ChainSpecT: RuntimeSpec> BlockReceipts<Arc<ChainSpecT::BlockReceipt>>
         Ok(receipts)
     }
 }
-
-impl<TransactionT> EthRpcBlock for L1RpcBlock<TransactionT> {
-    fn state_root(&self) -> &B256 {
-        &self.state_root
-    }
-
-    fn timestamp(&self) -> u64 {
-        self.timestamp
-    }
-
-    fn total_difficulty(&self) -> Option<&U256> {
-        self.total_difficulty.as_ref()
-    }
-}

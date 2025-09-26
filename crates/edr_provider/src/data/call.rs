@@ -1,6 +1,7 @@
 use edr_block_header::BlockHeader;
+use edr_blockchain_api::BlockHash;
 use edr_evm::{
-    blockchain::{BlockHash, BlockchainErrorForChainSpec},
+    blockchain::BlockchainErrorForChainSpec,
     config::CfgEnv,
     inspector::Inspector,
     precompile::PrecompileFn,
@@ -11,6 +12,7 @@ use edr_evm::{
 };
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, HashMap};
+use edr_state_api::{database::DatabaseComponents, State, StateError};
 
 use crate::{
     error::ProviderErrorForChainSpec, time::TimeSinceEpoch, ProviderError, SyncProviderSpec,

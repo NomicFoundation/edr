@@ -37,8 +37,7 @@ use edr_evm::{
     result::ExecutionResult,
     spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
     state::{
-        AccountModifierFn, EvmStorageSlot, IrregularState, StateDiff, StateError, StateOverride,
-        StateOverrides, StateRefOverrider, SyncState,
+        EvmStorageSlot, IrregularState, StateDiff, StateOverride, StateOverrides, StateRefOverrider,
     },
     trace::Trace,
     transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, GenesisBlockOptions, MemPool,
@@ -55,7 +54,10 @@ use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_state_api::account::{Account, AccountInfo, AccountStatus};
+use edr_state_api::{
+    account::{Account, AccountInfo, AccountStatus},
+    AccountModifierFn, StateError, SyncState,
+};
 use edr_transaction::{
     request::TransactionRequestAndSender, IsEip4844, IsSupported as _, TransactionMut,
     TransactionType, TxKind,

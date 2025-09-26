@@ -9,12 +9,12 @@ use edr_evm_spec::{
     TransactionValidation,
 };
 use edr_primitives::U256;
+use edr_state_api::database::DatabaseComponentError;
 use edr_transaction::TxKind;
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 
 pub use self::detailed::*;
-use crate::state::DatabaseComponentError;
 
 /// Helper type for a chain-specific [`TransactionError`].
 pub type TransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = TransactionError<

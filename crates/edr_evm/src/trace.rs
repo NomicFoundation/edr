@@ -1,12 +1,14 @@
 use std::fmt::Debug;
 
 use derive_where::derive_where;
+use edr_blockchain_api::BlockHash;
 use edr_evm_spec::HaltReasonTrait;
 use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
+use edr_state_api::{database::DatabaseComponents, State};
 use revm::Inspector;
+use revm_database_interface::WrapDatabaseRef;
 
 use crate::{
-    blockchain::BlockHash,
     interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         EthInterpreter, Interpreter, Jumps as _, SuccessOrHalt,
@@ -14,7 +16,6 @@ use crate::{
     journal::{JournalExt, JournalTrait},
     result::{ExecutionResult, Output},
     spec::ContextTrait,
-    state::{DatabaseComponents, State, WrapDatabaseRef},
 };
 
 /// Stack tracing message

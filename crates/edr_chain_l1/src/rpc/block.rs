@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use alloy_eips::eip4895::Withdrawal;
 use edr_block_header::{BlobGas, BlockHeader};
 use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
-use edr_rpc_spec::GetBlockNumber;
+use edr_rpc_spec::{GetBlockNumber, RpcEthBlock};
 use serde::{Deserialize, Serialize};
 
 /// block object returned by `eth_getBlockBy*`
@@ -102,6 +102,20 @@ pub struct L1RpcBlock<TransactionT> {
 impl<TransactionT> GetBlockNumber for L1RpcBlock<TransactionT> {
     fn number(&self) -> Option<u64> {
         self.number
+    }
+}
+
+impl<TransactionT> RpcEthBlock for L1RpcBlock<TransactionT> {
+    fn state_root(&self) -> &B256 {
+        &self.state_root
+    }
+
+    fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+
+    fn total_difficulty(&self) -> Option<&U256> {
+        self.total_difficulty.as_ref()
     }
 }
 

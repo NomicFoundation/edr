@@ -12,7 +12,6 @@ use edr_evm::{
     result::{ExecutionResult, ExecutionResultAndState},
     runtime::{dry_run_with_inspector, run},
     spec::{ContextTrait, RuntimeSpec},
-    state::SyncState,
     trace::{Trace, TraceCollector},
     transaction::TransactionError,
 };
@@ -24,6 +23,7 @@ use edr_primitives::{
     bytecode::opcode::{self, OpCode},
     hex, Address, Bytes, B256, U256,
 };
+use edr_state_api::SyncState;
 
 use crate::{
     observability::{EvmObserver, EvmObserverConfig},

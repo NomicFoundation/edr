@@ -10,6 +10,7 @@ use edr_evm::{
 };
 use edr_evm_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait};
 use edr_primitives::{Bytes, B256};
+use edr_state_api::SyncState;
 
 /// The result of mining a block, including the state, in debug mode. This
 /// result needs to be inserted into the blockchain to be persistent.

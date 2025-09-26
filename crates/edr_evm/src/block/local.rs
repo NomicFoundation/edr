@@ -16,6 +16,8 @@ use edr_receipt::{
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     MapReceiptLogs, ReceiptFactory, ReceiptTrait, TransactionReceipt,
 };
+use edr_state_api::{StateCommit as _, StateDebug as _};
+use edr_state_persistent_trie::PersistentStateTrie;
 use edr_trie::ordered_trie_root;
 use edr_utils::types::TypeConstructor;
 use itertools::izip;
@@ -27,7 +29,7 @@ use crate::{
         ExecutionReceiptTypeConstructorBounds, ExecutionReceiptTypeConstructorForChainSpec,
         RuntimeSpec,
     },
-    state::{StateCommit as _, StateDebug as _, StateDiff, TrieState},
+    state::StateDiff,
     transaction::DetailedTransaction,
     Block, GenesisBlockOptions,
 };
@@ -216,7 +218,7 @@ impl<
     where
         HardforkT: Default,
     {
-        let mut genesis_state = TrieState::default();
+        let mut genesis_state = PersistentStateTrie::default();
         genesis_state.commit(genesis_diff.clone().into());
 
         let evm_spec_id = block_config.hardfork.clone().into();

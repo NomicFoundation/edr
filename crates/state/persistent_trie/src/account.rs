@@ -7,12 +7,12 @@ use edr_state_api::account::{AccountInfo, BasicAccount};
 use crate::{persistent_db::PersistentMemoryDB, query::TrieQuery};
 
 #[derive(Debug)]
-pub(super) struct AccountTrie {
+pub(super) struct PersistentAccountTrie {
     db: Arc<PersistentMemoryDB>,
     root: B256,
 }
 
-impl AccountTrie {
+impl PersistentAccountTrie {
     /// Retrieves the account for the given address, if it exists.
     pub fn account(&self, address: &Address) -> Option<BasicAccount> {
         self.trie_query().get(address).map(|encoded_account| {
@@ -39,7 +39,7 @@ impl AccountTrie {
     }
 }
 
-impl Clone for AccountTrie {
+impl Clone for PersistentAccountTrie {
     fn clone(&self) -> Self {
         Self {
             db: Arc::new((*self.db).clone()),
@@ -48,7 +48,7 @@ impl Clone for AccountTrie {
     }
 }
 
-impl Default for AccountTrie {
+impl Default for PersistentAccountTrie {
     fn default() -> Self {
         let db = Arc::new(PersistentMemoryDB::default());
         let mut trie = TrieQuery::empty(Arc::clone(&db));
@@ -61,7 +61,7 @@ impl Default for AccountTrie {
 /// A helper struct that lets us update multiple accounts and updates the
 /// account trie root when dropped.
 pub struct AccountTrieMutation<'a> {
-    account_trie: &'a mut AccountTrie,
+    account_trie: &'a mut PersistentAccountTrie,
     trie_query: TrieQuery,
 }
 

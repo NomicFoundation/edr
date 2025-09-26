@@ -4,8 +4,8 @@ use edr_state_api::{
     AccountModifierFn, State, StateCommit, StateDebug, StateError,
 };
 
-pub use self::state::AccountAndStorageTrie;
-use crate::{account::AccountTrie, shared_map::SharedMap};
+pub use self::state::PersistentAccountAndStorageTrie;
+use crate::{account::PersistentAccountTrie, shared_map::SharedMap};
 
 mod account;
 mod persistent_db;
@@ -16,18 +16,20 @@ mod storage;
 
 /// An implementation of revm's state that uses a persistent trie.
 #[derive(Clone, Debug)]
-pub struct PersistentTrieState {
-    accounts_and_storage: AccountAndStorageTrie,
+pub struct PersistentStateTrie {
+    accounts_and_storage: PersistentAccountAndStorageTrie,
     contracts: SharedMap<B256, Bytecode>,
 }
 
-impl PersistentTrieState {
+impl PersistentStateTrie {
     /// Constructs an instance from the provided [`AccountAndStorageTrie`].
     #[cfg_attr(feature = "tracing", tracing::instrument)]
-    pub fn with_accounts_and_storage(accounts_and_storage: AccountAndStorageTrie) -> Self {
+    pub fn with_accounts_and_storage(
+        accounts_and_storage: PersistentAccountAndStorageTrie,
+    ) -> Self {
         Self {
             accounts_and_storage,
-            ..PersistentTrieState::default()
+            ..PersistentStateTrie::default()
         }
     }
 
@@ -39,14 +41,12 @@ impl PersistentTrieState {
         self.contracts.insert(code_hash, code);
     }
 
-    /// Removes the code corresponding to the provided hash, if it exists.
-    pub fn remove_code(&mut self, code_hash: &B256) {
-        if *code_hash != KECCAK_EMPTY {
-            self.contracts.remove(code_hash);
-        }
-    }
-
-    fn modify_account_impl(
+    /// Modifies the account at the given address, if it exists. Otherwise, it
+    /// creates a new account using the provided `default_account_fn`.
+    ///
+    /// The `external_code_by_hash_fn` is used to fetch code for accounts that
+    /// already exist but do not have their code present in the local state.
+    pub fn modify_account_or_else(
         &mut self,
         address: Address,
         modifier: AccountModifierFn,
@@ -96,7 +96,20 @@ impl PersistentTrieState {
         Ok(account_info)
     }
 
-    fn set_account_storage_slot_impl(
+    /// Removes the code corresponding to the provided hash, if it exists.
+    pub fn remove_code(&mut self, code_hash: &B256) {
+        if *code_hash != KECCAK_EMPTY {
+            self.contracts.remove(code_hash);
+        }
+    }
+
+    /// Sets the storage slot at the given index for the account at the given
+    /// address. If the account does not exist, it is created using the
+    /// provided `default_account_fn`.
+    ///
+    /// Returns the previous value at the storage slot, or `U256::ZERO` if it
+    /// was not set.
+    pub fn set_account_storage_slot_or_else(
         &mut self,
         address: Address,
         index: U256,
@@ -115,19 +128,19 @@ impl PersistentTrieState {
     }
 }
 
-impl Default for PersistentTrieState {
+impl Default for PersistentStateTrie {
     fn default() -> Self {
         let mut contracts = SharedMap::default();
         contracts.insert(KECCAK_EMPTY, Bytecode::new());
 
         Self {
-            accounts_and_storage: AccountAndStorageTrie::default(),
+            accounts_and_storage: PersistentAccountAndStorageTrie::default(),
             contracts,
         }
     }
 }
 
-impl State for PersistentTrieState {
+impl State for PersistentStateTrie {
     type Error = StateError;
 
     fn basic(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -152,7 +165,7 @@ impl State for PersistentTrieState {
     }
 }
 
-impl StateCommit for PersistentTrieState {
+impl StateCommit for PersistentStateTrie {
     fn commit(&mut self, mut changes: HashMap<Address, Account>) {
         changes.iter_mut().for_each(|(address, account)| {
             if account.is_selfdestructed() {
@@ -180,7 +193,7 @@ impl StateCommit for PersistentTrieState {
     }
 }
 
-impl StateDebug for PersistentTrieState {
+impl StateDebug for PersistentStateTrie {
     type Error = StateError;
 
     fn account_storage_root(&self, address: &Address) -> Result<Option<B256>, Self::Error> {
@@ -207,7 +220,7 @@ impl StateDebug for PersistentTrieState {
         address: Address,
         modifier: AccountModifierFn,
     ) -> Result<AccountInfo, Self::Error> {
-        self.modify_account_impl(
+        self.modify_account_or_else(
             address,
             modifier,
             &|| {
@@ -246,7 +259,7 @@ impl StateDebug for PersistentTrieState {
         index: U256,
         value: U256,
     ) -> Result<U256, Self::Error> {
-        self.set_account_storage_slot_impl(address, index, value, &|| {
+        self.set_account_storage_slot_or_else(address, index, value, &|| {
             Ok(AccountInfo {
                 code: None,
                 ..AccountInfo::default()
@@ -267,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_trie_state_clone() -> anyhow::Result<()> {
-        let mut state1 = PersistentTrieState::default();
+        let mut state1 = PersistentStateTrie::default();
 
         let code_1 = Bytecode::new_raw(Bytes::from_static(&[0x01]));
         let code_1_hash = code_1.hash_slow();

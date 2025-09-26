@@ -7,14 +7,15 @@ use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidati
 use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _};
 use edr_rpc_eth::client::EthRpcClient;
-use edr_state_api::account::AccountInfo;
+use edr_state_api::{account::AccountInfo, StateError};
+use edr_state_persistent_trie::{PersistentAccountAndStorageTrie, PersistentStateTrie};
 use edr_transaction::TxKind;
 
 use crate::{
     blockchain::{Blockchain as _, BlockchainErrorForChainSpec, ForkedBlockchain},
     config::CfgEnv,
     spec::{RuntimeSpec, SyncRuntimeSpec},
-    state::{AccountTrie, IrregularState, StateError, TrieState},
+    state::IrregularState,
     transaction, Block, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
 };
@@ -24,19 +25,19 @@ pub struct MemPoolTestFixture {
     /// The mem pool.
     pub mem_pool: MemPool<edr_chain_l1::L1SignedTransaction>,
     /// The state.
-    pub state: TrieState,
+    pub state: PersistentStateTrie,
 }
 
 impl MemPoolTestFixture {
     /// Constructs an instance with the provided accounts.
     pub fn with_accounts(accounts: &[(Address, AccountInfo)]) -> Self {
         let accounts = accounts.iter().cloned().collect::<HashMap<_, _>>();
-        let trie = AccountTrie::with_accounts(&accounts);
+        let trie = PersistentAccountAndStorageTrie::with_accounts(&accounts);
 
         MemPoolTestFixture {
             // SAFETY: literal is non-zero
             mem_pool: MemPool::new(unsafe { NonZeroU64::new_unchecked(10_000_000u64) }),
-            state: TrieState::with_accounts(trie),
+            state: PersistentStateTrie::with_accounts_and_storage(trie),
         }
     }
 

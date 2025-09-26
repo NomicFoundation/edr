@@ -4,12 +4,11 @@ use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal}
 use revm_context::{JournalTr as _, LocalContext};
 
 use crate::{
-    blockchain::BlockHash,
     config::CfgEnv,
     precompile::OverriddenPrecompileProvider,
     result::{EVMError, ExecutionResult, ExecutionResultAndState},
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
+    state::WrapDatabaseRef,
     transaction::{TransactionError, TransactionErrorForChainSpec},
 };
 

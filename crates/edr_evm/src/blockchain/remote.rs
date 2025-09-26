@@ -6,12 +6,13 @@ use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_rpc_eth::client::EthRpcClient;
+use edr_rpc_spec::RpcEthBlock as _;
 use tokio::runtime;
 
 use super::{forked::ForkedBlockchainErrorForChainSpec, storage::SparseBlockchainStorage};
 use crate::{
     blockchain::ForkedBlockchainError, spec::RuntimeSpec,
-    transaction::remote::EthRpcTransaction as _, Block, EthRpcBlock as _, RemoteBlock,
+    transaction::remote::EthRpcTransaction as _, Block, RemoteBlock,
 };
 
 #[derive_where(Debug; BlockT)]

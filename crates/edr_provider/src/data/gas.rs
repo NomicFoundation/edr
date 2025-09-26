@@ -9,7 +9,6 @@ use edr_evm::{
     precompile::PrecompileFn,
     result::ExecutionResult,
     spec::SyncRuntimeSpec,
-    state::{StateError, SyncState},
     trace::TraceCollector,
     Block as _, BlockReceipts,
 };
@@ -18,6 +17,7 @@ use edr_evm_spec::{
 };
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
+use edr_state_api::{StateError, SyncState};
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
 

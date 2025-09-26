@@ -5,18 +5,18 @@ use edr_state_api::account::{Account, AccountInfo, BasicAccount};
 use hasher::{Hasher, HasherKeccak};
 use rpds::HashTrieMapSync;
 
-use crate::{account::AccountTrieMutation, storage::StorageTrie, AccountTrie};
+use crate::{account::AccountTrieMutation, storage::StorageTrie, PersistentAccountTrie};
 
 type StorageTries = HashTrieMapSync<Address, StorageTrie>;
 
 /// A trie for maintaining the state of accounts and their storage.
 #[derive(Clone, Debug, Default)]
-pub struct AccountAndStorageTrie {
-    account_trie: AccountTrie,
+pub struct PersistentAccountAndStorageTrie {
+    account_trie: PersistentAccountTrie,
     storage_tries: StorageTries,
 }
 
-impl AccountAndStorageTrie {
+impl PersistentAccountAndStorageTrie {
     /// Constructs a `TrieState` from an (address -> account) mapping.
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     pub fn with_accounts(accounts: &HashMap<Address, AccountInfo>) -> Self {
@@ -326,7 +326,7 @@ mod tests {
     #[test]
     #[allow(clippy::redundant_clone)]
     fn clone_empty() {
-        let state = AccountAndStorageTrie::default();
+        let state = PersistentAccountAndStorageTrie::default();
         let cloned_state = state.clone();
 
         assert_eq!(state.state_root(), cloned_state.state_root());
@@ -337,7 +337,7 @@ mod tests {
     fn clone_precompiles() {
         let accounts = precompiled_contracts();
 
-        let state = AccountAndStorageTrie::with_accounts(&accounts);
+        let state = PersistentAccountAndStorageTrie::with_accounts(&accounts);
         let cloned_state = state.clone();
 
         assert_eq!(state.state_root(), cloned_state.state_root());
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn default_empty() {
-        let state = AccountAndStorageTrie::default();
+        let state = PersistentAccountAndStorageTrie::default();
 
         assert_eq!(state.state_root(), KECCAK_NULL_RLP);
     }
@@ -353,7 +353,7 @@ mod tests {
     #[test]
     fn with_accounts_empty() {
         let accounts = HashMap::new();
-        let state = AccountAndStorageTrie::with_accounts(&accounts);
+        let state = PersistentAccountAndStorageTrie::with_accounts(&accounts);
 
         assert_eq!(state.state_root(), KECCAK_NULL_RLP);
     }
@@ -379,7 +379,7 @@ mod tests {
 
         let old = state_root(old.iter());
 
-        let state = AccountAndStorageTrie::with_accounts(&accounts);
+        let state = PersistentAccountAndStorageTrie::with_accounts(&accounts);
 
         assert_eq!(state.state_root(), old);
     }

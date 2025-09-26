@@ -6,6 +6,10 @@ use edr_block_header::{BlobGas, BlockHeader, HeaderOverrides, PartialHeader, Wit
 use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{ChainHardfork, ChainSpec, EvmSpecId, TransactionValidation};
 use edr_primitives::{Address, Bytes, HashMap, B256};
+use edr_state_api::{
+    database::{DatabaseComponentError, DatabaseComponents},
+    SyncState,
+};
 use revm::{precompile::PrecompileFn, Inspector};
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
@@ -13,7 +17,7 @@ use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::{DatabaseComponentError, DatabaseComponents, SyncState, WrapDatabaseRef},
+    state::WrapDatabaseRef,
     transaction::TransactionError,
     MineBlockResultAndStateForChainSpec,
 };

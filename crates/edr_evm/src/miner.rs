@@ -7,6 +7,7 @@ use edr_evm_spec::{
 };
 use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;
+use edr_state_api::{database::DatabaseComponents, SyncState};
 use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +18,7 @@ use crate::{
     mempool::OrderedTransaction,
     result::ExecutionResult,
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
-    state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
+    state::{StateDiff, WrapDatabaseRef},
     transaction::TransactionError,
     Block as _, BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
 };

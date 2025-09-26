@@ -2,9 +2,7 @@ use std::fmt::Debug;
 
 use edr_primitives::{Address, Bytecode, HashMap, B256, KECCAK_EMPTY, U256};
 use edr_rpc_eth::{AccountOverrideOptions, StateOverrideOptions};
-use edr_state_api::account::AccountInfo;
-
-use super::State;
+use edr_state_api::{account::AccountInfo, State};
 
 /// Type representing either a diff or full set of overrides for storage
 /// information.

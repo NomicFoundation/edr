@@ -15,7 +15,8 @@ use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
 };
-use edr_rpc_spec::{RpcSpec, RpcTypeFrom};
+use edr_rpc_spec::{RpcEthBlock, RpcSpec, RpcTypeFrom};
+use edr_state_api::database::DatabaseComponentError;
 use edr_transaction::TransactionType;
 use edr_utils::types::TypeConstructor;
 use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector};
@@ -32,11 +33,11 @@ use crate::{
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder},
     result::{EVMErrorForChain, ExecutionResult},
-    state::{Database, DatabaseComponentError, EvmState, StateDiff},
+    state::{Database, EvmState, StateDiff},
     transaction::{remote::EthRpcTransaction, TransactionError, TransactionErrorForChainSpec},
     Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
-    EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, EthRpcBlock,
-    GenesisBlockOptions, LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock,
+    EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, GenesisBlockOptions,
+    LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock,
 };
 
 /// Ethereum L1 extra data for genesis blocks.
@@ -170,7 +171,7 @@ pub trait RuntimeSpec:
     + BlockEnvConstructor<PartialHeader> + BlockEnvConstructor<BlockHeader>
     // Defines an RPC spec and conversion between RPC <-> EVM types
     + RpcSpec<
-        RpcBlock<<Self as RpcSpec>::RpcTransaction>: EthRpcBlock
+        RpcBlock<<Self as RpcSpec>::RpcTransaction>: RpcEthBlock
           + TryInto<EthBlockData<Self>, Error = Self::RpcBlockConversionError>,
         RpcReceipt: Debug
           + RpcTypeFrom<Self::BlockReceipt, Hardfork = Self::Hardfork>,
@@ -182,7 +183,7 @@ pub trait RuntimeSpec:
     + RpcSpec<
         ExecutionReceipt<ExecutionLog>: alloy_rlp::Encodable
           + MapReceiptLogs<ExecutionLog, FilterLog, Self::ExecutionReceipt<FilterLog>>,
-        RpcBlock<B256>: EthRpcBlock,
+        RpcBlock<B256>: RpcEthBlock,
     >
     + Sized
 {

@@ -13,7 +13,11 @@ use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
 };
-use edr_state_api::account::{Account, AccountStatus};
+use edr_rpc_spec::RpcEthBlock as _;
+use edr_state_api::{
+    account::{Account, AccountStatus},
+    StateError, SyncState,
+};
 use parking_lot::Mutex;
 use tokio::runtime;
 
@@ -27,7 +31,6 @@ use super::{
     BlockchainMut,
 };
 use crate::{
-    block::EthRpcBlock,
     eips::{
         eip2935::{
             add_history_storage_contract_to_state_diff, history_storage_contract,
@@ -39,7 +42,7 @@ use crate::{
     },
     hardfork::{self, ChainOverride},
     spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
-    state::{ForkState, IrregularState, StateDiff, StateError, StateOverride, SyncState},
+    state::{ForkState, IrregularState, StateDiff, StateOverride},
     Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
     RandomHashGenerator, RemoteBlock,
 };

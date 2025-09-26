@@ -10,6 +10,7 @@ use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt, ReceiptFactory, TransactionReceipt,
 };
+use edr_state_api::{database::DatabaseComponents, AccountModifierFn, SyncState};
 use edr_trie::ordered_trie_root;
 use revm::{precompile::PrecompileFn, Inspector};
 
@@ -22,10 +23,7 @@ use crate::{
     result::{ExecutionResult, ExecutionResultAndState},
     runtime::{dry_run, dry_run_with_inspector},
     spec::{base_fee_params_for, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
-    state::{
-        AccountModifierFn, DatabaseComponents, StateCommit as _, StateDebug as _, StateDiff,
-        SyncState, WrapDatabaseRef,
-    },
+    state::{StateDiff, WrapDatabaseRef},
     transaction::TransactionError,
     Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
 };

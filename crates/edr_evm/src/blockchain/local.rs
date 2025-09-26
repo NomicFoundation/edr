@@ -5,6 +5,8 @@ use edr_block_header::BlockConfig;
 use edr_evm_spec::EvmSpecId;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
+use edr_state_api::{StateError, SyncState};
+use edr_state_persistent_trie::PersistentStateTrie;
 
 use super::{
     compute_state_at_block,
@@ -14,7 +16,7 @@ use super::{
 };
 use crate::{
     spec::{base_fee_params_for, SyncRuntimeSpec},
-    state::{StateDiff, StateError, StateOverride, SyncState, TrieState},
+    state::{StateDiff, StateOverride},
     Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
 
@@ -199,7 +201,7 @@ where
             return Err(BlockchainError::UnknownBlockNumber);
         }
 
-        let mut state = TrieState::default();
+        let mut state = PersistentStateTrie::default();
         compute_state_at_block(&mut state, &self.storage, 0, block_number, state_overrides);
 
         Ok(Box::new(state))
