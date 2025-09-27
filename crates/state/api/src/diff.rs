@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// The difference between two states, which can be applied to a state to get
-/// the new state using [`revm::database_interface::DatabaseCommit::commit`].
+/// the new state using [`crate::StateCommit::commit`].
 #[derive(Clone, Debug, Default)]
 pub struct StateDiff {
     inner: HashMap<Address, Account>,

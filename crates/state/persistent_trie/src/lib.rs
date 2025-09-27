@@ -22,7 +22,8 @@ pub struct PersistentStateTrie {
 }
 
 impl PersistentStateTrie {
-    /// Constructs an instance from the provided [`AccountAndStorageTrie`].
+    /// Constructs an instance from the provided
+    /// [`PersistentAccountAndStorageTrie`].
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     pub fn with_accounts_and_storage(
         accounts_and_storage: PersistentAccountAndStorageTrie,

@@ -9,11 +9,6 @@ use edr_state_api::{
 };
 use revm_database_interface::{DBErrorMarker, DatabaseRef};
 
-/// Convenience type alias for [`DatabaseComponents`].
-///
-/// This allows usage like [`edr_state_api::database::Components`].
-pub type Components<BlockchainT, StateT> = DatabaseComponents<BlockchainT, StateT>;
-
 /// Wrapper type around a blockchain and state to implement the `Database`
 /// trait.
 pub struct DatabaseComponents<BlockchainT, StateT> {
