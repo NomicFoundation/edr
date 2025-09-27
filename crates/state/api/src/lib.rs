@@ -1,8 +1,9 @@
 //! Types for Ethereum state management
 
 pub mod account;
-pub mod database;
+mod diff;
 mod error;
+mod r#override;
 
 use core::{fmt::Debug, ops::Deref};
 
@@ -11,15 +12,16 @@ use dyn_clone::DynClone;
 use edr_primitives::{Address, Bytecode, HashMap, B256, U256};
 use edr_trie::sec_trie_root;
 pub use revm_database_interface::DatabaseCommit as StateCommit;
+pub use revm_state::{EvmState, EvmStorage, EvmStorageSlot};
 
-pub use self::error::StateError;
+pub use self::{diff::StateDiff, error::StateError, r#override::StateOverride};
 use crate::account::{AccountInfo, BasicAccount};
 
 /// Account storage mapping of indices to values.
 pub type AccountStorage = HashMap<U256, U256>;
 
-/// State mapping of addresses to accounts.
-pub type EvmState = HashMap<Address, BasicAccount>;
+/// Mapping of addresses to trie state accounts.
+pub type EvmTrieState = HashMap<Address, BasicAccount>;
 
 /// Trait for reading state information.
 #[auto_impl(&, &mut, Box, Rc, Arc)]
@@ -189,7 +191,7 @@ mod tests {
 
     #[test]
     fn empty_state_root() {
-        let state = EvmState::default();
+        let state = EvmTrieState::default();
 
         assert_eq!(state_root(&state), KECCAK_NULL_RLP);
     }
@@ -205,7 +207,7 @@ mod tests {
     fn precompiles_state_root() {
         const EXPECTED: &str = "0x5766c887a7240e4d1c035ccd3830a2f6a0c03d213a9f0b9b27c774916a4abcce";
 
-        let mut state = EvmState::default();
+        let mut state = EvmTrieState::default();
 
         for idx in 1..=8u8 {
             let mut address = Address::ZERO;

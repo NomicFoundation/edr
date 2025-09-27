@@ -9,20 +9,23 @@ alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
 derive-where.workspace = true
+edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_chain_l1.workspace = true
+edr_database_components.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_eth.workspace = true
-edr_evm = { path = "../edr_evm" }
+edr_evm.workspace = true
 edr_evm_spec.workspace = true
 edr_primitives.workspace = true
-edr_provider = { path = "../edr_provider" }
+edr_provider.workspace = true
 edr_receipt.workspace = true
 edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
+edr_state_api.workspace = true
 edr_transaction.workspace = true
 log = { version = "0.4.17", default-features = false }
 serde = { workspace = true, features = ["derive"] }
@@ -30,6 +33,7 @@ thiserror.workspace = true
 
 [dev-dependencies]
 anyhow = "1.0.89"
+edr_blockchain_api.workspace = true
 edr_defaults = { path = "../edr_defaults" }
 edr_evm = { path = "../edr_evm", features = ["test-utils"] }
 edr_provider = { path = "../edr_provider", features = ["test-utils"] }

@@ -9,12 +9,13 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
+use edr_block_api::Block;
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{HashMap, B256, U256};
 use edr_receipt::ReceiptTrait;
 
 use super::InsertError;
-use crate::{Block, EmptyBlock, LocalBlock};
+use crate::{EmptyBlock, LocalBlock};
 
 /// A storage solution for storing a Blockchain's blocks contiguously in-memory.
 #[derive_where(Clone, Debug, Default; BlockReceiptT, BlockT)]

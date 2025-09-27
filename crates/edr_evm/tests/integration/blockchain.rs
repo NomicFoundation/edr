@@ -4,8 +4,10 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
+#[cfg(feature = "test-remote")]
+use edr_evm::blockchain::SyncBlockchainForChainSpec;
 use edr_evm::{
-    blockchain::{BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain, SyncBlockchain},
+    blockchain::{BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain},
     hardfork::l1,
     receipt::{self, ExecutionReceiptBuilder as _},
     result::{ExecutionResult, Output, SuccessReason},
@@ -13,7 +15,6 @@ use edr_evm::{
         base_fee_params_for, ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory,
         RuntimeSpec,
     },
-    state::{StateDiff, StateError},
     test_utils::dummy_eip155_transaction,
     EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
     GenesisBlockOptions, RemoteBlockConversionError,
@@ -24,6 +25,7 @@ use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
 };
+use edr_state_api::{StateDiff, StateError};
 use serial_test::serial;
 
 #[cfg(feature = "test-remote")]
@@ -44,7 +46,13 @@ const REMOTE_BLOCK_LAST_TRANSACTION_HASH: &str =
 #[cfg(feature = "test-remote")]
 async fn create_forked_dummy_blockchain(
     fork_block_number: Option<u64>,
-) -> Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>> {
+) -> Box<
+    dyn SyncBlockchainForChainSpec<
+        BlockchainErrorForChainSpec<L1ChainSpec>,
+        L1ChainSpec,
+        StateError,
+    >,
+> {
     use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
     use edr_primitives::HashMap;
     use edr_rpc_eth::client::EthRpcClient;
@@ -76,9 +84,15 @@ async fn create_forked_dummy_blockchain(
 
 // The cache directory is only used when the `test-remote` feature is enabled
 #[allow(unused_variables)]
-async fn create_dummy_blockchains(
-) -> Vec<Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>>>
-{
+async fn create_dummy_blockchains() -> Vec<
+    Box<
+        dyn SyncBlockchainForChainSpec<
+            BlockchainErrorForChainSpec<L1ChainSpec>,
+            L1ChainSpec,
+            StateError,
+        >,
+    >,
+> {
     const CHAIN_ID: u64 = 1;
     const DEFAULT_GAS_LIMIT: u64 = 0xffffffffffffff;
     const DEFAULT_INITIAL_BASE_FEE: u128 = 1000000000;
@@ -99,7 +113,7 @@ async fn create_dummy_blockchains(
     )
     .expect("Failed to create genesis block");
 
-    let local_blockchain = LocalBlockchain::new(
+    let local_blockchain = LocalBlockchain::<L1ChainSpec>::new(
         genesis_block,
         genesis_diff,
         CHAIN_ID,
@@ -115,9 +129,9 @@ async fn create_dummy_blockchains(
 }
 
 fn create_dummy_block(
-    blockchain: &dyn SyncBlockchain<
-        L1ChainSpec,
+    blockchain: &dyn SyncBlockchainForChainSpec<
         BlockchainErrorForChainSpec<L1ChainSpec>,
+        L1ChainSpec,
         StateError,
     >,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
@@ -127,9 +141,9 @@ fn create_dummy_block(
 }
 
 fn create_dummy_block_with_number(
-    blockchain: &dyn SyncBlockchain<
-        L1ChainSpec,
+    blockchain: &dyn SyncBlockchainForChainSpec<
         BlockchainErrorForChainSpec<L1ChainSpec>,
+        L1ChainSpec,
         StateError,
     >,
     number: u64,
@@ -143,9 +157,9 @@ fn create_dummy_block_with_number(
 }
 
 fn create_dummy_block_with_difficulty(
-    blockchain: &dyn SyncBlockchain<
-        L1ChainSpec,
+    blockchain: &dyn SyncBlockchainForChainSpec<
         BlockchainErrorForChainSpec<L1ChainSpec>,
+        L1ChainSpec,
         StateError,
     >,
     number: u64,
@@ -217,9 +231,9 @@ struct DummyBlockAndTransaction {
 
 /// Returns the transaction's hash.
 fn insert_dummy_block_with_transaction(
-    blockchain: &mut dyn SyncBlockchain<
-        L1ChainSpec,
+    blockchain: &mut dyn SyncBlockchainForChainSpec<
         BlockchainErrorForChainSpec<L1ChainSpec>,
+        L1ChainSpec,
         StateError,
     >,
 ) -> anyhow::Result<DummyBlockAndTransaction> {
@@ -796,7 +810,13 @@ async fn revert_to_block_invalid_number() {
 #[serial]
 async fn block_total_difficulty_by_hash() {
     let blockchains: Vec<
-        Box<dyn SyncBlockchain<L1ChainSpec, BlockchainErrorForChainSpec<L1ChainSpec>, StateError>>,
+        Box<
+            dyn SyncBlockchainForChainSpec<
+                BlockchainErrorForChainSpec<L1ChainSpec>,
+                L1ChainSpec,
+                StateError,
+            >,
+        >,
     > = create_dummy_blockchains().await;
 
     for mut blockchain in blockchains {

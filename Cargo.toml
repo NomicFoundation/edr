@@ -1,8 +1,10 @@
 [workspace]
 members = [
     # EDR
+    "crates/block/api",
     "crates/block/header",
     "crates/blockchain/api",
+    "crates/database/components",
     "crates/edr_chain_l1",
     "crates/edr_common",
     "crates/edr_coverage",
@@ -99,11 +101,13 @@ foundry-evm-fuzz.opt-level = 3
 scrypt.opt-level = 3
 
 [workspace.dependencies]
-edr_blockchain_api = { path = "crates/blockchain/api" }
+edr_block_api = { path = "crates/block/api" }
 edr_block_header = { path = "crates/block/header" }
+edr_blockchain_api = { path = "crates/blockchain/api" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
+edr_database_components = { path = "crates/database/components" }
 edr_defaults = { path = "crates/edr_defaults" }
 edr_eip1559 = { path = "crates/eips/1559" }
 edr_eip2930 = { path = "crates/eips/2930" }

@@ -5,6 +5,8 @@ use edr_receipt::log::{logs_to_bloom, ExecutionLog};
 use edr_state_api::State;
 use edr_transaction::TransactionType as _;
 
+use crate::result::ExecutionResult;
+
 /// Trait for a builder that constructs an execution receipt.
 pub trait ExecutionReceiptBuilder<HaltReasonT, HardforkT, TransactionT>: Sized
 where

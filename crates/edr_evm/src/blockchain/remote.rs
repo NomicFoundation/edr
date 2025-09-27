@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use derive_where::derive_where;
+use edr_block_api::Block;
 use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
@@ -12,7 +13,7 @@ use tokio::runtime;
 use super::{forked::ForkedBlockchainErrorForChainSpec, storage::SparseBlockchainStorage};
 use crate::{
     blockchain::ForkedBlockchainError, spec::RuntimeSpec,
-    transaction::remote::EthRpcTransaction as _, Block, RemoteBlock,
+    transaction::remote::EthRpcTransaction as _, RemoteBlock,
 };
 
 #[derive_where(Debug; BlockT)]

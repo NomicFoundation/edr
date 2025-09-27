@@ -1,10 +1,12 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use alloy_eips::eip7840::BlobParams;
+use edr_block_api::Block;
 use edr_block_header::{
     calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, PartialHeader,
 };
 use edr_chain_l1::L1ChainSpec;
+use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{
     BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
@@ -16,7 +18,7 @@ use edr_receipt::{
     BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
 };
 use edr_rpc_spec::{RpcEthBlock, RpcSpec, RpcTypeFrom};
-use edr_state_api::database::DatabaseComponentError;
+use edr_state_api::{EvmState, StateDiff};
 use edr_transaction::TransactionType;
 use edr_utils::types::TypeConstructor;
 use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector};
@@ -33,11 +35,11 @@ use crate::{
     precompile::EthPrecompiles,
     receipt::{self, ExecutionReceiptBuilder},
     result::{EVMErrorForChain, ExecutionResult},
-    state::{Database, EvmState, StateDiff},
+    state::Database,
     transaction::{remote::EthRpcTransaction, TransactionError, TransactionErrorForChainSpec},
-    Block, BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData,
-    EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, GenesisBlockOptions,
-    LocalBlock, RemoteBlock, RemoteBlockConversionError, SyncBlock,
+    BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData, EthBlockReceiptFactory,
+    EthLocalBlock, EthLocalBlockForChainSpec, GenesisBlockOptions, LocalBlock, RemoteBlock,
+    RemoteBlockConversionError, SyncBlock,
 };
 
 /// Ethereum L1 extra data for genesis blocks.

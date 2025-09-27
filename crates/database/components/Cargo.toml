@@ -1,17 +1,13 @@
 [package]
-name = "edr_state_api"
+name = "edr_database_components"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-rlp.workspace = true
-auto_impl.workspace = true
-dyn-clone.workspace = true
+edr_blockchain_api.workspace = true
 edr_primitives.workspace = true
-edr_rpc_client.workspace = true
-edr_trie.workspace = true
+edr_state_api.workspace = true
 revm-database-interface.workspace = true
-revm-state.workspace = true
 thiserror.workspace = true
 
 [lints]

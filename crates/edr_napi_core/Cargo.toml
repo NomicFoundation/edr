@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 ansi_term = { version = "0.12.1", default-features = false }
 derive-where.workspace = true
+edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_chain_l1.workspace = true
 edr_eip1559.workspace = true

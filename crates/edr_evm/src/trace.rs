@@ -2,9 +2,10 @@ use std::fmt::Debug;
 
 use derive_where::derive_where;
 use edr_blockchain_api::BlockHash;
+use edr_database_components::DatabaseComponents;
 use edr_evm_spec::HaltReasonTrait;
 use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
-use edr_state_api::{database::DatabaseComponents, State};
+use edr_state_api::State;
 use revm::Inspector;
 use revm_database_interface::WrapDatabaseRef;
 

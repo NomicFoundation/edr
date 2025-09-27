@@ -1,11 +1,13 @@
+//! Types for database components that implement the revm `Database` trait.
+#![warn(missing_docs)]
+
 use edr_blockchain_api::BlockHash;
 use edr_primitives::{Address, Bytecode, HashMap, B256, U256};
-use revm_database_interface::{DBErrorMarker, DatabaseRef};
-
-use crate::{
+use edr_state_api::{
     account::{Account, AccountInfo},
     State, StateCommit,
 };
+use revm_database_interface::{DBErrorMarker, DatabaseRef};
 
 /// Convenience type alias for [`DatabaseComponents`].
 ///

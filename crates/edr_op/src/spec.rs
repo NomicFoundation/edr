@@ -7,6 +7,7 @@ use edr_block_header::{
     calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, PartialHeader,
 };
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
+use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
 use edr_evm::{
     evm::Evm,
@@ -34,6 +35,7 @@ use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason}
 use edr_rpc_eth::jsonrpc;
 use edr_rpc_spec::RpcSpec;
 use edr_solidity::contract_decoder::ContractDecoder;
+use edr_state_api::StateDiff;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpSpecId};
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -81,7 +83,7 @@ impl GenesisBlockFactory for OpChainSpec {
     type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
 
     fn genesis_block(
-        genesis_diff: edr_evm::state::StateDiff,
+        genesis_diff: StateDiff,
         block_config: BlockConfig<'_, Self::Hardfork>,
         mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::CreationError> {
@@ -127,7 +129,7 @@ impl RuntimeSpec for OpChainSpec {
 
     type Evm<
         BlockchainErrorT,
-        DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
         InspectorT: edr_evm::inspector::Inspector<edr_evm::spec::ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
@@ -142,7 +144,7 @@ impl RuntimeSpec for OpChainSpec {
 
     type PrecompileProvider<
         BlockchainErrorT,
-        DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
         StateErrorT,
     > = OpPrecompiles;
 
@@ -173,7 +175,7 @@ impl RuntimeSpec for OpChainSpec {
 
     fn evm_with_inspector<
         BlockchainErrorT,
-        DatabaseT: Database<Error = edr_evm::state::DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
         InspectorT: edr_evm::inspector::Inspector<ContextForChainSpec<Self, DatabaseT>>,
         PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,

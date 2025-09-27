@@ -15,6 +15,7 @@ edr_primitives.workspace = true
 edr_transaction.workspace = true
 
 [dev-dependencies]
+edr_blockchain_api.workspace = true
 edr_signer.workspace = true
 edr_state_api.workspace = true
 edr_test_utils = { path = "../edr_test_utils" }

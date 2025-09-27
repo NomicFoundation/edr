@@ -11,9 +11,11 @@ async-rwlock = { version = "1.3.0", default-features = false }
 auto_impl.workspace = true
 derive-where.workspace = true
 dyn-clone.workspace = true
+edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_blockchain_api.workspace = true
 edr_chain_l1.workspace = true
+edr_database_components.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
 edr_eth = { workspace = true, features = ["serde"] }

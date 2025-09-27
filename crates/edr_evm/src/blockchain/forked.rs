@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
+use edr_block_api::{Block, BlockAndTotalDifficulty};
 use edr_block_header::BlockConfig;
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
@@ -16,7 +17,7 @@ use edr_rpc_eth::{
 use edr_rpc_spec::RpcEthBlock as _;
 use edr_state_api::{
     account::{Account, AccountStatus},
-    StateError, SyncState,
+    StateDiff, StateError, StateOverride, SyncState,
 };
 use parking_lot::Mutex;
 use tokio::runtime;
@@ -42,9 +43,8 @@ use crate::{
     },
     hardfork::{self, ChainOverride},
     spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
-    state::{ForkState, IrregularState, StateDiff, StateOverride},
-    Block, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
-    RandomHashGenerator, RemoteBlock,
+    state::{ForkState, IrregularState},
+    BlockAndTotalDifficultyForChainSpec, BlockReceipts, RandomHashGenerator, RemoteBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
@@ -316,7 +316,8 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT> Blockchain<ChainSpecT> for ForkedBlockchain<ChainSpecT>
+impl<ChainSpecT> Blockchain<ChainSpecT::Block, ChainSpecT::BlockReceipt, ChainSpecT::Hardfork>
+    for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
         LocalBlock: BlockReceipts<
@@ -593,7 +594,9 @@ where
     }
 }
 
-impl<ChainSpecT> BlockchainMut<ChainSpecT> for ForkedBlockchain<ChainSpecT>
+impl<ChainSpecT>
+    BlockchainMut<ChainSpecT::Block, ChainSpecT::LocalBlock, ChainSpecT::SignedTransaction>
+    for ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
         LocalBlock: BlockReceipts<

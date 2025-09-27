@@ -1,7 +1,5 @@
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes};
-use edr_state_api::account::AccountInfo;
-
-use crate::state::StateDiff;
+use edr_state_api::{account::AccountInfo, StateDiff};
 
 /// The address of the beacon roots contract.
 pub const BEACON_ROOTS_ADDRESS: Address = address!("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02");

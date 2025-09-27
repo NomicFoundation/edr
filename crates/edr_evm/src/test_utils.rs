@@ -1,7 +1,9 @@
 use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use anyhow::anyhow;
+use edr_block_api::Block as _;
 use edr_block_header::{BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
+use edr_blockchain_api::Blockchain as _;
 use edr_eth::{block::miner_reward, PreEip1898BlockSpec};
 use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, Bytes, HashMap, U256};
@@ -12,11 +14,11 @@ use edr_state_persistent_trie::{PersistentAccountAndStorageTrie, PersistentState
 use edr_transaction::TxKind;
 
 use crate::{
-    blockchain::{Blockchain as _, BlockchainErrorForChainSpec, ForkedBlockchain},
+    blockchain::{BlockchainErrorForChainSpec, ForkedBlockchain},
     config::CfgEnv,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::IrregularState,
-    transaction, Block, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
+    transaction, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
 };
 
@@ -254,7 +256,7 @@ pub async fn run_full_block<
         expected_block,
         prior_blockchain,
         prior_irregular_state,
-    } = get_fork_state(url, block_number).await?;
+    } = get_fork_state::<ChainSpecT>(url, block_number).await?;
 
     let replay_header = expected_block.header();
     let hardfork = prior_blockchain.hardfork();
@@ -466,7 +468,7 @@ pub async fn assert_replay_header<
         expected_block,
         prior_blockchain,
         prior_irregular_state,
-    } = get_fork_state(url, block_number).await?;
+    } = get_fork_state::<ChainSpecT>(url, block_number).await?;
 
     let replay_header = expected_block.header();
     let hardfork = prior_blockchain.hardfork();

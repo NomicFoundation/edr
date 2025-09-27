@@ -13,10 +13,12 @@ auto_impl = { version = "1.2", default-features = false }
 derive_more = { workspace = true, features = ["debug"] }
 derive-where.workspace = true
 dyn-clone.workspace = true
+edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_blockchain_api.workspace = true
 edr_chain_l1.workspace = true
 edr_coverage = { path = "../edr_coverage" }
+edr_database_components.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true

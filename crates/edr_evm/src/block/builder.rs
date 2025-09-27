@@ -3,18 +3,16 @@ mod l1;
 use std::fmt::Debug;
 
 use edr_block_header::{BlobGas, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
+use edr_database_components::{DatabaseComponentError, DatabaseComponents};
 use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{ChainHardfork, ChainSpec, EvmSpecId, TransactionValidation};
 use edr_primitives::{Address, Bytes, HashMap, B256};
-use edr_state_api::{
-    database::{DatabaseComponentError, DatabaseComponents},
-    SyncState,
-};
+use edr_state_api::SyncState;
 use revm::{precompile::PrecompileFn, Inspector};
 
 pub use self::l1::{EthBlockBuilder, EthBlockReceiptFactory};
 use crate::{
-    blockchain::SyncBlockchain,
+    blockchain::SyncBlockchainForChainSpec,
     config::CfgEnv,
     spec::{ContextForChainSpec, RuntimeSpec},
     state::WrapDatabaseRef,
@@ -170,9 +168,9 @@ where
 
     /// Creates a new block builder.
     fn new_block_builder(
-        blockchain: &'builder dyn SyncBlockchain<
-            ChainSpecT,
+        blockchain: &'builder dyn SyncBlockchainForChainSpec<
             Self::BlockchainError,
+            ChainSpecT,
             Self::StateError,
         >,
         state: Box<dyn SyncState<Self::StateError>>,
@@ -215,9 +213,9 @@ where
                 ChainSpecT,
                 WrapDatabaseRef<
                     DatabaseComponents<
-                        &'inspector dyn SyncBlockchain<
-                            ChainSpecT,
+                        &'inspector dyn SyncBlockchainForChainSpec<
                             Self::BlockchainError,
+                            ChainSpecT,
                             Self::StateError,
                         >,
                         &'inspector dyn SyncState<Self::StateError>,

@@ -1,11 +1,12 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
+use edr_block_api::{Block as _, BlockAndTotalDifficulty};
 use edr_block_header::BlockConfig;
 use edr_evm_spec::EvmSpecId;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
-use edr_state_api::{StateError, SyncState};
+use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};
 use edr_state_persistent_trie::PersistentStateTrie;
 
 use super::{
@@ -16,8 +17,7 @@ use super::{
 };
 use crate::{
     spec::{base_fee_params_for, SyncRuntimeSpec},
-    state::{StateDiff, StateOverride},
-    Block as _, BlockAndTotalDifficulty, BlockAndTotalDifficultyForChainSpec, BlockReceipts,
+    BlockAndTotalDifficultyForChainSpec, BlockReceipts,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
@@ -90,7 +90,9 @@ where
     }
 }
 
-impl<ChainSpecT: SyncRuntimeSpec> Blockchain<ChainSpecT> for LocalBlockchain<ChainSpecT>
+impl<ChainSpecT: SyncRuntimeSpec>
+    Blockchain<ChainSpecT::Block, ChainSpecT::BlockReceipt, ChainSpecT::Hardfork>
+    for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT::LocalBlock: BlockReceipts<
         Arc<ChainSpecT::BlockReceipt>,
@@ -213,7 +215,9 @@ where
     }
 }
 
-impl<ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT> for LocalBlockchain<ChainSpecT>
+impl<ChainSpecT: SyncRuntimeSpec>
+    BlockchainMut<ChainSpecT::Block, ChainSpecT::LocalBlock, ChainSpecT::SignedTransaction>
+    for LocalBlockchain<ChainSpecT>
 where
     ChainSpecT::LocalBlock: BlockReceipts<
         Arc<ChainSpecT::BlockReceipt>,

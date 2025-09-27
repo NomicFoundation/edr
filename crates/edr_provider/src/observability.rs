@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use edr_blockchain_api::BlockHash;
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
+use edr_database_components::DatabaseComponents;
 use edr_evm::{
     inspector::Inspector,
     interpreter::{
@@ -14,7 +15,7 @@ use edr_evm::{
     trace::TraceCollector,
 };
 use edr_evm_spec::HaltReasonTrait;
-use edr_state_api::{database::DatabaseComponents, State};
+use edr_state_api::State;
 
 use crate::{
     console_log::ConsoleLogCollector, gas_reports::SyncOnCollectedGasReportCallback, mock::Mocker,

@@ -1,7 +1,9 @@
 use edr_primitives::{Address, HashMap, U256};
-use edr_state_api::account::{Account, AccountInfo, AccountStatus};
 
-use crate::state::EvmStorageSlot;
+use crate::{
+    account::{Account, AccountInfo, AccountStatus},
+    EvmStorageSlot,
+};
 
 /// The difference between two states, which can be applied to a state to get
 /// the new state using [`revm::database_interface::DatabaseCommit::commit`].

@@ -4,12 +4,12 @@ pub mod remote;
 
 use std::fmt::Debug;
 
+use edr_database_components::DatabaseComponentError;
 use edr_evm_spec::{
     ChainSpec, EvmHeaderValidationError, EvmSpecId, EvmTransactionValidationError,
     TransactionValidation,
 };
 use edr_primitives::U256;
-use edr_state_api::database::DatabaseComponentError;
 use edr_transaction::TxKind;
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;

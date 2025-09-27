@@ -11,9 +11,11 @@ use std::{
 };
 
 use alloy_dyn_abi::eip712::TypedData;
+use edr_block_api::{Block, BlockAndTotalDifficulty};
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };
+use edr_blockchain_api::Blockchain as _;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::miner_reward,
@@ -27,8 +29,8 @@ use edr_evm::{
         BlockDataForTransaction, TransactionAndBlock, TransactionAndBlockForChainSpec,
     },
     blockchain::{
-        Blockchain, BlockchainError, BlockchainErrorForChainSpec, ForkedBlockchain,
-        ForkedCreationError, LocalBlockchain, SyncBlockchain,
+        BlockchainError, BlockchainErrorForChainSpec, ForkedBlockchain, ForkedCreationError,
+        LocalBlockchain, SyncBlockchainForChainSpec,
     },
     config::CfgEnv,
     inspector::DualInspector,
@@ -36,12 +38,10 @@ use edr_evm::{
     precompile::PrecompileFn,
     result::ExecutionResult,
     spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
-    state::{
-        EvmStorageSlot, IrregularState, StateDiff, StateOverride, StateOverrides, StateRefOverrider,
-    },
+    state::{IrregularState, StateOverrides, StateRefOverrider},
     trace::Trace,
-    transaction, Block, BlockAndTotalDifficulty, BlockReceipts as _, GenesisBlockOptions, MemPool,
-    MineBlockResultAndState, OrderedTransaction, RandomHashGenerator,
+    transaction, BlockReceipts as _, GenesisBlockOptions, MemPool, MineBlockResultAndState,
+    OrderedTransaction, RandomHashGenerator,
 };
 use edr_evm_spec::{
     ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
@@ -56,7 +56,7 @@ use edr_signer::{
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
-    AccountModifierFn, StateError, SyncState,
+    AccountModifierFn, EvmStorageSlot, StateDiff, StateError, StateOverride, SyncState,
 };
 use edr_transaction::{
     request::TransactionRequestAndSender, IsEip4844, IsSupported as _, TransactionMut,
@@ -189,8 +189,13 @@ pub struct ProviderData<
     bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
-    blockchain:
-        Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
+    blockchain: Box<
+        dyn SyncBlockchainForChainSpec<
+            BlockchainErrorForChainSpec<ChainSpecT>,
+            ChainSpecT,
+            StateError,
+        >,
+    >,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_config: MiningConfig,
@@ -2283,7 +2288,11 @@ where
         &mut self,
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
-            &dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>,
+            &dyn SyncBlockchainForChainSpec<
+                BlockchainErrorForChainSpec<ChainSpecT>,
+                ChainSpecT,
+                StateError,
+            >,
             &Arc<ChainSpecT::Block>,
             &Box<dyn SyncState<StateError>>,
         ) -> T,
@@ -2772,8 +2781,13 @@ fn block_time_offset_seconds<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
 }
 
 struct BlockchainAndState<ChainSpecT: SyncRuntimeSpec> {
-    blockchain:
-        Box<dyn SyncBlockchain<ChainSpecT, BlockchainErrorForChainSpec<ChainSpecT>, StateError>>,
+    blockchain: Box<
+        dyn SyncBlockchainForChainSpec<
+            BlockchainErrorForChainSpec<ChainSpecT>,
+            ChainSpecT,
+            StateError,
+        >,
+    >,
     fork_metadata: Option<ForkMetadata>,
     rpc_client: Option<Arc<EthRpcClient<ChainSpecT>>>,
     state: Box<dyn SyncState<StateError>>,
@@ -3017,7 +3031,7 @@ fn create_blockchain_and_state<
         )
         .map_err(CreationError::LocalBlockchainCreation)?;
 
-        let blockchain = LocalBlockchain::new(
+        let blockchain = LocalBlockchain::<ChainSpecT>::new(
             genesis_block,
             genesis_diff,
             config.chain_id,

@@ -1,20 +1,20 @@
 use std::{collections::BTreeMap, str::FromStr};
 
 use edr_block_header::BlockConfig;
+use edr_blockchain_api::Blockchain as _;
 use edr_chain_l1::L1ChainSpec;
 use edr_coverage::CoverageHitCollector;
 use edr_evm::{
-    blockchain::{Blockchain, LocalBlockchain},
+    blockchain::LocalBlockchain,
     config::CfgEnv,
     result::{ExecutionResult, Output},
     runtime::{dry_run_with_inspector, run},
     spec::{base_fee_params_for, GenesisBlockFactory as _},
-    state::StateDiff,
     GenesisBlockOptions,
 };
 use edr_primitives::{bytes, Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_signer::public_key_to_address;
-use edr_state_api::{AccountModifierFn, StateError, SyncState};
+use edr_state_api::{AccountModifierFn, StateDiff, StateError, SyncState};
 use edr_test_utils::secret_key::secret_key_from_str;
 use edr_transaction::TxKind;
 

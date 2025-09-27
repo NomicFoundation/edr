@@ -2277,6 +2277,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_block_api"
+version = "0.3.8"
+dependencies = [
+ "auto_impl",
+ "edr_block_header",
+ "edr_primitives",
+]
+
+[[package]]
 name = "edr_block_header"
 version = "0.3.8"
 dependencies = [
@@ -2298,7 +2307,10 @@ name = "edr_blockchain_api"
 version = "0.3.8"
 dependencies = [
  "auto_impl",
+ "edr_block_api",
  "edr_primitives",
+ "edr_receipt",
+ "edr_state_api",
 ]
 
 [[package]]
@@ -2311,6 +2323,7 @@ dependencies = [
  "anyhow",
  "assert-json-diff",
  "const-hex",
+ "edr_block_api",
  "edr_block_header",
  "edr_defaults",
  "edr_eip1559",
@@ -2355,6 +2368,7 @@ dependencies = [
  "derive_more 2.0.1",
  "dyn-clone",
  "edr_block_header",
+ "edr_blockchain_api",
  "edr_chain_l1",
  "edr_defaults",
  "edr_evm",
@@ -2363,6 +2377,17 @@ dependencies = [
  "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
+]
+
+[[package]]
+name = "edr_database_components"
+version = "0.3.8"
+dependencies = [
+ "edr_blockchain_api",
+ "edr_primitives",
+ "edr_state_api",
+ "revm-database-interface",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2454,9 +2479,11 @@ dependencies = [
  "criterion 0.4.0",
  "derive-where",
  "dyn-clone",
+ "edr_block_api",
  "edr_block_header",
  "edr_blockchain_api",
  "edr_chain_l1",
+ "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
  "edr_eth",
@@ -2518,8 +2545,11 @@ dependencies = [
  "alloy-serde",
  "anyhow",
  "derive-where",
+ "edr_block_api",
  "edr_block_header",
+ "edr_blockchain_api",
  "edr_chain_l1",
+ "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2535,6 +2565,7 @@ dependencies = [
  "edr_rpc_spec",
  "edr_signer",
  "edr_solidity",
+ "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
  "log",
@@ -2602,6 +2633,7 @@ dependencies = [
  "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
+ "edr_state_api",
  "foundry-cheatcodes",
  "foundry-compilers",
  "k256",
@@ -2629,6 +2661,7 @@ version = "0.3.8"
 dependencies = [
  "ansi_term",
  "derive-where",
+ "edr_block_api",
  "edr_block_header",
  "edr_chain_l1",
  "edr_eip1559",
@@ -2659,8 +2692,11 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde",
  "anyhow",
+ "edr_block_api",
  "edr_block_header",
+ "edr_blockchain_api",
  "edr_chain_l1",
+ "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2678,6 +2714,7 @@ dependencies = [
  "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
+ "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
  "log",
@@ -2717,10 +2754,12 @@ dependencies = [
  "derive-where",
  "derive_more 2.0.1",
  "dyn-clone",
+ "edr_block_api",
  "edr_block_header",
  "edr_blockchain_api",
  "edr_chain_l1",
  "edr_coverage",
+ "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2980,7 +3019,6 @@ dependencies = [
  "alloy-rlp",
  "auto_impl",
  "dyn-clone",
- "edr_blockchain_api",
  "edr_primitives",
  "edr_rpc_client",
  "edr_trie",
