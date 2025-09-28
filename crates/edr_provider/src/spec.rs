@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_block_api::BlockAndTotalDifficulty;
+use edr_block_api::{BlockAndTotalDifficulty, BlockReceipts};
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
@@ -11,7 +11,6 @@ use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
     spec::{GenesisBlockFactory, SyncGenesisBlockFactory},
     state::StateOverrides,
-    BlockReceipts,
 };
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{Address, B256};

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use alloy_eips::eip7840::BlobParams;
+use edr_block_api::BlockReceipts;
 use edr_block_header::{BlobGas, BlockConfig, BlockHeader, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
 use edr_database_components::DatabaseComponentError;
@@ -18,8 +19,8 @@ use edr_evm::{
     },
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec},
-    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock,
-    EthLocalBlockForChainSpec, RemoteBlock, SyncBlock,
+    EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, RemoteBlock,
+    SyncBlock,
 };
 use edr_evm_spec::{
     BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,

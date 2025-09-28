@@ -7,6 +7,7 @@ edition.workspace = true
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
+edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_blockchain_api.workspace = true
 edr_chain_l1.workspace = true

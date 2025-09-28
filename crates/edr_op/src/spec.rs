@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use alloy_eips::eip7840::BlobParams;
 use alloy_rlp::RlpEncodable;
+use edr_block_api::BlockReceipts;
 use edr_block_header::{
     calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, PartialHeader,
 };
@@ -19,8 +20,8 @@ use edr_evm::{
     },
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec},
-    BlockReceipts, EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock,
-    RemoteBlockConversionError, SyncBlock,
+    EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock, RemoteBlockConversionError,
+    SyncBlock,
 };
 use edr_evm_spec::{
     BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmHaltReason, EvmSpecId,

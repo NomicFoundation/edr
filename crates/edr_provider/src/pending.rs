@@ -1,12 +1,11 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
-use edr_block_api::{Block as _, BlockAndTotalDifficulty};
+use edr_block_api::{Block as _, BlockAndTotalDifficulty, BlockReceipts};
 use edr_blockchain_api::{BlockHash, Blockchain, BlockchainMut};
 use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchainForChainSpec},
     spec::SyncRuntimeSpec,
-    BlockReceipts,
 };
 use edr_evm_spec::ExecutableTransaction as _;
 use edr_primitives::{Address, HashSet, B256};

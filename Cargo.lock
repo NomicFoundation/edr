@@ -2285,6 +2285,7 @@ dependencies = [
  "auto_impl",
  "edr_block_header",
  "edr_primitives",
+ "edr_receipt",
 ]
 
 [[package]]
@@ -2302,6 +2303,23 @@ dependencies = [
  "edr_primitives",
  "edr_trie",
  "serde",
+]
+
+[[package]]
+name = "edr_block_storage"
+version = "0.3.8"
+dependencies = [
+ "derive-where",
+ "edr_block_api",
+ "edr_block_header",
+ "edr_eip1559",
+ "edr_evm_spec",
+ "edr_primitives",
+ "edr_receipt",
+ "edr_state_api",
+ "parking_lot 0.12.3",
+ "thiserror 1.0.69",
+ "tracing",
 ]
 
 [[package]]
@@ -2483,6 +2501,7 @@ dependencies = [
  "dyn-clone",
  "edr_block_api",
  "edr_block_header",
+ "edr_block_storage",
  "edr_blockchain_api",
  "edr_chain_l1",
  "edr_database_components",
@@ -7936,6 +7955,7 @@ dependencies = [
  "clap 3.2.25",
  "derive-where",
  "difference",
+ "edr_block_api",
  "edr_block_header",
  "edr_chain_l1",
  "edr_defaults",

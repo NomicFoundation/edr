@@ -11,7 +11,7 @@ use std::{
 };
 
 use alloy_dyn_abi::eip712::TypedData;
-use edr_block_api::{Block, BlockAndTotalDifficulty};
+use edr_block_api::{Block, BlockAndTotalDifficulty, BlockReceipts as _};
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };
@@ -40,8 +40,7 @@ use edr_evm::{
     spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
     state::{IrregularState, StateOverrides, StateRefOverrider},
     trace::Trace,
-    transaction, BlockReceipts as _, GenesisBlockOptions, MemPool, MineBlockResultAndState,
-    OrderedTransaction,
+    transaction, GenesisBlockOptions, MemPool, MineBlockResultAndState, OrderedTransaction,
 };
 use edr_evm_spec::{
     ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,

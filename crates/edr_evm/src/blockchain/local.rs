@@ -1,8 +1,9 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_block_api::{Block as _, BlockAndTotalDifficulty};
+use edr_block_api::{Block as _, BlockAndTotalDifficulty, BlockReceipts};
 use edr_block_header::BlockConfig;
+use edr_block_storage::ReservableSparseBlockStorage;
 use edr_evm_spec::EvmSpecId;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
@@ -10,14 +11,13 @@ use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};
 use edr_state_persistent_trie::PersistentStateTrie;
 
 use super::{
-    compute_state_at_block,
-    storage::{ReservableSparseBlockchainStorage, ReservableSparseBlockchainStorageForChainSpec},
-    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
-    BlockchainMut,
+    compute_state_at_block, validate_next_block, BlockHash, Blockchain, BlockchainError,
+    BlockchainErrorForChainSpec, BlockchainMut,
 };
 use crate::{
+    block::ReservableSparseBlockStorageForChainSpec,
     spec::{base_fee_params_for, SyncRuntimeSpec},
-    BlockAndTotalDifficultyForChainSpec, BlockReceipts,
+    BlockAndTotalDifficultyForChainSpec,
 };
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
@@ -40,7 +40,7 @@ pub struct LocalBlockchain<ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec,
 {
-    storage: ReservableSparseBlockchainStorageForChainSpec<ChainSpecT>,
+    storage: ReservableSparseBlockStorageForChainSpec<ChainSpecT>,
     chain_id: u64,
     hardfork: ChainSpecT::Hardfork,
 }
@@ -76,7 +76,7 @@ where
         }
 
         let total_difficulty = genesis_header.difficulty;
-        let storage = ReservableSparseBlockchainStorage::with_genesis_block(
+        let storage = ReservableSparseBlockStorage::with_genesis_block(
             Arc::new(genesis_block),
             genesis_diff,
             total_difficulty,

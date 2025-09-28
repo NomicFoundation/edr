@@ -1,3 +1,6 @@
+//! Data structures for storing a blockchain's blocks in-memory.
+#![warn(missing_docs)]
+
 mod contiguous;
 mod reservable;
 mod sparse;
@@ -5,11 +8,8 @@ mod sparse;
 use edr_primitives::B256;
 
 pub use self::{
-    contiguous::ContiguousBlockchainStorage,
-    reservable::{
-        ReservableSparseBlockchainStorage, ReservableSparseBlockchainStorageForChainSpec,
-    },
-    sparse::SparseBlockchainStorage,
+    contiguous::ContiguousBlockStorage, reservable::ReservableSparseBlockStorage,
+    sparse::SparseBlockStorage,
 };
 
 /// An error that occurs when trying to insert a block into storage.

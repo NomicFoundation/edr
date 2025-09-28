@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
-use edr_block_api::Block;
+use edr_block_api::{Block, BlockReceipts};
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{hash_map::OccupiedError, Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{
@@ -9,13 +9,12 @@ use edr_receipt::{
     ExecutionReceipt, ReceiptTrait,
 };
 
-use super::InsertError;
-use crate::BlockReceipts;
+use crate::InsertError;
 
-/// A storage solution for storing a subset of a Blockchain's blocks in-memory.
+/// A storage solution for storing a subset of a blockchain's blocks in-memory.
 #[derive(Debug)]
 #[derive_where(Default)]
-pub struct SparseBlockchainStorage<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT> {
+pub struct SparseBlockStorage<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT> {
     hash_to_block: HashMap<B256, BlockT>,
     hash_to_total_difficulty: HashMap<B256, U256>,
     number_to_block: HashMap<u64, BlockT>,
@@ -28,7 +27,7 @@ impl<
         BlockReceiptT: ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone,
         SignedTransactionT: ExecutableTransaction,
-    > SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>
+    > SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -139,7 +138,7 @@ impl<
 }
 
 impl<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT>
-    SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>
+    SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>
 {
     /// Retrieves the block by hash, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -225,7 +224,7 @@ pub fn logs<
     BlockT: BlockReceipts<BlockReceiptT>,
     SignedTransactionT,
 >(
-    storage: &SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>,
+    storage: &SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>,
     from_block: u64,
     to_block: u64,
     addresses: &HashSet<Address>,

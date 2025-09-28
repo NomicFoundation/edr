@@ -1,7 +1,7 @@
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 
 use alloy_eips::eip7840::BlobParams;
-use edr_block_api::Block;
+use edr_block_api::{Block, BlockReceipts, EmptyBlock, LocalBlock};
 use edr_block_header::{
     calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, PartialHeader,
 };
@@ -38,9 +38,9 @@ use crate::{
     result::{EVMErrorForChain, ExecutionResult},
     state::Database,
     transaction::{remote::EthRpcTransaction, TransactionError, TransactionErrorForChainSpec},
-    BlockBuilder, BlockReceipts, EmptyBlock, EthBlockBuilder, EthBlockData, EthBlockReceiptFactory,
-    EthLocalBlock, EthLocalBlockForChainSpec, GenesisBlockOptions, LocalBlock, RemoteBlock,
-    RemoteBlockConversionError, SyncBlock,
+    BlockBuilder, EthBlockBuilder, EthBlockData, EthBlockReceiptFactory, EthLocalBlock,
+    EthLocalBlockForChainSpec, GenesisBlockOptions, RemoteBlock, RemoteBlockConversionError,
+    SyncBlock,
 };
 
 /// Ethereum L1 extra data for genesis blocks.

@@ -2,6 +2,7 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use edr_block_api::EmptyBlock as _;
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
 use edr_evm::{
@@ -16,8 +17,8 @@ use edr_evm::{
         RuntimeSpec,
     },
     test_utils::dummy_eip155_transaction,
-    EmptyBlock as _, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec,
-    GenesisBlockOptions, RemoteBlockConversionError,
+    EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, GenesisBlockOptions,
+    RemoteBlockConversionError,
 };
 use edr_evm_spec::ExecutableTransaction as _;
 use edr_primitives::{Address, Bytes, HashSet, B256, U256};

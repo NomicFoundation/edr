@@ -3,6 +3,7 @@ members = [
     # EDR
     "crates/block/api",
     "crates/block/header",
+    "crates/block/storage",
     "crates/blockchain/api",
     "crates/database/components",
     "crates/edr_chain_l1",
@@ -104,6 +105,7 @@ scrypt.opt-level = 3
 [workspace.dependencies]
 edr_block_api = { path = "crates/block/api" }
 edr_block_header = { path = "crates/block/header" }
+edr_block_storage = { path = "crates/block/storage" }
 edr_blockchain_api = { path = "crates/blockchain/api" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }

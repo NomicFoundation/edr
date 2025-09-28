@@ -7,7 +7,7 @@ use std::{
 
 use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
-use edr_block_api::Block;
+use edr_block_api::{Block, EmptyBlock, LocalBlock};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, ExecutableTransaction,
@@ -24,7 +24,7 @@ use edr_utils::types::TypeConstructor;
 use itertools::izip;
 
 use crate::{
-    block::{BlockReceipts, EmptyBlock, LocalBlock},
+    block::BlockReceipts,
     blockchain::BlockchainError,
     spec::{
         ExecutionReceiptTypeConstructorBounds, ExecutionReceiptTypeConstructorForChainSpec,
