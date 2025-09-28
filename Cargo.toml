@@ -33,6 +33,7 @@ members = [
     "crates/eips/7702",
     "crates/primitives",
     "crates/state/api",
+    "crates/state/fork",
     "crates/state/persistent_trie",
     "crates/state/remote",
     "crates/tools",
@@ -131,6 +132,7 @@ edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_state_api = { path = "crates/state/api" }
+edr_state_fork = { path = "crates/state/fork" }
 edr_state_persistent_trie = { path = "crates/state/persistent_trie" }
 edr_state_remote = { path = "crates/state/remote" }
 edr_test_utils = { path = "crates/edr_test_utils" }

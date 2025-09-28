@@ -41,7 +41,7 @@ use edr_evm::{
     state::{IrregularState, StateOverrides, StateRefOverrider},
     trace::Trace,
     transaction, BlockReceipts as _, GenesisBlockOptions, MemPool, MineBlockResultAndState,
-    OrderedTransaction, RandomHashGenerator,
+    OrderedTransaction,
 };
 use edr_evm_spec::{
     ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
@@ -62,6 +62,7 @@ use edr_transaction::{
     request::TransactionRequestAndSender, IsEip4844, IsSupported as _, TransactionMut,
     TransactionType, TxKind,
 };
+use edr_utils::random::RandomHashGenerator;
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;

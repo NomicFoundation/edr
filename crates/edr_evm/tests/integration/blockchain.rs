@@ -4,10 +4,10 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
-#[cfg(feature = "test-remote")]
-use edr_evm::blockchain::SyncBlockchainForChainSpec;
 use edr_evm::{
-    blockchain::{BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain},
+    blockchain::{
+        BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain, SyncBlockchainForChainSpec,
+    },
     hardfork::l1,
     receipt::{self, ExecutionReceiptBuilder as _},
     result::{ExecutionResult, Output, SuccessReason},
@@ -53,10 +53,11 @@ async fn create_forked_dummy_blockchain(
         StateError,
     >,
 > {
-    use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
+    use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState};
     use edr_primitives::HashMap;
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
+    use edr_utils::random::RandomHashGenerator;
     use parking_lot::Mutex;
 
     let rpc_client =
