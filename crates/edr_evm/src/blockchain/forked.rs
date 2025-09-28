@@ -1,8 +1,9 @@
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
-use edr_block_api::{Block, BlockAndTotalDifficulty};
+use edr_block_api::{Block, BlockAndTotalDifficulty, BlockReceipts};
 use edr_block_header::BlockConfig;
+use edr_block_storage::ReservableSparseBlockStorage;
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     BlockSpec, PreEip1898BlockSpec,
@@ -25,15 +26,11 @@ use parking_lot::Mutex;
 use tokio::runtime;
 
 use super::{
-    compute_state_at_block,
-    remote::RemoteBlockchain,
-    storage::{
-        self, ReservableSparseBlockchainStorage, ReservableSparseBlockchainStorageForChainSpec,
-    },
-    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
-    BlockchainMut,
+    compute_state_at_block, remote::RemoteBlockchain, validate_next_block, BlockHash, Blockchain,
+    BlockchainError, BlockchainErrorForChainSpec, BlockchainMut,
 };
 use crate::{
+    block::ReservableSparseBlockStorageForChainSpec,
     eips::{
         eip2935::{
             add_history_storage_contract_to_state_diff, history_storage_contract,
@@ -46,7 +43,7 @@ use crate::{
     hardfork::{self, ChainOverride},
     spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
     state::IrregularState,
-    BlockAndTotalDifficultyForChainSpec, BlockReceipts, RemoteBlock,
+    BlockAndTotalDifficultyForChainSpec, RemoteBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
@@ -101,7 +98,7 @@ pub enum ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT> {
     CannotDeleteRemote,
     /// An error that occurs when trying to insert a block into storage.
     #[error(transparent)]
-    Insert(#[from] storage::InsertError),
+    Insert(#[from] edr_block_storage::InsertError),
     /// Rpc client error
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),
@@ -122,7 +119,7 @@ pub struct ForkedBlockchain<ChainSpecT>
 where
     ChainSpecT: RuntimeSpec,
 {
-    local_storage: ReservableSparseBlockchainStorageForChainSpec<ChainSpecT>,
+    local_storage: ReservableSparseBlockStorageForChainSpec<ChainSpecT>,
     // We can force caching here because we only fork from a safe block number.
     remote: RemoteBlockchain<Arc<RemoteBlock<ChainSpecT>>, ChainSpecT, true>,
     state_root_generator: Arc<Mutex<RandomHashGenerator>>,
@@ -296,7 +293,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
         }
 
         Ok(Self {
-            local_storage: ReservableSparseBlockchainStorage::empty(fork_block_number),
+            local_storage: ReservableSparseBlockStorage::empty(fork_block_number),
             remote: RemoteBlockchain::new(rpc_client, runtime),
             state_root_generator,
             chain_id: chain_id_override.unwrap_or(remote_chain_id),
@@ -670,8 +667,7 @@ where
         match block_number.cmp(&self.fork_block_number) {
             std::cmp::Ordering::Less => Err(ForkedBlockchainError::CannotDeleteRemote.into()),
             std::cmp::Ordering::Equal => {
-                self.local_storage =
-                    ReservableSparseBlockchainStorage::empty(self.fork_block_number);
+                self.local_storage = ReservableSparseBlockStorage::empty(self.fork_block_number);
 
                 Ok(())
             }

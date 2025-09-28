@@ -1,17 +1,16 @@
 use core::fmt::Debug;
-use std::{num::NonZeroU64, sync::Arc};
+use std::num::NonZeroU64;
 
-use edr_block_api::Block;
+use edr_block_api::{Block, BlockReceipts, EmptyBlock, LocalBlock};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_eip1559::BaseFeeParams;
-use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
+use edr_evm_spec::{EthHeaderConstants, ExecutableTransaction};
 use edr_primitives::{Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::StateDiff;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
-use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{spec::RuntimeSpec, BlockReceipts, EmptyBlock, LocalBlock};
+use super::{sparse, InsertError, SparseBlockStorage};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
@@ -28,26 +27,17 @@ struct Reservation<HardforkT> {
     base_fee_params: BaseFeeParams<HardforkT>,
 }
 
-/// Helper type for a chain-specific [`ReservableSparseBlockchainStorage`].
-pub type ReservableSparseBlockchainStorageForChainSpec<ChainSpecT> =
-    ReservableSparseBlockchainStorage<
-        Arc<<ChainSpecT as RuntimeSpec>::BlockReceipt>,
-        Arc<<ChainSpecT as RuntimeSpec>::LocalBlock>,
-        <ChainSpecT as ChainHardfork>::Hardfork,
-        <ChainSpecT as ChainSpec>::SignedTransaction,
-    >;
-
-/// A storage solution for storing a subset of a Blockchain's blocks in-memory,
+/// A storage solution for storing a subset of a blockchain's blocks in-memory,
 /// while lazily loading blocks that have been reserved.
 #[derive(Debug)]
-pub struct ReservableSparseBlockchainStorage<
+pub struct ReservableSparseBlockStorage<
     BlockReceiptT: ReceiptTrait,
     BlockT,
     HardforkT,
     SignedTransactionT,
 > {
     reservations: RwLock<Vec<Reservation<HardforkT>>>,
-    storage: RwLock<SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>>,
+    storage: RwLock<SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>>,
     // We can store the state diffs contiguously, as reservations don't contain any diffs.
     // Diffs are a mapping from one state to the next, so the genesis block contains the initial
     // state.
@@ -57,14 +47,14 @@ pub struct ReservableSparseBlockchainStorage<
 }
 
 impl<BlockReceiptT: ReceiptTrait, BlockT, HardforkT, SignedTransactionT>
-    ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    ReservableSparseBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Constructs a new instance with no blocks.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn empty(last_block_number: u64) -> Self {
         Self {
             reservations: RwLock::new(Vec::new()),
-            storage: RwLock::new(SparseBlockchainStorage::default()),
+            storage: RwLock::new(SparseBlockStorage::default()),
             state_diffs: Vec::new(),
             number_to_diff_index: HashMap::new(),
             last_block_number,
@@ -77,14 +67,14 @@ impl<
         BlockT: Block<SignedTransactionT> + Clone,
         HardforkT,
         SignedTransactionT: ExecutableTransaction,
-    > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    > ReservableSparseBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block as genesis block.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn with_genesis_block(block: BlockT, diff: StateDiff, total_difficulty: U256) -> Self {
         Self {
             reservations: RwLock::new(Vec::new()),
-            storage: RwLock::new(SparseBlockchainStorage::with_block(block, total_difficulty)),
+            storage: RwLock::new(SparseBlockStorage::with_block(block, total_difficulty)),
             state_diffs: vec![(0, diff)],
             number_to_diff_index: std::iter::once((0, 0)).collect(),
             last_block_number: 0,
@@ -154,7 +144,7 @@ impl<
         BlockT: BlockReceipts<BlockReceiptT>,
         HardforkT,
         SignedTransactionT,
-    > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    > ReservableSparseBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the logs that match the provided filter.
     pub fn logs(
@@ -170,7 +160,7 @@ impl<
 }
 
 impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, SignedTransactionT>
-    ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    ReservableSparseBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the block by hash, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -270,7 +260,7 @@ impl<
         BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT>,
         HardforkT: Clone + Default,
         SignedTransactionT: ExecutableTransaction,
-    > ReservableSparseBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    > ReservableSparseBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the block by number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -389,7 +379,7 @@ fn calculate_timestamp_for_reserved_block<
     HardforkT,
     SignedTransactionT,
 >(
-    storage: &SparseBlockchainStorage<BlockReceiptT, BlockT, SignedTransactionT>,
+    storage: &SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>,
     reservations: &Vec<Reservation<HardforkT>>,
     reservation: &Reservation<HardforkT>,
     block_number: u64,

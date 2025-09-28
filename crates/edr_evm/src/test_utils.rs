@@ -1,7 +1,7 @@
 use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use anyhow::anyhow;
-use edr_block_api::Block as _;
+use edr_block_api::{Block as _, BlockReceipts, LocalBlock as _};
 use edr_block_header::{BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_blockchain_api::Blockchain as _;
 use edr_eth::{block::miner_reward, PreEip1898BlockSpec};
@@ -19,8 +19,7 @@ use crate::{
     config::CfgEnv,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::IrregularState,
-    transaction, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
-    MemPoolAddTransactionError, RemoteBlock,
+    transaction, BlockBuilder, BlockInputs, MemPool, MemPoolAddTransactionError, RemoteBlock,
 };
 
 /// A test fixture for `MemPool`.

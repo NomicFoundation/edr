@@ -6,11 +6,11 @@ pub mod transaction;
 
 use std::sync::Arc;
 
-use auto_impl::auto_impl;
-use edr_block_api::{Block, BlockAndTotalDifficulty};
-use edr_block_header::{BlobGas, BlockHeader, PartialHeader, Withdrawal};
+use edr_block_api::{Block, BlockAndTotalDifficulty, BlockReceipts};
+use edr_block_header::{BlobGas, BlockHeader, Withdrawal};
+use edr_block_storage::ReservableSparseBlockStorage;
 use edr_chain_l1::rpc::block::L1RpcBlock;
-use edr_evm_spec::ChainSpec;
+use edr_evm_spec::{ChainHardfork, ChainSpec};
 use edr_primitives::B256;
 use edr_receipt::ReceiptTrait;
 
@@ -25,36 +25,13 @@ pub use self::{
 };
 use crate::spec::RuntimeSpec;
 
-/// Trait for fetching the receipts of a block's transactions.
-#[auto_impl(Arc)]
-pub trait BlockReceipts<BlockReceiptT: ReceiptTrait> {
-    /// The blockchain error type.
-    type Error;
-
-    /// Fetches the receipts of the block's transactions.
-    ///
-    /// This may block if the receipts are stored remotely.
-    fn fetch_transaction_receipts(&self) -> Result<Vec<BlockReceiptT>, Self::Error>;
-}
-
-/// Trait for creating an empty block.
-pub trait EmptyBlock<HardforkT> {
-    /// Constructs an empty block.
-    fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self;
-}
-
-impl<BlockT: EmptyBlock<HardforkT>, HardforkT> EmptyBlock<HardforkT> for Arc<BlockT> {
-    fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self {
-        Arc::new(BlockT::empty(hardfork, partial_header))
-    }
-}
-
-/// Trait for locally mined blocks.
-#[auto_impl(Arc)]
-pub trait LocalBlock<BlockReceiptT> {
-    /// Returns the receipts of the block's transactions.
-    fn transaction_receipts(&self) -> &[BlockReceiptT];
-}
+/// Helper type for a chain-specific [`ReservableSparseBlockStorage`].
+pub type ReservableSparseBlockStorageForChainSpec<ChainSpecT> = ReservableSparseBlockStorage<
+    Arc<<ChainSpecT as RuntimeSpec>::BlockReceipt>,
+    Arc<<ChainSpecT as RuntimeSpec>::LocalBlock>,
+    <ChainSpecT as ChainHardfork>::Hardfork,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
 
 /// Trait that meets all requirements for an Ethereum block.
 pub trait EthBlock<BlockReceiptT: ReceiptTrait, SignedTransactionT>:

@@ -1,19 +1,17 @@
 mod forked;
 mod local;
 mod remote;
-/// Storage data structures for a blockchain
-pub mod storage;
 
 use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included};
 
 use edr_block_api::Block;
+use edr_block_storage::ReservableSparseBlockStorage;
 use edr_blockchain_api::{BlockHash, Blockchain, BlockchainMut};
 use edr_evm_spec::{ChainHardfork, EvmSpecId, TransactionValidation};
 use edr_primitives::B256;
 use edr_receipt::ReceiptTrait;
 use edr_state_api::{StateCommit, StateDiff, StateOverride};
 
-use self::storage::ReservableSparseBlockchainStorage;
 pub use self::{
     forked::{CreationError as ForkedCreationError, ForkedBlockchain, ForkedBlockchainError},
     local::{InvalidGenesisBlock, LocalBlockchain},
@@ -38,7 +36,7 @@ pub enum BlockchainError<BlockConversionErrorT, HardforkT: Debug, ReceiptConvers
     Forked(#[from] ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT>),
     /// An error that occurs when trying to insert a block into storage.
     #[error(transparent)]
-    Insert(#[from] storage::InsertError),
+    Insert(#[from] edr_block_storage::InsertError),
     /// Invalid block number
     #[error("Invalid block number: {actual}. Expected: {expected}.")]
     InvalidBlockNumber {
@@ -183,7 +181,7 @@ fn compute_state_at_block<
     SignedTransactionT,
 >(
     state: &mut dyn StateCommit,
-    local_storage: &ReservableSparseBlockchainStorage<
+    local_storage: &ReservableSparseBlockStorage<
         BlockReceiptT,
         BlockT,
         HardforkT,
