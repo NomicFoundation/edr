@@ -53,10 +53,11 @@ async fn create_forked_dummy_blockchain(
         StateError,
     >,
 > {
-    use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
+    use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState};
     use edr_primitives::HashMap;
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
+    use edr_utils::random::RandomHashGenerator;
     use parking_lot::Mutex;
 
     let rpc_client =

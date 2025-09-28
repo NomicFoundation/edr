@@ -6,14 +6,13 @@ use anyhow::anyhow;
 use edr_block_api::Block as _;
 use edr_defaults::CACHE_DIR;
 use edr_eth::PreEip1898BlockSpec;
-use edr_evm::{
-    blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator, RemoteBlock,
-};
+use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RemoteBlock};
 use edr_op::{hardfork, transaction, OpChainSpec};
 use edr_primitives::{b256, HashMap, B256};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_test_utils::env::get_alchemy_url;
 use edr_transaction::TransactionType as _;
+use edr_utils::random::RandomHashGenerator;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]

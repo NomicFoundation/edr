@@ -12,6 +12,7 @@ use edr_rpc_eth::client::EthRpcClient;
 use edr_state_api::{account::AccountInfo, StateError};
 use edr_state_persistent_trie::{PersistentAccountAndStorageTrie, PersistentStateTrie};
 use edr_transaction::TxKind;
+use edr_utils::random::RandomHashGenerator;
 
 use crate::{
     blockchain::{BlockchainErrorForChainSpec, ForkedBlockchain},
@@ -19,7 +20,7 @@ use crate::{
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::IrregularState,
     transaction, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
-    MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
+    MemPoolAddTransactionError, RemoteBlock,
 };
 
 /// A test fixture for `MemPool`.

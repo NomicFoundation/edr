@@ -10,10 +10,11 @@ use edr_evm::{
         HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
     },
     spec::{base_fee_params_for, GenesisBlockFactory as _},
-    GenesisBlockOptions, RandomHashGenerator,
+    GenesisBlockOptions,
 };
 use edr_primitives::Bytecode;
 use edr_state_api::StateDiff;
+use edr_utils::random::RandomHashGenerator;
 
 fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L1ChainSpec>> {
     const CHAIN_ID: u64 = 0x7a69;

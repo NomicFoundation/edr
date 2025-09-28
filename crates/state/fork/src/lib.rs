@@ -10,15 +10,14 @@ use edr_state_api::{
 };
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_state_remote::{CachedRemoteState, RemoteState};
+use edr_utils::random::RandomHashGenerator;
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use tokio::runtime;
-
-use crate::random::RandomHashGenerator;
 
 /// A database integrating the state from a remote node and the state from a
 /// local layered database.
 #[derive_where(Debug)]
-pub struct ForkState<ChainSpecT: RpcSpec> {
+pub struct ForkedState<ChainSpecT: RpcSpec> {
     local_state: PersistentStateTrie,
     remote_state: Arc<Mutex<CachedRemoteState<ChainSpecT>>>,
     removed_storage_slots: HashSet<(Address, U256)>,
@@ -28,7 +27,7 @@ pub struct ForkState<ChainSpecT: RpcSpec> {
     removed_remote_accounts: HashSet<Address>,
 }
 
-impl<ChainSpecT: RpcSpec> ForkState<ChainSpecT> {
+impl<ChainSpecT: RpcSpec> ForkedState<ChainSpecT> {
     /// Constructs a new instance
     pub fn new(
         runtime: runtime::Handle,
@@ -62,7 +61,7 @@ impl<ChainSpecT: RpcSpec> ForkState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> Clone for ForkState<ChainSpecT> {
+impl<ChainSpecT: RpcSpec> Clone for ForkedState<ChainSpecT> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn clone(&self) -> Self {
         Self {
@@ -76,7 +75,7 @@ impl<ChainSpecT: RpcSpec> Clone for ForkState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> State for ForkState<ChainSpecT> {
+impl<ChainSpecT: RpcSpec> State for ForkedState<ChainSpecT> {
     type Error = StateError;
 
     fn basic(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -107,7 +106,7 @@ impl<ChainSpecT: RpcSpec> State for ForkState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> StateCommit for ForkState<ChainSpecT> {
+impl<ChainSpecT: RpcSpec> StateCommit for ForkedState<ChainSpecT> {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
         changes.iter().for_each(|(address, account)| {
             account.storage.iter().for_each(|(index, value)| {
@@ -123,7 +122,7 @@ impl<ChainSpecT: RpcSpec> StateCommit for ForkState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> StateDebug for ForkState<ChainSpecT> {
+impl<ChainSpecT: RpcSpec> StateDebug for ForkedState<ChainSpecT> {
     type Error = StateError;
 
     fn account_storage_root(&self, _address: &Address) -> Result<Option<B256>, Self::Error> {
@@ -238,7 +237,7 @@ mod tests {
     const FORK_BLOCK: u64 = 16220843;
 
     struct TestForkState {
-        fork_state: ForkState<L1ChainSpec>,
+        fork_state: ForkedState<L1ChainSpec>,
         // We need to keep it around as long as the fork state is alive
         _tempdir: tempfile::TempDir,
     }
@@ -268,7 +267,7 @@ mod tests {
                 .expect("failed to retrieve block by number")
                 .expect("block should exist");
 
-            let fork_state = ForkState::new(
+            let fork_state = ForkedState::new(
                 runtime,
                 Arc::new(rpc_client),
                 hash_generator,
@@ -284,7 +283,7 @@ mod tests {
     }
 
     impl Deref for TestForkState {
-        type Target = ForkState<L1ChainSpec>;
+        type Target = ForkedState<L1ChainSpec>;
 
         fn deref(&self) -> &Self::Target {
             &self.fork_state

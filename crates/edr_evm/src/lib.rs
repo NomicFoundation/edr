@@ -9,7 +9,6 @@ pub use crate::{
     block::*,
     mempool::{MemPool, MemPoolAddTransactionError, OrderedTransaction},
     miner::*,
-    random::RandomHashGenerator,
 };
 
 /// Types for Ethereum blocks.
@@ -35,7 +34,6 @@ pub mod mempool;
 mod miner;
 /// Types for managing Ethereum precompiles
 pub mod precompile;
-pub(crate) mod random;
 /// Types for Ethereum transaction receipts.
 pub mod receipt;
 /// Result types for EVM execution.

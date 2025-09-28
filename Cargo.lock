@@ -1580,18 +1580,18 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.46"
+version = "4.5.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c5e4fcf9c21d2e544ca1ee9d8552de13019a42aa7dbf32747fa7aaf1df76e57"
+checksum = "e2134bb3ea021b78629caa971416385309e0131b351b25e01dc16fb54e1b5fae"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.46"
+version = "4.5.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fecb53a0e6fcfb055f686001bc2e2592fa527efaf38dbe81a6a9563562e57d41"
+checksum = "c2ba64afa3c0a6df7fa517765e31314e983f51dda798ffba27b988194fb65dc9"
 dependencies = [
  "anstyle",
  "clap_lex 0.7.5",
@@ -1856,7 +1856,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.5.46",
+ "clap 4.5.48",
  "criterion-plot",
  "is-terminal",
  "itertools 0.10.5",
@@ -2497,6 +2497,7 @@ dependencies = [
  "edr_rpc_spec",
  "edr_signer",
  "edr_state_api",
+ "edr_state_fork",
  "edr_state_persistent_trie",
  "edr_state_remote",
  "edr_test_utils",
@@ -2570,6 +2571,7 @@ dependencies = [
  "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
+ "edr_utils",
  "log",
  "parking_lot 0.12.3",
  "paste",
@@ -2719,6 +2721,7 @@ dependencies = [
  "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
+ "edr_utils",
  "log",
  "op-alloy-rpc-types",
  "op-revm",
@@ -3030,6 +3033,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_state_fork"
+version = "0.3.8"
+dependencies = [
+ "derive-where",
+ "edr_chain_l1",
+ "edr_eth",
+ "edr_primitives",
+ "edr_rpc_eth",
+ "edr_rpc_spec",
+ "edr_state_api",
+ "edr_state_persistent_trie",
+ "edr_state_remote",
+ "edr_test_utils",
+ "edr_utils",
+ "parking_lot 0.12.3",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "edr_state_persistent_trie"
 version = "0.3.8"
 dependencies = [
@@ -3119,6 +3143,9 @@ dependencies = [
 [[package]]
 name = "edr_utils"
 version = "0.3.8"
+dependencies = [
+ "edr_primitives",
+]
 
 [[package]]
 name = "educe"
