@@ -19,6 +19,8 @@ use edr_state_api::{
     account::{Account, AccountStatus},
     StateDiff, StateError, StateOverride, SyncState,
 };
+use edr_state_fork::ForkedState;
+use edr_utils::random::RandomHashGenerator;
 use parking_lot::Mutex;
 use tokio::runtime;
 
@@ -43,8 +45,8 @@ use crate::{
     },
     hardfork::{self, ChainOverride},
     spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
-    state::{ForkState, IrregularState},
-    BlockAndTotalDifficultyForChainSpec, BlockReceipts, RandomHashGenerator, RemoteBlock,
+    state::IrregularState,
+    BlockAndTotalDifficultyForChainSpec, BlockReceipts, RemoteBlock,
 };
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
@@ -549,7 +551,7 @@ where
                 .state_root
         };
 
-        let mut state = ForkState::new(
+        let mut state = ForkedState::new(
             self.runtime().clone(),
             self.remote.client().clone(),
             self.state_root_generator.clone(),

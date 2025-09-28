@@ -28,6 +28,7 @@ edr_transaction.workspace = true
 edr_trie.workspace = true
 edr_signer.workspace = true
 edr_state_api.workspace = true
+edr_state_fork.workspace = true
 edr_state_remote.workspace = true
 edr_state_persistent_trie.workspace = true
 edr_utils.workspace = true

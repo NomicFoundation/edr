@@ -29,6 +29,7 @@ edr_solidity = { path = "../edr_solidity" }
 edr_solidity_tests.workspace = true
 edr_state_api.workspace = true
 edr_transaction.workspace = true
+edr_utils.workspace = true
 log = { version = "0.4.17", default-features = false }
 op-alloy-rpc-types = { version = "0.17.2", default-features = false }
 op-revm.workspace = true

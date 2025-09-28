@@ -7,13 +7,14 @@ use edr_defaults::CACHE_DIR;
 use edr_evm::{
     blockchain::ForkedBlockchain,
     precompile::{self, Precompiles},
-    state::{ForkState, IrregularState},
-    RandomHashGenerator,
+    state::IrregularState,
 };
 use edr_primitives::{Address, HashMap, U256};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_state_api::{AccountModifierFn, StateDebug};
+use edr_state_fork::ForkedState;
 use edr_test_utils::env::get_alchemy_url;
+use edr_utils::random::RandomHashGenerator;
 use parking_lot::Mutex;
 use tokio::runtime;
 
@@ -33,7 +34,7 @@ async fn issue_336_set_balance_after_forking() -> anyhow::Result<()> {
     let mut state_root_generator = RandomHashGenerator::with_seed("test");
     let state_root = state_root_generator.generate_next();
 
-    let mut state = ForkState::new(
+    let mut state = ForkedState::new(
         runtime::Handle::current(),
         Arc::new(rpc_client),
         Arc::new(Mutex::new(state_root_generator)),
