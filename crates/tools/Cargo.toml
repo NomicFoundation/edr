@@ -9,6 +9,7 @@ cfg-if = "1.0.0"
 clap = { version = "3.2.20", features = ["derive"] }
 derive-where.workspace = true
 difference = { version = "2.0.0", default-features = false }
+edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_chain_l1.workspace = true
 edr_defaults.workspace = true

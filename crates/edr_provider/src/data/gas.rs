@@ -1,7 +1,7 @@
 use core::cmp;
 use std::sync::Arc;
 
-use edr_block_api::Block as _;
+use edr_block_api::{Block as _, BlockReceipts};
 use edr_block_header::BlockHeader;
 use edr_eth::reward_percentile::RewardPercentile;
 use edr_evm::{
@@ -11,7 +11,6 @@ use edr_evm::{
     result::ExecutionResult,
     spec::SyncRuntimeSpec,
     trace::TraceCollector,
-    BlockReceipts,
 };
 use edr_evm_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,

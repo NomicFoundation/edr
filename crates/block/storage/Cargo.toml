@@ -1,0 +1,23 @@
+[package]
+name = "edr_block_storage"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+derive-where.workspace = true
+edr_block_api.workspace = true
+edr_block_header.workspace = true
+edr_eip1559.workspace = true
+edr_evm_spec.workspace = true
+edr_primitives.workspace = true
+edr_receipt.workspace = true
+edr_state_api.workspace = true
+parking_lot.workspace = true
+thiserror.workspace = true
+tracing = { workspace = true, optional = true }
+
+[features]
+tracing = ["dep:tracing"]
+
+[lints]
+workspace = true

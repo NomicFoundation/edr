@@ -4,22 +4,21 @@
 //! still may be useful for applications that do not.
 //!
 //! [^1]: for that, we internally use the sparse implementation via
-//! [`SparseBlockchainStorage`](super::sparse::SparseBlockchainStorage).
+//! [`SparseBlockStorage`](super::sparse::SparseBlockStorage).
 
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
-use edr_block_api::Block;
+use edr_block_api::{Block, EmptyBlock, LocalBlock};
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{HashMap, B256, U256};
 use edr_receipt::ReceiptTrait;
 
 use super::InsertError;
-use crate::{EmptyBlock, LocalBlock};
 
-/// A storage solution for storing a Blockchain's blocks contiguously in-memory.
+/// A storage solution for storing a blockchain's blocks contiguously in-memory.
 #[derive_where(Clone, Debug, Default; BlockReceiptT, BlockT)]
-pub struct ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT> {
+pub struct ContiguousBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT> {
     blocks: Vec<BlockT>,
     hash_to_block: HashMap<B256, BlockT>,
     total_difficulties: Vec<U256>,
@@ -29,7 +28,7 @@ pub struct ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedT
 }
 
 impl<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
-    ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    ContiguousBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the instance's blocks.
     pub fn blocks(&self) -> &[BlockT] {
@@ -60,7 +59,7 @@ impl<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 }
 
 impl<BlockReceiptT, BlockT: Block<SignedTransactionT>, HardforkT, SignedTransactionT>
-    ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    ContiguousBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Reverts to the block with the provided number, deleting all later
     /// blocks.
@@ -123,7 +122,7 @@ impl<
         BlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT> + Clone,
         HardforkT,
         SignedTransactionT: ExecutableTransaction,
-    > ContiguousBlockchainStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+    > ContiguousBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided block.
     pub fn with_block(block: BlockT, total_difficulty: U256) -> Self {
