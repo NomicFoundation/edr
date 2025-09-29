@@ -338,9 +338,9 @@ pub trait RuntimeSpec:
 pub fn base_fee_params_for<ChainSpecT: RuntimeSpec>(
     chain_id: u64,
 ) -> &'static BaseFeeParams<ChainSpecT::Hardfork> {
-    ChainSpecT::chain_config(chain_id).and_then( |config| 
-        config.base_fee_params.as_ref()
-    ).unwrap_or(&ChainSpecT::default_base_fee_params())
+    ChainSpecT::chain_config(chain_id)
+        .and_then(|config| config.base_fee_params.as_ref())
+        .unwrap_or(ChainSpecT::default_base_fee_params())
 }
 /// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<HeaderT>: ChainSpec {

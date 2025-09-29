@@ -9,10 +9,10 @@ use crate::Hardfork;
 
 /// Base chain configs
 pub mod base;
-/// OP chain configs
-pub mod op;
 /// op stack chains configs generated
 pub mod generated;
+/// OP chain configs
+pub mod op;
 
 // Source:
 // <https://docs.optimism.io/builders/node-operators/network-upgrades>
@@ -40,5 +40,8 @@ pub fn chain_config(chain_id: u64) -> Option<&'static ChainConfig<Hardfork>> {
 
 /// Returns the default base fee params to fallback to
 pub fn default_base_fee_params() -> &'static BaseFeeParams<Hardfork> {
-    op::MAINNET_CONFIG.base_fee_params.as_ref().expect("OP Mainnet should have the base fee params defined")
+    op::MAINNET_CONFIG
+        .base_fee_params
+        .as_ref()
+        .expect("OP Mainnet should have the base fee params defined")
 }
