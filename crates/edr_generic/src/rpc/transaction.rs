@@ -1,7 +1,7 @@
 use edr_chain_l1::rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
-    transaction::remote::EthRpcTransaction,
+    transaction::remote::RpcTransaction,
 };
 use edr_primitives::B256;
 use edr_rpc_spec::RpcTypeFrom;
@@ -19,7 +19,7 @@ use crate::{transaction, GenericChainSpec};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct TransactionWithSignature(L1RpcTransactionWithSignature);
 
-impl EthRpcTransaction for TransactionWithSignature {
+impl RpcTransaction for TransactionWithSignature {
     fn block_hash(&self) -> Option<&B256> {
         self.0.block_hash()
     }

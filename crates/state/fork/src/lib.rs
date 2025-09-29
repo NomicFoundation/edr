@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use derive_where::derive_where;
 use edr_primitives::{Address, Bytecode, HashMap, HashSet, B256, KECCAK_NULL_RLP, U256};
-use edr_rpc_eth::client::EthRpcClient;
-use edr_rpc_spec::RpcSpec;
+use edr_rpc_eth::{client::EthRpcClient, ChainRpcBlock};
+use edr_rpc_spec::{RpcEthBlock, RpcSpec};
 use edr_state_api::{
     account::{Account, AccountInfo},
     AccountModifierFn, State, StateCommit, StateDebug, StateError, StateMut as _,
@@ -12,14 +11,26 @@ use edr_state_persistent_trie::PersistentStateTrie;
 use edr_state_remote::{CachedRemoteState, RemoteState};
 use edr_utils::random::RandomHashGenerator;
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime;
+
+/// Helper type for a chain-specific [`ForkedState`].
+pub type ForkedStateForChainSpec<ChainSpecT> = ForkedState<
+    ChainSpecT,
+    <ChainSpecT as RpcSpec>::RpcReceipt,
+    <ChainSpecT as RpcSpec>::RpcTransaction,
+>;
 
 /// A database integrating the state from a remote node and the state from a
 /// local layered database.
-#[derive_where(Debug)]
-pub struct ForkedState<ChainSpecT: RpcSpec> {
+#[derive(Debug)]
+pub struct ForkedState<
+    RpcBlockT: ChainRpcBlock,
+    RpcReceiptT: DeserializeOwned + Serialize,
+    RpcTransactionT: DeserializeOwned + Serialize,
+> {
     local_state: PersistentStateTrie,
-    remote_state: Arc<Mutex<CachedRemoteState<ChainSpecT>>>,
+    remote_state: Arc<Mutex<CachedRemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>>>,
     removed_storage_slots: HashSet<(Address, U256)>,
     /// A pair of the latest state root and local state root
     current_state: RwLock<(B256, B256)>,
@@ -27,11 +38,16 @@ pub struct ForkedState<ChainSpecT: RpcSpec> {
     removed_remote_accounts: HashSet<Address>,
 }
 
-impl<ChainSpecT: RpcSpec> ForkedState<ChainSpecT> {
+impl<
+        RpcBlockT: ChainRpcBlock,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     /// Constructs a new instance
     pub fn new(
         runtime: runtime::Handle,
-        rpc_client: Arc<EthRpcClient<ChainSpecT>>,
+        rpc_client: Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>>,
         hash_generator: Arc<Mutex<RandomHashGenerator>>,
         fork_block_number: u64,
         state_root: B256,
@@ -61,7 +77,12 @@ impl<ChainSpecT: RpcSpec> ForkedState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> Clone for ForkedState<ChainSpecT> {
+impl<
+        RpcBlockT: ChainRpcBlock,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > Clone for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn clone(&self) -> Self {
         Self {
@@ -75,7 +96,12 @@ impl<ChainSpecT: RpcSpec> Clone for ForkedState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> State for ForkedState<ChainSpecT> {
+impl<
+        RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: Default + DeserializeOwned + Serialize,
+    > State for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     type Error = StateError;
 
     fn basic(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -106,7 +132,12 @@ impl<ChainSpecT: RpcSpec> State for ForkedState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> StateCommit for ForkedState<ChainSpecT> {
+impl<
+        RpcBlockT: ChainRpcBlock,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > StateCommit for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     fn commit(&mut self, changes: HashMap<Address, Account>) {
         changes.iter().for_each(|(address, account)| {
             account.storage.iter().for_each(|(index, value)| {
@@ -122,7 +153,12 @@ impl<ChainSpecT: RpcSpec> StateCommit for ForkedState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> StateDebug for ForkedState<ChainSpecT> {
+impl<
+        RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: Default + DeserializeOwned + Serialize,
+    > StateDebug for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     type Error = StateError;
 
     fn account_storage_root(&self, _address: &Address) -> Result<Option<B256>, Self::Error> {
@@ -230,6 +266,7 @@ mod tests {
 
     use edr_chain_l1::L1ChainSpec;
     use edr_eth::PreEip1898BlockSpec;
+    use edr_rpc_spec::EthRpcClientForChainSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
@@ -237,7 +274,7 @@ mod tests {
     const FORK_BLOCK: u64 = 16220843;
 
     struct TestForkState {
-        fork_state: ForkedState<L1ChainSpec>,
+        fork_state: ForkedStateForChainSpec<L1ChainSpec>,
         // We need to keep it around as long as the fork state is alive
         _tempdir: tempfile::TempDir,
     }
@@ -254,7 +291,7 @@ mod tests {
             let tempdir = tempfile::tempdir().expect("can create tempdir");
 
             let runtime = runtime::Handle::current();
-            let rpc_client = EthRpcClient::<L1ChainSpec>::new(
+            let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
                 &get_alchemy_url(),
                 tempdir.path().to_path_buf(),
                 None,
@@ -283,7 +320,7 @@ mod tests {
     }
 
     impl Deref for TestForkState {
-        type Target = ForkedState<L1ChainSpec>;
+        type Target = ForkedStateForChainSpec<L1ChainSpec>;
 
         fn deref(&self) -> &Self::Target {
             &self.fork_state

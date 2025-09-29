@@ -14,7 +14,7 @@ pub use self::{
 
 /// An error that occurs when trying to insert a block into storage.
 #[derive(Debug, thiserror::Error)]
-pub enum InsertError {
+pub enum InsertBlockError {
     /// Block already exists
     #[error("A block, with hash {block_hash} and number {block_number}, already exists.")]
     DuplicateBlock {
@@ -23,16 +23,24 @@ pub enum InsertError {
         /// The block's number
         block_number: u64,
     },
-    /// Receipt already exists
-    #[error("A receipt with transaction hash {transaction_hash} already exists.")]
-    DuplicateReceipt {
-        /// Transaction hash of duplicated receipt
-        transaction_hash: B256,
-    },
+    /// An error that occurs when trying to insert a receipt into storage.
+    #[error(transparent)]
+    InsertReceiptError(#[from] InsertReceiptError),
     /// Transaction already exists
     #[error("A transaction with hash {hash} already exists.")]
     DuplicateTransaction {
         /// Hash of duplicated transaction
         hash: B256,
+    },
+}
+
+/// An error that occurs when trying to insert a receipt into storage.
+#[derive(Debug, thiserror::Error)]
+pub enum InsertReceiptError {
+    /// Receipt already exists
+    #[error("A receipt with transaction hash {transaction_hash} already exists.")]
+    Duplicate {
+        /// Transaction hash of duplicated receipt
+        transaction_hash: B256,
     },
 }

@@ -23,7 +23,6 @@ pub use self::{
     local::{CreationError as LocalCreationError, EthLocalBlock, EthLocalBlockForChainSpec},
     remote::{ConversionError as RemoteBlockConversionError, RemoteBlock},
 };
-use crate::spec::RuntimeSpec;
 
 /// Helper type for a chain-specific [`ReservableSparseBlockStorage`].
 pub type ReservableSparseBlockStorageForChainSpec<ChainSpecT> = ReservableSparseBlockStorage<

@@ -5,6 +5,9 @@ members = [
     "crates/block/header",
     "crates/block/storage",
     "crates/blockchain/api",
+    "crates/blockchain/fork",
+    "crates/blockchain/local",
+    "crates/blockchain/remote",
     "crates/database/components",
     "crates/edr_chain_l1",
     "crates/edr_common",
@@ -33,6 +36,7 @@ members = [
     "crates/eips/4844",
     "crates/eips/7702",
     "crates/primitives",
+    "crates/runtime/spec",
     "crates/state/api",
     "crates/state/fork",
     "crates/state/persistent_trie",
@@ -47,7 +51,7 @@ members = [
     "crates/foundry/evm/evm",
     "crates/foundry/evm/fuzz",
     "crates/foundry/evm/traces"
-]
+, "crates/block/remote"]
 resolver = "2"
 
 [workspace.package]
@@ -107,6 +111,9 @@ edr_block_api = { path = "crates/block/api" }
 edr_block_header = { path = "crates/block/header" }
 edr_block_storage = { path = "crates/block/storage" }
 edr_blockchain_api = { path = "crates/blockchain/api" }
+edr_blockchain_fork = { path = "crates/blockchain/fork" }
+edr_blockchain_local = { path = "crates/blockchain/local" }
+edr_blockchain_remote = { path = "crates/blockchain/remote" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
@@ -129,6 +136,7 @@ edr_receipt = { path = "crates/edr_receipt" }
 edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
 edr_rpc_spec = { path = "crates/edr_rpc_spec" }
+edr_runtime_spec = { path = "crates/runtime/spec" }
 edr_scenarios = { path = "crates/edr_scenarios" }
 edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }

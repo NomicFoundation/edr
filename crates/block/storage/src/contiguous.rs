@@ -14,7 +14,7 @@ use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{HashMap, B256, U256};
 use edr_receipt::ReceiptTrait;
 
-use super::InsertError;
+use super::InsertBlockError;
 
 /// A storage solution for storing a blockchain's blocks contiguously in-memory.
 #[derive_where(Clone, Debug, Default; BlockReceiptT, BlockT)]
@@ -158,13 +158,13 @@ impl<
         &mut self,
         block: BlockT,
         total_difficulty: U256,
-    ) -> Result<&BlockT, InsertError> {
+    ) -> Result<&BlockT, InsertBlockError> {
         let block_hash = block.block_hash();
 
         // As blocks are contiguous, we are guaranteed that the block number won't exist
         // if its hash is not present.
         if self.hash_to_block.contains_key(block_hash) {
-            return Err(InsertError::DuplicateBlock {
+            return Err(InsertBlockError::DuplicateBlock {
                 block_hash: *block_hash,
                 block_number: block.header().number,
             });
@@ -174,7 +174,7 @@ impl<
             self.transaction_hash_to_block
                 .contains_key(transaction.transaction_hash())
         }) {
-            return Err(InsertError::DuplicateTransaction {
+            return Err(InsertBlockError::DuplicateTransaction {
                 hash: *transaction.transaction_hash(),
             });
         }

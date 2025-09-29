@@ -6,6 +6,7 @@ use std::{ops::Deref, sync::OnceLock};
 use edr_block_header::BlockHeader;
 use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{Address, Bytes, B256, U256};
+use edr_rpc_spec::RpcTransaction;
 use edr_signer::{
     FakeableSignature, SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
 };
@@ -302,6 +303,12 @@ impl From<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip155 {
             hash: OnceLock::from(value.transaction.hash),
             rlp_encoding: OnceLock::new(),
         }
+    }
+}
+
+impl RpcTransaction for L1RpcTransactionWithSignature {
+    fn block_hash(&self) -> Option<&B256> {
+        self.block_hash.as_ref()
     }
 }
 

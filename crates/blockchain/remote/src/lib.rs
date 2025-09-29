@@ -1,43 +1,61 @@
 use std::sync::Arc;
 
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
-use derive_where::derive_where;
 use edr_block_api::Block;
 use edr_block_storage::SparseBlockStorage;
 use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
+use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{Address, HashSet, B256, U256};
-use edr_receipt::log::FilterLog;
-use edr_rpc_eth::client::EthRpcClient;
+use edr_receipt::{log::FilterLog, ReceiptTrait};
+use edr_rpc_eth::{
+    client::{EthRpcClient, RpcClientError},
+    ChainRpcBlock,
+};
 use edr_rpc_spec::RpcEthBlock as _;
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime;
 
-use super::forked::ForkedBlockchainErrorForChainSpec;
-use crate::{
-    blockchain::ForkedBlockchainError, spec::RuntimeSpec,
-    transaction::remote::EthRpcTransaction as _, RemoteBlock,
-};
+use crate::{transaction::remote::EthRpcTransaction as _, RemoteBlock};
 
-#[derive_where(Debug; BlockT)]
-pub struct RemoteBlockchain<BlockT, ChainSpecT, const FORCE_CACHING: bool>
-where
-    BlockT: Block<ChainSpecT::SignedTransaction> + Clone,
-    ChainSpecT: RuntimeSpec,
-{
-    client: Arc<EthRpcClient<ChainSpecT>>,
-    cache: RwLock<
-        SparseBlockStorage<Arc<ChainSpecT::BlockReceipt>, BlockT, ChainSpecT::SignedTransaction>,
-    >,
+#[derive(Debug)]
+pub struct RemoteBlockchain<
+    BlockReceiptT: ReceiptTrait,
+    BlockT: Block<SignedTransactionT> + Clone,
+    RpcBlockT: ChainRpcBlock,
+    RpcReceiptT: DeserializeOwned + Serialize,
+    RpcTransactionT: DeserializeOwned + Serialize,
+    SignedTransactionT: ExecutableTransaction,
+    const FORCE_CACHING: bool,
+> {
+    client: Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>>,
+    cache: RwLock<SparseBlockStorage<Arc<BlockReceiptT>, BlockT, SignedTransactionT>>,
     runtime: runtime::Handle,
 }
 
-impl<BlockT, ChainSpecT, const FORCE_CACHING: bool>
-    RemoteBlockchain<BlockT, ChainSpecT, FORCE_CACHING>
-where
-    BlockT: Block<ChainSpecT::SignedTransaction> + Clone,
-    ChainSpecT: RuntimeSpec,
+impl<
+        BlockReceiptT: ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + Clone,
+        RpcBlockT: ChainRpcBlock,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        SignedTransactionT: ExecutableTransaction,
+        const FORCE_CACHING: bool,
+    >
+    RemoteBlockchain<
+        BlockReceiptT,
+        BlockT,
+        RpcBlockT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+        FORCE_CACHING,
+    >
 {
     /// Constructs a new instance with the provided RPC client.
-    pub fn new(client: Arc<EthRpcClient<ChainSpecT>>, runtime: runtime::Handle) -> Self {
+    pub fn new(
+        client: Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>>,
+        runtime: runtime::Handle,
+    ) -> Self {
         Self {
             client,
             cache: RwLock::new(SparseBlockStorage::default()),
@@ -46,7 +64,7 @@ where
     }
 
     /// Retrieves the instance's RPC client.
-    pub fn client(&self) -> &Arc<EthRpcClient<ChainSpecT>> {
+    pub fn client(&self) -> &Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>> {
         &self.client
     }
 
@@ -56,7 +74,7 @@ where
         to_block: BlockSpec,
         addresses: &HashSet<Address>,
         normalized_topics: &[Option<Vec<B256>>],
-    ) -> Result<Vec<FilterLog>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<Vec<FilterLog>, RpcClientError> {
         self.client
             .get_logs_by_range(
                 from_block,
@@ -89,16 +107,50 @@ where
                 },
             )
             .await
-            .map_err(ForkedBlockchainError::RpcClient)
     }
 
+    /// Retrieves the blockchain's runtime.
+    pub fn runtime(&self) -> &runtime::Handle {
+        &self.runtime
+    }
+}
+
+/// An error that occurs when fetching a remote receipt.
+#[derive(Debug, thiserror::Error)]
+pub enum FetchRemoteReceiptError<RpcReceiptConversionErrorT> {
+    #[error(transparent)]
+    Conversion(RpcReceiptConversionErrorT),
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
+}
+
+impl<
+        BlockReceiptT: TryFrom<RpcReceiptT, Error = RpcReceiptConversionErrorT> + ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + Clone,
+        RpcBlockT: ChainRpcBlock,
+        RpcReceiptConversionErrorT,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        SignedTransactionT: ExecutableTransaction,
+        const FORCE_CACHING: bool,
+    >
+    RemoteBlockchain<
+        BlockReceiptT,
+        BlockT,
+        RpcBlockT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+        FORCE_CACHING,
+    >
+{
     /// Retrieves the receipt of the transaction with the provided hash, if it
     /// exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub async fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<ChainSpecT::BlockReceipt>>, ForkedBlockchainErrorForChainSpec<ChainSpecT>>
+    ) -> Result<Option<Arc<BlockReceiptT>>, FetchRemoteReceiptError<RpcReceiptConversionErrorT>>
     {
         let cache = self.cache.upgradable_read().await;
 
@@ -111,35 +163,53 @@ where
         {
             let receipt = receipt
                 .try_into()
-                .map_err(ForkedBlockchainError::ReceiptConversion)?;
+                .map_err(FetchRemoteReceiptError::Conversion)?;
 
             Ok(Some({
                 let mut cache = RwLockUpgradableReadGuard::upgrade(cache).await;
-                cache.insert_receipt(Arc::new(receipt))?.clone()
+                cache
+                    .insert_receipt(Arc::new(receipt))
+                    .expect("Already checked that receipt is not in cache")
+                    .clone()
             }))
         } else {
             Ok(None)
         }
     }
-
-    /// Retrieves the blockchain's runtime.
-    pub fn runtime(&self) -> &runtime::Handle {
-        &self.runtime
-    }
 }
 
-impl<BlockT, ChainSpecT, const FORCE_CACHING: bool>
-    RemoteBlockchain<BlockT, ChainSpecT, FORCE_CACHING>
-where
-    BlockT: Block<ChainSpecT::SignedTransaction> + Clone + From<RemoteBlock<ChainSpecT>>,
-    ChainSpecT: RuntimeSpec,
+/// An error that occurs when fetching a remote block.
+#[derive(Debug, thiserror::Error)]
+pub enum FetchRemoteBlockError {
+    #[error(transparent)]
+    RpcClient(#[from] RpcClientError),
+}
+
+impl<
+        BlockReceiptT: ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + Clone + From<RemoteBlock<ChainSpecT>>,
+        RpcBlockT: ChainRpcBlock,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        SignedTransactionT: ExecutableTransaction,
+        const FORCE_CACHING: bool,
+    >
+    RemoteBlockchain<
+        BlockReceiptT,
+        BlockT,
+        RpcBlockT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+        FORCE_CACHING,
+    >
 {
     /// Retrieves the block with the provided hash, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub async fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<BlockT>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<Option<BlockT>, FetchRemoteBlockError> {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(block) = cache.block_by_hash(hash).cloned() {
@@ -161,10 +231,7 @@ where
 
     /// Retrieves the block with the provided number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub async fn block_by_number(
-        &self,
-        number: u64,
-    ) -> Result<BlockT, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
+    pub async fn block_by_number(&self, number: u64) -> Result<BlockT, FetchRemoteBlockError> {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(block) = cache.block_by_number(number).cloned() {
@@ -185,7 +252,7 @@ where
     pub async fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<BlockT>, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<Option<BlockT>, FetchRemoteBlockError> {
         // This block ensure that the read lock is dropped
         {
             if let Some(block) = self
@@ -248,14 +315,10 @@ where
         &self,
         cache: RwLockUpgradableReadGuard<
             '_,
-            SparseBlockStorage<
-                Arc<ChainSpecT::BlockReceipt>,
-                BlockT,
-                ChainSpecT::SignedTransaction,
-            >,
+            SparseBlockStorage<Arc<BlockReceiptT>, BlockT, SignedTransactionT>,
         >,
-        block: ChainSpecT::RpcBlock<ChainSpecT::RpcTransaction>,
-    ) -> Result<BlockT, ForkedBlockchainErrorForChainSpec<ChainSpecT>> {
+        block: RpcBlockT::RpcBlock<RpcTransactionT>,
+    ) -> Result<BlockT, FetchRemoteBlockError> {
         // Geth has recently removed the total difficulty field from block RPC
         // responses, so we fall back to the terminal total difficulty of main net to
         // provide backwards compatibility.

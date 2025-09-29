@@ -11,6 +11,7 @@ c-kzg = { workspace = true, features = ["serde"] }
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_evm_spec.workspace = true
+edr_primitives.workspace = true
 edr_signer.workspace = true
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pkcs8"] }
 revm-context-interface.workspace = true

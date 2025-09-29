@@ -11,7 +11,6 @@ use tokio::runtime;
 use crate::{
     block::BlockReceipts,
     blockchain::{BlockchainErrorForChainSpec, ForkedBlockchainError},
-    spec::RuntimeSpec,
     EthBlockData,
 };
 

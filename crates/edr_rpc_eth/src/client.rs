@@ -1,6 +1,5 @@
-use std::{fmt::Debug, path::PathBuf};
+use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
-use derive_where::derive_where;
 use edr_eth::{
     fee_history::FeeHistoryResult,
     filter::{LogFilterOptions, OneOrMore},
@@ -11,23 +10,33 @@ use edr_primitives::{Address, Bytecode, Bytes, B256, KECCAK_EMPTY, U256, U64};
 use edr_receipt::log::FilterLog;
 use edr_rpc_client::RpcClient;
 pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
-use edr_rpc_spec::{GetBlockNumber, RpcSpec};
 use edr_state_api::account::AccountInfo;
 use futures::StreamExt;
+use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{fork::ForkMetadata, request_methods::RequestMethod};
+use crate::{fork::ForkMetadata, request_methods::RequestMethod, ChainRpcBlock, GetBlockNumber};
 
 // Constrain parallel requests to avoid rate limiting on transport level and
 // thundering herd during backoff.
 const MAX_PARALLEL_REQUESTS: usize = 20;
 
-#[derive_where(Debug)]
-pub struct EthRpcClient<RpcSpecT: RpcSpec> {
+#[derive(Debug)]
+pub struct EthRpcClient<
+    RpcBlockTypeConstructorT: ChainRpcBlock,
+    RpcReceiptT: DeserializeOwned + Serialize,
+    RpcTransactionT: DeserializeOwned + Serialize,
+> {
     inner: RpcClient<RequestMethod>,
-    phantom: std::marker::PhantomData<RpcSpecT>,
+    #[allow(clippy::type_complexity)]
+    phantom: PhantomData<fn() -> (RpcBlockTypeConstructorT, RpcReceiptT, RpcTransactionT)>,
 }
 
-impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
+impl<
+        RpcBlockTypeConstructorT: ChainRpcBlock,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: Default + DeserializeOwned + Serialize,
+    > EthRpcClient<RpcBlockTypeConstructorT, RpcReceiptT, RpcTransactionT>
+{
     /// Creates a new instance, given a remote node URL.
     ///
     /// The cache directory is the global EDR cache directory configured by the
@@ -40,7 +49,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
         let inner = RpcClient::new(url, cache_dir, extra_headers)?;
         Ok(Self {
             inner,
-            phantom: std::marker::PhantomData,
+            phantom: PhantomData,
         })
     }
 
@@ -139,7 +148,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_block_by_hash(
         &self,
         hash: B256,
-    ) -> Result<Option<RpcSpecT::RpcBlock<B256>>, RpcClientError> {
+    ) -> Result<Option<RpcBlockTypeConstructorT::RpcBlock<B256>>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetBlockByHash(hash, false))
             .await
@@ -162,7 +171,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_block_by_hash_with_transaction_data(
         &self,
         hash: B256,
-    ) -> Result<Option<RpcSpecT::RpcBlock<RpcSpecT::RpcTransaction>>, RpcClientError> {
+    ) -> Result<Option<RpcBlockTypeConstructorT::RpcBlock<RpcTransactionT>>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetBlockByHash(hash, true))
             .await
@@ -173,11 +182,11 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_block_by_number(
         &self,
         spec: PreEip1898BlockSpec,
-    ) -> Result<Option<RpcSpecT::RpcBlock<B256>>, RpcClientError> {
+    ) -> Result<Option<RpcBlockTypeConstructorT::RpcBlock<B256>>, RpcClientError> {
         self.inner
             .call_with_resolver(
                 RequestMethod::GetBlockByNumber(spec, false),
-                |block: &Option<RpcSpecT::RpcBlock<B256>>| {
+                |block: &Option<RpcBlockTypeConstructorT::RpcBlock<B256>>| {
                     block.as_ref().and_then(GetBlockNumber::number)
                 },
             )
@@ -189,11 +198,11 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_block_by_number_with_transaction_data(
         &self,
         spec: PreEip1898BlockSpec,
-    ) -> Result<RpcSpecT::RpcBlock<RpcSpecT::RpcTransaction>, RpcClientError> {
+    ) -> Result<RpcBlockTypeConstructorT::RpcBlock<RpcTransactionT>, RpcClientError> {
         self.inner
             .call_with_resolver(
                 RequestMethod::GetBlockByNumber(spec, true),
-                |block: &RpcSpecT::RpcBlock<RpcSpecT::RpcTransaction>| block.number(),
+                |block: &RpcBlockTypeConstructorT::RpcBlock<RpcTransactionT>| block.number(),
             )
             .await
     }
@@ -235,7 +244,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_transaction_by_hash(
         &self,
         tx_hash: B256,
-    ) -> Result<Option<RpcSpecT::RpcTransaction>, RpcClientError> {
+    ) -> Result<Option<RpcTransactionT>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetTransactionByHash(tx_hash))
             .await
@@ -258,7 +267,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_transaction_receipt(
         &self,
         tx_hash: B256,
-    ) -> Result<Option<RpcSpecT::RpcReceipt>, RpcClientError> {
+    ) -> Result<Option<RpcReceiptT>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetTransactionReceipt(tx_hash))
             .await
@@ -270,7 +279,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
     pub async fn get_transaction_receipts(
         &self,
         hashes: impl IntoIterator<Item = &B256> + Debug,
-    ) -> Result<Option<Vec<RpcSpecT::RpcReceipt>>, RpcClientError> {
+    ) -> Result<Option<Vec<RpcReceiptT>>, RpcClientError> {
         let requests = hashes
             .into_iter()
             .map(|transaction_hash| self.get_transaction_receipt(*transaction_hash))
@@ -278,7 +287,7 @@ impl<RpcSpecT: RpcSpec> EthRpcClient<RpcSpecT> {
 
         futures::stream::iter(requests)
             .buffered(MAX_PARALLEL_REQUESTS)
-            .collect::<Vec<Result<Option<RpcSpecT::RpcReceipt>, RpcClientError>>>()
+            .collect::<Vec<Result<Option<RpcReceiptT>, RpcClientError>>>()
             .await
             .into_iter()
             .collect()

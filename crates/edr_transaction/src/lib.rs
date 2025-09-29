@@ -15,14 +15,13 @@ mod test_utils;
 pub mod utils;
 
 use edr_evm_spec::ExecutableTransaction;
+pub use edr_primitives as primitives;
+use edr_primitives::{B256, U256};
 use edr_signer::Signature;
 pub use revm_context_interface::Transaction;
 pub use revm_primitives::{
-    alloy_primitives::{TxKind, U8},
-    ruint::{
-        aliases::U256, BaseConvertError as RuintBaseConvertError, ParseError as RuintParseError,
-    },
-    Address, Bytes, B256,
+    alloy_primitives::TxKind,
+    ruint::{BaseConvertError as RuintBaseConvertError, ParseError as RuintParseError},
 };
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
@@ -47,18 +46,18 @@ macro_rules! impl_revm_transaction_trait {
                 $crate::TransactionType::transaction_type(self).into()
             }
 
-            fn caller(&self) -> $crate::Address {
+            fn caller(&self) -> $crate::primitives::Address {
                 edr_evm_spec::ExecutableTransaction::caller(self).clone()
             }
             fn gas_limit(&self) -> u64 {
                 edr_evm_spec::ExecutableTransaction::gas_limit(self)
             }
 
-            fn value(&self) -> $crate::U256 {
+            fn value(&self) -> $crate::primitives::U256 {
                 edr_evm_spec::ExecutableTransaction::value(self).clone()
             }
 
-            fn input(&self) -> &$crate::Bytes {
+            fn input(&self) -> &$crate::primitives::Bytes {
                 edr_evm_spec::ExecutableTransaction::data(self)
             }
 
@@ -82,7 +81,7 @@ macro_rules! impl_revm_transaction_trait {
                 edr_evm_spec::ExecutableTransaction::access_list(self).map(|list| list.iter())
             }
 
-            fn blob_versioned_hashes(&self) -> &[$crate::B256] {
+            fn blob_versioned_hashes(&self) -> &[$crate::primitives::B256] {
                 edr_evm_spec::ExecutableTransaction::blob_hashes(self)
             }
 

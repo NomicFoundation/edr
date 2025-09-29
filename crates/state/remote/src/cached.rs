@@ -1,7 +1,8 @@
-use derive_where::derive_where;
 use edr_primitives::{hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
-use edr_rpc_spec::RpcSpec;
+use edr_rpc_eth::ChainRpcBlock;
+use edr_rpc_spec::RpcEthBlock;
 use edr_state_api::{account::AccountInfo, AccountStorage, State, StateError, StateMut};
+use serde::{de::DeserializeOwned, Serialize};
 
 use super::RemoteState;
 
@@ -21,18 +22,27 @@ impl From<AccountInfo> for AccountAndStorage {
 }
 
 /// A cached version of [`RemoteState`].
-#[derive_where(Debug)]
-pub struct CachedRemoteState<ChainSpecT: RpcSpec> {
-    remote: RemoteState<ChainSpecT>,
+#[derive(Debug)]
+pub struct CachedRemoteState<
+    RpcBlockT: ChainRpcBlock,
+    RpcReceiptT: DeserializeOwned + Serialize,
+    RpcTransactionT: DeserializeOwned + Serialize,
+> {
+    remote: RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>,
     /// Mapping of block numbers to cached accounts
     account_cache: HashMap<u64, HashMap<Address, AccountAndStorage>>,
     /// Mapping of block numbers to cached code
     code_cache: HashMap<u64, HashMap<B256, Bytecode>>,
 }
 
-impl<ChainSpecT: RpcSpec> CachedRemoteState<ChainSpecT> {
+impl<
+        RpcBlockT: ChainRpcBlock,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > CachedRemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     /// Constructs a new [`CachedRemoteState`].
-    pub fn new(remote: RemoteState<ChainSpecT>) -> Self {
+    pub fn new(remote: RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>) -> Self {
         Self {
             remote,
             account_cache: HashMap::new(),
@@ -41,7 +51,12 @@ impl<ChainSpecT: RpcSpec> CachedRemoteState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> StateMut for CachedRemoteState<ChainSpecT> {
+impl<
+        RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: Default + DeserializeOwned + Serialize,
+    > StateMut for CachedRemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     type Error = StateError;
 
     fn basic_mut(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -119,9 +134,13 @@ impl<ChainSpecT: RpcSpec> StateMut for CachedRemoteState<ChainSpecT> {
 
 /// Fetches an account from the remote state. If it exists, code is split off
 /// and stored separately in the provided cache.
-fn fetch_remote_account<ChainSpecT: RpcSpec>(
+fn fetch_remote_account<
+    RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+    RpcReceiptT: DeserializeOwned + Serialize,
+    RpcTransactionT: Default + DeserializeOwned + Serialize,
+>(
     address: Address,
-    remote: &RemoteState<ChainSpecT>,
+    remote: &RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>,
     code_cache: &mut HashMap<u64, HashMap<B256, Bytecode>>,
 ) -> Result<Option<AccountInfo>, StateError> {
     let account = remote.basic(address)?.map(|mut account_info| {
@@ -146,7 +165,7 @@ mod tests {
     use std::{str::FromStr, sync::Arc};
 
     use edr_chain_l1::L1ChainSpec;
-    use edr_rpc_eth::client::EthRpcClient;
+    use edr_rpc_spec::EthRpcClientForChainSpec;
     use edr_test_utils::env::get_alchemy_url;
     use tokio::runtime;
 
@@ -156,7 +175,7 @@ mod tests {
     async fn no_cache_for_unsafe_block_number() {
         let tempdir = tempfile::tempdir().expect("can create tempdir");
 
-        let rpc_client = EthRpcClient::<L1ChainSpec>::new(
+        let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
             &get_alchemy_url(),
             tempdir.path().to_path_buf(),
             None,

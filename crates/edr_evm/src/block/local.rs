@@ -26,10 +26,7 @@ use itertools::izip;
 use crate::{
     block::BlockReceipts,
     blockchain::BlockchainError,
-    spec::{
-        ExecutionReceiptTypeConstructorBounds, ExecutionReceiptTypeConstructorForChainSpec,
-        RuntimeSpec,
-    },
+    spec::{ExecutionReceiptTypeConstructorBounds, ExecutionReceiptTypeConstructorForChainSpec},
     transaction::DetailedTransaction,
     GenesisBlockOptions,
 };

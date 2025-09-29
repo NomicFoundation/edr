@@ -7,7 +7,8 @@ use edr_block_api::{Block, BlockAndTotalDifficulty};
 use edr_block_header::{BlobGas, BlockHeader};
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
-use edr_rpc_spec::{GetBlockNumber, RpcEthBlock};
+use edr_rpc_eth::GetBlockNumber;
+use edr_rpc_spec::RpcEthBlock;
 use serde::{Deserialize, Serialize};
 
 /// block object returned by `eth_getBlockBy*`

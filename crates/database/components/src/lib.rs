@@ -7,6 +7,7 @@ use edr_state_api::{
     account::{Account, AccountInfo},
     State, StateCommit,
 };
+pub use revm_database_interface::Database;
 use revm_database_interface::{DBErrorMarker, DatabaseRef};
 
 /// Wrapper type around a blockchain and state to implement the `Database`

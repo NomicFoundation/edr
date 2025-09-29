@@ -10,7 +10,7 @@ use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::StateDiff;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
-use super::{sparse, InsertError, SparseBlockStorage};
+use super::{sparse, InsertBlockError, SparseBlockStorage};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
@@ -267,7 +267,7 @@ impl<
     pub fn block_by_number<ChainSpecT: EthHeaderConstants<Hardfork = HardforkT>>(
         &self,
         number: u64,
-    ) -> Result<Option<BlockT>, InsertError> {
+    ) -> Result<Option<BlockT>, InsertBlockError> {
         Ok(self
             .try_fulfilling_reservation::<ChainSpecT>(number)?
             .or_else(|| self.storage.read().block_by_number(number).cloned()))
@@ -281,7 +281,7 @@ impl<
         block: BlockT,
         state_diff: StateDiff,
         total_difficulty: U256,
-    ) -> Result<&BlockT, InsertError> {
+    ) -> Result<&BlockT, InsertBlockError> {
         self.last_block_number = block.header().number;
         self.number_to_diff_index
             .insert(self.last_block_number, self.state_diffs.len());
@@ -298,7 +298,7 @@ impl<
     fn try_fulfilling_reservation<ChainSpecT: EthHeaderConstants<Hardfork = HardforkT>>(
         &self,
         block_number: u64,
-    ) -> Result<Option<BlockT>, InsertError> {
+    ) -> Result<Option<BlockT>, InsertBlockError> {
         let reservations = self.reservations.upgradable_read();
 
         reservations
