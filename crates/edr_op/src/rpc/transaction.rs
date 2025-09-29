@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use edr_chain_l1::rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
-    transaction::remote::EthRpcTransaction,
+    transaction::remote::RpcTransaction,
 };
 use edr_primitives::B256;
 use edr_rpc_spec::RpcTypeFrom;
@@ -16,7 +16,7 @@ use crate::{
     Hardfork, OpChainSpec,
 };
 
-impl EthRpcTransaction for Transaction {
+impl RpcTransaction for Transaction {
     fn block_hash(&self) -> Option<&B256> {
         self.l1.block_hash.as_ref()
     }

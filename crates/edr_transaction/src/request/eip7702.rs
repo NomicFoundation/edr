@@ -1,12 +1,13 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
+use edr_primitives::{Address, Bytes, B256, U256};
 use edr_signer::{
     public_key_to_address, FakeableSignature, SecretKey, SignatureError, SignatureWithYParity,
 };
 use revm_primitives::keccak256;
 
-use crate::{signed, utils::envelop_bytes, Address, Bytes, ComputeTransactionHash, B256, U256};
+use crate::{signed, utils::envelop_bytes, ComputeTransactionHash};
 
 /// An [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702) transaction.
 #[derive(Clone, Debug, Default, PartialEq, Eq, RlpEncodable)]

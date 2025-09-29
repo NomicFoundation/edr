@@ -6,17 +6,13 @@ mod test_utils;
 
 use edr_primitives::{B256, U256};
 use edr_receipt::ExecutionReceipt;
+use edr_rpc_eth::{client::EthRpcClient, ChainRpcBlock};
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Trait for specifying Ethereum-based JSON-RPC method types.
-pub trait RpcSpec {
+pub trait RpcSpec: ChainRpcBlock {
     /// Type representing an RPC execution receipt.
     type ExecutionReceipt<LogT>: ExecutionReceipt<Log = LogT>;
-
-    /// Type representing an RPC block
-    type RpcBlock<DataT>: GetBlockNumber + DeserializeOwned + Serialize
-    where
-        DataT: Default + DeserializeOwned + Serialize;
 
     /// Type representing an RPC `eth_call` request.
     type RpcCallRequest: DeserializeOwned + Serialize;
@@ -45,11 +41,11 @@ pub trait RpcEthBlock {
     fn total_difficulty(&self) -> Option<&U256>;
 }
 
-/// Trait for retrieving a block's number.
-pub trait GetBlockNumber {
-    /// Retrieves the block number, if available. If the block is pending,
-    /// returns `None`.
-    fn number(&self) -> Option<u64>;
+/// Trait for retrieving information from an Ethereum JSON-RPC transaction.
+pub trait RpcTransaction {
+    /// Returns the hash of the finalised block associated with the transaction.
+    /// If the transaction is pending, returns `None`.
+    fn block_hash(&self) -> Option<&B256>;
 }
 
 /// Trait for constructing an RPC type from an internal type.
@@ -60,3 +56,10 @@ pub trait RpcTypeFrom<InputT> {
     /// Constructs an RPC type from the provided internal value.
     fn rpc_type_from(value: &InputT, hardfork: Self::Hardfork) -> Self;
 }
+
+/// Helper type for a chain-specific [`EthRpcClient`].
+pub type EthRpcClientForChainSpec<ChainSpecT> = EthRpcClient<
+    ChainSpecT,
+    <ChainSpecT as RpcSpec>::RpcReceipt,
+    <ChainSpecT as RpcSpec>::RpcTransaction,
+>;
