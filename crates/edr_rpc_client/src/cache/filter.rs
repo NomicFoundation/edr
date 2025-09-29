@@ -79,21 +79,20 @@ impl<'a> TryFrom<&'a LogFilterOptions> for CacheableLogFilterRange<'a> {
     fn try_from(value: &'a LogFilterOptions) -> Result<Self, Self::Error> {
         let map_err = |_| LogFilterOptionsNotCacheableError(value.clone());
 
-        if let Some(from_block) = &value.from_block {
-            if let Some(to_block) = &value.to_block {
-                if value.block_hash.is_none() {
-                    let range = Self::Range {
-                        from_block: from_block.try_into().map_err(map_err)?,
-                        to_block: to_block.try_into().map_err(map_err)?,
-                    };
+        if let Some(from_block) = &value.from_block
+            && let Some(to_block) = &value.to_block
+            && value.block_hash.is_none()
+        {
+            let range = Self::Range {
+                from_block: from_block.try_into().map_err(map_err)?,
+                to_block: to_block.try_into().map_err(map_err)?,
+            };
 
-                    return Ok(range);
-                }
-            }
-        } else if let Some(block_hash) = &value.block_hash {
-            if value.from_block.is_none() {
-                return Ok(Self::Hash(block_hash));
-            }
+            return Ok(range);
+        } else if let Some(block_hash) = &value.block_hash
+            && value.from_block.is_none()
+        {
+            return Ok(Self::Hash(block_hash));
         }
 
         Err(LogFilterOptionsNotCacheableError(value.clone()))

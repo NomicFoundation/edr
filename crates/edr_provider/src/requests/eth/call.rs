@@ -43,19 +43,19 @@ pub fn handle_call_request<
         .log_call(hardfork, &transaction, &result)
         .map_err(ProviderError::Logger)?;
 
-    if data.bail_on_call_failure() {
-        if let Some(failure) = TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
+    if data.bail_on_call_failure()
+        && let Some(failure) = TransactionFailure::from_execution_result::<ChainSpecT, TimerT>(
             &result.execution_result,
             None,
             &result.trace,
-        ) {
-            return Err(ProviderError::TransactionFailed(Box::new(
-                TransactionFailureWithTraces {
-                    failure,
-                    traces: vec![result.trace],
-                },
-            )));
-        }
+        )
+    {
+        return Err(ProviderError::TransactionFailed(Box::new(
+            TransactionFailureWithTraces {
+                failure,
+                traces: vec![result.trace],
+            },
+        )));
     }
 
     let output = result.execution_result.into_output().unwrap_or_default();

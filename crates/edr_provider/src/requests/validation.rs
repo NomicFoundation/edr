@@ -164,10 +164,10 @@ pub fn validate_send_transaction_request<
         return Err(ProviderError::Eip4844TransactionUnsupported);
     }
 
-    if let Some(transaction_type) = request.transaction_type {
-        if transaction_type == u8::from(edr_chain_l1::L1TransactionType::Eip4844) {
-            return Err(ProviderError::Eip4844TransactionUnsupported);
-        }
+    if let Some(transaction_type) = request.transaction_type
+        && transaction_type == u8::from(edr_chain_l1::L1TransactionType::Eip4844)
+    {
+        return Err(ProviderError::Eip4844TransactionUnsupported);
     }
 
     validate_transaction_and_call_request::<ChainSpecT, TimerT>(data.hardfork(), request).map_err(|err| match err {
@@ -247,14 +247,13 @@ fn validate_transaction_spec<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
         }
     }
 
-    if let Some(max_fee_per_gas) = value.max_fee_per_gas() {
-        if let Some(max_priority_fee_per_gas) = value.max_priority_fee_per_gas() {
-            if max_priority_fee_per_gas > max_fee_per_gas {
-                return Err(ProviderError::InvalidTransactionInput(format!(
-                    "maxPriorityFeePerGas ({max_priority_fee_per_gas}) is bigger than maxFeePerGas ({max_fee_per_gas})"
-                )));
-            }
-        }
+    if let Some(max_fee_per_gas) = value.max_fee_per_gas()
+        && let Some(max_priority_fee_per_gas) = value.max_priority_fee_per_gas()
+        && max_priority_fee_per_gas > max_fee_per_gas
+    {
+        return Err(ProviderError::InvalidTransactionInput(format!(
+            "maxPriorityFeePerGas ({max_priority_fee_per_gas}) is bigger than maxFeePerGas ({max_fee_per_gas})"
+        )));
     }
 
     if (value.blobs().is_some() || value.blob_hashes().is_some()) && value.to().is_none() {

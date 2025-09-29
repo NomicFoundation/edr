@@ -97,7 +97,7 @@ fn select_random_sender(
     fuzz_state: &EvmFuzzState,
     senders: Rc<SenderFilters>,
     dictionary_weight: u32,
-) -> impl Strategy<Value = Address> {
+) -> impl Strategy<Value = Address> + use<> {
     if !senders.targeted.is_empty() {
         any::<prop::sample::Index>()
             .prop_map(move |index| *index.get(&senders.targeted))
@@ -122,7 +122,7 @@ pub fn fuzz_contract_with_calldata(
     fuzz_fixtures: &FuzzFixtures,
     target: Address,
     func: Function,
-) -> impl Strategy<Value = CallDetails> {
+) -> impl Strategy<Value = CallDetails> + use<> {
     // We need to compose all the strategies generated for each parameter in all
     // possible combinations.
     // `prop_oneof!` / `TupleUnion` `Arc`s for cheap cloning.
