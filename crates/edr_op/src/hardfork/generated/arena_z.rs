@@ -1,10 +1,17 @@
+// WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
+// Any changes made to this file will be overwritten the next time it is
+// generated. To make changes, update the generator script instead
+// (tools/op_chain_config.rs).
+
 use std::{str::FromStr, sync::LazyLock};
 
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
+/// `arena_z` mainnet chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x1ED9;
 
+/// `arena_z` mainnet chain configuration
 pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "arena-z".into(),
     base_fee_params: None,
@@ -39,8 +46,10 @@ pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
         },
     ]),
 });
+/// `arena_z` sepolia chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x26AB;
 
+/// `arena_z` sepolia chain configuration
 pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "arena-z-testnet".into(),
     base_fee_params: None,

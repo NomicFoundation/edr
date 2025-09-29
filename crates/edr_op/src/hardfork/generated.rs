@@ -1,49 +1,95 @@
+// WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
+// Any changes made to this file will be overwritten the next time it is
+// generated. To make changes, update the generator script instead
+// (tools/op_chain_config.rs).
 
 use std::{collections::HashMap, sync::OnceLock};
 
 use edr_evm::hardfork::ChainConfig;
 
 use crate::Hardfork;
+
+/// `arena_z` chain configuration module;
 pub mod arena_z;
+/// `automata` chain configuration module;
 pub mod automata;
+/// `base` chain configuration module;
 pub mod base;
+/// `bob` chain configuration module;
 pub mod bob;
+/// `boba` chain configuration module;
 pub mod boba;
+/// `camp` chain configuration module;
 pub mod camp;
+/// `celo` chain configuration module;
 pub mod celo;
+/// `creator_chain_testnet` chain configuration module;
 pub mod creator_chain_testnet;
+/// `cyber` chain configuration module;
 pub mod cyber;
+/// `ethernity` chain configuration module;
 pub mod ethernity;
+/// `fraxtal` chain configuration module;
 pub mod fraxtal;
+/// `funki` chain configuration module;
 pub mod funki;
+/// `hashkeychain` chain configuration module;
 pub mod hashkeychain;
+/// `ink` chain configuration module;
 pub mod ink;
+/// `lisk` chain configuration module;
 pub mod lisk;
+/// `lyra` chain configuration module;
 pub mod lyra;
+/// `metal` chain configuration module;
 pub mod metal;
+/// `mint` chain configuration module;
 pub mod mint;
+/// `mode` chain configuration module;
 pub mod mode;
+/// `op` chain configuration module;
 pub mod op;
+/// `orderly` chain configuration module;
 pub mod orderly;
+/// `ozean` chain configuration module;
 pub mod ozean;
+/// `pivotal` chain configuration module;
 pub mod pivotal;
+/// `polynomial` chain configuration module;
 pub mod polynomial;
+/// `race` chain configuration module;
 pub mod race;
+/// `radius_testnet` chain configuration module;
 pub mod radius_testnet;
+/// `redstone` chain configuration module;
 pub mod redstone;
+/// `settlus_mainnet` chain configuration module;
 pub mod settlus_mainnet;
+/// `settlus_sepolia` chain configuration module;
 pub mod settlus_sepolia;
+/// `shape` chain configuration module;
 pub mod shape;
+/// `snax` chain configuration module;
 pub mod snax;
+/// `soneium` chain configuration module;
 pub mod soneium;
+/// `soneium_minato` chain configuration module;
 pub mod soneium_minato;
+/// `sseed` chain configuration module;
 pub mod sseed;
+/// `swan` chain configuration module;
 pub mod swan;
+/// `swell` chain configuration module;
 pub mod swell;
+/// `tbn` chain configuration module;
 pub mod tbn;
+/// `unichain` chain configuration module;
 pub mod unichain;
+/// `worldchain` chain configuration module;
 pub mod worldchain;
+/// `xterio_eth` chain configuration module;
 pub mod xterio_eth;
+/// `zora` chain configuration module;
 pub mod zora;
 
 fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Hardfork>> {

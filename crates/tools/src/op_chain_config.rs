@@ -13,6 +13,12 @@ use std::{
 use git2::Repository;
 use tempfile::tempdir; // Required for `fmt::Write` trait
 
+const GENERATED_FILE_WARNING_MESSAGE : &str = "
+    // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
+    // Any changes made to this file will be overwritten the next time it is generated.
+    // To make changes, update the generator script instead (tools/op_chain_config.rs).
+";
+
 pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     // let out_dir = env::var_os("OUT_DIR").unwrap();
     let modules_dir = Path::new("./crates/edr_op/src/hardfork/generated");
@@ -68,9 +74,11 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     write!(
         generated_module,
         "
-    use std::{{collections::HashMap, sync::OnceLock}};
-    use edr_evm::hardfork::ChainConfig;
-    use crate::Hardfork;
+        {GENERATED_FILE_WARNING_MESSAGE}
+        use std::{{collections::HashMap, sync::OnceLock}};
+        use edr_evm::hardfork::ChainConfig;
+        use crate::Hardfork;
+
     "
     )?;
     // module name, network
@@ -82,6 +90,11 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
                 .map_err(|err| err.into());
         match chain_module {
             Ok(name) => {
+                writeln!(
+                    generated_module,
+                    "/// `{}` chain configuration module;",
+                    &name
+                )?;
                 writeln!(generated_module, "pub mod {};", &name)?;
                 networks
                     .into_iter()
@@ -182,13 +195,14 @@ fn build_hardfork_for_chain(
     write!(
         &mut module,
         "
+    {GENERATED_FILE_WARNING_MESSAGE}
+    
     use std::{{str::FromStr, sync::LazyLock}};
     
     use edr_evm::hardfork::{{self, Activations, ChainConfig, ForkCondition}};
     use op_revm::OpSpecId;
     "
-    )?; // TODO: is there a way for knowing the import names depending on how those
-        // types get imported in this script file?
+    )?;
     for network in networks {
         let mut chain_config_path = PathBuf::from(config_path);
         chain_config_path.push(network.clone());
@@ -199,6 +213,7 @@ fn build_hardfork_for_chain(
         write!(
             &mut module,
             "
+    /// `{module_name}` {network} chain id
     pub const {}: u64 = {};
     ",
             chain_id_name(&network),
@@ -207,6 +222,7 @@ fn build_hardfork_for_chain(
         write!(
             &mut module,
             "
+    /// `{module_name}` {network} chain configuration
     pub static {}: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {{
         name: \"{}\".into(),
         base_fee_params: None, 
@@ -230,7 +246,7 @@ fn build_hardfork_for_chain(
                     .split_once("_time")
                     .expect("hardfork activation is not time based")
                     .0
-            )?;
+            )?; // TODO: skip hardfork activation if OpSpecId does not support it (i.e.: zora chain defines delta hardfork but is not defined in OpSpecId)
         }
         write!(&mut module, "   ]),}});")?;
     }
@@ -255,43 +271,6 @@ impl fmt::Display for OpImporterError {
         write!(f, "{}", self.message)
     }
 }
-
-// impl From<OpImporterError> for anyhow::Error {
-//     fn from(value: OpImporterError) -> Self {
-//         anyhow::Error::new(value)
-//     }
-// }
-// impl From<git2::Error> for OpImporterError {
-//     fn from(value: git2::Error) -> Self {
-//         OpImporterError {
-//             message: value.to_string(),
-//         }
-//     }
-// }
-
-// impl From<toml::de::Error> for OpImporterError {
-//     fn from(value: toml::de::Error) -> Self {
-//         OpImporterError {
-//             message: value.to_string(),
-//         }
-//     }
-// }
-
-// impl From<std::fmt::Error> for OpImporterError {
-//     fn from(value: std::fmt::Error) -> Self {
-//         OpImporterError {
-//             message: value.to_string(),
-//         }
-//     }
-// }
-
-// impl From<OsString> for OpImporterError {
-//     fn from(value: OsString) -> Self {
-//         OpImporterError {
-//             message: format!("Could not convert OsString {:?} to string",
-// value),         }
-//     }
-// }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct OpChainConfig {

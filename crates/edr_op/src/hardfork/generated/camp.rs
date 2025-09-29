@@ -1,10 +1,17 @@
+// WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
+// Any changes made to this file will be overwritten the next time it is
+// generated. To make changes, update the generator script instead
+// (tools/op_chain_config.rs).
+
 use std::{str::FromStr, sync::LazyLock};
 
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
+/// `camp` sepolia chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x4F588;
 
+/// `camp` sepolia chain configuration
 pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
     name: "Camp Network Testnet V2".into(),
     base_fee_params: None,
