@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
-use edr_transaction::{IsEip4844, IsLegacy, ParseError, U8};
+use edr_primitives::U8;
+use edr_transaction::{IsEip4844, IsLegacy, ParseError};
 
 use crate::signed;
 

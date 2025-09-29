@@ -9,7 +9,7 @@ use edr_receipt::{
     ExecutionReceipt, ReceiptTrait,
 };
 
-use crate::InsertError;
+use crate::{InsertBlockError, InsertReceiptError};
 
 /// A storage solution for storing a subset of a blockchain's blocks in-memory.
 #[derive(Debug)]
@@ -66,7 +66,7 @@ impl<
         &mut self,
         block: BlockT,
         total_difficulty: U256,
-    ) -> Result<&BlockT, InsertError> {
+    ) -> Result<&BlockT, InsertBlockError> {
         let block_hash = block.block_hash();
         let block_header = block.header();
 
@@ -74,7 +74,7 @@ impl<
             || self.hash_to_total_difficulty.contains_key(block_hash)
             || self.number_to_block.contains_key(&block_header.number)
         {
-            return Err(InsertError::DuplicateBlock {
+            return Err(InsertBlockError::DuplicateBlock {
                 block_hash: *block_hash,
                 block_number: block_header.number,
             });
@@ -84,7 +84,7 @@ impl<
             self.transaction_hash_to_block
                 .contains_key(transaction.transaction_hash())
         }) {
-            return Err(InsertError::DuplicateTransaction {
+            return Err(InsertBlockError::DuplicateTransaction {
                 hash: *transaction.transaction_hash(),
             });
         }
@@ -183,13 +183,13 @@ impl<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT>
     pub fn insert_receipt(
         &mut self,
         receipt: BlockReceiptT,
-    ) -> Result<&BlockReceiptT, InsertError> {
+    ) -> Result<&BlockReceiptT, InsertReceiptError> {
         let receipt = self
             .transaction_hash_to_receipt
             .try_insert(*receipt.transaction_hash(), receipt)
             .map_err(|err| {
                 let OccupiedError { value, .. } = err;
-                InsertError::DuplicateReceipt {
+                InsertReceiptError::Duplicate {
                     transaction_hash: *value.transaction_hash(),
                 }
             })?;
@@ -198,12 +198,15 @@ impl<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT>
 
     /// Inserts receipts. Errors if they already exist.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn insert_receipts(&mut self, receipts: Vec<BlockReceiptT>) -> Result<(), InsertError> {
+    pub fn insert_receipts(
+        &mut self,
+        receipts: Vec<BlockReceiptT>,
+    ) -> Result<(), InsertReceiptError> {
         if let Some(receipt) = receipts.iter().find(|receipt| {
             self.transaction_hash_to_receipt
                 .contains_key(receipt.transaction_hash())
         }) {
-            return Err(InsertError::DuplicateReceipt {
+            return Err(InsertReceiptError::Duplicate {
                 transaction_hash: *receipt.transaction_hash(),
             });
         }

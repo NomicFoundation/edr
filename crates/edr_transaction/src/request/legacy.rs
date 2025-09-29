@@ -1,13 +1,14 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::RlpEncodable;
+use edr_primitives::{Address, Bytes, B256, U256};
 use edr_signer::{
     public_key_to_address, FakeableSignature, SignatureError, SignatureWithRecoveryId,
 };
 use k256::SecretKey;
 use revm_primitives::{keccak256, TxKind};
 
-use crate::{signed, Address, Bytes, B256, U256};
+use crate::signed;
 
 #[derive(Clone, Debug, PartialEq, Eq, RlpEncodable)]
 pub struct Legacy {

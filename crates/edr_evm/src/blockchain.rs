@@ -1,7 +1,3 @@
-mod forked;
-mod local;
-mod remote;
-
 use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included};
 
 use edr_block_api::Block;
@@ -12,14 +8,11 @@ use edr_primitives::B256;
 use edr_receipt::ReceiptTrait;
 use edr_state_api::{StateCommit, StateDiff, StateOverride};
 
-pub use self::{
-    forked::{CreationError as ForkedCreationError, ForkedBlockchain, ForkedBlockchainError},
-    local::{InvalidGenesisBlock, LocalBlockchain},
-};
-use crate::{
-    hardfork::Activations,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
-};
+// pub use self::{
+//     forked::{CreationError as ForkedCreationError, ForkedBlockchain, ForkedBlockchainError},
+//     local::{InvalidGenesisBlock, LocalBlockchain},
+// };
+use crate::{hardfork::Activations, spec::SyncRuntimeSpec};
 
 /// Helper type for a chain-specific [`BlockchainError`].
 pub type BlockchainErrorForChainSpec<ChainSpecT> = BlockchainError<
@@ -36,7 +29,7 @@ pub enum BlockchainError<BlockConversionErrorT, HardforkT: Debug, ReceiptConvers
     Forked(#[from] ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT>),
     /// An error that occurs when trying to insert a block into storage.
     #[error(transparent)]
-    Insert(#[from] edr_block_storage::InsertError),
+    Insert(#[from] edr_block_storage::InsertBlockError),
     /// Invalid block number
     #[error("Invalid block number: {actual}. Expected: {expected}.")]
     InvalidBlockNumber {

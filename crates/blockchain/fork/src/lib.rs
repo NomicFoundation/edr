@@ -26,8 +26,8 @@ use parking_lot::Mutex;
 use tokio::runtime;
 
 use super::{
-    compute_state_at_block, remote::RemoteBlockchain, validate_next_block, BlockHash, Blockchain,
-    BlockchainError, BlockchainErrorForChainSpec, BlockchainMut,
+    compute_state_at_block, validate_next_block, BlockHash, Blockchain, BlockchainError,
+    BlockchainErrorForChainSpec, BlockchainMut,
 };
 use crate::{
     block::ReservableSparseBlockStorageForChainSpec,
@@ -98,7 +98,7 @@ pub enum ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT> {
     CannotDeleteRemote,
     /// An error that occurs when trying to insert a block into storage.
     #[error(transparent)]
-    Insert(#[from] edr_block_storage::InsertError),
+    Insert(#[from] edr_block_storage::InsertBlockError),
     /// Rpc client error
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),

@@ -8,8 +8,6 @@ use edr_evm_spec::ChainSpec;
 use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::SignedTransaction as _;
 
-use crate::spec::RuntimeSpec;
-
 /// Helper type for a chain-specific [`TransactionAndBlock`].
 pub type TransactionAndBlockForChainSpec<ChainSpecT> = TransactionAndBlock<
     Arc<<ChainSpecT as RuntimeSpec>::Block>,

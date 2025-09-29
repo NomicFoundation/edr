@@ -24,7 +24,7 @@ use crate::{
     receipt::ExecutionReceiptBuilder as _,
     result::{ExecutionResult, ExecutionResultAndState},
     runtime::{dry_run, dry_run_with_inspector},
-    spec::{base_fee_params_for, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
+    spec::{base_fee_params_for, ContextForChainSpec, SyncRuntimeSpec},
     state::WrapDatabaseRef,
     transaction::TransactionError,
     BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
