@@ -6,6 +6,7 @@ To make the developer experience as seamless and consistent as possible, we reco
 
 We recommend to use the devcontainer setup by using the `Clone repository in named container volume` option. This setup will ensure that the whole environment is isolated from your local host and therefore is platform-consistent, while ensuring persistent storage over container rebuilds or docker restarts.
 When using this option we recommend enabling ssh agent forwarding to share your ssh keys with the contaier in a safe way. You can read more about this in the [official VS Code guide](https://code.visualstudio.com/remote/advancedcontainers/sharing-git-credentials#_using-ssh-keys)
+Also, beware that VSCode performs a shallow clone of the repository when setting up the volume, so you may want to unshallow it by runnung `git fetch --unshallow`
 
 If you're using rust-analyzer in VS Code and find that the analysis takes too much time, adding the following to your `settings.json` file will help speed things up significantly:
 
