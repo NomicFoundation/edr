@@ -1,7 +1,7 @@
 // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
 // Any changes made to this file will be overwritten the next time it is
-// generated. To make changes, update the generator script instead
-// (tools/op_chain_config.rs).
+// generated. To make changes, update the generator script instead in
+// `tools/src/op_chain_config.rs`.
 
 use edr_evm::hardfork::ChainConfig;
 use edr_primitives::HashMap;
