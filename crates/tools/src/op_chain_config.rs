@@ -60,14 +60,10 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
 
         for entry in fs::read_dir(network_config_path)? {
             let filename = entry?.file_name().to_string_lossy().to_string();
-            if files_to_generate.contains_key(&filename) {
-                files_to_generate
-                    .get_mut(&filename)
-                    .unwrap()
-                    .push(network.to_string());
-            } else {
-                files_to_generate.insert(filename, vec![network.to_string()]);
-            }
+            files_to_generate
+                .entry(filename)
+                .and_modify(|entry| entry.push(network.to_string()))
+                .or_insert(vec![network.to_string()]);
         }
     }
 
@@ -85,23 +81,19 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     // module name, network
     let mut chains_by_module = Vec::<(String, String)>::new(); //HashMap::<String, Vec<String>>::new();
 
-    for (file_name, networks) in files_to_generate.into_iter() {
+    for (file_name, networks) in files_to_generate {
         let chain_module: Result<String, anyhow::Error> =
-            build_hardfork_for_chain(&config_path, file_name, &networks, modules_dir)
-                .map_err(|err| err.into());
-        match chain_module {
-            Ok(name) => {
-                writeln!(
-                    generated_module,
-                    "/// `{}` chain configuration module;",
-                    &name
-                )?;
-                writeln!(generated_module, "pub mod {};", &name)?;
-                networks
-                    .into_iter()
-                    .for_each(|network| chains_by_module.push((name.clone(), network)));
+            build_hardfork_for_chain(&config_path, file_name, &networks, modules_dir);
+        if let Ok(name) = chain_module {
+            writeln!(
+                generated_module,
+                "/// `{}` chain configuration module;",
+                &name
+            )?;
+            writeln!(generated_module, "pub mod {};", &name)?;
+            for network in networks {
+                chains_by_module.push((name.clone(), network));
             }
-            Err(_) => (),
         };
     }
     update_generated_module(&mut generated_module, &mut chains_by_module)?;
@@ -127,14 +119,14 @@ fn update_generated_module(
     )?;
 
     chains_by_module.sort();
-    for (module, network) in chains_by_module.into_iter() {
+    for (module, network) in chains_by_module {
         write!(
             generated_module,
             "
             hardforks.insert({}, &*{});
         ",
-            module_attribute(&module, &chain_id_name(&network)),
-            module_attribute(&module, &config_name(&network))
+            module_attribute(module, &chain_id_name(network)),
+            module_attribute(module, &config_name(network))
         )?;
     }
 
@@ -150,7 +142,7 @@ fn update_generated_module(
 }
 
 fn module_attribute(module: &str, attribute: &str) -> String {
-    format!("{}::{}", module, attribute)
+    format!("{module}::{attribute}")
 }
 fn chain_id_name(network: &str) -> String {
     format!("{}_CHAIN_ID", network.to_uppercase())
@@ -176,7 +168,7 @@ fn build_hardfork_for_chain(
             Some((name, _extension)) => String::from(name),
             None => {
                 return Err(OpImporterError {
-                    message: format!("could not file_name {:?}", file_name),
+                    message: format!("could not define module filename: {file_name}"),
                 }
                 .into())
             }
@@ -184,7 +176,7 @@ fn build_hardfork_for_chain(
     };
     let module_path = {
         let mut path = PathBuf::from(output_path);
-        path.push(format!("{}.rs", chain));
+        path.push(format!("{chain}.rs"));
         path
     };
     let mut module = File::create(module_path.clone())?;
@@ -211,10 +203,10 @@ fn build_hardfork_for_chain(
             &mut module,
             "
     /// `{chain}` {network} chain id
-    pub const {}: u64 = {};
+    pub const {}: u64 = 0x{:X};
     ",
-            chain_id_name(&network),
-            format!("0x{:X}", chain_config.chain_id),
+            chain_id_name(network),
+            chain_config.chain_id,
         )?;
         write!(
             &mut module,
@@ -225,7 +217,7 @@ fn build_hardfork_for_chain(
         base_fee_params: None, 
         hardfork_activations: Activations::new( vec![
         ",
-            config_name(&network),
+            config_name(network),
             chain_config.name
         )?;
         'activations: for activations in chain_config.hardforks.iter() {
@@ -237,8 +229,8 @@ fn build_hardfork_for_chain(
             let hardfork_name = match hardfork_name {
                 None => {
                     println!(
-                        "{} {}: ignoring activation - activation is not time based: {}",
-                        chain, network, activations.0
+                        "{chain} {network}: ignoring activation - activation is not time based: {}",
+                        activations.0
                     );
                     continue 'activations;
                 }
@@ -248,8 +240,7 @@ fn build_hardfork_for_chain(
             let hardfork = match OpSpecId::from_str(hardfork_name.as_str()) {
                 Err(_) => {
                     println!(
-                        "{} {}: ignoring activation - hardfork name is not supported: {}",
-                        chain, network, hardfork_name
+                        "{chain} {network}: ignoring activation - hardfork name is not supported: {hardfork_name}",
                     );
                     continue 'activations;
                 }
