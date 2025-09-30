@@ -8,12 +8,14 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::Command,
+    str::FromStr,
 };
 
 use git2::Repository;
+use op_revm::OpSpecId;
 use tempfile::tempdir; // Required for `fmt::Write` trait
 
-const GENERATED_FILE_WARNING_MESSAGE : &str = "
+const GENERATED_FILE_WARNING_MESSAGE: &str = "
     // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
     // Any changes made to this file will be overwritten the next time it is generated.
     // To make changes, update the generator script instead (tools/op_chain_config.rs).
@@ -28,7 +30,7 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     let mut generated_module = File::create(generated_module_path)?;
 
     println!(
-        "cargo::warning=Modules dir: {}",
+        "Generated modules dir: {}",
         modules_dir.canonicalize()?.to_str().unwrap()
     );
     // Create a temporary directory that will be automatically deleted on drop
@@ -68,8 +70,6 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
             }
         }
     }
-
-    println!("cargo::warning=files to generate: {:?}", files_to_generate);
 
     write!(
         generated_module,
@@ -174,7 +174,7 @@ fn build_hardfork_for_chain(
         }
         .into());
     }
-    let module_name = {
+    let chain = {
         match file_name.clone().replace('-', "_").split_once(".") {
             Some((name, _extension)) => String::from(name),
             None => {
@@ -187,7 +187,7 @@ fn build_hardfork_for_chain(
     };
     let module_path = {
         let mut path = PathBuf::from(output_path);
-        path.push(format!("{}.rs", module_name));
+        path.push(format!("{}.rs", chain));
         path
     };
     let mut module = File::create(module_path.clone())?;
@@ -197,7 +197,7 @@ fn build_hardfork_for_chain(
         "
     {GENERATED_FILE_WARNING_MESSAGE}
     
-    use std::{{str::FromStr, sync::LazyLock}};
+    use std::sync::LazyLock;
     
     use edr_evm::hardfork::{{self, Activations, ChainConfig, ForkCondition}};
     use op_revm::OpSpecId;
@@ -213,7 +213,7 @@ fn build_hardfork_for_chain(
         write!(
             &mut module,
             "
-    /// `{module_name}` {network} chain id
+    /// `{chain}` {network} chain id
     pub const {}: u64 = {};
     ",
             chain_id_name(&network),
@@ -222,7 +222,7 @@ fn build_hardfork_for_chain(
         write!(
             &mut module,
             "
-    /// `{module_name}` {network} chain configuration
+    /// `{chain}` {network} chain configuration
     pub static {}: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {{
         name: \"{}\".into(),
         base_fee_params: None, 
@@ -231,22 +231,47 @@ fn build_hardfork_for_chain(
             config_name(&network),
             chain_config.name
         )?;
-        for hardfork in chain_config.hardforks.iter() {
+        'activations: for activations in chain_config.hardforks.iter() {
+            let hardfork_name = activations
+                .0
+                .split_once("_time")
+                .map(|(before_match, _)| before_match);
+
+            let hardfork_name = match hardfork_name {
+                None => {
+                    println!(
+                        "{} {}: ignoring activation - activation is not time based: {}",
+                        chain, network, activations.0
+                    );
+                    continue 'activations;
+                }
+                Some(name) => capitalize_first_letter(name),
+            };
+
+            let hardfork = match OpSpecId::from_str(hardfork_name.as_str()) {
+                Err(_) => {
+                    println!(
+                        "{} {}: ignoring activation - hardfork name is not supported: {}",
+                        chain,
+                        network,
+                        hardfork_name
+                    );
+                    continue 'activations;
+                }
+                Ok(hardfork) => hardfork,
+            };
+            let hardfork_str: &'static str = hardfork.into();
             write!(
                 &mut module,
                 "
             hardfork::Activation {{
                 condition: ForkCondition::Timestamp({}),
-                hardfork: OpSpecId::from_str(\"{}\").unwrap(),
+                hardfork: OpSpecId::{},
             }},
     ",
-                hardfork.1,
-                hardfork
-                    .0
-                    .split_once("_time")
-                    .expect("hardfork activation is not time based")
-                    .0
-            )?; // TODO: skip hardfork activation if OpSpecId does not support it (i.e.: zora chain defines delta hardfork but is not defined in OpSpecId)
+                activations.1,
+                hardfork_str.to_uppercase()
+            )?; 
         }
         write!(&mut module, "   ]),}});")?;
     }
@@ -256,7 +281,7 @@ fn build_hardfork_for_chain(
         .arg(module_path)
         .output()?;
 
-    Ok(module_name)
+    Ok(chain)
 }
 
 #[derive(Debug)]
@@ -277,4 +302,12 @@ struct OpChainConfig {
     name: String,
     chain_id: i64,
     hardforks: toml::value::Table,
+}
+
+fn capitalize_first_letter(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(), // Handle empty string
+        Some(first_char) => first_char.to_uppercase().chain(chars).collect(),
+    }
 }

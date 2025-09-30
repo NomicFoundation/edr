@@ -5,7 +5,7 @@
     // To make changes, update the generator script instead (tools/op_chain_config.rs).
 
     
-    use std::{str::FromStr, sync::LazyLock};
+    use std::sync::LazyLock;
     
     use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
     use op_revm::OpSpecId;

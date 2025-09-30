@@ -7836,6 +7836,7 @@ dependencies = [
  "git2",
  "indicatif",
  "mimalloc",
+ "op-revm",
  "parking_lot 0.12.3",
  "reqwest 0.11.27",
  "serde",

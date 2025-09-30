@@ -69,6 +69,8 @@ pub mod settlus_mainnet;
 pub mod settlus_sepolia;
 /// `shape` chain configuration module;
 pub mod shape;
+/// `silent_data_mainnet` chain configuration module;
+pub mod silent_data_mainnet;
 /// `snax` chain configuration module;
 pub mod snax;
 /// `soneium` chain configuration module;
@@ -198,6 +200,11 @@ fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Hardfork>> {
         hardforks.insert(shape::MAINNET_CHAIN_ID, &*shape::MAINNET_CONFIG);
 
         hardforks.insert(shape::SEPOLIA_CHAIN_ID, &*shape::SEPOLIA_CONFIG);
+
+        hardforks.insert(
+            silent_data_mainnet::MAINNET_CHAIN_ID,
+            &*silent_data_mainnet::MAINNET_CONFIG,
+        );
 
         hardforks.insert(snax::MAINNET_CHAIN_ID, &*snax::MAINNET_CONFIG);
 

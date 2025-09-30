@@ -8,12 +8,12 @@ use std::sync::LazyLock;
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `settlus_mainnet` mainnet chain id
-pub const MAINNET_CHAIN_ID: u64 = 0x14FB;
+/// `silent_data_mainnet` mainnet chain id
+pub const MAINNET_CHAIN_ID: u64 = 0x5D001;
 
-/// `settlus_mainnet` mainnet chain configuration
+/// `silent_data_mainnet` mainnet chain configuration
 pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {
-    name: "Settlus Mainnet".into(),
+    name: "Silent Data Mainnet".into(),
     base_fee_params: None,
     hardfork_activations: Activations::new(vec![
         hardfork::Activation {

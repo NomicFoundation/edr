@@ -3,7 +3,7 @@
 // generated. To make changes, update the generator script instead
 // (tools/op_chain_config.rs).
 
-use std::{str::FromStr, sync::LazyLock};
+use std::sync::LazyLock;
 
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
@@ -18,31 +18,27 @@ pub static MAINNET_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
     hardfork_activations: Activations::new(vec![
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
-            hardfork: OpSpecId::from_str("canyon").unwrap(),
+            hardfork: OpSpecId::CANYON,
         },
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
-            hardfork: OpSpecId::from_str("delta").unwrap(),
-        },
-        hardfork::Activation {
-            condition: ForkCondition::Timestamp(0),
-            hardfork: OpSpecId::from_str("ecotone").unwrap(),
+            hardfork: OpSpecId::ECOTONE,
         },
         hardfork::Activation {
             condition: ForkCondition::Timestamp(1725536344),
-            hardfork: OpSpecId::from_str("fjord").unwrap(),
+            hardfork: OpSpecId::FJORD,
         },
         hardfork::Activation {
             condition: ForkCondition::Timestamp(1726070401),
-            hardfork: OpSpecId::from_str("granite").unwrap(),
+            hardfork: OpSpecId::GRANITE,
         },
         hardfork::Activation {
             condition: ForkCondition::Timestamp(1736445601),
-            hardfork: OpSpecId::from_str("holocene").unwrap(),
+            hardfork: OpSpecId::HOLOCENE,
         },
         hardfork::Activation {
             condition: ForkCondition::Timestamp(1746806401),
-            hardfork: OpSpecId::from_str("isthmus").unwrap(),
+            hardfork: OpSpecId::ISTHMUS,
         },
     ]),
 });
@@ -56,23 +52,19 @@ pub static SEPOLIA_CONFIG: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| Ch
     hardfork_activations: Activations::new(vec![
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
-            hardfork: OpSpecId::from_str("canyon").unwrap(),
+            hardfork: OpSpecId::CANYON,
         },
         hardfork::Activation {
             condition: ForkCondition::Timestamp(0),
-            hardfork: OpSpecId::from_str("delta").unwrap(),
-        },
-        hardfork::Activation {
-            condition: ForkCondition::Timestamp(0),
-            hardfork: OpSpecId::from_str("ecotone").unwrap(),
+            hardfork: OpSpecId::ECOTONE,
         },
         hardfork::Activation {
             condition: ForkCondition::Timestamp(1723204838),
-            hardfork: OpSpecId::from_str("fjord").unwrap(),
+            hardfork: OpSpecId::FJORD,
         },
         hardfork::Activation {
             condition: ForkCondition::Timestamp(1723545055),
-            hardfork: OpSpecId::from_str("granite").unwrap(),
+            hardfork: OpSpecId::GRANITE,
         },
     ]),
 });
