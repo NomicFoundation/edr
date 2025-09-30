@@ -75,7 +75,8 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
         generated_module,
         "
         {GENERATED_FILE_WARNING_MESSAGE}
-        use std::{{collections::HashMap, sync::OnceLock}};
+        
+        use edr_primitives::HashMap;
         use edr_evm::hardfork::ChainConfig;
         use crate::Hardfork;
 
@@ -119,12 +120,9 @@ fn update_generated_module(
     write!(
         generated_module,
         "
-    fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Hardfork>> {{
+    pub(crate) fn chain_configs() -> HashMap<u64, &'static ChainConfig<Hardfork>> {{
 
-        static CONFIGS: OnceLock<HashMap<u64, &'static ChainConfig<Hardfork>>> = OnceLock::new();
-
-        CONFIGS.get_or_init(|| {{
-            let mut hardforks = HashMap::new();
+        let mut hardforks = HashMap::new();
     "
     )?;
 
@@ -143,8 +141,7 @@ fn update_generated_module(
     write!(
         generated_module,
         "
-            hardforks
-        }})
+        hardforks
     }}
     "
     )?;
@@ -252,9 +249,7 @@ fn build_hardfork_for_chain(
                 Err(_) => {
                     println!(
                         "{} {}: ignoring activation - hardfork name is not supported: {}",
-                        chain,
-                        network,
-                        hardfork_name
+                        chain, network, hardfork_name
                     );
                     continue 'activations;
                 }
@@ -271,7 +266,7 @@ fn build_hardfork_for_chain(
     ",
                 activations.1,
                 hardfork_str.to_uppercase()
-            )?; 
+            )?;
         }
         write!(&mut module, "   ]),}});")?;
     }

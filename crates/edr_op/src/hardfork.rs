@@ -20,15 +20,15 @@ fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Hardfork>> {
     static CONFIGS: OnceLock<HashMap<u64, &'static ChainConfig<Hardfork>>> = OnceLock::new();
 
     CONFIGS.get_or_init(|| {
-        let mut hardforks = HashMap::new();
+        let mut configs = generated::chain_configs();
+        // Override op generated config
+        configs.insert(op::MAINNET_CHAIN_ID, &*op::MAINNET_CONFIG);
+        configs.insert(op::SEPOLIA_CHAIN_ID, &*op::SEPOLIA_CONFIG);
 
-        hardforks.insert(op::MAINNET_CHAIN_ID, &*op::MAINNET_CONFIG);
-        hardforks.insert(op::SEPOLIA_CHAIN_ID, &*op::SEPOLIA_CONFIG);
-
-        hardforks.insert(base::MAINNET_CHAIN_ID, &*base::MAINNET_CONFIG);
-        hardforks.insert(base::SEPOLIA_CHAIN_ID, &*base::SEPOLIA_CONFIG);
-
-        hardforks
+        // Override base generated config
+        configs.insert(base::MAINNET_CHAIN_ID, &*base::MAINNET_CONFIG);
+        configs.insert(base::SEPOLIA_CHAIN_ID, &*base::SEPOLIA_CONFIG);
+        configs
     })
 }
 
