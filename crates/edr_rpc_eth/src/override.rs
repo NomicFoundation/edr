@@ -1,3 +1,4 @@
+use edr_chain_l1::Hardfork;
 use edr_eth::{
     block::overrides::HeaderOverrides, withdrawal::Withdrawal, Address, Bytes, HashMap, B256, U256,
 };
@@ -47,7 +48,7 @@ pub struct BlockOverrides {
     pub blob_base_fee: Option<u64>,
 }
 
-impl From<BlockOverrides> for HeaderOverrides {
+impl<HardforkT: std::default::Default> From<BlockOverrides> for HeaderOverrides<HardforkT> {
     fn from(overrides: BlockOverrides) -> Self {
         HeaderOverrides {
             number: overrides.number,
@@ -60,7 +61,8 @@ impl From<BlockOverrides> for HeaderOverrides {
             // base_fee: overrides.base_fee_per_gas.map(|b| b.as_u128()),
             // withdrawals_root: None, // TODO: compute from withdrawals
             // blob_gas: overrides.blob_base_fee.map(BlobGas::from),
-            ..Default::default()
+            // Provide explicit default values for HeaderOverrides fields
+            ..HeaderOverrides::<HardforkT>::default()
         }
     }
 }

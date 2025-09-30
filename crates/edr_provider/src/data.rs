@@ -16,7 +16,7 @@ use edr_eth::{
     account::{Account, AccountInfo, AccountStatus},
     block::{
         calculate_next_base_fee_per_blob_gas, calculate_next_base_fee_per_gas, miner_reward,
-        HeaderOverrides,
+        Header, HeaderOverrides,
     },
     fee_history::FeeHistoryResult,
     filter::{FilteredEvents, LogOutput, SubscriptionType},
@@ -35,7 +35,7 @@ use edr_evm::{
     },
     config::CfgEnv,
     inspector::DualInspector,
-    mempool, mine_block, mine_block_with_single_transaction,
+    mempool, mine_block, mine_block_with_multiple_transactions, mine_block_with_single_transaction,
     precompile::PrecompileFn,
     spec::{RuntimeSpec, SyncRuntimeSpec},
     state::{
@@ -51,7 +51,10 @@ use edr_evm_spec::{
     TransactionValidation,
 };
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
-use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
+use edr_rpc_eth::{
+    client::{EthRpcClient, HeaderMap},
+    StateOverrideOptions,
+};
 use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
@@ -2372,6 +2375,45 @@ where
             self.min_gas_price,
             reward,
             Some(evm_observer),
+            &self.precompile_overrides,
+        )?;
+
+        Ok(result)
+    }
+
+    pub fn mine_block_with_multiple_transactions(
+        &mut self,
+        config: &CfgEnv<ChainSpecT::Hardfork>,
+        state_to_be_modified: Box<dyn SyncState<StateError>>,
+        header_overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        state_overrides: &StateOverrides,
+        transactions: Vec<ChainSpecT::SignedTransaction>,
+        parent_block: &Header,
+    ) -> Result<
+        MineBlockResultAndState<
+            ChainSpecT::HaltReason,
+            <ChainSpecT as RuntimeSpec>::LocalBlock,
+            StateError,
+        >,
+        ProviderErrorForChainSpec<ChainSpecT>,
+    > {
+        let reward = miner_reward(config.spec.into()).unwrap_or(0);
+
+        let mut evm_observer = EvmObserver::<ChainSpecT::HaltReason>::new(EvmObserverConfig::from(
+            &self.observability,
+        ));
+
+        let result = mine_block_with_multiple_transactions(
+            self.blockchain.as_ref(),
+            state_to_be_modified,
+            transactions,
+            config,
+            header_overrides,
+            state_overrides,
+            parent_block,
+            self.min_gas_price,
+            reward,
+            Some(&mut evm_observer),
             &self.precompile_overrides,
         )?;
 

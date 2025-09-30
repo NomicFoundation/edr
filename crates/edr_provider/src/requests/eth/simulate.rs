@@ -1,21 +1,23 @@
 use edr_eth::{
-    block::{self, overrides, HeaderOverrides},
-    l1::{self, BlockEnv},
-    transaction::{request::TransactionRequestAndSender, TransactionValidation},
-    BlockSpec,
+    block::{self, HeaderOverrides},
+    filter::LogOutput,
+    result::ExecutionResult,
+    BlockSpec, Bytes, B256,
 };
 use edr_evm::{
-    state::{DatabaseComponents, State, StateOverrides, StateRefOverrider, WrapDatabaseRef},
-    Block, BlockBuilder,
+    spec::RuntimeSpec, state::StateOverrides, transaction, Block, MineBlockResultAndState,
 };
+use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_rpc_eth::{
-    simulate::{SimBlock, SimResult, SimulatePayload},
+    simulate::{SimBlock, SimulatePayload},
     BlockOverrides,
 };
+use edr_signer::FakeSign;
 
 use crate::{
     data::ProviderData,
     error::ProviderErrorForChainSpec,
+    requests::eth::{block_to_rpc_output, HashOrTransaction},
     spec::{FromRpcType, Sender, SyncProviderSpec, TransactionContext},
     time::TimeSinceEpoch,
     ProviderError,
@@ -27,6 +29,33 @@ const MAX_WITHDRAWALS: usize = 16;
 // TODO: does this depend on the chain?
 const TIMESTAMP_INCREMENT: u64 = 12;
 
+// TODO: is this ok? needed for serde::Deserialize
+impl<RpcTransaction> Default for HashOrTransaction<RpcTransaction> {
+    fn default() -> Self {
+        Self::Hash(B256::default())
+    }
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SimResult<RpcTransaction> {
+    pub block: edr_rpc_eth::Block<HashOrTransaction<RpcTransaction>>,
+    pub calls: Vec<SimCallResult>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SimError {
+    // write error codes
+    pub code: i32,
+    pub message: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct SimCallResult {
+    pub status: bool,
+    pub return_data: Bytes,
+    pub gas_used: u64,
+    pub logs: Vec<LogOutput>,
+    pub error: Option<SimError>,
+}
+
 // TODO: move some functionality to data.rs to avoid making functions public
 pub fn handle_simulatev1_request<
     ChainSpecT: SyncProviderSpec<
@@ -35,7 +64,7 @@ pub fn handle_simulatev1_request<
         SignedTransaction: Clone
                                + Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -43,7 +72,7 @@ pub fn handle_simulatev1_request<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     simulate_payload: SimulatePayload<ChainSpecT::RpcTransactionRequest>,
     block_spec: Option<BlockSpec>,
-) -> Result<SimResult, ProviderErrorForChainSpec<ChainSpecT>> {
+) -> Result<Vec<SimResult<ChainSpecT::RpcTransaction>>, ProviderErrorForChainSpec<ChainSpecT>> {
     // quick check even though we will also check in standardize_blocks with empty
     // blocks in between
     if simulate_payload.block_state_calls.len() > MAX_SIMULATE_BLOCKS {
@@ -60,50 +89,39 @@ pub fn handle_simulatev1_request<
         ));
     }
 
-    // data + block_spec is our base context
-    // CfgEnv for EVM config - create_evm_config, create_evm_config_at_block_spec
-
     let block_spec = block_spec.unwrap_or_else(BlockSpec::latest);
 
     let SimulatePayload {
         block_state_calls,
-        trace_transfers,
+        trace_transfers, // TODO: use this
         validation,
-        return_full_transactions,
+        return_full_transactions, // TODO: use this
     } = simulate_payload;
 
     let mut parent_block = if let Some(block) = data.block_by_block_spec(&block_spec)? {
         block.header().clone()
     } else {
         return Err(ProviderError::InvalidInput(format!(
-            "Block not found for block spec: {:?}",
-            block_spec
+            "Block not found for block spec: {block_spec:?}"
         )));
     };
     let sim_blocks = standardize_blocks::<ChainSpecT, TimerT>(&parent_block, &block_state_calls)?;
 
-    let state = data.get_or_compute_state(parent_block.number)?;
+    let mut prev_state = data.get_or_compute_state(parent_block.number)?;
 
     let mut cfg_env = data.create_evm_config_at_block_spec(&block_spec)?;
+    cfg_env.disable_eip3607 = true;
+
+    if !validation {
+        cfg_env.disable_base_fee = true;
+        cfg_env.disable_nonce_check = true;
+    }
+
+    let hardfork = data.hardfork_at_block_spec(&block_spec)?;
+
+    let mut simulated_blocks = Vec::new();
 
     for block in sim_blocks {
-        let mut block_env =
-            ChainSpecT::new_block_env_from_parent(&parent_block, cfg_env.spec.into());
-
-        // configure EVM env
-        // may not be enough to start building all the blocks from here? or is state
-        // enough?
-        // let mut cfg_env = data.create_evm_config_at_block_spec(&last_block_spec)?;
-
-        // update cfg_env
-        cfg_env.disable_eip3607 = true;
-
-        if !validation {
-            cfg_env.disable_base_fee = true;
-            cfg_env.disable_nonce_check = true;
-            // block env base fee?
-        }
-
         let SimBlock::<ChainSpecT::RpcTransactionRequest> {
             block_overrides,
             state_overrides,
@@ -113,48 +131,118 @@ pub fn handle_simulatev1_request<
         let state_overrides =
             state_overrides.map_or(Ok(StateOverrides::default()), StateOverrides::try_from)?;
 
-        // check gas limits
-        //     if let Some(block_overrides) = block_overrides {
-        //         if let Some(gas_limit_override) = block_overrides.gas_limit {
-        //             if gas_limit_override >
-        // ChainSpecT::BlockEnv::MAX_GAS_LIMIT {                 return
-        // Err(ProviderError::InvalidInput(format!(
-        // "Gas limit override too high: {}. Maximum allowed is {}",
-        //                     gas_limit_override,
-        //                     ChainSpecT::BlockEnv::MAX_GAS_LIMIT
-        //                 )));
-        //             }
-        //         }
-        //     }
-        // }
+        let mut header_overrides = block_overrides
+            .map(HeaderOverrides::<ChainSpecT::Hardfork>::from)
+            .unwrap_or_default();
 
-        // let block_env = ChainSpecT::new_block_env(header, cfg_env.spec.into());
-
-        apply_block_overrides(block_overrides, block_env);
-
-        apply_state_overrides(state, state_overrides);
-
-        for call in calls {
-            let sender = call.sender();
-
-            let context = TransactionContext { data };
-            let request = ChainSpecT::TransactionRequest::from_rpc_type(call, context)?;
-
-            let request = TransactionRequestAndSender {
-                request,
-                sender: *sender,
-            };
-            let signed_transaction = data.sign_transaction_request(request)?;
-
-            // add transaction to mempool
-            data.add_pending_transaction(signed_transaction)?;
+        if !validation {
+            // disable base fee
+            header_overrides.base_fee = Some(0);
+            header_overrides.base_fee_params = None; // TODO: check if needed
         }
 
-        let result =
-            data.mine_and_commit_block(HeaderOverrides::from(block_overrides.unwrap_or_default()))?;
+        // Fake sign transactions
+        let calls = calls
+            .into_iter()
+            .map(|request| {
+                let sender = *request.sender();
+                let context = TransactionContext { data };
+                let request = ChainSpecT::TransactionRequest::from_rpc_type(request, context)?;
+                let transaction = request.fake_sign(sender);
+
+                transaction::validate(transaction, hardfork.into())
+                    .map_err(ProviderError::TransactionCreationError)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let result = data.mine_block_with_multiple_transactions(
+            &cfg_env,
+            (*prev_state).clone(),
+            header_overrides,
+            &state_overrides,
+            calls,
+            &parent_block,
+        )?;
+
+        let MineBlockResultAndState {
+            block,
+            state,
+            state_diff,
+            transaction_results,
+        } = result;
+
+        // ! block has transaction receipts function
+
+        // Prepare for the next iteration
+        parent_block = block.header().clone();
+        prev_state = state.into();
+
+        // TODO: trace_transfers, return_full_transactions
+        // TODO: do I need to clone the blockchain?
+
+        let total_difficutly = None; // TODO: compute total difficulty
+
+        let block = ChainSpecT::cast_local_block(block.into());
+        let block = block_to_rpc_output::<ChainSpecT, TimerT>(
+            hardfork,
+            block,
+            false,
+            total_difficutly,
+            return_full_transactions,
+        )?;
+
+        let sim_block_reult = SimResult::<ChainSpecT::RpcTransaction> {
+            block,
+            calls: transaction_results
+                .into_iter()
+                .map(|tx_result| {
+                    let (status, return_data, gas_used, logs, error) = match tx_result {
+                        ExecutionResult::Success {
+                            reason,
+                            gas_used,
+                            gas_refunded,
+                            logs,
+                            output,
+                        } => (true, output.into_data(), gas_used, logs, None),
+                        ExecutionResult::Revert { gas_used, output } => {
+                            let error = SimError {
+                                code: -32000,
+                                message: format!("Execution reverted"),
+                            };
+                            (false, output, gas_used, vec![], Some(error))
+                        }
+                        ExecutionResult::Halt { reason, gas_used } => {
+                            // TODO: Return data for Halt?
+                            let error = SimError {
+                                code: -32015,
+                                message: format!("VM execution error"),
+                            };
+                            (
+                                false,
+                                edr_eth::Bytes::from(vec![]),
+                                gas_used,
+                                vec![],
+                                Some(error),
+                            )
+                        }
+                    };
+
+                    // TODO: Convert logs to LogOutput?
+                    SimCallResult {
+                        status,
+                        return_data,
+                        gas_used,
+                        logs: vec![],
+                        error,
+                    }
+                })
+                .collect(),
+        };
+
+        simulated_blocks.push(sim_block_reult);
     }
 
-    Ok(res)
+    Ok(simulated_blocks)
 }
 
 /*
@@ -172,7 +260,7 @@ fn standardize_blocks<
         SignedTransaction: Clone
                                + Default
                                + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
         >,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -245,43 +333,4 @@ fn standardize_blocks<
         }
     }
     Ok(res_sim_blocks)
-}
-
-fn apply_block_overrides(overrides: &BlockOverrides, block_env: &mut BlockEnv) {
-    if let Some(number) = overrides.number {
-        block_env.number = U256::from(number);
-    }
-    if let Some(time) = overrides.time {
-        block_env.timestamp = U256::from(time);
-    }
-    if let Some(gas_limit) = overrides.gas_limit {
-        block_env.gas_limit = gas_limit;
-    }
-    if let Some(fee_recipient) = overrides.fee_recipient {
-        block_env.beneficiary = fee_recipient;
-    }
-    if let Some(base_fee_per_gas) = overrides.base_fee_per_gas {
-        block_env.basefee = base_fee_per_gas.as_u64();
-    }
-}
-
-fn apply_state_overrides<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Clone
-                               + Default
-                               + TransactionValidation<
-            ValidationError: From<l1::InvalidTransaction> + PartialEq,
-        >,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
-    StateT: State<Error: Send + std::error::Error> + AsRef<StateT>,
->(
-    state: StateT,
-    state_overrides: &StateOverrides,
-) -> Result<StateT, ProviderErrorForChainSpec<ChainSpecT>> {
-    let state_overrider = StateRefOverrider::new(&state_overrides, state.as_ref());
-
-    Ok(state)
 }

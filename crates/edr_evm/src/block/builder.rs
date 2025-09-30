@@ -16,7 +16,10 @@ use crate::{
     blockchain::SyncBlockchain,
     config::CfgEnv,
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::{DatabaseComponentError, DatabaseComponents, SyncState, WrapDatabaseRef},
+    state::{
+        DatabaseComponentError, DatabaseComponents, State, StateOverrides, SyncState,
+        WrapDatabaseRef,
+    },
     transaction::TransactionError,
     MineBlockResultAndStateForChainSpec,
 };
@@ -178,6 +181,7 @@ where
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
         overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        state_overrides: &StateOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
@@ -219,7 +223,7 @@ where
                             Self::BlockchainError,
                             Self::StateError,
                         >,
-                        &'inspector dyn SyncState<Self::StateError>,
+                        &'inspector dyn State<Error = Self::StateError>,
                     >,
                 >,
             >,

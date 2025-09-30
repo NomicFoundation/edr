@@ -16,7 +16,7 @@ use crate::{
     blockchain::{Blockchain as _, BlockchainErrorForChainSpec, ForkedBlockchain},
     config::CfgEnv,
     spec::SyncRuntimeSpec,
-    state::{AccountTrie, IrregularState, StateError, TrieState},
+    state::{AccountTrie, IrregularState, StateError, StateOverrides, TrieState},
     transaction, Block, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
 };
@@ -234,6 +234,7 @@ pub async fn run_full_block<
             withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
         },
         header_overrides_constructor(replay_header),
+        &StateOverrides::default(),
         &custom_precompiles,
     )?;
 

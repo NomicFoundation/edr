@@ -6,7 +6,7 @@ use edr_evm::{
     inspector::Inspector,
     precompile::PrecompileFn,
     spec::ContextForChainSpec,
-    state::{DatabaseComponents, SyncState, WrapDatabaseRef},
+    state::{DatabaseComponents, State, StateOverrides, SyncState, WrapDatabaseRef},
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionErrorForChainSpec,
     EthBlockBuilder, MineBlockResultAndState,
 };
@@ -46,6 +46,7 @@ where
         cfg: CfgEnv<Hardfork>,
         mut inputs: BlockInputs,
         mut overrides: edr_eth::block::HeaderOverrides<Hardfork>,
+        state_overrides: &StateOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, Hardfork, Self::StateError>>
     {
@@ -121,6 +122,7 @@ where
             cfg,
             inputs,
             overrides,
+            &StateOverrides::default(), // TODO: implement for OP
             custom_precompiles,
         )?;
 
@@ -180,7 +182,7 @@ where
                             Self::BlockchainError,
                             Self::StateError,
                         >,
-                        &'inspector dyn SyncState<Self::StateError>,
+                        &'inspector dyn State<Error = Self::StateError>,
                     >,
                 >,
             >,

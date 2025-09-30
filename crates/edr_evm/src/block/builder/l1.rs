@@ -26,8 +26,8 @@ use crate::{
     runtime::{dry_run, dry_run_with_inspector},
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
     state::{
-        AccountModifierFn, DatabaseComponents, StateCommit as _, StateDebug as _, StateDiff,
-        SyncState, WrapDatabaseRef,
+        AccountModifierFn, DatabaseComponents, State, StateCommit as _, StateDebug as _, StateDiff,
+        StateOverrides, StateRefOverrider, SyncState, WrapDatabaseRef,
     },
     transaction::TransactionError,
     Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
@@ -44,6 +44,7 @@ where
     parent_gas_limit: Option<u64>,
     receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>>>,
     state: Box<dyn SyncState<StateErrorT>>,
+    state_overrides: StateOverrides,
     state_diff: StateDiff,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
@@ -132,7 +133,8 @@ where
         state: Box<dyn SyncState<StateErrorT>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
-        mut overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        mut header_overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        state_overrides: &StateOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
     {
@@ -148,16 +150,16 @@ where
         }
 
         let parent_header = parent_block.header();
-        let parent_gas_limit = if overrides.gas_limit.is_none() {
+        let parent_gas_limit = if header_overrides.gas_limit.is_none() {
             Some(parent_header.gas_limit)
         } else {
             None
         };
 
-        overrides.parent_hash = Some(*parent_block.block_hash());
+        header_overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new::<ChainSpecT>(
             cfg.spec,
-            overrides,
+            header_overrides,
             Some(parent_header),
             &inputs.ommers,
             inputs.withdrawals.as_ref(),
@@ -170,6 +172,7 @@ where
             parent_gas_limit,
             receipts: Vec::new(),
             state,
+            state_overrides: state_overrides.clone(),
             state_diff: StateDiff::default(),
             transactions: Vec::new(),
             transaction_results: Vec::new(),
@@ -193,9 +196,11 @@ where
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
                 .map_err(TransactionError::State)?;
 
+        let state_overrider = StateRefOverrider::new(&self.state_overrides, self.state.as_ref());
+
         let transaction_result = dry_run::<_, ChainSpecT, _>(
             self.blockchain,
-            &self.state,
+            state_overrider,
             self.cfg.clone(),
             transaction.clone(),
             block,
@@ -220,7 +225,7 @@ where
                 WrapDatabaseRef<
                     DatabaseComponents<
                         &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                        &'inspector dyn SyncState<StateErrorT>,
+                        &'inspector dyn State<Error = StateErrorT>,
                     >,
                 >,
             >,
@@ -234,9 +239,11 @@ where
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
                 .map_err(TransactionError::State)?;
 
-        let transaction_result = dry_run_with_inspector::<_, ChainSpecT, _, _>(
+        let state_overrider = StateRefOverrider::new(&self.state_overrides, self.state.as_ref());
+
+        let transaction_result = dry_run_with_inspector::<_, ChainSpecT, InspectorT, _>(
             self.blockchain,
-            self.state.as_ref(),
+            &state_overrider,
             self.cfg.clone(),
             transaction.clone(),
             block,
@@ -406,7 +413,8 @@ where
         state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
-        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        header_overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        state_overrides: &StateOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
@@ -417,7 +425,8 @@ where
             state,
             cfg,
             inputs,
-            overrides,
+            header_overrides,
+            state_overrides,
             custom_precompiles,
         )
     }
@@ -459,7 +468,7 @@ where
                             Self::BlockchainError,
                             Self::StateError,
                         >,
-                        &'inspector dyn SyncState<Self::StateError>,
+                        &'inspector dyn State<Error = StateErrorT>,
                     >,
                 >,
             >,

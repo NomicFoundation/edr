@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, fmt::Debug};
 
 use edr_eth::{
-    block::{calculate_next_base_fee_per_blob_gas, HeaderOverrides},
+    block::{calculate_next_base_fee_per_blob_gas, Header, HeaderOverrides},
     result::ExecutionResult,
     Address, HashMap,
 };
@@ -19,7 +19,10 @@ use crate::{
     config::CfgEnv,
     mempool::OrderedTransaction,
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
-    state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
+    state::{
+        DatabaseComponents, State, StateDiff, StateOverrides, StateRefOverrider, SyncState,
+        WrapDatabaseRef,
+    },
     transaction::TransactionError,
     Block as _, BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
 };
@@ -120,7 +123,7 @@ where
             WrapDatabaseRef<
                 DatabaseComponents<
                     &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                    &'inspector dyn SyncState<StateErrorT>,
+                    &'inspector dyn State<Error = StateErrorT>,
                 >,
             >,
         >,
@@ -133,6 +136,7 @@ where
         cfg.clone(),
         BlockInputs::new(cfg.spec),
         overrides,
+        &StateOverrides::default(),
         custom_precompiles,
     )?;
 
@@ -325,7 +329,7 @@ where
             WrapDatabaseRef<
                 DatabaseComponents<
                     &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
-                    &'inspector dyn SyncState<StateErrorT>,
+                    &'inspector dyn State<Error = StateErrorT>,
                 >,
             >,
         >,
@@ -405,6 +409,7 @@ where
         cfg.clone(),
         BlockInputs::new(cfg.spec),
         overrides,
+        &StateOverrides::default(),
         custom_precompiles,
     )?;
 
@@ -416,6 +421,142 @@ where
     } else {
         block_builder.add_transaction(transaction)?;
     }
+
+    block_builder
+        .finalize(rewards)
+        .map_err(MineTransactionError::State)
+}
+
+/// Mines a block with multiple transactions.
+#[allow(clippy::too_many_arguments)]
+// `DebugContext` cannot be simplified further
+#[allow(clippy::type_complexity)]
+#[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+pub fn mine_block_with_multiple_transactions<
+    BlockchainErrorT,
+    ChainSpecT,
+    InspectorT,
+    StateErrorT,
+>(
+    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    state: Box<dyn SyncState<StateErrorT>>,
+    transactions: Vec<ChainSpecT::SignedTransaction>,
+    cfg: &CfgEnv<ChainSpecT::Hardfork>,
+    header_overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+    state_overrides: &StateOverrides,
+    parent_block: &Header,
+    min_gas_price: u128,
+    reward: u128,
+    mut inspector: Option<&mut InspectorT>,
+    custom_precompiles: &HashMap<Address, PrecompileFn>,
+) -> Result<
+    MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
+    MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
+>
+where
+    BlockchainErrorT: std::error::Error + Send,
+    ChainSpecT: SyncRuntimeSpec<
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
+        >,
+    >,
+    InspectorT: for<'inspector> Inspector<
+        ContextForChainSpec<
+            ChainSpecT,
+            WrapDatabaseRef<
+                DatabaseComponents<
+                    &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                    &'inspector dyn State<Error = StateErrorT>,
+                >,
+            >,
+        >,
+    >,
+    StateErrorT: std::error::Error + Send,
+{
+    let base_fee_per_gas = header_overrides.base_fee;
+    let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
+        blockchain,
+        state.clone(),
+        cfg.clone(),
+        BlockInputs::new(cfg.spec),
+        header_overrides,
+        state_overrides,
+        custom_precompiles,
+    )?;
+
+    for transaction in transactions {
+        let max_priority_fee_per_gas = transaction
+            .max_priority_fee_per_gas()
+            .unwrap_or_else(|| transaction.gas_price());
+
+        if *max_priority_fee_per_gas < min_gas_price {
+            return Err(MineTransactionError::PriorityFeeTooLow {
+                expected: min_gas_price,
+                actual: *max_priority_fee_per_gas,
+            });
+        }
+
+        if let Some(base_fee_per_gas) = base_fee_per_gas {
+            if let Some(max_fee_per_gas) = transaction.max_fee_per_gas() {
+                if *max_fee_per_gas < base_fee_per_gas {
+                    return Err(MineTransactionError::MaxFeePerGasTooLow {
+                        expected: base_fee_per_gas,
+                        actual: *max_fee_per_gas,
+                    });
+                }
+            } else {
+                let gas_price = transaction.gas_price();
+                if *gas_price < base_fee_per_gas {
+                    return Err(MineTransactionError::GasPriceTooLow {
+                        expected: base_fee_per_gas,
+                        actual: *gas_price,
+                    });
+                }
+            }
+        }
+
+        if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
+            let base_fee_per_blob_gas =
+                calculate_next_base_fee_per_blob_gas(parent_block, cfg.spec);
+            if *max_fee_per_blob_gas < base_fee_per_blob_gas {
+                return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
+                    expected: base_fee_per_blob_gas,
+                    actual: *max_fee_per_blob_gas,
+                });
+            }
+        }
+
+        let sender = state
+            .basic(*transaction.caller())
+            .map_err(MineTransactionError::State)?
+            .unwrap_or_default();
+
+        // TODO: This is also checked by `revm`, so it can be simplified
+        match transaction.nonce().cmp(&sender.nonce) {
+            Ordering::Less => {
+                return Err(MineTransactionError::NonceTooLow {
+                    expected: sender.nonce,
+                    actual: transaction.nonce(),
+                });
+            }
+            Ordering::Equal => (),
+            Ordering::Greater => {
+                return Err(MineTransactionError::NonceTooHigh {
+                    expected: sender.nonce,
+                    actual: transaction.nonce(),
+                });
+            }
+        }
+
+        if let Some(inspector) = inspector.as_mut() {
+            block_builder.add_transaction_with_inspector(transaction, inspector)?;
+        } else {
+            block_builder.add_transaction(transaction)?;
+        }
+    }
+
+    let beneficiary = block_builder.header().beneficiary;
+    let rewards = vec![(beneficiary, reward)];
 
     block_builder
         .finalize(rewards)
