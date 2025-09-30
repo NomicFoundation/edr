@@ -1,5 +1,4 @@
 use core::fmt;
-// use std::env;
 use std::fs::{create_dir_all, File};
 use std::{
     collections::HashMap,
@@ -22,7 +21,6 @@ const GENERATED_FILE_WARNING_MESSAGE: &str = "
 ";
 
 pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
-    // let out_dir = env::var_os("OUT_DIR").unwrap();
     let modules_dir = Path::new("./crates/edr_op/src/hardfork/generated");
     create_dir_all(modules_dir)?;
 
@@ -36,15 +34,11 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     // Create a temporary directory that will be automatically deleted on drop
     let temp_dir = tempdir()?;
     let repo_path = temp_dir.path();
-    // let path = Path::new("./repository");
 
     let repo_url = "https://github.com/ethereum-optimism/superchain-registry.git";
 
-    // println!("Cloning {} into temporary directory: {:?}", repo_url, path);
-
     // Clone the repository into the temporary directory
     Repository::clone(repo_url, repo_path)?;
-    // // println!("Repository cloned successfully.");
 
     let networks = ["mainnet", "sepolia"];
     let mut config_path = PathBuf::from(repo_path);
@@ -78,8 +72,8 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
 
     "
     )?;
-    // module name, network
-    let mut chains_by_module = Vec::<(String, String)>::new(); //HashMap::<String, Vec<String>>::new();
+    
+    let mut chains_by_module = Vec::<(String, String)>::new();
 
     for (file_name, networks) in files_to_generate {
         let chain_module: Result<String, anyhow::Error> =
@@ -293,7 +287,7 @@ struct OpChainConfig {
 fn capitalize_first_letter(s: &str) -> String {
     let mut chars = s.chars();
     match chars.next() {
-        None => String::new(), // Handle empty string
+        None => String::new(),
         Some(first_char) => first_char.to_uppercase().chain(chars).collect(),
     }
 }
