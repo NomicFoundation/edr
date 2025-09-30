@@ -1,10 +1,9 @@
 use core::fmt;
-use std::fs::{create_dir_all, File};
 use std::{
     collections::HashMap,
     error::Error,
-    fs,
-    io::Write,
+    fs::{self, create_dir_all, File},
+    io::{self, Write},
     path::{Path, PathBuf},
     process::Command,
     str::FromStr,
@@ -72,22 +71,25 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
 
     "
     )?;
-    
+
     let mut chains_by_module = Vec::<(String, String)>::new();
 
     for (file_name, networks) in files_to_generate {
         let chain_module: Result<String, anyhow::Error> =
-            build_hardfork_for_chain(&config_path, file_name, &networks, modules_dir);
-        if let Ok(name) = chain_module {
-            writeln!(
-                generated_module,
-                "/// `{}` chain configuration module;",
-                &name
-            )?;
-            writeln!(generated_module, "pub mod {};", &name)?;
-            for network in networks {
-                chains_by_module.push((name.clone(), network));
+            build_chain_module(&config_path, file_name.clone(), &networks, modules_dir);
+        match chain_module {
+            Ok(name) => {
+                writeln!(
+                    generated_module,
+                    "/// `{}` chain configuration module;",
+                    &name
+                )?;
+                writeln!(generated_module, "pub mod {};", &name)?;
+                for network in networks {
+                    chains_by_module.push((name.clone(), network));
+                }
             }
+            Err(error) => println!("Skipping {file_name} chain module generation due to {error}",),
         };
     }
     update_generated_module(&mut generated_module, &mut chains_by_module)?;
@@ -96,7 +98,18 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
         .arg(generated_module_path)
         .output()?;
 
-    Ok(())
+    println!("Running `cargo check`...");
+    let cargo_check_output = Command::new("cargo").arg("check").output()?;
+    if cargo_check_output.status.success() {
+        println!("Success!");
+        Ok(())
+    } else {
+        io::stderr().write_all(&cargo_check_output.stderr)?;
+        Err(OpImporterError {
+            message: "Cargo check fails after generation".to_string(),
+        }
+        .into())
+    }
 }
 
 fn update_generated_module(
@@ -144,9 +157,8 @@ fn chain_id_name(network: &str) -> String {
 fn config_name(network: &str) -> String {
     format!("{}_CONFIG", network.to_uppercase())
 }
-fn build_hardfork_for_chain(
+fn build_chain_module(
     config_path: &PathBuf,
-    // dir_entry: String,
     file_name: String,
     networks: &[String],
     output_path: &Path,
@@ -182,6 +194,7 @@ fn build_hardfork_for_chain(
     
     use std::sync::LazyLock;
     
+    use edr_eip1559::{{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams}};
     use edr_evm::hardfork::{{self, Activations, ChainConfig, ForkCondition}};
     use op_revm::OpSpecId;
     "
@@ -193,6 +206,7 @@ fn build_hardfork_for_chain(
 
         let file_contents = fs::read_to_string(chain_config_path)?;
         let chain_config: OpChainConfig = toml::from_str(&file_contents)?;
+        let chain_base_fee_params: String = build_base_fee_params(chain_config.optimism);
         write!(
             &mut module,
             "
@@ -208,7 +222,7 @@ fn build_hardfork_for_chain(
     /// `{chain}` {network} chain configuration
     pub static {}: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {{
         name: \"{}\".into(),
-        base_fee_params: None, 
+        base_fee_params: {chain_base_fee_params}, 
         hardfork_activations: Activations::new( vec![
         ",
             config_name(network),
@@ -264,6 +278,25 @@ fn build_hardfork_for_chain(
     Ok(chain)
 }
 
+fn build_base_fee_params(params: OpHardforkBaseFeeParams) -> String {
+    let original_denominator = params.eip1559_denominator;
+    let canyon_denominator = params.eip1559_denominator_canyon;
+    let elasticity = params.eip1559_elasticity;
+
+    format!(
+        "BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
+        (
+            BaseFeeActivation::Hardfork(OpSpecId::BEDROCK),
+            ConstantBaseFeeParams::new({original_denominator}, {elasticity}),
+        ),
+        (
+            BaseFeeActivation::Hardfork(OpSpecId::CANYON),
+            ConstantBaseFeeParams::new({canyon_denominator}, {elasticity}),
+        )
+]))"
+    )
+}
+
 #[derive(Debug)]
 struct OpImporterError {
     message: String,
@@ -282,6 +315,14 @@ struct OpChainConfig {
     name: String,
     chain_id: i64,
     hardforks: toml::value::Table,
+    optimism: OpHardforkBaseFeeParams,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+struct OpHardforkBaseFeeParams {
+    eip1559_elasticity: u64,
+    eip1559_denominator: u64,
+    eip1559_denominator_canyon: u64,
 }
 
 fn capitalize_first_letter(s: &str) -> String {

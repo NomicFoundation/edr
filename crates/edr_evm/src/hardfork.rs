@@ -90,7 +90,7 @@ pub struct ChainConfig<HardforkT> {
     /// Hardfork activations for the chain
     pub hardfork_activations: Activations<HardforkT>,
     /// Base fee param activations for the chain
-    pub base_fee_params: Option<BaseFeeParams<HardforkT>>,
+    pub base_fee_params: BaseFeeParams<HardforkT>,
 }
 
 /// Type that stores the configuration for a chain.

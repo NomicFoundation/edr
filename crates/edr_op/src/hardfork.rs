@@ -40,8 +40,5 @@ pub fn chain_config(chain_id: u64) -> Option<&'static ChainConfig<Hardfork>> {
 
 /// Returns the default base fee params to fallback to
 pub fn default_base_fee_params() -> &'static BaseFeeParams<Hardfork> {
-    op::MAINNET_CONFIG
-        .base_fee_params
-        .as_ref()
-        .expect("OP Mainnet should have the base fee params defined")
+    &op::MAINNET_CONFIG.base_fee_params
 }

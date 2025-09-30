@@ -7,6 +7,7 @@
     
     use std::sync::LazyLock;
     
+    use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
     use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
     use op_revm::OpSpecId;
     
