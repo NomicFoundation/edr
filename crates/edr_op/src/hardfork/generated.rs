@@ -93,147 +93,147 @@ pub mod xterio_eth;
 /// `zora` chain configuration module;
 pub mod zora;
 
-pub(crate) fn chain_configs() -> HashMap<u64, &'static ChainConfig<Hardfork>> {
+pub(crate) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
     let mut hardforks = HashMap::new();
 
-    hardforks.insert(arena_z::MAINNET_CHAIN_ID, &*arena_z::MAINNET_CONFIG);
+    hardforks.insert(arena_z::MAINNET_CHAIN_ID, arena_z::mainnet_config());
 
-    hardforks.insert(arena_z::SEPOLIA_CHAIN_ID, &*arena_z::SEPOLIA_CONFIG);
+    hardforks.insert(arena_z::SEPOLIA_CHAIN_ID, arena_z::sepolia_config());
 
-    hardforks.insert(automata::MAINNET_CHAIN_ID, &*automata::MAINNET_CONFIG);
+    hardforks.insert(automata::MAINNET_CHAIN_ID, automata::mainnet_config());
 
-    hardforks.insert(base::MAINNET_CHAIN_ID, &*base::MAINNET_CONFIG);
+    hardforks.insert(base::MAINNET_CHAIN_ID, base::mainnet_config());
 
-    hardforks.insert(base::SEPOLIA_CHAIN_ID, &*base::SEPOLIA_CONFIG);
+    hardforks.insert(base::SEPOLIA_CHAIN_ID, base::sepolia_config());
 
-    hardforks.insert(bob::MAINNET_CHAIN_ID, &*bob::MAINNET_CONFIG);
+    hardforks.insert(bob::MAINNET_CHAIN_ID, bob::mainnet_config());
 
-    hardforks.insert(boba::MAINNET_CHAIN_ID, &*boba::MAINNET_CONFIG);
+    hardforks.insert(boba::MAINNET_CHAIN_ID, boba::mainnet_config());
 
-    hardforks.insert(boba::SEPOLIA_CHAIN_ID, &*boba::SEPOLIA_CONFIG);
+    hardforks.insert(boba::SEPOLIA_CHAIN_ID, boba::sepolia_config());
 
-    hardforks.insert(camp::SEPOLIA_CHAIN_ID, &*camp::SEPOLIA_CONFIG);
+    hardforks.insert(camp::SEPOLIA_CHAIN_ID, camp::sepolia_config());
 
-    hardforks.insert(celo::MAINNET_CHAIN_ID, &*celo::MAINNET_CONFIG);
+    hardforks.insert(celo::MAINNET_CHAIN_ID, celo::mainnet_config());
 
     hardforks.insert(
         creator_chain_testnet::SEPOLIA_CHAIN_ID,
-        &*creator_chain_testnet::SEPOLIA_CONFIG,
+        creator_chain_testnet::sepolia_config(),
     );
 
-    hardforks.insert(cyber::MAINNET_CHAIN_ID, &*cyber::MAINNET_CONFIG);
+    hardforks.insert(cyber::MAINNET_CHAIN_ID, cyber::mainnet_config());
 
-    hardforks.insert(cyber::SEPOLIA_CHAIN_ID, &*cyber::SEPOLIA_CONFIG);
+    hardforks.insert(cyber::SEPOLIA_CHAIN_ID, cyber::sepolia_config());
 
-    hardforks.insert(ethernity::MAINNET_CHAIN_ID, &*ethernity::MAINNET_CONFIG);
+    hardforks.insert(ethernity::MAINNET_CHAIN_ID, ethernity::mainnet_config());
 
-    hardforks.insert(ethernity::SEPOLIA_CHAIN_ID, &*ethernity::SEPOLIA_CONFIG);
+    hardforks.insert(ethernity::SEPOLIA_CHAIN_ID, ethernity::sepolia_config());
 
-    hardforks.insert(fraxtal::MAINNET_CHAIN_ID, &*fraxtal::MAINNET_CONFIG);
+    hardforks.insert(fraxtal::MAINNET_CHAIN_ID, fraxtal::mainnet_config());
 
-    hardforks.insert(funki::MAINNET_CHAIN_ID, &*funki::MAINNET_CONFIG);
+    hardforks.insert(funki::MAINNET_CHAIN_ID, funki::mainnet_config());
 
-    hardforks.insert(funki::SEPOLIA_CHAIN_ID, &*funki::SEPOLIA_CONFIG);
+    hardforks.insert(funki::SEPOLIA_CHAIN_ID, funki::sepolia_config());
 
     hardforks.insert(
         hashkeychain::MAINNET_CHAIN_ID,
-        &*hashkeychain::MAINNET_CONFIG,
+        hashkeychain::mainnet_config(),
     );
 
-    hardforks.insert(ink::MAINNET_CHAIN_ID, &*ink::MAINNET_CONFIG);
+    hardforks.insert(ink::MAINNET_CHAIN_ID, ink::mainnet_config());
 
-    hardforks.insert(ink::SEPOLIA_CHAIN_ID, &*ink::SEPOLIA_CONFIG);
+    hardforks.insert(ink::SEPOLIA_CHAIN_ID, ink::sepolia_config());
 
-    hardforks.insert(lisk::MAINNET_CHAIN_ID, &*lisk::MAINNET_CONFIG);
+    hardforks.insert(lisk::MAINNET_CHAIN_ID, lisk::mainnet_config());
 
-    hardforks.insert(lisk::SEPOLIA_CHAIN_ID, &*lisk::SEPOLIA_CONFIG);
+    hardforks.insert(lisk::SEPOLIA_CHAIN_ID, lisk::sepolia_config());
 
-    hardforks.insert(lyra::MAINNET_CHAIN_ID, &*lyra::MAINNET_CONFIG);
+    hardforks.insert(lyra::MAINNET_CHAIN_ID, lyra::mainnet_config());
 
-    hardforks.insert(metal::MAINNET_CHAIN_ID, &*metal::MAINNET_CONFIG);
+    hardforks.insert(metal::MAINNET_CHAIN_ID, metal::mainnet_config());
 
-    hardforks.insert(metal::SEPOLIA_CHAIN_ID, &*metal::SEPOLIA_CONFIG);
+    hardforks.insert(metal::SEPOLIA_CHAIN_ID, metal::sepolia_config());
 
-    hardforks.insert(mint::MAINNET_CHAIN_ID, &*mint::MAINNET_CONFIG);
+    hardforks.insert(mint::MAINNET_CHAIN_ID, mint::mainnet_config());
 
-    hardforks.insert(mode::MAINNET_CHAIN_ID, &*mode::MAINNET_CONFIG);
+    hardforks.insert(mode::MAINNET_CHAIN_ID, mode::mainnet_config());
 
-    hardforks.insert(mode::SEPOLIA_CHAIN_ID, &*mode::SEPOLIA_CONFIG);
+    hardforks.insert(mode::SEPOLIA_CHAIN_ID, mode::sepolia_config());
 
-    hardforks.insert(op::MAINNET_CHAIN_ID, &*op::MAINNET_CONFIG);
+    hardforks.insert(op::MAINNET_CHAIN_ID, op::mainnet_config());
 
-    hardforks.insert(op::SEPOLIA_CHAIN_ID, &*op::SEPOLIA_CONFIG);
+    hardforks.insert(op::SEPOLIA_CHAIN_ID, op::sepolia_config());
 
-    hardforks.insert(orderly::MAINNET_CHAIN_ID, &*orderly::MAINNET_CONFIG);
+    hardforks.insert(orderly::MAINNET_CHAIN_ID, orderly::mainnet_config());
 
-    hardforks.insert(ozean::SEPOLIA_CHAIN_ID, &*ozean::SEPOLIA_CONFIG);
+    hardforks.insert(ozean::SEPOLIA_CHAIN_ID, ozean::sepolia_config());
 
-    hardforks.insert(pivotal::SEPOLIA_CHAIN_ID, &*pivotal::SEPOLIA_CONFIG);
+    hardforks.insert(pivotal::SEPOLIA_CHAIN_ID, pivotal::sepolia_config());
 
-    hardforks.insert(polynomial::MAINNET_CHAIN_ID, &*polynomial::MAINNET_CONFIG);
+    hardforks.insert(polynomial::MAINNET_CHAIN_ID, polynomial::mainnet_config());
 
-    hardforks.insert(race::MAINNET_CHAIN_ID, &*race::MAINNET_CONFIG);
+    hardforks.insert(race::MAINNET_CHAIN_ID, race::mainnet_config());
 
-    hardforks.insert(race::SEPOLIA_CHAIN_ID, &*race::SEPOLIA_CONFIG);
+    hardforks.insert(race::SEPOLIA_CHAIN_ID, race::sepolia_config());
 
     hardforks.insert(
         radius_testnet::SEPOLIA_CHAIN_ID,
-        &*radius_testnet::SEPOLIA_CONFIG,
+        radius_testnet::sepolia_config(),
     );
 
-    hardforks.insert(redstone::MAINNET_CHAIN_ID, &*redstone::MAINNET_CONFIG);
+    hardforks.insert(redstone::MAINNET_CHAIN_ID, redstone::mainnet_config());
 
     hardforks.insert(
         settlus_mainnet::MAINNET_CHAIN_ID,
-        &*settlus_mainnet::MAINNET_CONFIG,
+        settlus_mainnet::mainnet_config(),
     );
 
     hardforks.insert(
         settlus_sepolia::SEPOLIA_CHAIN_ID,
-        &*settlus_sepolia::SEPOLIA_CONFIG,
+        settlus_sepolia::sepolia_config(),
     );
 
-    hardforks.insert(shape::MAINNET_CHAIN_ID, &*shape::MAINNET_CONFIG);
+    hardforks.insert(shape::MAINNET_CHAIN_ID, shape::mainnet_config());
 
-    hardforks.insert(shape::SEPOLIA_CHAIN_ID, &*shape::SEPOLIA_CONFIG);
+    hardforks.insert(shape::SEPOLIA_CHAIN_ID, shape::sepolia_config());
 
     hardforks.insert(
         silent_data_mainnet::MAINNET_CHAIN_ID,
-        &*silent_data_mainnet::MAINNET_CONFIG,
+        silent_data_mainnet::mainnet_config(),
     );
 
-    hardforks.insert(snax::MAINNET_CHAIN_ID, &*snax::MAINNET_CONFIG);
+    hardforks.insert(snax::MAINNET_CHAIN_ID, snax::mainnet_config());
 
-    hardforks.insert(soneium::MAINNET_CHAIN_ID, &*soneium::MAINNET_CONFIG);
+    hardforks.insert(soneium::MAINNET_CHAIN_ID, soneium::mainnet_config());
 
     hardforks.insert(
         soneium_minato::SEPOLIA_CHAIN_ID,
-        &*soneium_minato::SEPOLIA_CONFIG,
+        soneium_minato::sepolia_config(),
     );
 
-    hardforks.insert(sseed::MAINNET_CHAIN_ID, &*sseed::MAINNET_CONFIG);
+    hardforks.insert(sseed::MAINNET_CHAIN_ID, sseed::mainnet_config());
 
-    hardforks.insert(swan::MAINNET_CHAIN_ID, &*swan::MAINNET_CONFIG);
+    hardforks.insert(swan::MAINNET_CHAIN_ID, swan::mainnet_config());
 
-    hardforks.insert(swell::MAINNET_CHAIN_ID, &*swell::MAINNET_CONFIG);
+    hardforks.insert(swell::MAINNET_CHAIN_ID, swell::mainnet_config());
 
-    hardforks.insert(tbn::MAINNET_CHAIN_ID, &*tbn::MAINNET_CONFIG);
+    hardforks.insert(tbn::MAINNET_CHAIN_ID, tbn::mainnet_config());
 
-    hardforks.insert(tbn::SEPOLIA_CHAIN_ID, &*tbn::SEPOLIA_CONFIG);
+    hardforks.insert(tbn::SEPOLIA_CHAIN_ID, tbn::sepolia_config());
 
-    hardforks.insert(unichain::MAINNET_CHAIN_ID, &*unichain::MAINNET_CONFIG);
+    hardforks.insert(unichain::MAINNET_CHAIN_ID, unichain::mainnet_config());
 
-    hardforks.insert(unichain::SEPOLIA_CHAIN_ID, &*unichain::SEPOLIA_CONFIG);
+    hardforks.insert(unichain::SEPOLIA_CHAIN_ID, unichain::sepolia_config());
 
-    hardforks.insert(worldchain::MAINNET_CHAIN_ID, &*worldchain::MAINNET_CONFIG);
+    hardforks.insert(worldchain::MAINNET_CHAIN_ID, worldchain::mainnet_config());
 
-    hardforks.insert(worldchain::SEPOLIA_CHAIN_ID, &*worldchain::SEPOLIA_CONFIG);
+    hardforks.insert(worldchain::SEPOLIA_CHAIN_ID, worldchain::sepolia_config());
 
-    hardforks.insert(xterio_eth::MAINNET_CHAIN_ID, &*xterio_eth::MAINNET_CONFIG);
+    hardforks.insert(xterio_eth::MAINNET_CHAIN_ID, xterio_eth::mainnet_config());
 
-    hardforks.insert(zora::MAINNET_CHAIN_ID, &*zora::MAINNET_CONFIG);
+    hardforks.insert(zora::MAINNET_CHAIN_ID, zora::mainnet_config());
 
-    hardforks.insert(zora::SEPOLIA_CHAIN_ID, &*zora::SEPOLIA_CONFIG);
+    hardforks.insert(zora::SEPOLIA_CHAIN_ID, zora::sepolia_config());
 
     hardforks
 }

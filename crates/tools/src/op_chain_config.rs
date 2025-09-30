@@ -119,7 +119,7 @@ fn update_generated_module(
     write!(
         generated_module,
         "
-    pub(crate) fn chain_configs() -> HashMap<u64, &'static ChainConfig<Hardfork>> {{
+    pub(crate) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {{
 
         let mut hardforks = HashMap::new();
     "
@@ -130,10 +130,10 @@ fn update_generated_module(
         write!(
             generated_module,
             "
-            hardforks.insert({}, &*{});
+            hardforks.insert({}, {});
         ",
             module_attribute(module, &chain_id_name(network)),
-            module_attribute(module, &config_name(network))
+            module_attribute(module, &network_config_function(network))
         )?;
     }
 
@@ -154,8 +154,8 @@ fn module_attribute(module: &str, attribute: &str) -> String {
 fn chain_id_name(network: &str) -> String {
     format!("{}_CHAIN_ID", network.to_uppercase())
 }
-fn config_name(network: &str) -> String {
-    format!("{}_CONFIG", network.to_uppercase())
+fn network_config_function(network: &str) -> String {
+    format!("{}_config()", network.to_lowercase())
 }
 fn build_chain_module(
     config_path: &PathBuf,
@@ -192,8 +192,6 @@ fn build_chain_module(
         "
     {GENERATED_FILE_WARNING_MESSAGE}
     
-    use std::sync::LazyLock;
-    
     use edr_eip1559::{{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams}};
     use edr_evm::hardfork::{{self, Activations, ChainConfig, ForkCondition}};
     use op_revm::OpSpecId;
@@ -220,12 +218,12 @@ fn build_chain_module(
             &mut module,
             "
     /// `{chain}` {network} chain configuration
-    pub static {}: LazyLock<ChainConfig<OpSpecId>> = LazyLock::new(|| ChainConfig {{
+    pub(crate) fn {} -> ChainConfig<OpSpecId>{{ ChainConfig {{
         name: \"{}\".into(),
         base_fee_params: {chain_base_fee_params}, 
         hardfork_activations: Activations::new( vec![
         ",
-            config_name(network),
+            network_config_function(network),
             chain_config.name
         )?;
         'activations: for activations in chain_config.hardforks.iter() {
@@ -267,7 +265,7 @@ fn build_chain_module(
                 hardfork_str.to_uppercase()
             )?;
         }
-        write!(&mut module, "   ]),}});")?;
+        write!(&mut module, "   ]),}}}}")?;
     }
 
     Command::new("rustfmt")
