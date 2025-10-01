@@ -1,5 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
+use derive_where::derive_where;
 use edr_eth::{
     fee_history::FeeHistoryResult,
     filter::{LogFilterOptions, OneOrMore},
@@ -20,22 +21,22 @@ use crate::{fork::ForkMetadata, request_methods::RequestMethod, ChainRpcBlock, G
 // thundering herd during backoff.
 const MAX_PARALLEL_REQUESTS: usize = 20;
 
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct EthRpcClient<
-    RpcBlockTypeConstructorT: ChainRpcBlock,
+    RpcBlockT: ChainRpcBlock,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
 > {
     inner: RpcClient<RequestMethod>,
     #[allow(clippy::type_complexity)]
-    phantom: PhantomData<fn() -> (RpcBlockTypeConstructorT, RpcReceiptT, RpcTransactionT)>,
+    phantom: PhantomData<fn() -> (RpcBlockT, RpcReceiptT, RpcTransactionT)>,
 }
 
 impl<
-        RpcBlockTypeConstructorT: ChainRpcBlock,
+        RpcBlockT: ChainRpcBlock,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: Default + DeserializeOwned + Serialize,
-    > EthRpcClient<RpcBlockTypeConstructorT, RpcReceiptT, RpcTransactionT>
+    > EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>
 {
     /// Creates a new instance, given a remote node URL.
     ///
@@ -148,7 +149,7 @@ impl<
     pub async fn get_block_by_hash(
         &self,
         hash: B256,
-    ) -> Result<Option<RpcBlockTypeConstructorT::RpcBlock<B256>>, RpcClientError> {
+    ) -> Result<Option<RpcBlockT::RpcBlock<B256>>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetBlockByHash(hash, false))
             .await
@@ -171,7 +172,7 @@ impl<
     pub async fn get_block_by_hash_with_transaction_data(
         &self,
         hash: B256,
-    ) -> Result<Option<RpcBlockTypeConstructorT::RpcBlock<RpcTransactionT>>, RpcClientError> {
+    ) -> Result<Option<RpcBlockT::RpcBlock<RpcTransactionT>>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetBlockByHash(hash, true))
             .await
@@ -182,11 +183,11 @@ impl<
     pub async fn get_block_by_number(
         &self,
         spec: PreEip1898BlockSpec,
-    ) -> Result<Option<RpcBlockTypeConstructorT::RpcBlock<B256>>, RpcClientError> {
+    ) -> Result<Option<RpcBlockT::RpcBlock<B256>>, RpcClientError> {
         self.inner
             .call_with_resolver(
                 RequestMethod::GetBlockByNumber(spec, false),
-                |block: &Option<RpcBlockTypeConstructorT::RpcBlock<B256>>| {
+                |block: &Option<RpcBlockT::RpcBlock<B256>>| {
                     block.as_ref().and_then(GetBlockNumber::number)
                 },
             )
@@ -198,11 +199,11 @@ impl<
     pub async fn get_block_by_number_with_transaction_data(
         &self,
         spec: PreEip1898BlockSpec,
-    ) -> Result<RpcBlockTypeConstructorT::RpcBlock<RpcTransactionT>, RpcClientError> {
+    ) -> Result<RpcBlockT::RpcBlock<RpcTransactionT>, RpcClientError> {
         self.inner
             .call_with_resolver(
                 RequestMethod::GetBlockByNumber(spec, true),
-                |block: &RpcBlockTypeConstructorT::RpcBlock<RpcTransactionT>| block.number(),
+                |block: &RpcBlockT::RpcBlock<RpcTransactionT>| block.number(),
             )
             .await
     }
