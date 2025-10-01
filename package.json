@@ -8,6 +8,7 @@
     "syncpack": "^12.4.0"
   },
   "engines": {
+    "node": ">=18",
     "pnpm": ">=10.17.1"
   },
   "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
