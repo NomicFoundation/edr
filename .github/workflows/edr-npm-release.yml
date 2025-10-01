@@ -17,6 +17,7 @@ on:
       - prerelease
       - hh2
       - feat/solidity-tests
+      - pnpm-min-age
     tags-ignore:
       - "**"
     paths-ignore:
@@ -270,66 +271,66 @@ jobs:
           fi
     outputs:
       match: ${{ steps.check_commit.outputs.match }}
-  publish:
-    name: Publish
-    environment: edr-release
-    runs-on: ubuntu-latest
-    needs:
-      - check_commit
-      - test-macOS-windows-binding
-      - test-linux-binding
-    # Only run workflow if the commit message is a release commit.
-    if: ${{ needs.check_commit.outputs.match == 'true' }}
-    defaults:
-      run:
-        working-directory: ./crates/edr_napi
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-node
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
-      - name: Download all artifacts
-        uses: actions/download-artifact@v5
-        with:
-          path: ./crates/edr_napi/artifacts
-      - name: Check number of artifacts
-        shell: bash
-        run: |
-          tree artifacts
-          # get number of artifacts with unique names
-          NUMBER_OF_ARTIFACTS=$(ls -1q artifacts/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
-          echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
-          echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
-          test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
-      - name: Install sponge
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y moreutils
-      - name: Move artifacts
-        run: pnpm artifacts
-      - name: Publish
-        run: |
-          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
-          then
-            if [ "${{ github.event_name }}" = "push" ]; then
-              echo "Publishing pre-release"
-              echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-              pnpm publish --no-git-checks --provenance --tag next --access public
-            else
-              echo "Trying to publish a pre-release from a branch that is not 'main' or 'prerelease'"
-            fi
-          elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
-          then
-            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]; then
-              echo "Publishing release"
-              echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-              pnpm publish --no-git-checks --provenance --access public
-            else
-              echo "Trying to publish a release from a branch that is not 'main' or 'h2'"
-            fi
-          else
-            echo "Not a release, skipping publish"
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.IGNORED_ORG_NPM_TOKEN }}
+  # publish:
+  #   name: Publish
+  #   environment: edr-release
+  #   runs-on: ubuntu-latest
+  #   needs:
+  #     - check_commit
+  #     - test-macOS-windows-binding
+  #     - test-linux-binding
+  #   # Only run workflow if the commit message is a release commit.
+  #   if: ${{ needs.check_commit.outputs.match == 'true' }}
+  #   defaults:
+  #     run:
+  #       working-directory: ./crates/edr_napi
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: ./.github/actions/setup-node
+  #     - name: Install dependencies
+  #       run: pnpm install --frozen-lockfile --prefer-offline
+  #     - name: Download all artifacts
+  #       uses: actions/download-artifact@v5
+  #       with:
+  #         path: ./crates/edr_napi/artifacts
+  #     - name: Check number of artifacts
+  #       shell: bash
+  #       run: |
+  #         tree artifacts
+  #         # get number of artifacts with unique names
+  #         NUMBER_OF_ARTIFACTS=$(ls -1q artifacts/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+  #         echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
+  #         echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
+  #         test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
+  #     - name: Install sponge
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y moreutils
+  #     - name: Move artifacts
+  #       run: pnpm artifacts
+  #     - name: Publish
+  #       run: |
+  #         if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
+  #         then
+  #           if [ "${{ github.event_name }}" = "push" ]; then
+  #             echo "Publishing pre-release"
+  #             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+  #             pnpm publish --no-git-checks --provenance --tag next --access public
+  #           else
+  #             echo "Trying to publish a pre-release from a branch that is not 'main' or 'prerelease'"
+  #           fi
+  #         elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
+  #         then
+  #           if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]; then
+  #             echo "Publishing release"
+  #             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+  #             pnpm publish --no-git-checks --provenance --access public
+  #           else
+  #             echo "Trying to publish a release from a branch that is not 'main' or 'h2'"
+  #           fi
+  #         else
+  #           echo "Not a release, skipping publish"
+  #         fi
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #         NPM_TOKEN: ${{ secrets.IGNORED_ORG_NPM_TOKEN }}
