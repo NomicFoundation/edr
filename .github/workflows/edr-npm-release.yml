@@ -161,7 +161,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Setup node
-      - uses: ./.github/actions/setup-node
+        uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
