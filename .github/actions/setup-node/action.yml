@@ -2,10 +2,6 @@ name: Setup node
 description: Sets up node and pnpm
 
 inputs:
-  pnpm-version:
-    description: Version of pnpm to install
-    required: false
-    default: "10.17.1"
   node-version:
     description: Version of node to install
     required: false
