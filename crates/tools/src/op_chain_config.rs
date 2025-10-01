@@ -15,19 +15,19 @@ use itertools::Itertools;
 use op_revm::OpSpecId;
 use tempfile::tempdir;
 
+/// These hardforks are not included in `OpSpecId` since they only impacted the
+/// conscensus layer
+const KNOWN_IGNORED_HARDFORKS: [&str; 2] = ["delta", "pectra_blob_schedule"];
+const SUPERCHAIN_REGISTRY_REPO_URL: &str =
+    "https://github.com/ethereum-optimism/superchain-registry.git";
+const REPO_CONFIGS_PATH: &str = "superchain/configs";
+const EDR_SUPPORTED_NETWORKS: [&str; 2] = ["mainnet", "sepolia"];
+const GENERATED_MODULE_PATH: &str = "./crates/edr_op/src/hardfork/generated";
 const GENERATED_FILE_WARNING_MESSAGE: &str = "
     // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
     // Any changes made to this file will be overwritten the next time it is generated.
     // To make changes, update the generator script instead in `tools/src/op_chain_config.rs`.
 ";
-const EDR_SUPPORTED_NETWORKS: [&str; 2] = ["mainnet", "sepolia"];
-const SUPERCHAIN_REGISTRY_REPO_URL: &'static str =
-    "https://github.com/ethereum-optimism/superchain-registry.git";
-const REPO_CONFIGS_PATH: &str = "superchain/configs";
-const GENERATED_MODULE_PATH: &str = "./crates/edr_op/src/hardfork/generated.rs";
-/// These hardforks are not included in OpSpecId since they only impacted the
-/// conscensus layer
-const KNOWN_IGNORED_HARDFORKS: [&str; 2] = ["delta", "pectra_blob_schedule"];
 
 pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     // Create a temporary directory that will be automatically deleted on drop
@@ -37,7 +37,7 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
         superchain_registry_repo_dir.path(),
     )?;
 
-    let modules_dir = Path::new("./crates/edr_op/src/hardfork/generated");
+    let modules_dir = Path::new(GENERATED_MODULE_PATH);
     create_dir_all(modules_dir)?;
 
     println!(
@@ -48,13 +48,13 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     let chains_to_configure =
         fetch_op_stack_chains_to_configure(superchain_registry_repo_dir.path())?;
 
-    let chains_by_module: Vec<(String, String)> = generate_chain_modules(
+    let generated_modules: Vec<GeneratedConfiguration> = generate_chain_modules(
         superchain_registry_repo_dir.path(),
         modules_dir,
         chains_to_configure,
     );
 
-    generate_generated_module(chains_by_module)?;
+    write_generated_module_file(generated_modules)?;
 
     let generated_files_path = {
         let mut path_buf = modules_dir.to_path_buf();
@@ -65,8 +65,8 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     println!("Formatting generated files...");
     Command::new("rustfmt")
         .arg("+nightly")
-        .arg(GENERATED_MODULE_PATH)
         .arg(generated_files_path)
+        .arg(format!("{GENERATED_MODULE_PATH}.rs"))
         .output()?;
 
     println!("Running `cargo check`...");
@@ -90,41 +90,45 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
 fn generate_chain_modules(
     repo_path: &Path,
     modules_dir: &Path,
-    chains_and_networks: HashMap<String, Vec<String>>,
-) -> Vec<(String, String)> {
-    let mut gnerated_chain_configs = Vec::<(String, String)>::new();
-
-    for (chain_file_name, networks) in chains_and_networks {
-        let chain_module = build_chain_module(
-            &repo_config_path_buf(repo_path),
-            chain_file_name.clone(),
-            &networks,
-            modules_dir,
-        );
-        match chain_module {
-            Ok(module_name) => {
-                for network in networks {
-                    gnerated_chain_configs.push((module_name.clone(), network));
+    chain_configurations: Vec<SuperchainConfiguration>,
+) -> Vec<GeneratedConfiguration> {
+    chain_configurations
+        .iter()
+        .filter_map(|chain_config| {
+            let result = write_chain_module(
+                &repo_config_path_buf(repo_path),
+                chain_config.file_name.clone(),
+                &chain_config.networks,
+                modules_dir,
+            );
+            match result {
+                Ok(module_name) => Some(GeneratedConfiguration {
+                    module_name,
+                    networks: chain_config.networks.clone(),
+                }),
+                Err(error) => {
+                    println!(
+                        "Skipping {} chain module generation due to {error}",
+                        chain_config.file_name
+                    );
+                    None
                 }
             }
-            Err(error) => {
-                println!("Skipping {chain_file_name} chain module generation due to {error}",)
-            }
-        };
-    }
-    gnerated_chain_configs
+        })
+        .collect()
 }
 
-/// Based on SuperChain registry repository, idetifies all the chains and their
+/// Based on superchain registry repository, idetifies all the chains and their
 /// corresponding networks to create configs for Returns a map groupping
 /// networks by chain, since in EDR we want to create a single module per chain
 fn fetch_op_stack_chains_to_configure(
     repo_path: &Path,
-) -> anyhow::Result<HashMap<String, Vec<String>>> {
+) -> anyhow::Result<Vec<SuperchainConfiguration>> {
     let config_path = repo_config_path_buf(repo_path);
 
     let mut networks_by_chain = HashMap::<String, Vec<String>>::new();
 
+    // Superchain repo configurations are oganized by network
     for network in EDR_SUPPORTED_NETWORKS {
         let mut network_config_path = PathBuf::from(&config_path);
         network_config_path.push(network);
@@ -137,7 +141,8 @@ fn fetch_op_stack_chains_to_configure(
                 .or_insert(vec![network.to_string()]);
         }
     }
-    Ok(networks_by_chain)
+
+    Ok(networks_by_chain.into_iter().map(Into::into).collect())
 }
 
 fn repo_config_path_buf(repo_path: &Path) -> PathBuf {
@@ -145,18 +150,21 @@ fn repo_config_path_buf(repo_path: &Path) -> PathBuf {
     path.push(REPO_CONFIGS_PATH);
     path
 }
-fn generate_generated_module(
-    mut chains_by_module: Vec<(String, String)>,
+fn write_generated_module_file(
+    chains_by_module: Vec<GeneratedConfiguration>,
 ) -> Result<(), anyhow::Error> {
-    let generated_module_path = Path::new(GENERATED_MODULE_PATH);
+    let generated_module_file_name = format!("{GENERATED_MODULE_PATH}.rs");
+    let generated_module_path = Path::new(&generated_module_file_name);
 
     let mut generated_module: File = File::create(generated_module_path)?;
 
-    chains_by_module.sort();
-    let module_imports = chains_by_module
+    let generated_modules = chains_by_module
         .iter()
-        .map(|(module, _)| module)
-        .unique()
+        .map(|op_chain_config| op_chain_config.module_name.as_str())
+        .collect::<Vec<&str>>();
+
+    let module_imports = generated_modules
+        .iter()
         .fold(String::new(), |mut imports, module| {
             imports.push('\n');
             imports.push_str(
@@ -169,8 +177,19 @@ fn generate_generated_module(
             imports
         });
 
+    let sorted_chain_network: Vec<(String, String)> = chains_by_module
+        .into_iter()
+        .flat_map(|chain_config| {
+            chain_config
+                .networks
+                .into_iter()
+                .map(move |network| (chain_config.module_name.clone(), network))
+        })
+        .sorted()
+        .collect();
+
     let insert_lines =
-        chains_by_module
+        sorted_chain_network
             .iter()
             .fold(String::new(), |mut imports, (module, network)| {
                 let chain_id_name = module_attribute(module, &chain_id_name(network));
@@ -215,7 +234,7 @@ fn chain_id_name(network: &str) -> String {
 fn network_config_function(network: &str) -> String {
     format!("{}_config()", network.to_lowercase())
 }
-fn build_chain_module(
+fn write_chain_module(
     repo_config_path: &PathBuf,
     file_name_in_repo: String,
     networks: &[String],
@@ -392,6 +411,25 @@ struct OpChainConfig {
     chain_id: i64,
     hardforks: toml::value::Table,
     optimism: OpHardforkBaseFeeParams,
+}
+
+struct SuperchainConfiguration {
+    file_name: String,
+    networks: Vec<String>,
+}
+
+struct GeneratedConfiguration {
+    module_name: String,
+    networks: Vec<String>,
+}
+
+impl From<(String, Vec<String>)> for SuperchainConfiguration {
+    fn from((file_name, networks): (String, Vec<String>)) -> Self {
+        SuperchainConfiguration {
+            file_name,
+            networks,
+        }
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
