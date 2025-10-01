@@ -192,7 +192,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Setup node
-      - uses: ./.github/actions/setup-node
+        uses: ./.github/actions/setup-node
       - name: Output docker params
         id: docker
         run: |
@@ -286,7 +286,8 @@ jobs:
   #       working-directory: ./crates/edr_napi
   #   steps:
   #     - uses: actions/checkout@v5
-  #     - uses: ./.github/actions/setup-node
+  #     - name: Setup node
+  #       uses: ./.github/actions/setup-node
   #     - name: Install dependencies
   #       run: pnpm install --frozen-lockfile --prefer-offline
   #     - name: Download all artifacts
