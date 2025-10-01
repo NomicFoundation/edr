@@ -85,7 +85,7 @@ jobs:
               rustup target add aarch64-unknown-linux-musl &&
               pnpm run build --target aarch64-unknown-linux-musl &&
               /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
-    name: stable - ${{ matrix.settings.target }} - node@18
+    name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     defaults:
       run:
@@ -168,8 +168,8 @@ jobs:
           - host: windows-2022
             target: x86_64-pc-windows-msvc
         node:
-          - "18"
           - "20"
+          - "22"
     runs-on: ${{ matrix.settings.host }}
     defaults:
       run:
@@ -197,8 +197,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "18"
           - "20"
+          - "22"
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -225,8 +225,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "18"
           - "20"
+          - "22"
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -254,8 +254,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "18"
           - "20"
+          - "22"
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -294,8 +294,8 @@ jobs:
       fail-fast: false
       matrix:
         node:
-          - "18"
           - "20"
+          - "22"
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
