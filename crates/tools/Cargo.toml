@@ -36,6 +36,12 @@ tracing-flame = { version = "0.2.0", default-features = false, features = ["smal
 tracing-subscriber = { version = "0.3.18", default-features = false, features = ["ansi", "env-filter", "fmt", "parking_lot", "smallvec", "std"], optional = true }
 toml = { version = "0.5.9", default-features = false }
 walkdir = { version = "2.4.0", features = [] }
+foundry-evm-core = { path = "../foundry/evm/core" }
+alloy-json-abi.workspace = true
+csv = "1.3.0"
+git2 = "0.18.3"
+rayon = "1.8.0"
+regex = "1.10.0"
 
 [features]
 tracing = ["dep:tracing", "dep:tracing-flame", "dep:tracing-subscriber", "edr_evm/tracing", "edr_provider/tracing"]

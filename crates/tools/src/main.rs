@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
+mod analyze_foundry_repos;
 mod benchmark;
 mod compare_test_runs;
 mod execution_api;
@@ -25,6 +26,13 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Analyze Solidity testing features used by Foundry repos. Takes input
+    /// from stdin with one GitHub URL per line.
+    AnalyzeFoundryRepos {
+        /// Output path for the CSV results
+        #[clap(long, short, default_value = "foundry_test_analysis.csv")]
+        output: PathBuf,
+    },
     /// Run benchmarks
     Benchmark {
         working_directory: PathBuf,
@@ -71,6 +79,7 @@ enum Command {
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     match args.command {
+        Command::AnalyzeFoundryRepos { output } => analyze_foundry_repos::analyze_repos(&output),
         Command::CompareTestRuns {
             baseline,
             candidate,
