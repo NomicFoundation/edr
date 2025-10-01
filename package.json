@@ -9,7 +9,6 @@
   },  
   "packageManager": "pnpm@10.17.1",
   "engines": {
-    "node": ">=22 <25",
     "pnpm": ">=10.17.1"
   },
   "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",

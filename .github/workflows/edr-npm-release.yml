@@ -99,8 +99,6 @@ jobs:
           echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - name: Setup node
         uses: actions/setup-node@v3
         if: ${{ !matrix.settings.docker }}
@@ -262,8 +260,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -304,8 +300,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
