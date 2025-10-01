@@ -6,12 +6,12 @@
     "@changesets/cli": "^2.29.5",
     "prettier": "^3.2.5",
     "syncpack": "^12.4.0"
-  },  
-  "packageManager": "pnpm@10.17.1",
+  },
   "engines": {
     "pnpm": ">=10.17.1"
   },
   "license": "SEE LICENSE IN EACH PACKAGE'S LICENSE FILE",
+  "packageManager": "pnpm@10.17.1",
   "pnpm": {
     "overrides": {
       "hardhat>@nomicfoundation/edr": "workspace:*"
