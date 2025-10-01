@@ -19,7 +19,7 @@ jobs:
         node: [20]
         os: ["macos-latest", "ubuntu-latest", "windows-latest"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
         with:
           node-version: ${{ matrix.node }}
@@ -67,7 +67,7 @@ jobs:
     name: Lint Hardhat tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
 
       - name: Install package
