@@ -4,10 +4,10 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
-#[cfg(feature = "test-remote")]
-use edr_evm::blockchain::SyncBlockchainForChainSpec;
 use edr_evm::{
-    blockchain::{BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain},
+    blockchain::{
+        BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain, SyncBlockchainForChainSpec,
+    },
     hardfork::l1,
     receipt::{self, ExecutionReceiptBuilder as _},
     result::{ExecutionResult, Output, SuccessReason},
