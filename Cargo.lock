@@ -2309,11 +2309,14 @@ dependencies = [
 name = "edr_block_remote"
 version = "0.3.8"
 dependencies = [
+ "derive-where",
  "edr_block_api",
  "edr_block_header",
  "edr_evm_spec",
  "edr_primitives",
+ "edr_receipt",
  "edr_rpc_eth",
+ "serde",
  "thiserror 1.0.69",
  "tokio",
 ]
@@ -2392,7 +2395,9 @@ dependencies = [
  "async-rwlock",
  "derive-where",
  "edr_block_api",
+ "edr_block_remote",
  "edr_block_storage",
+ "edr_chain_l1",
  "edr_defaults",
  "edr_eth",
  "edr_evm_spec",
@@ -2400,6 +2405,7 @@ dependencies = [
  "edr_receipt",
  "edr_rpc_eth",
  "edr_rpc_spec",
+ "edr_test_utils",
  "serde",
  "thiserror 1.0.69",
  "tokio",

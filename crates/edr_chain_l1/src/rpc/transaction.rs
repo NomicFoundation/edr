@@ -206,14 +206,6 @@ pub struct L1RpcTransactionWithSignature {
     pub s: U256,
 }
 
-impl Deref for L1RpcTransactionWithSignature {
-    type Target = L1RpcTransaction;
-
-    fn deref(&self) -> &Self::Target {
-        &self.transaction
-    }
-}
-
 impl L1RpcTransactionWithSignature {
     /// Creates a new instance from an RPC transaction and signature.
     pub fn new(
@@ -241,6 +233,14 @@ impl L1RpcTransactionWithSignature {
     /// Returns whether the transaction is a legacy transaction.
     pub fn is_legacy(&self) -> bool {
         matches!(self.transaction_type, None | Some(0)) && matches!(self.v, 27 | 28)
+    }
+}
+
+impl Deref for L1RpcTransactionWithSignature {
+    type Target = L1RpcTransaction;
+
+    fn deref(&self) -> &Self::Target {
+        &self.transaction
     }
 }
 

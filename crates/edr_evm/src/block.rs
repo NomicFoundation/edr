@@ -60,22 +60,6 @@ where
 {
 }
 
-/// A type containing the relevant data for an Ethereum block.
-pub struct EthBlockData<ChainSpecT: RuntimeSpec> {
-    /// The block's header.
-    pub header: BlockHeader,
-    /// The block's transactions.
-    pub transactions: Vec<ChainSpecT::SignedTransaction>,
-    /// The hashes of the block's ommers.
-    pub ommer_hashes: Vec<B256>,
-    /// The staking withdrawals.
-    pub withdrawals: Option<Vec<Withdrawal>>,
-    /// The block's hash.
-    pub hash: B256,
-    /// The length of the RLP encoding of this block in bytes.
-    pub rlp_size: u64,
-}
-
 impl<ChainSpecT: RuntimeSpec> TryFrom<L1RpcBlock<ChainSpecT::RpcTransaction>>
     for EthBlockData<ChainSpecT>
 {
