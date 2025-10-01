@@ -40,7 +40,7 @@ pub trait RpcEthBlock {
     /// Returns the block's timestamp.
     fn timestamp(&self) -> u64;
 
-    /// Returns the total difficulty of the chain until this block for finalised
+    /// Returns the total difficulty of the chain until this block for finalized
     /// blocks. For pending blocks, returns `None`.
     fn total_difficulty(&self) -> Option<&U256>;
 }
