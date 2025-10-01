@@ -1,20 +1,11 @@
 name: Setup node
 description: Sets up node and pnpm
 
-inputs:
-  node-version:
-    description: Version of node to install
-    required: false
-    default: "22"
-
 runs:
   using: composite
   steps:
     - uses: pnpm/action-setup@v4
-      with:
-        version: ${{ inputs.pnpm-version }}
     - uses: actions/setup-node@v4
       id: setup-node
       with:
-        node-version: ${{ inputs.node-version }}
         cache: pnpm
