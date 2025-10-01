@@ -51,7 +51,7 @@ jobs:
             build: |
               set -euo pipefail
               pnpm run build --target x86_64-unknown-linux-gnu --use-napi-cross
-              llvm-strip -s *.node
+              strip *.node
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             build: |
@@ -89,14 +89,14 @@ jobs:
           echo "Number of build jobs: ${{ strategy.job-total }}"
           echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
-      - uses: pnpm/action-setup@v4
-      - name: Setup node
-        uses: ./.github/actions/setup-node
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           targets: ${{ matrix.settings.target }}
+          components: rust-src
+      - name: Setup node and pnpm
+        uses: ./.github/actions/setup-node
       - name: Cache cargo
         uses: actions/cache@v4
         with:
