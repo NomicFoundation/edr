@@ -40,6 +40,7 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
         ]),
     }
 }
+
 /// `funki` sepolia chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x33D90D;
 
