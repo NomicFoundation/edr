@@ -215,6 +215,7 @@ jobs:
         run: >
           pnpm install --frozen-lockfile --prefer-offline --os=linux --cpu=x64 --cpu=arm64 --libc=glibc --libc=musl
 
+
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
@@ -236,6 +237,7 @@ jobs:
           image: ${{ steps.docker.outputs.IMAGE }} # e.g. node:22-slim or node:22-alpine
           options: >-
             -e CI=1 -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }} --platform ${{ steps.docker.outputs.PLATFORM }}
+
 
           run: |
             sh -lc '
