@@ -74,7 +74,7 @@ jobs:
               export CC_aarch64_unknown_linux_musl="zig cc -target aarch64-linux-musl"
               export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="$CC_aarch64_unknown_linux_musl"
               echo "CC_aarch64_unknown_linux_musl=$CC_aarch64_unknown_linux_musl"
-              pnpm run build --target aarch64-unknown-linux-musl --use-napi-cross
+              pnpm run build --target aarch64-unknown-linux-musl
               /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
