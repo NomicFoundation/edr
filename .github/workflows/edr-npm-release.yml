@@ -96,6 +96,7 @@ jobs:
           components: rust-src
 
       - name: Setup node and pnpm
+        if: ${{ !matrix.settings.docker }}
         uses: ./.github/actions/setup-node
 
       - name: Cache cargo
@@ -118,12 +119,13 @@ jobs:
         if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
-          options: >-
-            --user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi
-
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
-            corepack enable || npm i -g pnpm@10.17.1
+            set -euo pipefail
+            # TODO: consider reading pnpm version from packageManager.
+            npm i -g pnpm@10.17.1
             pnpm -v
+            pnpm config set store-dir /root/.pnpm-store
             ${{ matrix.settings.build }}
 
       - name: Build
@@ -191,10 +193,11 @@ jobs:
         node:
           - "20"
           - "22"
-    runs-on: ubuntu-latest
+    runs-on: ${{ contains(matrix.target, 'aarch64') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-node
+      - name: Setup node
+        uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
