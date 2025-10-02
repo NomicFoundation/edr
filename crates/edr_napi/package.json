@@ -57,7 +57,11 @@
     }
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild","keccak","secp256k1"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "keccak",
+      "secp256k1"
+    ]
   },
   "repository": "NomicFoundation/edr.git",
   "scripts": {
