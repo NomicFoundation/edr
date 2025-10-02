@@ -67,17 +67,17 @@ jobs:
           - host: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
-            build: |          
+            build: |
               set -euo pipefail
               # sudo apt-get update
               # sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu pkg-config
-              
+
               # # Point cc-rs / ring and Cargo at the modern toolchain
               # export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
               # export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
               # export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
               # export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-              
+
               # Build WITHOUT --use-napi-cross (let system toolchain handle it)
               pnpm run build
               strip *.node
@@ -86,12 +86,8 @@ jobs:
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: |
               set -euo pipefail
-              # # use musl-cross toolchain installed below
-              # export CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc
-              # export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc
-              # export RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=-crt-static"
               pnpm run build
-              aarch64-linux-musl-strip *.node
+              /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
     defaults:
       run:
         working-directory: ./crates/edr_napi
