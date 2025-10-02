@@ -124,6 +124,7 @@ jobs:
           run: |
             set -euo pipefail
             # TODO: consider reading pnpm version from packageManager.
+            rm -f /usr/local/bin/pnpm
             npm i -g pnpm@10.17.1
             pnpm -v
             pnpm config set store-dir /root/.pnpm-store
