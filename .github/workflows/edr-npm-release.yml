@@ -1,4 +1,5 @@
 name: EDR NPM release
+
 env:
   DEBUG: napi:*
   APP_NAME: edr
@@ -88,6 +89,7 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        if: ${{ !matrix.settings.docker }}
         with:
           toolchain: stable
           targets: ${{ matrix.settings.target }}
@@ -111,8 +113,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Build in docker
+        uses: addnab/docker-run-action@v3
+        if: ${{ matrix.settings.docker }}
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: ${{ matrix.settings.build }}
+
       - name: Build
         run: ${{ matrix.settings.build }}
+        if: ${{ !matrix.settings.docker }}
         shell: bash
 
       - name: Upload artifact
@@ -132,14 +143,14 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
+          - host: macos-13
+            target: x86_64-apple-darwin
             architecture: x64
           - host: macos-latest
             target: aarch64-apple-darwin
             architecture: arm64
-          - host: macos-latest
-            target: x86_64-apple-darwin
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
             architecture: x64
         node:
           - "20"
@@ -165,80 +176,146 @@ jobs:
       - name: Test bindings
         run: pnpm testNoBuild
 
-  test-linux-binding:
-    name: Test ${{ matrix.target }} - node@${{ matrix.node }}
+  test-linux-x64-gnu-binding:
+    name: Test bindings on Linux-x64-gnu - node@${{ matrix.node }}
     needs:
       - build
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - aarch64-unknown-linux-gnu
-          - aarch64-unknown-linux-musl
         node:
           - "20"
           - "22"
-    runs-on: ${{ contains(matrix.target, 'aarch64') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Setup node
-        uses: ./.github/actions/setup-node
-      - name: Output docker params
-        id: docker
-        run: |
-          node -e "
-            if ('${{ matrix.target }}'.startsWith('aarch64')) {
-              console.log('PLATFORM=linux/arm64')
-            } else if ('${{ matrix.target }}'.startsWith('armv7')) {
-              console.log('PLATFORM=linux/arm/v7')
-            } else {
-              console.log('PLATFORM=linux/amd64')
-            }
-          " >> $GITHUB_OUTPUT
-          node -e "
-            if ('${{ matrix.target }}'.endsWith('-musl')) {
-              console.log('IMAGE=node:${{ matrix.node }}-alpine')
-            } else {
-              console.log('IMAGE=node:${{ matrix.node }}-slim')
-            }
-          " >> $GITHUB_OUTPUT
-      - name: Install dependencies (multi-arch/libc)
-        run: >
-          pnpm install --frozen-lockfile --prefer-offline --os=linux --cpu=x64 --cpu=arm64 --libc=glibc --libc=musl
-
-
+      - uses: ./.github/actions/setup-node
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
-          name: bindings-${{ matrix.target }}
-          path: .
+          name: bindings-x86_64-unknown-linux-gnu
+          path: ./crates/edr_napi/
       - name: List packages
         run: ls -R .
         shell: bash
+      - name: Test bindings
+        # Setting CI=1 is important to make PNPM install non-interactive
+        # https://github.com/pnpm/pnpm/issues/6615#issuecomment-1656945689
+        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }} bash -c "wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node; pnpm testNoBuild"
+  test-linux-x64-musl-binding:
+    name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
+    needs:
+      - build
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "20"
+          - "22"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline --libc=musl
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: bindings-x86_64-unknown-linux-musl
+          path: ./crates/edr_napi/
+      - name: List packages
+        run: ls -R .
+        shell: bash
+      - name: Test bindings
+        run: docker run --rm  -e CI=1 -v $(pwd):/build -w /build/crates/edr_napi node:${{ matrix.node }}-alpine sh -c "wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node; pnpm testNoBuild"
+  test-linux-aarch64-gnu-binding:
+    name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
+    needs:
+      - build
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "20"
+          - "22"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: bindings-aarch64-unknown-linux-gnu
+          path: ./crates/edr_napi/
+      - name: List packages
+        run: ls -R .
+        shell: bash
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=glibc
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-        if: ${{ contains(matrix.target, 'armv7') }}
         with:
-          platforms: all
+          platforms: arm64
       - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-        if: ${{ contains(matrix.target, 'armv7') }}
-      - name: Test bindings (container, pnpm)
+      - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
-          image: ${{ steps.docker.outputs.IMAGE }} # e.g. node:22-slim or node:22-alpine
-          options: >-
-            -e CI=1 -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }} --platform ${{ steps.docker.outputs.PLATFORM }}
-
-
+          image: node:${{ matrix.node }}
+          options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
           run: |
-            sh -lc '
-              # enable pnpm, then install inside the container for this arch/libc
-              corepack enable
-              pnpm -v
-              pnpm install --frozen-lockfile
-              pnpm run testNoBuild
-            '
+            wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node
+            set -e
+            pnpm testNoBuild
+            ls -la
+  test-linux-aarch64-musl-binding:
+    name: Test bindings on aarch64-unknown-linux-musl - node@${{ matrix.node }}
+    needs:
+      - build
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - "20"
+          - "22"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: bindings-aarch64-unknown-linux-musl
+          path: ./crates/edr_napi/
+      - name: List packages
+        run: ls -R .
+        shell: bash
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=musl
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Setup and run tests
+        uses: addnab/docker-run-action@v3
+        with:
+          image: node:${{ matrix.node }}-alpine
+          options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
+          run: |
+            wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node
+            set -e
+            pnpm testNoBuild
   check_commit:
     name: Check commit
     runs-on: ubuntu-latest
