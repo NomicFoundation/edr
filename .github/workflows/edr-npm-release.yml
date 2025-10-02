@@ -123,10 +123,12 @@ jobs:
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -euo pipefail
-            apk add --no-cache nodejs            
-            node -v
+            # Nuke node / npm / corepack installs
+            rm -f /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack || true
+            rm -f /usr/local/bin/pnpm /usr/local/bin/pnpx || true
 
-            corepack disable
+            apk add --no-cache nodejs npm
+            node -v
 
             npm i -g pnpm@10.17.1
             pnpm -v
