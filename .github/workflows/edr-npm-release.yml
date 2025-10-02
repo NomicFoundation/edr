@@ -124,6 +124,12 @@ jobs:
           run: |
             set -euo pipefail           
             corepack disable
+
+            npm i -g n@9
+            n 20        
+            hash -r
+            node -v     
+
             npm i -g pnpm@10.17.1
             pnpm -v
             pnpm config set store-dir /root/.pnpm-store
