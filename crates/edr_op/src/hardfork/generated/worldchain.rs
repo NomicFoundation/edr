@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// 'World Chain' chain id
+/// `World Chain` chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x1E0;
 
-/// 'World Chain' chain configuration
+/// `World Chain` chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "World Chain".into(),
@@ -49,10 +49,10 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     }
 }
 
-/// 'World Chain Sepolia Testnet' chain id
+/// `World Chain Sepolia Testnet` chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x12C1;
 
-/// 'World Chain Sepolia Testnet' chain configuration
+/// `World Chain Sepolia Testnet` chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "World Chain Sepolia Testnet".into(),

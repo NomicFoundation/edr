@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// 'Silent Data Mainnet' chain id
+/// `Silent Data Mainnet` chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x5D001;
 
-/// 'Silent Data Mainnet' chain configuration
+/// `Silent Data Mainnet` chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Silent Data Mainnet".into(),

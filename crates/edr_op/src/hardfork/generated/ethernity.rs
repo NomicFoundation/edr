@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// 'Ethernity' chain id
+/// `Ethernity` chain id
 pub const MAINNET_CHAIN_ID: u64 = 0xB7;
 
-/// 'Ethernity' chain configuration
+/// `Ethernity` chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Ethernity".into(),
@@ -53,10 +53,10 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     }
 }
 
-/// 'Ethernity Testnet' chain id
+/// `Ethernity Testnet` chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0xE9;
 
-/// 'Ethernity Testnet' chain configuration
+/// `Ethernity Testnet` chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Ethernity Testnet".into(),

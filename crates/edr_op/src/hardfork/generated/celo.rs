@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// 'Celo' chain id
+/// `Celo` chain id
 pub const MAINNET_CHAIN_ID: u64 = 0xA4EC;
 
-/// 'Celo' chain configuration
+/// `Celo` chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Celo".into(),

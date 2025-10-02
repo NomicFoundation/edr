@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// 'Pivotal Sepolia' chain id
+/// `Pivotal Sepolia` chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x4061;
 
-/// 'Pivotal Sepolia' chain configuration
+/// `Pivotal Sepolia` chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Pivotal Sepolia".into(),

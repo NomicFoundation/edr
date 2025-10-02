@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// 'Swan Chain Mainnet' chain id
+/// `Swan Chain Mainnet` chain id
 pub const MAINNET_CHAIN_ID: u64 = 0xFE;
 
-/// 'Swan Chain Mainnet' chain configuration
+/// `Swan Chain Mainnet` chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Swan Chain Mainnet".into(),

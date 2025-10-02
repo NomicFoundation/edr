@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// 'Creator Chain Testnet' chain id
+/// `Creator Chain Testnet` chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x10469;
 
-/// 'Creator Chain Testnet' chain configuration
+/// `Creator Chain Testnet` chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Creator Chain Testnet".into(),

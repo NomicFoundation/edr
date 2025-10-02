@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// 'Xterio Chain (ETH)' chain id
+/// `Xterio Chain (ETH)` chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x293B30;
 
-/// 'Xterio Chain (ETH)' chain configuration
+/// `Xterio Chain (ETH)` chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Xterio Chain (ETH)".into(),

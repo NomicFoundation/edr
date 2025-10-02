@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// 'Ozean Poseidon Testnet' chain id
+/// `Ozean Poseidon Testnet` chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x77C55A;
 
-/// 'Ozean Poseidon Testnet' chain configuration
+/// `Ozean Poseidon Testnet` chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Ozean Poseidon Testnet".into(),

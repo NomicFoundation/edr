@@ -294,10 +294,10 @@ fn write_chain_module(
             write!(
                 &mut networks_config,
                 "
-                /// '{chain_name}' chain id
+                /// `{chain_name}` chain id
                 pub const {chain_id_const_name}: u64 = {chain_id_hex};
                 
-                /// '{chain_name}' chain configuration
+                /// `{chain_name}` chain configuration
                 pub(crate) fn {chain_config_function} -> ChainConfig<OpSpecId>{{ ChainConfig {{
                     name: \"{chain_name}\".into(),
                     base_fee_params: {chain_base_fee_params}, 
