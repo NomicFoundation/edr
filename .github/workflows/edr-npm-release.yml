@@ -122,9 +122,8 @@ jobs:
           image: ${{ matrix.settings.docker }}
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
-            set -euo pipefail
-            # TODO: consider reading pnpm version from packageManager.
-            rm -f /usr/local/bin/pnpm
+            set -euo pipefail           
+            corepack disable
             npm i -g pnpm@10.17.1
             pnpm -v
             pnpm config set store-dir /root/.pnpm-store
