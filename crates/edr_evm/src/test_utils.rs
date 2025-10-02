@@ -1,21 +1,24 @@
 use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use anyhow::anyhow;
+use edr_block_api::Block as _;
 use edr_block_header::{BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
+use edr_blockchain_api::Blockchain as _;
 use edr_eth::{block::miner_reward, PreEip1898BlockSpec};
 use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _};
 use edr_rpc_eth::client::EthRpcClient;
-use edr_state::account::AccountInfo;
+use edr_state_api::{account::AccountInfo, StateError};
+use edr_state_persistent_trie::{PersistentAccountAndStorageTrie, PersistentStateTrie};
 use edr_transaction::TxKind;
 
 use crate::{
-    blockchain::{Blockchain as _, BlockchainErrorForChainSpec, ForkedBlockchain},
+    blockchain::{BlockchainErrorForChainSpec, ForkedBlockchain},
     config::CfgEnv,
     spec::{RuntimeSpec, SyncRuntimeSpec},
-    state::{AccountTrie, IrregularState, StateError, TrieState},
-    transaction, Block, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
+    state::IrregularState,
+    transaction, BlockBuilder, BlockInputs, BlockReceipts, LocalBlock as _, MemPool,
     MemPoolAddTransactionError, RandomHashGenerator, RemoteBlock,
 };
 
@@ -24,19 +27,19 @@ pub struct MemPoolTestFixture {
     /// The mem pool.
     pub mem_pool: MemPool<edr_chain_l1::L1SignedTransaction>,
     /// The state.
-    pub state: TrieState,
+    pub state: PersistentStateTrie,
 }
 
 impl MemPoolTestFixture {
     /// Constructs an instance with the provided accounts.
     pub fn with_accounts(accounts: &[(Address, AccountInfo)]) -> Self {
         let accounts = accounts.iter().cloned().collect::<HashMap<_, _>>();
-        let trie = AccountTrie::with_accounts(&accounts);
+        let trie = PersistentAccountAndStorageTrie::with_accounts(&accounts);
 
         MemPoolTestFixture {
             // SAFETY: literal is non-zero
             mem_pool: MemPool::new(unsafe { NonZeroU64::new_unchecked(10_000_000u64) }),
-            state: TrieState::with_accounts(trie),
+            state: PersistentStateTrie::with_accounts_and_storage(trie),
         }
     }
 
@@ -253,7 +256,7 @@ pub async fn run_full_block<
         expected_block,
         prior_blockchain,
         prior_irregular_state,
-    } = get_fork_state(url, block_number).await?;
+    } = get_fork_state::<ChainSpecT>(url, block_number).await?;
 
     let replay_header = expected_block.header();
     let hardfork = prior_blockchain.hardfork();
@@ -465,7 +468,7 @@ pub async fn assert_replay_header<
         expected_block,
         prior_blockchain,
         prior_irregular_state,
-    } = get_fork_state(url, block_number).await?;
+    } = get_fork_state::<ChainSpecT>(url, block_number).await?;
 
     let replay_header = expected_block.header();
     let hardfork = prior_blockchain.hardfork();

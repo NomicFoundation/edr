@@ -1,15 +1,17 @@
 use core::fmt::Debug;
 use std::{num::NonZeroU64, sync::Arc};
 
+use edr_block_api::Block;
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants, ExecutableTransaction};
 use edr_primitives::{Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
+use edr_state_api::StateDiff;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
 use super::{sparse, InsertError, SparseBlockchainStorage};
-use crate::{spec::RuntimeSpec, state::StateDiff, Block, BlockReceipts, EmptyBlock, LocalBlock};
+use crate::{spec::RuntimeSpec, BlockReceipts, EmptyBlock, LocalBlock};
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.

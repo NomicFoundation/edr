@@ -1,9 +1,10 @@
 use edr_receipt::log::ExecutionLog;
+use edr_state_api::EvmState;
 pub use revm::JournalEntry;
 pub use revm_context::Journal;
 pub use revm_context_interface::JournalTr as JournalTrait;
 
-use crate::state::{Database, EvmState};
+use crate::state::Database;
 
 /// Extension trait for `Journal` to provide additional functionality.
 pub trait JournalExt {

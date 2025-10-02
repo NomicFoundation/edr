@@ -11,7 +11,7 @@ use edr_evm::{
     blockchain::{BlockchainError, ForkedCreationError, InvalidGenesisBlock},
     result::ExecutionResult,
     spec::{GenesisBlockFactory, RuntimeSpec},
-    state::{AccountOverrideConversionError, StateError},
+    state::AccountOverrideConversionError,
     trace::Trace,
     transaction::{self, TransactionError},
     MemPoolAddTransactionError, MineBlockError, MineTransactionError,
@@ -23,6 +23,7 @@ use edr_primitives::{hex, Address, Bytes, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_signer::SignatureError;
 use edr_solidity::contract_decoder::ContractDecoderError;
+use edr_state_api::StateError;
 use serde::Serialize;
 
 use crate::{

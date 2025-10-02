@@ -1,6 +1,5 @@
 use derive_more::Debug;
 use dyn_clone::DynClone;
-use edr_evm::state::{State, StateError};
 use edr_evm_spec::HaltReasonTrait;
 use edr_primitives::{hash_map, Address, Bytecode, Bytes, HashMap};
 use edr_receipt::ExecutionResult;
@@ -8,6 +7,7 @@ use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature},
     solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
 };
+use edr_state_api::{State, StateError};
 use edr_transaction::TxKind;
 
 pub trait SyncOnCollectedGasReportCallback:

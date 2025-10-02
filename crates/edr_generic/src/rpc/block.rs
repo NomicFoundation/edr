@@ -1,9 +1,10 @@
 use derive_where::derive_where;
+use edr_block_api::{Block, BlockAndTotalDifficulty};
 use edr_block_header::{BlobGas, BlockHeader, Withdrawal};
-use edr_evm::{spec::RuntimeSpec, BlockAndTotalDifficulty, EthBlockData, EthRpcBlock};
+use edr_evm::{spec::RuntimeSpec, EthBlockData};
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
-use edr_rpc_spec::GetBlockNumber;
+use edr_rpc_spec::{GetBlockNumber, RpcEthBlock};
 use serde::{Deserialize, Serialize};
 
 use crate::GenericChainSpec;
@@ -11,7 +12,7 @@ use crate::GenericChainSpec;
 /// block object returned by `eth_getBlockBy*`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Block<TransactionT> {
+pub struct GenericRpcBlock<TransactionT> {
     /// Hash of the block
     pub hash: Option<B256>,
     /// hash of the parent block.
@@ -99,13 +100,13 @@ pub struct Block<TransactionT> {
     pub requests_hash: Option<B256>,
 }
 
-impl<T> GetBlockNumber for Block<T> {
+impl<T> GetBlockNumber for GenericRpcBlock<T> {
     fn number(&self) -> Option<u64> {
         self.number
     }
 }
 
-impl<T> EthRpcBlock for Block<T> {
+impl<T> RpcEthBlock for GenericRpcBlock<T> {
     fn state_root(&self) -> &B256 {
         &self.state_root
     }
@@ -137,7 +138,7 @@ pub enum ConversionError<ChainSpecT: RuntimeSpec> {
     Transaction(ChainSpecT::RpcTransactionConversionError),
 }
 
-impl<TransactionT> TryFrom<Block<TransactionT>> for EthBlockData<GenericChainSpec>
+impl<TransactionT> TryFrom<GenericRpcBlock<TransactionT>> for EthBlockData<GenericChainSpec>
 where
     TransactionT: TryInto<
         crate::transaction::SignedWithFallbackToPostEip155,
@@ -146,7 +147,7 @@ where
 {
     type Error = ConversionError<GenericChainSpec>;
 
-    fn try_from(value: Block<TransactionT>) -> Result<Self, Self::Error> {
+    fn try_from(value: GenericRpcBlock<TransactionT>) -> Result<Self, Self::Error> {
         let header = BlockHeader {
             parent_hash: value.parent_hash,
             ommers_hash: value.sha3_uncles,
@@ -197,8 +198,9 @@ where
     }
 }
 
-impl<BlockT: edr_evm::Block<SignedTransactionT>, SignedTransactionT: ExecutableTransaction>
-    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>> for crate::rpc::block::Block<B256>
+impl<BlockT: Block<SignedTransactionT>, SignedTransactionT: ExecutableTransaction>
+    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>>
+    for crate::rpc::block::GenericRpcBlock<B256>
 {
     fn from(value: BlockAndTotalDifficulty<BlockT, SignedTransactionT>) -> Self {
         let transactions = value
@@ -209,7 +211,7 @@ impl<BlockT: edr_evm::Block<SignedTransactionT>, SignedTransactionT: ExecutableT
             .collect();
 
         let header = value.block.header();
-        crate::rpc::block::Block {
+        crate::rpc::block::GenericRpcBlock {
             hash: Some(*value.block.block_hash()),
             parent_hash: header.parent_hash,
             sha3_uncles: header.ommers_hash,

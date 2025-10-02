@@ -1,4 +1,4 @@
-use edr_evm::Block as _;
+use edr_block_api::Block as _;
 use edr_primitives::{Address, B256};
 
 use crate::{

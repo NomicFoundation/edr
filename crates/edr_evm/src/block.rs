@@ -4,13 +4,14 @@ mod remote;
 /// Block-related transaction types.
 pub mod transaction;
 
-use std::{fmt::Debug, marker::PhantomData, sync::Arc};
+use std::sync::Arc;
 
 use auto_impl::auto_impl;
+use edr_block_api::{Block, BlockAndTotalDifficulty};
 use edr_block_header::{BlobGas, BlockHeader, PartialHeader, Withdrawal};
 use edr_chain_l1::rpc::block::L1RpcBlock;
-use edr_evm_spec::{ChainSpec, ExecutableTransaction};
-use edr_primitives::{B256, U256};
+use edr_evm_spec::ChainSpec;
+use edr_primitives::B256;
 use edr_receipt::ReceiptTrait;
 
 pub use self::{
@@ -20,31 +21,9 @@ pub use self::{
         EthBlockReceiptFactory, GenesisBlockOptions,
     },
     local::{CreationError as LocalCreationError, EthLocalBlock, EthLocalBlockForChainSpec},
-    remote::{ConversionError as RemoteBlockConversionError, EthRpcBlock, RemoteBlock},
+    remote::{ConversionError as RemoteBlockConversionError, RemoteBlock},
 };
 use crate::spec::RuntimeSpec;
-
-/// Trait for implementations of an Ethereum block.
-#[auto_impl(Arc)]
-pub trait Block<SignedTransactionT>: Debug {
-    /// Returns the block's hash.
-    fn block_hash(&self) -> &B256;
-
-    /// Returns the block's header.
-    fn header(&self) -> &BlockHeader;
-
-    /// Ommer/uncle block hashes.
-    fn ommer_hashes(&self) -> &[B256];
-
-    /// The length of the RLP encoding of this block in bytes.
-    fn rlp_size(&self) -> u64;
-
-    /// Returns the block's transactions.
-    fn transactions(&self) -> &[SignedTransactionT];
-
-    /// Withdrawals
-    fn withdrawals(&self) -> Option<&[Withdrawal]>;
-}
 
 /// Trait for fetching the receipts of a block's transactions.
 #[auto_impl(Arc)]
@@ -188,70 +167,3 @@ pub type BlockAndTotalDifficultyForChainSpec<ChainSpecT> = BlockAndTotalDifficul
     Arc<<ChainSpecT as RuntimeSpec>::Block>,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
-
-/// The result returned by requesting a block by number.
-#[derive(Clone, Debug)]
-pub struct BlockAndTotalDifficulty<BlockT, SignedTransactionT> {
-    /// The block
-    pub block: BlockT,
-    /// The total difficulty with the block
-    pub total_difficulty: Option<U256>,
-    phantom: PhantomData<SignedTransactionT>,
-}
-
-impl<BlockT, SignedTransactionT> BlockAndTotalDifficulty<BlockT, SignedTransactionT> {
-    /// Creates a new block and total difficulty.
-    pub fn new(block: BlockT, total_difficulty: Option<U256>) -> Self {
-        Self {
-            block,
-            total_difficulty,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<BlockT: Block<SignedTransactionT>, SignedTransactionT>
-    From<BlockAndTotalDifficulty<BlockT, SignedTransactionT>> for L1RpcBlock<B256>
-where
-    SignedTransactionT: ExecutableTransaction,
-{
-    fn from(value: BlockAndTotalDifficulty<BlockT, SignedTransactionT>) -> Self {
-        let transactions = value
-            .block
-            .transactions()
-            .iter()
-            .map(|tx| *tx.transaction_hash())
-            .collect();
-
-        let header = value.block.header();
-        L1RpcBlock {
-            hash: Some(*value.block.block_hash()),
-            parent_hash: header.parent_hash,
-            sha3_uncles: header.ommers_hash,
-            state_root: header.state_root,
-            transactions_root: header.transactions_root,
-            receipts_root: header.receipts_root,
-            number: Some(header.number),
-            gas_used: header.gas_used,
-            gas_limit: header.gas_limit,
-            extra_data: header.extra_data.clone(),
-            logs_bloom: header.logs_bloom,
-            timestamp: header.timestamp,
-            difficulty: header.difficulty,
-            total_difficulty: value.total_difficulty,
-            uncles: value.block.ommer_hashes().to_vec(),
-            transactions,
-            size: value.block.rlp_size(),
-            mix_hash: Some(header.mix_hash),
-            nonce: Some(header.nonce),
-            base_fee_per_gas: header.base_fee_per_gas,
-            miner: Some(header.beneficiary),
-            withdrawals: value.block.withdrawals().map(<[Withdrawal]>::to_vec),
-            withdrawals_root: header.withdrawals_root,
-            blob_gas_used: header.blob_gas.as_ref().map(|bg| bg.gas_used),
-            excess_blob_gas: header.blob_gas.as_ref().map(|bg| bg.excess_gas),
-            parent_beacon_block_root: header.parent_beacon_block_root,
-            requests_hash: header.requests_hash,
-        }
-    }
-}

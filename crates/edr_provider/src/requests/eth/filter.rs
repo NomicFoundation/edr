@@ -1,10 +1,10 @@
 use core::iter;
 
+use edr_block_api::Block as _;
 use edr_eth::{
     filter::{FilteredEvents, LogFilterOptions, LogOutput, OneOrMore, SubscriptionType},
     BlockSpec, BlockTag, Eip1898BlockSpec,
 };
-use edr_evm::Block as _;
 use edr_primitives::{HashSet, U256};
 
 use crate::{

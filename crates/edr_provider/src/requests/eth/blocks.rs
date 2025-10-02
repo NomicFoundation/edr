@@ -1,13 +1,13 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
+use edr_block_api::Block as _;
 use edr_block_header::Withdrawal;
 use edr_chain_l1::rpc::block::L1RpcBlock;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     spec::RuntimeSpec,
-    Block as _,
 };
 use edr_evm_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,

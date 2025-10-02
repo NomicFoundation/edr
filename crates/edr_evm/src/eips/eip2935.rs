@@ -1,7 +1,5 @@
 use edr_primitives::{address, bytes, Address, Bytecode, Bytes};
-use edr_state::account::AccountInfo;
-
-use crate::state::StateDiff;
+use edr_state_api::{account::AccountInfo, StateDiff};
 
 /// Address of the history storage contract, introduced in EIP-2935 (Prague
 /// hardfork).

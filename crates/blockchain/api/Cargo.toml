@@ -1,0 +1,14 @@
+[package]
+name = "edr_blockchain_api"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+auto_impl.workspace = true
+edr_block_api.workspace = true
+edr_primitives.workspace = true
+edr_receipt.workspace = true
+edr_state_api.workspace = true
+
+[lints]
+workspace = true

@@ -1,8 +1,9 @@
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
+use edr_primitives::B256;
 
-use crate::{log::ExecutionLog, B256};
+use crate::log::ExecutionLog;
 
 /// A log that's part of a transaction receipt.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

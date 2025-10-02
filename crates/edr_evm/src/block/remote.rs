@@ -1,10 +1,10 @@
 use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
+use edr_block_api::Block;
 use edr_block_header::{BlockHeader, Withdrawal};
-use edr_chain_l1::rpc::block::L1RpcBlock;
 use edr_evm_spec::ExecutableTransaction as _;
-use edr_primitives::{B256, U256};
+use edr_primitives::B256;
 use edr_rpc_eth::client::EthRpcClient;
 use tokio::runtime;
 
@@ -12,7 +12,7 @@ use crate::{
     block::BlockReceipts,
     blockchain::{BlockchainErrorForChainSpec, ForkedBlockchainError},
     spec::RuntimeSpec,
-    Block, EthBlockData,
+    EthBlockData,
 };
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
@@ -143,33 +143,5 @@ impl<ChainSpecT: RuntimeSpec> BlockReceipts<Arc<ChainSpecT::BlockReceipt>>
             .expect("We checked that receipts are not set");
 
         Ok(receipts)
-    }
-}
-
-/// Trait that provides access to the state root and total difficulty of an
-/// Ethereum-based block.
-pub trait EthRpcBlock {
-    /// Returns the root of the block's state trie.
-    fn state_root(&self) -> &B256;
-
-    /// Returns the block's timestamp.
-    fn timestamp(&self) -> u64;
-
-    /// Returns the total difficulty of the chain until this block for finalised
-    /// blocks. For pending blocks, returns `None`.
-    fn total_difficulty(&self) -> Option<&U256>;
-}
-
-impl<TransactionT> EthRpcBlock for L1RpcBlock<TransactionT> {
-    fn state_root(&self) -> &B256 {
-        &self.state_root
-    }
-
-    fn timestamp(&self) -> u64 {
-        self.timestamp
-    }
-
-    fn total_difficulty(&self) -> Option<&U256> {
-        self.total_difficulty.as_ref()
     }
 }

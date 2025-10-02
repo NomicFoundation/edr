@@ -1,13 +1,14 @@
 mod deposit;
 
 use edr_block_header::PartialHeader;
-use edr_evm::{receipt::ExecutionReceiptBuilder, result::ExecutionResult, state::State};
+use edr_evm::{receipt::ExecutionReceiptBuilder, result::ExecutionResult};
 use edr_primitives::Bloom;
 pub use edr_receipt::execution::{Eip658, Legacy};
 use edr_receipt::{
     log::{logs_to_bloom, ExecutionLog},
     ExecutionReceipt, MapReceiptLogs, RootOrStatus,
 };
+use edr_state_api::State;
 use edr_transaction::{Transaction as _, TransactionType as _};
 
 use self::deposit::Eip658OrDeposit;

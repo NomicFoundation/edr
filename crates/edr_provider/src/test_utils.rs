@@ -2,12 +2,12 @@ use core::fmt::Debug;
 use std::{num::NonZeroU64, sync::Arc, time::SystemTime};
 
 use anyhow::anyhow;
+use edr_block_api::Block as _;
 use edr_block_header::{BlobGas, BlockHeader, HeaderOverrides};
 use edr_chain_l1::{
     rpc::{receipt::L1BlockReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_evm::Block as _;
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};

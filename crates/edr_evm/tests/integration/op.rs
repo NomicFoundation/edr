@@ -2,12 +2,9 @@
 
 use std::sync::Arc;
 
+use edr_blockchain_api::Blockchain as _;
 use edr_defaults::CACHE_DIR;
-use edr_evm::{
-    blockchain::{Blockchain, ForkedBlockchain},
-    state::IrregularState,
-    RandomHashGenerator,
-};
+use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
 use edr_generic::GenericChainSpec;
 use edr_primitives::HashMap;
 use edr_rpc_eth::client::EthRpcClient;
