@@ -112,6 +112,7 @@ jobs:
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
 
       - name: Install dependencies
+        if: ${{ !matrix.settings.docker }}
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build in docker
@@ -126,6 +127,7 @@ jobs:
             npm i -g pnpm@10.17.1
             pnpm -v
             pnpm config set store-dir /root/.pnpm-store
+            pnpm install --frozen-lockfile --prefer-offline
             ${{ matrix.settings.build }}
 
       - name: Build
