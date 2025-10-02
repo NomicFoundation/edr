@@ -146,7 +146,7 @@ impl TryFrom<AccountOverrideOptions> for AccountOverride {
 /// A set of overrides for state information.
 #[derive(Clone, Debug, Default)]
 pub struct StateOverrides {
-    pub account_overrides: HashMap<Address, AccountOverride>,
+    account_overrides: HashMap<Address, AccountOverride>,
     code_by_hash_overrides: HashMap<B256, Bytecode>,
 }
 

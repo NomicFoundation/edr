@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use edr_eth::{
     block::{self, HeaderOverrides},
     filter::LogOutput,
@@ -10,9 +12,10 @@ use edr_evm::{
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_rpc_eth::{
     simulate::{SimBlock, SimulatePayload},
-    BlockOverrides,
+    BlockOverrides, StateOverrideOptions,
 };
 use edr_signer::FakeSign;
+use sha3::digest::block_buffer;
 
 use crate::{
     data::ProviderData,
@@ -95,19 +98,21 @@ pub fn handle_simulatev1_request<
         block_state_calls,
         trace_transfers, // TODO: use this
         validation,
-        return_full_transactions, // TODO: use this
+        return_full_transactions,
     } = simulate_payload;
 
     let mut parent_block = if let Some(block) = data.block_by_block_spec(&block_spec)? {
-        block.header().clone()
+        block
     } else {
-        return Err(ProviderError::InvalidInput(format!(
-            "Block not found for block spec: {block_spec:?}"
-        )));
+        return Err(ProviderError::InvalidInput(
+            "Block not found for base block spec.".to_string(),
+        ));
     };
-    let sim_blocks = standardize_blocks::<ChainSpecT, TimerT>(&parent_block, &block_state_calls)?;
 
-    let mut prev_state = data.get_or_compute_state(parent_block.number)?;
+    let sim_blocks =
+        standardize_blocks::<ChainSpecT, TimerT>(parent_block.header(), &block_state_calls)?;
+
+    let mut prev_state = data.get_or_compute_state(parent_block.header().number)?;
 
     let mut cfg_env = data.create_evm_config_at_block_spec(&block_spec)?;
     cfg_env.disable_eip3607 = true;
@@ -121,11 +126,14 @@ pub fn handle_simulatev1_request<
 
     let mut simulated_blocks = Vec::new();
 
+    // Indicate that we are in simulation mode
+    data.simulating = true;
+
     for block in sim_blocks {
         let SimBlock::<ChainSpecT::RpcTransactionRequest> {
             block_overrides,
             state_overrides,
-            calls,
+            calls, // TODO: assign defaults
         } = block;
 
         let state_overrides =
@@ -139,6 +147,7 @@ pub fn handle_simulatev1_request<
             // disable base fee
             header_overrides.base_fee = Some(0);
             header_overrides.base_fee_params = None; // TODO: check if needed
+                                                     // blob base fee?
         }
 
         // Fake sign transactions
@@ -159,22 +168,24 @@ pub fn handle_simulatev1_request<
             &cfg_env,
             (*prev_state).clone(),
             header_overrides,
-            &state_overrides,
+            state_overrides,
             calls,
-            &parent_block,
+            parent_block,
         )?;
 
         let MineBlockResultAndState {
             block,
             state,
-            state_diff,
+            state_diff, // TODO: use this?
             transaction_results,
         } = result;
 
         // ! block has transaction receipts function
 
+        let block = ChainSpecT::cast_local_block(block.into());
+
         // Prepare for the next iteration
-        parent_block = block.header().clone();
+        parent_block = block.clone();
         prev_state = state.into();
 
         // TODO: trace_transfers, return_full_transactions
@@ -182,7 +193,6 @@ pub fn handle_simulatev1_request<
 
         let total_difficutly = None; // TODO: compute total difficulty
 
-        let block = ChainSpecT::cast_local_block(block.into());
         let block = block_to_rpc_output::<ChainSpecT, TimerT>(
             hardfork,
             block,
@@ -207,7 +217,7 @@ pub fn handle_simulatev1_request<
                         ExecutionResult::Revert { gas_used, output } => {
                             let error = SimError {
                                 code: -32000,
-                                message: format!("Execution reverted"),
+                                message: "Execution reverted".to_string(),
                             };
                             (false, output, gas_used, vec![], Some(error))
                         }
@@ -215,7 +225,7 @@ pub fn handle_simulatev1_request<
                             // TODO: Return data for Halt?
                             let error = SimError {
                                 code: -32015,
-                                message: format!("VM execution error"),
+                                message: "VM execution error".to_string(),
                             };
                             (
                                 false,
@@ -286,8 +296,7 @@ fn standardize_blocks<
             let block_number = block_overrides.number.unwrap_or(prev_block_number + 1);
             if block_number <= prev_block_number {
                 return Err(ProviderError::InvalidInput(format!(
-                    "Block numbers must be strictly increasing. Previous: {}, current: {}",
-                    prev_block_number, block_number
+                    "Block numbers must be strictly increasing. Previous: {prev_block_number}, current: {block_number}"
                 )));
             }
             if block_number - base_block.number > MAX_SIMULATE_BLOCKS as u64 {
@@ -320,8 +329,7 @@ fn standardize_blocks<
                 .unwrap_or(prev_block_timestamp + TIMESTAMP_INCREMENT);
             if block_time <= prev_block_timestamp {
                 return Err(ProviderError::InvalidInput(format!(
-                    "Block timestamps must be strictly increasing. Previous: {}, current: {}",
-                    prev_block_timestamp, block_time
+                    "Block timestamps must be strictly increasing. Previous: {prev_block_timestamp}, current: {block_time}"
                 )));
             }
             block_overrides.time = Some(block_time);

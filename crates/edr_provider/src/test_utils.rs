@@ -123,7 +123,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         fork,
         genesis_state,
         hardfork: HardforkT::default(),
-        initial_base_fee_per_gas: Some(1000000000),
+        initial_base_fee_per_gas: Some(0),
         initial_blob_gas: Some(BlobGas {
             gas_used: 0,
             excess_gas: 0,

@@ -1,5 +1,7 @@
+use std::str::FromStr as _;
+
 use edr_chain_l1::L1ChainSpec;
-use edr_eth::{address, bytes, Bytes, U256};
+use edr_eth::{address, bytes, Address, BlockSpec, Bytes, U256};
 use edr_provider::{test_utils::create_test_config, MethodInvocation, Provider, ProviderRequest};
 use edr_rpc_eth::{CallRequest, TransactionRequest};
 use edr_signer::public_key_to_address;
@@ -51,6 +53,89 @@ async fn call() -> anyhow::Result<()> {
             None,
         )))
         .expect("eth_call should succeed");
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn simulate_v1() -> anyhow::Result<()> {
+    let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
+    let addr1 = public_key_to_address(secret_key.public_key());
+
+    // let addr1 = Address::from_str("0xc000000000000000000000000000000000000000")?;
+    let addr2 = Address::from_str("0xc100000000000000000000000000000000000000")?;
+    let addr3 = Address::from_str("0xc200000000000000000000000000000000000000")?;
+
+    let transaction_request1 = TransactionRequest {
+        chain_id: Some(CHAIN_ID),
+        nonce: Some(0),
+        from: addr1,
+        to: Some(addr2),
+        value: Some(U256::from_str("0x3e8")?),
+        max_fee_per_gas: Some(0),
+        max_priority_fee_per_gas: Some(0),
+        ..TransactionRequest::default()
+    };
+
+    let transaction_request2 = TransactionRequest {
+        chain_id: Some(CHAIN_ID),
+        nonce: Some(0),
+        from: addr2,
+        to: Some(addr3),
+        value: Some(U256::from_str("0x3e8")?),
+        max_fee_per_gas: Some(0),
+        max_priority_fee_per_gas: Some(0),
+        ..TransactionRequest::default()
+    };
+
+    let state_overrides = edr_rpc_eth::StateOverrideOptions::from([(
+        addr1,
+        edr_rpc_eth::AccountOverrideOptions {
+            balance: Some(U256::from_str("0x3e8")?),
+            nonce: None,
+            code: None,
+            storage: None,
+            storage_diff: None,
+            move_precompile_to_address: None,
+        },
+    )]);
+
+    let block_overrides = edr_rpc_eth::BlockOverrides {
+        number: None,
+        prev_randao: None,
+        time: None,
+        gas_limit: Some(300_000_000),
+        fee_recipient: None,
+        base_fee_per_gas: Some(U256::ZERO),
+        withdrawals: None,
+        blob_base_fee: Some(0),
+    };
+
+    let simulate_payload = edr_rpc_eth::simulate::SimulatePayload {
+        block_state_calls: vec![edr_rpc_eth::simulate::SimBlock {
+            block_overrides: Some(block_overrides),
+            state_overrides: Some(state_overrides),
+            calls: vec![transaction_request1, transaction_request2],
+        }],
+        trace_transfers: false,
+        validation: false,
+        return_full_transactions: false,
+    };
+
+    let provider = new_provider(secret_key)?;
+
+    let response = provider
+        .handle_request(ProviderRequest::with_single(MethodInvocation::SimulateV1(
+            simulate_payload,
+            Some(BlockSpec::latest()),
+        )))
+        .expect("eth_simulateV1 should succeed");
+
+    let _simulate_response: Vec<
+        edr_provider::requests::eth::SimResult<
+            <edr_chain_l1::L1ChainSpec as edr_rpc_eth::RpcSpec>::RpcTransaction,
+        >,
+    > = serde_json::from_value(response.result).expect("response should be SimulateResponse");
 
     Ok(())
 }

@@ -1,6 +1,6 @@
 pub(crate) mod debug;
 /// Ethereum RPC request types
-pub(crate) mod eth;
+pub mod eth;
 /// Hardhat RPC request types
 pub(crate) mod hardhat;
 mod methods;

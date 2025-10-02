@@ -46,7 +46,7 @@ rpath = true
 # Speed up compilation time for dev builds by reducing emitted debug info.
 # NOTE: Debuggers may provide less useful information with this setting.
 # Uncomment this section if you're using a debugger.
-debug = 1
+debug = 2
 
 [profile.release]
 # Optimized profile for released packages.
@@ -121,10 +121,17 @@ foundry-evm-traces = { path = "crates/foundry/evm/traces" }
 
 # solc & compilation utilities
 foundry-block-explorers = { version = "0.18.0", default-features = false }
-foundry-compilers = { version = "0.17.3", default-features = false, features = ["svm-solc"] }
+foundry-compilers = { version = "0.17.3", default-features = false, features = [
+    "svm-solc",
+] }
 
 ## revm
-op-revm = { version = "8.1.0", default-features = false, features = ["c-kzg", "dev", "serde", "std"] }
+op-revm = { version = "8.1.0", default-features = false, features = [
+    "c-kzg",
+    "dev",
+    "serde",
+    "std",
+] }
 revm = { version = "27.1.0", default-features = false, features = [
     "arbitrary",
     "blst",
@@ -143,10 +150,19 @@ revm-context-interface = { version = "9.0.0", default-features = false }
 revm-database-interface = { version = "7.0.2", default-features = false }
 revm-handler = { version = "8.1.0", default-features = false }
 revm-interpreter = { version = "24.0.0", default-features = false }
-revm-precompile = { version = "25.0.0", default-features = false, features = ["blst", "c-kzg", "std"] }
-revm-primitives = { version = "20.1.0", default-features = false, features = ["hashbrown", "rand"] }
+revm-precompile = { version = "25.0.0", default-features = false, features = [
+    "blst",
+    "c-kzg",
+    "std",
+] }
+revm-primitives = { version = "20.1.0", default-features = false, features = [
+    "hashbrown",
+    "rand",
+] }
 revm-state = { version = "7.0.2", default-features = false }
-c-kzg = { version = "2.1.0", default-features = false, features = ["ethereum_kzg_settings"] }
+c-kzg = { version = "2.1.0", default-features = false, features = [
+    "ethereum_kzg_settings",
+] }
 
 revm-inspectors = { version = "0.26.5", features = ["serde"] }
 foundry-fork-db = "0.16"
@@ -180,7 +196,14 @@ alloy-transport-ws = { version = "1.0.22", default-features = false }
 
 alloy-dyn-abi = { version = "1.2.1", features = ["eip712"] }
 alloy-json-abi = "1.2.1"
-alloy-primitives = { version = "1.2.1", features = ["getrandom", "rand", "map-fxhash", "map-foldhash", "map-hashbrown", "map-indexmap"] }
+alloy-primitives = { version = "1.2.1", features = [
+    "getrandom",
+    "rand",
+    "map-fxhash",
+    "map-foldhash",
+    "map-hashbrown",
+    "map-indexmap",
+] }
 alloy-sol-macro-expander = "1.2.1"
 alloy-sol-macro-input = "1.2.1"
 alloy-sol-types = "1.2.1"
@@ -220,7 +243,11 @@ rustc-hash = "1.1"
 serde = { version = "1.0", features = ["derive", "std"] }
 # Arbitrary precision is needed by the `parseJson` cheatcode and preserve order is needed by `edr_solidity`.
 # The features are listed here instead of in the Cargo.toml of those packages to avoid surprises from feature unification.
-serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order", "std"] }
+serde_json = { version = "1.0", features = [
+    "arbitrary_precision",
+    "preserve_order",
+    "std",
+] }
 strum = "0.26"
 thiserror = { version = "1.0.58", default-features = false }
 toml = "0.8"

@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, fmt::Debug};
+use std::{cmp::Ordering, fmt::Debug, sync::Arc};
 
 use edr_eth::{
     block::{calculate_next_base_fee_per_blob_gas, Header, HeaderOverrides},
@@ -136,7 +136,6 @@ where
         cfg.clone(),
         BlockInputs::new(cfg.spec),
         overrides,
-        &StateOverrides::default(),
         custom_precompiles,
     )?;
 
@@ -409,7 +408,6 @@ where
         cfg.clone(),
         BlockInputs::new(cfg.spec),
         overrides,
-        &StateOverrides::default(),
         custom_precompiles,
     )?;
 
@@ -443,12 +441,12 @@ pub fn mine_block_with_multiple_transactions<
     transactions: Vec<ChainSpecT::SignedTransaction>,
     cfg: &CfgEnv<ChainSpecT::Hardfork>,
     header_overrides: HeaderOverrides<ChainSpecT::Hardfork>,
-    state_overrides: &StateOverrides,
-    parent_block: &Header,
     min_gas_price: u128,
     reward: u128,
     mut inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
+    state_overrides: StateOverrides,
+    parent_block: Arc<ChainSpecT::Block>,
 ) -> Result<
     MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
@@ -474,14 +472,15 @@ where
     StateErrorT: std::error::Error + Send,
 {
     let base_fee_per_gas = header_overrides.base_fee;
-    let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
+    let mut block_builder = ChainSpecT::BlockBuilder::new_simulate_block_builder(
         blockchain,
         state.clone(),
         cfg.clone(),
         BlockInputs::new(cfg.spec),
         header_overrides,
-        state_overrides,
         custom_precompiles,
+        state_overrides,
+        parent_block.clone(),
     )?;
 
     for transaction in transactions {
@@ -517,7 +516,7 @@ where
 
         if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
             let base_fee_per_blob_gas =
-                calculate_next_base_fee_per_blob_gas(parent_block, cfg.spec);
+                calculate_next_base_fee_per_blob_gas(parent_block.header(), cfg.spec);
             if *max_fee_per_blob_gas < base_fee_per_blob_gas {
                 return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
                     expected: base_fee_per_blob_gas,

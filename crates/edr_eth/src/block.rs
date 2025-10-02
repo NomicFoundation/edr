@@ -260,6 +260,7 @@ impl PartialHeader {
                 }
             }),
             number,
+            // TODO: why 1_000_000? block gas limit?
             gas_limit: overrides.gas_limit.unwrap_or(1_000_000),
             gas_used: 0,
             timestamp,

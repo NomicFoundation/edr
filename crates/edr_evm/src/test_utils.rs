@@ -234,7 +234,6 @@ pub async fn run_full_block<
             withdrawals: replay_block.withdrawals().map(<[Withdrawal]>::to_vec),
         },
         header_overrides_constructor(replay_header),
-        &StateOverrides::default(),
         &custom_precompiles,
     )?;
 

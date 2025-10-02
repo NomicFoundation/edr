@@ -1,5 +1,8 @@
 use core::{fmt::Debug, marker::PhantomData};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use derive_where::derive_where;
 use edr_eth::{
@@ -10,7 +13,7 @@ use edr_eth::{
     withdrawal::Withdrawal,
     Address, Bloom, HashMap, B256, U256,
 };
-use edr_evm_spec::{EvmSpecId, ExecutableTransaction as _};
+use edr_evm_spec::{Block, EvmSpecId, ExecutableTransaction as _};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt, ReceiptFactory, TransactionReceipt,
@@ -44,12 +47,13 @@ where
     parent_gas_limit: Option<u64>,
     receipts: Vec<TransactionReceipt<ChainSpecT::ExecutionReceipt<ExecutionLog>>>,
     state: Box<dyn SyncState<StateErrorT>>,
-    state_overrides: StateOverrides,
     state_diff: StateDiff,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_results: Vec<ExecutionResult<ChainSpecT::HaltReason>>,
     withdrawals: Option<Vec<Withdrawal>>,
     custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+    state_overrides: Option<StateOverrides>,
+    simulated: bool,
 }
 
 impl<BlockchainErrorT, ChainSpecT, StateErrorT>
@@ -134,7 +138,6 @@ where
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
         mut header_overrides: HeaderOverrides<ChainSpecT::Hardfork>,
-        state_overrides: &StateOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
     {
@@ -172,12 +175,66 @@ where
             parent_gas_limit,
             receipts: Vec::new(),
             state,
-            state_overrides: state_overrides.clone(),
             state_diff: StateDiff::default(),
             transactions: Vec::new(),
             transaction_results: Vec::new(),
             withdrawals: inputs.withdrawals,
             custom_precompiles,
+            state_overrides: None,
+            simulated: false,
+        })
+    }
+
+    /// Creates a new simulated block builder instance.
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    pub fn new_simulated(
+        blockchain: &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+        state: Box<dyn SyncState<StateErrorT>>,
+        cfg: CfgEnv<ChainSpecT::Hardfork>,
+        inputs: BlockInputs,
+        mut header_overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        state_overrides: StateOverrides,
+        parent_block: Arc<ChainSpecT::Block>,
+    ) -> Result<Self, BlockBuilderCreationError<BlockchainErrorT, ChainSpecT::Hardfork, StateErrorT>>
+    {
+        let eth_hardfork = cfg.spec.into();
+        if eth_hardfork < EvmSpecId::BYZANTIUM {
+            return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec));
+        } else if eth_hardfork >= EvmSpecId::SHANGHAI && inputs.withdrawals.is_none() {
+            return Err(BlockBuilderCreationError::MissingWithdrawals);
+        }
+
+        let parent_header = parent_block.header();
+        let parent_gas_limit = if header_overrides.gas_limit.is_none() {
+            Some(parent_header.gas_limit)
+        } else {
+            None
+        };
+
+        header_overrides.parent_hash = Some(*parent_block.block_hash());
+        let header = PartialHeader::new::<ChainSpecT>(
+            cfg.spec,
+            header_overrides,
+            Some(parent_header),
+            &inputs.ommers,
+            inputs.withdrawals.as_ref(),
+        );
+
+        Ok(Self {
+            blockchain,
+            cfg,
+            header,
+            parent_gas_limit,
+            receipts: Vec::new(),
+            state,
+            state_diff: StateDiff::default(),
+            transactions: Vec::new(),
+            transaction_results: Vec::new(),
+            withdrawals: inputs.withdrawals,
+            custom_precompiles,
+            state_overrides: Some(state_overrides),
+            simulated: true,
         })
     }
 
@@ -196,7 +253,13 @@ where
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
                 .map_err(TransactionError::State)?;
 
-        let state_overrider = StateRefOverrider::new(&self.state_overrides, self.state.as_ref());
+        let default_state_overrides = StateOverrides::default();
+        let state_overrider = StateRefOverrider::new(
+            self.state_overrides
+                .as_ref()
+                .unwrap_or(&default_state_overrides),
+            self.state.as_ref(),
+        );
 
         let transaction_result = dry_run::<_, ChainSpecT, _>(
             self.blockchain,
@@ -231,6 +294,9 @@ where
             >,
         >,
     {
+        // if self.simulated {
+        //     transaction.gas_limit = self.gas_remaining();
+        // }
         self.validate_transaction(&transaction)?;
 
         let block = ChainSpecT::new_block_env(&self.header, self.cfg.spec.into());
@@ -239,7 +305,13 @@ where
             ChainSpecT::ReceiptBuilder::new_receipt_builder(&self.state, &transaction)
                 .map_err(TransactionError::State)?;
 
-        let state_overrider = StateRefOverrider::new(&self.state_overrides, self.state.as_ref());
+        let default_state_overrides = StateOverrides::default();
+        let state_overrider = StateRefOverrider::new(
+            self.state_overrides
+                .as_ref()
+                .unwrap_or(&default_state_overrides),
+            self.state.as_ref(),
+        );
 
         let transaction_result = dry_run_with_inspector::<_, ChainSpecT, InspectorT, _>(
             self.blockchain,
@@ -414,7 +486,6 @@ where
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
         header_overrides: HeaderOverrides<ChainSpecT::Hardfork>,
-        state_overrides: &StateOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
@@ -426,8 +497,40 @@ where
             cfg,
             inputs,
             header_overrides,
-            state_overrides,
             custom_precompiles,
+        )
+    }
+
+    fn new_simulate_block_builder(
+        blockchain: &'builder dyn SyncBlockchain<
+            ChainSpecT,
+            Self::BlockchainError,
+            Self::StateError,
+        >,
+        state: Box<dyn SyncState<Self::StateError>>,
+        cfg: CfgEnv<<ChainSpecT>::Hardfork>,
+        inputs: BlockInputs,
+        overrides: HeaderOverrides<<ChainSpecT>::Hardfork>,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        state_overrides: StateOverrides,
+        parent_block: Arc<ChainSpecT::Block>,
+    ) -> Result<
+        Self,
+        super::BlockBuilderCreationErrorForChainSpec<
+            Self::BlockchainError,
+            ChainSpecT,
+            Self::StateError,
+        >,
+    > {
+        Self::new_simulated(
+            blockchain,
+            state,
+            cfg,
+            inputs,
+            overrides,
+            custom_precompiles,
+            state_overrides,
+            parent_block,
         )
     }
 

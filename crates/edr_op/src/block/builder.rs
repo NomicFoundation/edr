@@ -46,7 +46,6 @@ where
         cfg: CfgEnv<Hardfork>,
         mut inputs: BlockInputs,
         mut overrides: edr_eth::block::HeaderOverrides<Hardfork>,
-        state_overrides: &StateOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, Hardfork, Self::StateError>>
     {
@@ -122,7 +121,6 @@ where
             cfg,
             inputs,
             overrides,
-            &StateOverrides::default(), // TODO: implement for OP
             custom_precompiles,
         )?;
 
@@ -141,6 +139,38 @@ where
         };
 
         Ok(Self { eth, l1_block_info })
+    }
+
+    fn new_simulate_block_builder(
+        blockchain: &'builder dyn edr_evm::blockchain::SyncBlockchain<
+            OpChainSpec,
+            Self::BlockchainError,
+            Self::StateError,
+        >,
+        state: Box<dyn edr_evm::state::SyncState<Self::StateError>>,
+        cfg: CfgEnv<Hardfork>,
+        mut inputs: BlockInputs,
+        mut overrides: edr_eth::block::HeaderOverrides<Hardfork>,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        state_overrides: StateOverrides,
+        parent_block: std::sync::Arc<<OpChainSpec as edr_evm::spec::RuntimeSpec>::Block>,
+    ) -> Result<
+        Self,
+        edr_evm::BlockBuilderCreationErrorForChainSpec<
+            Self::BlockchainError,
+            OpChainSpec,
+            Self::StateError,
+        >,
+    > {
+        // TODO: implement for OP
+        Self::new_block_builder(
+            blockchain,
+            state,
+            cfg,
+            inputs,
+            overrides,
+            custom_precompiles,
+        )
     }
 
     fn block_receipt_factory(&self) -> BlockReceiptFactory {

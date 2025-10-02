@@ -239,6 +239,7 @@ pub struct ProviderData<
     current_state_id: StateId,
     block_number_to_state_id: HashTrieMapSync<u64, StateId>,
     contract_decoder: Arc<ContractDecoder>,
+    pub simulating: bool,
 }
 
 impl<ChainSpecT, TimerT> ProviderData<ChainSpecT, TimerT>
@@ -716,6 +717,7 @@ where
             current_state_id,
             block_number_to_state_id,
             contract_decoder,
+            simulating: false,
         })
     }
 
@@ -2386,9 +2388,9 @@ where
         config: &CfgEnv<ChainSpecT::Hardfork>,
         state_to_be_modified: Box<dyn SyncState<StateError>>,
         header_overrides: HeaderOverrides<ChainSpecT::Hardfork>,
-        state_overrides: &StateOverrides,
+        state_overrides: StateOverrides,
         transactions: Vec<ChainSpecT::SignedTransaction>,
-        parent_block: &Header,
+        parent_block: Arc<ChainSpecT::Block>,
     ) -> Result<
         MineBlockResultAndState<
             ChainSpecT::HaltReason,
@@ -2409,12 +2411,12 @@ where
             transactions,
             config,
             header_overrides,
-            state_overrides,
-            parent_block,
             self.min_gas_price,
             reward,
             Some(&mut evm_observer),
             &self.precompile_overrides,
+            state_overrides,
+            parent_block,
         )?;
 
         Ok(result)

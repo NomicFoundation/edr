@@ -1,6 +1,6 @@
 mod l1;
 
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
@@ -181,8 +181,25 @@ where
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
         overrides: HeaderOverrides<ChainSpecT::Hardfork>,
-        state_overrides: &StateOverrides,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+    ) -> Result<
+        Self,
+        BlockBuilderCreationErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
+    >;
+
+    fn new_simulate_block_builder(
+        blockchain: &'builder dyn SyncBlockchain<
+            ChainSpecT,
+            Self::BlockchainError,
+            Self::StateError,
+        >,
+        state: Box<dyn SyncState<Self::StateError>>,
+        cfg: CfgEnv<ChainSpecT::Hardfork>,
+        inputs: BlockInputs,
+        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+        state_overrides: StateOverrides,
+        parent_block: Arc<ChainSpecT::Block>,
     ) -> Result<
         Self,
         BlockBuilderCreationErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
