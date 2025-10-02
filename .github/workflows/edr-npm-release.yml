@@ -71,11 +71,23 @@ jobs:
             target: aarch64-unknown-linux-musl
             build: |
               set -euo pipefail
-              export CC_aarch64_unknown_linux_musl="zig cc -target aarch64-linux-musl"
-              export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="$CC_aarch64_unknown_linux_musl"
-              echo "CC_aarch64_unknown_linux_musl=$CC_aarch64_unknown_linux_musl"
+
+              # Ensure Zig/env from other legs don’t leak in
+              unset CC_aarch64_unknown_linux_musl || true
+              unset CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER || true
+
+              # Tell cc-rs (ring) and Cargo which compiler/linker to use for this target
+              export CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc
+              export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc
+
+              # For Node-API cdylib: keep musl CRT dynamic (no full static linking)
+              export RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=-crt-static"
+
+              # export CC_aarch64_unknown_linux_musl="zig cc -target aarch64-linux-musl"
+              # export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="$CC_aarch64_unknown_linux_musl"
+              # echo "CC_aarch64_unknown_linux_musl=$CC_aarch64_unknown_linux_musl"
               pnpm run build --target aarch64-unknown-linux-musl
-              /aarch64-linux-musl-cross/bin/aarch64-linux-musl-strip *.node
+              aarch64-linux-musl-strip *.node
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     defaults:
@@ -106,6 +118,13 @@ jobs:
             rustup target add '${{ matrix.settings.target }}'
             rustup target list --installed
           fi
+      - name: Install aarch64 musl toolchain
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          set -euo pipefail
+          curl -fsSL -o aarch64-linux-musl-cross.tgz https://musl.cc/aarch64-linux-musl-cross.tgz
+          tar -xzf aarch64-linux-musl-cross.tgz
+          echo "$PWD/aarch64-linux-musl-cross/bin" >> "$GITHUB_PATH"
       - name: Setup node and pnpm
         uses: ./.github/actions/setup-node
       - name: Cache cargo
