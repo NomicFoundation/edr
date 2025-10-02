@@ -30,6 +30,8 @@ on:
 
 jobs:
   build:
+    name: stable - ${{ matrix.settings.target }} - node@20
+    runs-on: ${{ matrix.settings.host }}
     strategy:
       fail-fast: false
       matrix:
@@ -52,7 +54,11 @@ jobs:
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             build: |
-              set -euo pipefail
+              set -euo pipefail              
+              # use musl-cross toolchain installed below
+              export CC_x86_64_unknown_linux_musl=x86_64-linux-musl-gcc
+              export CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=x86_64-linux-musl-gcc
+              export RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=-crt-static"
               pnpm run build --target x86_64-unknown-linux-musl --use-napi-cross
               strip *.node
           - host: macos-latest
@@ -71,36 +77,26 @@ jobs:
             target: aarch64-unknown-linux-musl
             build: |
               set -euo pipefail
-
-              # Ensure Zig/env from other legs don’t leak in
-              unset CC_aarch64_unknown_linux_musl || true
-              unset CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER || true
-
-              # Tell cc-rs (ring) and Cargo which compiler/linker to use for this target
+              # use musl-cross toolchain installed below
               export CC_aarch64_unknown_linux_musl=aarch64-linux-musl-gcc
               export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-musl-gcc
-
-              # For Node-API cdylib: keep musl CRT dynamic (no full static linking)
               export RUSTFLAGS="${RUSTFLAGS:-} -C target-feature=-crt-static"
-
-              # export CC_aarch64_unknown_linux_musl="zig cc -target aarch64-linux-musl"
-              # export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="$CC_aarch64_unknown_linux_musl"
-              # echo "CC_aarch64_unknown_linux_musl=$CC_aarch64_unknown_linux_musl"
               pnpm run build --target aarch64-unknown-linux-musl
               aarch64-linux-musl-strip *.node
-    name: stable - ${{ matrix.settings.target }} - node@20
-    runs-on: ${{ matrix.settings.host }}
     defaults:
       run:
         working-directory: ./crates/edr_napi
+
     steps:
       - uses: actions/checkout@v5
+
       - name: Check number of targets
         shell: bash
         run: |
           echo "Number of build jobs: ${{ strategy.job-total }}"
           echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -118,6 +114,15 @@ jobs:
             rustup target add '${{ matrix.settings.target }}'
             rustup target list --installed
           fi
+
+      - name: Install musl-cross (x86_64)
+        if: ${{ matrix.settings.target == 'x86_64-unknown-linux-musl' }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -o x86_64-linux-musl-cross.tgz https://musl.cc/x86_64-linux-musl-cross.tgz
+          tar -xzf x86_64-linux-musl-cross.tgz
+          echo "$PWD/x86_64-linux-musl-cross/bin" >> "$GITHUB_PATH"
+
       - name: Install aarch64 musl toolchain
         if: matrix.target == 'aarch64-unknown-linux-musl'
         run: |
@@ -125,8 +130,10 @@ jobs:
           curl -fsSL -o aarch64-linux-musl-cross.tgz https://musl.cc/aarch64-linux-musl-cross.tgz
           tar -xzf aarch64-linux-musl-cross.tgz
           echo "$PWD/aarch64-linux-musl-cross/bin" >> "$GITHUB_PATH"
+
       - name: Setup node and pnpm
         uses: ./.github/actions/setup-node
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -138,25 +145,28 @@ jobs:
             .cargo-cache
             target/
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
-      - uses: mlugg/setup-zig@v2
-        if: ${{ contains(matrix.settings.target, 'musl') }}
-        with:
-          version: 0.14.1
-      - name: Install cargo-zigbuild
-        uses: taiki-e/install-action@v2
-        if: ${{ contains(matrix.settings.target, 'musl') }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          tool: cargo-zigbuild
-      - name: Setup toolchain
-        run: ${{ matrix.settings.setup }}
-        if: ${{ matrix.settings.setup }}
+
+      # - uses: mlugg/setup-zig@v2
+      #   if: ${{ contains(matrix.settings.target, 'musl') }}
+      #   with:
+      #     version: 0.14.1
+      # - name: Install cargo-zigbuild
+      #   uses: taiki-e/install-action@v2
+      #   if: ${{ contains(matrix.settings.target, 'musl') }}
+      #   env:
+      #     GITHUB_TOKEN: ${{ github.token }}
+      #   with:
+      #     tool: cargo-zigbuild
+      # - name: Setup toolchain
+      #   run: ${{ matrix.settings.setup }}
+      #   if: ${{ matrix.settings.setup }}
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
+
       - name: Build
         run: ${{ matrix.settings.build }}
         shell: bash
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
