@@ -122,13 +122,11 @@ jobs:
           image: ${{ matrix.settings.docker }}
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
-            set -euo pipefail           
-            corepack disable
+            set -euo pipefail
+            apk add --no-cache nodejs            
+            node -v
 
-            npm i -g n@9
-            n 20        
-            hash -r
-            node -v     
+            corepack disable
 
             npm i -g pnpm@10.17.1
             pnpm -v
