@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `redstone` mainnet chain id
+/// 'Redstone' chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x2B2;
 
-/// `redstone` mainnet chain configuration
+/// 'Redstone' chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Redstone".into(),

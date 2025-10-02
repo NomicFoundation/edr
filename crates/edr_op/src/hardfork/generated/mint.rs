@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `mint` mainnet chain id
+/// 'Mint Mainnet' chain id
 pub const MAINNET_CHAIN_ID: u64 = 0xB9;
 
-/// `mint` mainnet chain configuration
+/// 'Mint Mainnet' chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Mint Mainnet".into(),

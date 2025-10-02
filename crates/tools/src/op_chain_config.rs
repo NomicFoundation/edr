@@ -48,7 +48,7 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     let chains_to_configure =
         fetch_op_stack_chains_to_configure(superchain_registry_repo_dir.path())?;
 
-    let generated_modules: Vec<GeneratedConfiguration> = generate_chain_modules(
+    let generated_modules = generate_chain_modules(
         superchain_registry_repo_dir.path(),
         modules_dir,
         chains_to_configure,
@@ -87,24 +87,22 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
     }
 }
 
+/// Generates a new file module for every element in `chain_configurations`
+/// Returns a Vec containing the chain config specs within EDR repo
 fn generate_chain_modules(
     repo_path: &Path,
     modules_dir: &Path,
-    chain_configurations: Vec<SuperchainConfiguration>,
-) -> Vec<GeneratedConfiguration> {
+    chain_configurations: Vec<ChainConfigSpec>,
+) -> Vec<ChainConfigSpec> {
     chain_configurations
-        .iter()
+        .into_iter()
         .filter_map(|chain_config| {
-            let result = write_chain_module(
-                &repo_config_path_buf(repo_path),
-                chain_config.file_name.clone(),
-                &chain_config.networks,
-                modules_dir,
-            );
+            let result =
+                write_chain_module(&repo_config_path_buf(repo_path), &chain_config, modules_dir);
             match result {
-                Ok(module_name) => Some(GeneratedConfiguration {
-                    module_name,
-                    networks: chain_config.networks.clone(),
+                Ok(module_name) => Some(ChainConfigSpec {
+                    file_name: module_name,
+                    networks: chain_config.networks,
                 }),
                 Err(error) => {
                     println!(
@@ -118,12 +116,10 @@ fn generate_chain_modules(
         .collect()
 }
 
-/// Based on superchain registry repository, idetifies all the chains and their
-/// corresponding networks to create configs for Returns a map groupping
-/// networks by chain, since in EDR we want to create a single module per chain
-fn fetch_op_stack_chains_to_configure(
-    repo_path: &Path,
-) -> anyhow::Result<Vec<SuperchainConfiguration>> {
+/// Based on superchain registry repository, identifies all the chains and their
+/// corresponding networks to create configs for
+/// Returns a Vec with the chain config spec within superchain registry
+fn fetch_op_stack_chains_to_configure(repo_path: &Path) -> anyhow::Result<Vec<ChainConfigSpec>> {
     let config_path = repo_config_path_buf(repo_path);
 
     let mut networks_by_chain = HashMap::<String, Vec<String>>::new();
@@ -150,17 +146,20 @@ fn repo_config_path_buf(repo_path: &Path) -> PathBuf {
     path.push(REPO_CONFIGS_PATH);
     path
 }
+/// Creates or updates the `generated.rs` module file
+/// declares all the submodules and defines a `chain_configs()` function that
+/// returns a map containing all the generated configs
 fn write_generated_module_file(
-    chains_by_module: Vec<GeneratedConfiguration>,
+    chains_to_configure: Vec<ChainConfigSpec>,
 ) -> Result<(), anyhow::Error> {
     let generated_module_file_name = format!("{GENERATED_MODULE_PATH}.rs");
     let generated_module_path = Path::new(&generated_module_file_name);
 
     let mut generated_module: File = File::create(generated_module_path)?;
 
-    let generated_modules = chains_by_module
+    let generated_modules = chains_to_configure
         .iter()
-        .map(|op_chain_config| op_chain_config.module_name.as_str())
+        .map(|op_chain_config| op_chain_config.file_name.as_str())
         .collect::<Vec<&str>>();
 
     let module_imports = generated_modules
@@ -170,26 +169,26 @@ fn write_generated_module_file(
             imports.push_str(
                 format!(
                     "/// `{module}` chain configuration module;
-                pub mod {module};"
+                    pub mod {module};"
                 )
                 .as_str(),
             );
             imports
         });
 
-    let sorted_chain_network: Vec<(String, String)> = chains_by_module
+    let sorted_chain_networks: Vec<(String, String)> = chains_to_configure
         .into_iter()
         .flat_map(|chain_config| {
             chain_config
                 .networks
                 .into_iter()
-                .map(move |network| (chain_config.module_name.clone(), network))
+                .map(move |network| (chain_config.file_name.clone(), network))
         })
         .sorted()
         .collect();
 
-    let insert_lines =
-        sorted_chain_network
+    let insert_config_lines =
+        sorted_chain_networks
             .iter()
             .fold(String::new(), |mut imports, (module, network)| {
                 let chain_id_name = module_attribute(module, &chain_id_name(network));
@@ -216,7 +215,7 @@ fn write_generated_module_file(
 
             let mut hardforks = HashMap::new();
 
-            {insert_lines}
+            {insert_config_lines}
             
             hardforks
         }}
@@ -234,24 +233,35 @@ fn chain_id_name(network: &str) -> String {
 fn network_config_function(network: &str) -> String {
     format!("{}_config()", network.to_lowercase())
 }
+/// Creates a rust module file for the given chain config spec
+/// The module defines a `ChainConfig` and id for every specified network
+///
+/// Returns the name of the new module file
+/// Overwrites the file if it already exists
 fn write_chain_module(
     repo_config_path: &PathBuf,
-    file_name_in_repo: String,
-    networks: &[String],
+    repo_chain_config: &ChainConfigSpec,
     output_path: &Path,
 ) -> Result<String, anyhow::Error> {
-    if networks.is_empty() {
+    if repo_chain_config.networks.is_empty() {
         return Err(OpImporterError {
             message: "No networks for chain".to_string(),
         }
         .into());
     }
     let chain_module_name = {
-        match file_name_in_repo.clone().replace('-', "_").split_once(".") {
+        match repo_chain_config
+            .file_name
+            .replace('-', "_")
+            .split_once(".")
+        {
             Some((name, _extension)) => String::from(name),
             None => {
                 return Err(OpImporterError {
-                    message: format!("could not define module filename: {file_name_in_repo}"),
+                    message: format!(
+                        "could not define module filename from {}",
+                        repo_chain_config.file_name
+                    ),
                 }
                 .into())
             }
@@ -260,21 +270,21 @@ fn write_chain_module(
 
     let networks_config = {
         let mut networks_config = String::new();
-        for network in networks {
+        for network in repo_chain_config.networks.iter() {
             let chain_config_path = {
                 let mut path = PathBuf::from(repo_config_path);
                 path.push(network.clone());
-                path.push(file_name_in_repo.clone());
+                path.push(repo_chain_config.file_name.clone());
                 path
             };
-
             let file_contents = fs::read_to_string(chain_config_path)?;
             let chain_config: OpChainConfig = toml::from_str(&file_contents)?;
 
             let chain_id_const_name = chain_id_name(network);
             let chain_id_hex = format!("0x{:X}", chain_config.chain_id);
             let chain_config_function = network_config_function(network);
-            let chain_bame = chain_config.name;
+            let chain_name = chain_config.name;
+
             let chain_base_fee_params: String = build_base_fee_params(chain_config.optimism);
             let chain_hardfork_activations = build_hardfork_activations_for(
                 format!("{chain_module_name} {network}"),
@@ -284,12 +294,12 @@ fn write_chain_module(
             write!(
                 &mut networks_config,
                 "
-                /// `{chain_module_name}` {network} chain id
+                /// '{chain_name}' chain id
                 pub const {chain_id_const_name}: u64 = {chain_id_hex};
                 
-                /// `{chain_module_name}` {network} chain configuration
+                /// '{chain_name}' chain configuration
                 pub(crate) fn {chain_config_function} -> ChainConfig<OpSpecId>{{ ChainConfig {{
-                    name: \"{chain_bame}\".into(),
+                    name: \"{chain_name}\".into(),
                     base_fee_params: {chain_base_fee_params}, 
                     hardfork_activations: {chain_hardfork_activations}
                     }}
@@ -413,19 +423,14 @@ struct OpChainConfig {
     optimism: OpHardforkBaseFeeParams,
 }
 
-struct SuperchainConfiguration {
+struct ChainConfigSpec {
     file_name: String,
     networks: Vec<String>,
 }
 
-struct GeneratedConfiguration {
-    module_name: String,
-    networks: Vec<String>,
-}
-
-impl From<(String, Vec<String>)> for SuperchainConfiguration {
+impl From<(String, Vec<String>)> for ChainConfigSpec {
     fn from((file_name, networks): (String, Vec<String>)) -> Self {
-        SuperchainConfiguration {
+        ChainConfigSpec {
             file_name,
             networks,
         }

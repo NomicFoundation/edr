@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `zora` mainnet chain id
+/// 'Zora' chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x76ADF1;
 
-/// `zora` mainnet chain configuration
+/// 'Zora' chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Zora".into(),
@@ -53,10 +53,10 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     }
 }
 
-/// `zora` sepolia chain id
+/// 'Zora Sepolia Testnet' chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x3B9AC9FF;
 
-/// `zora` sepolia chain configuration
+/// 'Zora Sepolia Testnet' chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Zora Sepolia Testnet".into(),

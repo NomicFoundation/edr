@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `soneium` mainnet chain id
+/// 'Soneium' chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x74C;
 
-/// `soneium` mainnet chain configuration
+/// 'Soneium' chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Soneium".into(),

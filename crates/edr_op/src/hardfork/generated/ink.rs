@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `ink` mainnet chain id
+/// 'Ink' chain id
 pub const MAINNET_CHAIN_ID: u64 = 0xDEF1;
 
-/// `ink` mainnet chain configuration
+/// 'Ink' chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Ink".into(),
@@ -53,10 +53,10 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     }
 }
 
-/// `ink` sepolia chain id
+/// 'Ink Sepolia' chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0xBA5ED;
 
-/// `ink` sepolia chain configuration
+/// 'Ink Sepolia' chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Ink Sepolia".into(),

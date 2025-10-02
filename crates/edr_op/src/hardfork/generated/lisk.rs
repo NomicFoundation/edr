@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `lisk` mainnet chain id
+/// 'Lisk' chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x46F;
 
-/// `lisk` mainnet chain configuration
+/// 'Lisk' chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Lisk".into(),
@@ -53,10 +53,10 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     }
 }
 
-/// `lisk` sepolia chain id
+/// 'Lisk Sepolia Testnet' chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x106A;
 
-/// `lisk` sepolia chain configuration
+/// 'Lisk Sepolia Testnet' chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Lisk Sepolia Testnet".into(),

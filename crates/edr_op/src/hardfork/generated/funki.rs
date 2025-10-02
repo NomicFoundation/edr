@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `funki` mainnet chain id
+/// 'Funki' chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x84BB;
 
-/// `funki` mainnet chain configuration
+/// 'Funki' chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Funki".into(),
@@ -41,10 +41,10 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     }
 }
 
-/// `funki` sepolia chain id
+/// 'Funki Sepolia Testnet' chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x33D90D;
 
-/// `funki` sepolia chain configuration
+/// 'Funki Sepolia Testnet' chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Funki Sepolia Testnet".into(),

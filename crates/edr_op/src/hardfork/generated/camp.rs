@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `camp` sepolia chain id
+/// 'Camp Network Testnet V2' chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x4F588;
 
-/// `camp` sepolia chain configuration
+/// 'Camp Network Testnet V2' chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Camp Network Testnet V2".into(),

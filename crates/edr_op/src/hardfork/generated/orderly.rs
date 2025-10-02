@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `orderly` mainnet chain id
+/// 'Orderly Mainnet' chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x123;
 
-/// `orderly` mainnet chain configuration
+/// 'Orderly Mainnet' chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Orderly Mainnet".into(),

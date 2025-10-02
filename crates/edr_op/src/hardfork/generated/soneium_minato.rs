@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `soneium_minato` sepolia chain id
+/// 'Soneium Testnet Minato' chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x79A;
 
-/// `soneium_minato` sepolia chain configuration
+/// 'Soneium Testnet Minato' chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Soneium Testnet Minato".into(),

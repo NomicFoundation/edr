@@ -7,10 +7,10 @@ use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, Dynam
 use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
-/// `boba` mainnet chain id
+/// 'Boba Mainnet' chain id
 pub const MAINNET_CHAIN_ID: u64 = 0x120;
 
-/// `boba` mainnet chain configuration
+/// 'Boba Mainnet' chain configuration
 pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Boba Mainnet".into(),
@@ -49,10 +49,10 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
     }
 }
 
-/// `boba` sepolia chain id
+/// 'Boba Sepolia Testnet' chain id
 pub const SEPOLIA_CHAIN_ID: u64 = 0x70D2;
 
-/// `boba` sepolia chain configuration
+/// 'Boba Sepolia Testnet' chain configuration
 pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Boba Sepolia Testnet".into(),
