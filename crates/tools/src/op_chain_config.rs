@@ -337,35 +337,16 @@ fn build_hardfork_activations_for(
     chain_name: String,
     hardforks: toml::map::Map<String, toml::Value>,
 ) -> String {
-    let mut activations_str = String::new();
+    let mut activations_str = prepend_initial_hardfork_if_needed(&hardforks);
 
-    for activations in hardforks.iter() {
-        let hardfork_name = activations
-            .0
-            .split_once("_time")
-            .map(|(before_match, _)| before_match);
-
-        let hardfork_name = match hardfork_name {
-            None => {
-                println!(
-                    "{chain_name}: ignoring activation - activation is not time based: {}",
-                    activations.0
-                );
+    for (hardfork, activation_value) in hardforks.iter() {
+        let hardfork = match get_op_hardfork_from(hardfork) {
+            Err(error) => {
+                println!("{chain_name}: ignoring activation - {error}");
                 continue;
             }
-            Some(name) => name,
-        };
-
-        let hardfork = match OpSpecId::from_str(&capitalize_first_letter(hardfork_name)) {
-            Err(_) => {
-                if !KNOWN_IGNORED_HARDFORKS.contains(&hardfork_name) {
-                    println!(
-                            "{chain_name}: ignoring activation - hardfork name is not supported: {hardfork_name}",
-                        );
-                }
-                continue;
-            }
-            Ok(hardfork) => hardfork,
+            Ok(None) => continue,
+            Ok(Some(hardfork)) => hardfork,
         };
         let hardfork_str: &'static str = hardfork.into();
         activations_str.push_str(
@@ -375,13 +356,75 @@ fn build_hardfork_activations_for(
                 condition: ForkCondition::Timestamp({}),
                 hardfork: OpSpecId::{},
             }},",
-                activations.1,
+                activation_value,
                 hardfork_str.to_uppercase()
             )
             .as_str(),
         );
     }
     format!("Activations::new(vec![{activations_str}]),")
+}
+
+/// If not defined, prepend an activation point that defines the chain's
+/// hardfork at genesis. Sets as first hardfork the immediately before to the
+/// first one defined
+fn prepend_initial_hardfork_if_needed(hardforks: &toml::value::Table) -> String {
+    let first_valid_hardfork = hardforks.iter().find_map(|(hardfork, value)| {
+        get_op_hardfork_from(hardfork)
+            .ok()
+            .flatten()
+            .map(|op_hardfork| (op_hardfork, value))
+    });
+    if let Some((first_hardfork, activation_value)) = first_valid_hardfork {
+        match activation_value {
+            toml::Value::Integer(value) if *value != 0 => {
+                // we should add the previous hardfork as first activation
+                if let Some(previous_hardfork) = previous_hardfork(first_hardfork) {
+                    let hardfork_str: &str = previous_hardfork.into();
+                    return format!(
+                        "
+                        hardfork::Activation {{
+                            condition: ForkCondition::Block({}),
+                            hardfork: OpSpecId::{},
+                        }},",
+                        0,
+                        hardfork_str.to_uppercase()
+                    );
+                }
+            }
+            _ => (),
+        }
+    }
+    String::new()
+}
+fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpSpecId>> {
+    let hardfork_name = hardfork_str
+        .split_once("_time")
+        .map(|(before_match, _)| before_match);
+
+    let hardfork_name = match hardfork_name {
+        None => {
+            return Err(OpImporterError {
+                message: format!("activation is not time based: {hardfork_str}"),
+            }
+            .into());
+        }
+        Some(name) => name,
+    };
+
+    match OpSpecId::from_str(&capitalize_first_letter(hardfork_name)) {
+        Err(_) => {
+            if !KNOWN_IGNORED_HARDFORKS.contains(&hardfork_name) {
+                Err(OpImporterError {
+                    message: format!("hardfork name is not supported: {hardfork_name}"),
+                }
+                .into())
+            } else {
+                Ok(None)
+            }
+        }
+        Ok(hardfork) => Ok(Some(hardfork)),
+    }
 }
 fn build_base_fee_params(params: OpHardforkBaseFeeParams) -> String {
     let original_denominator = params.eip1559_denominator;
@@ -449,5 +492,20 @@ fn capitalize_first_letter(s: &str) -> String {
     match chars.next() {
         None => String::new(),
         Some(first_char) => first_char.to_uppercase().chain(chars).collect(),
+    }
+}
+
+fn previous_hardfork(hardfork: OpSpecId) -> Option<OpSpecId> {
+    match hardfork {
+        OpSpecId::BEDROCK => None,
+        OpSpecId::REGOLITH => Some(OpSpecId::BEDROCK),
+        OpSpecId::CANYON => Some(OpSpecId::REGOLITH),
+        OpSpecId::ECOTONE => Some(OpSpecId::CANYON),
+        OpSpecId::FJORD => Some(OpSpecId::ECOTONE),
+        OpSpecId::GRANITE => Some(OpSpecId::FJORD),
+        OpSpecId::HOLOCENE => Some(OpSpecId::GRANITE),
+        OpSpecId::ISTHMUS => Some(OpSpecId::HOLOCENE),
+        OpSpecId::INTEROP => Some(OpSpecId::ISTHMUS),
+        OpSpecId::OSAKA => Some(OpSpecId::INTEROP),
     }
 }

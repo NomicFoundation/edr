@@ -26,6 +26,10 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
         ])),
         hardfork_activations: Activations::new(vec![
             hardfork::Activation {
+                condition: ForkCondition::Block(0),
+                hardfork: OpSpecId::REGOLITH,
+            },
+            hardfork::Activation {
                 condition: ForkCondition::Timestamp(1713302879),
                 hardfork: OpSpecId::CANYON,
             },
@@ -67,6 +71,10 @@ pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
             ),
         ])),
         hardfork_activations: Activations::new(vec![
+            hardfork::Activation {
+                condition: ForkCondition::Block(0),
+                hardfork: OpSpecId::REGOLITH,
+            },
             hardfork::Activation {
                 condition: ForkCondition::Timestamp(1705600788),
                 hardfork: OpSpecId::CANYON,
