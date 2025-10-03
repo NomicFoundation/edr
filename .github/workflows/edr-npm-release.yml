@@ -184,7 +184,7 @@ jobs:
             # fi
             # node -v
 
-            Ensure /usr/bin takes precedence and clear shell hash
+            # Ensure /usr/bin takes precedence and clear shell hash
             export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/sbin:/usr/local/bin:$PATH"
             hash -r
             which node
