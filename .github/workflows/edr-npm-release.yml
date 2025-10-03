@@ -114,29 +114,39 @@ jobs:
               pnpm run build --strip
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
-            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            docker: node:20-alpine3.20
             build: |
               set -e
-
-              apk update
-              apk upgrade --no-cache
-
-              # Have to clean up older Node version / symlinks to be able to install newer version
-              # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
-              corepack disable
-              rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
-
-              apk add --no-cache curl ca-certificates perl nodejs npm
-
-              hash -r
+              apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash cargo rust
               node -v
-
               npm i -g pnpm@10.17.1
               pnpm -v
               pnpm config set store-dir /root/.pnpm-store
               pnpm install --frozen-lockfile --prefer-offline
-
               pnpm run build --strip
+
+
+              # set -e
+
+              # apk update
+              # apk upgrade --no-cache
+
+              # # Have to clean up older Node version / symlinks to be able to install newer version
+              # # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
+              # corepack disable
+              # rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+
+              # apk add --no-cache curl ca-certificates perl nodejs npm
+
+              # hash -r
+              # node -v
+
+              # npm i -g pnpm@10.17.1
+              # pnpm -v
+              # pnpm config set store-dir /root/.pnpm-store
+              # pnpm install --frozen-lockfile --prefer-offline
+
+              # pnpm run build --strip
     defaults:
       run:
         working-directory: ./crates/edr_napi
