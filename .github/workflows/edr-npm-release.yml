@@ -117,9 +117,45 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Build in docker
+      - name: Build in docker (debian-aarch64)
         uses: addnab/docker-run-action@v3
-        if: ${{ matrix.settings.docker }}
+        if: ${{ matrix.settings.target == 'aarch64-unknown-linux-gnu' }}
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: |
+            set -e
+            # # Nuke node / npm / corepack installs
+            # corepack disable
+            # rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+
+            # apk add --no-cache curl ca-certificates
+
+            # npm i -g n@9
+
+            # # point n at the musl-capable mirror
+            # export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
+
+
+            # case "$(uname -m)" in
+            #   x86_64)  N_ARCH=x64-musl ;;
+            #   aarch64) N_ARCH=arm64-musl ;;
+            #   *) echo "Unsupported arch: $(uname -m)"; exit 1 ;;
+            # esac
+            # n --arch "$N_ARCH" 20.19.1
+            # hash -r
+            # node -v  # should be v20.x (musl)
+            # which node
+
+            npm i -g pnpm@10.17.1
+            pnpm -v
+            pnpm config set store-dir /root/.pnpm-store
+            pnpm install --frozen-lockfile --prefer-offline
+            ${{ matrix.settings.build }}
+
+      - name: Build in docker (musl)
+        uses: addnab/docker-run-action@v3
+        if: ${{ contains(matrix.settings.target, 'musl') }}
         with:
           image: ${{ matrix.settings.docker }}
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
@@ -153,7 +189,7 @@ jobs:
             pnpm install --frozen-lockfile --prefer-offline
             ${{ matrix.settings.build }}
 
-      - name: Build
+      - name: Build (non-docker)
         run: ${{ matrix.settings.build }}
         if: ${{ !matrix.settings.docker }}
         shell: bash
