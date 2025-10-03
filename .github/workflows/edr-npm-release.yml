@@ -73,8 +73,7 @@ jobs:
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: |
               set -e
-              apt-get update
-              apt-get install perl -y
+              apk add perl
               pnpm run build --strip
     defaults:
       run:
