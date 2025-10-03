@@ -94,7 +94,7 @@ jobs:
             build: |
               set -e
               pnpm run build --target aarch64-apple-darwin --strip
-          - host: ubuntu-24.04
+          - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
             build: |
@@ -309,7 +309,7 @@ jobs:
         node:
           - "20"
           - "22"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v5
       - name: Setup node and pnpm
@@ -327,11 +327,6 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=glibc
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-      - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
