@@ -50,12 +50,45 @@ jobs:
             docker: node:20-bullseye-slim
             build: |
               set -e
+
+              # Install Rust toolchain
+              apt-get update
+              apt-get install -y curl ca-certificates build-essential pkg-config
+              curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+              export PATH="/root/.cargo/bin:$PATH"
+              rustup target add x86_64-unknown-linux-gnu
+
+              npm i -g pnpm@10.17.1
+              pnpm -v
+              pnpm config set store-dir /root/.pnpm-store
+              pnpm install --frozen-lockfile --prefer-offline
               pnpm run build --target x86_64-unknown-linux-gnu --use-napi-cross --strip
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: |
               set -e        
+
+              # Have to clean up older Node version / symlinks to be able to install newer version
+              # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
+              corepack disable
+              rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+
+              apk add --no-cache curl ca-certificates perl
+
+              # get package manager n at point it at a musl-capable mirror
+              npm i -g n@9
+              export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
+
+              # Install Node 20 using n
+              n --arch x64-musl 20.19.1
+              hash -r
+              node -v
+
+              npm i -g pnpm@10.17.1
+              pnpm -v
+              pnpm config set store-dir /root/.pnpm-store
+              pnpm install --frozen-lockfile --prefer-offline
               pnpm run build --strip
           - host: macos-latest
             target: aarch64-apple-darwin
@@ -67,12 +100,42 @@ jobs:
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
             build: |
               set -e
+              # Have to clean up older Node version / symlinks to be able to install newer version
+              # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
+              corepack disable
+              rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+
+              rustup target add aarch64-unknown-linux-gnu
+
+              npm i -g pnpm@10.17.1
+              pnpm -v
+              pnpm config set store-dir /root/.pnpm-store
+              pnpm install --frozen-lockfile --prefer-offline
               pnpm run build --strip
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: |
               set -e
+
+              apk update
+              apk upgrade --no-cache
+
+              # Have to clean up older Node version / symlinks to be able to install newer version
+              # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
+              corepack disable
+              rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+
+              apk add --no-cache curl ca-certificates perl nodejs npm
+
+              hash -r
+              node -v
+
+              npm i -g pnpm@10.17.1
+              pnpm -v
+              pnpm config set store-dir /root/.pnpm-store
+              pnpm install --frozen-lockfile --prefer-offline
+
               pnpm run build --strip
     defaults:
       run:
@@ -116,88 +179,90 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Build in docker (x86_64-unknown-linux-gnu)
+      - name: Build (docker)
         uses: addnab/docker-run-action@v3
-        if: ${{ matrix.settings.target == 'x86_64-unknown-linux-gnu' }}
+        if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
-          run: |
-            set -e
-            # Install Rust toolchain
-            apt-get update
-            apt-get install -y curl ca-certificates build-essential pkg-config
-            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-            export PATH="/root/.cargo/bin:$PATH"
-            rustup target add x86_64-unknown-linux-gnu
+          run: ${{ matrix.settings.build }}
 
-            npm i -g pnpm@10.17.1
-            pnpm -v
-            pnpm config set store-dir /root/.pnpm-store
-            pnpm install --frozen-lockfile --prefer-offline
-            ${{ matrix.settings.build }}
+      # - name: Build in docker (x86_64-unknown-linux-gnu)
+      #   uses: addnab/docker-run-action@v3
+      #   if: ${{ matrix.settings.target == 'x86_64-unknown-linux-gnu' }}
+      #   with:
+      #     image: ${{ matrix.settings.docker }}
+      #     options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+      #     run: |
+      #       set -e
+      #       # Install Rust toolchain
+      #       apt-get update
+      #       apt-get install -y curl ca-certificates build-essential pkg-config
+      #       curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+      #       export PATH="/root/.cargo/bin:$PATH"
+      #       rustup target add x86_64-unknown-linux-gnu
 
-      - name: Build in docker (debian-aarch64)
-        uses: addnab/docker-run-action@v3
-        if: ${{ matrix.settings.target == 'aarch64-unknown-linux-gnu' }}
-        with:
-          image: ${{ matrix.settings.docker }}
-          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
-          run: |
-            set -e
-            # Have to clean up older Node version / symlinks to be able to install newer version
-            # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
-            corepack disable
-            rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+      #       npm i -g pnpm@10.17.1
+      #       pnpm -v
+      #       pnpm config set store-dir /root/.pnpm-store
+      #       pnpm install --frozen-lockfile --prefer-offline
+      #       ${{ matrix.settings.build }}
 
-            rustup target add aarch64-unknown-linux-gnu
+      # - name: Build in docker (debian-aarch64)
+      #   uses: addnab/docker-run-action@v3
+      #   if: ${{ matrix.settings.target == 'aarch64-unknown-linux-gnu' }}
+      #   with:
+      #     image: ${{ matrix.settings.docker }}
+      #     options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+      #     run: |
+      #       set -e
+      #       # Have to clean up older Node version / symlinks to be able to install newer version
+      #       # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
+      #       corepack disable
+      #       rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
 
-            npm i -g pnpm@10.17.1
-            pnpm -v
-            pnpm config set store-dir /root/.pnpm-store
-            pnpm install --frozen-lockfile --prefer-offline
-            ${{ matrix.settings.build }}
+      #       rustup target add aarch64-unknown-linux-gnu
 
-      - name: Build in docker (musl)
-        uses: addnab/docker-run-action@v3
-        if: ${{ contains(matrix.settings.target, 'musl') }}
-        with:
-          image: ${{ matrix.settings.docker }}
-          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
-          run: |
-            set -e
-            # Have to clean up older Node version / symlinks to be able to install newer version
-            # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
-            corepack disable
-            rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+      #       npm i -g pnpm@10.17.1
+      #       pnpm -v
+      #       pnpm config set store-dir /root/.pnpm-store
+      #       pnpm install --frozen-lockfile --prefer-offline
+      #       ${{ matrix.settings.build }}
 
-            apk add --no-cache curl ca-certificates perl nodejs npm
+      # - name: Build in docker (musl)
+      #   uses: addnab/docker-run-action@v3
+      #   if: ${{ contains(matrix.settings.target, 'musl') }}
+      #   with:
+      #     image: ${{ matrix.settings.docker }}
+      #     options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+      #     run: |
+      #       set -e
+      #       # Have to clean up older Node version / symlinks to be able to install newer version
+      #       # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
+      #       corepack disable
+      #       rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
 
-            # ARCH="$(uname -m)"
-            # if [ "$ARCH" = "x86_64" ]; then
-            #   # get package manager n at point it at a musl-capable mirro
-            #   npm i -g n@9
-            #   export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
-            #   n --arch x64-musl 20.19.1
-            #   hash -r
-            # else
-            # fi
-            # node -v
+      #       apk add --no-cache curl ca-certificates perl
 
-            # Ensure /usr/bin takes precedence and clear shell hash
-            export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/sbin:/usr/local/bin:$PATH"
-            hash -r
-            which node
-            node -v
-            ls -l /usr/local/bin/node || true
-            ls -l /usr/bin/node || true
+      #       # get package manager n at point it at a musl-capable mirror
+      #       npm i -g n@9
+      #       export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
 
+      #       # Install Node 20 using n
+      #       case "$(uname -m)" in
+      #         x86_64)  N_ARCH=x64-musl ;;
+      #         aarch64) N_ARCH=arm64-musl ;;
+      #         *) echo "Unsupported arch: $(uname -m)"; exit 1 ;;
+      #       esac
+      #       n --arch "$N_ARCH" 20.19.1
+      #       hash -r
+      #       node -v
 
-            npm i -g pnpm@10.17.1
-            pnpm -v
-            pnpm config set store-dir /root/.pnpm-store
-            pnpm install --frozen-lockfile --prefer-offline
-            ${{ matrix.settings.build }}
+      #       npm i -g pnpm@10.17.1
+      #       pnpm -v
+      #       pnpm config set store-dir /root/.pnpm-store
+      #       pnpm install --frozen-lockfile --prefer-offline
+      #       ${{ matrix.settings.build }}
 
       - name: Build (non-docker)
         run: ${{ matrix.settings.build }}
