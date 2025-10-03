@@ -132,7 +132,8 @@ jobs:
             npm i -g n@9
 
             
-            export N_NODE_MIRROR="https://nodejs.org/dist"
+            export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
+
 
             case "$(uname -m)" in
               x86_64)  N_ARCH=x64-musl ;;
