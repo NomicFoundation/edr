@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use edr_block_api::Block;
 use edr_eth::PreEip1898BlockSpec;
 use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     blockchain::BlockchainErrorForChainSpec,
-    transaction, Block,
+    transaction,
 };
 use edr_evm_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,

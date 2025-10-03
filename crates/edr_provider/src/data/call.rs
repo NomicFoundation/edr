@@ -1,16 +1,14 @@
 use edr_block_header::BlockHeader;
+use edr_blockchain_api::BlockHash;
+use edr_database_components::DatabaseComponents;
 use edr_evm::{
-    blockchain::{BlockHash, BlockchainErrorForChainSpec},
-    config::CfgEnv,
-    inspector::Inspector,
-    precompile::PrecompileFn,
-    result::ExecutionResult,
-    runtime::guaranteed_dry_run_with_inspector,
-    spec::ContextForChainSpec,
-    state::{DatabaseComponents, State, StateError, WrapDatabaseRef},
+    blockchain::BlockchainErrorForChainSpec, config::CfgEnv, inspector::Inspector,
+    precompile::PrecompileFn, result::ExecutionResult, runtime::guaranteed_dry_run_with_inspector,
+    spec::ContextForChainSpec, state::WrapDatabaseRef,
 };
 use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, HashMap};
+use edr_state_api::{State, StateError};
 
 use crate::{
     error::ProviderErrorForChainSpec, time::TimeSinceEpoch, ProviderError, SyncProviderSpec,

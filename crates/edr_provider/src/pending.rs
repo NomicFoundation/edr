@@ -1,17 +1,17 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
+use edr_block_api::{Block as _, BlockAndTotalDifficulty};
+use edr_blockchain_api::{BlockHash, Blockchain, BlockchainMut};
 use edr_evm::{
-    blockchain::{
-        BlockHash, Blockchain, BlockchainErrorForChainSpec, BlockchainMut, SyncBlockchain,
-    },
+    blockchain::{BlockchainErrorForChainSpec, SyncBlockchainForChainSpec},
     spec::SyncRuntimeSpec,
-    state::{StateDiff, StateError, StateOverride, SyncState},
-    Block as _, BlockAndTotalDifficulty, BlockReceipts,
+    BlockReceipts,
 };
 use edr_evm_spec::ExecutableTransaction as _;
 use edr_primitives::{Address, HashSet, B256};
 use edr_receipt::{log::FilterLog, ReceiptTrait as _};
+use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};
 use edr_transaction::U256;
 
 /// A blockchain with a pending block.
@@ -26,9 +26,9 @@ use edr_transaction::U256;
 /// <https://github.com/NomicFoundation/edr/issues/284>
 #[derive_where(Debug)]
 pub(crate) struct BlockchainWithPending<'blockchain, ChainSpecT: SyncRuntimeSpec> {
-    blockchain: &'blockchain dyn SyncBlockchain<
-        ChainSpecT,
+    blockchain: &'blockchain dyn SyncBlockchainForChainSpec<
         BlockchainErrorForChainSpec<ChainSpecT>,
+        ChainSpecT,
         StateError,
     >,
     pending_block: Arc<ChainSpecT::LocalBlock>,
@@ -39,9 +39,9 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain
     /// Constructs a new instance with the provided blockchain and pending
     /// block.
     pub fn new(
-        blockchain: &'blockchain dyn SyncBlockchain<
-            ChainSpecT,
+        blockchain: &'blockchain dyn SyncBlockchainForChainSpec<
             BlockchainErrorForChainSpec<ChainSpecT>,
+            ChainSpecT,
             StateError,
         >,
         pending_block: ChainSpecT::LocalBlock,
@@ -55,7 +55,8 @@ impl<'blockchain, ChainSpecT: SyncRuntimeSpec> BlockchainWithPending<'blockchain
     }
 }
 
-impl<ChainSpecT> Blockchain<ChainSpecT> for BlockchainWithPending<'_, ChainSpecT>
+impl<ChainSpecT> Blockchain<ChainSpecT::Block, ChainSpecT::BlockReceipt, ChainSpecT::Hardfork>
+    for BlockchainWithPending<'_, ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
         LocalBlock: BlockReceipts<
@@ -212,7 +213,8 @@ where
     }
 }
 
-impl<ChainSpecT: SyncRuntimeSpec> BlockchainMut<ChainSpecT>
+impl<ChainSpecT: SyncRuntimeSpec>
+    BlockchainMut<ChainSpecT::Block, ChainSpecT::LocalBlock, ChainSpecT::SignedTransaction>
     for BlockchainWithPending<'_, ChainSpecT>
 {
     type Error = BlockchainErrorForChainSpec<ChainSpecT>;

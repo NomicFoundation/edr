@@ -3,7 +3,7 @@ use std::{
     fmt::Debug,
 };
 
-use super::StateOverride;
+use edr_state_api::StateOverride;
 
 /// Container for state that was modified outside of mining a block.
 #[derive(Clone, Debug, Default)]

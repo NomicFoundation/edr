@@ -15,7 +15,7 @@ pub mod log;
 mod transaction;
 
 use auto_impl::auto_impl;
-use edr_primitives::{Address, Bloom, BloomInput, HashSet, B256};
+use edr_primitives::{Address, Bloom, B256};
 pub use revm_context_interface::result::{ExecutionResult, Output};
 
 pub use self::{block::BlockReceipt, factory::ReceiptFactory, transaction::TransactionReceipt};

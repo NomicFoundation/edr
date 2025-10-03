@@ -4,7 +4,7 @@ use cita_trie::{PatriciaTrie, Trie};
 use edr_primitives::B256;
 use hasher::{Hasher, HasherKeccak};
 
-use crate::state::trie::persistent_memory_db::PersistentMemoryDB;
+use crate::persistent_db::PersistentMemoryDB;
 
 /// A light wrapper over the DB of the Merkle-Patricia trie that allows us to
 /// read, add and remove elements.

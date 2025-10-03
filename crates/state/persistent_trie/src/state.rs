@@ -1,25 +1,22 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
 use edr_primitives::{Address, HashMap, B256, U256};
-use edr_state::account::{Account, AccountInfo, BasicAccount};
+use edr_state_api::account::{Account, AccountInfo, BasicAccount};
 use hasher::{Hasher, HasherKeccak};
 use rpds::HashTrieMapSync;
 
-use crate::state::trie::{
-    state_trie::{StateTrie, StateTrieMutation},
-    storage_trie::StorageTrie,
-};
+use crate::{account::AccountTrieMutation, storage::StorageTrie, PersistentAccountTrie};
 
 type StorageTries = HashTrieMapSync<Address, StorageTrie>;
 
 /// A trie for maintaining the state of accounts and their storage.
 #[derive(Clone, Debug, Default)]
-pub struct AccountTrie {
-    state_trie: StateTrie,
+pub struct PersistentAccountAndStorageTrie {
+    account_trie: PersistentAccountTrie,
     storage_tries: StorageTries,
 }
 
-impl AccountTrie {
+impl PersistentAccountAndStorageTrie {
     /// Constructs a `TrieState` from an (address -> account) mapping.
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     pub fn with_accounts(accounts: &HashMap<Address, AccountInfo>) -> Self {
@@ -40,7 +37,7 @@ impl AccountTrie {
     /// state.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub fn account(&self, address: &Address) -> Option<BasicAccount> {
-        self.state_trie.account(address)
+        self.account_trie.account(address)
     }
 
     /// Retrieves the storage corresponding to the account at the
@@ -109,7 +106,7 @@ impl AccountTrie {
             .storage_tries
             .iter()
             .filter_map(|(address, storage_trie)| {
-                let account = self.state_trie.account(address)
+                let account = self.account_trie.account(address)
                     .unwrap_or_else(|| {
                         let hashed_address = HasherKeccak::new().digest(address.as_slice());
                         panic!("Account with address '{address}' and hashed address '{hashed_address:?}' must exist in state, if a storage trie is stored for it")
@@ -155,7 +152,7 @@ impl AccountTrie {
     /// Retrieves the trie's state root.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub fn state_root(&self) -> B256 {
-        self.state_trie.root()
+        self.account_trie.root()
     }
 
     /// Retrieves the storage root of the account at the specified address.
@@ -164,9 +161,9 @@ impl AccountTrie {
         self.storage_tries.get(address).map(StorageTrie::root)
     }
 
-    fn mutate(&mut self) -> AccountTrieMutation<'_> {
-        AccountTrieMutation {
-            state_trie_mut: self.state_trie.mutate(),
+    fn mutate(&mut self) -> AccountAndStorageTrieMutation<'_> {
+        AccountAndStorageTrieMutation {
+            account_trie_mut: self.account_trie.mutate(),
             storage_tries: &mut self.storage_tries,
         }
     }
@@ -174,12 +171,12 @@ impl AccountTrie {
 
 /// Helper struct that allows setting and removing multiple accounts and then
 /// updates the state root.
-struct AccountTrieMutation<'a> {
-    state_trie_mut: StateTrieMutation<'a>,
+struct AccountAndStorageTrieMutation<'a> {
+    account_trie_mut: AccountTrieMutation<'a>,
     storage_tries: &'a mut StorageTries,
 }
 
-impl AccountTrieMutation<'_> {
+impl AccountAndStorageTrieMutation<'_> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub fn init_account(&mut self, address: &Address, account_info: &AccountInfo) {
         let storage_trie = StorageTrie::default();
@@ -187,7 +184,7 @@ impl AccountTrieMutation<'_> {
 
         self.storage_tries.insert_mut(*address, storage_trie);
 
-        self.state_trie_mut.insert_account_info_with_storage_root(
+        self.account_trie_mut.insert_account_info_with_storage_root(
             address,
             account_info,
             storage_root,
@@ -206,7 +203,7 @@ impl AccountTrieMutation<'_> {
             root
         };
 
-        self.state_trie_mut.insert_account_info_with_storage_root(
+        self.account_trie_mut.insert_account_info_with_storage_root(
             address,
             account_info,
             storage_root,
@@ -237,7 +234,7 @@ impl AccountTrieMutation<'_> {
             root
         };
 
-        self.state_trie_mut.insert_account_info_with_storage_root(
+        self.account_trie_mut.insert_account_info_with_storage_root(
             address,
             &account.info,
             storage_root,
@@ -267,7 +264,7 @@ impl AccountTrieMutation<'_> {
                 (storage_root, old_value)
             };
 
-        let account = if let Some(mut account) = self.state_trie_mut.account(address) {
+        let account = if let Some(mut account) = self.account_trie_mut.account(address) {
             account.storage_root = storage_root;
             account
         } else {
@@ -280,7 +277,7 @@ impl AccountTrieMutation<'_> {
             }
         };
 
-        self.state_trie_mut.insert_basic_account(address, account);
+        self.account_trie_mut.insert_basic_account(address, account);
 
         Ok(old_value)
     }
@@ -289,10 +286,10 @@ impl AccountTrieMutation<'_> {
     /// the provided state trie and storage tries, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     pub fn remove_account(&mut self, address: &Address) -> Option<BasicAccount> {
-        let account = self.state_trie_mut.account(address);
+        let account = self.account_trie_mut.account(address);
 
         if account.is_some() {
-            self.state_trie_mut.remove_account(address);
+            self.account_trie_mut.remove_account(address);
 
             self.remove_account_storage(address);
         }
@@ -309,7 +306,7 @@ impl AccountTrieMutation<'_> {
 #[cfg(test)]
 mod tests {
     use edr_primitives::KECCAK_NULL_RLP;
-    use edr_state::state_root;
+    use edr_state_api::state_root;
 
     use super::*;
 
@@ -329,7 +326,7 @@ mod tests {
     #[test]
     #[allow(clippy::redundant_clone)]
     fn clone_empty() {
-        let state = AccountTrie::default();
+        let state = PersistentAccountAndStorageTrie::default();
         let cloned_state = state.clone();
 
         assert_eq!(state.state_root(), cloned_state.state_root());
@@ -340,7 +337,7 @@ mod tests {
     fn clone_precompiles() {
         let accounts = precompiled_contracts();
 
-        let state = AccountTrie::with_accounts(&accounts);
+        let state = PersistentAccountAndStorageTrie::with_accounts(&accounts);
         let cloned_state = state.clone();
 
         assert_eq!(state.state_root(), cloned_state.state_root());
@@ -348,7 +345,7 @@ mod tests {
 
     #[test]
     fn default_empty() {
-        let state = AccountTrie::default();
+        let state = PersistentAccountAndStorageTrie::default();
 
         assert_eq!(state.state_root(), KECCAK_NULL_RLP);
     }
@@ -356,7 +353,7 @@ mod tests {
     #[test]
     fn with_accounts_empty() {
         let accounts = HashMap::new();
-        let state = AccountTrie::with_accounts(&accounts);
+        let state = PersistentAccountAndStorageTrie::with_accounts(&accounts);
 
         assert_eq!(state.state_root(), KECCAK_NULL_RLP);
     }
@@ -382,7 +379,7 @@ mod tests {
 
         let old = state_root(old.iter());
 
-        let state = AccountTrie::with_accounts(&accounts);
+        let state = PersistentAccountAndStorageTrie::with_accounts(&accounts);
 
         assert_eq!(state.state_root(), old);
     }

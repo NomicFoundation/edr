@@ -1,16 +1,18 @@
 use edr_block_header::{HeaderOverrides, PartialHeader};
+use edr_database_components::DatabaseComponents;
 use edr_eip1559::ConstantBaseFeeParams;
 use edr_evm::{
-    blockchain::SyncBlockchain,
+    blockchain::SyncBlockchainForChainSpec,
     config::CfgEnv,
     inspector::Inspector,
     precompile::PrecompileFn,
     spec::{base_fee_params_for, ContextForChainSpec},
-    state::{DatabaseComponents, SyncState, WrapDatabaseRef},
+    state::WrapDatabaseRef,
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionErrorForChainSpec,
     EthBlockBuilder, MineBlockResultAndState,
 };
 use edr_primitives::{Address, Bytes, HashMap, KECCAK_NULL_RLP, U256};
+use edr_state_api::SyncState;
 use op_revm::{L1BlockInfo, OpHaltReason};
 
 use crate::{
@@ -38,12 +40,12 @@ where
     type StateError = StateErrorT;
 
     fn new_block_builder(
-        blockchain: &'builder dyn edr_evm::blockchain::SyncBlockchain<
-            OpChainSpec,
+        blockchain: &'builder dyn SyncBlockchainForChainSpec<
             Self::BlockchainError,
+            OpChainSpec,
             Self::StateError,
         >,
-        state: Box<dyn edr_evm::state::SyncState<Self::StateError>>,
+        state: Box<dyn SyncState<Self::StateError>>,
         cfg: CfgEnv<Hardfork>,
         mut inputs: BlockInputs,
         mut overrides: HeaderOverrides<Hardfork>,
@@ -170,9 +172,9 @@ where
                 OpChainSpec,
                 WrapDatabaseRef<
                     DatabaseComponents<
-                        &'inspector dyn SyncBlockchain<
-                            OpChainSpec,
+                        &'inspector dyn SyncBlockchainForChainSpec<
                             Self::BlockchainError,
+                            OpChainSpec,
                             Self::StateError,
                         >,
                         &'inspector dyn SyncState<Self::StateError>,

@@ -1,18 +1,19 @@
 use std::collections::BTreeMap;
 
 use edr_block_header::BlockConfig;
+use edr_blockchain_api::Blockchain as _;
 use edr_chain_l1::L1ChainSpec;
 use edr_evm::{
-    blockchain::{Blockchain, LocalBlockchain},
+    blockchain::LocalBlockchain,
     eips::eip2935::{
         add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
         HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
     },
     spec::{base_fee_params_for, GenesisBlockFactory as _},
-    state::StateDiff,
     GenesisBlockOptions, RandomHashGenerator,
 };
 use edr_primitives::Bytecode;
+use edr_state_api::StateDiff;
 
 fn local_blockchain(genesis_diff: StateDiff) -> anyhow::Result<LocalBlockchain<L1ChainSpec>> {
     const CHAIN_ID: u64 = 0x7a69;
@@ -129,7 +130,7 @@ mod remote {
     #[tokio::test(flavor = "multi_thread")]
     #[serial_test::serial]
     async fn forked_blockchain_pre_prague_activation_with_cancun() -> anyhow::Result<()> {
-        use edr_state::account::AccountInfo;
+        use edr_state_api::account::AccountInfo;
 
         const PRE_PRAGUE_BLOCK_NUMBER: u64 = 19_426_589;
 

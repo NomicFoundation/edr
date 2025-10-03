@@ -1,6 +1,7 @@
 use derive_more::Debug;
 use edr_primitives::{hex, Address, HashMap, U256};
 use edr_solidity_tests::{backend::Predeploy, revm::state::AccountInfo};
+use edr_state_api::EvmStorageSlot;
 use napi::bindgen_prelude::{BigInt, Uint8Array};
 use napi_derive::napi;
 
@@ -53,7 +54,7 @@ impl TryFrom<AccountOverride> for (Address, edr_provider::AccountOverride) {
                     .into_iter()
                     .map(|StorageSlot { index, value }| {
                         let value = value.try_cast()?;
-                        let slot = edr_evm::state::EvmStorageSlot::new(value, 0);
+                        let slot = EvmStorageSlot::new(value, 0);
 
                         let index: U256 = index.try_cast()?;
                         Ok((index, slot))

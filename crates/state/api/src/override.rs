@@ -1,6 +1,6 @@
 use edr_primitives::B256;
 
-use super::StateDiff;
+use crate::StateDiff;
 
 /// Data for overriding a state with a diff and the state's resulting state
 /// root.

@@ -1,5 +1,7 @@
+use edr_primitives::Bloom;
+
 use super::Eip658;
-use crate::{Bloom, ExecutionReceipt, MapReceiptLogs, RootOrStatus};
+use crate::{ExecutionReceipt, MapReceiptLogs, RootOrStatus};
 
 impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Eip658<NewLogT>> for Eip658<LogT> {
     fn map_logs(self, map_fn: impl FnMut(LogT) -> NewLogT) -> Eip658<NewLogT> {

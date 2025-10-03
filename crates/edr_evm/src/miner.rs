@@ -1,25 +1,28 @@
 use std::{cmp::Ordering, fmt::Debug};
 
+use edr_block_api::Block as _;
 use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides};
+use edr_database_components::DatabaseComponents;
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EvmTransactionValidationError, ExecutableTransaction,
     HaltReasonTrait, TransactionValidation,
 };
 use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;
+use edr_state_api::{StateDiff, SyncState};
 use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     block::BlockBuilderCreationError,
-    blockchain::SyncBlockchain,
+    blockchain::SyncBlockchainForChainSpec,
     config::CfgEnv,
     mempool::OrderedTransaction,
     result::ExecutionResult,
     spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
-    state::{DatabaseComponents, StateDiff, SyncState, WrapDatabaseRef},
+    state::WrapDatabaseRef,
     transaction::TransactionError,
-    Block as _, BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
+    BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
 };
 
 /// The result of mining a block, including the state. This result needs to be
@@ -91,7 +94,7 @@ pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionVal
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
-    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    blockchain: &dyn SyncBlockchainForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
     cfg: &CfgEnv<ChainSpecT::Hardfork>,
@@ -117,7 +120,11 @@ where
             ChainSpecT,
             WrapDatabaseRef<
                 DatabaseComponents<
-                    &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                    &'inspector dyn SyncBlockchainForChainSpec<
+                        BlockchainErrorT,
+                        ChainSpecT,
+                        StateErrorT,
+                    >,
                     &'inspector dyn SyncState<StateErrorT>,
                 >,
             >,
@@ -297,7 +304,7 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block_with_single_transaction<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
-    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    blockchain: &dyn SyncBlockchainForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: ChainSpecT::SignedTransaction,
     cfg: &CfgEnv<ChainSpecT::Hardfork>,
@@ -322,7 +329,11 @@ where
             ChainSpecT,
             WrapDatabaseRef<
                 DatabaseComponents<
-                    &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                    &'inspector dyn SyncBlockchainForChainSpec<
+                        BlockchainErrorT,
+                        ChainSpecT,
+                        StateErrorT,
+                    >,
                     &'inspector dyn SyncState<StateErrorT>,
                 >,
             >,
@@ -461,7 +472,7 @@ fn priority_comparator<SignedTransactionT: ExecutableTransaction>(
 #[cfg(test)]
 mod tests {
     use edr_primitives::U256;
-    use edr_state::account::AccountInfo;
+    use edr_state_api::account::AccountInfo;
 
     use super::*;
     use crate::test_utils::{

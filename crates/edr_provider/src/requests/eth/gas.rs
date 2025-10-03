@@ -1,5 +1,6 @@
+use edr_block_api::Block as _;
 use edr_eth::{fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, BlockSpec};
-use edr_evm::{state::StateOverrides, transaction, Block as _};
+use edr_evm::{state::StateOverrides, transaction};
 use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{U256, U64};
 use edr_signer::FakeSign as _;

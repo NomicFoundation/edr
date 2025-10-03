@@ -1,7 +1,10 @@
 [workspace]
 members = [
     # EDR
+    "crates/block/api",
     "crates/block/header",
+    "crates/blockchain/api",
+    "crates/database/components",
     "crates/edr_chain_l1",
     "crates/edr_common",
     "crates/edr_coverage",
@@ -29,7 +32,9 @@ members = [
     "crates/eips/4844",
     "crates/eips/7702",
     "crates/primitives",
-    "crates/state",
+    "crates/state/api",
+    "crates/state/persistent_trie",
+    "crates/state/remote",
     "crates/tools",
     "crates/trie",
     # Foundry
@@ -96,10 +101,13 @@ foundry-evm-fuzz.opt-level = 3
 scrypt.opt-level = 3
 
 [workspace.dependencies]
+edr_block_api = { path = "crates/block/api" }
 edr_block_header = { path = "crates/block/header" }
+edr_blockchain_api = { path = "crates/blockchain/api" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
+edr_database_components = { path = "crates/database/components" }
 edr_defaults = { path = "crates/edr_defaults" }
 edr_eip1559 = { path = "crates/eips/1559" }
 edr_eip2930 = { path = "crates/eips/2930" }
@@ -122,7 +130,9 @@ edr_scenarios = { path = "crates/edr_scenarios" }
 edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
-edr_state = { path = "crates/state" }
+edr_state_api = { path = "crates/state/api" }
+edr_state_persistent_trie = { path = "crates/state/persistent_trie" }
+edr_state_remote = { path = "crates/state/remote" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 edr_transaction = { path = "crates/edr_transaction" }
 edr_trie = { path = "crates/trie" }
@@ -228,6 +238,7 @@ itertools = "0.12"
 jsonpath_lib = "0.3"
 k256 = "0.13"
 log = { version = "0.4.17", default-features = false }
+parking_lot = { version = "0.12.1", default-features = false }
 paste = { version = "1.0.14", default-features = false }
 semver = { version = "1.0.26", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }

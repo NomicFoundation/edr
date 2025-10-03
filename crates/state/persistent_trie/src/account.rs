@@ -2,17 +2,18 @@ use std::sync::Arc;
 
 use alloy_rlp::Decodable;
 use edr_primitives::{Address, B256};
-use edr_state::account::{AccountInfo, BasicAccount};
+use edr_state_api::account::{AccountInfo, BasicAccount};
 
-use crate::state::trie::{persistent_memory_db::PersistentMemoryDB, trie_query::TrieQuery};
+use crate::{persistent_db::PersistentMemoryDB, query::TrieQuery};
 
 #[derive(Debug)]
-pub(super) struct StateTrie {
+pub(super) struct PersistentAccountTrie {
     db: Arc<PersistentMemoryDB>,
     root: B256,
 }
 
-impl<'a> StateTrie {
+impl PersistentAccountTrie {
+    /// Retrieves the account for the given address, if it exists.
     pub fn account(&self, address: &Address) -> Option<BasicAccount> {
         self.trie_query().get(address).map(|encoded_account| {
             BasicAccount::decode(&mut encoded_account.as_slice()).expect("Valid RLP")
@@ -21,10 +22,10 @@ impl<'a> StateTrie {
 
     /// Create a helper struct that allows setting and removing multiple
     /// accounts and then updates the state root when dropped.
-    pub fn mutate(&'a mut self) -> StateTrieMutation<'a> {
+    pub fn mutate(&mut self) -> AccountTrieMutation<'_> {
         let trie_query = self.trie_query();
-        StateTrieMutation {
-            state_trie: self,
+        AccountTrieMutation {
+            account_trie: self,
             trie_query,
         }
     }
@@ -38,7 +39,7 @@ impl<'a> StateTrie {
     }
 }
 
-impl Clone for StateTrie {
+impl Clone for PersistentAccountTrie {
     fn clone(&self) -> Self {
         Self {
             db: Arc::new((*self.db).clone()),
@@ -47,7 +48,7 @@ impl Clone for StateTrie {
     }
 }
 
-impl Default for StateTrie {
+impl Default for PersistentAccountTrie {
     fn default() -> Self {
         let db = Arc::new(PersistentMemoryDB::default());
         let mut trie = TrieQuery::empty(Arc::clone(&db));
@@ -57,16 +58,16 @@ impl Default for StateTrie {
     }
 }
 
-/// A helper struct lets us update multiple accounts and
-/// updates the state root when dropped.
-pub(super) struct StateTrieMutation<'a> {
-    state_trie: &'a mut StateTrie,
+/// A helper struct that lets us update multiple accounts and updates the
+/// account trie root when dropped.
+pub struct AccountTrieMutation<'a> {
+    account_trie: &'a mut PersistentAccountTrie,
     trie_query: TrieQuery,
 }
 
-impl StateTrieMutation<'_> {
+impl AccountTrieMutation<'_> {
     pub fn account(&self, address: &Address) -> Option<BasicAccount> {
-        self.state_trie.account(address)
+        self.account_trie.account(address)
     }
 
     pub fn remove_account(&mut self, address: &Address) {
@@ -88,8 +89,8 @@ impl StateTrieMutation<'_> {
     }
 }
 
-impl Drop for StateTrieMutation<'_> {
+impl Drop for AccountTrieMutation<'_> {
     fn drop(&mut self) {
-        self.state_trie.root = self.trie_query.root();
+        self.account_trie.root = self.trie_query.root();
     }
 }

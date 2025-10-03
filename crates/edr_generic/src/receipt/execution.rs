@@ -1,6 +1,7 @@
 use edr_block_header::PartialHeader;
-use edr_evm::{receipt::ExecutionReceiptBuilder, result::ExecutionResult, state::State};
+use edr_evm::{receipt::ExecutionReceiptBuilder, result::ExecutionResult};
 use edr_receipt::log::{logs_to_bloom, ExecutionLog};
+use edr_state_api::State;
 use edr_transaction::TransactionType;
 
 use crate::{eip2718::TypedEnvelope, transaction};

@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
+use edr_block_api::Block;
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{hash_map::OccupiedError, Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{
@@ -9,7 +10,7 @@ use edr_receipt::{
 };
 
 use super::InsertError;
-use crate::{Block, BlockReceipts};
+use crate::BlockReceipts;
 
 /// A storage solution for storing a subset of a Blockchain's blocks in-memory.
 #[derive(Debug)]
