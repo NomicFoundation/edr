@@ -55,7 +55,7 @@ jobs:
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: |
               set -e
-              apk add perl             
+              apk --no-cache add perl             
               pnpm run build --strip
           - host: macos-latest
             target: aarch64-apple-darwin
@@ -73,7 +73,7 @@ jobs:
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: |
               set -e
-              apk add perl
+              apk --no-cache add perl
               pnpm run build --strip
     defaults:
       run:
@@ -125,9 +125,9 @@ jobs:
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
-            # # Nuke node / npm / corepack installs
-            # corepack disable
-            # rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+            # Nuke node / npm / corepack installs
+            corepack disable
+            rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
 
             # apk add --no-cache curl ca-certificates
 
