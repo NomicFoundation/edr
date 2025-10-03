@@ -47,8 +47,9 @@ jobs:
             build: pnpm run build --target x86_64-pc-windows-msvc --strip
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            docker: node:20-bullseye-slim
             build: |
-              set -euo pipefail
+              set -e
               pnpm run build --target x86_64-unknown-linux-gnu --use-napi-cross --strip
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
@@ -95,7 +96,7 @@ jobs:
           targets: ${{ matrix.settings.target }}
           components: rust-src
 
-      - name: Setup node and pnpm
+      - name: Setup node and pnpm (non-docker)
         if: ${{ !matrix.settings.docker }}
         uses: ./.github/actions/setup-node
 
@@ -115,6 +116,33 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      # Have to clean up older Node version / symlinks to be able to install newer version
+      - name: Nuke node / npm / corepack installs for Docker
+        if: ${{ matrix.settings.docker }}
+        with:
+          image: ${{ matrix.settings.docker }}
+          run: |
+            set -e            
+
+            corepack disable
+            rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+
+      - name: Build in docker (x86_64-unknown-linux-gnu)
+        uses: addnab/docker-run-action@v3
+        if: ${{ matrix.settings.target == 'x86_64-unknown-linux-gnu' }}
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: |
+            set -e
+            rustup target add x86_64-unknown-linux-gnu
+
+            npm i -g pnpm@10.17.1
+            pnpm -v
+            pnpm config set store-dir /root/.pnpm-store
+            pnpm install --frozen-lockfile --prefer-offline
+            ${{ matrix.settings.build }}
+
       - name: Build in docker (debian-aarch64)
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.target == 'aarch64-unknown-linux-gnu' }}
@@ -122,35 +150,12 @@ jobs:
           image: ${{ matrix.settings.docker }}
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
-            set -e            
+            set -e
             rustup target add aarch64-unknown-linux-gnu
-
-            # Nuke node / npm / corepack installs
-            corepack disable
-            rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
-
-            # apk add --no-cache curl ca-certificates
-
-            # npm i -g n@9
-
-            # # point n at the musl-capable mirror
-            # export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
-
-
-            # case "$(uname -m)" in
-            #   x86_64)  N_ARCH=x64-musl ;;
-            #   aarch64) N_ARCH=arm64-musl ;;
-            #   *) echo "Unsupported arch: $(uname -m)"; exit 1 ;;
-            # esac
-            # n --arch "$N_ARCH" 20.19.1
-            # hash -r
-            # node -v  # should be v20.x (musl)
-            # which node
 
             npm i -g pnpm@10.17.1
             pnpm -v
             pnpm config set store-dir /root/.pnpm-store
-
             pnpm install --frozen-lockfile --prefer-offline
             ${{ matrix.settings.build }}
 
@@ -162,18 +167,13 @@ jobs:
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
-            # Nuke node / npm / corepack installs
-            corepack disable
-            rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
-
             apk add --no-cache curl ca-certificates perl
 
+            # get package manager n at point it at a musl-capable mirror
             npm i -g n@9
-
-            # point n at the musl-capable mirror
             export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
 
-
+            # Install Node 20 using n
             case "$(uname -m)" in
               x86_64)  N_ARCH=x64-musl ;;
               aarch64) N_ARCH=arm64-musl ;;
@@ -181,8 +181,7 @@ jobs:
             esac
             n --arch "$N_ARCH" 20.19.1
             hash -r
-            node -v  # should be v20.x (musl)
-            which node
+            node -v
 
             npm i -g pnpm@10.17.1
             pnpm -v
@@ -230,8 +229,10 @@ jobs:
         working-directory: ./crates/edr_napi
     steps:
       - uses: actions/checkout@v5
-      - name: Setup node
+      - name: Setup node and pnpm
         uses: ./.github/actions/setup-node
+        with:
+          node-version: ${{ matrix.node }}
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
@@ -255,11 +256,13 @@ jobs:
         node:
           - "20"
           - "22"
-    runs-on: ${{ contains(matrix.target, 'aarch64') && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v5
-      - name: Setup node
+      - name: Setup node and pnpm
         uses: ./.github/actions/setup-node
+        with:
+          node-version: ${{ matrix.node }}
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
@@ -287,7 +290,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-node
+      - name: Setup node and pnpm
+        uses: ./.github/actions/setup-node
         with:
           node-version: ${{ matrix.node }}
       - name: Install dependencies
@@ -316,9 +320,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - name: Setup node and pnpm
+        uses: ./.github/actions/setup-node
         with:
-          version: 10
+          node-version: ${{ matrix.node }}
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
@@ -358,9 +363,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - name: Setup node and pnpm
+        uses: ./.github/actions/setup-node
         with:
-          version: 10
+          node-version: ${{ matrix.node }}
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
