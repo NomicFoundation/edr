@@ -105,6 +105,8 @@ jobs:
               corepack disable
               rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
 
+              rustup update stable
+              rustup default stable
               rustup target add aarch64-unknown-linux-gnu
 
               npm i -g pnpm@10.17.1
@@ -117,7 +119,10 @@ jobs:
             docker: node:20-alpine3.20
             build: |
               set -e
-              apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash cargo rust
+              apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+              rustup update stable
+              rustup default stable
+              rustup target add aarch64-unknown-linux-musl
               node -v
               npm i -g pnpm@10.17.1
               pnpm -v
