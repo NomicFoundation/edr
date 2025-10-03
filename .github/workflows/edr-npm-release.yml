@@ -118,12 +118,12 @@ jobs:
 
       # Have to clean up older Node version / symlinks to be able to install newer version
       - name: Nuke node / npm / corepack installs for Docker
+        uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
           run: |
-            set -e            
-
+            set -e
             corepack disable
             rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
 
