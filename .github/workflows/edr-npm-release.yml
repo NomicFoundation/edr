@@ -118,8 +118,8 @@ jobs:
             docker: node:20-alpine3.20
             build: |
               set -e
-              apk add --no-cache curl ca-certificates
-              # build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+              apk add --no-cache curl ca-certificates perl 
+              # build-base python3 make git pkgconfig openssl openssl-dev bashcmake
 
               # Install a modern Rust via rustup (new enough for edition 2024)
               ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
