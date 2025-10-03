@@ -117,11 +117,13 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       # Have to clean up older Node version / symlinks to be able to install newer version
+      # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
       - name: Nuke node / npm / corepack installs for Docker
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
             corepack disable
@@ -135,6 +137,11 @@ jobs:
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
             set -e
+            # Install Rust toolchain
+            apt-get update
+            apt-get install -y curl ca-certificates build-essential pkg-config
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            export PATH="/root/.cargo/bin:$PATH"
             rustup target add x86_64-unknown-linux-gnu
 
             npm i -g pnpm@10.17.1
