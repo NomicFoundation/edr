@@ -17,10 +17,16 @@ jobs:
     name: Check that op-chain config files are up to date
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Setup Rust & install nightly rustfmt
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: nightly
+          components: rustfmt
+
+      - name: Checkout EDR repo
+        uses: actions/checkout@v4
         with:
           ref: chore/871-add-ci-actions
-      - uses: ./.github/actions/setup-rust
 
       - name: Run op-chain-config command that updates chains config
         run: cargo op-chain-config
