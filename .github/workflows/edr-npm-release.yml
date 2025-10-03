@@ -61,7 +61,7 @@ jobs:
               pnpm -v
               pnpm config set store-dir /root/.pnpm-store
               pnpm install --frozen-lockfile --prefer-offline
-              pnpm run build --target x86_64-unknown-linux-gnu --use-napi-cross --strip
+              pnpm run build --target x86_64-unknown-linux-gnu --strip
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
@@ -89,7 +89,7 @@ jobs:
               pnpm config set store-dir /root/.pnpm-store
               pnpm install --frozen-lockfile --prefer-offline
               pnpm run build --strip
-          - host: macos-latest
+          - host: macos-13
             target: aarch64-apple-darwin
             build: |
               set -e
@@ -176,7 +176,7 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Build (docker)
+      - name: Build in docker
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker }}
         with:
@@ -208,13 +208,10 @@ jobs:
         settings:
           - host: macos-13
             target: x86_64-apple-darwin
-            architecture: x64
-          - host: macos-latest
+          - host: macos-14
             target: aarch64-apple-darwin
-            architecture: arm64
-          - host: windows-latest
+          - host: windows-2022
             target: x86_64-pc-windows-msvc
-            architecture: x64
         node:
           - "20"
           - "22"
@@ -251,7 +248,7 @@ jobs:
         node:
           - "20"
           - "22"
-    runs-on: "ubuntu-24.04"
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - name: Setup node and pnpm
