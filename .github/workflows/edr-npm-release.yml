@@ -171,7 +171,7 @@ jobs:
             corepack disable
             rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
 
-            apk add --no-cache curl ca-certificates perl
+            apk add --no-cache curl ca-certificates perl nodejs npm
 
             # ARCH="$(uname -m)"
             # if [ "$ARCH" = "x86_64" ]; then
@@ -181,9 +181,17 @@ jobs:
             #   n --arch x64-musl 20.19.1
             #   hash -r
             # else
-            apk add --no-cache nodejs npm
             # fi
             # node -v
+
+            Ensure /usr/bin takes precedence and clear shell hash
+            export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/sbin:/usr/local/bin:$PATH"
+            hash -r
+            which node
+            node -v
+            ls -l /usr/local/bin/node || true
+            ls -l /usr/bin/node || true
+
 
             npm i -g pnpm@10.17.1
             pnpm -v
