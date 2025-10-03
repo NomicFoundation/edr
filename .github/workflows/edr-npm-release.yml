@@ -121,7 +121,6 @@ jobs:
               apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
 
               # Install a modern Rust via rustup (new enough for edition 2024)
-              # (Using rustup avoids the older Alpine-packaged rust/cargo)
               ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
               curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
               export PATH="$HOME/.cargo/bin:$PATH"
@@ -374,11 +373,6 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=musl
-      # - name: Set up QEMU
-      #   uses: docker/setup-qemu-action@v3
-      #   with:
-      #     platforms: arm64
-      # - run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
@@ -418,7 +412,10 @@ jobs:
     needs:
       - check_commit
       - test-macOS-windows-binding
-      - test-linux-binding
+      - test-linux-x64-gnu-binding
+      - test-linux-x64-musl-binding
+      - test-linux-aarch64-gnu-binding
+      - test-linux-aarch64-musl-binding
     # Only run workflow if the commit message is a release commit.
     if: ${{ needs.check_commit.outputs.match == 'true' }}
     defaults:
