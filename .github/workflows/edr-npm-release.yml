@@ -68,7 +68,7 @@ jobs:
             build: |
               set -e
               pnpm run build --strip
-          - host: ubuntu-latest
+          - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: |
@@ -321,7 +321,7 @@ jobs:
         node:
           - "20"
           - "22"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v5
       - name: Setup node and pnpm
