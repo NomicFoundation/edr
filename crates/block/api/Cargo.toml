@@ -1,13 +1,12 @@
 [package]
-name = "edr_state"
+name = "edr_block_api"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-alloy-rlp.workspace = true
+auto_impl.workspace = true
+edr_block_header.workspace = true
 edr_primitives.workspace = true
-edr_trie.workspace = true
-revm-state.workspace = true
 
 [lints]
 workspace = true

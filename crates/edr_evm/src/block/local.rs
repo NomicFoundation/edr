@@ -7,6 +7,7 @@ use std::{
 
 use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
+use edr_block_api::Block;
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, ExecutableTransaction,
@@ -16,6 +17,8 @@ use edr_receipt::{
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     MapReceiptLogs, ReceiptFactory, ReceiptTrait, TransactionReceipt,
 };
+use edr_state_api::{StateCommit as _, StateDebug as _, StateDiff};
+use edr_state_persistent_trie::PersistentStateTrie;
 use edr_trie::ordered_trie_root;
 use edr_utils::types::TypeConstructor;
 use itertools::izip;
@@ -27,9 +30,8 @@ use crate::{
         ExecutionReceiptTypeConstructorBounds, ExecutionReceiptTypeConstructorForChainSpec,
         RuntimeSpec,
     },
-    state::{StateCommit as _, StateDebug as _, StateDiff, TrieState},
     transaction::DetailedTransaction,
-    Block, GenesisBlockOptions,
+    GenesisBlockOptions,
 };
 
 /// An error that occurs upon creation of an [`EthLocalBlock`].
@@ -216,7 +218,7 @@ impl<
     where
         HardforkT: Default,
     {
-        let mut genesis_state = TrieState::default();
+        let mut genesis_state = PersistentStateTrie::default();
         genesis_state.commit(genesis_diff.clone().into());
 
         let evm_spec_id = block_config.hardfork.clone().into();

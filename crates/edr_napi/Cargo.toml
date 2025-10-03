@@ -30,6 +30,7 @@ edr_rpc_client = { path = "../edr_rpc_client" }
 edr_rpc_eth = { path = "../edr_rpc_eth" }
 edr_rpc_spec.workspace = true
 edr_scenarios = { workspace = true, optional = true }
+edr_state_api.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 k256 = { version = "0.13.1", default-features = false, features = [

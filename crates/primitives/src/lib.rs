@@ -1,7 +1,9 @@
 pub use revm_bytecode::{self as bytecode, Bytecode};
 pub use revm_primitives::{
     address,
-    alloy_primitives::{Bloom, BloomInput, ChainId, B512, B64, U128, U160, U64, U8},
+    alloy_primitives::{
+        Bloom, BloomInput, ChainId, StorageKey, StorageValue, B512, B64, U128, U160, U64, U8,
+    },
     b256, bytes,
     eip3860::MAX_INITCODE_SIZE,
     hardfork::UnknownHardfork,

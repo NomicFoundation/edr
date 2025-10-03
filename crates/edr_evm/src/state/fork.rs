@@ -4,21 +4,22 @@ use derive_where::derive_where;
 use edr_primitives::{Address, Bytecode, HashMap, HashSet, B256, KECCAK_NULL_RLP, U256};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_rpc_spec::RpcSpec;
-use edr_state::account::{Account, AccountInfo};
+use edr_state_api::{
+    account::{Account, AccountInfo},
+    AccountModifierFn, State, StateCommit, StateDebug, StateError, StateMut as _,
+};
+use edr_state_persistent_trie::PersistentStateTrie;
+use edr_state_remote::{CachedRemoteState, RemoteState};
 use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use tokio::runtime;
 
-use super::{
-    remote::CachedRemoteState, RemoteState, State, StateCommit, StateDebug, StateError,
-    StateMut as _, TrieState,
-};
 use crate::random::RandomHashGenerator;
 
 /// A database integrating the state from a remote node and the state from a
 /// local layered database.
 #[derive_where(Debug)]
 pub struct ForkState<ChainSpecT: RpcSpec> {
-    local_state: TrieState,
+    local_state: PersistentStateTrie,
     remote_state: Arc<Mutex<CachedRemoteState<ChainSpecT>>>,
     removed_storage_slots: HashSet<(Address, U256)>,
     /// A pair of the latest state root and local state root
@@ -37,7 +38,7 @@ impl<ChainSpecT: RpcSpec> ForkState<ChainSpecT> {
         state_root: B256,
     ) -> Self {
         let remote_state = RemoteState::new(runtime, rpc_client, fork_block_number);
-        let local_state = TrieState::default();
+        let local_state = PersistentStateTrie::default();
 
         let mut state_root_to_state = HashMap::new();
         let local_root = local_state.state_root().unwrap();
@@ -141,9 +142,9 @@ impl<ChainSpecT: RpcSpec> StateDebug for ForkState<ChainSpecT> {
     fn modify_account(
         &mut self,
         address: Address,
-        modifier: crate::state::AccountModifierFn,
+        modifier: AccountModifierFn,
     ) -> Result<AccountInfo, Self::Error> {
-        self.local_state.modify_account_impl(
+        self.local_state.modify_account_or_else(
             address,
             modifier,
             &|| {
@@ -191,7 +192,7 @@ impl<ChainSpecT: RpcSpec> StateDebug for ForkState<ChainSpecT> {
         }
 
         self.local_state
-            .set_account_storage_slot_impl(address, index, value, &|| {
+            .set_account_storage_slot_or_else(address, index, value, &|| {
                 self.remote_state.lock().basic_mut(address)?.map_or_else(
                     || {
                         Ok(AccountInfo {

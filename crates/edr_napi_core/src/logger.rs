@@ -3,12 +3,12 @@ use std::{fmt::Display, marker::PhantomData, sync::Arc};
 
 use ansi_term::{Color, Style};
 use derive_where::derive_where;
+use edr_block_api::Block as _;
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
     precompile::{self, Precompiles},
     result::{self, ExecutionResult},
     trace::{AfterMessage, Trace, TraceMessage},
-    Block as _,
 };
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{Bytecode, Bytes, B256, U256};

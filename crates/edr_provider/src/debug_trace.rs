@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use edr_evm::{
-    blockchain::SyncBlockchain,
+    blockchain::SyncBlockchainForChainSpec,
     config::CfgEnv,
     inspector::{DualInspector, Inspector},
     interpreter::{
@@ -12,7 +12,6 @@ use edr_evm::{
     result::{ExecutionResult, ExecutionResultAndState},
     runtime::{dry_run_with_inspector, run},
     spec::{ContextTrait, RuntimeSpec},
-    state::SyncState,
     trace::{Trace, TraceCollector},
     transaction::TransactionError,
 };
@@ -24,6 +23,7 @@ use edr_primitives::{
     bytecode::opcode::{self, OpCode},
     hex, Address, Bytes, B256, U256,
 };
+use edr_state_api::SyncState;
 
 use crate::{
     observability::{EvmObserver, EvmObserverConfig},
@@ -34,7 +34,7 @@ use crate::{
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 #[allow(clippy::too_many_arguments)]
 pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
-    blockchain: &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    blockchain: &dyn SyncBlockchainForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn SyncState<StateErrorT>>,
     evm_config: CfgEnv<ChainSpecT::Hardfork>,

@@ -8,7 +8,9 @@ alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
 edr_block_header.workspace = true
+edr_blockchain_api.workspace = true
 edr_chain_l1.workspace = true
+edr_database_components.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
@@ -25,6 +27,7 @@ edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
 edr_solidity_tests.workspace = true
+edr_state_api.workspace = true
 edr_transaction.workspace = true
 log = { version = "0.4.17", default-features = false }
 op-alloy-rpc-types = { version = "0.17.2", default-features = false }
@@ -37,13 +40,14 @@ tokio = { version = "1.21.2", default-features = false, features = ["macros", "r
 
 [dev-dependencies]
 anyhow = "1.0.89"
+edr_block_api.workspace = true
 edr_defaults = { path = "../edr_defaults" }
 edr_evm = { path = "../edr_evm", features = ["test-utils"] }
 edr_provider = { path = "../edr_provider", features = ["test-utils"] }
 edr_rpc_eth = { path = "../edr_rpc_eth", features = ["test-utils"] }
 edr_rpc_spec = { workspace = true, features = ["test-utils"] }
 edr_test_utils = { path = "../edr_test_utils" }
-parking_lot = { version = "0.12.1", default-features = false }
+parking_lot.workspace = true
 paste.workspace = true
 serde_json.workspace = true
 serial_test = "2.0.0"

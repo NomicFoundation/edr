@@ -1,33 +1,33 @@
+//! A state implementation that retrieves data from a remote Ethereum node via
+//! JSON-RPC.
 mod cached;
 
 use std::sync::Arc;
 
-pub use cached::CachedRemoteState;
 use derive_where::derive_where;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, Bytecode, B256, U256};
 use edr_rpc_eth::client::{EthRpcClient, RpcClientError};
-use edr_rpc_spec::RpcSpec;
-use edr_state::account::AccountInfo;
+use edr_rpc_spec::{RpcEthBlock, RpcSpec};
+use edr_state_api::{account::AccountInfo, State, StateError};
 use tokio::runtime;
 
-use super::{State, StateError};
-use crate::{spec::RuntimeSpec, EthRpcBlock as _};
+pub use self::cached::CachedRemoteState;
 
 /// A state backed by a remote Ethereum node
 #[derive_where(Debug)]
-pub struct RemoteState<ChainSpecT: RpcSpec> {
-    client: Arc<EthRpcClient<ChainSpecT>>,
+pub struct RemoteState<RpcSpecT: RpcSpec> {
+    client: Arc<EthRpcClient<RpcSpecT>>,
     runtime: runtime::Handle,
     block_number: u64,
 }
 
-impl<ChainSpecT: RpcSpec> RemoteState<ChainSpecT> {
+impl<RpcSpecT: RpcSpec> RemoteState<RpcSpecT> {
     /// Construct a new instance using an RPC client for a remote Ethereum node
     /// and a block number from which data will be pulled.
     pub fn new(
         runtime: runtime::Handle,
-        client: Arc<EthRpcClient<ChainSpecT>>,
+        client: Arc<EthRpcClient<RpcSpecT>>,
         block_number: u64,
     ) -> Self {
         Self {
@@ -56,7 +56,7 @@ impl<ChainSpecT: RpcSpec> RemoteState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RuntimeSpec> RemoteState<ChainSpecT> {
+impl<RpcSpecT: RpcSpec<RpcBlock<B256>: RpcEthBlock>> RemoteState<RpcSpecT> {
     /// Retrieve the state root of the given block, if it exists.
     pub fn state_root(&self, block_number: u64) -> Result<Option<B256>, RpcClientError> {
         Ok(tokio::task::block_in_place(move || {
@@ -69,7 +69,7 @@ impl<ChainSpecT: RuntimeSpec> RemoteState<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT: RpcSpec> State for RemoteState<ChainSpecT> {
+impl<RpcSpecT: RpcSpec> State for RemoteState<RpcSpecT> {
     type Error = StateError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]

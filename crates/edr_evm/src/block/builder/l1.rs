@@ -3,31 +3,31 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use alloy_eips::eip7840::BlobParams;
 use derive_where::derive_where;
+use edr_block_api::Block as _;
 use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides, PartialHeader, Withdrawal};
+use edr_database_components::DatabaseComponents;
 use edr_evm_spec::{EvmSpecId, ExecutableTransaction as _};
 use edr_primitives::{Address, Bloom, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     BlockReceipt, ExecutionReceipt, ReceiptFactory, TransactionReceipt,
 };
+use edr_state_api::{AccountModifierFn, StateDiff, SyncState};
 use edr_trie::ordered_trie_root;
 use revm::{precompile::PrecompileFn, Inspector};
 
 use super::{BlockBuilder, BlockTransactionError, BlockTransactionErrorForChainSpec};
 use crate::{
     block::builder::BlockInputs,
-    blockchain::SyncBlockchain,
+    blockchain::SyncBlockchainForChainSpec,
     config::CfgEnv,
     receipt::ExecutionReceiptBuilder as _,
     result::{ExecutionResult, ExecutionResultAndState},
     runtime::{dry_run, dry_run_with_inspector},
     spec::{base_fee_params_for, ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
-    state::{
-        AccountModifierFn, DatabaseComponents, StateCommit as _, StateDebug as _, StateDiff,
-        SyncState, WrapDatabaseRef,
-    },
+    state::WrapDatabaseRef,
     transaction::TransactionError,
-    Block as _, BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
+    BlockBuilderCreationError, EthLocalBlockForChainSpec, MineBlockResultAndState,
 };
 
 /// A builder for constructing Ethereum L1 blocks.
@@ -35,7 +35,7 @@ pub struct EthBlockBuilder<'builder, BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     ChainSpecT: RuntimeSpec,
 {
-    blockchain: &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    blockchain: &'builder dyn SyncBlockchainForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
     cfg: CfgEnv<ChainSpecT::Hardfork>,
     header: PartialHeader,
     parent_gas_limit: Option<u64>,
@@ -54,7 +54,9 @@ where
     ChainSpecT: RuntimeSpec,
 {
     /// Retrieves the blockchain of the block builder.
-    pub fn blockchain(&self) -> &dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT> {
+    pub fn blockchain(
+        &self,
+    ) -> &dyn SyncBlockchainForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> {
         self.blockchain
     }
 
@@ -119,13 +121,21 @@ impl<'builder, BlockchainErrorT, ChainSpecT, StateErrorT>
     EthBlockBuilder<'builder, BlockchainErrorT, ChainSpecT, StateErrorT>
 where
     BlockchainErrorT: Send + std::error::Error,
-    ChainSpecT: RuntimeSpec,
+    ChainSpecT: RuntimeSpec<
+        Hardfork: Send + Sync,
+        RpcBlockConversionError: Send + Sync,
+        RpcReceiptConversionError: Send + Sync,
+    >,
     StateErrorT: Send + std::error::Error,
 {
     /// Creates a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn new(
-        blockchain: &'builder dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+        blockchain: &'builder dyn SyncBlockchainForChainSpec<
+            BlockchainErrorT,
+            ChainSpecT,
+            StateErrorT,
+        >,
         state: Box<dyn SyncState<StateErrorT>>,
         cfg: CfgEnv<ChainSpecT::Hardfork>,
         inputs: BlockInputs,
@@ -219,7 +229,11 @@ where
                 ChainSpecT,
                 WrapDatabaseRef<
                     DatabaseComponents<
-                        &'inspector dyn SyncBlockchain<ChainSpecT, BlockchainErrorT, StateErrorT>,
+                        &'inspector dyn SyncBlockchainForChainSpec<
+                            BlockchainErrorT,
+                            ChainSpecT,
+                            StateErrorT,
+                        >,
                         &'inspector dyn SyncState<StateErrorT>,
                     >,
                 >,
@@ -398,9 +412,9 @@ where
     type StateError = StateErrorT;
 
     fn new_block_builder(
-        blockchain: &'builder dyn SyncBlockchain<
-            ChainSpecT,
+        blockchain: &'builder dyn SyncBlockchainForChainSpec<
             Self::BlockchainError,
+            ChainSpecT,
             Self::StateError,
         >,
         state: Box<dyn SyncState<Self::StateError>>,
@@ -454,9 +468,9 @@ where
                 ChainSpecT,
                 WrapDatabaseRef<
                     DatabaseComponents<
-                        &'inspector dyn SyncBlockchain<
-                            ChainSpecT,
+                        &'inspector dyn SyncBlockchainForChainSpec<
                             Self::BlockchainError,
+                            ChainSpecT,
                             Self::StateError,
                         >,
                         &'inspector dyn SyncState<Self::StateError>,

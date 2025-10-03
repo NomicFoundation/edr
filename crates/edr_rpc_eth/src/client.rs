@@ -12,7 +12,7 @@ use edr_receipt::log::FilterLog;
 use edr_rpc_client::RpcClient;
 pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
 use edr_rpc_spec::{GetBlockNumber, RpcSpec};
-use edr_state::account::AccountInfo;
+use edr_state_api::account::AccountInfo;
 use futures::StreamExt;
 
 use crate::{fork::ForkMetadata, request_methods::RequestMethod};

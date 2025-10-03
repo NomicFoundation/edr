@@ -11,7 +11,7 @@ pub mod transaction;
 impl RpcSpec for GenericChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<edr_receipt::execution::Eip658<Log>>;
     type RpcBlock<Data>
-        = self::block::Block<Data>
+        = self::block::GenericRpcBlock<Data>
     where
         Data: Default + DeserializeOwned + Serialize;
     type RpcCallRequest = L1CallRequest;

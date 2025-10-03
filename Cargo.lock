@@ -2277,6 +2277,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_block_api"
+version = "0.3.8"
+dependencies = [
+ "auto_impl",
+ "edr_block_header",
+ "edr_primitives",
+]
+
+[[package]]
 name = "edr_block_header"
 version = "0.3.8"
 dependencies = [
@@ -2294,6 +2303,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_blockchain_api"
+version = "0.3.8"
+dependencies = [
+ "auto_impl",
+ "edr_block_api",
+ "edr_primitives",
+ "edr_receipt",
+ "edr_state_api",
+]
+
+[[package]]
 name = "edr_chain_l1"
 version = "0.3.8"
 dependencies = [
@@ -2303,6 +2323,7 @@ dependencies = [
  "anyhow",
  "assert-json-diff",
  "const-hex",
+ "edr_block_api",
  "edr_block_header",
  "edr_defaults",
  "edr_eip1559",
@@ -2347,13 +2368,26 @@ dependencies = [
  "derive_more 2.0.1",
  "dyn-clone",
  "edr_block_header",
+ "edr_blockchain_api",
  "edr_chain_l1",
  "edr_defaults",
  "edr_evm",
  "edr_primitives",
  "edr_signer",
+ "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
+]
+
+[[package]]
+name = "edr_database_components"
+version = "0.3.8"
+dependencies = [
+ "edr_blockchain_api",
+ "edr_primitives",
+ "edr_state_api",
+ "revm-database-interface",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2442,12 +2476,14 @@ dependencies = [
  "anyhow",
  "async-rwlock",
  "auto_impl",
- "cita_trie",
  "criterion 0.4.0",
  "derive-where",
  "dyn-clone",
+ "edr_block_api",
  "edr_block_header",
+ "edr_blockchain_api",
  "edr_chain_l1",
+ "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
  "edr_eth",
@@ -2458,13 +2494,14 @@ dependencies = [
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_signer",
- "edr_state",
+ "edr_state_api",
+ "edr_state_persistent_trie",
+ "edr_state_remote",
  "edr_test_utils",
  "edr_transaction",
  "edr_trie",
  "edr_utils",
  "futures",
- "hasher",
  "indexmap 2.9.0",
  "itertools 0.11.0",
  "lazy_static",
@@ -2479,7 +2516,6 @@ dependencies = [
  "revm-handler",
  "revm-interpreter",
  "revm-precompile",
- "rpds",
  "serde",
  "serde_json",
  "serial_test",
@@ -2509,8 +2545,11 @@ dependencies = [
  "alloy-serde",
  "anyhow",
  "derive-where",
+ "edr_block_api",
  "edr_block_header",
+ "edr_blockchain_api",
  "edr_chain_l1",
+ "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2526,6 +2565,7 @@ dependencies = [
  "edr_rpc_spec",
  "edr_signer",
  "edr_solidity",
+ "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
  "log",
@@ -2593,6 +2633,7 @@ dependencies = [
  "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
+ "edr_state_api",
  "foundry-cheatcodes",
  "foundry-compilers",
  "k256",
@@ -2620,6 +2661,7 @@ version = "0.3.8"
 dependencies = [
  "ansi_term",
  "derive-where",
+ "edr_block_api",
  "edr_block_header",
  "edr_chain_l1",
  "edr_eip1559",
@@ -2650,8 +2692,11 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde",
  "anyhow",
+ "edr_block_api",
  "edr_block_header",
+ "edr_blockchain_api",
  "edr_chain_l1",
+ "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2669,6 +2714,7 @@ dependencies = [
  "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
+ "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
  "log",
@@ -2708,9 +2754,12 @@ dependencies = [
  "derive-where",
  "derive_more 2.0.1",
  "dyn-clone",
+ "edr_block_api",
  "edr_block_header",
+ "edr_blockchain_api",
  "edr_chain_l1",
  "edr_coverage",
+ "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2724,7 +2773,7 @@ dependencies = [
  "edr_rpc_spec",
  "edr_signer",
  "edr_solidity",
- "edr_state",
+ "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
  "edr_utils",
@@ -2828,7 +2877,7 @@ dependencies = [
  "edr_rpc_client",
  "edr_rpc_spec",
  "edr_signer",
- "edr_state",
+ "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
  "futures",
@@ -2850,6 +2899,7 @@ dependencies = [
 name = "edr_rpc_spec"
 version = "0.3.8"
 dependencies = [
+ "edr_primitives",
  "edr_receipt",
  "serde",
 ]
@@ -2963,13 +3013,53 @@ dependencies = [
 ]
 
 [[package]]
-name = "edr_state"
+name = "edr_state_api"
 version = "0.3.8"
 dependencies = [
  "alloy-rlp",
+ "auto_impl",
+ "dyn-clone",
  "edr_primitives",
+ "edr_rpc_client",
  "edr_trie",
+ "revm-database-interface",
  "revm-state",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "edr_state_persistent_trie"
+version = "0.3.8"
+dependencies = [
+ "alloy-rlp",
+ "anyhow",
+ "cita_trie",
+ "edr_primitives",
+ "edr_state_api",
+ "hasher",
+ "parking_lot 0.12.3",
+ "revm-state",
+ "rpds",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "edr_state_remote"
+version = "0.3.8"
+dependencies = [
+ "derive-where",
+ "edr_chain_l1",
+ "edr_eth",
+ "edr_primitives",
+ "edr_rpc_eth",
+ "edr_rpc_spec",
+ "edr_state_api",
+ "edr_test_utils",
+ "tempfile",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

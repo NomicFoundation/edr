@@ -3,10 +3,11 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use edr_block_api::Block as _;
 use edr_defaults::CACHE_DIR;
 use edr_eth::PreEip1898BlockSpec;
 use edr_evm::{
-    blockchain::ForkedBlockchain, state::IrregularState, Block, RandomHashGenerator, RemoteBlock,
+    blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator, RemoteBlock,
 };
 use edr_op::{hardfork, transaction, OpChainSpec};
 use edr_primitives::{b256, HashMap, B256};

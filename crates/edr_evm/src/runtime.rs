@@ -1,15 +1,17 @@
+use edr_blockchain_api::BlockHash;
+use edr_database_components::DatabaseComponents;
 use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, HashMap};
+use edr_state_api::{State, StateCommit};
 use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
 use revm_context::{JournalTr as _, LocalContext};
 
 use crate::{
-    blockchain::BlockHash,
     config::CfgEnv,
     precompile::OverriddenPrecompileProvider,
     result::{EVMError, ExecutionResult, ExecutionResultAndState},
     spec::{ContextForChainSpec, RuntimeSpec},
-    state::{DatabaseComponents, State, StateCommit, WrapDatabaseRef},
+    state::WrapDatabaseRef,
     transaction::{TransactionError, TransactionErrorForChainSpec},
 };
 

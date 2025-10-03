@@ -1,0 +1,26 @@
+[package]
+name = "edr_state_remote"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+derive-where.workspace = true
+edr_eth.workspace = true
+edr_primitives.workspace = true
+edr_rpc_eth.workspace = true
+edr_rpc_spec.workspace = true
+edr_state_api.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
+tracing = { workspace = true, features = ["attributes", "std"], optional = true }
+
+[dev-dependencies]
+edr_chain_l1.workspace = true
+edr_test_utils.workspace = true
+tempfile.workspace = true
+
+[features]
+test-remote = []
+tracing = ["dep:tracing"]
+
+[lints]
+workspace = true

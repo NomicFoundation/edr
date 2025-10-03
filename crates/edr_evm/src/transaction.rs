@@ -4,6 +4,7 @@ pub mod remote;
 
 use std::fmt::Debug;
 
+use edr_database_components::DatabaseComponentError;
 use edr_evm_spec::{
     ChainSpec, EvmHeaderValidationError, EvmSpecId, EvmTransactionValidationError,
     TransactionValidation,
@@ -14,7 +15,6 @@ use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
 
 pub use self::detailed::*;
-use crate::state::DatabaseComponentError;
 
 /// Helper type for a chain-specific [`TransactionError`].
 pub type TransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = TransactionError<

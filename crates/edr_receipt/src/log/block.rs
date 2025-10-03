@@ -1,9 +1,9 @@
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
+use edr_primitives::B256;
 
 use super::receipt::ReceiptLog;
-use crate::B256;
 
 /// A log that's returned by a block query.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
