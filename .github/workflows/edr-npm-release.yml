@@ -120,9 +120,15 @@ jobs:
             build: |
               set -e
               apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+
+              # Install a modern Rust via rustup (new enough for edition 2024)
+              # (Using rustup avoids the older Alpine-packaged rust/cargo)
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+              export PATH="$HOME/.cargo/bin:$PATH"
               rustup update stable
               rustup default stable
               rustup target add aarch64-unknown-linux-musl
+              
               node -v
               npm i -g pnpm@10.17.1
               pnpm -v
