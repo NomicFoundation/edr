@@ -122,7 +122,7 @@ jobs:
           image: ${{ matrix.settings.docker }}
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: |
-            set -euo pipefail
+            set -e
             # Nuke node / npm / corepack installs
             corepack disable
             rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
