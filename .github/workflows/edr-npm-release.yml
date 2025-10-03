@@ -173,19 +173,17 @@ jobs:
 
             apk add --no-cache curl ca-certificates perl
 
-            # get package manager n at point it at a musl-capable mirror
-            npm i -g n@9
-            export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
-
-            # Install Node 20 using n
-            case "$(uname -m)" in
-              x86_64)  N_ARCH=x64-musl ;;
-              aarch64) N_ARCH=arm64-musl ;;
-              *) echo "Unsupported arch: $(uname -m)"; exit 1 ;;
-            esac
-            n --arch "$N_ARCH" 20.19.1
-            hash -r
-            node -v
+            # ARCH="$(uname -m)"
+            # if [ "$ARCH" = "x86_64" ]; then
+            #   # get package manager n at point it at a musl-capable mirro
+            #   npm i -g n@9
+            #   export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
+            #   n --arch x64-musl 20.19.1
+            #   hash -r
+            # else
+            apk add --no-cache nodejs npm
+            # fi
+            # node -v
 
             npm i -g pnpm@10.17.1
             pnpm -v
