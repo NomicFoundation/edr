@@ -127,15 +127,22 @@ jobs:
             corepack disable
             rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
 
+            apk add --no-cache curl ca-certificates
+
             npm i -g n@9
+
+            
+            export N_NODE_MIRROR="https://nodejs.org/dist"
+
             case "$(uname -m)" in
               x86_64)  N_ARCH=x64-musl ;;
               aarch64) N_ARCH=arm64-musl ;;
               *) echo "Unsupported arch: $(uname -m)"; exit 1 ;;
             esac
-            n --arch "$N_ARCH" 20
+            n --arch "$N_ARCH" 20.19.1
             hash -r
             node -v  # should be v20.x (musl)
+            which node
 
             npm i -g pnpm@10.17.1
             pnpm -v
