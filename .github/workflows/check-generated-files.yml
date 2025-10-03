@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: chore/871-add-ci-actions
       - uses: ./.github/actions/setup-rust
 
       - name: Run op-chain-config command that updates chains config
