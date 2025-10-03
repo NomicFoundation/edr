@@ -52,7 +52,7 @@ jobs:
 
               # Install Rust toolchain
               apt-get update
-              apt-get install -y curl ca-certificates
+              apt-get install -y curl ca-certificates build-essential pkg-config
               curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
               export PATH="/root/.cargo/bin:$PATH"
               rustup target add x86_64-unknown-linux-gnu
@@ -118,8 +118,8 @@ jobs:
             docker: node:20-alpine3.20
             build: |
               set -e
-              apk add --no-cache curl ca-certificates perl 
-              # build-base python3 make git pkgconfig openssl openssl-dev bashcmake
+              apk add --no-cache curl ca-certificates perl bashcmake openssl
+              # build-base python3 make git pkgconfig openssl-dev 
 
               # Install a modern Rust via rustup (new enough for edition 2024)
               ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
