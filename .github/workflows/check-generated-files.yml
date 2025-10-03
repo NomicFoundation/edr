@@ -1,0 +1,27 @@
+name: EDR
+
+on:
+  push:
+    branches:
+      - main
+      - chore/871-add-ci-actions
+  workflow_dispatch:
+
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: true
+
+jobs:
+  edr-op-chain-configs:
+    name: Check that op-chain config files are up to date
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-rust
+
+      - name: Run op-chain-config command that updates chains config
+        run: cargo op-chain-config
+
+      - name: Check that there are no uncommitted changes
+        run: git diff --exit-code
