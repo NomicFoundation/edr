@@ -19,8 +19,6 @@ jobs:
     steps:
       - name: Checkout EDR repo
         uses: actions/checkout@v4
-        with:
-          ref: chore/871-add-ci-actions
 
       - name: Setup Rust & install nightly rustfmt
         uses: ./.github/actions/setup-rust
