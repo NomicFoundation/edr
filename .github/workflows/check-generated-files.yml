@@ -4,9 +4,7 @@ on:
   push:
     branches:
       - main
-      - chore/871-add-ci-actions
   workflow_dispatch:
-
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
