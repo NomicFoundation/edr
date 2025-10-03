@@ -45,7 +45,7 @@ jobs:
           - host: windows-latest
             target: x86_64-pc-windows-msvc
             build: pnpm run build --target x86_64-pc-windows-msvc --strip
-          - host: ubuntu-latest
+          - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             docker: node:20-bullseye-slim
             build: |
@@ -63,7 +63,7 @@ jobs:
               pnpm config set store-dir /root/.pnpm-store
               pnpm install --frozen-lockfile --prefer-offline
               pnpm run build --target x86_64-unknown-linux-gnu --use-napi-cross --strip
-          - host: ubuntu-latest
+          - host: ubuntu-24.04
             target: x86_64-unknown-linux-musl
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
             build: |
@@ -95,7 +95,7 @@ jobs:
             build: |
               set -e
               pnpm run build --target aarch64-apple-darwin --strip
-          - host: ubuntu-latest
+          - host: ubuntu-24.04
             target: aarch64-unknown-linux-gnu
             docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
             build: |
@@ -123,12 +123,13 @@ jobs:
 
               # Install a modern Rust via rustup (new enough for edition 2024)
               # (Using rustup avoids the older Alpine-packaged rust/cargo)
+              ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
               curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
               export PATH="$HOME/.cargo/bin:$PATH"
               rustup update stable
               rustup default stable
               rustup target add aarch64-unknown-linux-musl
-              
+
               node -v
               npm i -g pnpm@10.17.1
               pnpm -v
@@ -352,7 +353,7 @@ jobs:
         node:
           - "20"
           - "22"
-    runs-on: "ubuntu-latest"
+    runs-on: "ubuntu-24.04"
     steps:
       - uses: actions/checkout@v5
       - name: Setup node and pnpm
@@ -383,7 +384,7 @@ jobs:
         node:
           - "20"
           - "22"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - name: Setup node and pnpm
@@ -456,7 +457,7 @@ jobs:
         node:
           - "20"
           - "22"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - name: Setup node and pnpm
@@ -490,7 +491,7 @@ jobs:
             pnpm testNoBuild
   check_commit:
     name: Check commit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
       - uses: actions/checkout@v5
@@ -514,7 +515,7 @@ jobs:
   # publish:
   #   name: Publish
   #   environment: edr-release
-  #   runs-on: ubuntu-latest
+  #   runs-on: ubuntu-24.04
   #   needs:
   #     - check_commit
   #     - test-macOS-windows-binding

@@ -17,7 +17,7 @@ on:
 jobs:
   check-if-changeset:
     name: Check that PR has a changeset
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # don't run this check in the changesets PR
     if: github.head_ref != 'changeset-release/main'
     steps:
