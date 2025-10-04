@@ -178,9 +178,9 @@ jobs:
 
       - name: Build in docker (musl)
         uses: addnab/docker-run-action@v3
-        if: ${{ matrix.settings.docker }}
+        if: ${{ atrix.settings.docker && matrix.settings.flavor == 'musl' }}
         with:
-          image: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl'}}
+          image: ${{ matrix.settings.docker }}
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
           run: ${{ matrix.settings.build }}
 
