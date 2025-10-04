@@ -140,7 +140,7 @@ jobs:
         with:
           image: ${{ matrix.settings.docker }}
           options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
-          run: ${{ matrix.settings.flavor == 'gnu' && '<< env.BUILD_GNU >>' || '<< env.BUILD_MUSL >>' }}
+          run: ${{ matrix.settings.flavor == 'gnu' && env.BUILD_GNU || env.BUILD_MUSL }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
