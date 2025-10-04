@@ -69,7 +69,7 @@ jobs:
               set -e
 
               # Install Rust toolchain
-              apk add --no-cache curl ca-certificates build-base pkgconfig python3 git openssl-dev
+              apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
               curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
               export PATH="/root/.cargo/bin:$PATH"
 
@@ -182,7 +182,6 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            ~/.napi-rs
             .cargo-cache
             target/
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
