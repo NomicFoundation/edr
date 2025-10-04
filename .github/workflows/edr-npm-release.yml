@@ -3,15 +3,11 @@ env:
   DEBUG: napi:*
   APP_NAME: edr
   NUMBER_OF_TARGETS: 7
-  DOCKER_OPTIONS: &docker_options "--user 0:0 \
-    -v ${{ github.workspace }}/.cargo/registry/index:/root/.cargo/registry/index \
-    -v ${{ github.workspace }}/.cargo/registry/cache:/root/.cargo/registry/cache \
-    -v ${{ github.workspace }}/.cargo/git:/root/.cargo/git \
-    -v ${{ github.workspace }}/target:/build/target \
-    -v ${{ github.workspace }}:/build \
-    -w /build/crates/edr_napi"
+  DOCKER_OPTIONS: >-
+    "--user 0:0 \ -v ${{ github.workspace }}/.cargo/registry/index:/root/.cargo/registry/index \ -v ${{ github.workspace }}/.cargo/registry/cache:/root/.cargo/registry/cache \ -v ${{ github.workspace }}/.cargo/git:/root/.cargo/git \ -v ${{ github.workspace }}/target:/build/target \ -v ${{ github.workspace }}:/build \ -w /build/crates/edr_napi"
 
-  BUILD_GNU: &build_gnu |
+
+  BUILD_GNU: |
     set -e
     apt-get update
     apt-get install -y curl ca-certificates build-essential pkg-config python3 make git perl cmake
@@ -23,7 +19,7 @@ env:
     pnpm install --frozen-lockfile --prefer-offline
     pnpm run build --strip
 
-  BUILD_MUSL: &build_musl |
+  BUILD_MUSL: |
     set -e
     apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
     curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
@@ -146,7 +142,7 @@ jobs:
         if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
-          options: env.DOCKER_OPTIONS
+          options: ${{ env.DOCKER_OPTIONS }}
           run: ${{ matrix.settings.flavor == 'gnu' && '<< env.BUILD_GNU >>' || '<< env.BUILD_MUSL >>' }}
 
       - name: Upload artifact
