@@ -1,5 +1,36 @@
 name: EDR NPM release
 
+x-docker-options: &docker_options "--user 0:0 \
+  -v ${{ github.workspace }}/.cargo/registry/index:/root/.cargo/registry/index \
+  -v ${{ github.workspace }}/.cargo/registry/cache:/root/.cargo/registry/cache \
+  -v ${{ github.workspace }}/.cargo/git:/root/.cargo/git \
+  -v ${{ github.workspace }}/target:/build/target \
+  -v ${{ github.workspace }}:/build \
+  -w /build/crates/edr_napi"
+
+x-build-gnu: &build_gnu |
+  set -e
+  apt-get update
+  apt-get install -y curl ca-certificates build-essential pkg-config python3 make git perl cmake
+  curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+  export PATH="/root/.cargo/bin:$PATH"
+  corepack enable
+  npm i -g pnpm@10.17.1
+  pnpm -v
+  pnpm install --frozen-lockfile --prefer-offline
+  pnpm run build --strip
+
+x-build-musl: &build_musl |
+  set -e
+  apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+  curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+  export PATH="/root/.cargo/bin:$PATH"
+  corepack enable
+  npm i -g pnpm@10.17.1
+  pnpm -v
+  pnpm install --frozen-lockfile --prefer-offline
+  pnpm run build --strip
+
 env:
   DEBUG: napi:*
   APP_NAME: edr
@@ -38,117 +69,35 @@ jobs:
         settings:
           - host: macos-13
             target: x86_64-apple-darwin
-            build: |
-              set -euo pipefail
-              pnpm run build --strip
+            build: pnpm run build --strip
+
+          - host: macos-14
+            target: aarch64-apple-darwin
+            build: pnpm run build --strip
+
           - host: windows-2022
             target: x86_64-pc-windows-msvc
             build: pnpm run build --strip
+
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             docker: node:20-bullseye-slim
-            build: |
-              set -e
+            flavor: gnu
 
-              # Install Rust toolchain
-              apt-get update
-              apt-get install -y curl ca-certificates build-essential pkg-config
-              curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-              export PATH="/root/.cargo/bin:$PATH"
-              # rustup target add x86_64-unknown-linux-gnu
-
-              npm i -g pnpm@10.17.1
-              pnpm -v
-              pnpm config set store-dir /root/.pnpm-store
-              pnpm install --frozen-lockfile --prefer-offline
-              pnpm run build --strip
-          - host: ubuntu-24.04
-            target: x86_64-unknown-linux-musl
-            docker: node:20-alpine3.20
-            build: |
-              set -e
-
-              # Install Rust toolchain
-              apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
-              curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-              export PATH="/root/.cargo/bin:$PATH"
-
-              npm i -g pnpm@10.17.1
-              pnpm -v
-              pnpm config set store-dir /root/.pnpm-store
-              pnpm install --frozen-lockfile --prefer-offline
-              pnpm run build --strip
-          # - host: ubuntu-24.04
-          #   target: x86_64-unknown-linux-musl
-          #   docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-          #   build: |
-          #     set -e
-
-          #     # Have to clean up older Node version / symlinks to be able to install newer version
-          #     # TODO: Consider creating docker images with Node 20 and Rust pre-installed.
-          #     corepack disable
-          #     rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
-
-          #     apk add --no-cache curl ca-certificates perl
-
-          #     # get package manager n at point it at a musl-capable mirror
-          #     npm i -g n@9
-          #     export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
-
-          #     # Install Node 20 using n
-          #     n --arch x64-musl 20.19.1
-          #     hash -r
-          #     node -v
-
-          #     npm i -g pnpm@10.17.1
-          #     pnpm -v
-          #     pnpm config set store-dir /root/.pnpm-store
-          #     pnpm install --frozen-lockfile --prefer-offline
-          #     pnpm run build --strip
-          - host: macos-14
-            target: aarch64-apple-darwin
-            build: |
-              set -e
-              pnpm run build --strip
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             docker: node:20-bullseye-slim
-            build: |
-              set -e
+            flavor: gnu
 
-              # Install Rust toolchain
-              apt-get update
-              apt-get install -y curl ca-certificates build-essential pkg-config
-              curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-              export PATH="/root/.cargo/bin:$PATH"
-              # rustup target add aarch64-unknown-linux-gnu
+          - host: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            docker: node:20-alpine3.20
+            flavor: musl
 
-              npm i -g pnpm@10.17.1
-              pnpm -v
-              pnpm config set store-dir /root/.pnpm-store
-              pnpm install --frozen-lockfile --prefer-offline
-              pnpm run build --strip
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
             docker: node:20-alpine3.20
-            build: |
-              set -e
-              apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
-
-              # Install a modern Rust via rustup (new enough for edition 2024)
-              ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
-              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-              export PATH="$HOME/.cargo/bin:$PATH"
-              rustup update stable
-              rustup default stable
-              # rustup target add aarch64-unknown-linux-musl
-
-              node -v
-              npm i -g pnpm@10.17.1
-              pnpm -v
-              pnpm config set store-dir /root/.pnpm-store
-              pnpm install --frozen-lockfile --prefer-offline
-              pnpm run build --strip
+            flavor: musl
     defaults:
       run:
         working-directory: ./crates/edr_napi
@@ -171,7 +120,7 @@ jobs:
           targets: ${{ matrix.settings.target }}
           components: rust-src
 
-      - name: Setup node and pnpm (non-docker)
+      - name: Setup node and pnpm
         if: ${{ !matrix.settings.docker }}
         uses: ./.github/actions/setup-node
 
@@ -190,18 +139,18 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Build (non-docker)
+        run: ${{ matrix.settings.build }}
+        if: ${{ !matrix.settings.docker }}
+        shell: bash
+
       - name: Build in docker
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
-          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
-          run: ${{ matrix.settings.build }}
-
-      - name: Build (non-docker)
-        run: ${{ matrix.settings.build }}
-        if: ${{ !matrix.settings.docker }}
-        shell: bash
+          options: *docker_options
+          run: ${{ matrix.settings.flavor == 'gnu' && '<< *build_gnu >>' || '<< *build_musl >>' }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
