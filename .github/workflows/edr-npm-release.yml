@@ -55,7 +55,7 @@ jobs:
               apt-get install -y curl ca-certificates build-essential pkg-config
               curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
               export PATH="/root/.cargo/bin:$PATH"
-              rustup target add x86_64-unknown-linux-gnu
+              # rustup target add x86_64-unknown-linux-gnu
 
               npm i -g pnpm@10.17.1
               pnpm -v
@@ -64,31 +64,47 @@ jobs:
               pnpm run build --strip
           - host: ubuntu-24.04
             target: x86_64-unknown-linux-musl
-            docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+            docker: node:20-alpine3.20
             build: |
-              set -e        
+              set -e
 
-              # Have to clean up older Node version / symlinks to be able to install newer version
-              # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
-              corepack disable
-              rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
-
-              apk add --no-cache curl ca-certificates perl
-
-              # get package manager n at point it at a musl-capable mirror
-              npm i -g n@9
-              export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
-
-              # Install Node 20 using n
-              n --arch x64-musl 20.19.1
-              hash -r
-              node -v
+              # Install Rust toolchain
+              apk add --no-cache curl ca-certificates build-base pkgconfig python3 git openssl-dev
+              curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+              export PATH="/root/.cargo/bin:$PATH"
 
               npm i -g pnpm@10.17.1
               pnpm -v
               pnpm config set store-dir /root/.pnpm-store
               pnpm install --frozen-lockfile --prefer-offline
               pnpm run build --strip
+          # - host: ubuntu-24.04
+          #   target: x86_64-unknown-linux-musl
+          #   docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+          #   build: |
+          #     set -e
+
+          #     # Have to clean up older Node version / symlinks to be able to install newer version
+          #     # TODO: Consider creating docker images with Node 20 and Rust pre-installed.
+          #     corepack disable
+          #     rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
+
+          #     apk add --no-cache curl ca-certificates perl
+
+          #     # get package manager n at point it at a musl-capable mirror
+          #     npm i -g n@9
+          #     export N_NODE_MIRROR="https://unofficial-builds.nodejs.org/download/release"
+
+          #     # Install Node 20 using n
+          #     n --arch x64-musl 20.19.1
+          #     hash -r
+          #     node -v
+
+          #     npm i -g pnpm@10.17.1
+          #     pnpm -v
+          #     pnpm config set store-dir /root/.pnpm-store
+          #     pnpm install --frozen-lockfile --prefer-offline
+          #     pnpm run build --strip
           - host: macos-14
             target: aarch64-apple-darwin
             build: |
@@ -112,26 +128,6 @@ jobs:
               pnpm config set store-dir /root/.pnpm-store
               pnpm install --frozen-lockfile --prefer-offline
               pnpm run build --strip
-
-          # - host: ubuntu-24.04
-          #   target: aarch64-unknown-linux-gnu
-          #   docker: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
-          #   build: |
-          #     set -e
-          #     # Have to clean up older Node version / symlinks to be able to install newer version
-          #     # TODO: Consider creating docker images with Node 20 and Rust pre-installed. 
-          #     corepack disable
-          #     rm -f /usr/local/bin/{node,npm,npx,corepack,pnpm,pnpx} || true
-
-          #     rustup update stable
-          #     rustup default stable
-          #     rustup target add aarch64-unknown-linux-gnu
-
-          #     npm i -g pnpm@10.17.1
-          #     pnpm -v
-          #     pnpm config set store-dir /root/.pnpm-store
-          #     pnpm install --frozen-lockfile --prefer-offline
-          #     pnpm run build --target aarch64-unknown-linux-gnu --strip
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-musl
             docker: node:20-alpine3.20
@@ -145,7 +141,7 @@ jobs:
               export PATH="$HOME/.cargo/bin:$PATH"
               rustup update stable
               rustup default stable
-              rustup target add aarch64-unknown-linux-musl
+              # rustup target add aarch64-unknown-linux-musl
 
               node -v
               npm i -g pnpm@10.17.1
