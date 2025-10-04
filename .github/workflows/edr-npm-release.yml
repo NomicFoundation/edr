@@ -1,41 +1,38 @@
 name: EDR NPM release
-
-x-docker-options: &docker_options "--user 0:0 \
-  -v ${{ github.workspace }}/.cargo/registry/index:/root/.cargo/registry/index \
-  -v ${{ github.workspace }}/.cargo/registry/cache:/root/.cargo/registry/cache \
-  -v ${{ github.workspace }}/.cargo/git:/root/.cargo/git \
-  -v ${{ github.workspace }}/target:/build/target \
-  -v ${{ github.workspace }}:/build \
-  -w /build/crates/edr_napi"
-
-x-build-gnu: &build_gnu |
-  set -e
-  apt-get update
-  apt-get install -y curl ca-certificates build-essential pkg-config python3 make git perl cmake
-  curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-  export PATH="/root/.cargo/bin:$PATH"
-  corepack enable
-  npm i -g pnpm@10.17.1
-  pnpm -v
-  pnpm install --frozen-lockfile --prefer-offline
-  pnpm run build --strip
-
-x-build-musl: &build_musl |
-  set -e
-  apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
-  curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-  export PATH="/root/.cargo/bin:$PATH"
-  corepack enable
-  npm i -g pnpm@10.17.1
-  pnpm -v
-  pnpm install --frozen-lockfile --prefer-offline
-  pnpm run build --strip
-
 env:
   DEBUG: napi:*
   APP_NAME: edr
-  MACOSX_DEPLOYMENT_TARGET: "10.13"
   NUMBER_OF_TARGETS: 7
+  DOCKER_OPTIONS: &docker_options "--user 0:0 \
+    -v ${{ github.workspace }}/.cargo/registry/index:/root/.cargo/registry/index \
+    -v ${{ github.workspace }}/.cargo/registry/cache:/root/.cargo/registry/cache \
+    -v ${{ github.workspace }}/.cargo/git:/root/.cargo/git \
+    -v ${{ github.workspace }}/target:/build/target \
+    -v ${{ github.workspace }}:/build \
+    -w /build/crates/edr_napi"
+
+  BUILD_GNU: &build_gnu |
+    set -e
+    apt-get update
+    apt-get install -y curl ca-certificates build-essential pkg-config python3 make git perl cmake
+    curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+    export PATH="/root/.cargo/bin:$PATH"
+    corepack enable
+    npm i -g pnpm@10.17.1
+    pnpm -v
+    pnpm install --frozen-lockfile --prefer-offline
+    pnpm run build --strip
+
+  BUILD_MUSL: &build_musl |
+    set -e
+    apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+    curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+    export PATH="/root/.cargo/bin:$PATH"
+    corepack enable
+    npm i -g pnpm@10.17.1
+    pnpm -v
+    pnpm install --frozen-lockfile --prefer-offline
+    pnpm run build --strip
 permissions:
   contents: write
   id-token: write
@@ -149,8 +146,8 @@ jobs:
         if: ${{ matrix.settings.docker }}
         with:
           image: ${{ matrix.settings.docker }}
-          options: *docker_options
-          run: ${{ matrix.settings.flavor == 'gnu' && '<< *build_gnu >>' || '<< *build_musl >>' }}
+          options: env.DOCKER_OPTIONS
+          run: ${{ matrix.settings.flavor == 'gnu' && '<< env.BUILD_GNU >>' || '<< env.BUILD_MUSL >>' }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
