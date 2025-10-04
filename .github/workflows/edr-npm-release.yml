@@ -218,12 +218,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - name: Setup node and pnpm
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: ${{ matrix.node }}
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
@@ -249,12 +243,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - name: Setup node and pnpm
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: ${{ matrix.node }}
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline --libc=musl
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
@@ -278,10 +266,6 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v5
-      - name: Setup node and pnpm
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: ${{ matrix.node }}
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
@@ -290,9 +274,6 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
-      - name: Install dependencies
-        run: |
-          pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=glibc
       - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
@@ -316,10 +297,6 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v5
-      - name: Setup node and pnpm
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: ${{ matrix.node }}
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
@@ -328,9 +305,6 @@ jobs:
       - name: List packages
         run: ls -R .
         shell: bash
-      - name: Install dependencies
-        run: |
-          pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=musl
       - name: Setup and run tests
         uses: addnab/docker-run-action@v3
         with:
