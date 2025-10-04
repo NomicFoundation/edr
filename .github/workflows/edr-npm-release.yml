@@ -27,7 +27,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build:    
+    name: stable - ${{ matrix.settings.target }} - node@20
+    runs-on: ${{ matrix.settings.host }}
     env:
       BUILD_GNU: |
         set -e
@@ -51,8 +53,6 @@ jobs:
         pnpm -v
         pnpm install --frozen-lockfile --prefer-offline
         pnpm run build --strip
-        name: stable - ${{ matrix.settings.target }} - node@20
-        runs-on: ${{ matrix.settings.host }}
     strategy:
       fail-fast: false
       matrix:
