@@ -33,24 +33,30 @@ jobs:
     env:
       BUILD_GNU: |
         set -e
+        
+        # Install Rust toolchain
         apt-get update
-        apt-get install -y curl ca-certificates build-essential pkg-config python3 make git perl cmake
+        apt-get install -y curl ca-certificates build-essential pkg-config
         curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
         export PATH="/root/.cargo/bin:$PATH"
-        corepack enable
+        
         npm i -g pnpm@10.17.1
         pnpm -v
+        pnpm config set store-dir /root/.pnpm-store
         pnpm install --frozen-lockfile --prefer-offline
         pnpm run build --strip
 
       BUILD_MUSL: |
         set -e
+
+        # Install Rust toolchain
         apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
         curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
         export PATH="/root/.cargo/bin:$PATH"
-        corepack enable
+
         npm i -g pnpm@10.17.1
         pnpm -v
+        pnpm config set store-dir /root/.pnpm-store
         pnpm install --frozen-lockfile --prefer-offline
         pnpm run build --strip
     strategy:
