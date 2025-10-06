@@ -149,9 +149,7 @@ fn repo_config_path_buf(repo_path: &Path) -> PathBuf {
 /// Creates or updates the `generated.rs` module file
 /// declares all the submodules and defines a `chain_configs()` function that
 /// returns a map containing all the generated configs
-fn write_generated_module_file(
-    chains_to_configure: Vec<ChainConfigSpec>,
-) -> anyhow::Result<()> {
+fn write_generated_module_file(chains_to_configure: Vec<ChainConfigSpec>) -> anyhow::Result<()> {
     let generated_module_file_name = format!("{GENERATED_MODULE_PATH}.rs");
     let generated_module_path = Path::new(&generated_module_file_name);
 
@@ -242,7 +240,7 @@ fn write_chain_module(
     repo_config_path: &PathBuf,
     repo_chain_config: &ChainConfigSpec,
     output_path: &Path,
-) -> anyhow:Result<String> {
+) -> anyhow::Result<String> {
     if repo_chain_config.networks.is_empty() {
         return Err(OpImporterError {
             message: "No networks for chain".to_string(),
