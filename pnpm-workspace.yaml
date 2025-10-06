@@ -12,8 +12,3 @@ minimumReleaseAge: 10080
 # Allow immediate installs for the following packages
 minimumReleaseAgeExclude:
   - '@nomicfoundation/*'
-
-onlyBuiltDependencies:
-  - esbuild
-  - keccak
-  - secp256k1
