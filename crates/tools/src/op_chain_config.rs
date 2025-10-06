@@ -8,7 +8,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use git2::Repository;
 use itertools::Itertools;
 use op_revm::OpSpecId;
@@ -44,13 +44,13 @@ pub fn import_op_chain_configs() -> anyhow::Result<()> {
         modules_dir.canonicalize()?.to_str().unwrap()
     );
 
-    let chains_to_configure =
+    let chains_to_generate =
         fetch_op_stack_chains_to_configure(superchain_registry_repo_dir.path())?;
 
     let generated_modules = generate_chain_modules(
         superchain_registry_repo_dir.path(),
         modules_dir,
-        chains_to_configure,
+        chains_to_generate,
     );
 
     write_generated_module_file(generated_modules)?;
@@ -145,13 +145,13 @@ fn repo_config_path_buf(repo_path: &Path) -> PathBuf {
 /// Creates or updates the `generated.rs` module file
 /// declares all the submodules and defines a `chain_configs()` function that
 /// returns a map containing all the generated configs
-fn write_generated_module_file(chains_to_configure: Vec<ChainConfigSpec>) -> anyhow::Result<()> {
+fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow::Result<()> {
     let generated_module_file_name = format!("{GENERATED_MODULE_PATH}.rs");
     let generated_module_path = Path::new(&generated_module_file_name);
 
     let mut generated_module: File = File::create(generated_module_path)?;
 
-    let generated_modules = chains_to_configure
+    let generated_modules = generated_chains
         .iter()
         .map(|op_chain_config| op_chain_config.file_name.as_str())
         .collect::<Vec<&str>>();
@@ -170,7 +170,7 @@ fn write_generated_module_file(chains_to_configure: Vec<ChainConfigSpec>) -> any
             imports
         });
 
-    let sorted_chain_networks: Vec<(String, String)> = chains_to_configure
+    let sorted_chain_networks: Vec<(String, String)> = generated_chains
         .into_iter()
         .flat_map(|chain_config| {
             chain_config
@@ -240,20 +240,17 @@ fn write_chain_module(
     if repo_chain_config.networks.is_empty() {
         bail!("No networks for chain");
     }
-    let chain_module_name = {
-        match repo_chain_config
-            .file_name
-            .replace('-', "_")
-            .split_once(".")
-        {
-            Some((name, _extension)) => String::from(name),
-            None => {
-                bail!(
-                    "could not define module filename from {}",
-                    repo_chain_config.file_name
-                )
-            }
-        }
+    let chain_module_name = if let Some((name, _extension)) = repo_chain_config
+        .file_name
+        .replace('-', "_")
+        .split_once(".")
+    {
+        String::from(name)
+    } else {
+        bail!(
+            "could not define module filename from {}",
+            repo_chain_config.file_name
+        );
     };
 
     let networks_config = {
@@ -273,8 +270,8 @@ fn write_chain_module(
             let chain_config_function = network_config_function(network);
             let chain_name = chain_config.name;
 
-            let chain_base_fee_params: String = build_base_fee_params(chain_config.optimism);
-            let chain_hardfork_activations = build_hardfork_activations_for(
+            let chain_base_fee_params: String = generate_base_fee_params(chain_config.optimism);
+            let chain_hardfork_activations = generate_hardfork_activations_for(
                 format!("{chain_module_name} {network}"),
                 chain_config.hardforks,
             );
@@ -321,7 +318,7 @@ fn write_chain_module(
     Ok(chain_module_name)
 }
 
-fn build_hardfork_activations_for(
+fn generate_hardfork_activations_for(
     chain_name: String,
     hardforks: toml::map::Map<String, toml::Value>,
 ) -> String {
@@ -388,14 +385,8 @@ fn prepend_initial_hardfork_if_needed(hardforks: &toml::value::Table) -> String 
 fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpSpecId>> {
     let hardfork_name = hardfork_str
         .split_once("_time")
-        .map(|(before_match, _)| before_match);
-
-    let hardfork_name = match hardfork_name {
-        None => {
-            bail!("activation is not time based: {hardfork_str}");
-        }
-        Some(name) => name,
-    };
+        .map(|(before_match, _)| before_match)
+        .ok_or(anyhow!("activation is not time based: {hardfork_str}"))?;
 
     match OpSpecId::from_str(&capitalize_first_letter(hardfork_name)) {
         Err(_) => {
@@ -408,7 +399,7 @@ fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpSpecId>> 
         Ok(hardfork) => Ok(Some(hardfork)),
     }
 }
-fn build_base_fee_params(params: OpHardforkBaseFeeParams) -> String {
+fn generate_base_fee_params(params: OpHardforkBaseFeeParams) -> String {
     let original_denominator = params.eip1559_denominator;
     let canyon_denominator = params.eip1559_denominator_canyon;
     let elasticity = params.eip1559_elasticity;
