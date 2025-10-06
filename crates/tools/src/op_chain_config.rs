@@ -176,18 +176,15 @@ fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow
         .sorted()
         .collect();
 
-    let insert_config_lines =
-        sorted_chain_networks
-            .iter()
-            .fold(String::new(), |mut imports, (module, network)| {
-                let chain_id_name = module_attribute(module, &chain_id_name(network));
-                let chain_config = module_attribute(module, &network_config_function(network));
-                imports.push('\n');
-                imports.push_str(
-                    format!("hardforks.insert({chain_id_name}, {chain_config});").as_str(),
-                );
-                imports
-            });
+    let config_tuples: String = Itertools::intersperse(
+        sorted_chain_networks.iter().map(|(module, network)| {
+            let chain_id_name = module_attribute(module, &chain_id_name(network));
+            let chain_config = module_attribute(module, &network_config_function(network));
+            format!("({chain_id_name}, {chain_config}),")
+        }),
+        String::from("\n"),
+    )
+    .collect();
 
     write!(
         generated_module,
@@ -202,11 +199,11 @@ fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow
 
         pub(crate) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {{
 
-            let mut hardforks = HashMap::new();
+            HashMap::from([
 
-            {insert_config_lines}
+                {config_tuples}
             
-            hardforks
+            ])
         }}
         "
     )?;
