@@ -151,24 +151,19 @@ fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow
 
     let mut generated_module: File = File::create(generated_module_path)?;
 
-    let generated_modules = generated_chains
-        .iter()
-        .map(|op_chain_config| op_chain_config.file_name.as_str())
-        .collect::<Vec<&str>>();
-
-    let module_imports = generated_modules
-        .iter()
-        .fold(String::new(), |mut imports, module| {
-            imports.push('\n');
-            imports.push_str(
+    let module_imports: String = Itertools::intersperse(
+        generated_chains
+            .iter()
+            .map(|op_chain_config| op_chain_config.file_name.as_str())
+            .map(|module| {
                 format!(
-                    "/// `{module}` chain configuration module;
+                    "/// Chain configuration module for `{module}`
                     pub mod {module};"
                 )
-                .as_str(),
-            );
-            imports
-        });
+            }),
+        String::from("\n"),
+    )
+    .collect();
 
     let sorted_chain_networks: Vec<(String, String)> = generated_chains
         .into_iter()

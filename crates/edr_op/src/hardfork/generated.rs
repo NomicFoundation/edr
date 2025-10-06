@@ -8,89 +8,89 @@ use edr_primitives::HashMap;
 
 use crate::Hardfork;
 
-/// `arena_z` chain configuration module;
+/// Chain configuration module for `arena_z`
 pub mod arena_z;
-/// `automata` chain configuration module;
+/// Chain configuration module for `automata`
 pub mod automata;
-/// `base` chain configuration module;
+/// Chain configuration module for `base`
 pub mod base;
-/// `bob` chain configuration module;
+/// Chain configuration module for `bob`
 pub mod bob;
-/// `boba` chain configuration module;
+/// Chain configuration module for `boba`
 pub mod boba;
-/// `camp` chain configuration module;
+/// Chain configuration module for `camp`
 pub mod camp;
-/// `celo` chain configuration module;
+/// Chain configuration module for `celo`
 pub mod celo;
-/// `creator_chain_testnet` chain configuration module;
+/// Chain configuration module for `creator_chain_testnet`
 pub mod creator_chain_testnet;
-/// `cyber` chain configuration module;
+/// Chain configuration module for `cyber`
 pub mod cyber;
-/// `ethernity` chain configuration module;
+/// Chain configuration module for `ethernity`
 pub mod ethernity;
-/// `fraxtal` chain configuration module;
+/// Chain configuration module for `fraxtal`
 pub mod fraxtal;
-/// `funki` chain configuration module;
+/// Chain configuration module for `funki`
 pub mod funki;
-/// `hashkeychain` chain configuration module;
+/// Chain configuration module for `hashkeychain`
 pub mod hashkeychain;
-/// `ink` chain configuration module;
+/// Chain configuration module for `ink`
 pub mod ink;
-/// `lisk` chain configuration module;
+/// Chain configuration module for `lisk`
 pub mod lisk;
-/// `lyra` chain configuration module;
+/// Chain configuration module for `lyra`
 pub mod lyra;
-/// `metal` chain configuration module;
+/// Chain configuration module for `metal`
 pub mod metal;
-/// `mint` chain configuration module;
+/// Chain configuration module for `mint`
 pub mod mint;
-/// `mode` chain configuration module;
+/// Chain configuration module for `mode`
 pub mod mode;
-/// `op` chain configuration module;
+/// Chain configuration module for `op`
 pub mod op;
-/// `orderly` chain configuration module;
+/// Chain configuration module for `orderly`
 pub mod orderly;
-/// `ozean` chain configuration module;
+/// Chain configuration module for `ozean`
 pub mod ozean;
-/// `pivotal` chain configuration module;
+/// Chain configuration module for `pivotal`
 pub mod pivotal;
-/// `polynomial` chain configuration module;
+/// Chain configuration module for `polynomial`
 pub mod polynomial;
-/// `race` chain configuration module;
+/// Chain configuration module for `race`
 pub mod race;
-/// `radius_testnet` chain configuration module;
+/// Chain configuration module for `radius_testnet`
 pub mod radius_testnet;
-/// `redstone` chain configuration module;
+/// Chain configuration module for `redstone`
 pub mod redstone;
-/// `settlus_mainnet` chain configuration module;
+/// Chain configuration module for `settlus_mainnet`
 pub mod settlus_mainnet;
-/// `settlus_sepolia` chain configuration module;
+/// Chain configuration module for `settlus_sepolia`
 pub mod settlus_sepolia;
-/// `shape` chain configuration module;
+/// Chain configuration module for `shape`
 pub mod shape;
-/// `silent_data_mainnet` chain configuration module;
+/// Chain configuration module for `silent_data_mainnet`
 pub mod silent_data_mainnet;
-/// `snax` chain configuration module;
+/// Chain configuration module for `snax`
 pub mod snax;
-/// `soneium` chain configuration module;
+/// Chain configuration module for `soneium`
 pub mod soneium;
-/// `soneium_minato` chain configuration module;
+/// Chain configuration module for `soneium_minato`
 pub mod soneium_minato;
-/// `sseed` chain configuration module;
+/// Chain configuration module for `sseed`
 pub mod sseed;
-/// `swan` chain configuration module;
+/// Chain configuration module for `swan`
 pub mod swan;
-/// `swell` chain configuration module;
+/// Chain configuration module for `swell`
 pub mod swell;
-/// `tbn` chain configuration module;
+/// Chain configuration module for `tbn`
 pub mod tbn;
-/// `unichain` chain configuration module;
+/// Chain configuration module for `unichain`
 pub mod unichain;
-/// `worldchain` chain configuration module;
+/// Chain configuration module for `worldchain`
 pub mod worldchain;
-/// `xterio_eth` chain configuration module;
+/// Chain configuration module for `xterio_eth`
 pub mod xterio_eth;
-/// `zora` chain configuration module;
+/// Chain configuration module for `zora`
 pub mod zora;
 
 pub(crate) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
