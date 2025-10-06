@@ -11,7 +11,7 @@ use op_revm::OpSpecId;
 pub const MAINNET_CHAIN_ID: u64 = 0x2105;
 
 /// `Base` chain configuration
-pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
+pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Base".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
@@ -61,7 +61,7 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
 pub const SEPOLIA_CHAIN_ID: u64 = 0x14A34;
 
 /// `Base Sepolia Testnet` chain configuration
-pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Base Sepolia Testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![

@@ -11,7 +11,7 @@ use op_revm::OpSpecId;
 pub const MAINNET_CHAIN_ID: u64 = 0x1E0;
 
 /// `World Chain` chain configuration
-pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
+pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "World Chain".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![
@@ -53,7 +53,7 @@ pub(crate) fn mainnet_config() -> ChainConfig<OpSpecId> {
 pub const SEPOLIA_CHAIN_ID: u64 = 0x12C1;
 
 /// `World Chain Sepolia Testnet` chain configuration
-pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "World Chain Sepolia Testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![

@@ -196,7 +196,7 @@ fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow
 
         {module_imports}
 
-        pub(crate) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {{
+        pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {{
 
             HashMap::from([
 
@@ -274,7 +274,7 @@ fn write_chain_module(
                 pub const {chain_id_const_name}: u64 = {chain_id_hex};
                 
                 /// `{chain_name}` chain configuration
-                pub(crate) fn {chain_config_function} -> ChainConfig<OpSpecId>{{ ChainConfig {{
+                pub(super) fn {chain_config_function} -> ChainConfig<OpSpecId>{{ ChainConfig {{
                     name: \"{chain_name}\".into(),
                     base_fee_params: {chain_base_fee_params}, 
                     hardfork_activations: {chain_hardfork_activations}

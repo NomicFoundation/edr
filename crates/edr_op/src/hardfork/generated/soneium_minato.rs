@@ -11,7 +11,7 @@ use op_revm::OpSpecId;
 pub const SEPOLIA_CHAIN_ID: u64 = 0x79A;
 
 /// `Soneium Testnet Minato` chain configuration
-pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Soneium Testnet Minato".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![

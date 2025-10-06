@@ -11,7 +11,7 @@ use op_revm::OpSpecId;
 pub const SEPOLIA_CHAIN_ID: u64 = 0x77C55A;
 
 /// `Ozean Poseidon Testnet` chain configuration
-pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Ozean Poseidon Testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![

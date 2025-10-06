@@ -11,7 +11,7 @@ use op_revm::OpSpecId;
 pub const SEPOLIA_CHAIN_ID: u64 = 0x10469;
 
 /// `Creator Chain Testnet` chain configuration
-pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Creator Chain Testnet".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![

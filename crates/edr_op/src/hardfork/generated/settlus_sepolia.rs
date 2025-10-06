@@ -11,7 +11,7 @@ use op_revm::OpSpecId;
 pub const SEPOLIA_CHAIN_ID: u64 = 0x14FD;
 
 /// `Settlus Sepolia` chain configuration
-pub(crate) fn sepolia_config() -> ChainConfig<OpSpecId> {
+pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
     ChainConfig {
         name: "Settlus Sepolia".into(),
         base_fee_params: BaseFeeParams::Dynamic(DynamicBaseFeeParams::new(vec![

@@ -93,7 +93,7 @@ pub mod xterio_eth;
 /// Chain configuration module for `zora`
 pub mod zora;
 
-pub(crate) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
+pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
     HashMap::from([
         (arena_z::MAINNET_CHAIN_ID, arena_z::mainnet_config()),
         (arena_z::SEPOLIA_CHAIN_ID, arena_z::sepolia_config()),
