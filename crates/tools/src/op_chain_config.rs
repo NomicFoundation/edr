@@ -1,7 +1,5 @@
-use core::fmt;
 use std::{
     collections::HashMap,
-    error::Error,
     fmt::Write as _,
     fs::{self, create_dir_all, File},
     io::{self, Write},
@@ -10,6 +8,7 @@ use std::{
     str::FromStr,
 };
 
+use anyhow::bail;
 use git2::Repository;
 use itertools::Itertools;
 use op_revm::OpSpecId;
@@ -80,10 +79,7 @@ pub fn import_op_chain_configs() -> anyhow::Result<()> {
         Ok(())
     } else {
         io::stderr().write_all(&cargo_check_output.stderr)?;
-        Err(OpImporterError {
-            message: "Cargo check fails after generation".to_string(),
-        }
-        .into())
+        bail!("Cargo check fails after generation");
     }
 }
 
@@ -126,7 +122,7 @@ fn fetch_op_stack_chains_to_configure(repo_path: &Path) -> anyhow::Result<Vec<Ch
 
     // Superchain repo configurations are organized by network
     for network in EDR_SUPPORTED_NETWORKS {
-        let mut network_config_path = PathBuf::from(&config_path);
+        let mut network_config_path = config_path.clone();
         network_config_path.push(network);
 
         for entry in fs::read_dir(network_config_path)? {
@@ -242,10 +238,7 @@ fn write_chain_module(
     output_path: &Path,
 ) -> anyhow::Result<String> {
     if repo_chain_config.networks.is_empty() {
-        return Err(OpImporterError {
-            message: "No networks for chain".to_string(),
-        }
-        .into());
+        bail!("No networks for chain");
     }
     let chain_module_name = {
         match repo_chain_config
@@ -255,13 +248,10 @@ fn write_chain_module(
         {
             Some((name, _extension)) => String::from(name),
             None => {
-                return Err(OpImporterError {
-                    message: format!(
-                        "could not define module filename from {}",
-                        repo_chain_config.file_name
-                    ),
-                }
-                .into())
+                bail!(
+                    "could not define module filename from {}",
+                    repo_chain_config.file_name
+                )
             }
         }
     };
@@ -402,10 +392,7 @@ fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpSpecId>> 
 
     let hardfork_name = match hardfork_name {
         None => {
-            return Err(OpImporterError {
-                message: format!("activation is not time based: {hardfork_str}"),
-            }
-            .into());
+            bail!("activation is not time based: {hardfork_str}");
         }
         Some(name) => name,
     };
@@ -413,10 +400,7 @@ fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpSpecId>> 
     match OpSpecId::from_str(&capitalize_first_letter(hardfork_name)) {
         Err(_) => {
             if !KNOWN_IGNORED_HARDFORKS.contains(&hardfork_name) {
-                Err(OpImporterError {
-                    message: format!("hardfork name is not supported: {hardfork_name}"),
-                }
-                .into())
+                bail!("hardfork name is not supported: {hardfork_name}")
             } else {
                 Ok(None)
             }
@@ -441,19 +425,6 @@ fn build_base_fee_params(params: OpHardforkBaseFeeParams) -> String {
         )
 ]))"
     )
-}
-
-#[derive(Debug)]
-struct OpImporterError {
-    message: String,
-}
-
-impl Error for OpImporterError {}
-
-impl fmt::Display for OpImporterError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
