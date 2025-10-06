@@ -16,7 +16,7 @@ use op_revm::OpSpecId;
 use tempfile::tempdir;
 
 /// These hardforks are not included in `OpSpecId` since they only impacted the
-/// conscensus layer
+/// consensus layer.
 const KNOWN_IGNORED_HARDFORKS: [&str; 2] = ["delta", "pectra_blob_schedule"];
 const SUPERCHAIN_REGISTRY_REPO_URL: &str =
     "https://github.com/ethereum-optimism/superchain-registry.git";
@@ -29,7 +29,7 @@ const GENERATED_FILE_WARNING_MESSAGE: &str = "
     // To make changes, update the generator script instead in `tools/src/op_chain_config.rs`.
 ";
 
-pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
+pub fn import_op_chain_configs() -> anyhow::Result<()> {
     // Create a temporary directory that will be automatically deleted on drop
     let superchain_registry_repo_dir = tempdir()?;
     Repository::clone(
@@ -88,7 +88,7 @@ pub fn import_op_chain_configs() -> Result<(), anyhow::Error> {
 }
 
 /// Generates a new file module for every element in `chain_configurations`
-/// Returns a Vec containing the chain config specs within EDR repo
+/// Returns a `Vec` containing the chain config specs within EDR repo.
 fn generate_chain_modules(
     repo_path: &Path,
     modules_dir: &Path,
@@ -118,13 +118,13 @@ fn generate_chain_modules(
 
 /// Based on superchain registry repository, identifies all the chains and their
 /// corresponding networks to create configs for
-/// Returns a Vec with the chain config spec within superchain registry
+/// Returns a `Vec` with the chain config spec within superchain registry.
 fn fetch_op_stack_chains_to_configure(repo_path: &Path) -> anyhow::Result<Vec<ChainConfigSpec>> {
     let config_path = repo_config_path_buf(repo_path);
 
     let mut networks_by_chain = HashMap::<String, Vec<String>>::new();
 
-    // Superchain repo configurations are oganized by network
+    // Superchain repo configurations are organized by network
     for network in EDR_SUPPORTED_NETWORKS {
         let mut network_config_path = PathBuf::from(&config_path);
         network_config_path.push(network);
@@ -151,7 +151,7 @@ fn repo_config_path_buf(repo_path: &Path) -> PathBuf {
 /// returns a map containing all the generated configs
 fn write_generated_module_file(
     chains_to_configure: Vec<ChainConfigSpec>,
-) -> Result<(), anyhow::Error> {
+) -> anyhow::Result<()> {
     let generated_module_file_name = format!("{GENERATED_MODULE_PATH}.rs");
     let generated_module_path = Path::new(&generated_module_file_name);
 
@@ -242,7 +242,7 @@ fn write_chain_module(
     repo_config_path: &PathBuf,
     repo_chain_config: &ChainConfigSpec,
     output_path: &Path,
-) -> Result<String, anyhow::Error> {
+) -> anyhow:Result<String> {
     if repo_chain_config.networks.is_empty() {
         return Err(OpImporterError {
             message: "No networks for chain".to_string(),
