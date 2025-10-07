@@ -4284,6 +4284,12 @@ mod tests {
                 url: get_alchemy_url(),
                 header_overrides_constructor: l1_header_overrides,
             },
+            // This block contains both valid and invalid EIP-7702 transactions, introduced in Prague
+            mainnet_prague => L1ChainSpec {
+                block_number: 23_376_625,
+                url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
+            },
         }
     }
 }
