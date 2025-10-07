@@ -93,8 +93,9 @@ where
     let mut evm = ChainSpecT::evm_with_inspector(
         block,
         cfg,
-        // We need to pass a transaction here to properly initialize the context but never use it
-        // as `InspectEvm::inspect_tx` takes the transaction as argument and sets it again.
+        // We need to pass a transaction here to properly initialize the context.
+        // This default transaction is immediately overridden by the actual transaction passed to
+        // `InspectEvm::inspect_tx`, so its values do not affect the inspection process.
         ChainSpecT::SignedTransaction::default(),
         database,
         inspector,
