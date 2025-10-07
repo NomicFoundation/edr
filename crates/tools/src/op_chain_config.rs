@@ -24,9 +24,26 @@ const EDR_SUPPORTED_NETWORKS: [&str; 2] = ["mainnet", "sepolia"];
 const GENERATED_MODULE_PATH: &str = "./crates/edr_op/src/hardfork/generated";
 const GENERATED_FILE_WARNING_MESSAGE: &str = "
     // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
-    // Any changes made to this file will be overwritten the next time it is generated.
-    // To make changes, update the generator script instead in `tools/src/op_chain_config.rs`.
-";
+    // Any changes made to this file will be overwritten the next time it is generated.     
+    // To make changes, update the generator script instead in `tools/src/op_chain_config.rs`. ";
+
+fn generate_warning_message(commit_sha: String) -> String {
+    format!("
+    {GENERATED_FILE_WARNING_MESSAGE}
+    //
+    // source: https://github.com/ethereum-optimism/superchain-registry/tree/{commit_sha}/{REPO_CONFIGS_PATH}
+")
+}
+
+fn get_current_commit_sha(repo_path: &Path) -> Result<String, git2::Error> {
+    let repo = Repository::open(repo_path)?;
+
+    let head = repo.head()?;
+    let commit = head.peel_to_commit()?;
+    let commit_id = commit.id();
+
+    Ok(commit_id.to_string())
+}
 
 pub fn import_op_chain_configs() -> anyhow::Result<()> {
     // Create a temporary directory that will be automatically deleted on drop
@@ -93,8 +110,7 @@ fn generate_chain_modules(
     chain_configurations
         .into_iter()
         .filter_map(|chain_config| {
-            let result =
-                write_chain_module(&repo_config_path_buf(repo_path), &chain_config, modules_dir);
+            let result = write_chain_module(repo_path, &chain_config, modules_dir);
             match result {
                 Ok(module_name) => Some(ChainConfigSpec {
                     file_name: module_name,
@@ -224,10 +240,11 @@ fn network_config_function(network: &str) -> String {
 /// Returns the name of the new module file
 /// Overwrites the file if it already exists
 fn write_chain_module(
-    repo_config_path: &PathBuf,
+    repo_path: &Path,
     repo_chain_config: &ChainConfigSpec,
     output_path: &Path,
 ) -> anyhow::Result<String> {
+    let repo_config_path = repo_config_path_buf(repo_path);
     if repo_chain_config.networks.is_empty() {
         bail!("No networks for chain");
     }
@@ -248,7 +265,7 @@ fn write_chain_module(
         let mut networks_config = String::new();
         for network in repo_chain_config.networks.iter() {
             let chain_config_path = {
-                let mut path = PathBuf::from(repo_config_path);
+                let mut path = repo_config_path.clone();
                 path.push(network.clone());
                 path.push(repo_chain_config.file_name.clone());
                 path
@@ -293,10 +310,15 @@ fn write_chain_module(
     };
     let mut module = File::create(module_path.clone())?;
 
+    let file_warning_message = {
+        let head_sha = get_current_commit_sha(repo_path)?;
+        generate_warning_message(head_sha)
+    };
+
     write!(
         &mut module,
         "
-        {GENERATED_FILE_WARNING_MESSAGE}
+        {file_warning_message}
         
         use edr_eip1559::{{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams}};
         use edr_evm::hardfork::{{self, Activations, ChainConfig, ForkCondition}};
