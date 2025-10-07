@@ -35,7 +35,7 @@ pub trait ChainSpec {
     /// The chain's block type.
     type BlockEnv: Block;
     /// The chain's type for contextual information.
-    type Context: Debug + Default;
+    type Context: Debug;
     /// The chain's halt reason type.
     type HaltReason: HaltReasonTrait + 'static;
     /// The chain's signed transaction type.

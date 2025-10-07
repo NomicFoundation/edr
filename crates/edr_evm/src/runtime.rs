@@ -3,8 +3,7 @@ use edr_database_components::DatabaseComponents;
 use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{State, StateCommit};
-use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector, Journal};
-use revm_context::{JournalTr as _, LocalContext};
+use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector};
 
 use crate::{
     config::CfgEnv,
@@ -41,22 +40,12 @@ where
 {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
-    let context = revm::Context {
-        block,
-        tx: transaction,
-        journaled_state: Journal::new(database),
-        cfg,
-        chain: ChainSpecT::Context::default(),
-        local: LocalContext::default(),
-        error: Ok(()),
-    };
-
     let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
         ChainSpecT::PrecompileProvider::default(),
         custom_precompiles.clone(),
     );
 
-    let mut evm = ChainSpecT::evm(context, precompile_provider);
+    let mut evm = ChainSpecT::evm(block, cfg, transaction, database, precompile_provider)?;
     evm.replay().map_err(|error| match error {
         EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
         EVMError::Header(error) => TransactionError::InvalidHeader(error),
@@ -96,22 +85,21 @@ where
 {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
-    let context = revm::Context {
-        block,
-        tx: ChainSpecT::SignedTransaction::default(),
-        journaled_state: Journal::new(database),
-        cfg,
-        chain: ChainSpecT::Context::default(),
-        local: LocalContext::default(),
-        error: Ok(()),
-    };
-
     let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
         ChainSpecT::PrecompileProvider::default(),
         custom_precompiles.clone(),
     );
 
-    let mut evm = ChainSpecT::evm_with_inspector(context, inspector, precompile_provider);
+    let mut evm = ChainSpecT::evm_with_inspector(
+        block,
+        cfg,
+        // We need to pass a transaction here to properly initialize the context but never use it
+        // as `InspectEvm::inspect_tx` takes the transaction as argument and sets it again.
+        ChainSpecT::SignedTransaction::default(),
+        database,
+        inspector,
+        precompile_provider,
+    )?;
     evm.inspect_tx(transaction).map_err(|error| match error {
         EVMError::Transaction(error) => ChainSpecT::cast_transaction_error(error),
         EVMError::Header(error) => TransactionError::InvalidHeader(error),

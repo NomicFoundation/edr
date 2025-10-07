@@ -6,9 +6,11 @@ use edr_chain_l1::L1ChainSpec;
 use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
 use edr_evm::{
-    evm::{EthFrame, Evm},
-    inspector::{Inspector, NoOpInspector},
+    config::CfgEnv,
+    evm::{Context, EthFrame, Evm, LocalContext},
+    inspector::Inspector,
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
+    journal::{Journal, JournalTrait as _},
     precompile::{EthPrecompiles, PrecompileProvider},
     spec::{
         BlockEnvConstructor, ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec,
@@ -213,19 +215,6 @@ impl RuntimeSpec for GenericChainSpec {
         }
     }
 
-    fn evm<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
-        StateErrorT,
-    >(
-        context: ContextForChainSpec<Self, DatabaseT>,
-        precompile_provider: PrecompileProviderT,
-    ) -> Self::Evm<BlockchainErrorT, DatabaseT, NoOpInspector, PrecompileProviderT, StateErrorT>
-    {
-        Self::evm_with_inspector(context, NoOpInspector {}, precompile_provider)
-    }
-
     fn evm_with_inspector<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
@@ -233,16 +222,32 @@ impl RuntimeSpec for GenericChainSpec {
         PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
     >(
-        context: ContextForChainSpec<Self, DatabaseT>,
+        block: Self::BlockEnv,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        database: DatabaseT,
         inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
-    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
-        Evm::new_with_inspector(
+    ) -> Result<
+        Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT>,
+        DatabaseT::Error,
+    > {
+        let context = Context {
+            block,
+            tx: transaction,
+            journaled_state: Journal::new(database),
+            cfg,
+            chain: (),
+            local: LocalContext::default(),
+            error: Ok(()),
+        };
+
+        Ok(Evm::new_with_inspector(
             context,
             inspector,
             EthInstructions::default(),
             precompile_provider,
-        )
+        ))
     }
 
     fn chain_config(
