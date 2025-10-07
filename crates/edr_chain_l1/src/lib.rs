@@ -35,3 +35,6 @@ pub type InvalidTransaction = revm_context_interface::result::InvalidTransaction
 
 /// L1 Ethereum chain type
 pub const CHAIN_TYPE: &str = "L1";
+
+/// The minimum difficulty for the Ethash proof-of-work algorithm.
+pub const MIN_ETHASH_DIFFICULTY: u64 = 131_072;

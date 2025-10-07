@@ -26,8 +26,8 @@ use parking_lot::Mutex;
 use tokio::runtime;
 
 use super::{
-    compute_state_at_block, validate_next_block, BlockHash, Blockchain, BlockchainError,
-    BlockchainErrorForChainSpec, BlockchainMut,
+    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
+    BlockchainMut,
 };
 use crate::{
     block::ReservableSparseBlockStorageForChainSpec,
@@ -132,6 +132,7 @@ where
     network_id: u64,
     hardfork: ChainSpecT::Hardfork,
     hardfork_activations: Option<hardfork::Activations<ChainSpecT::Hardfork>>,
+    min_ethash_difficulty: u64,
 }
 
 impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
@@ -654,8 +655,9 @@ where
             last_header.state_root,
             previous_total_difficulty,
             BlockConfig {
-                hardfork: self.hardfork,
                 base_fee_params: base_fee_params_for::<ChainSpecT>(self.chain_id),
+                hardfork: self.hardfork,
+                min_ethash_difficulty: self.min_ethash_difficulty,
             },
         );
 

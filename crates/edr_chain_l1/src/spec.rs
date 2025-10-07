@@ -1,5 +1,5 @@
 use alloy_rlp::RlpEncodable;
-use edr_evm_spec::{ChainHardfork, ChainSpec, EthHeaderConstants};
+use edr_evm_spec::{ChainHardfork, ChainSpec};
 use edr_rpc_eth::ChainRpcBlock;
 use edr_rpc_spec::RpcSpec;
 use serde::{de::DeserializeOwned, Serialize};
@@ -27,10 +27,6 @@ impl ChainSpec for L1ChainSpec {
     type Context = ();
     type HaltReason = HaltReason;
     type SignedTransaction = L1SignedTransaction;
-}
-
-impl EthHeaderConstants for L1ChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = 131072;
 }
 
 impl ChainRpcBlock for L1ChainSpec {

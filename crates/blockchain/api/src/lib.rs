@@ -1,6 +1,8 @@
 //! Types for Ethereum blockchains
 #![warn(missing_docs)]
 
+pub mod utils;
+
 use std::{collections::BTreeMap, sync::Arc};
 
 use auto_impl::auto_impl;
