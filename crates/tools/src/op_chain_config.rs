@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
     str::FromStr,
+    sync::OnceLock,
 };
 
 use anyhow::{anyhow, bail};
@@ -21,11 +22,23 @@ const SUPERCHAIN_REGISTRY_REPO_URL: &str =
     "https://github.com/ethereum-optimism/superchain-registry.git";
 const REPO_CONFIGS_PATH: &str = "superchain/configs";
 const EDR_SUPPORTED_NETWORKS: [&str; 2] = ["mainnet", "sepolia"];
-const GENERATED_MODULE_PATH: &str = "./crates/edr_op/src/hardfork/generated";
 const GENERATED_FILE_WARNING_MESSAGE: &str = "
-    // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
-    // Any changes made to this file will be overwritten the next time it is generated.     
-    // To make changes, update the generator script instead in `tools/src/op_chain_config.rs`. ";
+// WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
+// Any changes made to this file will be overwritten the next time it is generated.     
+// To make changes, update the generator script instead in `tools/src/op_chain_config.rs`.";
+
+static WORKSPACE_ROOT_PATH: OnceLock<anyhow::Result<String>> = OnceLock::new();
+
+fn generated_module_path() -> anyhow::Result<String> {
+    let root_path = WORKSPACE_ROOT_PATH.get_or_init(workspace_root);
+
+    root_path
+        .as_ref()
+        .map_err(|error| anyhow!("Could not determine EDR root path: {error}"))
+        .map(|workspace_root_path| {
+            format!("{workspace_root_path}/crates/edr_op/src/hardfork/generated")
+        })
+}
 
 fn generate_warning_message(commit_sha: String) -> String {
     format!("
@@ -53,7 +66,8 @@ pub fn import_op_chain_configs() -> anyhow::Result<()> {
         superchain_registry_repo_dir.path(),
     )?;
 
-    let modules_dir = Path::new(GENERATED_MODULE_PATH);
+    let generated_module_path = generated_module_path()?;
+    let modules_dir = Path::new(generated_module_path.as_str());
     create_dir_all(modules_dir)?;
 
     println!(
@@ -82,7 +96,7 @@ pub fn import_op_chain_configs() -> anyhow::Result<()> {
     Command::new("rustfmt")
         .arg("+nightly")
         .arg(generated_files_path)
-        .arg(format!("{GENERATED_MODULE_PATH}.rs"))
+        .arg(format!("{generated_module_path}.rs"))
         .output()?;
 
     println!("Running `cargo check`...");
@@ -162,7 +176,7 @@ fn repo_config_path_buf(repo_path: &Path) -> PathBuf {
 /// declares all the submodules and defines a `chain_configs()` function that
 /// returns a map containing all the generated configs
 fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow::Result<()> {
-    let generated_module_file_name = format!("{GENERATED_MODULE_PATH}.rs");
+    let generated_module_file_name = format!("{}.rs", generated_module_path()?);
     let generated_module_path = Path::new(&generated_module_file_name);
 
     let mut generated_module: File = File::create(generated_module_path)?;
@@ -481,4 +495,28 @@ fn previous_hardfork(hardfork: OpSpecId) -> Option<OpSpecId> {
         OpSpecId::INTEROP => Some(OpSpecId::ISTHMUS),
         OpSpecId::OSAKA => Some(OpSpecId::INTEROP),
     }
+}
+
+fn workspace_root() -> anyhow::Result<String> {
+    let output = Command::new("cargo")
+        .arg("metadata")
+        .arg("--no-deps")
+        .arg("--format-version")
+        .arg("1")
+        .output()?;
+
+    if !output.status.success() {
+        bail!(
+            "cargo metadata failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let stdout = String::from_utf8(output.stdout)?;
+    let metadata: serde_json::Value = serde_json::from_str(&stdout)?;
+
+    metadata
+        .get("workspace_root")
+        .and_then(|value| value.as_str().map(String::from))
+        .ok_or(anyhow!("Could not find workspace_root in cargo metadata"))
 }
