@@ -26,9 +26,19 @@ pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
                 ConstantBaseFeeParams::new(250, 6),
             ),
         ])),
-        hardfork_activations: Activations::new(vec![hardfork::Activation {
-            condition: ForkCondition::Timestamp(0),
-            hardfork: OpSpecId::CANYON,
-        }]),
+        hardfork_activations: Activations::new(vec![
+            hardfork::Activation {
+                condition: ForkCondition::Timestamp(0),
+                hardfork: OpSpecId::BEDROCK,
+            },
+            hardfork::Activation {
+                condition: ForkCondition::Timestamp(0),
+                hardfork: OpSpecId::REGOLITH,
+            },
+            hardfork::Activation {
+                condition: ForkCondition::Timestamp(0),
+                hardfork: OpSpecId::CANYON,
+            },
+        ]),
     }
 }

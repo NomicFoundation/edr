@@ -28,7 +28,11 @@ pub(super) fn mainnet_config() -> ChainConfig<OpSpecId> {
         ])),
         hardfork_activations: Activations::new(vec![
             hardfork::Activation {
-                condition: ForkCondition::Block(0),
+                condition: ForkCondition::Timestamp(0),
+                hardfork: OpSpecId::BEDROCK,
+            },
+            hardfork::Activation {
+                condition: ForkCondition::Timestamp(0),
                 hardfork: OpSpecId::REGOLITH,
             },
             hardfork::Activation {
@@ -78,7 +82,11 @@ pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
         ])),
         hardfork_activations: Activations::new(vec![
             hardfork::Activation {
-                condition: ForkCondition::Block(0),
+                condition: ForkCondition::Timestamp(0),
+                hardfork: OpSpecId::BEDROCK,
+            },
+            hardfork::Activation {
+                condition: ForkCondition::Timestamp(0),
                 hardfork: OpSpecId::REGOLITH,
             },
             hardfork::Activation {

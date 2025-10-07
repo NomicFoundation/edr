@@ -349,66 +349,41 @@ fn generate_hardfork_activations_for(
     chain_name: String,
     hardforks: toml::map::Map<String, toml::Value>,
 ) -> String {
-    let mut activations_str = prepend_initial_hardfork_if_needed(&hardforks);
-
-    for (hardfork, activation_value) in hardforks.iter() {
-        let hardfork = match get_op_hardfork_from(hardfork) {
+    let superchain_activations = hardforks.into_iter().filter_map(
+        |(hardfork, activation_value)| match get_op_hardfork_from(&hardfork) {
             Err(error) => {
                 println!("{chain_name}: ignoring activation - {error}");
-                continue;
+                None
             }
-            Ok(None) => continue,
-            Ok(Some(hardfork)) => hardfork,
-        };
-        let hardfork_str: &'static str = hardfork.into();
-        activations_str.push_str(
+            Ok(opt_hardfork) => opt_hardfork
+                .and_then(|hardfork| activation_value.as_integer().map(|value| (hardfork, value))),
+        },
+    );
+
+    // Superchain registry lists hardforks starting from Canyon, but there are two
+    // previous OpSpec hardforks before: bedrock and regolith. We are adding
+    // those hardforks to make sure that the blockchain hardfork list is complete.
+    let previous_hardforks = [(OpSpecId::BEDROCK, 0), (OpSpecId::REGOLITH, 0)];
+    let activations_str: String = previous_hardforks
+        .into_iter()
+        .chain(superchain_activations)
+        .map(|(hardfork, activation)| {
+            let hardfork_str: &'static str = hardfork.into();
+
             format!(
                 "
             hardfork::Activation {{
                 condition: ForkCondition::Timestamp({}),
                 hardfork: OpSpecId::{},
             }},",
-                activation_value,
+                activation,
                 hardfork_str.to_uppercase()
             )
-            .as_str(),
-        );
-    }
+        })
+        .collect();
     format!("Activations::new(vec![{activations_str}]),")
 }
 
-/// If not defined, prepend an activation point that defines the chain's
-/// hardfork at genesis. Sets as first hardfork the immediately before to the
-/// first one defined
-fn prepend_initial_hardfork_if_needed(hardforks: &toml::value::Table) -> String {
-    let first_valid_hardfork = hardforks.iter().find_map(|(hardfork, value)| {
-        get_op_hardfork_from(hardfork)
-            .ok()
-            .flatten()
-            .map(|op_hardfork| (op_hardfork, value))
-    });
-    if let Some((first_hardfork, activation_value)) = first_valid_hardfork {
-        match activation_value {
-            toml::Value::Integer(value) if *value != 0 => {
-                // we should add the previous hardfork as first activation
-                if let Some(previous_hardfork) = previous_hardfork(first_hardfork) {
-                    let hardfork_str: &str = previous_hardfork.into();
-                    return format!(
-                        "
-                        hardfork::Activation {{
-                            condition: ForkCondition::Block({}),
-                            hardfork: OpSpecId::{},
-                        }},",
-                        0,
-                        hardfork_str.to_uppercase()
-                    );
-                }
-            }
-            _ => (),
-        }
-    }
-    String::new()
-}
 fn get_op_hardfork_from(hardfork_str: &str) -> anyhow::Result<Option<OpSpecId>> {
     let hardfork_name = hardfork_str
         .split_once("_time")
@@ -479,21 +454,6 @@ fn capitalize_first_letter(s: &str) -> String {
     match chars.next() {
         None => String::new(),
         Some(first_char) => first_char.to_uppercase().chain(chars).collect(),
-    }
-}
-
-fn previous_hardfork(hardfork: OpSpecId) -> Option<OpSpecId> {
-    match hardfork {
-        OpSpecId::BEDROCK => None,
-        OpSpecId::REGOLITH => Some(OpSpecId::BEDROCK),
-        OpSpecId::CANYON => Some(OpSpecId::REGOLITH),
-        OpSpecId::ECOTONE => Some(OpSpecId::CANYON),
-        OpSpecId::FJORD => Some(OpSpecId::ECOTONE),
-        OpSpecId::GRANITE => Some(OpSpecId::FJORD),
-        OpSpecId::HOLOCENE => Some(OpSpecId::GRANITE),
-        OpSpecId::ISTHMUS => Some(OpSpecId::HOLOCENE),
-        OpSpecId::INTEROP => Some(OpSpecId::ISTHMUS),
-        OpSpecId::OSAKA => Some(OpSpecId::INTEROP),
     }
 }
 
