@@ -181,21 +181,18 @@ fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow
 
     let mut generated_module: File = File::create(generated_module_path)?;
 
-    let module_imports: String = Itertools::intersperse(
-        generated_chains
-            .iter()
-            .map(|op_chain_config| op_chain_config.file_name.as_str())
-            .map(|module| {
-                format!(
-                    "/// Chain configuration module for `{module}`
+    let module_imports: String = generated_chains
+        .iter()
+        .map(|op_chain_config| op_chain_config.file_name.as_str())
+        .map(|module| {
+            format!(
+                "/// Chain configuration module for `{module}`
                     pub mod {module};"
-                )
-            }),
-        String::from("\n"),
-    )
-    .collect();
+            )
+        })
+        .collect();
 
-    let sorted_chain_networks = generated_chains
+    let config_tuples: String = generated_chains
         .into_iter()
         .flat_map(|chain_config| {
             chain_config
@@ -203,17 +200,13 @@ fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow
                 .into_iter()
                 .map(move |network| (chain_config.file_name.clone(), network))
         })
-        .sorted();
-
-    let config_tuples: String = Itertools::intersperse(
-        sorted_chain_networks.map(|(module, network)| {
+        .sorted()
+        .map(|(module, network)| {
             let chain_id_name = module_attribute(&module, &chain_id_name(&network));
             let chain_config = module_attribute(&module, &network_config_function(&network));
             format!("({chain_id_name}, {chain_config}),")
-        }),
-        String::from("\n"),
-    )
-    .collect();
+        })
+        .collect();
 
     write!(
         generated_module,
