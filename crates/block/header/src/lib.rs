@@ -5,7 +5,7 @@ pub use alloy_eips::eip4895::Withdrawal;
 use alloy_eips::eip7840;
 use edr_eip1559::BaseFeeParams;
 pub use edr_eip4844::BlobGas;
-use edr_evm_spec::{EthHeaderConstants, EvmSpecId};
+use edr_evm_spec::EvmSpecId;
 use edr_primitives::{b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, U256};
 use edr_trie::ordered_trie_root;
 
@@ -160,16 +160,17 @@ pub struct PartialHeader {
 impl PartialHeader {
     /// Constructs a new instance based on the provided [`HeaderOverrides`] and
     /// parent [`BlockHeader`] for the given [`EvmSpecId`].
-    pub fn new<ChainSpecT: EthHeaderConstants>(
-        block_config: BlockConfig<'_, ChainSpecT::Hardfork>,
-        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+    pub fn new<HardforkT: Clone + Into<EvmSpecId> + PartialOrd>(
+        block_config: BlockConfig<'_, HardforkT>,
+        overrides: HeaderOverrides<HardforkT>,
         parent: Option<&BlockHeader>,
         ommers: &Vec<BlockHeader>,
         withdrawals: Option<&Vec<Withdrawal>>,
     ) -> Self {
         let BlockConfig {
-            hardfork,
             base_fee_params,
+            hardfork,
+            min_ethash_difficulty,
         } = block_config;
 
         let timestamp = overrides.timestamp.unwrap_or_default();
@@ -189,6 +190,8 @@ impl PartialHeader {
             }
         });
 
+        let evm_spec_id = hardfork.clone().into();
+
         Self {
             parent_hash,
             ommers_hash: keccak256(alloy_rlp::encode(ommers)),
@@ -197,14 +200,15 @@ impl PartialHeader {
             receipts_root: KECCAK_NULL_RLP,
             logs_bloom: Bloom::default(),
             difficulty: overrides.difficulty.unwrap_or_else(|| {
-                if hardfork.into() >= EvmSpecId::MERGE {
+                if evm_spec_id >= EvmSpecId::MERGE {
                     U256::ZERO
                 } else if let Some(parent) = parent {
-                    calculate_ethash_canonical_difficulty::<ChainSpecT>(
-                        hardfork.into(),
+                    calculate_ethash_canonical_difficulty(
+                        evm_spec_id,
                         parent,
                         number,
                         timestamp,
+                        min_ethash_difficulty,
                     )
                 } else {
                     U256::from(1)
@@ -217,14 +221,14 @@ impl PartialHeader {
             extra_data: overrides.extra_data.unwrap_or_default(),
             mix_hash: overrides.mix_hash.unwrap_or_default(),
             nonce: overrides.nonce.unwrap_or_else(|| {
-                if hardfork.into() >= EvmSpecId::MERGE {
+                if evm_spec_id >= EvmSpecId::MERGE {
                     B64::ZERO
                 } else {
                     B64::from(66u64)
                 }
             }),
             base_fee: overrides.base_fee.or_else(|| {
-                if hardfork.into() >= EvmSpecId::LONDON {
+                if evm_spec_id >= EvmSpecId::LONDON {
                     Some(if let Some(parent) = &parent {
                         calculate_next_base_fee_per_gas(
                             parent,
@@ -242,7 +246,7 @@ impl PartialHeader {
                 }
             }),
             withdrawals_root: overrides.withdrawals_root.or_else(|| {
-                if hardfork.into() >= EvmSpecId::SHANGHAI {
+                if evm_spec_id >= EvmSpecId::SHANGHAI {
                     let withdrawals_root = withdrawals.map_or(KECCAK_NULL_RLP, |withdrawals| {
                         ordered_trie_root(withdrawals.iter().map(alloy_rlp::encode))
                     });
@@ -253,7 +257,7 @@ impl PartialHeader {
                 }
             }),
             blob_gas: overrides.blob_gas.or_else(|| {
-                if hardfork.into() >= EvmSpecId::CANCUN {
+                if evm_spec_id >= EvmSpecId::CANCUN {
                     let excess_gas = parent.and_then(|parent| parent.blob_gas.as_ref()).map_or(
                         // For the first (post-fork) block, both parent.blob_gas_used and
                         // parent.excess_blob_gas are evaluated as 0.
@@ -262,7 +266,7 @@ impl PartialHeader {
                              gas_used,
                              excess_gas,
                          }| {
-                            let blob_params = if hardfork.into() >= EvmSpecId::PRAGUE {
+                            let blob_params = if evm_spec_id >= EvmSpecId::PRAGUE {
                                 eip7840::BlobParams::prague()
                             } else {
                                 eip7840::BlobParams::cancun()
@@ -281,7 +285,7 @@ impl PartialHeader {
                 }
             }),
             parent_beacon_block_root: overrides.parent_beacon_block_root.or_else(|| {
-                if hardfork.into() >= EvmSpecId::CANCUN {
+                if evm_spec_id >= EvmSpecId::CANCUN {
                     // Initial value from https://eips.ethereum.org/EIPS/eip-4788
                     Some(B256::ZERO)
                 } else {
@@ -289,7 +293,7 @@ impl PartialHeader {
                 }
             }),
             requests_hash: overrides.requests_hash.or_else(|| {
-                if hardfork.into() >= EvmSpecId::PRAGUE {
+                if evm_spec_id >= EvmSpecId::PRAGUE {
                     // sha("") for an empty list of requests
                     Some(b256!(
                         "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -331,10 +335,12 @@ impl From<BlockHeader> for PartialHeader {
 /// Defines the configurations needed for building a block
 #[derive(Clone, Debug)]
 pub struct BlockConfig<'params, HardforkT> {
-    /// associated hardfork
-    pub hardfork: HardforkT,
-    /// associated base fee params
+    /// Associated base fee params
     pub base_fee_params: &'params BaseFeeParams<HardforkT>,
+    /// Associated hardfork
+    pub hardfork: HardforkT,
+    /// Associated minimum ethash difficulty
+    pub min_ethash_difficulty: u64,
 }
 
 /// Calculates the next base fee for a post-London block, given the parent's
@@ -699,8 +705,9 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig {
-                hardfork: edr_chain_l1::Hardfork::LONDON,
                 base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                min_ethash_difficulty: edr_chain_l1::MIN_ETHASH_DIFFICULTY,
             },
             overrides,
             None,
@@ -726,8 +733,9 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig {
-                hardfork: edr_chain_l1::Hardfork::LONDON,
                 base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                min_ethash_difficulty: edr_chain_l1::MIN_ETHASH_DIFFICULTY,
             },
             overrides,
             None,
@@ -750,8 +758,9 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<L1ChainSpec>(
             BlockConfig {
-                hardfork: edr_chain_l1::Hardfork::BERLIN,
                 base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+                hardfork: edr_chain_l1::Hardfork::BERLIN,
+                min_ethash_difficulty: edr_chain_l1::MIN_ETHASH_DIFFICULTY,
             },
             overrides,
             None,
@@ -768,8 +777,9 @@ mod tests {
         let overrides = HeaderOverrides::default();
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig {
-                hardfork: edr_chain_l1::Hardfork::LONDON,
                 base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                min_ethash_difficulty: edr_chain_l1::MIN_ETHASH_DIFFICULTY,
             },
             overrides,
             None,
@@ -792,8 +802,9 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig {
-                hardfork: edr_chain_l1::Hardfork::LONDON,
                 base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                min_ethash_difficulty: edr_chain_l1::MIN_ETHASH_DIFFICULTY,
             },
             overrides,
             None,
@@ -823,8 +834,9 @@ mod tests {
         };
         let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
             BlockConfig {
-                hardfork: edr_chain_l1::Hardfork::LONDON,
                 base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
+                hardfork: edr_chain_l1::Hardfork::LONDON,
+                min_ethash_difficulty: edr_chain_l1::MIN_ETHASH_DIFFICULTY,
             },
             overrides,
             Some(&parent_header),

@@ -4,13 +4,14 @@ use std::num::NonZeroU64;
 use edr_block_api::{Block, BlockReceipts, EmptyBlock, LocalBlock};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_eip1559::BaseFeeParams;
-use edr_evm_spec::{EthHeaderConstants, ExecutableTransaction};
+use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::StateDiff;
 use parking_lot::{RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 
 use super::{sparse, InsertBlockError, SparseBlockStorage};
+use crate::InsertBlockAndReceiptsError;
 
 /// A reservation for a sequence of blocks that have not yet been inserted into
 /// storage.
@@ -25,6 +26,7 @@ struct Reservation<HardforkT> {
     previous_diff_index: usize,
     hardfork: HardforkT,
     base_fee_params: BaseFeeParams<HardforkT>,
+    min_ethash_difficulty: u64,
 }
 
 /// A storage solution for storing a subset of a blockchain's blocks in-memory,
@@ -242,6 +244,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
             previous_diff_index: self.state_diffs.len() - 1,
             hardfork: block_config.hardfork,
             base_fee_params: (*block_config.base_fee_params).clone(),
+            min_ethash_difficulty: block_config.min_ethash_difficulty,
         };
 
         self.reservations.get_mut().push(reservation);
@@ -258,30 +261,27 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
 impl<
         BlockReceiptT: Clone + ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT>,
-        HardforkT: Clone + Default,
+        HardforkT: Clone + Default + Into<EvmSpecId> + PartialOrd,
         SignedTransactionT: ExecutableTransaction,
     > ReservableSparseBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {
     /// Retrieves the block by number, if it exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn block_by_number<ChainSpecT: EthHeaderConstants<Hardfork = HardforkT>>(
-        &self,
-        number: u64,
-    ) -> Result<Option<BlockT>, InsertBlockError> {
+    pub fn block_by_number(&self, number: u64) -> Result<Option<BlockT>, InsertBlockError> {
         Ok(self
-            .try_fulfilling_reservation::<ChainSpecT>(number)?
+            .try_fulfilling_reservation(number)?
             .or_else(|| self.storage.read().block_by_number(number).cloned()))
     }
 
     /// Insert a block into the storage. Errors if a block with the same hash or
     /// number already exists.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn insert_block(
+    pub fn insert_block_and_receipts(
         &mut self,
         block: BlockT,
         state_diff: StateDiff,
         total_difficulty: U256,
-    ) -> Result<&BlockT, InsertBlockError> {
+    ) -> Result<&BlockT, InsertBlockAndReceiptsError> {
         self.last_block_number = block.header().number;
         self.number_to_diff_index
             .insert(self.last_block_number, self.state_diffs.len());
@@ -291,11 +291,14 @@ impl<
         let receipts: Vec<_> = block.transaction_receipts().to_vec();
         self.storage.get_mut().insert_receipts(receipts)?;
 
-        self.storage.get_mut().insert_block(block, total_difficulty)
+        self.storage
+            .get_mut()
+            .insert_block(block, total_difficulty)
+            .map_err(InsertBlockAndReceiptsError::from)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn try_fulfilling_reservation<ChainSpecT: EthHeaderConstants<Hardfork = HardforkT>>(
+    fn try_fulfilling_reservation(
         &self,
         block_number: u64,
     ) -> Result<Option<BlockT>, InsertBlockError> {
@@ -343,17 +346,18 @@ impl<
 
                 let block = BlockT::empty(
                     reservation.hardfork.clone(),
-                    PartialHeader::new::<ChainSpecT>(
+                    PartialHeader::new(
                         BlockConfig {
-                            hardfork: reservation.hardfork,
                             base_fee_params: &reservation.base_fee_params,
+                            hardfork: reservation.hardfork,
+                            min_ethash_difficulty: reservation.min_ethash_difficulty,
                         },
                         HeaderOverrides {
                             number: Some(block_number),
                             state_root: Some(reservation.previous_state_root),
                             base_fee: reservation.previous_base_fee_per_gas,
                             timestamp: Some(timestamp),
-                            ..HeaderOverrides::<ChainSpecT::Hardfork>::default()
+                            ..HeaderOverrides::default()
                         },
                         None,
                         &Vec::new(),

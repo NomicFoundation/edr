@@ -2342,6 +2342,7 @@ version = "0.3.8"
 dependencies = [
  "auto_impl",
  "edr_block_api",
+ "edr_block_storage",
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
@@ -2377,13 +2378,16 @@ dependencies = [
  "edr_block_api",
  "edr_block_header",
  "edr_block_storage",
+ "edr_blockchain_api",
  "edr_chain_l1",
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
  "edr_state_persistent_trie",
+ "edr_utils",
  "thiserror 1.0.69",
+ "tracing",
 ]
 
 [[package]]
@@ -2403,11 +2407,21 @@ dependencies = [
  "edr_receipt",
  "edr_rpc_eth",
  "edr_rpc_spec",
+ "edr_runtime_spec",
  "edr_test_utils",
  "serde",
+ "tempfile",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "edr_chain_config"
+version = "0.3.8"
+dependencies = [
+ "edr_eip1559",
+ "serde",
 ]
 
 [[package]]
@@ -3013,11 +3027,13 @@ dependencies = [
  "alloy-rlp",
  "edr_block_api",
  "edr_block_header",
+ "edr_block_remote",
  "edr_database_components",
  "edr_eip1559",
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
+ "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_state_api",
  "edr_transaction",

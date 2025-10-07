@@ -52,7 +52,7 @@ members = [
     "crates/foundry/evm/evm",
     "crates/foundry/evm/fuzz",
     "crates/foundry/evm/traces"
-]
+, "crates/chain/config"]
 resolver = "2"
 
 [workspace.package]

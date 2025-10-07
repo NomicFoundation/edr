@@ -1,0 +1,11 @@
+[package]
+name = "edr_chain_config"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_eip1559.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

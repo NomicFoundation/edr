@@ -1,8 +1,9 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_block_api::{Block, BlockReceipts, EmptyBlock, LocalBlock};
+use edr_block_api::{Block, BlockReceipts, EmptyBlock, EthBlockData, LocalBlock};
 use edr_block_header::{BlockHeader, PartialHeader};
+use edr_block_remote::RemoteBlock;
 use edr_database_components::{Database, DatabaseComponentError};
 use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{
@@ -14,9 +15,19 @@ use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
 };
+use edr_rpc_eth::ChainRpcBlock;
 use edr_rpc_spec::{RpcEthBlock, RpcSpec, RpcTransaction, RpcTypeFrom};
 use edr_state_api::EvmState;
 use edr_transaction::TransactionType;
+
+/// Helper type for a chain-specific [`RemoteBlock`].
+pub type RemoteBlockForChainSpec<ChainSpecT> = RemoteBlock<
+    <ChainSpecT as RuntimeSpec>::BlockReceipt,
+    <ChainSpecT as ChainRpcBlock>::RpcBlock<<ChainSpecT as RpcSpec>::RpcTransaction>,
+    <ChainSpecT as RpcSpec>::RpcReceipt,
+    <ChainSpecT as RpcSpec>::RpcTransaction,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
 
 /// A trait for constructing a (partial) block header into an EVM block.
 pub trait BlockEnvConstructor<HeaderT>: ChainSpec {

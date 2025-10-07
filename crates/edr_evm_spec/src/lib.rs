@@ -43,9 +43,3 @@ pub trait ChainSpec {
         + revm_context_interface::Transaction
         + TransactionValidation;
 }
-
-/// Constants for constructing Ethereum headers.
-pub trait EthHeaderConstants: ChainHardfork<Hardfork: 'static + PartialOrd> {
-    /// The minimum difficulty for the Ethash proof-of-work algorithm.
-    const MIN_ETHASH_DIFFICULTY: u64;
-}

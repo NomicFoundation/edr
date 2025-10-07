@@ -4,7 +4,7 @@ use std::sync::Arc;
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use edr_block_api::{Block, EthBlockData};
 use edr_block_remote::RemoteBlock;
-use edr_block_storage::SparseBlockStorage;
+use edr_block_storage::{InsertBlockError, SparseBlockStorage};
 use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
 use edr_evm_spec::ExecutableTransaction;
 use edr_primitives::{Address, HashSet, B256, U256};
@@ -197,12 +197,31 @@ enum FetchAndCacheRemoteBlockError<RpcBlockConversionErrorT> {
     /// Error converting a block
     #[error(transparent)]
     Conversion(RpcBlockConversionErrorT),
+    /// Error when inserting a block into storage
+    #[error(transparent)]
+    Insert(#[from] InsertBlockError),
     /// RPC client error
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),
 }
 
-impl<RpcBlockConversionErrorT>
+impl<RpcBlockConversionErrorT> FetchAndCacheRemoteBlockError<RpcBlockConversionErrorT> {
+    /// Converts the instance into a `FetchRemoteBlockError`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is an `InsertBlockError`.
+    pub fn expect_no_insert_error(
+        self,
+        msg: &str,
+    ) -> FetchRemoteBlockError<RpcBlockConversionErrorT> {
+        match self {
+            Self::Conversion(error) => FetchRemoteBlockError::Conversion(error),
+            Self::Insert(error) => panic!("{msg}: {error}"),
+            Self::RpcClient(error) => FetchRemoteBlockError::RpcClient(error),
+        }
+    }
+}
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait,
@@ -259,6 +278,11 @@ impl<
         {
             self.fetch_and_cache_block(cache, block)
                 .await
+                .map_err(|error| {
+                    error.expect_no_insert_error(
+                        "Cache should not contain duplicate block nor transaction",
+                    )
+                })
                 .map(Option::Some)
         } else {
             Ok(None)
@@ -281,7 +305,13 @@ impl<
                 .get_block_by_number_with_transaction_data(PreEip1898BlockSpec::Number(number))
                 .await?;
 
-            self.fetch_and_cache_block(cache, block).await
+            self.fetch_and_cache_block(cache, block)
+                .await
+                .map_err(|error| {
+                    error.expect_no_insert_error(
+                        "Cache should not contain duplicate block nor transaction",
+                    )
+                })
         }
     }
 
@@ -308,7 +338,13 @@ impl<
                 .total_difficulty()
                 .unwrap_or(&edr_defaults::TERMINAL_TOTAL_DIFFICULTY);
 
-            self.fetch_and_cache_block(cache, block).await?;
+            self.fetch_and_cache_block(cache, block)
+                .await
+                .map_err(|error| {
+                    error.expect_no_insert_error(
+                        "Cache should not contain duplicate block nor transaction",
+                    )
+                })?;
 
             Ok(Some(total_difficulty))
         } else {
@@ -325,7 +361,7 @@ impl<
             SparseBlockStorage<Arc<BlockReceiptT>, BlockT, SignedTransactionT>,
         >,
         block: RpcBlockT::RpcBlock<RpcTransactionT>,
-    ) -> Result<BlockT, FetchRemoteBlockError<RpcBlockConversionErrorT>> {
+    ) -> Result<BlockT, FetchAndCacheRemoteBlockError<RpcBlockConversionErrorT>> {
         // Geth has recently removed the total difficulty field from block RPC
         // responses, so we fall back to the terminal total difficulty of main net to
         // provide backwards compatibility.
@@ -335,7 +371,7 @@ impl<
             .unwrap_or(&edr_defaults::TERMINAL_TOTAL_DIFFICULTY);
 
         let block = RemoteBlock::new(block, self.client.clone(), self.runtime.clone())
-            .map_err(FetchRemoteBlockError::Conversion)?;
+            .map_err(FetchAndCacheRemoteBlockError::Conversion)?;
 
         let is_cacheable = FORCE_CACHING
             || self
@@ -356,7 +392,7 @@ impl<
 }
 
 impl<
-        BlockReceiptT: ReceiptTrait,
+        BlockReceiptT: Debug + ReceiptTrait,
         BlockT: Block<SignedTransactionT>
             + Clone
             + From<
@@ -368,10 +404,17 @@ impl<
                     SignedTransactionT,
                 >,
             >,
-        RpcBlockT: ChainRpcBlock<RpcBlock<RpcTransactionT>: RpcEthBlock>,
+        RpcBlockConversionErrorT,
+        RpcBlockT: ChainRpcBlock<
+            RpcBlock<RpcTransactionT>: RpcEthBlock
+                                           + TryInto<
+                EthBlockData<SignedTransactionT>,
+                Error = RpcBlockConversionErrorT,
+            >,
+        >,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: Default + RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
-        SignedTransactionT: ExecutableTransaction,
+        SignedTransactionT: Debug + ExecutableTransaction,
         const FORCE_CACHING: bool,
     >
     RemoteBlockchain<
@@ -420,6 +463,8 @@ impl<
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
     use edr_chain_l1::L1ChainSpec;
+    use edr_rpc_spec::EthRpcClientForChainSpec;
+    use edr_runtime_spec::RemoteBlockForChainSpec;
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
@@ -428,7 +473,7 @@ mod tests {
     async fn no_cache_for_unsafe_block_number() {
         let tempdir = tempfile::tempdir().expect("can create tempdir");
 
-        let rpc_client = EthRpcClient::<L1ChainSpec>::new(
+        let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
             &get_alchemy_url(),
             tempdir.path().to_path_buf(),
             None,
@@ -438,10 +483,11 @@ mod tests {
         // Latest block number is always unsafe to cache
         let block_number = rpc_client.block_number().await.unwrap();
 
-        let remote = RemoteBlockchain::<RemoteBlock<L1ChainSpec>, L1ChainSpec, false>::new(
-            Arc::new(rpc_client),
-            runtime::Handle::current(),
-        );
+        let remote =
+            RemoteBlockchain::<RemoteBlockForChainSpec<L1ChainSpec>, L1ChainSpec, false>::new(
+                Arc::new(rpc_client),
+                runtime::Handle::current(),
+            );
 
         let _ = remote.block_by_number(block_number).await.unwrap();
         assert!(remote
