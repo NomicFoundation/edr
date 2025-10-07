@@ -109,8 +109,8 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build (non-docker)
-        run: ${{ matrix.settings.build }}
         if: ${{ !matrix.settings.docker }}
+        run: ${{ matrix.settings.build }}
         shell: bash
 
       - name: Build in docker (gnu)
