@@ -16,7 +16,9 @@ pub mod op;
 
 static CONFIGS: LazyLock<HashMap<u64, ChainConfig<Hardfork>>> = LazyLock::new(|| {
     let mut configs = generated::chain_configs();
-    // Override op base_fee_params
+
+    // Override `base_fee_params` for `op` blockchains
+    // TODO: remove this override once https://github.com/NomicFoundation/edr/issues/1072 is implemented
     configs
         .entry(op::MAINNET_CHAIN_ID)
         .and_modify(|entry| entry.base_fee_params = op::MAINNET_BASE_FEE_PARAMS.clone());
@@ -24,7 +26,8 @@ static CONFIGS: LazyLock<HashMap<u64, ChainConfig<Hardfork>>> = LazyLock::new(||
         .entry(op::SEPOLIA_CHAIN_ID)
         .and_modify(|entry| entry.base_fee_params = op::SEPOLIA_BASE_FEE_PARAMS.clone());
 
-    // Override base base_fee_params
+    // Override `base_fee_params` for `base` blockchains
+    // TODO: remove this override once https://github.com/NomicFoundation/edr/issues/1072 is implemented
     configs
         .entry(base::MAINNET_CHAIN_ID)
         .and_modify(|entry| entry.base_fee_params = base::MAINNET_BASE_FEE_PARAMS.clone());
