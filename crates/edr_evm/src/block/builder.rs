@@ -111,25 +111,6 @@ pub enum BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidat
     ),
 }
 
-/// Options for creating a genesis block.
-#[derive(Default)]
-pub struct GenesisBlockOptions<HardforkT> {
-    /// The block's extra data
-    pub extra_data: Option<Bytes>,
-    /// The block's gas limit
-    pub gas_limit: Option<u64>,
-    /// The block's timestamp
-    pub timestamp: Option<u64>,
-    /// The block's mix hash (or prevrandao for post-merge blockchains)
-    pub mix_hash: Option<B256>,
-    /// The block's base gas fee
-    pub base_fee: Option<u128>,
-    /// Base fee params to calculate `base_fee` if not set
-    pub base_fee_params: Option<BaseFeeParams<HardforkT>>,
-    /// The block's blob gas (for post-Cancun blockchains)
-    pub blob_gas: Option<BlobGas>,
-}
-
 impl<HardforkT: Default> From<GenesisBlockOptions<HardforkT>> for HeaderOverrides<HardforkT> {
     fn from(value: GenesisBlockOptions<HardforkT>) -> Self {
         let GenesisBlockOptions {

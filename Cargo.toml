@@ -3,12 +3,14 @@ members = [
     # EDR
     "crates/block/api",
     "crates/block/header",
+    "crates/block/local",
     "crates/block/remote",
     "crates/block/storage",
     "crates/blockchain/api",
     "crates/blockchain/fork",
     "crates/blockchain/local",
     "crates/blockchain/remote",
+    "crates/chain/config",
     "crates/database/components",
     "crates/edr_chain_l1",
     "crates/edr_common",
@@ -52,7 +54,7 @@ members = [
     "crates/foundry/evm/evm",
     "crates/foundry/evm/fuzz",
     "crates/foundry/evm/traces"
-, "crates/chain/config"]
+]
 resolver = "2"
 
 [workspace.package]
@@ -110,12 +112,14 @@ scrypt.opt-level = 3
 [workspace.dependencies]
 edr_block_api = { path = "crates/block/api" }
 edr_block_header = { path = "crates/block/header" }
+edr_block_local = { path = "crates/block/local" }
 edr_block_remote = { path = "crates/block/remote" }
 edr_block_storage = { path = "crates/block/storage" }
 edr_blockchain_api = { path = "crates/blockchain/api" }
 edr_blockchain_fork = { path = "crates/blockchain/fork" }
 edr_blockchain_local = { path = "crates/blockchain/local" }
 edr_blockchain_remote = { path = "crates/blockchain/remote" }
+edr_chain_config = { path = "crates/chain/config" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }

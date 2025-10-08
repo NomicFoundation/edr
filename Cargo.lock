@@ -2284,9 +2284,11 @@ version = "0.3.8"
 dependencies = [
  "auto_impl",
  "edr_block_header",
+ "edr_eip1559",
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
+ "edr_state_api",
  "thiserror 1.0.69",
 ]
 
@@ -2306,6 +2308,26 @@ dependencies = [
  "edr_primitives",
  "edr_trie",
  "serde",
+]
+
+[[package]]
+name = "edr_block_local"
+version = "0.3.8"
+dependencies = [
+ "alloy-rlp",
+ "derive-where",
+ "edr_block_api",
+ "edr_block_header",
+ "edr_evm_spec",
+ "edr_primitives",
+ "edr_receipt",
+ "edr_state_api",
+ "edr_state_persistent_trie",
+ "edr_transaction",
+ "edr_trie",
+ "edr_utils",
+ "itertools 0.12.1",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2454,6 +2476,7 @@ dependencies = [
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_signer",
+ "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
  "log",
