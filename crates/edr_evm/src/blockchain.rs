@@ -30,22 +30,6 @@ pub enum BlockchainError<BlockConversionErrorT, HardforkT: Debug, ReceiptConvers
     /// An error that occurs when trying to insert a block into storage.
     #[error(transparent)]
     Insert(#[from] edr_block_storage::InsertBlockError),
-    /// Invalid block number
-    #[error("Invalid block number: {actual}. Expected: {expected}.")]
-    InvalidBlockNumber {
-        /// Provided block number
-        actual: u64,
-        /// Expected block number
-        expected: u64,
-    },
-    /// Invalid parent hash
-    #[error("Invalid parent hash: {actual}. Expected: {expected}.")]
-    InvalidParentHash {
-        /// Provided parent hash
-        actual: B256,
-        /// Expected parent hash
-        expected: B256,
-    },
     /// Missing hardfork activation history
     #[error(
         "No known hardfork for execution on historical block {block_number} (relative to fork block number {fork_block_number}) in chain with id {chain_id}. The node was not configured with a hardfork activation history."
@@ -58,9 +42,6 @@ pub enum BlockchainError<BlockConversionErrorT, HardforkT: Debug, ReceiptConvers
         /// Chain id
         chain_id: u64,
     },
-    /// Missing withdrawals for post-Shanghai blockchain
-    #[error("Missing withdrawals for post-Shanghai blockchain")]
-    MissingWithdrawals,
     /// Block number does not exist in blockchain
     #[error("Unknown block number")]
     UnknownBlockNumber,
@@ -165,35 +146,4 @@ impl<
         StateErrorT,
     > SyncBlockchainForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> for BlockchainT
 {
-}
-
-/// Validates whether a block is a valid next block.
-fn validate_next_block<ChainSpecT: RuntimeSpec>(
-    spec_id: ChainSpecT::Hardfork,
-    last_block: &dyn Block<ChainSpecT::SignedTransaction>,
-    next_block: &dyn Block<ChainSpecT::SignedTransaction>,
-) -> Result<(), BlockchainErrorForChainSpec<ChainSpecT>> {
-    let last_header = last_block.header();
-    let next_header = next_block.header();
-
-    let next_block_number = last_header.number + 1;
-    if next_header.number != next_block_number {
-        return Err(BlockchainError::InvalidBlockNumber {
-            actual: next_header.number,
-            expected: next_block_number,
-        });
-    }
-
-    if next_header.parent_hash != *last_block.block_hash() {
-        return Err(BlockchainError::InvalidParentHash {
-            actual: next_header.parent_hash,
-            expected: *last_block.block_hash(),
-        });
-    }
-
-    if spec_id.into() >= EvmSpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
-        return Err(BlockchainError::MissingWithdrawals);
-    }
-
-    Ok(())
 }

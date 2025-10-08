@@ -7,6 +7,7 @@ edition.workspace = true
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-serde.workspace = true
+derive-where.workspace = true
 edr_eip1559.workspace = true
 edr_eip4844.workspace = true
 edr_evm_spec.workspace = true

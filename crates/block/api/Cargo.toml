@@ -6,8 +6,10 @@ edition.workspace = true
 [dependencies]
 auto_impl.workspace = true
 edr_block_header.workspace = true
+edr_evm_spec.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

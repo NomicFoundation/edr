@@ -9,6 +9,7 @@ edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_block_storage.workspace = true
 edr_blockchain_api.workspace = true
+edr_eip1559.workspace = true
 edr_evm_spec.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
@@ -19,6 +20,7 @@ thiserror.workspace = true
 tracing = { workspace = true, optional = true }
 
 [dev-dependencies]
+anyhow.workspace = true
 edr_chain_l1.workspace = true
 
 [features]

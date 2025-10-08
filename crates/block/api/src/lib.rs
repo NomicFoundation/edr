@@ -1,8 +1,12 @@
+//! Ethereum block API
+#![warn(missing_docs)]
+
 use core::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_block_header::{BlockHeader, PartialHeader, Withdrawal};
+use edr_evm_spec::EvmSpecId;
 use edr_primitives::{B256, U256};
 use edr_receipt::ReceiptTrait;
 
@@ -94,4 +98,59 @@ pub struct EthBlockData<SignedTransactionT> {
 pub trait LocalBlock<BlockReceiptT> {
     /// Returns the receipts of the block's transactions.
     fn transaction_receipts(&self) -> &[BlockReceiptT];
+}
+
+/// Error due to an invalid next block.
+#[derive(Debug, thiserror::Error)]
+pub enum BlockValidityError {
+    /// Invalid block number
+    #[error("Invalid block number: {actual}. Expected: {expected}.")]
+    InvalidBlockNumber {
+        /// Provided block number
+        actual: u64,
+        /// Expected block number
+        expected: u64,
+    },
+    /// Invalid parent hash
+    #[error("Invalid parent hash: {actual}. Expected: {expected}.")]
+    InvalidParentHash {
+        /// Provided parent hash
+        actual: B256,
+        /// Expected parent hash
+        expected: B256,
+    },
+    /// Missing withdrawals for post-Shanghai blockchain
+    #[error("Missing withdrawals for post-Shanghai blockchain")]
+    MissingWithdrawals,
+}
+
+/// Validates whether a block is a valid next block.
+pub fn validate_next_block<HardforkT: Into<EvmSpecId>, SignedTransactionT>(
+    spec_id: HardforkT,
+    last_block: &dyn Block<SignedTransactionT>,
+    next_block: &dyn Block<SignedTransactionT>,
+) -> Result<(), BlockValidityError> {
+    let last_header = last_block.header();
+    let next_header = next_block.header();
+
+    let next_block_number = last_header.number + 1;
+    if next_header.number != next_block_number {
+        return Err(BlockValidityError::InvalidBlockNumber {
+            actual: next_header.number,
+            expected: next_block_number,
+        });
+    }
+
+    if next_header.parent_hash != *last_block.block_hash() {
+        return Err(BlockValidityError::InvalidParentHash {
+            actual: next_header.parent_hash,
+            expected: *last_block.block_hash(),
+        });
+    }
+
+    if spec_id.into() >= EvmSpecId::SHANGHAI && next_header.withdrawals_root.is_none() {
+        return Err(BlockValidityError::MissingWithdrawals);
+    }
+
+    Ok(())
 }

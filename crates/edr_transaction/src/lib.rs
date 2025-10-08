@@ -26,6 +26,15 @@ pub use revm_primitives::{
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
 
+/// Block metadata for a transaction.
+#[derive(Clone, Debug)]
+pub struct BlockDataForTransaction<BlockT> {
+    /// The block in which the transaction is found.
+    pub block: BlockT,
+    /// The index of the transaction in the block.
+    pub transaction_index: u64,
+}
+
 /// Trait for computing the hash of a transaction.
 pub trait ComputeTransactionHash {
     /// Computes the hash of the transaction.
@@ -125,6 +134,17 @@ impl<TransactionT: SignedTransaction> MaybeSignedTransaction for TransactionT {
     fn maybe_signature(&self) -> Option<&dyn Signature> {
         Some(self.signature())
     }
+}
+
+/// The result returned by requesting a transaction.
+#[derive(Clone, Debug)]
+pub struct TransactionAndBlock<BlockT, SignedTransactionT> {
+    /// The transaction.
+    pub transaction: SignedTransactionT,
+    /// Block data in which the transaction is found if it has been mined.
+    pub block_data: Option<BlockDataForTransaction<BlockT>>,
+    /// Whether the transaction is pending
+    pub is_pending: bool,
 }
 
 /// Trait for mutable transactions.

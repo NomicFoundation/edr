@@ -7,8 +7,8 @@ use edr_block_remote::RemoteBlock;
 use edr_database_components::{Database, DatabaseComponentError};
 use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{
-    ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, EvmTransactionValidationError,
-    ExecutableTransaction, TransactionValidation,
+    ChainHardfork, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction,
+    TransactionValidation,
 };
 use edr_primitives::B256;
 use edr_receipt::{
@@ -18,7 +18,7 @@ use edr_receipt::{
 use edr_rpc_eth::ChainRpcBlock;
 use edr_rpc_spec::{RpcEthBlock, RpcSpec, RpcTransaction, RpcTypeFrom};
 use edr_state_api::EvmState;
-use edr_transaction::TransactionType;
+use edr_transaction::{TransactionAndBlock, TransactionType};
 
 /// Helper type for a chain-specific [`RemoteBlock`].
 pub type RemoteBlockForChainSpec<ChainSpecT> = RemoteBlock<
@@ -39,10 +39,7 @@ pub trait BlockEnvConstructor<HeaderT>: ChainSpec {
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
 #[allow(clippy::trait_duplication_in_bounds)]
 pub trait RuntimeSpec:
-    alloy_rlp::Encodable
-    // Defines the chain's internal types like blocks/headers or transactions
-    + EthHeaderConstants
-    + ChainHardfork<Hardfork: Debug>
+    ChainHardfork<Hardfork: Debug>
     + ChainSpec<
         SignedTransaction: alloy_rlp::Encodable
           + Clone
@@ -62,7 +59,7 @@ pub trait RuntimeSpec:
         RpcReceipt: Debug
           + RpcTypeFrom<Self::BlockReceipt, Hardfork = Self::Hardfork>,
         RpcTransaction: RpcTransaction
-          + RpcTypeFrom<TransactionAndBlockForChainSpec<Self>, Hardfork = Self::Hardfork>
+          + RpcTypeFrom<TransactionAndBlock<Arc<Self::Block>, Self::SignedTransaction>, Hardfork = Self::Hardfork>
           + TryInto<Self::SignedTransaction, Error = Self::RpcTransactionConversionError>,
     >
     + RpcSpec<ExecutionReceipt<FilterLog>: Debug>

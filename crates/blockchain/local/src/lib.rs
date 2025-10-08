@@ -1,12 +1,16 @@
-use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
+use std::{collections::BTreeMap, convert::Infallible, fmt::Debug, num::NonZeroU64, sync::Arc};
 
-use edr_block_api::{Block as _, BlockAndTotalDifficulty, BlockReceipts};
+use edr_block_api::{
+    validate_next_block, Block, BlockAndTotalDifficulty, BlockReceipts, BlockValidityError,
+    EmptyBlock, LocalBlock,
+};
 use edr_block_header::BlockConfig;
 use edr_block_storage::ReservableSparseBlockStorage;
-use edr_blockchain_api::{utils::compute_state_at_block, Blockchain};
-use edr_evm_spec::EvmSpecId;
+use edr_blockchain_api::{utils::compute_state_at_block, BlockHash, Blockchain, BlockchainMut};
+use edr_eip1559::BaseFeeParams;
+use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{Address, HashSet, B256, U256};
-use edr_receipt::{log::FilterLog, ReceiptTrait};
+use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_utils::CastArc;
@@ -29,18 +33,24 @@ pub enum InvalidGenesisBlock {
 #[derive(Debug)]
 pub struct LocalBlockchain<BlockReceiptT: ReceiptTrait, HardforkT, LocalBlockT, SignedTransactionT>
 {
-    storage:
-        ReservableSparseBlockStorage<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>,
+    storage: ReservableSparseBlockStorage<
+        Arc<BlockReceiptT>,
+        Arc<LocalBlockT>,
+        HardforkT,
+        SignedTransactionT,
+    >,
+    base_fee_params: BaseFeeParams<HardforkT>,
     chain_id: u64,
     hardfork: HardforkT,
+    min_ethash_difficulty: u64,
 }
 
 impl<
         BlockReceiptT: ReceiptTrait,
-        HardforkT,
-        LocalBlockT: BlockReceipts<Arc<BlockReceiptT>>,
-        SignedTransactionT,
-    > LocalBlockchain<BlockReceiptT, LocalBlockT, HardforkT, SignedTransactionT>
+        HardforkT: Clone + Into<EvmSpecId>,
+        LocalBlockT: Block<SignedTransactionT> + BlockReceipts<Arc<BlockReceiptT>> + Clone,
+        SignedTransactionT: ExecutableTransaction,
+    > LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
 {
     /// Constructs a new instance with the provided genesis block, validating a
     /// zero block number.
@@ -50,6 +60,8 @@ impl<
         genesis_diff: StateDiff,
         chain_id: u64,
         hardfork: HardforkT,
+        base_fee_params: BaseFeeParams<HardforkT>,
+        min_ethash_difficulty: u64,
     ) -> Result<Self, InvalidGenesisBlock> {
         let genesis_header = genesis_block.header();
 
@@ -59,7 +71,9 @@ impl<
             });
         }
 
-        if hardfork.into() >= EvmSpecId::SHANGHAI && genesis_header.withdrawals_root.is_none() {
+        if hardfork.clone().into() >= EvmSpecId::SHANGHAI
+            && genesis_header.withdrawals_root.is_none()
+        {
             return Err(InvalidGenesisBlock::MissingWithdrawals);
         }
 
@@ -72,27 +86,44 @@ impl<
 
         Ok(Self {
             storage,
+            base_fee_params,
             chain_id,
             hardfork,
+            min_ethash_difficulty,
         })
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum LocalBlockchainError {
+    /// An error that occurs when trying to insert a block and its receipts
+    /// into storage.
+    #[error(transparent)]
+    BlockAndReceiptInsertion(#[from] edr_block_storage::InsertBlockAndReceiptsError),
+    /// An error that occurs when trying to insert a local block into storage.
+    #[error(transparent)]
+    BlockInsertion(#[from] edr_block_storage::InsertBlockError),
+    /// An error that occurs when trying to insert an invalid local block.
+    #[error(transparent)]
+    BlockValidity(#[from] BlockValidityError),
     /// Block number does not exist in blockchain
     #[error("Unknown block number")]
     UnknownBlockNumber,
 }
 
 impl<
-        BlockReceiptT: ReceiptTrait,
+        BlockReceiptT: Clone + ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
         BlockT: ?Sized,
-        HardforkT,
-        LocalBlockT: BlockReceipts<Arc<BlockReceiptT>> + CastArc<BlockT>,
-        SignedTransactionT,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        LocalBlockT: Block<SignedTransactionT>
+            + BlockReceipts<Arc<BlockReceiptT>, Error = Infallible>
+            + CastArc<BlockT>
+            + Clone
+            + EmptyBlock<HardforkT>
+            + LocalBlock<Arc<BlockReceiptT>>,
+        SignedTransactionT: ExecutableTransaction,
     > Blockchain<BlockT, BlockReceiptT, HardforkT>
-    for LocalBlockchain<BlockReceiptT, LocalBlockT, HardforkT, SignedTransactionT>
+    for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
 {
     type BlockchainError = LocalBlockchainError;
 
@@ -150,8 +181,12 @@ impl<
         addresses: &HashSet<Address>,
         normalized_topics: &[Option<Vec<B256>>],
     ) -> Result<Vec<FilterLog>, Self::BlockchainError> {
-        self.storage
+        let logs = self
+            .storage
             .logs(from_block, to_block, addresses, normalized_topics)
+            .expect("BlockReceipts::logs cannot fail as error type is Infallible");
+
+        Ok(logs)
     }
 
     fn network_id(&self) -> u64 {
@@ -172,11 +207,11 @@ impl<
             return Err(LocalBlockchainError::UnknownBlockNumber);
         }
 
-        Ok(self.hardfork)
+        Ok(self.hardfork.clone())
     }
 
     fn hardfork(&self) -> HardforkT {
-        self.hardfork
+        self.hardfork.clone()
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -208,26 +243,31 @@ impl<
     }
 }
 
-impl<ChainSpecT: SyncRuntimeSpec>
-    BlockchainMut<ChainSpecT::Block, ChainSpecT::LocalBlock, ChainSpecT::SignedTransaction>
-    for LocalBlockchain<ChainSpecT>
-where
-    ChainSpecT::LocalBlock: BlockReceipts<
-        Arc<ChainSpecT::BlockReceipt>,
-        Error = BlockchainErrorForChainSpec<ChainSpecT>,
-    >,
+impl<
+        BlockReceiptT: Clone + ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + ?Sized,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        LocalBlockT: Block<SignedTransactionT>
+            + BlockReceipts<Arc<BlockReceiptT>, Error = Infallible>
+            + CastArc<BlockT>
+            + Clone
+            + EmptyBlock<HardforkT>
+            + LocalBlock<Arc<BlockReceiptT>>,
+        SignedTransactionT: ExecutableTransaction,
+    > BlockchainMut<BlockT, LocalBlockT, SignedTransactionT>
+    for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
 {
-    type Error = BlockchainErrorForChainSpec<ChainSpecT>;
+    type Error = LocalBlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_block(
         &mut self,
-        block: ChainSpecT::LocalBlock,
+        block: LocalBlockT,
         state_diff: StateDiff,
-    ) -> Result<BlockAndTotalDifficultyForChainSpec<ChainSpecT>, Self::Error> {
+    ) -> Result<BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>, Self::Error> {
         let last_block = self.last_block()?;
 
-        validate_next_block::<ChainSpecT>(self.hardfork, &last_block, &block)?;
+        validate_next_block(self.hardfork.clone(), &last_block, &block)?;
 
         let previous_total_difficulty = self
             .total_difficulty_by_hash(last_block.block_hash())
@@ -236,12 +276,14 @@ where
 
         let total_difficulty = previous_total_difficulty + block.header().difficulty;
 
-        let block = self
-            .storage
-            .insert_block(Arc::new(block), state_diff, total_difficulty)?;
+        let block = self.storage.insert_block_and_receipts(
+            Arc::new(block),
+            state_diff,
+            total_difficulty,
+        )?;
 
         Ok(BlockAndTotalDifficulty::new(
-            ChainSpecT::cast_local_block(block.clone()),
+            CastArc::cast_arc(block.clone()),
             Some(total_difficulty),
         ))
     }
@@ -268,8 +310,9 @@ where
             last_header.state_root,
             previous_total_difficulty,
             BlockConfig {
-                hardfork: self.hardfork,
-                base_fee_params: base_fee_params_for::<ChainSpecT>(self.chain_id),
+                base_fee_params: &self.base_fee_params,
+                hardfork: self.hardfork.clone(),
+                min_ethash_difficulty: self.min_ethash_difficulty,
             },
         );
 
@@ -281,20 +324,26 @@ where
         if self.storage.revert_to_block(block_number) {
             Ok(())
         } else {
-            Err(BlockchainError::UnknownBlockNumber)
+            Err(LocalBlockchainError::UnknownBlockNumber)
         }
     }
 }
 
-impl<ChainSpecT: SyncRuntimeSpec> BlockHash for LocalBlockchain<ChainSpecT> {
-    type Error = BlockchainErrorForChainSpec<ChainSpecT>;
+impl<
+        BlockReceiptT: Clone + ReceiptTrait,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        LocalBlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
+        SignedTransactionT: ExecutableTransaction,
+    > BlockHash for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
+{
+    type Error = LocalBlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
         self.storage
-            .block_by_number::<ChainSpecT>(block_number)?
+            .block_by_number(block_number)?
             .map(|block| *block.block_hash())
-            .ok_or(BlockchainError::UnknownBlockNumber)
+            .ok_or(LocalBlockchainError::UnknownBlockNumber)
     }
 }
 
@@ -305,7 +354,6 @@ mod tests {
     use edr_state_api::account::{Account, AccountInfo, AccountStatus};
 
     use super::*;
-    use crate::{spec::GenesisBlockFactory as _, state::IrregularState, GenesisBlockOptions};
 
     #[test]
     fn compute_state_after_reserve() -> anyhow::Result<()> {
@@ -337,8 +385,9 @@ mod tests {
         let genesis_block = L1ChainSpec::genesis_block(
             genesis_diff.clone(),
             BlockConfig {
+                base_fee_params: base_fee_params_for::<L1ChainSpec>(1),
                 hardfork: edr_chain_l1::Hardfork::SHANGHAI,
-                base_fee_params: base_fee_params_for::<edr_chain_l1::L1ChainSpec>(1),
+                min_ethash_difficulty: edr_chain_l1::MIN_ETHASH_DIFFICULTY,
             },
             GenesisBlockOptions {
                 gas_limit: Some(6_000_000),
