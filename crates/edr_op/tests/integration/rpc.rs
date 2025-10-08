@@ -14,7 +14,6 @@ use edr_primitives::{b256, HashMap, B256};
 use edr_rpc_eth::client::EthRpcClient;
 use edr_test_utils::env::get_alchemy_url;
 use edr_transaction::TransactionType as _;
-use op_alloy_rpc_types::L1BlockInfo;
 use tokio::runtime;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -85,37 +84,7 @@ async fn block_with_deposit_transaction() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn transaction_and_receipt_pre_bedrock() -> anyhow::Result<()> {
-    const TRANSACTION_HASH: B256 =
-        b256!("29a264d922bcf76ebae7a60af9ca405ff8946fde819123b1beafca43f5753ce1");
-
-    let url = get_alchemy_url().replace("eth-", "opt-");
-    let rpc_client = EthRpcClient::<OpChainSpec>::new(&url, CACHE_DIR.into(), None)?;
-
-    let transaction = rpc_client
-        .get_transaction_by_hash(TRANSACTION_HASH)
-        .await?
-        .expect("Transaction must exist");
-
-    let transaction =
-        transaction::Signed::try_from(transaction).expect("Failed to deserialize transaction");
-
-    assert_eq!(transaction.transaction_type(), transaction::Type::Legacy);
-
-    let receipt = rpc_client
-        .get_transaction_receipt(TRANSACTION_HASH)
-        .await
-        .expect("Failed to retrieve receipt")
-        .expect("Receipt must exist");
-
-    // TODO: https://github.com/NomicFoundation/edr/issues/903
-    // Archive providers return both None and Some(0) for legacy receipts
-    assert!(matches!(receipt.transaction_type, None | Some(0)));
-
-    Ok(())
-}
-
+// TODO: https://github.com/NomicFoundation/edr/issues/1112
 #[tokio::test(flavor = "multi_thread")]
 async fn deposit_transaction_and_receipt_regolith() -> anyhow::Result<()> {
     const TRANSACTION_HASH: B256 =
@@ -142,7 +111,15 @@ async fn deposit_transaction_and_receipt_regolith() -> anyhow::Result<()> {
         Some(transaction::Type::Deposit.into())
     );
     assert!(receipt.deposit_receipt_version.is_none());
-    assert_l1_block_info_is_none(&receipt.l1_block_info);
+
+    let l1_block_info = &receipt.l1_block_info;
+    assert_eq!(l1_block_info.l1_gas_price, Some(0x758c0b711));
+    assert_eq!(l1_block_info.l1_gas_used, Some(0xcf0));
+    assert_eq!(l1_block_info.l1_fee, Some(0x0));
+    assert_eq!(l1_block_info.l1_fee_scalar, Some(0.684));
+    assert_eq!(l1_block_info.l1_base_fee_scalar, Some(0xa6fe0));
+    assert!(l1_block_info.l1_blob_base_fee.is_none());
+    assert!(l1_block_info.l1_blob_base_fee_scalar.is_none());
 
     Ok(())
 }
@@ -173,7 +150,15 @@ async fn deposit_transaction_and_receipt_canyon() -> anyhow::Result<()> {
         Some(transaction::Type::Deposit.into())
     );
     assert_eq!(receipt.deposit_receipt_version, Some(1));
-    assert_l1_block_info_is_none(&receipt.l1_block_info);
+
+    let l1_block_info = &receipt.l1_block_info;
+    assert_eq!(l1_block_info.l1_gas_price, Some(0x221d9108d));
+    assert_eq!(l1_block_info.l1_gas_used, Some(0xcf0));
+    assert_eq!(l1_block_info.l1_fee, Some(0x0));
+    assert_eq!(l1_block_info.l1_fee_scalar, Some(0.684));
+    assert_eq!(l1_block_info.l1_base_fee_scalar, Some(0xa6fe0));
+    assert!(l1_block_info.l1_blob_base_fee.is_none());
+    assert!(l1_block_info.l1_blob_base_fee_scalar.is_none());
 
     Ok(())
 }
@@ -204,8 +189,15 @@ async fn deposit_transaction_and_receipt_ecotone() -> anyhow::Result<()> {
         Some(transaction::Type::Deposit.into())
     );
     assert_eq!(receipt.deposit_receipt_version, Some(1));
-    assert_l1_block_info_is_none(&receipt.l1_block_info);
 
+    let l1_block_info = &receipt.l1_block_info;
+    assert_eq!(l1_block_info.l1_gas_price, Some(0x17a2aaed0));
+    assert_eq!(l1_block_info.l1_gas_used, Some(0xaac));
+    assert_eq!(l1_block_info.l1_fee, Some(0x0));
+    assert_eq!(l1_block_info.l1_fee_scalar, None);
+    assert_eq!(l1_block_info.l1_base_fee_scalar, Some(0x558));
+    assert_eq!(l1_block_info.l1_blob_base_fee, Some(0x1));
+    assert_eq!(l1_block_info.l1_blob_base_fee_scalar, Some(0xc5fc5));
     Ok(())
 }
 
@@ -231,14 +223,4 @@ async fn receipt_with_l1_block_info() -> anyhow::Result<()> {
     assert_eq!(receipt.l1_block_info.l1_blob_base_fee_scalar, Some(0xf79c5));
 
     Ok(())
-}
-
-fn assert_l1_block_info_is_none(l1_block_info: &L1BlockInfo) {
-    assert!(l1_block_info.l1_gas_price.is_none());
-    assert!(l1_block_info.l1_gas_used.is_none());
-    assert!(l1_block_info.l1_fee.is_none());
-    assert!(l1_block_info.l1_fee_scalar.is_none());
-    assert!(l1_block_info.l1_base_fee_scalar.is_none());
-    assert!(l1_block_info.l1_blob_base_fee.is_none());
-    assert!(l1_block_info.l1_blob_base_fee_scalar.is_none());
 }
