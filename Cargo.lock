@@ -2284,8 +2284,10 @@ version = "0.3.8"
 dependencies = [
  "auto_impl",
  "edr_block_header",
+ "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2295,6 +2297,7 @@ dependencies = [
  "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
+ "derive-where",
  "edr_chain_l1",
  "edr_eip1559",
  "edr_eip4844",
@@ -2376,12 +2379,14 @@ dependencies = [
 name = "edr_blockchain_local"
 version = "0.3.8"
 dependencies = [
+ "anyhow",
  "derive-where",
  "edr_block_api",
  "edr_block_header",
  "edr_block_storage",
  "edr_blockchain_api",
  "edr_chain_l1",
+ "edr_eip1559",
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",

@@ -261,7 +261,7 @@ impl<BlockReceiptT: Clone + ReceiptTrait, BlockT: Clone, HardforkT: Clone, Signe
 impl<
         BlockReceiptT: Clone + ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<BlockReceiptT>,
-        HardforkT: Clone + Default + Into<EvmSpecId> + PartialOrd,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         SignedTransactionT: ExecutableTransaction,
     > ReservableSparseBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
 {

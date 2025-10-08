@@ -9,8 +9,8 @@ use edr_chain_l1::L1ChainSpec;
 use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{
-    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
-    EvmTransactionValidationError, ExecutableTransaction, TransactionValidation,
+    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EvmSpecId, EvmTransactionValidationError,
+    ExecutableTransaction, TransactionValidation,
 };
 use edr_primitives::{Bytes, B256, U256};
 use edr_receipt::{

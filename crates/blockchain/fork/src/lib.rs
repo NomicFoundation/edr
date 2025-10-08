@@ -303,6 +303,7 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
             network_id,
             hardfork,
             hardfork_activations,
+            min_ethash_difficulty: todo!(),
         })
     }
 

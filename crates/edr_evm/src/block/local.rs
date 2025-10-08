@@ -1,5 +1,6 @@
 use core::fmt::Debug;
 use std::{
+    convert::Infallible,
     marker::PhantomData,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
@@ -9,9 +10,7 @@ use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_block_api::{Block, EmptyBlock, LocalBlock};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
-use edr_evm_spec::{
-    ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId, ExecutableTransaction,
-};
+use edr_evm_spec::{ChainHardfork, ChainSpec, EvmSpecId, ExecutableTransaction};
 use edr_primitives::{B256, KECCAK_EMPTY};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
@@ -324,14 +323,9 @@ impl<
         SignedTransactionT,
     >
 {
-    type Error = BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>;
+    type Error = Infallible;
 
-    fn fetch_transaction_receipts(
-        &self,
-    ) -> Result<
-        Vec<Arc<BlockReceiptT>>,
-        BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
-    > {
+    fn fetch_transaction_receipts(&self) -> Result<Vec<Arc<BlockReceiptT>>, Self::Error> {
         Ok(self.transaction_receipts.clone())
     }
 }
