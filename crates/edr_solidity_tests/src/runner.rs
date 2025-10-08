@@ -1434,6 +1434,8 @@ impl<
             })
             .collect::<BTreeMap<_, _>>();
 
+        // HERE?
+
         let duration = start.elapsed();
         let suite_result = SuiteResult::new(duration, test_results, warnings);
         info!(

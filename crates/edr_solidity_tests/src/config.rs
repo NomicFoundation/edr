@@ -57,6 +57,8 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub invariant: InvariantConfig,
     /// Optionally, a callback for reporting collected coverage hits.
     pub on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
+
+    pub gas_report: bool,
 }
 
 impl<HardforkT: HardforkTr> SolidityTestRunnerConfig<HardforkT> {

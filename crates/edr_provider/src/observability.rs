@@ -15,12 +15,10 @@ use edr_evm::{
     trace::TraceCollector,
 };
 use edr_evm_spec::HaltReasonTrait;
+use edr_gas_report::gas_report::SyncOnCollectedGasReportCallback;
 use edr_state_api::State;
 
-use crate::{
-    console_log::ConsoleLogCollector, gas_reports::SyncOnCollectedGasReportCallback, mock::Mocker,
-    SyncCallOverride,
-};
+use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
 
 /// Convenience type alias for [`ObservabilityConfig`].
 ///

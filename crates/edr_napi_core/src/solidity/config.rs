@@ -173,6 +173,8 @@ pub struct TestRunnerConfig {
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: TestFilterConfig,
+
+    pub generate_gas_report: Option<bool>,
 }
 
 impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConfig<HardforkT> {
@@ -208,6 +210,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             include_traces,
             on_collected_coverage_fn,
             test_pattern: _,
+            generate_gas_report,
         } = value;
 
         let mut evm_opts = SolidityTestRunnerConfig::default_evm_opts();
@@ -276,6 +279,8 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
 
         let local_predeploys = local_predeploys.unwrap_or_default();
 
+        let gas_report = generate_gas_report.unwrap_or(false);
+
         Ok(SolidityTestRunnerConfig {
             project_root,
             collect_stack_traces,
@@ -291,6 +296,7 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             on_collected_coverage_fn,
             // Solidity fuzz fixtures are not supported by the JS backend
             solidity_fuzz_fixtures: false,
+            gas_report,
         })
     }
 }

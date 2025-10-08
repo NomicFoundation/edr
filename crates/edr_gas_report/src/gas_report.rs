@@ -1,12 +1,16 @@
 use derive_more::Debug;
 use dyn_clone::DynClone;
 use edr_evm_spec::HaltReasonTrait;
-use edr_primitives::{hash_map, Address, Bytecode, Bytes, HashMap};
+use edr_primitives::{
+    hash_map::{self, HashMap},
+    Address, Bytecode, Bytes,
+};
 use edr_receipt::ExecutionResult;
 use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature},
     solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
 };
+use edr_solidity_tests::revm::interpreter::SuccessOrHalt;
 use edr_state_api::{State, StateError};
 use edr_transaction::TxKind;
 
@@ -258,6 +262,18 @@ impl<HaltReasonT: HaltReasonTrait> From<&ExecutionResult<HaltReasonT>>
     }
 }
 
+impl<HaltReasonT: HaltReasonTrait> From<&SuccessOrHalt<HaltReasonT>> for GasReportExecutionStatus {
+    fn from(result: &SuccessOrHalt<HaltReasonT>) -> Self {
+        match result {
+            SuccessOrHalt::Success(..) => Self::Success,
+            SuccessOrHalt::Revert => Self::Revert,
+            SuccessOrHalt::Halt(..)
+            | SuccessOrHalt::FatalExternalError
+            | SuccessOrHalt::Internal(..) => Self::Halt,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct DeploymentGasReport {
     pub gas: u64,
@@ -383,5 +399,47 @@ impl FunctionGasReportAndIdentifiers {
         } else {
             Err(FunctionGasReportCreationError::UnrecognizedFunction)
         }
+    }
+}
+
+impl From<edr_solidity_tests::gas_report::GasReport> for GasReport {
+    fn from(value: edr_solidity_tests::gas_report::GasReport) -> Self {
+        let contracts = value
+            .contracts
+            .into_iter()
+            .map(|(contract_name, contract)| {
+                let deployments = vec![DeploymentGasReport {
+                    gas: contract.gas,
+                    size: contract.size as u64,
+                    status: GasReportExecutionStatus::Success,
+                }];
+
+                let mut functions: HashMap<String, Vec<FunctionGasReport>> = HashMap::new();
+                contract.functions.iter().for_each(|(_, sigs)| {
+                    for (sig, gas_info) in sigs.iter() {
+                        let reports = gas_info
+                            .calls
+                            .iter()
+                            .map(|(gas, status)| FunctionGasReport {
+                                gas: *gas,
+                                // TODO
+                                status: GasReportExecutionStatus::Success,
+                            })
+                            .collect::<Vec<_>>();
+
+                        functions.insert(sig.clone(), reports);
+                    }
+                });
+                (
+                    contract_name,
+                    ContractGasReport {
+                        deployments,
+                        functions,
+                    },
+                )
+            })
+            .collect();
+
+        Self { contracts }
     }
 }

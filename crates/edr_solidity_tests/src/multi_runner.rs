@@ -30,6 +30,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     config::CollectStackTraces,
+    gas_report,
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
@@ -116,6 +117,7 @@ pub struct MultiContractRunner<
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
+    gas_report: bool,
 }
 
 impl<
@@ -176,6 +178,7 @@ impl<
             solidity_fuzz_fixtures,
             local_predeploys,
             on_collected_coverage_fn,
+            gas_report,
         } = config;
 
         // Do canonicalization in blocking context.
@@ -209,6 +212,7 @@ impl<
             test_options,
             on_collected_coverage_fn,
             _phantom: PhantomData,
+            gas_report,
         })
     }
 
@@ -268,10 +272,15 @@ impl<
         let identifier = artifact_id.identifier();
         let mut span_name = identifier.as_str();
 
+        let mut evm_opts = self.evm_opts.clone();
+        if self.gas_report {
+            evm_opts.isolate = true;
+        }
+
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
             (*self.cheats_config_options).clone(),
-            self.evm_opts.clone(),
+            evm_opts,
             self.known_contracts.clone(),
             Some(artifact_id.clone()),
         );
@@ -280,7 +289,13 @@ impl<
             CollectStackTraces::Always => TracingMode::WithSteps,
             CollectStackTraces::OnFailure => match self.include_traces {
                 IncludeTraces::Failing | IncludeTraces::All => TracingMode::WithoutSteps,
-                IncludeTraces::None => TracingMode::None,
+                IncludeTraces::None => {
+                    if self.gas_report {
+                        TracingMode::WithoutSteps
+                    } else {
+                        TracingMode::None
+                    }
+                }
             },
         };
 

@@ -64,6 +64,7 @@ tracing = { version = "0.1.37", features = [
     "attributes",
     "std",
 ], optional = true }
+edr_gas_report = { version = "0.3.8", path = "../edr_gas_report" }
 
 [dev-dependencies]
 alloy-eips.workspace = true

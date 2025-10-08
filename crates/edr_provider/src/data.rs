@@ -47,6 +47,7 @@ use edr_evm_spec::{
     ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
     TransactionValidation,
 };
+use edr_gas_report::gas_report::{GasReport, SyncOnCollectedGasReportCallback};
 use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
@@ -83,7 +84,6 @@ use crate::{
         TransactionFailure, TransactionFailureWithTraces,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
-    gas_reports::{GasReport, SyncOnCollectedGasReportCallback},
     logger::SyncLogger,
     mock::SyncCallOverride,
     observability::{EvmObserver, EvmObserverConfig, ObservabilityConfig},

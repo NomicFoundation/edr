@@ -19,6 +19,7 @@ use edr_evm::{
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EvmSpecId, HaltReasonTrait, OutOfGasError, TransactionValidation,
 };
+use edr_gas_report::gas_report::GasReportCreationError;
 use edr_primitives::{hex, Address, Bytes, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_signer::SignatureError;
@@ -27,8 +28,8 @@ use edr_state_api::StateError;
 use serde::Serialize;
 
 use crate::{
-    config::IntervalConfigConversionError, debug_trace::DebugTraceError,
-    gas_reports::GasReportCreationError, time::TimeSinceEpoch, ProviderSpec,
+    config::IntervalConfigConversionError, debug_trace::DebugTraceError, time::TimeSinceEpoch,
+    ProviderSpec,
 };
 
 /// Helper type for a chain-specific [`CreationError`].

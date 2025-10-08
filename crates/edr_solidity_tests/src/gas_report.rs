@@ -7,6 +7,7 @@ use std::{
 
 use comfy_table::{presets::ASCII_MARKDOWN, Attribute, Cell, Color, Table};
 use edr_common::calc;
+use edr_evm::interpreter::InstructionResult;
 use foundry_evm::{abi::TestFunctionExt, traces::CallKind};
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
@@ -125,7 +126,9 @@ impl GasReport {
                     .or_default()
                     .entry(signature.clone())
                     .or_default();
-                gas_info.calls.push(trace.gas_used);
+                gas_info
+                    .calls
+                    .push((trace.gas_used, trace.status.unwrap_or_default()));
             }
         }
     }
@@ -138,11 +141,12 @@ impl GasReport {
         for contract in self.contracts.values_mut() {
             for sigs in contract.functions.values_mut() {
                 for func in sigs.values_mut() {
-                    func.calls.sort_unstable();
-                    func.min = func.calls.first().copied().unwrap_or_default();
-                    func.max = func.calls.last().copied().unwrap_or_default();
-                    func.mean = calc::mean(&func.calls);
-                    func.median = calc::median_sorted(&func.calls);
+                    let mut calls_gas = func.calls.iter().map(|(g, _)| *g).collect::<Vec<_>>();
+                    calls_gas.sort_unstable();
+                    func.min = calls_gas.first().copied().unwrap_or_default();
+                    func.max = calls_gas.last().copied().unwrap_or_default();
+                    func.mean = calc::mean(&calls_gas);
+                    func.median = calc::median_sorted(&calls_gas);
                 }
             }
         }
@@ -227,7 +231,7 @@ pub struct ContractInfo {
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct GasInfo {
-    pub calls: Vec<u64>,
+    pub calls: Vec<(u64, InstructionResult)>,
     pub min: u64,
     pub mean: u64,
     pub median: u64,

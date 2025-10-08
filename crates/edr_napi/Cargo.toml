@@ -75,6 +75,7 @@ foundry-cheatcodes.workspace = true
 foundry-compilers.workspace = true
 edr_common.workspace = true
 tempfile = "3.10.1"
+edr_gas_report = { version = "0.3.8", path = "../edr_gas_report" }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }

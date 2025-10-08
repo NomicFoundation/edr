@@ -308,6 +308,8 @@ impl EdrContext {
                                 let status = on_test_suite_completed_callback
                                     .call(suite_result, ThreadsafeFunctionCallMode::Blocking);
 
+                                // OR here?
+
                                 // This should always succeed since we're using an unbounded queue.
                                 // We add an assertion for
                                 // completeness.
