@@ -1,6 +1,8 @@
 //! Ethereum block API
 #![warn(missing_docs)]
 
+mod genesis;
+
 use core::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
 
@@ -9,6 +11,8 @@ use edr_block_header::{BlockHeader, PartialHeader, Withdrawal};
 use edr_evm_spec::EvmSpecId;
 use edr_primitives::{B256, U256};
 use edr_receipt::ReceiptTrait;
+
+pub use self::genesis::{GenesisBlockFactory, GenesisBlockOptions, SyncGenesisBlockFactory};
 
 /// Trait for implementations of an Ethereum block.
 #[auto_impl(Arc)]

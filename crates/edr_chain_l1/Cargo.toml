@@ -18,6 +18,7 @@ edr_receipt.workspace = true
 edr_rpc_eth.workspace = true
 edr_rpc_spec.workspace = true
 edr_signer.workspace = true
+edr_state_api.workspace = true
 edr_transaction.workspace = true
 log.workspace = true
 revm-context.workspace = true

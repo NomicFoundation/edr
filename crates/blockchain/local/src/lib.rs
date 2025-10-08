@@ -349,6 +349,7 @@ impl<
 
 #[cfg(test)]
 mod tests {
+    use edr_block_api::{GenesisBlockFactory as _, GenesisBlockOptions};
     use edr_chain_l1::L1ChainSpec;
     use edr_primitives::HashMap;
     use edr_state_api::account::{Account, AccountInfo, AccountStatus};

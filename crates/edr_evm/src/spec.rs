@@ -43,9 +43,6 @@ use crate::{
     SyncBlock,
 };
 
-/// Ethereum L1 extra data for genesis blocks.
-pub const EXTRA_DATA: &[u8] = b"\x12\x34";
-
 /// Helper type for a chain-specific [`revm::Context`].
 pub type ContextForChainSpec<ChainSpecT, DatabaseT> = revm::Context<
     <ChainSpecT as ChainSpec>::BlockEnv,
@@ -97,59 +94,6 @@ impl<TypeConstructorT> ExecutionReceiptTypeConstructorBounds for TypeConstructor
             > + ExecutionReceipt<Log = ExecutionLog>,
         > + TypeConstructor<FilterLog, Type: Debug + ExecutionReceipt<Log = FilterLog>>
 {
-}
-
-/// Trait for constructing a chain-specific genesis block.
-pub trait GenesisBlockFactory: ChainHardfork {
-    /// The error type for genesis block creation.
-    type CreationError: std::error::Error;
-
-    /// The local block type.
-    type LocalBlock;
-
-    /// Constructs a genesis block for the given chain spec.
-    fn genesis_block(
-        genesis_diff: StateDiff,
-        block_config: BlockConfig<'_, Self::Hardfork>,
-        options: GenesisBlockOptions<Self::Hardfork>,
-    ) -> Result<Self::LocalBlock, Self::CreationError>;
-}
-
-/// A supertrait for [`GenesisBlockFactory`] that is safe to send between
-/// threads.
-pub trait SyncGenesisBlockFactory:
-    GenesisBlockFactory<CreationError: Send + Sync> + Sync + Send
-{
-}
-
-impl<FactoryT> SyncGenesisBlockFactory for FactoryT where
-    FactoryT: GenesisBlockFactory<CreationError: Send + Sync> + Sync + Send
-{
-}
-
-impl GenesisBlockFactory for L1ChainSpec {
-    type CreationError = LocalCreationError;
-
-    type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
-
-    fn genesis_block(
-        genesis_diff: StateDiff,
-        block_config: BlockConfig<'_, Self::Hardfork>,
-        mut options: GenesisBlockOptions<Self::Hardfork>,
-    ) -> Result<Self::LocalBlock, Self::CreationError> {
-        // If no option is provided, use the default extra data for L1 Ethereum.
-        options.extra_data = Some(
-            options
-                .extra_data
-                .unwrap_or(Bytes::copy_from_slice(EXTRA_DATA)),
-        );
-
-        EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
-            genesis_diff,
-            block_config,
-            options,
-        )
-    }
 }
 
 /// Returns the corresponding base fee params configured for the given chain ID.
