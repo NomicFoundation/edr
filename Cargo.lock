@@ -2472,6 +2472,7 @@ dependencies = [
  "edr_eip2930",
  "edr_eip7702",
  "edr_evm",
+ "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
@@ -2686,6 +2687,12 @@ name = "edr_evm_spec"
 version = "0.3.8"
 dependencies = [
  "edr_chain_spec",
+ "edr_database_components",
+ "edr_state_api",
+ "revm-context",
+ "revm-handler",
+ "revm-inspector",
+ "revm-interpreter",
 ]
 
 [[package]]

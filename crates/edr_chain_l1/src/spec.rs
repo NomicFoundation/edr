@@ -3,6 +3,12 @@ use edr_block_api::{GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::BlockConfig;
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::{ChainHardfork, ChainSpec};
+use edr_evm_spec::{
+    handler::{EthFrame, EthInstructions, EthPrecompiles},
+    interpreter::{EthInterpreter, InterpreterResult},
+    ChainEvmSpec, ContextForChainSpec, Database, DatabaseComponentError, Evm, Inspector,
+    PrecompileProvider,
+};
 use edr_primitives::Bytes;
 use edr_receipt::ChainExecutionReceipt;
 use edr_rpc_eth::ChainRpcBlock;
@@ -26,6 +32,63 @@ pub const EXTRA_DATA: &[u8] = b"\x12\x34";
 /// The chain specification for Ethereum Layer 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct L1ChainSpec;
+
+impl ChainEvmSpec for L1ChainSpec {
+    type Evm<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
+        StateErrorT,
+    > = Evm<
+        ContextForChainSpec<Self, DatabaseT>,
+        InspectorT,
+        EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT,
+        EthFrame<EthInterpreter>,
+    >;
+
+    type PrecompileProvider<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        StateErrorT,
+    > = EthPrecompiles;
+
+    fn evm_with_inspector<
+        BlockchainErrorT,
+        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
+        StateErrorT,
+    >(
+        block: Self::BlockEnv,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        database: DatabaseT,
+        inspector: InspectorT,
+        precompile_provider: PrecompileProviderT,
+    ) -> Result<
+        Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT>,
+        DatabaseT::Error,
+    > {
+        let context = revm::Context {
+            block,
+            tx: transaction,
+            journaled_state: Journal::new(database),
+            cfg,
+            chain: (),
+            local: LocalContext::default(),
+            error: Ok(()),
+        };
+
+        Ok(Evm::new_with_inspector(
+            context,
+            inspector,
+            EthInstructions::default(),
+            precompile_provider,
+        ))
+    }
+}
 
 impl ChainExecutionReceipt for L1ChainSpec {
     type ExecutionReceipt<LogT> = TypedEnvelope<edr_receipt::execution::Eip658<LogT>>;
@@ -53,12 +116,10 @@ impl GenesisBlockFactory for L1ChainSpec {
     type CreationError = LocalCreationError;
 
     type LocalBlock = EthLocalBlock<
-        Self::RpcBlockConversionError,
         Self::BlockReceipt,
         Self,
         Self::Hardfork,
-        Self::RpcReceiptConversionError,
-        Self::SignedTransaction,
+        <Self as ChainSpec>::SignedTransaction,
     >;
 
     fn genesis_block(
