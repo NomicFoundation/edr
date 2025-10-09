@@ -1,5 +1,16 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.8
+
+### Minor Changes
+
+- c54a499: make all parameters of `eth_feeHistory` rpc call & provider method call required
+
+### Patch Changes
+
+- 0047135: Update list of unsupported cheatcodes with cheatcodes up to Foundry 1.3.6
+- b355c15: Fixed panic when executing eth_call transaction with Isthmus OP hardfork
+
 ## 0.12.0-next.7
 
 ### Minor Changes
