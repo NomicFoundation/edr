@@ -1,5 +1,5 @@
 use edr_eth::Blob;
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_provider::spec::HardforkValidationData;
 pub use edr_transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::{

@@ -1,6 +1,7 @@
 use core::fmt::Debug;
 
-use revm_primitives::{Address, Bytes, TxKind, B256, U256};
+use edr_primitives::{Address, Bytes, B256, U256};
+use revm_primitives::TxKind;
 
 /// Trait for information about executable transactions.
 pub trait ExecutableTransaction {

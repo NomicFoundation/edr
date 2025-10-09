@@ -5,7 +5,7 @@ mod deposit;
 use std::sync::OnceLock;
 
 use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
-use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
+use edr_chain_spec::{ExecutableTransaction, TransactionValidation};
 use edr_signer::{FakeableSignature, Signature};
 pub use edr_transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::{

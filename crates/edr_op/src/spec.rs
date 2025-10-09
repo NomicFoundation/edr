@@ -23,7 +23,7 @@ use edr_evm::{
     EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock, RemoteBlockConversionError,
     SyncBlock,
 };
-use edr_evm_spec::{
+use edr_chain_spec::{
     BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmHaltReason, EvmSpecId,
     EvmTransactionValidationError, TransactionValidation,
 };
@@ -380,7 +380,7 @@ impl BlockEnvConstructor<BlockHeader> for OpChainSpec {
 mod tests {
 
     use edr_evm::spec::BlockEnvConstructor as _;
-    use edr_evm_spec::EvmSpecId;
+    use edr_chain_spec::EvmSpecId;
     use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
     use super::*;

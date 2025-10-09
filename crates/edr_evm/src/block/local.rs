@@ -10,7 +10,7 @@ use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_block_api::{Block, EmptyBlock, LocalBlock};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
-use edr_evm_spec::{ChainHardfork, ChainSpec, EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{ChainHardfork, ChainSpec, EvmSpecId, ExecutableTransaction};
 use edr_primitives::{B256, KECCAK_EMPTY};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},

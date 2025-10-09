@@ -1,4 +1,4 @@
-use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
+use edr_chain_spec::{ExecutableTransaction, TransactionValidation};
 use edr_signer::Signature;
 use edr_transaction::{
     impl_revm_transaction_trait, Address, Bytes, IsEip155, IsEip4844, IsLegacy, IsSupported,

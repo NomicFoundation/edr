@@ -4,7 +4,7 @@ mod request;
 use std::{ops::Deref, sync::OnceLock};
 
 use edr_block_header::BlockHeader;
-use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{Address, Bytes, B256, U256};
 use edr_rpc_spec::RpcTransaction;
 use edr_signer::{

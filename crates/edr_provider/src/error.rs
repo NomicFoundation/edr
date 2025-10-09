@@ -16,7 +16,7 @@ use edr_evm::{
     transaction::{self, TransactionError},
     MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
-use edr_evm_spec::{
+use edr_chain_spec::{
     ChainHardfork, ChainSpec, EvmSpecId, HaltReasonTrait, OutOfGasError, TransactionValidation,
 };
 use edr_primitives::{hex, Address, Bytes, B256, U256};

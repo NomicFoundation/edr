@@ -1,6 +1,6 @@
 //! Types for L1 Ethereum transaction gossip (aka pooled transactions)
 
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Address, Bytes, B256, U256};
 pub use edr_transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::{

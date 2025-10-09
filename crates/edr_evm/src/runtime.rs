@@ -1,6 +1,6 @@
 use edr_blockchain_api::BlockHash;
+use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_database_components::DatabaseComponents;
-use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{State, StateCommit};
 use revm::{precompile::PrecompileFn, ExecuteEvm, InspectEvm, Inspector};

@@ -1,5 +1,5 @@
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::{Address, Bytes, U256};
 use edr_provider::{
     calculate_eip1559_fee_parameters,

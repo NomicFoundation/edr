@@ -6,12 +6,12 @@ use edr_block_header::{
     calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, PartialHeader,
 };
 use edr_chain_l1::L1ChainSpec;
-use edr_database_components::DatabaseComponentError;
-use edr_eip1559::BaseFeeParams;
-use edr_evm_spec::{
+use edr_chain_spec::{
     BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EvmSpecId, EvmTransactionValidationError,
     ExecutableTransaction, TransactionValidation,
 };
+use edr_database_components::DatabaseComponentError;
+use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Bytes, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
@@ -52,49 +52,6 @@ pub type ContextForChainSpec<ChainSpecT, DatabaseT> = revm::Context<
     Journal<DatabaseT>,
     <ChainSpecT as ChainSpec>::Context,
 >;
-
-/// Helper type to construct execution receipt types for a chain spec.
-pub struct ExecutionReceiptTypeConstructorForChainSpec<ChainSpecT: RpcSpec> {
-    phantom: PhantomData<ChainSpecT>,
-}
-
-impl<ChainSpecT: RpcSpec> TypeConstructor<ExecutionLog>
-    for ExecutionReceiptTypeConstructorForChainSpec<ChainSpecT>
-{
-    type Type = ChainSpecT::ExecutionReceipt<ExecutionLog>;
-}
-
-impl<ChainSpecT: RpcSpec> TypeConstructor<FilterLog>
-    for ExecutionReceiptTypeConstructorForChainSpec<ChainSpecT>
-{
-    type Type = ChainSpecT::ExecutionReceipt<FilterLog>;
-}
-
-/// Helper trait to define the bounds for a type constructor of execution
-/// receipts.
-pub trait ExecutionReceiptTypeConstructorBounds:
-    TypeConstructor<
-        ExecutionLog,
-        Type: MapReceiptLogs<
-            ExecutionLog,
-            FilterLog,
-            <Self as TypeConstructor<FilterLog>>::Type,
-        > + ExecutionReceipt<Log = ExecutionLog>,
-    > + TypeConstructor<FilterLog, Type: Debug + ExecutionReceipt<Log = FilterLog>>
-{
-}
-
-impl<TypeConstructorT> ExecutionReceiptTypeConstructorBounds for TypeConstructorT where
-    TypeConstructorT: TypeConstructor<
-            ExecutionLog,
-            Type: MapReceiptLogs<
-                ExecutionLog,
-                FilterLog,
-                <Self as TypeConstructor<FilterLog>>::Type,
-            > + ExecutionReceipt<Log = ExecutionLog>,
-        > + TypeConstructor<FilterLog, Type: Debug + ExecutionReceipt<Log = FilterLog>>
-{
-}
 
 /// Returns the corresponding base fee params configured for the given chain ID.
 /// If it's not defined in the defined chain specification it fallbacks to the

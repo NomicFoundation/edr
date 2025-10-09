@@ -1,6 +1,6 @@
 //! Generates JS-style stack traces for Solidity errors.
 
-use edr_evm_spec::HaltReasonTrait;
+use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::bytecode::opcode::OpCode;
 
 use crate::{

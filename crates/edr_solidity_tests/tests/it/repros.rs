@@ -5,7 +5,7 @@ use alloy_json_abi::Event;
 #[cfg(feature = "test-remote")]
 use alloy_primitives::address;
 use alloy_primitives::{Address, U256};
-use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
     revm::context::TxEnv,

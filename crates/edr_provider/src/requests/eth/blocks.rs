@@ -9,7 +9,7 @@ use edr_evm::{
     block::transaction::{BlockDataForTransaction, TransactionAndBlock},
     spec::RuntimeSpec,
 };
-use edr_evm_spec::{
+use edr_chain_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
 use edr_primitives::{B256, U256, U64};

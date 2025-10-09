@@ -6,7 +6,7 @@ use derive_where::derive_where;
 use edr_block_api::Block as _;
 use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_database_components::DatabaseComponents;
-use edr_evm_spec::{EvmSpecId, ExecutableTransaction as _};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction as _};
 use edr_primitives::{Address, Bloom, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},

@@ -1,5 +1,5 @@
+use edr_chain_spec::{ChainSpec, TransactionValidation};
 use edr_database_components::DatabaseComponentError;
-use edr_evm_spec::{ChainSpec, TransactionValidation};
 pub use revm_context_interface::result::{
     EVMError, ExecutionResult, Output, ResultAndState as ExecutionResultAndState, ResultAndState,
     SuccessReason,

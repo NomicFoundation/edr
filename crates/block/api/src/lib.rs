@@ -8,7 +8,7 @@ use std::{marker::PhantomData, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_block_header::{BlockHeader, PartialHeader, Withdrawal};
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::{B256, U256};
 use edr_receipt::ReceiptTrait;
 

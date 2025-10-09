@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_evm::blockchain::BlockchainErrorForChainSpec;
-use edr_evm_spec::{ChainHardfork, EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{ChainHardfork, EvmTransactionValidationError, TransactionValidation};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use parking_lot::Mutex;

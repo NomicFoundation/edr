@@ -1,7 +1,7 @@
 use std::num::NonZeroU64;
 
 use edr_block_header::HeaderOverrides;
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::U64;
 
 use crate::{

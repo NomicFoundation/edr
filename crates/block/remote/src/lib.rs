@@ -4,7 +4,7 @@ use std::sync::{Arc, OnceLock};
 use derive_where::derive_where;
 use edr_block_api::{Block, BlockReceipts, EthBlockData};
 use edr_block_header::{BlockHeader, Withdrawal};
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::B256;
 use edr_receipt::ReceiptTrait;
 use edr_rpc_eth::{

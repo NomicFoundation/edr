@@ -7,11 +7,11 @@ edition.workspace = true
 alloy-eips.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
 derive-where.workspace = true
+edr_chain_spec.workspace = true
 edr_eth.workspace = true
 edr_primitives.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
-edr_evm_spec.workspace = true
 edr_receipt.workspace = true
 edr_rpc_client.workspace = true
 edr_signer.workspace = true

@@ -6,7 +6,7 @@ use edr_evm::{
     result::ExecutionResult,
     trace::{BeforeMessage, Step},
 };
-use edr_evm_spec::HaltReasonTrait;
+use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{Address, Bytes, U160, U256};
 
 use crate::{

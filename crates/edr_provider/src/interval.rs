@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
 use tokio::{
     runtime,
     sync::{oneshot, Mutex},

@@ -3,7 +3,7 @@ use std::{marker::PhantomData, sync::Arc};
 
 use edr_block_api::Block;
 use edr_evm::{result::ExecutionResult, spec::RuntimeSpec, trace::Trace, MineBlockResultAndState};
-use edr_evm_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait};
+use edr_chain_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait};
 use edr_primitives::{Bytes, B256};
 use edr_state_api::{StateDiff, SyncState};
 

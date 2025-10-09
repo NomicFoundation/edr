@@ -6,7 +6,7 @@ use edr_block_api::{Block, EthBlockData};
 use edr_block_remote::RemoteBlock;
 use edr_block_storage::{InsertBlockError, SparseBlockStorage};
 use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ReceiptTrait};
 use edr_rpc_eth::{

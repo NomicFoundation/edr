@@ -42,7 +42,7 @@ use edr_evm::{
     trace::Trace,
     transaction, GenesisBlockOptions, MemPool, MineBlockResultAndState, OrderedTransaction,
 };
-use edr_evm_spec::{
+use edr_chain_spec::{
     ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
     TransactionValidation,
 };

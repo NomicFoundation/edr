@@ -1,7 +1,7 @@
 use edr_block_api::Block as _;
 use edr_eth::{fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, BlockSpec};
 use edr_evm::{state::StateOverrides, transaction};
-use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{U256, U64};
 use edr_signer::FakeSign as _;
 use edr_transaction::TransactionMut;
@@ -191,7 +191,7 @@ fn resolve_estimate_gas_request<
 mod tests {
     use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
     use edr_eth::BlockTag;
-    use edr_evm_spec::ExecutableTransaction as _;
+    use edr_chain_spec::ExecutableTransaction as _;
 
     use super::*;
     use crate::test_utils::{pending_base_fee, ProviderTestFixture};

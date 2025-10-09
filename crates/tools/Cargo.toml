@@ -12,9 +12,9 @@ difference = { version = "2.0.0", default-features = false }
 edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_chain_l1.workspace = true
+edr_chain_spec.workspace = true
 edr_defaults.workspace = true
 edr_evm = { workspace = true, features = ["test-utils", "tracing"] }
-edr_evm_spec.workspace = true
 edr_generic.workspace = true
 edr_napi_core.workspace = true
 edr_op = { workspace = true, features = ["test-utils"] }

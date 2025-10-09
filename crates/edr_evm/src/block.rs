@@ -10,7 +10,7 @@ use edr_block_api::{Block, BlockAndTotalDifficulty, BlockReceipts};
 use edr_block_header::{BlobGas, BlockHeader, Withdrawal};
 use edr_block_storage::ReservableSparseBlockStorage;
 use edr_chain_l1::rpc::block::L1RpcBlock;
-use edr_evm_spec::{ChainHardfork, ChainSpec};
+use edr_chain_spec::{ChainHardfork, ChainSpec};
 use edr_primitives::B256;
 use edr_receipt::ReceiptTrait;
 

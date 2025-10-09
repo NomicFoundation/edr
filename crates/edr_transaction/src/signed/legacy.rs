@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{RlpDecodable, RlpEncodable};
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Address, Bytes, B256, U256};
 use edr_signer::{FakeableSignature, SignatureWithRecoveryId};
 use revm_primitives::{keccak256, TxKind};

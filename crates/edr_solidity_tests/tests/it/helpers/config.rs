@@ -3,7 +3,7 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 
 use derive_where::derive_where;
-use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
     nested_trace::NestedTrace,

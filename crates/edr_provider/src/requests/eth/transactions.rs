@@ -7,7 +7,7 @@ use edr_evm::{
     blockchain::BlockchainErrorForChainSpec,
     transaction,
 };
-use edr_evm_spec::{
+use edr_chain_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
 use edr_primitives::{Bytes, B256, U256};

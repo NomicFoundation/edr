@@ -5,7 +5,7 @@ use std::sync::Arc;
 use alloy_eips::eip4844::DATA_GAS_PER_BLOB;
 use edr_chain_l1::{rpc::block::L1RpcBlock, L1ChainSpec};
 use edr_eth::PreEip1898BlockSpec;
-use edr_evm_spec::ExecutableTransaction as _;
+use edr_chain_spec::ExecutableTransaction as _;
 use edr_primitives::B256;
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,

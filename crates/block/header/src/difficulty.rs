@@ -1,4 +1,4 @@
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::{KECCAK_RLP_EMPTY_ARRAY, U256};
 
 use crate::BlockHeader;

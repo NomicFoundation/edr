@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
 use tokio::{runtime, sync::Mutex};
 
 use crate::{
