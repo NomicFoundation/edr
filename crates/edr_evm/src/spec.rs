@@ -43,16 +43,6 @@ use crate::{
     SyncBlock,
 };
 
-/// Helper type for a chain-specific [`revm::Context`].
-pub type ContextForChainSpec<ChainSpecT, DatabaseT> = revm::Context<
-    <ChainSpecT as ChainSpec>::BlockEnv,
-    <ChainSpecT as ChainSpec>::SignedTransaction,
-    CfgEnv<<ChainSpecT as ChainHardfork>::Hardfork>,
-    DatabaseT,
-    Journal<DatabaseT>,
-    <ChainSpecT as ChainSpec>::Context,
->;
-
 /// Returns the corresponding base fee params configured for the given chain ID.
 /// If it's not defined in the defined chain specification it fallbacks to the
 /// chain spec default.
@@ -113,20 +103,6 @@ impl RuntimeSpec for L1ChainSpec {
     type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 
-    type Evm<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
-        StateErrorT,
-    > = Evm<
-        ContextForChainSpec<Self, DatabaseT>,
-        InspectorT,
-        EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT,
-        EthFrame<EthInterpreter>,
-    >;
-
     type LocalBlock = EthLocalBlock<
         Self::RpcBlockConversionError,
         Self::BlockReceipt,
@@ -135,12 +111,6 @@ impl RuntimeSpec for L1ChainSpec {
         Self::RpcReceiptConversionError,
         Self::SignedTransaction,
     >;
-
-    type PrecompileProvider<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        StateErrorT,
-    > = EthPrecompiles;
 
     type ReceiptBuilder = receipt::Builder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
@@ -164,41 +134,6 @@ impl RuntimeSpec for L1ChainSpec {
             }
             remainder => TransactionError::InvalidTransaction(remainder),
         }
-    }
-
-    fn evm_with_inspector<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
-        StateErrorT,
-    >(
-        block: Self::BlockEnv,
-        cfg: CfgEnv<Self::Hardfork>,
-        transaction: Self::SignedTransaction,
-        database: DatabaseT,
-        inspector: InspectorT,
-        precompile_provider: PrecompileProviderT,
-    ) -> Result<
-        Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT>,
-        DatabaseT::Error,
-    > {
-        let context = revm::Context {
-            block,
-            tx: transaction,
-            journaled_state: Journal::new(database),
-            cfg,
-            chain: (),
-            local: LocalContext::default(),
-            error: Ok(()),
-        };
-
-        Ok(Evm::new_with_inspector(
-            context,
-            inspector,
-            EthInstructions::default(),
-            precompile_provider,
-        ))
     }
 
     fn next_base_fee_per_gas(

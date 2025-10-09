@@ -5,6 +5,12 @@ edition.workspace = true
 
 [dependencies]
 edr_chain_spec.workspace = true
+edr_database_components.workspace = true
+edr_state_api.workspace = true
+revm-context.workspace = true
+revm-handler.workspace = true
+revm-inspector.workspace = true
+revm-interpreter.workspace = true
 
 [lints]
 workspace = true
