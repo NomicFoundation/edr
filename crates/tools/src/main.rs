@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 mod benchmark;
 mod compare_test_runs;
 mod execution_api;
+mod op_chain_config;
 mod remote_block;
 mod scenario;
 mod update;
@@ -43,7 +44,9 @@ enum Command {
         candidate: PathBuf,
     },
     /// Convert a scenario file from the old format to the new format
-    ConvertScenario { path: PathBuf },
+    ConvertScenario {
+        path: PathBuf,
+    },
     /// Generate Ethereum execution API
     GenExecutionApi,
     /// Replays a block from a remote node and compares it to the mined block.
@@ -65,6 +68,7 @@ enum Command {
         #[clap(long, short)]
         count: Option<usize>,
     },
+    OpChainConfig,
 }
 
 #[tokio::main]
@@ -88,5 +92,6 @@ async fn main() -> anyhow::Result<()> {
             block_number,
         } => remote_block::replay(chain_type, url, block_number).await,
         Command::Scenario { path, count } => scenario::execute(&path, count).await,
+        Command::OpChainConfig => op_chain_config::import_op_chain_configs(),
     }
 }
