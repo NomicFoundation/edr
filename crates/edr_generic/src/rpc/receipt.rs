@@ -1,4 +1,4 @@
-use edr_chain_l1::rpc::receipt::L1BlockReceipt;
+use edr_chain_l1::rpc::receipt::L1RpcTransactionReceipt;
 use edr_receipt::{log::FilterLog, AsExecutionReceipt as _};
 use edr_rpc_spec::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
@@ -22,10 +22,10 @@ use edr_transaction::TransactionType;
 // We need to introduce a newtype for BlockReceipt again due to the orphan rule,
 // even though we use our own TypedEnvelope.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BlockReceipt(L1BlockReceipt);
+pub struct BlockReceipt(L1RpcTransactionReceipt);
 
 impl TryFrom<BlockReceipt>
-    for crate::receipt::BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>
+    for crate::receipt::L1BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>
 {
     type Error = ConversionError;
 
@@ -88,13 +88,13 @@ impl TryFrom<BlockReceipt>
 
 impl
     RpcTypeFrom<
-        crate::receipt::BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
+        crate::receipt::L1BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
     > for BlockReceipt
 {
     type Hardfork = edr_chain_l1::Hardfork;
 
     fn rpc_type_from(
-        value: &crate::receipt::BlockReceipt<
+        value: &crate::receipt::L1BlockReceipt<
             TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>,
         >,
         hardfork: Self::Hardfork,
@@ -105,7 +105,7 @@ impl
             None
         };
 
-        BlockReceipt(L1BlockReceipt {
+        BlockReceipt(L1RpcTransactionReceipt {
             block_hash: value.block_hash,
             block_number: value.block_number,
             transaction_hash: value.inner.transaction_hash,

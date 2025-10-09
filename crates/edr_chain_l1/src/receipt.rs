@@ -1,14 +1,17 @@
+//! Ethereum L1 receipt types
+
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
 use edr_primitives::{Address, Bloom, B256};
-
-use super::{AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus, TransactionReceipt};
-use crate::log::FilterLog;
+use edr_receipt::{
+    log::FilterLog, AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus,
+    TransactionReceipt,
+};
 
 /// Type for a receipt that's included in a block.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BlockReceipt<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> {
+pub struct L1BlockReceipt<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> {
     pub inner: TransactionReceipt<ExecutionReceiptT>,
     /// Hash of the block that this is part of
     pub block_hash: B256,
@@ -17,7 +20,7 @@ pub struct BlockReceipt<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> {
 }
 
 impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> AsExecutionReceipt
-    for BlockReceipt<ExecutionReceiptT>
+    for L1BlockReceipt<ExecutionReceiptT>
 {
     type ExecutionReceipt = ExecutionReceiptT;
 
@@ -27,7 +30,7 @@ impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> AsExecutionReceipt
 }
 
 impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> Deref
-    for BlockReceipt<ExecutionReceiptT>
+    for L1BlockReceipt<ExecutionReceiptT>
 {
     type Target = TransactionReceipt<ExecutionReceiptT>;
 
@@ -36,7 +39,7 @@ impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> Deref
     }
 }
 
-impl<ExecutionReceiptT> alloy_rlp::Encodable for BlockReceipt<ExecutionReceiptT>
+impl<ExecutionReceiptT> alloy_rlp::Encodable for L1BlockReceipt<ExecutionReceiptT>
 where
     ExecutionReceiptT: ExecutionReceipt<Log = FilterLog> + alloy_rlp::Encodable,
 {
@@ -50,7 +53,7 @@ where
 }
 
 impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> ExecutionReceipt
-    for BlockReceipt<ExecutionReceiptT>
+    for L1BlockReceipt<ExecutionReceiptT>
 {
     type Log = ExecutionReceiptT::Log;
 
@@ -71,7 +74,7 @@ impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> ExecutionReceipt
     }
 }
 
-impl<ExecutionReceiptT> ReceiptTrait for BlockReceipt<ExecutionReceiptT>
+impl<ExecutionReceiptT> ReceiptTrait for L1BlockReceipt<ExecutionReceiptT>
 where
     ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>,
 {

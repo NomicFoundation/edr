@@ -3,7 +3,7 @@
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_chain_l1::{
-    rpc::{call::L1CallRequest, receipt::L1BlockReceipt, TransactionRequest},
+    rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
 use edr_primitives::{bytes, Address, Bytes, HashSet, B256};
@@ -115,7 +115,7 @@ fn provider_with_deployed_test_contract(
             ))
             .expect("Failed to get transaction receipt");
 
-        let receipt: L1BlockReceipt = serde_json::from_value(response.result)
+        let receipt: L1RpcTransactionReceipt = serde_json::from_value(response.result)
             .expect("Failed to deserialize transaction receipt");
 
         receipt

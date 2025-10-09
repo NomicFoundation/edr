@@ -24,7 +24,7 @@ use edr_chain_spec::ExecutableTransaction as _;
 use edr_primitives::{Address, Bytes, HashSet, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
-    BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
+    L1BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
 };
 use edr_state_api::{StateDiff, StateError};
 use serial_test::serial;
@@ -293,7 +293,7 @@ fn insert_dummy_block_with_transaction(
 
     let block = EthLocalBlock::<
         RemoteBlockConversionError<edr_chain_l1::rpc::transaction::ConversionError>,
-        BlockReceipt<edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
+        L1BlockReceipt<edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
         ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
         edr_chain_l1::Hardfork,
         edr_chain_l1::rpc::receipt::ConversionError,

@@ -9,7 +9,6 @@ use crate::{
     config::CfgEnv,
     precompile::OverriddenPrecompileProvider,
     result::{EVMError, ExecutionResult, ExecutionResultAndState},
-    spec::{ContextForChainSpec, RuntimeSpec},
     state::WrapDatabaseRef,
     transaction::{TransactionError, TransactionErrorForChainSpec},
 };

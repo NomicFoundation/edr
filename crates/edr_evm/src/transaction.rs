@@ -1,7 +1,3 @@
-mod detailed;
-/// Types for transactions from a remote provider.
-pub mod remote;
-
 use std::fmt::Debug;
 
 use edr_chain_spec::{
@@ -13,8 +9,6 @@ use edr_primitives::U256;
 use edr_transaction::TxKind;
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
-
-pub use self::detailed::*;
 
 /// Helper type for a chain-specific [`TransactionError`].
 pub type TransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = TransactionError<

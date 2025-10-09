@@ -2475,6 +2475,7 @@ dependencies = [
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
+ "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_signer",
@@ -2644,6 +2645,7 @@ dependencies = [
  "edr_defaults",
  "edr_eip1559",
  "edr_eth",
+ "edr_evm_spec",
  "edr_generic",
  "edr_primitives",
  "edr_receipt",
@@ -2986,6 +2988,13 @@ dependencies = [
  "serial_test",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "edr_receipt_spec"
+version = "0.3.8"
+dependencies = [
+ "edr_receipt",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
-    log::FilterLog, AsExecutionReceipt, BlockReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus,
+    log::FilterLog, AsExecutionReceipt, L1BlockReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus,
 };
 use op_alloy_rpc_types::L1BlockInfo;
 
@@ -12,7 +12,7 @@ use crate::{eip2718::TypedEnvelope, receipt};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     /// The underlying Ethereum block receipt.
-    pub eth: BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
+    pub eth: L1BlockReceipt<TypedEnvelope<receipt::Execution<FilterLog>>>,
     /// The L1 block info, if not a deposit transaction.
     pub l1_block_info: Option<L1BlockInfo>,
 }
