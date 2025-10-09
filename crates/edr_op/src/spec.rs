@@ -10,7 +10,7 @@ use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
 use edr_evm::{
-    evm::Evm,
+    evm::{Context, Evm, LocalContext},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::PrecompileProvider,
     spec::{
@@ -37,6 +37,7 @@ use edr_rpc_spec::RpcSpec;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_state_api::StateDiff;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpSpecId};
+use revm_context::{CfgEnv, Journal, JournalTr as _};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -180,16 +181,34 @@ impl RuntimeSpec for OpChainSpec {
         PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
     >(
-        context: ContextForChainSpec<Self, DatabaseT>,
+        block: Self::BlockEnv,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        mut database: DatabaseT,
         inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
-    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
-        OpEvm(Evm::new_with_inspector(
+    ) -> Result<
+        Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT>,
+        DatabaseT::Error,
+    > {
+        let chain = L1BlockInfo::try_fetch(&mut database, block.number, cfg.spec)?;
+
+        let context = Context {
+            block,
+            tx: transaction,
+            journaled_state: Journal::new(database),
+            cfg,
+            chain,
+            local: LocalContext::default(),
+            error: Ok(()),
+        };
+
+        Ok(OpEvm(Evm::new_with_inspector(
             context,
             inspector,
             EthInstructions::new_mainnet(),
             precompile_provider,
-        ))
+        )))
     }
 
     fn chain_config(

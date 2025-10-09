@@ -22,6 +22,7 @@ use edr_state_api::{EvmState, StateDiff};
 use edr_transaction::TransactionType;
 use edr_utils::types::TypeConstructor;
 use revm::{inspector::NoOpInspector, ExecuteEvm, InspectEvm, Inspector};
+use revm_context::{JournalTr as _, LocalContext};
 pub use revm_context_interface::ContextTr as ContextTrait;
 use revm_handler::{instructions::EthInstructions, EthFrame, PrecompileProvider};
 use revm_interpreter::{interpreter::EthInterpreter, InterpreterResult};
@@ -283,6 +284,8 @@ pub trait RuntimeSpec:
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork>;
 
     /// Constructs an EVM instance with the provided context.
+    // Result<Self::Evm, DatabaseT::Error> cannot easily be simplified
+    #[allow(clippy::type_complexity)]
     fn evm<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
@@ -292,23 +295,34 @@ pub trait RuntimeSpec:
         >,
         StateErrorT,
     >(
-        context: ContextForChainSpec<Self, DatabaseT>,
+        block: Self::BlockEnv,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        database: DatabaseT,
         precompile_provider: PrecompileProviderT,
-    ) -> Self::Evm<
-        BlockchainErrorT,
-        DatabaseT,
-        NoOpInspector,
-        PrecompileProviderT,
-        StateErrorT,
+    ) -> Result<
+        Self::Evm<
+            BlockchainErrorT,
+            DatabaseT,
+            NoOpInspector,
+            PrecompileProviderT,
+            StateErrorT,
+        >,
+        DatabaseT::Error
     > {
         Self::evm_with_inspector(
-            context,
+            block,
+            cfg,
+            transaction,
+            database,
             NoOpInspector {},
             precompile_provider,
         )
     }
 
     /// Constructs an EVM instance with the provided context and inspector.
+    // Result<Self::Evm, DatabaseT::Error> cannot easily be simplified
+    #[allow(clippy::type_complexity)]
     fn evm_with_inspector<
         BlockchainErrorT,
         DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
@@ -319,15 +333,21 @@ pub trait RuntimeSpec:
         >,
         StateErrorT,
     >(
-        context: ContextForChainSpec<Self, DatabaseT>,
+        block: Self::BlockEnv,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        database: DatabaseT,
         inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
-    ) -> Self::Evm<
-        BlockchainErrorT,
-        DatabaseT,
-        InspectorT,
-        PrecompileProviderT,
-        StateErrorT,
+    ) -> Result<
+        Self::Evm<
+            BlockchainErrorT,
+            DatabaseT,
+            InspectorT,
+            PrecompileProviderT,
+            StateErrorT,
+        >,
+        DatabaseT::Error
     >;
 
     /// Returns the `base_fee_per_gas` for the next block.
@@ -460,16 +480,32 @@ impl RuntimeSpec for L1ChainSpec {
         PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
         StateErrorT,
     >(
-        context: ContextForChainSpec<Self, DatabaseT>,
+        block: Self::BlockEnv,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        database: DatabaseT,
         inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
-    ) -> Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT> {
-        Evm::new_with_inspector(
+    ) -> Result<
+        Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT>,
+        DatabaseT::Error,
+    > {
+        let context = revm::Context {
+            block,
+            tx: transaction,
+            journaled_state: Journal::new(database),
+            cfg,
+            chain: (),
+            local: LocalContext::default(),
+            error: Ok(()),
+        };
+
+        Ok(Evm::new_with_inspector(
             context,
             inspector,
             EthInstructions::default(),
             precompile_provider,
-        )
+        ))
     }
 
     fn next_base_fee_per_gas(
