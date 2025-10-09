@@ -22,13 +22,7 @@ use edr_trie::ordered_trie_root;
 use edr_utils::types::TypeConstructor;
 use itertools::izip;
 
-use crate::{
-    block::BlockReceipts,
-    blockchain::BlockchainError,
-    spec::{ExecutionReceiptTypeConstructorBounds, ExecutionReceiptTypeConstructorForChainSpec},
-    transaction::DetailedTransaction,
-    GenesisBlockOptions,
-};
+use crate::{block::BlockReceipts, blockchain::BlockchainError};
 
 /// Helper type for a local Ethereum block for a given chain spec.
 pub type EthLocalBlockForChainSpec<ChainSpecT> = EthLocalBlock<

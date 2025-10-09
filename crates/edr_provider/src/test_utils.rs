@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use edr_block_api::Block as _;
 use edr_block_header::{BlobGas, BlockHeader, HeaderOverrides};
 use edr_chain_l1::{
-    rpc::{receipt::L1BlockReceipt, TransactionRequest},
+    rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
 use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
@@ -185,7 +185,7 @@ where
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
-    let receipt: L1BlockReceipt = serde_json::from_value(result.result)?;
+    let receipt: L1RpcTransactionReceipt = serde_json::from_value(result.result)?;
     let contract_address = receipt.contract_address.expect("Call must create contract");
 
     Ok(contract_address)

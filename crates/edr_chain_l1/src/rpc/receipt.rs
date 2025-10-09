@@ -1,19 +1,18 @@
 //! L1 Ethereum JSON-RPC receipt types
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
-    log::FilterLog, AsExecutionReceipt as _, BlockReceipt, ExecutionReceipt as _,
-    TransactionReceipt,
+    log::FilterLog, AsExecutionReceipt as _, ExecutionReceipt as _, TransactionReceipt,
 };
 use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::TransactionType as _;
 use serde::{Deserialize, Serialize};
 
-use crate::{Hardfork, L1TransactionType, TypedEnvelope};
+use crate::{receipt::L1BlockReceipt, Hardfork, L1TransactionType, TypedEnvelope};
 
 /// Transaction receipt
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct L1BlockReceipt {
+pub struct L1RpcTransactionReceipt {
     /// Hash of the block this transaction was included within.
     pub block_hash: B256,
     /// Number of the block this transaction was included within.
@@ -79,13 +78,13 @@ pub struct L1BlockReceipt {
     pub authorization_list: Option<Vec<edr_eip7702::SignedAuthorization>>,
 }
 
-impl RpcTypeFrom<BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>>
-    for L1BlockReceipt
+impl RpcTypeFrom<L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>>
+    for L1RpcTransactionReceipt
 {
     type Hardfork = Hardfork;
 
     fn rpc_type_from(
-        value: &BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>,
+        value: &L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
         let transaction_type = if hardfork >= Hardfork::BERLIN {
@@ -121,13 +120,13 @@ impl RpcTypeFrom<BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>>
     }
 }
 
-impl RpcTypeFrom<BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>>
-    for L1BlockReceipt
+impl RpcTypeFrom<L1BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>>
+    for L1RpcTransactionReceipt
 {
     type Hardfork = Hardfork;
 
     fn rpc_type_from(
-        value: &BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
+        value: &L1BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
         let transaction_type = if hardfork >= Hardfork::BERLIN {
@@ -167,10 +166,12 @@ pub enum ConversionError {
     UnknownType(u8),
 }
 
-impl TryFrom<L1BlockReceipt> for BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>> {
+impl TryFrom<L1RpcTransactionReceipt>
+    for L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>
+{
     type Error = ConversionError;
 
-    fn try_from(value: L1BlockReceipt) -> Result<Self, Self::Error> {
+    fn try_from(value: L1RpcTransactionReceipt) -> Result<Self, Self::Error> {
         let transaction_type = value
             .transaction_type
             .map_or(Ok(L1TransactionType::Legacy), L1TransactionType::try_from)
@@ -222,12 +223,12 @@ impl TryFrom<L1BlockReceipt> for BlockReceipt<TypedEnvelope<edr_receipt::Executi
     }
 }
 
-impl TryFrom<L1BlockReceipt>
-    for BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>
+impl TryFrom<L1RpcTransactionReceipt>
+    for L1BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>
 {
     type Error = ConversionError;
 
-    fn try_from(value: L1BlockReceipt) -> Result<Self, Self::Error> {
+    fn try_from(value: L1RpcTransactionReceipt) -> Result<Self, Self::Error> {
         let transaction_type = value
             .transaction_type
             .map_or(Ok(L1TransactionType::Legacy), L1TransactionType::try_from)
@@ -289,7 +290,7 @@ mod test {
     use edr_rpc_spec::impl_execution_receipt_serde_tests;
     use serde_json::json;
 
-    use crate::{rpc::receipt::L1BlockReceipt, Hardfork, L1ChainSpec, TypedEnvelope};
+    use crate::{rpc::receipt::L1RpcTransactionReceipt, Hardfork, L1ChainSpec, TypedEnvelope};
 
     #[test]
     fn test_matches_hardhat_serialization() -> anyhow::Result<()> {
@@ -328,7 +329,8 @@ mod test {
           "effectiveGasPrice": "0x699e6346"
         });
 
-        let deserialized: L1BlockReceipt = serde_json::from_value(receipt_from_hardhat.clone())?;
+        let deserialized: L1RpcTransactionReceipt =
+            serde_json::from_value(receipt_from_hardhat.clone())?;
 
         let serialized = serde_json::to_value(deserialized)?;
         assert_json_eq!(receipt_from_hardhat, serialized);

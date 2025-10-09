@@ -1,0 +1,10 @@
+[package]
+name = "edr_receipt_spec"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_receipt.workspace = true
+
+[lints]
+workspace = true

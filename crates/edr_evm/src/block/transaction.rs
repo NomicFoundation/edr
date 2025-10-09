@@ -6,7 +6,7 @@ use edr_chain_l1::{
 };
 use edr_chain_spec::ChainSpec;
 use edr_rpc_spec::RpcTypeFrom;
-use edr_transaction::SignedTransaction as _;
+use edr_transaction::{BlockDataForTransaction, SignedTransaction as _, TransactionAndBlock};
 
 /// Helper type for a chain-specific [`TransactionAndBlock`].
 pub type TransactionAndBlockForChainSpec<ChainSpecT> = TransactionAndBlock<

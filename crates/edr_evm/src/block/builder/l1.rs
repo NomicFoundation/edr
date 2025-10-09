@@ -5,12 +5,12 @@ use alloy_eips::eip7840::BlobParams;
 use derive_where::derive_where;
 use edr_block_api::Block as _;
 use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides, PartialHeader, Withdrawal};
-use edr_database_components::DatabaseComponents;
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction as _};
+use edr_database_components::DatabaseComponents;
 use edr_primitives::{Address, Bloom, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
-    BlockReceipt, ExecutionReceipt, ReceiptFactory, TransactionReceipt,
+    ExecutionReceipt, L1BlockReceipt, ReceiptFactory, TransactionReceipt,
 };
 use edr_state_api::{AccountModifierFn, StateDiff, SyncState};
 use edr_trie::ordered_trie_root;
@@ -164,8 +164,8 @@ where
         overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new::<ChainSpecT>(
             BlockConfig {
-                hardfork: cfg.spec,
                 base_fee_params: base_fee_params_for::<ChainSpecT>(cfg.chain_id),
+                hardfork: cfg.spec,
             },
             overrides,
             Some(parent_header),
@@ -521,7 +521,7 @@ impl<
     > ReceiptFactory<ExecutionReceiptT, HardforkT, SignedTransactionT>
     for EthBlockReceiptFactory<ExecutionReceiptT>
 {
-    type Output = BlockReceipt<ExecutionReceiptT>;
+    type Output = L1BlockReceipt<ExecutionReceiptT>;
 
     fn create_receipt(
         &self,
@@ -537,7 +537,7 @@ impl<
             transaction_receipt.effective_gas_price = None;
         }
 
-        BlockReceipt {
+        L1BlockReceipt {
             inner: transaction_receipt,
             block_hash: *block_hash,
             block_number,

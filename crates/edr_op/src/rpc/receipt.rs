@@ -1,5 +1,5 @@
 use edr_receipt::{
-    AsExecutionReceipt as _, BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
+    AsExecutionReceipt as _, L1BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
 };
 use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::TransactionType as _;
@@ -137,7 +137,7 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
         let enveloped = TypedEnvelope::new(execution, transaction_type);
 
-        let eth = BlockReceipt {
+        let eth = L1BlockReceipt {
             block_hash: value.block_hash,
             block_number: value.block_number,
             inner: TransactionReceipt {

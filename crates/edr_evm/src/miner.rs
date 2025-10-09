@@ -1,12 +1,13 @@
 use std::{cmp::Ordering, fmt::Debug};
 
-use edr_block_api::Block as _;
+use edr_block_api::{Block as _, GenesisBlockFactory};
 use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides};
 use edr_chain_spec::{
     ChainHardfork, ChainSpec, EvmTransactionValidationError, ExecutableTransaction,
     HaltReasonTrait, TransactionValidation,
 };
 use edr_database_components::DatabaseComponents;
+use edr_evm_spec::ContextForChainSpec;
 use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;
 use edr_state_api::{StateDiff, SyncState};
@@ -14,15 +15,10 @@ use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    block::BlockBuilderCreationError,
-    blockchain::SyncBlockchainForChainSpec,
-    config::CfgEnv,
-    mempool::OrderedTransaction,
-    result::ExecutionResult,
-    spec::{ContextForChainSpec, RuntimeSpec, SyncRuntimeSpec},
-    state::WrapDatabaseRef,
-    transaction::TransactionError,
-    BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
+    block::BlockBuilderCreationError, blockchain::SyncBlockchainForChainSpec, config::CfgEnv,
+    mempool::OrderedTransaction, result::ExecutionResult, spec::SyncRuntimeSpec,
+    state::WrapDatabaseRef, transaction::TransactionError, BlockBuilder, BlockInputs,
+    BlockTransactionError, MemPool,
 };
 
 /// The result of mining a block, including the state. This result needs to be
@@ -42,7 +38,7 @@ pub struct MineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, St
 /// Helper type for a chain-specific [`MineBlockResultAndState`].
 pub type MineBlockResultAndStateForChainSpec<ChainSpecT, StateErrorT> = MineBlockResultAndState<
     <ChainSpecT as ChainSpec>::HaltReason,
-    <ChainSpecT as RuntimeSpec>::LocalBlock,
+    <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     StateErrorT,
 >;
 

@@ -15,7 +15,7 @@ use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Bytes, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
-    BlockReceipt, ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
+    ExecutionReceipt, L1BlockReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
 };
 use edr_rpc_spec::{RpcEthBlock, RpcSpec, RpcTypeFrom};
 use edr_state_api::{EvmState, StateDiff};
@@ -100,7 +100,7 @@ impl RuntimeSpec for L1ChainSpec {
         StateErrorT: 'builder + Send + std::error::Error,
     > = EthBlockBuilder<'builder, BlockchainErrorT, Self, StateErrorT>;
 
-    type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
+    type BlockReceipt = L1BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 
     type LocalBlock = EthLocalBlock<

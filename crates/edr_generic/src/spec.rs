@@ -28,7 +28,7 @@ use edr_chain_spec::{
 };
 use edr_primitives::{Bytes, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
-use edr_receipt::{log::FilterLog, BlockReceipt};
+use edr_receipt::{log::FilterLog, L1BlockReceipt};
 use edr_state_api::StateDiff;
 
 use crate::GenericChainSpec;
@@ -156,7 +156,7 @@ impl RuntimeSpec for GenericChainSpec {
         StateErrorT: 'builder + std::error::Error + Send,
     > = EthBlockBuilder<'builder, BlockchainErrorT, Self, StateErrorT>;
 
-    type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
+    type BlockReceipt = L1BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
 
     type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
 

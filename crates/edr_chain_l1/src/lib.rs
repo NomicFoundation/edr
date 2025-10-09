@@ -3,6 +3,7 @@
 mod eip2718;
 pub mod hardfork;
 pub mod pooled;
+pub mod receipt;
 pub mod request;
 pub mod rpc;
 pub mod signed;

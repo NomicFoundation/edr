@@ -15,11 +15,9 @@ use edr_transaction::TxKind;
 use edr_utils::random::RandomHashGenerator;
 
 use crate::{
-    blockchain::{BlockchainErrorForChainSpec, ForkedBlockchain},
-    config::CfgEnv,
-    spec::{RuntimeSpec, SyncRuntimeSpec},
-    state::IrregularState,
-    transaction, BlockBuilder, BlockInputs, MemPool, MemPoolAddTransactionError, RemoteBlock,
+    blockchain::BlockchainErrorForChainSpec, config::CfgEnv, spec::SyncRuntimeSpec,
+    state::IrregularState, transaction, BlockBuilder, BlockInputs, MemPool,
+    MemPoolAddTransactionError, RemoteBlock,
 };
 
 /// A test fixture for `MemPool`.

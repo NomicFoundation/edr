@@ -1,7 +1,7 @@
 use alloy_rlp::RlpEncodable;
 use edr_block_api::{GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::BlockConfig;
-use edr_block_local::EthLocalBlock;
+use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
 use edr_chain_spec::{ChainHardfork, ChainSpec};
 use edr_evm_spec::{
     handler::{EthFrame, EthInstructions, EthPrecompiles},
@@ -10,17 +10,20 @@ use edr_evm_spec::{
     PrecompileProvider,
 };
 use edr_primitives::Bytes;
-use edr_receipt::ChainExecutionReceipt;
+use edr_receipt::{log::FilterLog, ChainExecutionReceipt};
+use edr_receipt_spec::ChainReceiptSpec;
 use edr_rpc_eth::ChainRpcBlock;
 use edr_rpc_spec::RpcSpec;
 use edr_state_api::StateDiff;
+use revm_context::{CfgEnv, Journal, JournalTr as _, LocalContext};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
+    receipt::L1BlockReceipt,
     rpc::{
         block::L1RpcBlock,
         call::L1CallRequest,
-        receipt::L1BlockReceipt,
+        receipt::L1RpcTransactionReceipt,
         transaction::{L1RpcTransactionRequest, L1RpcTransactionWithSignature},
     },
     BlockEnv, HaltReason, Hardfork, L1SignedTransaction, TypedEnvelope,
@@ -71,7 +74,7 @@ impl ChainEvmSpec for L1ChainSpec {
         Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT>,
         DatabaseT::Error,
     > {
-        let context = revm::Context {
+        let context = revm_context::Context {
             block,
             tx: transaction,
             journaled_state: Journal::new(database),
@@ -98,6 +101,11 @@ impl ChainHardfork for L1ChainSpec {
     type Hardfork = Hardfork;
 }
 
+impl ChainReceiptSpec for L1ChainSpec {
+    type TransactionReceipt =
+        L1BlockReceipt<<Self as ChainExecutionReceipt>::ExecutionReceipt<FilterLog>>;
+}
+
 impl ChainRpcBlock for L1ChainSpec {
     type RpcBlock<DataT>
         = L1RpcBlock<DataT>
@@ -113,10 +121,10 @@ impl ChainSpec for L1ChainSpec {
 }
 
 impl GenesisBlockFactory for L1ChainSpec {
-    type CreationError = LocalCreationError;
+    type CreationError = LocalBlockCreationError;
 
     type LocalBlock = EthLocalBlock<
-        Self::BlockReceipt,
+        <Self as ChainReceiptSpec>::TransactionReceipt,
         Self,
         Self::Hardfork,
         <Self as ChainSpec>::SignedTransaction,
@@ -140,7 +148,7 @@ impl GenesisBlockFactory for L1ChainSpec {
 
 impl RpcSpec for L1ChainSpec {
     type RpcCallRequest = L1CallRequest;
-    type RpcReceipt = L1BlockReceipt;
+    type RpcReceipt = L1RpcTransactionReceipt;
     type RpcTransaction = L1RpcTransactionWithSignature;
     type RpcTransactionRequest = L1RpcTransactionRequest;
 }
