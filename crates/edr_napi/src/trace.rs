@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use edr_evm::trace::BeforeMessage;
-use edr_evm_spec::EvmHaltReason;
+use edr_chain_spec::EvmHaltReason;
 use edr_primitives::bytecode::opcode::OpCode;
 use napi::bindgen_prelude::{BigInt, Either3, Uint8Array};
 use napi_derive::napi;

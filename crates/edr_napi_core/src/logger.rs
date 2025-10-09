@@ -10,7 +10,7 @@ use edr_evm::{
     result::{self, ExecutionResult},
     trace::{AfterMessage, Trace, TraceMessage},
 };
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Bytecode, Bytes, B256, U256};
 use edr_provider::{
     time::TimeSinceEpoch, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,

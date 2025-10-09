@@ -7,7 +7,7 @@ use edr_evm::{
     hardfork::{self, ChainOverride},
     precompile::PrecompileFn,
 };
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
 use edr_provider::{config, observability::ObservabilityConfig, AccountOverride, ForkConfig};
 use edr_signer::SecretKey;
@@ -57,7 +57,7 @@ impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
     HardforkT: FromStr<Err = UnknownHardfork>
         + Default
-        + Into<edr_evm_spec::EvmSpecId>
+        + Into<edr_chain_spec::EvmSpecId>
         + Clone
         + PartialOrd,
 {

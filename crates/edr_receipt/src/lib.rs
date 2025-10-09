@@ -49,6 +49,13 @@ pub trait AsExecutionReceipt {
     fn as_execution_receipt(&self) -> &Self::ExecutionReceipt;
 }
 
+/// Trait for specifying Ethereum-based execution receipt types for a chain
+/// type.
+pub trait ChainExecutionReceipt {
+    /// Type representing an execution receipt.
+    type ExecutionReceipt<LogT>: ExecutionReceipt<Log = LogT>;
+}
+
 /// Trait for a receipt that's generated after execution of a transaction.
 #[auto_impl(Box, Arc)]
 pub trait ExecutionReceipt {

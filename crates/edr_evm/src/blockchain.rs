@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Bound::Included};
 use edr_block_api::Block;
 use edr_block_storage::ReservableSparseBlockStorage;
 use edr_blockchain_api::{BlockHash, Blockchain, BlockchainMut};
-use edr_evm_spec::{ChainHardfork, EvmSpecId, TransactionValidation};
+use edr_chain_spec::{ChainHardfork, EvmSpecId, TransactionValidation};
 use edr_primitives::B256;
 use edr_receipt::ReceiptTrait;
 use edr_state_api::{StateCommit, StateDiff, StateOverride};

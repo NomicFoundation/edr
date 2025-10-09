@@ -14,7 +14,7 @@ use edr_evm::{
     state::WrapDatabaseRef,
     trace::TraceCollector,
 };
-use edr_evm_spec::HaltReasonTrait;
+use edr_chain_spec::HaltReasonTrait;
 use edr_state_api::State;
 
 use crate::{

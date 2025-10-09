@@ -6,7 +6,7 @@ use edr_block_header::{BlockHeader, PartialHeader};
 use edr_block_remote::RemoteBlock;
 use edr_database_components::{Database, DatabaseComponentError};
 use edr_eip1559::BaseFeeParams;
-use edr_evm_spec::{
+use edr_chain_spec::{
     ChainHardfork, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction,
     TransactionValidation,
 };
@@ -141,12 +141,6 @@ pub trait RuntimeSpec:
     /// Type representing an error that occurs when converting an RPC
     /// transaction.
     type RpcTransactionConversionError: std::error::Error;
-
-    /// Casts an [`Arc`] of the [`Self::LocalBlock`] type into an [`Arc`] of the [`Self::Block`] type.
-    fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block>;
-
-    /// Casts an [`Arc`] of the [`RemoteBlock`] type into an [`Arc`] of the [`Self::Block`] type.
-    fn cast_remote_block(remote_block: Arc<RemoteBlock<Self>>) -> Arc<Self::Block>;
 
     /// Casts a transaction validation error into a `TransactionError`.
     ///

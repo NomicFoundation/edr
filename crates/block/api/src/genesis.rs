@@ -1,6 +1,6 @@
-use edr_block_header::{BlobGas, BlockConfig};
+use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides};
 use edr_eip1559::BaseFeeParams;
-use edr_evm_spec::ChainHardfork;
+use edr_chain_spec::ChainHardfork;
 use edr_primitives::{Bytes, B256};
 use edr_state_api::StateDiff;
 
@@ -21,6 +21,31 @@ pub struct GenesisBlockOptions<HardforkT> {
     pub base_fee_params: Option<BaseFeeParams<HardforkT>>,
     /// The block's blob gas (for post-Cancun blockchains)
     pub blob_gas: Option<BlobGas>,
+}
+
+impl<HardforkT> From<GenesisBlockOptions<HardforkT>> for HeaderOverrides<HardforkT> {
+    fn from(value: GenesisBlockOptions<HardforkT>) -> Self {
+        let GenesisBlockOptions {
+            extra_data,
+            gas_limit,
+            timestamp,
+            mix_hash,
+            base_fee,
+            base_fee_params,
+            blob_gas,
+        } = value;
+
+        Self {
+            extra_data,
+            gas_limit,
+            timestamp,
+            mix_hash,
+            base_fee,
+            base_fee_params,
+            blob_gas,
+            ..HeaderOverrides::default()
+        }
+    }
 }
 
 /// Trait for constructing a chain-specific genesis block.

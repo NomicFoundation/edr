@@ -3,9 +3,9 @@ mod l1;
 use std::fmt::Debug;
 
 use edr_block_header::{BlobGas, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
+use edr_chain_spec::{ChainHardfork, ChainSpec, EvmSpecId, TransactionValidation};
 use edr_database_components::{DatabaseComponentError, DatabaseComponents};
 use edr_eip1559::BaseFeeParams;
-use edr_evm_spec::{ChainHardfork, ChainSpec, EvmSpecId, TransactionValidation};
 use edr_primitives::{Address, Bytes, HashMap, B256};
 use edr_state_api::SyncState;
 use revm::{precompile::PrecompileFn, Inspector};
@@ -109,31 +109,6 @@ pub enum BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidat
     Transaction(
         #[from] TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
     ),
-}
-
-impl<HardforkT: Default> From<GenesisBlockOptions<HardforkT>> for HeaderOverrides<HardforkT> {
-    fn from(value: GenesisBlockOptions<HardforkT>) -> Self {
-        let GenesisBlockOptions {
-            extra_data,
-            gas_limit,
-            timestamp,
-            mix_hash,
-            base_fee,
-            base_fee_params,
-            blob_gas,
-        } = value;
-
-        Self {
-            extra_data,
-            gas_limit,
-            timestamp,
-            mix_hash,
-            base_fee,
-            base_fee_params,
-            blob_gas,
-            ..HeaderOverrides::<HardforkT>::default()
-        }
-    }
 }
 
 /// A trait for building blocks.

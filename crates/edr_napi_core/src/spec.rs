@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use edr_chain_l1::L1ChainSpec;
 use edr_evm::trace::Trace;
-use edr_evm_spec::{
+use edr_chain_spec::{
     EvmHaltReason, EvmTransactionValidationError, HaltReasonTrait, TransactionValidation,
 };
 use edr_generic::GenericChainSpec;

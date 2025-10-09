@@ -5,15 +5,12 @@
 mod test_utils;
 
 use edr_primitives::{B256, U256};
-use edr_receipt::ExecutionReceipt;
+use edr_receipt::ChainExecutionReceipt;
 use edr_rpc_eth::{client::EthRpcClient, ChainRpcBlock};
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Trait for specifying Ethereum-based JSON-RPC method types.
-pub trait RpcSpec: ChainRpcBlock {
-    /// Type representing an RPC execution receipt.
-    type ExecutionReceipt<LogT>: ExecutionReceipt<Log = LogT>;
-
+pub trait RpcSpec: ChainExecutionReceipt + ChainRpcBlock {
     /// Type representing an RPC `eth_call` request.
     type RpcCallRequest: DeserializeOwned + Serialize;
 

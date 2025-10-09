@@ -6,7 +6,7 @@ use edr_evm::{
     hardfork::{self, ChainOverride},
     transaction::TransactionError,
 };
-use edr_evm_spec::{
+use edr_chain_spec::{
     EvmHeaderValidationError, EvmTransactionValidationError, TransactionValidation,
 };
 use edr_generic::GenericChainSpec;

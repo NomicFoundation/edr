@@ -10,7 +10,7 @@ mod solidity_test_filter;
 use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf};
 
 use alloy_primitives::{Bytes, U256};
-use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
     artifacts::ArtifactId,
     linker::{LinkOutput, Linker},

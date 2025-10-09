@@ -4,7 +4,7 @@ use edr_chain_l1::{
     rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature},
     L1ChainSpec,
 };
-use edr_evm_spec::ChainSpec;
+use edr_chain_spec::ChainSpec;
 use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::SignedTransaction as _;
 

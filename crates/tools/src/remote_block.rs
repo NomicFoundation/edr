@@ -6,7 +6,7 @@ use edr_block_api::BlockReceipts;
 use edr_block_header::{BlockHeader, HeaderOverrides};
 use edr_chain_l1::L1ChainSpec;
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block};
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_op::{test_utils::isthmus_header_overrides, OpChainSpec};
 use edr_provider::{spec::SyncRuntimeSpec, test_utils::l1_header_overrides};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt};

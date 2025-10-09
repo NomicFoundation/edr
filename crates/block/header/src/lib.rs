@@ -5,7 +5,7 @@ pub use alloy_eips::eip4895::Withdrawal;
 use alloy_eips::eip7840;
 use edr_eip1559::BaseFeeParams;
 pub use edr_eip4844::BlobGas;
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::{b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, U256};
 use edr_trie::ordered_trie_root;
 

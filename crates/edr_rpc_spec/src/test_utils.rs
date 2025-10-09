@@ -14,7 +14,7 @@ macro_rules! impl_execution_receipt_serde_tests {
                 #[test]
                 fn [<typed_receipt_rpc_receipt_roundtrip_ $name>]() -> anyhow::Result<()> {
                     use edr_primitives::{Address, B256};
-                    use edr_evm_spec::ChainSpec;
+                    use edr_chain_spec::ChainSpec;
                     use edr_receipt::{log::{FilterLog, FullBlockLog, ReceiptLog}, MapReceiptLogs as _, ReceiptFactory as _, TransactionReceipt};
 
                     use $crate::{RpcTypeFrom as _, RpcSpec};

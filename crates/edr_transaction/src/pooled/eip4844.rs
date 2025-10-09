@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use alloy_rlp::Encodable as _;
 pub use c_kzg::{ethereum_kzg_settings, Blob, Bytes48, KzgSettings, BYTES_PER_BLOB};
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Address, Bytes, B256, U256};
 use revm_primitives::{eip4844::VERSIONED_HASH_VERSION_KZG, TxKind};
 use sha2::Digest as _;

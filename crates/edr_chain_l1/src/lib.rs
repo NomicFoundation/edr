@@ -9,7 +9,7 @@ pub mod signed;
 mod spec;
 pub mod r#type;
 
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::EvmSpecId;
 pub use revm_context::TxEnv;
 pub use revm_context_interface::result::OutOfGasError;
 

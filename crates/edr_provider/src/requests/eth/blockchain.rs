@@ -1,5 +1,5 @@
 use edr_eth::BlockSpec;
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, U256, U64};
 
 use crate::{

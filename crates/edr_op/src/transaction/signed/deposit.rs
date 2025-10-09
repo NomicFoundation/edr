@@ -1,5 +1,5 @@
 use alloy_rlp::Encodable;
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{keccak256, Address, Bytes, B256, U256};
 use edr_transaction::{utils::enveloped, TxKind};
 
@@ -113,7 +113,7 @@ impl ExecutableTransaction for Deposit {
 mod tests {
     use std::{str::FromStr as _, sync::OnceLock};
 
-    use edr_evm_spec::ExecutableTransaction as _;
+    use edr_chain_spec::ExecutableTransaction as _;
     use edr_primitives::{address, b256, Bytes, U256};
     use edr_transaction::TxKind;
 

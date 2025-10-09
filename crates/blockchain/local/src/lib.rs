@@ -8,7 +8,7 @@ use edr_block_header::BlockConfig;
 use edr_block_storage::ReservableSparseBlockStorage;
 use edr_blockchain_api::{utils::compute_state_at_block, BlockHash, Blockchain, BlockchainMut};
 use edr_eip1559::BaseFeeParams;
-use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};

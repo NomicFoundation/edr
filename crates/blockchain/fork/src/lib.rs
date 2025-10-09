@@ -8,7 +8,7 @@ use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     BlockSpec, PreEip1898BlockSpec,
 };
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::{Address, ChainId, HashMap, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_rpc_eth::{

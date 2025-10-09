@@ -2,7 +2,7 @@ use derive_where::derive_where;
 use edr_block_api::{Block, BlockAndTotalDifficulty};
 use edr_block_header::{BlobGas, BlockHeader, Withdrawal};
 use edr_evm::{spec::RuntimeSpec, EthBlockData};
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 use edr_rpc_spec::{GetBlockNumber, RpcEthBlock};
 use serde::{Deserialize, Serialize};

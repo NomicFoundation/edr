@@ -12,7 +12,7 @@ use edr_evm::{
     spec::{GenesisBlockFactory, SyncGenesisBlockFactory},
     state::StateOverrides,
 };
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Address, B256};
 use edr_signer::{FakeSign, Sign};
 use edr_transaction::IsSupported;
@@ -82,7 +82,7 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for L1ChainSpec {
 }
 
 /// Trait with data used for validating a transaction complies with a
-/// [`edr_evm_spec::EvmSpecId`].
+/// [`edr_chain_spec::EvmSpecId`].
 pub trait HardforkValidationData {
     /// Returns the `to` address of the transaction.
     fn to(&self) -> Option<&Address>;

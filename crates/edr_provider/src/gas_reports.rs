@@ -1,6 +1,6 @@
 use derive_more::Debug;
 use dyn_clone::DynClone;
-use edr_evm_spec::HaltReasonTrait;
+use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{hash_map, Address, Bytecode, Bytes, HashMap};
 use edr_receipt::ExecutionResult;
 use edr_solidity::{

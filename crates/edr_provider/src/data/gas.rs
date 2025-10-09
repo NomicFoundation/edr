@@ -12,7 +12,7 @@ use edr_evm::{
     spec::SyncRuntimeSpec,
     trace::TraceCollector,
 };
-use edr_evm_spec::{
+use edr_chain_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
 use edr_primitives::{Address, HashMap, U256};

@@ -7,7 +7,7 @@ use edr_evm::{
     blockchain::{BlockchainErrorForChainSpec, SyncBlockchainForChainSpec},
     spec::SyncRuntimeSpec,
 };
-use edr_evm_spec::ExecutableTransaction as _;
+use edr_chain_spec::ExecutableTransaction as _;
 use edr_primitives::{Address, HashSet, B256};
 use edr_receipt::{log::FilterLog, ReceiptTrait as _};
 use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};

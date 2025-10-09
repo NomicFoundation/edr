@@ -7,7 +7,7 @@ use alloy_primitives::Bytes;
 use derive_more::Debug;
 use derive_where::derive_where;
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
-use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_evm::{

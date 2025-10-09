@@ -5,19 +5,20 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_block_api::{Block, BlockReceipts, EmptyBlock, GenesisBlockOptions, LocalBlock};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{B256, KECCAK_EMPTY};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
-    ReceiptFactory, ReceiptTrait, TransactionReceipt,
+    ChainExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait, TransactionReceipt,
 };
-use edr_state_api::StateDiff;
+use edr_state_api::{StateCommit as _, StateDebug as _, StateDiff};
 use edr_state_persistent_trie::PersistentStateTrie;
+use edr_transaction::TransactionAndReceipt;
 use edr_trie::ordered_trie_root;
-use edr_utils::types::TypeConstructor;
 use itertools::izip;
 
 /// A locally mined block, which contains complete information.
@@ -26,7 +27,7 @@ use itertools::izip;
 pub struct EthLocalBlock<
     BlockConversionErrorT,
     BlockReceiptT: ReceiptTrait,
-    ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+    ExecutionReceiptT: ChainExecutionReceipt,
     HardforkT,
     ReceiptConversionErrorT,
     SignedTransactionT,
@@ -40,7 +41,7 @@ pub struct EthLocalBlock<
     hash: B256,
     phantom: PhantomData<(
         BlockConversionErrorT,
-        ExecutionReceiptTypeConstructorT,
+        ExecutionReceiptT,
         HardforkT,
         ReceiptConversionErrorT,
     )>,
@@ -49,7 +50,13 @@ pub struct EthLocalBlock<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+        ExecutionReceiptT: ChainExecutionReceipt<
+            ExecutionReceipt<ExecutionLog>: MapReceiptLogs<
+                ExecutionLog,
+                FilterLog,
+                ExecutionReceiptT::ExecutionReceipt<FilterLog>,
+            >,
+        >,
         HardforkT: Clone,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction,
@@ -57,7 +64,7 @@ impl<
     EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
-        ExecutionReceiptTypeConstructorT,
+        ExecutionReceiptT,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT,
@@ -66,7 +73,7 @@ impl<
     /// Constructs a new instance with the provided data.
     pub fn new(
         receipt_factory: impl ReceiptFactory<
-            <ExecutionReceiptTypeConstructorT as TypeConstructor<FilterLog>>::Type,
+            ExecutionReceiptT::ExecutionReceipt<FilterLog>,
             HardforkT,
             SignedTransactionT,
             Output = BlockReceiptT,
@@ -75,9 +82,7 @@ impl<
         partial_header: PartialHeader,
         transactions: Vec<SignedTransactionT>,
         transaction_receipts: Vec<
-            TransactionReceipt<
-                <ExecutionReceiptTypeConstructorT as TypeConstructor<ExecutionLog>>::Type,
-            >,
+            TransactionReceipt<ExecutionReceiptT::ExecutionReceipt<ExecutionLog>>,
         >,
         ommers: Vec<BlockHeader>,
         withdrawals: Option<Vec<Withdrawal>>,
@@ -89,23 +94,22 @@ impl<
         let header = BlockHeader::new(partial_header, transactions_root);
 
         let hash = header.hash();
-        let transaction_receipts =
-            map_transaction_receipt_logs::<ExecutionReceiptTypeConstructorT>(
-                hash,
+        let transaction_receipts = map_transaction_receipt_logs::<ExecutionReceiptT>(
+            hash,
+            header.number,
+            transaction_receipts,
+        )
+        .zip(transactions.iter())
+        .map(|(transaction_receipt, transaction)| {
+            Arc::new(receipt_factory.create_receipt(
+                hardfork.clone(),
+                transaction,
+                transaction_receipt,
+                &hash,
                 header.number,
-                transaction_receipts,
-            )
-            .zip(transactions.iter())
-            .map(|(transaction_receipt, transaction)| {
-                Arc::new(receipt_factory.create_receipt(
-                    hardfork.clone(),
-                    transaction,
-                    transaction_receipt,
-                    &hash,
-                    header.number,
-                ))
-            })
-            .collect();
+            ))
+        })
+        .collect();
 
         Self {
             header,
@@ -118,13 +122,32 @@ impl<
             phantom: PhantomData,
         }
     }
+}
 
-    /// Retrieves the block's transactions.
-    pub fn detailed_transactions(
+impl<
+        BlockConversionErrorT,
+        BlockReceiptT: ReceiptTrait,
+        ExecutionReceiptT: ChainExecutionReceipt,
+        HardforkT: Clone,
+        ReceiptConversionErrorT,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    >
+    EthLocalBlock<
+        BlockConversionErrorT,
+        BlockReceiptT,
+        ExecutionReceiptT,
+        HardforkT,
+        ReceiptConversionErrorT,
+        SignedTransactionT,
+    >
+{
+    /// Retrieves the block's transactions along with their receipts.
+    pub fn transactions_with_receipt(
         &self,
-    ) -> impl Iterator<Item = DetailedTransaction<'_, SignedTransactionT, Arc<BlockReceiptT>>> {
+    ) -> impl Iterator<Item = TransactionAndReceipt<'_, SignedTransactionT, Arc<BlockReceiptT>>>
+    {
         izip!(self.transactions.iter(), self.transaction_receipts.iter()).map(
-            |(transaction, receipt)| DetailedTransaction {
+            |(transaction, receipt)| TransactionAndReceipt {
                 transaction,
                 receipt,
             },
@@ -135,7 +158,7 @@ impl<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+        ExecutionReceiptT: ChainExecutionReceipt,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
@@ -143,7 +166,7 @@ impl<
     EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
-        ExecutionReceiptTypeConstructorT,
+        ExecutionReceiptT,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT,
@@ -171,22 +194,22 @@ pub enum LocalBlockCreationError {
 impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
-        HardforkT: Clone + Into<EvmSpecId>,
+        ExecutionReceiptT: ChainExecutionReceipt,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction,
     >
     EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
-        ExecutionReceiptTypeConstructorT,
+        ExecutionReceiptT,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT,
     >
 {
     /// Constructs a block with the provided genesis state and options.
-    pub fn with_genesis_state<HardforkT: Clone + Into<EvmSpecId> + PartialOrd>(
+    pub fn with_genesis_state(
         genesis_diff: StateDiff,
         block_config: BlockConfig<'_, HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
@@ -199,7 +222,7 @@ impl<
             return Err(LocalBlockCreationError::MissingPrevrandao);
         }
 
-        let mut options = HeaderOverrides::<HardforkT>::from(options);
+        let mut options = HeaderOverrides::from(options);
         options.state_root = Some(
             genesis_state
                 .state_root()
@@ -236,7 +259,7 @@ impl<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+        ExecutionReceiptT: ChainExecutionReceipt,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
@@ -244,7 +267,7 @@ impl<
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
-        ExecutionReceiptTypeConstructorT,
+        ExecutionReceiptT,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT,
@@ -281,7 +304,7 @@ impl<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait + Debug + alloy_rlp::Encodable,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+        ExecutionReceiptT: ChainExecutionReceipt,
         HardforkT: Debug,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
@@ -289,7 +312,7 @@ impl<
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
-        ExecutionReceiptTypeConstructorT,
+        ExecutionReceiptT,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT,
@@ -305,7 +328,7 @@ impl<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+        ExecutionReceiptT: ChainExecutionReceipt,
         HardforkT: Into<EvmSpecId>,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction,
@@ -313,7 +336,7 @@ impl<
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
-        ExecutionReceiptTypeConstructorT,
+        ExecutionReceiptT,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT,
@@ -345,7 +368,7 @@ impl<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: ReceiptTrait,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+        ExecutionReceiptT: ChainExecutionReceipt,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + ExecutableTransaction + alloy_rlp::Encodable,
@@ -353,7 +376,7 @@ impl<
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
-        ExecutionReceiptTypeConstructorT,
+        ExecutionReceiptT,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT,
@@ -367,7 +390,7 @@ impl<
 impl<
         BlockConversionErrorT,
         BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
-        ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+        ExecutionReceiptT: ChainExecutionReceipt,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
@@ -375,7 +398,7 @@ impl<
     for EthLocalBlock<
         BlockConversionErrorT,
         BlockReceiptT,
-        ExecutionReceiptTypeConstructorT,
+        ExecutionReceiptT,
         HardforkT,
         ReceiptConversionErrorT,
         SignedTransactionT,
@@ -406,20 +429,18 @@ impl<
 /// Maps the logs of the transaction receipts from [`ExecutionLog`] to
 /// [`FilterLog`].
 fn map_transaction_receipt_logs<
-    ExecutionReceiptTypeConstructorT: ExecutionReceiptTypeConstructorBounds,
+    ExecutionReceiptT: ChainExecutionReceipt<
+        ExecutionReceipt<ExecutionLog>: MapReceiptLogs<
+            ExecutionLog,
+            FilterLog,
+            ExecutionReceiptT::ExecutionReceipt<FilterLog>,
+        >,
+    >,
 >(
     block_hash: B256,
     block_number: u64,
-    receipts: Vec<
-        TransactionReceipt<
-            <ExecutionReceiptTypeConstructorT as TypeConstructor<ExecutionLog>>::Type,
-        >,
-    >,
-) -> impl Iterator<
-    Item = TransactionReceipt<
-        <ExecutionReceiptTypeConstructorT as TypeConstructor<FilterLog>>::Type,
-    >,
-> {
+    receipts: Vec<TransactionReceipt<ExecutionReceiptT::ExecutionReceipt<ExecutionLog>>>,
+) -> impl Iterator<Item = TransactionReceipt<ExecutionReceiptT::ExecutionReceipt<FilterLog>>> {
     let mut log_index = 0;
 
     receipts

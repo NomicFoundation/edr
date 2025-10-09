@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashSet, mem, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
-use edr_evm_spec::HaltReasonTrait;
+use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{bytecode::opcode::OpCode, hex, U256};
 use semver::{Version, VersionReq};
 

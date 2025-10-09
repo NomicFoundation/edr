@@ -20,7 +20,7 @@ use edr_evm::{
     EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, GenesisBlockOptions,
     RemoteBlockConversionError,
 };
-use edr_evm_spec::ExecutableTransaction as _;
+use edr_chain_spec::ExecutableTransaction as _;
 use edr_primitives::{Address, Bytes, HashSet, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},

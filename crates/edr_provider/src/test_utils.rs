@@ -8,7 +8,7 @@ use edr_chain_l1::{
     rpc::{receipt::L1BlockReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -42,7 +42,7 @@ pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
 /// Default header overrides for replaying L1 blocks before The Merge
 pub fn l1_header_overrides_before_merge(
     replay_header: &BlockHeader,
-) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
         nonce: Some(replay_header.nonce),
         ..l1_header_overrides(replay_header)
@@ -52,7 +52,7 @@ pub fn l1_header_overrides_before_merge(
 /// Default header overrides for replaying L1 blocks.
 pub fn l1_header_overrides(
     replay_header: &BlockHeader,
-) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
         // Extra_data field in L1 has arbitrary additional data
         extra_data: Some(replay_header.extra_data.clone()),

@@ -22,7 +22,7 @@ use edr_evm::{
     EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, RemoteBlock,
     SyncBlock,
 };
-use edr_evm_spec::{
+use edr_chain_spec::{
     BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
     TransactionValidation,
 };

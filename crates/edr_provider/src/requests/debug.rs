@@ -1,6 +1,6 @@
 use edr_eth::BlockSpec;
 use edr_evm::state::StateOverrides;
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::B256;
 use serde::{Deserialize, Deserializer};
 

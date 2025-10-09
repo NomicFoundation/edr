@@ -11,13 +11,13 @@ edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_blockchain_api.workspace = true
 edr_chain_l1.workspace = true
+edr_chain_spec.workspace = true
 edr_database_components.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_eth = { workspace = true, features = ["serde", "std"] }
 edr_evm = { path = "../edr_evm" }
-edr_evm_spec.workspace = true
 edr_generic = { path = "../edr_generic" }
 edr_napi_core = { path = "../edr_napi_core" }
 edr_primitives.workspace = true

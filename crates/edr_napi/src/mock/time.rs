@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_evm::spec::RuntimeSpec;
-use edr_evm_spec::ChainSpec;
+use edr_chain_spec::ChainSpec;
 use edr_generic::GenericChainSpec;
 use edr_napi_core::logger::Logger;
 use edr_primitives::B256;

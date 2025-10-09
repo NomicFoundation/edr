@@ -6,7 +6,7 @@ use edr_evm::{
     precompile::PrecompileFn, result::ExecutionResult, runtime::guaranteed_dry_run_with_inspector,
     spec::ContextForChainSpec, state::WrapDatabaseRef,
 };
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{State, StateError};
 

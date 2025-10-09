@@ -15,7 +15,7 @@ use edr_evm::{
     trace::{Trace, TraceCollector},
     transaction::TransactionError,
 };
-use edr_evm_spec::{
+use edr_chain_spec::{
     Block as _, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
     HaltReasonTrait, TransactionValidation,
 };

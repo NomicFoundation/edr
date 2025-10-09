@@ -10,7 +10,7 @@ use edr_evm::{
     },
     MemPoolAddTransactionError, OrderedTransaction,
 };
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Address, U256};
 use edr_state_api::{account::AccountInfo, AccountModifierFn, StateDebug};
 
