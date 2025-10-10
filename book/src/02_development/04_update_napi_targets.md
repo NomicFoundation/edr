@@ -1,7 +1,7 @@
 First, install `@napi-rs/cli`:
 
 ```bash
-npm -g i @napi-rs/cli
+pnpm -g i @napi-rs/cli
 ```
 
 Then follow the steps in [this document](https://napi.rs/docs/introduction/simple-package) to generate a package with the desired supported target triples.
