@@ -14,7 +14,7 @@ To measure real-world performance, we use a build of [Hardhat](https://github.co
 ```bash
 cd packages/hardhat-core &&
 pnpm build &&
-npm link
+pnpm link
 ```
 
 For this example we will use [openzeppelin-contracts](https://github.com/OpenZeppelin/openzeppelin-contracts):
@@ -22,13 +22,13 @@ For this example we will use [openzeppelin-contracts](https://github.com/OpenZep
 ```bash
 git clone https://github.com/OpenZeppelin/openzeppelin-contracts.git &&
 cd openzeppelin-contracts &&
-npm install
+pnpm install
 ```
 
 To use your local hardhat build in a third-party project, run:
 
 ```bash
-npm link hardhat
+pnpm link hardhat
 ```
 
 To validate that this worked, you can run:

@@ -128,7 +128,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@10.17.1
+            npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
             pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
@@ -151,7 +151,7 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            npm i -g pnpm@10.17.1
+            npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
             pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
