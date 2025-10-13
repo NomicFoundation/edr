@@ -44,9 +44,7 @@ enum Command {
         candidate: PathBuf,
     },
     /// Convert a scenario file from the old format to the new format
-    ConvertScenario {
-        path: PathBuf,
-    },
+    ConvertScenario { path: PathBuf },
     /// Generate Ethereum execution API
     GenExecutionApi,
     /// Replays a block from a remote node and compares it to the mined block.
@@ -68,7 +66,15 @@ enum Command {
         #[clap(long, short)]
         count: Option<usize>,
     },
-    OpChainConfig,
+    OpChainConfig {
+        /// Checks if there are config changes to be included, but does not
+        /// apply them
+        #[clap(long, takes_value = false)]
+        check: bool,
+        /// Enables verbose mode
+        #[clap(short, long, takes_value = false)]
+        verbose: bool,
+    },
 }
 
 #[tokio::main]
@@ -92,6 +98,8 @@ async fn main() -> anyhow::Result<()> {
             block_number,
         } => remote_block::replay(chain_type, url, block_number).await,
         Command::Scenario { path, count } => scenario::execute(&path, count).await,
-        Command::OpChainConfig => op_chain_config::import_op_chain_configs(),
+        Command::OpChainConfig { check, verbose } => {
+            op_chain_config::import_op_chain_configs(check, verbose)
+        }
     }
 }

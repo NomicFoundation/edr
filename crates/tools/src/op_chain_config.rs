@@ -1,4 +1,5 @@
 use std::{
+    cell::Cell,
     collections::HashMap,
     fmt::Write as _,
     fs::{self, create_dir_all, File},
@@ -29,6 +30,18 @@ const GENERATED_FILE_WARNING_MESSAGE: &str = "
 
 static WORKSPACE_ROOT_PATH: OnceLock<anyhow::Result<String>> = OnceLock::new();
 
+thread_local! {
+    static VERBOSE: Cell<bool> = const { Cell::<bool>::new(false) };
+}
+macro_rules! log {
+    ($($arg:tt)*) => {
+        VERBOSE.with(|verbose| {
+            if verbose.get() {
+            println!($($arg)*);
+        }
+    })
+    };
+}
 fn generated_module_path() -> anyhow::Result<String> {
     let root_path = WORKSPACE_ROOT_PATH.get_or_init(workspace_root);
 
@@ -58,7 +71,10 @@ fn get_current_commit_sha(repo_path: &Path) -> Result<String, git2::Error> {
     Ok(commit_id.to_string())
 }
 
-pub fn import_op_chain_configs() -> anyhow::Result<()> {
+pub fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
+    VERBOSE.with(|verbose_config| {
+        verbose_config.set(verbose);
+    });
     // Create a temporary directory that will be automatically deleted on drop
     let superchain_registry_repo_dir = tempdir()?;
     Repository::clone(
@@ -69,11 +85,6 @@ pub fn import_op_chain_configs() -> anyhow::Result<()> {
     let generated_module_path = generated_module_path()?;
     let modules_dir = Path::new(generated_module_path.as_str());
     create_dir_all(modules_dir)?;
-
-    println!(
-        "Generated modules dir: {}",
-        modules_dir.canonicalize()?.to_str().unwrap()
-    );
 
     let chains_to_generate =
         fetch_op_stack_chains_to_configure(superchain_registry_repo_dir.path())?;
@@ -92,25 +103,51 @@ pub fn import_op_chain_configs() -> anyhow::Result<()> {
         path_buf.as_os_str().to_owned()
     };
 
-    println!("Formatting generated files...");
+    log!("Formatting generated files...");
     Command::new("rustfmt")
         .arg("+nightly")
         .arg(generated_files_path)
         .arg(format!("{generated_module_path}.rs"))
         .output()?;
 
-    println!("Running `cargo check`...");
+    log!("Running `cargo check`...");
     let cargo_check_output = Command::new("cargo")
         .arg("check")
         .arg("-p")
         .arg("edr_op")
         .output()?;
-    if cargo_check_output.status.success() {
-        println!("Success!");
-        Ok(())
-    } else {
+
+    if !cargo_check_output.status.success() {
         io::stderr().write_all(&cargo_check_output.stderr)?;
-        bail!("Cargo check fails after generation");
+        bail!("Cargo check fails");
+    }
+
+    if check {
+        // Checks whether there were any changes aside from changes triggered due to
+        // different superchain registry commit SHA included in the documentation
+        let significant_diff = Command::new("git")
+            .arg("diff")
+            .arg("-G'^//// source: https:////github.com//ethereum-optimism//superchain-registry//tree//'")
+            .arg("--exit-code").output()?;
+
+        let result = if significant_diff.status.success() {
+            log!("OP chain configs are up to date ✓");
+            Ok(())
+        } else {
+            Err(anyhow!("Significant changes pending to be included"))
+        };
+        // Rollback any modification done to generated/* files
+        let mut files_to_ignore = modules_dir.to_path_buf();
+        files_to_ignore.push("*");
+        Command::new("git")
+            .arg("checkout")
+            .arg("--")
+            .arg(files_to_ignore)
+            .output()?;
+        result
+    } else {
+        log!("Success ✓");
+        Ok(())
     }
 }
 
@@ -131,7 +168,7 @@ fn generate_chain_modules(
                     networks: chain_config.networks,
                 }),
                 Err(error) => {
-                    println!(
+                    log!(
                         "Skipping {} chain module generation due to {error}",
                         chain_config.file_name
                     );
@@ -345,7 +382,7 @@ fn generate_hardfork_activations_for(
     let superchain_activations = hardforks.into_iter().filter_map(
         |(hardfork, activation_value)| match get_op_hardfork_from(&hardfork) {
             Err(error) => {
-                println!("{chain_name}: ignoring activation - {error}");
+                log!("{chain_name}: ignoring activation - {error}");
                 None
             }
             Ok(opt_hardfork) => opt_hardfork
