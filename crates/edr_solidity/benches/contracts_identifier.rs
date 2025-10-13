@@ -6,7 +6,7 @@
 //!
 //! 2. In the `forge-std` repo root:
 //!
-//!    2.1. `npm i`
+//!    2.1. `pnpm i`
 //!    2.2. `npx hardhat compile`
 //!
 //! 3. In the `crates/edr_solidity` directory:
