@@ -7,7 +7,7 @@ use std::{
 
 use comfy_table::{presets::ASCII_MARKDOWN, Attribute, Cell, Color, Table};
 use edr_common::calc;
-use edr_gas_report::gas_report::{
+use edr_gas_report::{
     ContractGasReport, DeploymentGasReport, FunctionGasReport, GasReportExecutionStatus,
 };
 use edr_primitives::HashMap;

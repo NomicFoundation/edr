@@ -283,6 +283,13 @@ impl SolidityTestRunnerConfigArgs {
             include_traces.unwrap_or_default()
         };
 
+        // If gas reporting is enabled, we enable EVM isolation for gas accuracy
+        let isolate = if generate_gas_report.unwrap_or(false) {
+            Some(true)
+        } else {
+            isolate
+        };
+
         let config = edr_napi_core::solidity::config::TestRunnerConfig {
             project_root: project_root.into(),
             include_traces: include_traces.into(),

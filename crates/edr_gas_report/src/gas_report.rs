@@ -179,6 +179,7 @@ impl Display for GasReport {
 
             // Add function information if available
             if !contract.functions.is_empty() {
+                table.add_row([Cell::new("")]);
                 table.add_row([
                     Cell::new("Function Name")
                         .add_attribute(Attribute::Bold)
@@ -343,7 +344,7 @@ impl ContractGasReportAndIdentifier {
     }
 }
 
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum GasReportExecutionStatus {
     #[default]
     Success,

@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::U256;
+use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::fuzz::CounterExample;
 
 use crate::helpers::{
@@ -975,4 +976,42 @@ async fn test_no_reverts_in_counterexample() {
             assert_eq!(sequence.len(), 10);
         }
     };
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_gas_report() {
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTest1.t.sol");
+    let mut runner = TEST_DATA_DEFAULT.runner().await;
+    runner.enable_gas_report();
+    let (test_result, _) = runner.test_collect(filter).await;
+
+    assert!(test_result.gas_report.is_some());
+
+    let gas_report = test_result.gas_report.as_ref().unwrap();
+    let invariant_breaker_report = gas_report
+        .contracts
+        .get("default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantBreaker")
+        .unwrap();
+
+    let deployment_report = invariant_breaker_report.deployments.first().unwrap();
+
+    assert_eq!(deployment_report.gas, 99_653);
+    assert_eq!(deployment_report.size, 434);
+    assert_eq!(deployment_report.status, GasReportExecutionStatus::Success);
+
+    assert_eq!(invariant_breaker_report.functions.len(), 3);
+    assert!(invariant_breaker_report.functions.contains_key("flag1()"));
+    assert!(invariant_breaker_report
+        .functions
+        .contains_key("set0(int256)"));
+    assert!(invariant_breaker_report
+        .functions
+        .contains_key("set1(int256)"));
+
+    let flag1_reports = invariant_breaker_report.functions.get("flag1()").unwrap();
+    assert!(!flag1_reports.is_empty());
+    assert!(flag1_reports
+        .iter()
+        .any(|r| r.gas > 0 && r.status == GasReportExecutionStatus::Success));
 }

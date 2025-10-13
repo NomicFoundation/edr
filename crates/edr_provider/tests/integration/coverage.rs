@@ -6,7 +6,7 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, receipt::L1BlockReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_gas_report::gas_report::GasReport;
+use edr_gas_report::GasReport;
 use edr_primitives::{bytes, Address, Bytes, HashSet, B256};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,

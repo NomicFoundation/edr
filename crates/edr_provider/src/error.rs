@@ -19,7 +19,7 @@ use edr_evm::{
 use edr_evm_spec::{
     ChainHardfork, ChainSpec, EvmSpecId, HaltReasonTrait, OutOfGasError, TransactionValidation,
 };
-use edr_gas_report::gas_report::GasReportCreationError;
+use edr_gas_report::GasReportCreationError;
 use edr_primitives::{hex, Address, Bytes, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_signer::SignatureError;

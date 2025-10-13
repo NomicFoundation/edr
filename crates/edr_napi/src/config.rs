@@ -7,7 +7,7 @@ use std::{
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
-use edr_gas_report::gas_report::SyncOnCollectedGasReportCallback;
+use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_primitives::{Bytes, HashMap, HashSet};
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{

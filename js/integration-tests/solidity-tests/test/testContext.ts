@@ -18,10 +18,12 @@ import {
   UnsafeToReplay,
   opSolidityTestRunnerFactory,
   SuiteResult,
+  SolidityTestResult,
 } from "@nomicfoundation/edr";
 import {
   buildSolidityTestsInput,
   runAllSolidityTests,
+  runAllSolidityTestsWithGasReport,
 } from "@nomicfoundation/edr-helpers";
 import hre from "hardhat";
 import assert from "node:assert/strict";
@@ -104,17 +106,36 @@ export class TestContext {
       throw new Error(`No matching test contract found for ${contractName}`);
     }
 
-    const suiteResults = await runAllSolidityTests(
-      this.edrContext,
-      chainType,
-      this.artifacts,
-      testContracts,
-      this.tracingConfig,
-      {
-        ...this.defaultConfig(chainType),
-        ...config,
-      }
-    );
+    let generate_gas_report = config?.generateGasReport ?? false;
+    let suiteResults: SuiteResult[] = [];
+    let testResult: SolidityTestResult | undefined = undefined;
+
+    if (generate_gas_report) {
+      [testResult, suiteResults] = await runAllSolidityTestsWithGasReport(
+        this.edrContext,
+        chainType,
+        this.artifacts,
+        testContracts,
+        this.tracingConfig,
+        {
+          ...this.defaultConfig(chainType),
+          ...config,
+          generateGasReport: true,
+        }
+      );
+    } else {
+      suiteResults = await runAllSolidityTests(
+        this.edrContext,
+        chainType,
+        this.artifacts,
+        testContracts,
+        this.tracingConfig,
+        {
+          ...this.defaultConfig(chainType),
+          ...config,
+        }
+      );
+    }
 
     const stackTraces = new Map();
     const callTraces = new Map();
@@ -134,7 +155,14 @@ export class TestContext {
         }
       }
     }
-    return { totalTests, failedTests, stackTraces, callTraces, suiteResults };
+    return {
+      totalTests,
+      failedTests,
+      stackTraces,
+      callTraces,
+      suiteResults,
+      testResult,
+    };
   }
 
   matchingTest(contractName: string): ArtifactId[] {
@@ -160,6 +188,7 @@ interface SolidityTestsRunResult {
   >;
   callTraces: Map<string, CallTrace[]>;
   suiteResults: SuiteResult[];
+  testResult?: SolidityTestResult;
 }
 
 type ActualStackTraceResult =
