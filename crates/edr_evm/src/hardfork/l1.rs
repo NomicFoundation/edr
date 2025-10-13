@@ -231,5 +231,5 @@ pub fn chain_config(chain_id: u64) -> Option<&'static ChainConfig<edr_chain_l1::
 
 /// Returns the default base fee params to fallback to
 pub fn default_base_fee_params() -> &'static BaseFeeParams<edr_chain_l1::Hardfork> {
-    &mainnet_config().base_fee_params
+    &BASE_FEE_PARAMS
 }
