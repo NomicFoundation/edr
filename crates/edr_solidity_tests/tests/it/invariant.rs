@@ -14,6 +14,7 @@ macro_rules! get_counterexample {
         $runner
             .test_collect($filter)
             .await
+            .1
             .values()
             .last()
             .expect("Invariant contract should be testable.")
@@ -32,8 +33,7 @@ async fn test_invariant_with_alias() {
     let filter =
         SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTest1.t.sol");
     let runner = TEST_DATA_DEFAULT.runner().await;
-
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
 
     assert_multiple(
         &results,
@@ -77,7 +77,8 @@ async fn test_invariant_filters() {
                 ".*",
                 ".*fuzz/invariant/target/(ExcludeContracts|TargetContracts).t.sol",
             ))
-            .await,
+            .await
+            .1,
         BTreeMap::from([
             (
                 "default/fuzz/invariant/target/ExcludeContracts.t.sol:ExcludeContracts",
@@ -99,7 +100,8 @@ async fn test_invariant_filters() {
                 ".*",
                 ".*fuzz/invariant/target/(ExcludeSenders|TargetSenders).t.sol",
             ))
-            .await,
+            .await
+            .1,
         BTreeMap::from([
             (
                 "default/fuzz/invariant/target/ExcludeSenders.t.sol:ExcludeSenders",
@@ -127,7 +129,8 @@ async fn test_invariant_filters() {
                 ".*",
                 ".*fuzz/invariant/target/TargetInterfaces.t.sol",
             ))
-            .await,
+            .await
+            .1,
         BTreeMap::from([(
             "default/fuzz/invariant/target/TargetInterfaces.t.sol:TargetWorldInterfaces",
             vec![(
@@ -149,7 +152,8 @@ async fn test_invariant_filters() {
                 ".*",
                 ".*fuzz/invariant/target/(ExcludeSelectors|TargetSelectors).t.sol",
             ))
-            .await,
+            .await
+            .1,
         BTreeMap::from([
             (
                 "default/fuzz/invariant/target/ExcludeSelectors.t.sol:ExcludeSelectors",
@@ -168,7 +172,7 @@ async fn test_invariant_filters() {
             ".*",
             ".*",
             ".*fuzz/invariant/targetAbi/(ExcludeArtifacts|TargetArtifacts|TargetArtifactSelectors|TargetArtifactSelectors2).t.sol",
-        )).await,
+        )).await.1,
         BTreeMap::from([
             (
                 "default/fuzz/invariant/targetAbi/ExcludeArtifacts.t.sol:ExcludeArtifacts",
@@ -220,7 +224,7 @@ async fn test_invariant_override() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
 
     assert_multiple(
         &results,
@@ -253,7 +257,7 @@ async fn test_invariant_fail_on_revert() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
 
     assert_multiple(
         &results,
@@ -288,7 +292,7 @@ async fn test_invariant_storage() {
             TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
 
     assert_multiple(
         &results,
@@ -335,7 +339,7 @@ async fn test_invariant_inner_contract() {
         ".*",
         ".*fuzz/invariant/common/InvariantInnerContract.t.sol",
     );
-    let results = TEST_DATA_DEFAULT.runner().await.test_collect(filter).await;
+    let (_, results) = TEST_DATA_DEFAULT.runner().await.test_collect(filter).await;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -457,6 +461,7 @@ async fn test_shrink_big_sequence() {
         .clone()
         .test_collect(filter.clone())
         .await
+        .1
         .values()
         .last()
         .expect("Invariant contract should be testable.")
@@ -476,7 +481,7 @@ async fn test_shrink_big_sequence() {
     assert_eq!(initial_sequence.len(), 77);
 
     // test failure persistence
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     let _test_result = results
         .get("default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequenceTest")
         .unwrap()
@@ -567,7 +572,7 @@ async fn test_invariant_preserve_state() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -586,7 +591,7 @@ async fn test_invariant_preserve_state() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_invariant_with_address_fixture() {
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner
+    let (_, results) = runner
         .test_collect(SolidityTestFilter::new(
             ".*",
             ".*",
@@ -619,7 +624,7 @@ async fn test_invariant_assume_does_not_revert() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -641,7 +646,7 @@ async fn test_invariant_assume_respects_restrictions() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -670,7 +675,7 @@ async fn test_invariant_decode_custom_error() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -699,7 +704,7 @@ async fn test_invariant_fuzzed_selected_targets() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     assert_multiple(
         &results,
         BTreeMap::from([
@@ -735,7 +740,7 @@ async fn test_invariant_fixtures() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -767,7 +772,7 @@ async fn test_invariant_scrape_values() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     assert_multiple(
         &results,
         BTreeMap::from([
@@ -812,7 +817,7 @@ async fn test_invariant_roll_fork_handler() {
         )
         .await;
 
-    let results = runner
+    let (_, results) = runner
         .test_collect(SolidityTestFilter::new(
             "invariant_fork_handler_block",
             "InvariantRollForkBlockTest",
@@ -845,7 +850,7 @@ async fn test_invariant_roll_fork_handler() {
         )
         .await;
 
-    let results = runner
+    let (_, results) = runner
         .test_collect(SolidityTestFilter::new(
             "invariant_fork_handler_state",
             "InvariantRollForkStateTest",
@@ -881,7 +886,7 @@ async fn test_invariant_excluded_senders() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -907,7 +912,7 @@ async fn test_invariant_after_invariant() {
         .await;
 
     assert_multiple(
-        &runner.test_collect(failure_filter).await,
+        &runner.test_collect(failure_filter).await.1,
         BTreeMap::from([(
             "default/fuzz/invariant/common/InvariantAfterInvariant.t.sol:InvariantAfterInvariantTest",
             vec![
@@ -938,7 +943,7 @@ async fn test_invariant_after_invariant() {
         .await;
 
     assert_multiple(
-            &runner.clone().test_collect(success_pattern).await,
+            &runner.clone().test_collect(success_pattern).await.1,
             BTreeMap::from([(
                 "default/fuzz/invariant/common/InvariantAfterInvariant.t.sol:InvariantAfterInvariantTest",
                 vec![
