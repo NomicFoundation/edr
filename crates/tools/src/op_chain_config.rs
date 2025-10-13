@@ -37,11 +37,12 @@ macro_rules! log {
     ($($arg:tt)*) => {
         VERBOSE.with(|verbose| {
             if verbose.get() {
-            println!($($arg)*);
-        }
-    })
+                println!($($arg)*);
+            }
+        })
     };
 }
+
 fn generated_module_path() -> anyhow::Result<String> {
     let root_path = WORKSPACE_ROOT_PATH.get_or_init(workspace_root);
 
