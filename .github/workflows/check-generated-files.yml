@@ -1,4 +1,4 @@
-name: EDR
+name: Check generated files
 
 on:
   push:
