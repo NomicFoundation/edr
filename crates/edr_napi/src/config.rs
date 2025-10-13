@@ -21,7 +21,7 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-    account::AccountOverride, block::BlobGas, cast::TryCast, gas_reports::GasReport,
+    account::AccountOverride, block::BlobGas, cast::TryCast, gas_report::GasReport,
     logger::LoggerConfig, precompile::Precompile, subscription::SubscriptionConfig,
 };
 

@@ -155,7 +155,8 @@ pub struct SolidityTestRunnerConfigArgs {
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
-
+    /// Controls whether to generate a gas report after running the tests.
+    /// Defaults to false.
     pub generate_gas_report: Option<bool>,
 }
 
@@ -276,9 +277,15 @@ impl SolidityTestRunnerConfigArgs {
             },
         )?;
 
+        let include_traces = if generate_gas_report.unwrap_or(false) {
+            IncludeTraces::All
+        } else {
+            include_traces.unwrap_or_default()
+        };
+
         let config = edr_napi_core::solidity::config::TestRunnerConfig {
             project_root: project_root.into(),
-            include_traces: include_traces.unwrap_or_default().into(),
+            include_traces: include_traces.into(),
             test_fail: test_fail.unwrap_or_default(),
             isolate,
             ffi,

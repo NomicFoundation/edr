@@ -14,7 +14,7 @@ use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
 async fn test_core() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*core");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
 
     assert_multiple(
         &results,
@@ -109,7 +109,7 @@ async fn test_core() {
 async fn test_linking() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*linking");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
 
     assert_multiple(
         &results,
@@ -143,7 +143,7 @@ async fn test_linking() {
 async fn test_logs() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*logs");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
 
     assert_multiple(
         &results,
@@ -719,7 +719,7 @@ async fn test_env_vars() {
 async fn test_doesnt_run_abstract_contract() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*Abstract.t.sol".to_string().as_str());
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
     assert!(!results.contains_key("default/core/Abstract.t.sol:AbstractTestBase"));
     assert!(results.contains_key("default/core/Abstract.t.sol:AbstractTest"));
 }
@@ -728,7 +728,7 @@ async fn test_doesnt_run_abstract_contract() {
 async fn test_trace() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*trace");
     let runner = TEST_DATA_DEFAULT.tracing_runner().await;
-    let suite_result = runner.test_collect(filter).await;
+    let (_, suite_result) = runner.test_collect(filter).await;
 
     // TODO: This trace test is very basic - it is probably a good candidate for
     // snapshot testing.
@@ -772,7 +772,7 @@ async fn test_fail_test() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.test_fail = false;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
 
     assert_multiple(
         &results,
@@ -845,7 +845,7 @@ async fn test_deprecated_cheatcode_warning() {
 
     let filter = SolidityTestFilter::new(".*", ".*", "default/core/DeprecatedCheatcode.t.sol");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let (_, results) = runner.test_collect(filter).await;
 
     assert_multiple_deprecation_warnings(
         &results,

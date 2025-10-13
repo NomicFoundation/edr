@@ -23,14 +23,13 @@ use foundry_evm::{
     inspectors::{cheatcodes::CheatsConfigOptions, CheatsConfig},
     opts::EvmOpts,
     traces::{
-        decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder, TracingMode,
+        decode_trace_arena, identifier::TraceIdentifiers, CallTraceDecoderBuilder, TraceKind,
+        TracingMode,
     },
 };
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     config::CollectStackTraces,
-    gas_report,
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
@@ -62,6 +61,10 @@ impl<FnT, HaltReasonT> OnTestSuiteCompletedFn<HaltReasonT> for FnT where
 }
 
 pub type TestContracts = BTreeMap<ArtifactId, TestContract>;
+
+pub struct SolidityTestResult {
+    pub gas_report: Option<edr_gas_report::GasReport>,
+}
 
 /// A multi contract runner receives a set of contracts deployed in an EVM
 /// instance and proceeds to run all test functions in these contracts.
@@ -267,6 +270,7 @@ impl<
         contract: &TestContract,
         fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
         filter: &dyn TestFilter,
+        gas_report: &mut Option<crate::gas_report::GasReport>,
         handle: &tokio::runtime::Handle,
     ) -> SuiteResult<HaltReasonT> {
         let identifier = artifact_id.identifier();
@@ -289,13 +293,7 @@ impl<
             CollectStackTraces::Always => TracingMode::WithSteps,
             CollectStackTraces::OnFailure => match self.include_traces {
                 IncludeTraces::Failing | IncludeTraces::All => TracingMode::WithoutSteps,
-                IncludeTraces::None => {
-                    if self.gas_report {
-                        TracingMode::WithoutSteps
-                    } else {
-                        TracingMode::None
-                    }
-                }
+                IncludeTraces::None => TracingMode::None,
             },
         };
 
@@ -349,9 +347,13 @@ impl<
 
         if self.include_traces != IncludeTraces::None {
             let mut decoder = CallTraceDecoderBuilder::new().build();
+            let mut trace_identifier = TraceIdentifiers::new().with_local(&self.known_contracts);
 
             for result in r.test_results.values_mut() {
-                if result.status.is_success() && self.include_traces != IncludeTraces::All {
+                if !self.gas_report
+                    && result.status.is_success()
+                    && self.include_traces != IncludeTraces::All
+                {
                     continue;
                 }
 
@@ -364,13 +366,41 @@ impl<
                 );
 
                 for (_, arena) in &mut result.traces {
-                    let mut trace_identifier =
-                        TraceIdentifiers::new().with_local(&self.known_contracts);
                     decoder.identify(arena, &mut trace_identifier);
                     tokio::task::block_in_place(|| {
                         handle.block_on(decode_trace_arena(arena, &decoder));
                     });
                 }
+
+                if let Some(gas_report) = gas_report {
+                    tokio::task::block_in_place(|| {
+                        handle.block_on(
+                            gas_report
+                                .analyze(result.traces.iter().map(|(_, a)| &a.arena), &decoder),
+                        );
+                    });
+
+                    for trace in &result.gas_report_traces {
+                        decoder.clear_addresses();
+
+                        // Re-execute setup and deployment traces to collect identities created in
+                        // setUp and constructor.
+                        for (kind, arena) in &result.traces {
+                            if !matches!(kind, TraceKind::Execution) {
+                                decoder.identify(arena, &mut trace_identifier);
+                            }
+                        }
+
+                        for arena in trace {
+                            decoder.identify(arena, &mut trace_identifier);
+                            tokio::task::block_in_place(|| {
+                                handle.block_on(gas_report.analyze([arena], &decoder));
+                            });
+                        }
+                    }
+                }
+                // Clear memory.
+                result.gas_report_traces = Vec::default();
             }
         }
 
@@ -388,11 +418,14 @@ impl<
     pub async fn test_collect(
         self,
         filter: impl TestFilter + 'static,
-    ) -> BTreeMap<String, SuiteResult<HaltReasonT>> {
+    ) -> (
+        SolidityTestResult,
+        BTreeMap<String, SuiteResult<HaltReasonT>>,
+    ) {
         let (tx_results, mut rx_results) =
             tokio::sync::mpsc::unbounded_channel::<SuiteResultAndArtifactId<HaltReasonT>>();
 
-        self.test(
+        let test_result = self.test(
             tokio::runtime::Handle::current(),
             Arc::new(filter),
             Arc::new(move |suite_result| {
@@ -410,7 +443,7 @@ impl<
             results.insert(artifact_id.identifier(), result);
         }
 
-        results
+        (test_result, results)
     }
 
     /// Executes _all_ tests that match the given `filter`.
@@ -429,7 +462,7 @@ impl<
         tokio_handle: tokio::runtime::Handle,
         filter: Arc<impl TestFilter + 'static>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<HaltReasonT>>,
-    ) {
+    ) -> SolidityTestResult {
         trace!("running all tests");
 
         let fork = self.fork.take();
@@ -447,16 +480,36 @@ impl<
             find_time,
         );
 
-        contracts.into_par_iter().for_each(|(id, contract)| {
+        let mut gas_report = self.gas_report.then(crate::gas_report::GasReport::default);
+
+        for (id, contract) in contracts {
             let _guard = tokio_handle.enter();
-            let result =
-                self.run_tests(&id, &contract, fork.clone(), filter.as_ref(), &tokio_handle);
+            let result = self.run_tests(
+                &id,
+                &contract,
+                fork.clone(),
+                filter.as_ref(),
+                &mut gas_report,
+                &tokio_handle,
+            );
 
             on_test_suite_completed_fn(SuiteResultAndArtifactId {
                 artifact_id: id,
                 result,
             });
-        });
+        }
+
+        SolidityTestResult {
+            gas_report: gas_report.map(|report| {
+                let finalized = report.finalize();
+                edr_gas_report::GasReport::from(finalized)
+            }),
+        }
+    }
+
+    /// Enables gas report collection.
+    pub fn enable_gas_report(&mut self) {
+        self.gas_report = true;
     }
 }
 

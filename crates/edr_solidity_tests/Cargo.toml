@@ -10,6 +10,7 @@ edr_coverage.workspace = true
 edr_defaults.workspace = true
 edr_evm.workspace = true
 edr_evm_spec.workspace = true
+edr_gas_report.workspace = true
 edr_primitives.workspace = true
 edr_solidity.workspace = true
 

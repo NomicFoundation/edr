@@ -18,6 +18,7 @@ use napi_derive::napi;
 
 use crate::{
     cast::TryCast,
+    gas_report::GasReport,
     solidity_tests::{artifact::ArtifactId, config::IncludeTraces},
     trace::{solidity_stack_trace::SolidityStackTraceEntry, u256_to_bigint},
 };
@@ -714,6 +715,22 @@ impl From<traces::CallKind> for CallKind {
             traces::CallKind::AuthCall => {
                 unreachable!("Unsupported EVM features")
             }
+        }
+    }
+}
+
+/// The result of a Solidity test run.
+#[napi(object)]
+pub struct SolidityTestResult {
+    /// Gas report, if it was generated.
+    #[napi(readonly)]
+    pub gas_report: Option<GasReport>,
+}
+
+impl From<edr_solidity_tests::multi_runner::SolidityTestResult> for SolidityTestResult {
+    fn from(value: edr_solidity_tests::multi_runner::SolidityTestResult) -> Self {
+        Self {
+            gas_report: value.gas_report.map(GasReport::from),
         }
     }
 }

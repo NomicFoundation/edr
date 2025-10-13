@@ -1,3 +1,6 @@
+use std::fmt::Display;
+
+use comfy_table::{presets::ASCII_MARKDOWN, Attribute, Cell, Color, Table};
 use derive_more::Debug;
 use dyn_clone::DynClone;
 use edr_evm_spec::HaltReasonTrait;
@@ -10,7 +13,6 @@ use edr_solidity::{
     contract_decoder::{ContractDecoder, ContractIdentifierAndFunctionSignature},
     solidity_stack_trace::{UNRECOGNIZED_CONTRACT_NAME, UNRECOGNIZED_FUNCTION_NAME},
 };
-use edr_solidity_tests::revm::interpreter::SuccessOrHalt;
 use edr_state_api::{State, StateError};
 use edr_transaction::TxKind;
 
@@ -31,7 +33,7 @@ dyn_clone::clone_trait_object!(SyncOnCollectedGasReportCallback);
 
 #[derive(Clone, Debug, Default)]
 pub struct GasReport {
-    contracts: HashMap<String, ContractGasReport>,
+    pub contracts: HashMap<String, ContractGasReport>,
 }
 
 /// An error that can occur when calling [`GasReport::new`] or
@@ -123,6 +125,104 @@ impl GasReport {
                 }
             }
         }
+    }
+}
+
+impl Display for GasReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        // Sort contract names for consistent output
+        let mut sorted_contracts: Vec<_> = self.contracts.iter().collect();
+        sorted_contracts.sort_by(|a, b| a.0.cmp(b.0));
+
+        for (name, contract) in sorted_contracts {
+            if contract.deployments.is_empty() && contract.functions.is_empty() {
+                continue;
+            }
+
+            let mut table = Table::new();
+            table.load_preset(ASCII_MARKDOWN);
+            table.set_header([Cell::new(format!("{name} contract"))
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Green)]);
+
+            // Add deployment information if available
+            if !contract.deployments.is_empty() {
+                table.add_row([
+                    Cell::new("Deployment Cost")
+                        .add_attribute(Attribute::Bold)
+                        .fg(Color::Cyan),
+                    Cell::new("Deployment Size")
+                        .add_attribute(Attribute::Bold)
+                        .fg(Color::Cyan),
+                    Cell::new("Status")
+                        .add_attribute(Attribute::Bold)
+                        .fg(Color::Cyan),
+                ]);
+
+                for deployment in &contract.deployments {
+                    let status_str = match deployment.status {
+                        GasReportExecutionStatus::Success => "Success",
+                        GasReportExecutionStatus::Revert => "Revert",
+                        GasReportExecutionStatus::Halt => "Halt",
+                    };
+                    table.add_row([
+                        Cell::new(deployment.gas.to_string()),
+                        Cell::new(deployment.size.to_string()),
+                        Cell::new(status_str).fg(match deployment.status {
+                            GasReportExecutionStatus::Success => Color::Green,
+                            GasReportExecutionStatus::Revert => Color::Yellow,
+                            GasReportExecutionStatus::Halt => Color::Red,
+                        }),
+                    ]);
+                }
+            }
+
+            // Add function information if available
+            if !contract.functions.is_empty() {
+                table.add_row([
+                    Cell::new("Function Name")
+                        .add_attribute(Attribute::Bold)
+                        .fg(Color::Magenta),
+                    Cell::new("Gas")
+                        .add_attribute(Attribute::Bold)
+                        .fg(Color::Magenta),
+                    Cell::new("Status")
+                        .add_attribute(Attribute::Bold)
+                        .fg(Color::Magenta),
+                ]);
+
+                // Sort function names for consistent output
+                let mut sorted_functions: Vec<_> = contract.functions.iter().collect();
+                sorted_functions.sort_by(|a, b| a.0.cmp(b.0));
+
+                for (function_signature, reports) in sorted_functions {
+                    if reports.is_empty() {
+                        continue;
+                    }
+
+                    for report in reports {
+                        let status_str = match report.status {
+                            GasReportExecutionStatus::Success => "Success",
+                            GasReportExecutionStatus::Revert => "Revert",
+                            GasReportExecutionStatus::Halt => "Halt",
+                        };
+                        table.add_row([
+                            Cell::new(function_signature.clone()).add_attribute(Attribute::Bold),
+                            Cell::new(report.gas.to_string()).fg(Color::Yellow),
+                            Cell::new(status_str).fg(match report.status {
+                                GasReportExecutionStatus::Success => Color::Green,
+                                GasReportExecutionStatus::Revert => Color::Yellow,
+                                GasReportExecutionStatus::Halt => Color::Red,
+                            }),
+                        ]);
+                    }
+                }
+            }
+
+            writeln!(f, "{table}")?;
+            writeln!(f)?;
+        }
+        Ok(())
     }
 }
 
@@ -243,8 +343,9 @@ impl ContractGasReportAndIdentifier {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub enum GasReportExecutionStatus {
+    #[default]
     Success,
     Revert,
     Halt,
@@ -258,18 +359,6 @@ impl<HaltReasonT: HaltReasonTrait> From<&ExecutionResult<HaltReasonT>>
             ExecutionResult::Success { .. } => Self::Success,
             ExecutionResult::Revert { .. } => Self::Revert,
             ExecutionResult::Halt { .. } => Self::Halt,
-        }
-    }
-}
-
-impl<HaltReasonT: HaltReasonTrait> From<&SuccessOrHalt<HaltReasonT>> for GasReportExecutionStatus {
-    fn from(result: &SuccessOrHalt<HaltReasonT>) -> Self {
-        match result {
-            SuccessOrHalt::Success(..) => Self::Success,
-            SuccessOrHalt::Revert => Self::Revert,
-            SuccessOrHalt::Halt(..)
-            | SuccessOrHalt::FatalExternalError
-            | SuccessOrHalt::Internal(..) => Self::Halt,
         }
     }
 }
@@ -399,47 +488,5 @@ impl FunctionGasReportAndIdentifiers {
         } else {
             Err(FunctionGasReportCreationError::UnrecognizedFunction)
         }
-    }
-}
-
-impl From<edr_solidity_tests::gas_report::GasReport> for GasReport {
-    fn from(value: edr_solidity_tests::gas_report::GasReport) -> Self {
-        let contracts = value
-            .contracts
-            .into_iter()
-            .map(|(contract_name, contract)| {
-                let deployments = vec![DeploymentGasReport {
-                    gas: contract.gas,
-                    size: contract.size as u64,
-                    status: GasReportExecutionStatus::Success,
-                }];
-
-                let mut functions: HashMap<String, Vec<FunctionGasReport>> = HashMap::new();
-                contract.functions.iter().for_each(|(_, sigs)| {
-                    for (sig, gas_info) in sigs.iter() {
-                        let reports = gas_info
-                            .calls
-                            .iter()
-                            .map(|(gas, status)| FunctionGasReport {
-                                gas: *gas,
-                                // TODO
-                                status: GasReportExecutionStatus::Success,
-                            })
-                            .collect::<Vec<_>>();
-
-                        functions.insert(sig.clone(), reports);
-                    }
-                });
-                (
-                    contract_name,
-                    ContractGasReport {
-                        deployments,
-                        functions,
-                    },
-                )
-            })
-            .collect();
-
-        Self { contracts }
     }
 }

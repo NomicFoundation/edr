@@ -2540,15 +2540,18 @@ dependencies = [
 name = "edr_gas_report"
 version = "0.3.8"
 dependencies = [
+ "comfy-table",
  "derive_more 2.0.1",
  "dyn-clone",
+ "edr_common",
+ "edr_evm",
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
  "edr_solidity",
- "edr_solidity_tests",
  "edr_state_api",
  "edr_transaction",
+ "serde",
  "thiserror 1.0.69",
 ]
 
@@ -3000,6 +3003,7 @@ dependencies = [
  "edr_defaults",
  "edr_evm",
  "edr_evm_spec",
+ "edr_gas_report",
  "edr_primitives",
  "edr_solidity",
  "edr_test_utils",

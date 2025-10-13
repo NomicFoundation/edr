@@ -117,6 +117,7 @@ edr_eip7702 = { path = "crates/eips/7702" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/edr_evm" }
 edr_evm_spec = { path = "crates/edr_evm_spec" }
+edr_gas_report = { path = "crates/edr_gas_report" }
 edr_generic = { path = "crates/edr_generic" }
 edr_macros = { path = "crates/edr_macros" }
 edr_napi_core = { path = "crates/edr_napi_core" }
