@@ -26,6 +26,7 @@ edr_eip7702.workspace = true
 edr_eth.workspace = true
 edr_evm = { workspace = true, features = ["tracing"] }
 edr_evm_spec.workspace = true
+edr_gas_report.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_rpc_eth.workspace = true
@@ -64,7 +65,6 @@ tracing = { version = "0.1.37", features = [
     "attributes",
     "std",
 ], optional = true }
-edr_gas_report = { version = "0.3.8", path = "../edr_gas_report" }
 
 [dev-dependencies]
 alloy-eips.workspace = true

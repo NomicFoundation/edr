@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 
-contract Counter {
+contract SomeCounter {
     uint256 public number;
 
     function setNumber(uint256 newNumber) public {
@@ -16,10 +16,10 @@ contract Counter {
 }
 
 contract CounterTest is Test {
-    Counter public counter;
+    SomeCounter public counter;
 
     function setUp() public {
-        counter = new Counter();
+        counter = new SomeCounter();
         counter.setNumber(0);
     }
 

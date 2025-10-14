@@ -19,6 +19,7 @@ edr_defaults = { path = "../edr_defaults" }
 edr_eip1559.workspace = true
 edr_evm_spec.workspace = true
 edr_evm = { path = "../edr_evm" }
+edr_gas_report.workspace = true
 edr_generic = { path = "../edr_generic" }
 edr_instrument = { path = "../edr_instrument" }
 edr_napi_core = { path = "../edr_napi_core" }
@@ -75,7 +76,6 @@ foundry-cheatcodes.workspace = true
 foundry-compilers.workspace = true
 edr_common.workspace = true
 tempfile = "3.10.1"
-edr_gas_report = { version = "0.3.8", path = "../edr_gas_report" }
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }

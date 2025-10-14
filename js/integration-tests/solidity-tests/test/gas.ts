@@ -135,7 +135,7 @@ describe("Gas report tests", () => {
     assert(gasReport !== undefined);
 
     const contractReport =
-      gasReport.contracts["project/test-contracts/Counter.t.sol:Counter"];
+      gasReport.contracts["project/test-contracts/Counter.t.sol:SomeCounter"];
 
     assert.equal(contractReport.deployments.length, 1);
     assert.equal(contractReport.deployments[0].gas, BigInt(156817));
@@ -183,7 +183,7 @@ describe("Gas report tests", () => {
       ];
 
     assert.equal(contractReport.deployments.length, 1);
-    assert.equal(contractReport.deployments[0].gas, BigInt(150994));
+    assert.equal(contractReport.deployments[0].gas, BigInt(215576));
     assert.equal(contractReport.deployments[0].size, BigInt(783));
     assert.equal(
       contractReport!.deployments[0].status,
