@@ -2,12 +2,16 @@ use alloy_rlp::RlpEncodable;
 use edr_block_api::{GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::BlockConfig;
 use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
-use edr_chain_spec::{ChainHardfork, ChainSpec};
+use edr_chain_spec::{
+    ChainContextSpec, ChainHardfork, ChainSpec, EvmTransactionValidationError,
+    TransactionValidation,
+};
 use edr_evm_spec::{
-    handler::{EthFrame, EthInstructions, EthPrecompiles},
-    interpreter::{EthInterpreter, InterpreterResult},
-    ChainEvmSpec, ContextForChainSpec, Database, DatabaseComponentError, Evm, Inspector,
-    PrecompileProvider,
+    handler::{EthInstructions, EthPrecompiles},
+    interpreter::InterpreterResult,
+    result::EVMError,
+    ChainEvmSpec, ContextForChainSpec, Database, Evm, ExecuteEvm as _, InspectEvm as _, Inspector,
+    PrecompileProvider, TransactionError,
 };
 use edr_primitives::Bytes;
 use edr_receipt::{log::FilterLog, ChainExecutionReceipt};
@@ -36,43 +40,39 @@ pub const EXTRA_DATA: &[u8] = b"\x12\x34";
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct L1ChainSpec;
 
+fn cast_evm_error<DatabaseT: Database>(
+    error: EVMError<DatabaseT::Error, EvmTransactionValidationError>,
+) -> TransactionError<DatabaseT::Error, EvmTransactionValidationError> {
+    match error {
+        EVMError::Custom(error) => TransactionError::Custom(error),
+        EVMError::Database(error) => TransactionError::Database(error),
+        EVMError::Header(error) => TransactionError::InvalidHeader(error),
+        EVMError::Transaction(EvmTransactionValidationError::LackOfFundForMaxFee {
+            fee,
+            balance,
+        }) => TransactionError::LackOfFundForMaxFee { fee, balance },
+        EVMError::Transaction(error) => TransactionError::InvalidTransaction(error),
+    }
+}
+
 impl ChainEvmSpec for L1ChainSpec {
-    type Evm<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
-        StateErrorT,
-    > = Evm<
-        ContextForChainSpec<Self, DatabaseT>,
-        InspectorT,
-        EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT,
-        EthFrame<EthInterpreter>,
-    >;
+    type PrecompileProvider<DatabaseT: Database> = EthPrecompiles;
 
-    type PrecompileProvider<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        StateErrorT,
-    > = EthPrecompiles;
-
-    fn evm_with_inspector<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+    fn dry_run<
+        DatabaseT: Database,
         PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
-        StateErrorT,
     >(
         block: Self::BlockEnv,
         cfg: CfgEnv<Self::Hardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
-        inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
     ) -> Result<
-        Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT>,
-        DatabaseT::Error,
+        revm_context::result::ResultAndState<Self::HaltReason>,
+        TransactionError<
+            DatabaseT::Error,
+            <Self::SignedTransaction as TransactionValidation>::ValidationError,
+        >,
     > {
         let context = revm_context::Context {
             block,
@@ -84,12 +84,52 @@ impl ChainEvmSpec for L1ChainSpec {
             error: Ok(()),
         };
 
-        Ok(Evm::new_with_inspector(
+        let mut evm = Evm::new(context, EthInstructions::default(), precompile_provider);
+
+        evm.replay().map_err(cast_evm_error::<DatabaseT>)
+    }
+
+    fn dry_run_with_inspector<
+        DatabaseT: Database,
+        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
+    >(
+        block: Self::BlockEnv,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        database: DatabaseT,
+        precompile_provider: PrecompileProviderT,
+        inspector: InspectorT,
+    ) -> Result<
+        revm_context::result::ResultAndState<Self::HaltReason>,
+        TransactionError<
+            DatabaseT::Error,
+            <Self::SignedTransaction as TransactionValidation>::ValidationError,
+        >,
+    > {
+        let context = revm_context::Context {
+            block,
+            // We need to pass a transaction here to properly initialize the context.
+            // This default transaction is immediately overridden by the actual transaction passed
+            // to `InspectEvm::inspect_tx`, so its values do not affect the inspection
+            // process.
+            tx: Self::SignedTransaction::default(),
+            cfg,
+            journaled_state: Journal::new(database),
+            chain: (),
+            local: LocalContext::default(),
+            error: Ok(()),
+        };
+
+        let mut evm = Evm::new_with_inspector(
             context,
             inspector,
             EthInstructions::default(),
             precompile_provider,
-        ))
+        );
+
+        evm.inspect_tx(transaction)
+            .map_err(cast_evm_error::<DatabaseT>)
     }
 }
 
@@ -102,8 +142,11 @@ impl ChainHardfork for L1ChainSpec {
 }
 
 impl ChainReceiptSpec for L1ChainSpec {
-    type TransactionReceipt =
-        L1BlockReceipt<<Self as ChainExecutionReceipt>::ExecutionReceipt<FilterLog>>;
+    type Receipt = L1BlockReceipt<<Self as ChainExecutionReceipt>::ExecutionReceipt<FilterLog>>;
+}
+
+impl ChainContextSpec for L1ChainSpec {
+    type Context = ();
 }
 
 impl ChainRpcBlock for L1ChainSpec {
@@ -115,7 +158,6 @@ impl ChainRpcBlock for L1ChainSpec {
 
 impl ChainSpec for L1ChainSpec {
     type BlockEnv = BlockEnv;
-    type Context = ();
     type HaltReason = HaltReason;
     type SignedTransaction = L1SignedTransaction;
 }
@@ -124,7 +166,7 @@ impl GenesisBlockFactory for L1ChainSpec {
     type CreationError = LocalBlockCreationError;
 
     type LocalBlock = EthLocalBlock<
-        <Self as ChainReceiptSpec>::TransactionReceipt,
+        <Self as ChainReceiptSpec>::Receipt,
         Self,
         Self::Hardfork,
         <Self as ChainSpec>::SignedTransaction,

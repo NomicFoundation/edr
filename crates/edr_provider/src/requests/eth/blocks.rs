@@ -169,7 +169,7 @@ fn block_by_number<
             let previous_total_difficulty = data
                 .total_difficulty_by_hash(last_block.block_hash())?
                 .expect("last block has total difficulty");
-            let total_difficulty = previous_total_difficulty + pending_block.header().difficulty;
+            let total_difficulty = previous_total_difficulty + pending_block.block_header().difficulty;
 
             Ok(Some(BlockByNumberResult {
                 block: ChainSpecT::cast_local_block(pending_block),
@@ -189,7 +189,7 @@ fn block_to_rpc_output<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSin
     total_difficulty: Option<U256>,
     transaction_detail_flag: bool,
 ) -> Result<L1RpcBlock<HashOrTransaction<ChainSpecT>>, ProviderErrorForChainSpec<ChainSpecT>> {
-    let header = block.header();
+    let header = block.block_header();
 
     let transactions: Vec<HashOrTransaction<ChainSpecT>> = if transaction_detail_flag {
         block

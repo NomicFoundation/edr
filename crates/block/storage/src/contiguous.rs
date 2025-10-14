@@ -68,7 +68,7 @@ impl<BlockReceiptT, BlockT: Block<SignedTransactionT>, HardforkT, SignedTransact
             .expect("No blocks with a number larger than usize::MAX are inserted");
 
         let block_index = if let Some(first_block) = self.blocks.first() {
-            let first_block_number = usize::try_from(first_block.header().number)
+            let first_block_number = usize::try_from(first_block.block_header().number)
                 .expect("No blocks with a number larger than usize::MAX are inserted");
 
             if block_number < first_block_number {
@@ -105,10 +105,10 @@ impl<BlockReceiptT, BlockT: Block<SignedTransactionT>, HardforkT, SignedTransact
                 .blocks
                 .first()
                 .expect("A block must exist since we found one")
-                .header()
+                .block_header()
                 .number;
 
-            let local_block_number = usize::try_from(block.header().number - first_block_number)
+            let local_block_number = usize::try_from(block.block_header().number - first_block_number)
                 .expect("No blocks with a number larger than usize::MAX are inserted");
 
             // SAFETY: A total difficulty is inserted for each block
@@ -166,7 +166,7 @@ impl<
         if self.hash_to_block.contains_key(block_hash) {
             return Err(InsertBlockError::DuplicateBlock {
                 block_hash: *block_hash,
-                block_number: block.header().number,
+                block_number: block.block_header().number,
             });
         }
 

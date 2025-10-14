@@ -47,7 +47,7 @@ impl<
         hash_to_total_difficulty.insert(*block_hash, total_difficulty);
 
         let mut number_to_block = HashMap::new();
-        number_to_block.insert(block.header().number, block);
+        number_to_block.insert(block.block_header().number, block);
 
         Self {
             hash_to_block,
@@ -68,7 +68,7 @@ impl<
         total_difficulty: U256,
     ) -> Result<&BlockT, InsertBlockError> {
         let block_hash = block.block_hash();
-        let block_header = block.header();
+        let block_header = block.block_header();
 
         if self.hash_to_block.contains_key(block_hash)
             || self.hash_to_total_difficulty.contains_key(block_hash)
@@ -106,7 +106,7 @@ impl<
                 .insert_unique_unchecked(*block_hash, total_difficulty);
 
             self.number_to_block
-                .insert_unique_unchecked(block.header().number, block)
+                .insert_unique_unchecked(block.block_header().number, block)
                 .1
         };
 

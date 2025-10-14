@@ -1,6 +1,6 @@
 use edr_evm::EthBlockReceiptFactory;
 use edr_primitives::B256;
-use edr_receipt::{log::FilterLog, ReceiptFactory, TransactionReceipt};
+use edr_receipt::{log::FilterLog, ReceiptSpec, TransactionReceipt};
 use op_revm::L1BlockInfo;
 
 use crate::{eip2718::TypedEnvelope, receipt, transaction, transaction::OpTxTrait as _, Hardfork};
@@ -10,7 +10,7 @@ pub struct BlockReceiptFactory {
     pub(crate) l1_block_info: L1BlockInfo,
 }
 
-impl ReceiptFactory<TypedEnvelope<receipt::Execution<FilterLog>>, Hardfork, transaction::Signed>
+impl ReceiptSpec<TypedEnvelope<receipt::Execution<FilterLog>>, Hardfork, transaction::Signed>
     for BlockReceiptFactory
 {
     type Output = receipt::Block;

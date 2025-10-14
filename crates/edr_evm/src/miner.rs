@@ -7,7 +7,7 @@ use edr_chain_spec::{
     HaltReasonTrait, TransactionValidation,
 };
 use edr_database_components::DatabaseComponents;
-use edr_evm_spec::ContextForChainSpec;
+use edr_evm_spec::{ContextForChainSpec, DatabaseComponentError, TransactionError};
 use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;
 use edr_state_api::{StateDiff, SyncState};
@@ -17,23 +17,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     block::BlockBuilderCreationError, blockchain::SyncBlockchainForChainSpec, config::CfgEnv,
     mempool::OrderedTransaction, result::ExecutionResult, spec::SyncRuntimeSpec,
-    state::WrapDatabaseRef, transaction::TransactionError, BlockBuilder, BlockInputs,
-    BlockTransactionError, MemPool,
+    state::WrapDatabaseRef, BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
 };
-
-/// The result of mining a block, including the state. This result needs to be
-/// inserted into the blockchain to be persistent.
-#[derive(Debug)]
-pub struct MineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT> {
-    /// Mined block
-    pub block: LocalBlockT,
-    /// State after mining the block
-    pub state: Box<dyn SyncState<StateErrorT>>,
-    /// State diff applied by block
-    pub state_diff: StateDiff,
-    /// Transaction results
-    pub transaction_results: Vec<ExecutionResult<HaltReasonT>>,
-}
 
 /// Helper type for a chain-specific [`MineBlockResultAndState`].
 pub type MineBlockResultAndStateForChainSpec<ChainSpecT, StateErrorT> = MineBlockResultAndState<
@@ -65,12 +50,20 @@ pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionVal
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(
-        #[from] BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT>,
+        #[from]
+        BlockBuilderCreationError<
+            DatabaseComponentError<BlockchainErrorT, StateErrorT>,
+            HardforkT,
+        >,
     ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
     BlockTransaction(
-        #[from] BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+        #[from]
+        BlockTransactionError<
+            DatabaseComponentError<BlockchainErrorT, StateErrorT>,
+            TransactionValidationErrorT,
+        >,
     ),
     /// An error that occurred while finalizing a block.
     #[error(transparent)]
@@ -210,12 +203,20 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(
-        #[from] BlockBuilderCreationError<BlockchainErrorT, HardforkT, StateErrorT>,
+        #[from]
+        BlockBuilderCreationError<
+            DatabaseComponentError<BlockchainErrorT, StateErrorT>,
+            HardforkT,
+        >,
     ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
     BlockTransaction(
-        #[from] BlockTransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+        #[from]
+        BlockTransactionError<
+            DatabaseComponentError<BlockchainErrorT, StateErrorT>,
+            TransactionValidationErrorT,
+        >,
     ),
     /// A blockchain error
     #[error(transparent)]
@@ -373,7 +374,7 @@ where
 
     if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
         let base_fee_per_blob_gas =
-            calculate_next_base_fee_per_blob_gas(parent_block.header(), cfg.spec);
+            calculate_next_base_fee_per_blob_gas(parent_block.block_header(), cfg.spec);
         if *max_fee_per_blob_gas < base_fee_per_blob_gas {
             return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
                 expected: base_fee_per_blob_gas,

@@ -282,7 +282,7 @@ impl<
         state_diff: StateDiff,
         total_difficulty: U256,
     ) -> Result<&BlockT, InsertBlockAndReceiptsError> {
-        self.last_block_number = block.header().number;
+        self.last_block_number = block.block_header().number;
         self.number_to_diff_index
             .insert(self.last_block_number, self.state_diffs.len());
 
@@ -402,7 +402,7 @@ fn calculate_timestamp_for_reserved_block<
                 .block_by_number(previous_block_number)
                 .expect("Block must exist");
 
-            previous_block.header().timestamp
+            previous_block.block_header().timestamp
         };
 
     previous_timestamp + reservation.interval * (block_number - reservation.first_number + 1)

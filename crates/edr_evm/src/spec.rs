@@ -15,7 +15,7 @@ use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Bytes, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
-    ExecutionReceipt, L1BlockReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
+    ExecutionReceipt, L1BlockReceipt, MapReceiptLogs, ReceiptSpec, ReceiptTrait,
 };
 use edr_rpc_spec::{RpcEthBlock, RpcSpec, RpcTypeFrom};
 use edr_state_api::{EvmState, StateDiff};

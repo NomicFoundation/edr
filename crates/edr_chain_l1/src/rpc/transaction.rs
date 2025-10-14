@@ -3,17 +3,21 @@ mod request;
 
 use std::{ops::Deref, sync::OnceLock};
 
+use edr_block_api::Block;
 use edr_block_header::BlockHeader;
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{Address, Bytes, B256, U256};
-use edr_rpc_spec::RpcTransaction;
+use edr_rpc_spec::{RpcTransaction, RpcTypeFrom};
 use edr_signer::{
     FakeableSignature, SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
 };
-use edr_transaction::{IsEip4844, IsLegacy, TransactionType, TxKind};
+use edr_transaction::{
+    BlockDataForTransaction, IsEip4844, IsLegacy, SignedTransaction as _, TransactionAndBlock,
+    TransactionType, TxKind,
+};
 
 pub use self::request::L1RpcTransactionRequest;
-use crate::{L1SignedTransaction, L1TransactionType};
+use crate::{Hardfork, L1SignedTransaction, L1TransactionType};
 
 pub type Request = L1RpcTransactionRequest;
 
@@ -309,6 +313,46 @@ impl From<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip155 {
 impl RpcTransaction for L1RpcTransactionWithSignature {
     fn block_hash(&self) -> Option<&B256> {
         self.block_hash.as_ref()
+    }
+}
+
+impl<BlockT: Block<L1SignedTransaction>>
+    RpcTypeFrom<TransactionAndBlock<BlockT, L1SignedTransaction>>
+    for L1RpcTransactionWithSignature
+{
+    type Hardfork = Hardfork;
+
+    fn rpc_type_from(
+        value: &TransactionAndBlock<BlockT, L1SignedTransaction>,
+        hardfork: Self::Hardfork,
+    ) -> Self {
+        let (header, transaction_index) = value
+            .block_data
+            .as_ref()
+            .map(
+                |BlockDataForTransaction {
+                     block,
+                     transaction_index,
+                 }| (block.block_header(), *transaction_index),
+            )
+            .unzip();
+
+        let transaction = L1RpcTransaction::new(
+            &value.transaction,
+            header,
+            transaction_index,
+            value.is_pending,
+            hardfork,
+        );
+        let signature = value.transaction.signature();
+
+        L1RpcTransactionWithSignature::new(
+            transaction,
+            signature.r(),
+            signature.s(),
+            signature.v(),
+            signature.y_parity(),
+        )
     }
 }
 

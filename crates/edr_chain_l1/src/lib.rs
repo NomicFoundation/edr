@@ -1,5 +1,6 @@
 //! Ethereum L1 chain types
 
+pub mod block;
 mod eip2718;
 pub mod hardfork;
 pub mod pooled;

@@ -7,8 +7,8 @@ use edr_block_api::{
 use edr_block_header::BlockConfig;
 use edr_block_storage::ReservableSparseBlockStorage;
 use edr_blockchain_api::{utils::compute_state_at_block, BlockHash, Blockchain, BlockchainMut};
-use edr_eip1559::BaseFeeParams;
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};
@@ -63,7 +63,7 @@ impl<
         base_fee_params: BaseFeeParams<HardforkT>,
         min_ethash_difficulty: u64,
     ) -> Result<Self, InvalidGenesisBlock> {
-        let genesis_header = genesis_block.header();
+        let genesis_header = genesis_block.block_header();
 
         if genesis_header.number != 0 {
             return Err(InvalidGenesisBlock::InvalidBlockNumber {
@@ -274,7 +274,7 @@ impl<
             .expect("No error can occur as it is stored locally")
             .expect("Must exist as its block is stored");
 
-        let total_difficulty = previous_total_difficulty + block.header().difficulty;
+        let total_difficulty = previous_total_difficulty + block.block_header().difficulty;
 
         let block = self.storage.insert_block_and_receipts(
             Arc::new(block),
@@ -301,7 +301,7 @@ impl<
             .total_difficulty_by_hash(last_block.block_hash())?
             .expect("Must exist as its block is stored");
 
-        let last_header = last_block.header();
+        let last_header = last_block.block_header();
 
         self.storage.reserve_blocks(
             additional,

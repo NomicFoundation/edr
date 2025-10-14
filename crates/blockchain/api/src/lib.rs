@@ -1,6 +1,7 @@
 //! Types for Ethereum blockchains
 #![warn(missing_docs)]
 
+pub mod sync;
 pub mod utils;
 
 use std::{collections::BTreeMap, sync::Arc};

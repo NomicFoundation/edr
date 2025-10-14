@@ -13,8 +13,9 @@ use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{B256, KECCAK_EMPTY};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
-    ChainExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait, TransactionReceipt,
+    ChainExecutionReceipt, MapReceiptLogs, ReceiptTrait, TransactionReceipt,
 };
+use edr_receipt_spec::ReceiptConstructor;
 use edr_state_api::{StateCommit as _, StateDebug as _, StateDiff};
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_transaction::TransactionAndReceipt;
@@ -41,7 +42,13 @@ pub struct EthLocalBlock<
 }
 
 impl<
-        BlockReceiptT: ReceiptTrait,
+        BlockReceiptT: ReceiptConstructor<
+                Context = ContextT,
+                ExecutionReceipt = ExecutionReceiptT::ExecutionReceipt<FilterLog>,
+                Hardfork = HardforkT,
+                SignedTransaction = SignedTransactionT,
+            > + ReceiptTrait,
+        ContextT,
         ExecutionReceiptT: ChainExecutionReceipt<
             ExecutionReceipt<ExecutionLog>: MapReceiptLogs<
                 ExecutionLog,
@@ -55,12 +62,7 @@ impl<
 {
     /// Constructs a new instance with the provided data.
     pub fn new(
-        receipt_factory: impl ReceiptFactory<
-            ExecutionReceiptT::ExecutionReceipt<FilterLog>,
-            HardforkT,
-            SignedTransactionT,
-            Output = BlockReceiptT,
-        >,
+        context: ContextT,
         hardfork: HardforkT,
         partial_header: PartialHeader,
         transactions: Vec<SignedTransactionT>,
@@ -84,7 +86,8 @@ impl<
         )
         .zip(transactions.iter())
         .map(|(transaction_receipt, transaction)| {
-            Arc::new(receipt_factory.create_receipt(
+            Arc::new(BlockReceiptT::new_receipt(
+                &context,
                 hardfork.clone(),
                 transaction,
                 transaction_receipt,
@@ -221,7 +224,7 @@ impl<
         &self.hash
     }
 
-    fn header(&self) -> &BlockHeader {
+    fn block_header(&self) -> &BlockHeader {
         &self.header
     }
 

@@ -3,11 +3,15 @@
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
+use edr_chain_spec::{ChainContextSpec, ChainHardfork, ChainSpec, EvmSpecId};
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
-    log::FilterLog, AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus,
-    TransactionReceipt,
+    log::FilterLog, AsExecutionReceipt, ChainExecutionReceipt, ExecutionReceipt, ReceiptTrait,
+    RootOrStatus, TransactionReceipt,
 };
+use edr_receipt_spec::ReceiptConstructor;
+
+use crate::L1ChainSpec;
 
 /// Type for a receipt that's included in a block.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -71,6 +75,39 @@ impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> ExecutionReceipt
 
     fn root_or_status(&self) -> RootOrStatus<'_> {
         self.inner.root_or_status()
+    }
+}
+
+impl ReceiptConstructor
+    for L1BlockReceipt<<L1ChainSpec as ChainExecutionReceipt>::ExecutionReceipt<FilterLog>>
+{
+    type Context = <L1ChainSpec as ChainContextSpec>::Context;
+
+    type ExecutionReceipt = <L1ChainSpec as ChainExecutionReceipt>::ExecutionReceipt<FilterLog>;
+
+    type Hardfork = <L1ChainSpec as ChainHardfork>::Hardfork;
+
+    type SignedTransaction = <L1ChainSpec as ChainSpec>::SignedTransaction;
+
+    fn new_receipt(
+        _context: &Self::Context,
+        hardfork: Self::Hardfork,
+        _transaction: &Self::SignedTransaction,
+        mut transaction_receipt: TransactionReceipt<Self::ExecutionReceipt>,
+        block_hash: &B256,
+        block_number: u64,
+    ) -> Self {
+        // The JSON-RPC layer should not return the gas price as effective gas price for
+        // receipts in pre-London hardforks.
+        if hardfork < EvmSpecId::LONDON {
+            transaction_receipt.effective_gas_price = None;
+        }
+
+        L1BlockReceipt {
+            inner: transaction_receipt,
+            block_hash: *block_hash,
+            block_number,
+        }
     }
 }
 

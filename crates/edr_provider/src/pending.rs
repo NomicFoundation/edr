@@ -85,7 +85,7 @@ where
         &self,
         number: u64,
     ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
-        if number == self.pending_block.header().number {
+        if number == self.pending_block.block_header().number {
             Ok(Some(ChainSpecT::cast_local_block(
                 self.pending_block.clone(),
             )))
@@ -122,7 +122,7 @@ where
     }
 
     fn last_block_number(&self) -> u64 {
-        self.pending_block.header().number
+        self.pending_block.block_header().number
     }
 
     fn logs(
@@ -161,7 +161,7 @@ where
         &self,
         block_number: u64,
     ) -> Result<ChainSpecT::Hardfork, Self::BlockchainError> {
-        if block_number == self.pending_block.header().number {
+        if block_number == self.pending_block.block_header().number {
             Ok(self.blockchain.hardfork())
         } else {
             self.blockchain.spec_at_block_number(block_number)
@@ -177,7 +177,7 @@ where
         block_number: u64,
         state_overrides: &BTreeMap<u64, StateOverride>,
     ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError> {
-        if block_number == self.pending_block.header().number {
+        if block_number == self.pending_block.block_header().number {
             assert!(
                 state_overrides.get(&block_number).is_none(),
                 "State overrides are not supported for a pending block."
@@ -200,11 +200,11 @@ where
         if hash == self.pending_block.block_hash() {
             let previous_total_difficulty = self
                 .blockchain
-                .total_difficulty_by_hash(&self.pending_block.header().parent_hash)?
+                .total_difficulty_by_hash(&self.pending_block.block_header().parent_hash)?
                 .expect("At least one block should exist before the pending block.");
 
             Ok(Some(
-                previous_total_difficulty + self.pending_block.header().difficulty,
+                previous_total_difficulty + self.pending_block.block_header().difficulty,
             ))
         } else {
             self.blockchain.total_difficulty_by_hash(hash)
@@ -242,7 +242,7 @@ impl<ChainSpecT: SyncRuntimeSpec> BlockHash for BlockchainWithPending<'_, ChainS
     type Error = BlockchainErrorForChainSpec<ChainSpecT>;
 
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
-        if block_number == self.pending_block.header().number {
+        if block_number == self.pending_block.block_header().number {
             Ok(*self.pending_block.block_hash())
         } else {
             self.blockchain.block_hash_by_number(block_number)

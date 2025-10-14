@@ -1,85 +1,9 @@
 use std::fmt::Debug;
 
-use edr_chain_spec::{
-    ChainSpec, EvmHeaderValidationError, EvmSpecId, EvmTransactionValidationError,
-    TransactionValidation,
-};
-use edr_database_components::DatabaseComponentError;
-use edr_primitives::U256;
+use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError};
 use edr_transaction::TxKind;
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
-
-/// Helper type for a chain-specific [`TransactionError`].
-pub type TransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = TransactionError<
-    BlockchainErrorT,
-    StateErrorT,
-    <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
->;
-
-/// Invalid transaction error
-#[derive(Debug, thiserror::Error)]
-pub enum TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> {
-    /// Blockchain errors
-    #[error(transparent)]
-    Blockchain(BlockchainErrorT),
-    /// Custom errors
-    #[error("{0}")]
-    Custom(String),
-    /// Invalid block header
-    #[error(transparent)]
-    InvalidHeader(EvmHeaderValidationError),
-    /// Corrupt transaction data
-    #[error(transparent)]
-    InvalidTransaction(TransactionValidationErrorT),
-    /// Transaction account does not have enough amount of ether to cover
-    /// transferred value and `gas_limit * gas_price`.
-    #[error(
-        "Sender doesn't have enough funds to send tx. The max upfront cost is: {fee} and the sender's balance is: {balance}."
-    )]
-    LackOfFundForMaxFee {
-        /// The max upfront cost of the transaction
-        fee: Box<U256>,
-        /// The sender's balance
-        balance: Box<U256>,
-    },
-    /// State errors
-    #[error(transparent)]
-    State(StateErrorT),
-}
-
-impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
-    From<DatabaseComponentError<BlockchainErrorT, StateErrorT>>
-    for TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
-{
-    fn from(value: DatabaseComponentError<BlockchainErrorT, StateErrorT>) -> Self {
-        match value {
-            DatabaseComponentError::Blockchain(e) => Self::Blockchain(e),
-            DatabaseComponentError::State(e) => Self::State(e),
-        }
-    }
-}
-
-impl<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> From<EvmHeaderValidationError>
-    for TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>
-{
-    fn from(value: EvmHeaderValidationError) -> Self {
-        Self::InvalidHeader(value)
-    }
-}
-
-impl<BlockchainErrorT, StateErrorT> From<EvmTransactionValidationError>
-    for TransactionError<BlockchainErrorT, StateErrorT, EvmTransactionValidationError>
-{
-    fn from(value: EvmTransactionValidationError) -> Self {
-        match value {
-            EvmTransactionValidationError::LackOfFundForMaxFee { fee, balance } => {
-                Self::LackOfFundForMaxFee { fee, balance }
-            }
-            remainder => Self::InvalidTransaction(remainder),
-        }
-    }
-}
 
 /// An error that occurred while during [`validate`].
 #[derive(Debug, thiserror::Error)]

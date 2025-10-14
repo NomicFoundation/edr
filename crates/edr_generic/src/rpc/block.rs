@@ -210,7 +210,7 @@ impl<BlockT: Block<SignedTransactionT>, SignedTransactionT: ExecutableTransactio
             .map(|tx| *tx.transaction_hash())
             .collect();
 
-        let header = value.block.header();
+        let header = value.block.block_header();
         crate::rpc::block::GenericRpcBlock {
             hash: Some(*value.block.block_hash()),
             parent_hash: header.parent_hash,

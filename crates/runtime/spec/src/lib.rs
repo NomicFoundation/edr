@@ -4,24 +4,25 @@ use std::sync::Arc;
 use edr_block_api::{Block, BlockReceipts, EmptyBlock, EthBlockData, LocalBlock};
 use edr_block_header::{BlockHeader, PartialHeader};
 use edr_block_remote::RemoteBlock;
+use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     ChainHardfork, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction,
     TransactionValidation,
 };
-use edr_database_components::{Database, DatabaseComponentError};
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::B256;
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
-    ExecutionReceipt, MapReceiptLogs, ReceiptFactory, ReceiptTrait,
+    MapReceiptLogs,
 };
+use edr_receipt_spec::ChainReceiptSpec;
 use edr_rpc_eth::ChainRpcBlock;
 use edr_rpc_spec::{RpcEthBlock, RpcSpec, RpcTransaction, RpcTypeFrom};
 use edr_transaction::{TransactionAndBlock, TransactionType};
 
 /// Helper type for a chain-specific [`RemoteBlock`].
 pub type RemoteBlockForChainSpec<ChainSpecT> = RemoteBlock<
-    <ChainSpecT as RuntimeSpec>::BlockReceipt,
+    <ChainSpecT as ChainReceiptSpec>::Receipt,
     <ChainSpecT as ChainRpcBlock>::RpcBlock<<ChainSpecT as RpcSpec>::RpcTransaction>,
     <ChainSpecT as RpcSpec>::RpcReceipt,
     <ChainSpecT as RpcSpec>::RpcTransaction,
@@ -38,6 +39,7 @@ pub trait BlockEnvConstructor<HeaderT>: ChainSpec {
 // Bug: https://github.com/rust-lang/rust-clippy/issues/12927
 #[allow(clippy::trait_duplication_in_bounds)]
 pub trait RuntimeSpec:
+    ChainReceiptSpec +
     ChainHardfork<Hardfork: Debug>
     + ChainSpec<
         SignedTransaction: alloy_rlp::Encodable
@@ -56,7 +58,7 @@ pub trait RuntimeSpec:
         RpcBlock<<Self as RpcSpec>::RpcTransaction>: RpcEthBlock
           + TryInto<EthBlockData<Self>, Error = Self::RpcBlockConversionError>,
         RpcReceipt: Debug
-          + RpcTypeFrom<Self::BlockReceipt, Hardfork = Self::Hardfork>,
+          + RpcTypeFrom<Self::Receipt, Hardfork = Self::Hardfork>,
         RpcTransaction: RpcTransaction
           + RpcTypeFrom<TransactionAndBlock<Arc<Self::Block>, Self::SignedTransaction>, Hardfork = Self::Hardfork>
           + TryInto<Self::SignedTransaction, Error = Self::RpcTransactionConversionError>,
@@ -71,44 +73,25 @@ pub trait RuntimeSpec:
 {
     /// Trait for representing block trait objects.
     type Block: Block<Self::SignedTransaction>
-        + BlockReceipts<Arc<Self::BlockReceipt>>
+        + BlockReceipts<Arc<Self::Receipt>>
         + ?Sized;
 
-    /// Type representing a block builder.
-    type BlockBuilder<
-        'builder,
-        BlockchainErrorT: 'builder + std::error::Error + Send,
-        StateErrorT: 'builder + std::error::Error + Send
-    >: BlockBuilder<
-        'builder,
-        Self,
-        BlockchainError = BlockchainErrorT,
-        StateError = StateErrorT>;
-
-    /// Type representing a transaction's receipt in a block.
-    type BlockReceipt: Debug +  ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<Self::RpcReceipt, Error = Self::RpcReceiptConversionError>;
-
-    /// Type representing a factory for block receipts.
-    type BlockReceiptFactory: ReceiptFactory<
-        Self::ExecutionReceipt<FilterLog>,
-        Self::Hardfork,
-        Self::SignedTransaction,
-        Output = Self::BlockReceipt
-    >;
+    // /// Type representing a block builder.
+    // type BlockBuilder<
+    //     'builder,
+    //     BlockchainErrorT: 'builder + std::error::Error + Send,
+    //     StateErrorT: 'builder + std::error::Error + Send
+    // >: BlockBuilder<
+    //     'builder,
+    //     Self,
+    //     BlockchainError = BlockchainErrorT,
+    //     StateError = StateErrorT>;
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction> +
-        BlockReceipts<Arc<Self::BlockReceipt>> +
+        BlockReceipts<Arc<Self::Receipt>> +
         EmptyBlock<Self::Hardfork> +
-        LocalBlock<Arc<Self::BlockReceipt>>;
-
-    /// Type representing a builder that constructs an execution receipt.
-    type ReceiptBuilder: ExecutionReceiptBuilder<
-        Self::HaltReason,
-        Self::Hardfork,
-        Self::SignedTransaction,
-        Receipt = Self::ExecutionReceipt<ExecutionLog>,
-    >;
+        LocalBlock<Arc<Self::Receipt>>;
 
     /// Type representing an error that occurs when converting an RPC block.
     type RpcBlockConversionError: std::error::Error;
@@ -120,42 +103,12 @@ pub trait RuntimeSpec:
     /// transaction.
     type RpcTransactionConversionError: std::error::Error;
 
-    /// Casts a transaction validation error into a `TransactionError`.
-    ///
-    /// This is implemented as an associated function to avoid problems when
-    /// implementing type conversions for third-party types.
-    fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
-        error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT>;
-
     /// Returns the corresponding configuration for the provided chain ID, if it is
     /// associated with this chain specification.
     fn chain_config(chain_id: u64) -> Option<&'static ChainConfig<Self::Hardfork>>;
 
     /// Returns the default base fee params to fallback to for the given spec
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork>;
-
-    /// Constructs an EVM instance with the provided context and inspector.
-    fn evm_with_inspector<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT: PrecompileProvider<
-            ContextForChainSpec<Self, DatabaseT>,
-            Output = InterpreterResult
-        >,
-        StateErrorT,
-    >(
-        context: ContextForChainSpec<Self, DatabaseT>,
-        inspector: InspectorT,
-        precompile_provider: PrecompileProviderT,
-    ) -> Self::Evm<
-        BlockchainErrorT,
-        DatabaseT,
-        InspectorT,
-        PrecompileProviderT,
-        StateErrorT,
-    >;
 
     /// Returns the `base_fee_per_gas` for the next block.
     fn next_base_fee_per_gas(header: &BlockHeader, chain_id: u64, hardfork: Self::Hardfork, base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>) -> u128;

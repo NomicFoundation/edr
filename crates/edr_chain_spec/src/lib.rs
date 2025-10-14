@@ -24,6 +24,12 @@ pub type EvmSpecId = revm_primitives::hardfork::SpecId;
 /// Error type for Ethereum transaction validation.
 pub type EvmTransactionValidationError = revm_context_interface::result::InvalidTransaction;
 
+/// Trait for specifying the contextual information type of a chain.
+pub trait ChainContextSpec {
+    /// The chain's contextual information type.
+    type Context; //: Debug + Default;
+}
+
 /// Trait for specifying the hardfork type of a chain.
 pub trait ChainHardfork {
     /// The chain's hardfork type.
@@ -34,8 +40,6 @@ pub trait ChainHardfork {
 pub trait ChainSpec {
     /// The chain's block type.
     type BlockEnv: Block;
-    /// The chain's type for contextual information.
-    type Context: Debug + Default;
     /// The chain's halt reason type.
     type HaltReason: HaltReasonTrait + 'static;
     /// The chain's signed transaction type.

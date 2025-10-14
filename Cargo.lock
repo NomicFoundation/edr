@@ -2293,6 +2293,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_block_builder_api"
+version = "0.3.8"
+dependencies = [
+ "edr_block_header",
+ "edr_blockchain_api",
+ "edr_chain_spec",
+ "edr_database_components",
+ "edr_evm_spec",
+ "edr_primitives",
+ "edr_state_api",
+ "revm-precompile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "edr_block_header"
 version = "0.3.8"
 dependencies = [
@@ -2321,6 +2336,7 @@ dependencies = [
  "edr_chain_spec",
  "edr_primitives",
  "edr_receipt",
+ "edr_receipt_spec",
  "edr_state_api",
  "edr_state_persistent_trie",
  "edr_transaction",
@@ -2464,8 +2480,10 @@ dependencies = [
  "assert-json-diff",
  "const-hex",
  "edr_block_api",
+ "edr_block_builder_api",
  "edr_block_header",
  "edr_block_local",
+ "edr_block_remote",
  "edr_chain_spec",
  "edr_defaults",
  "edr_eip1559",
@@ -2482,6 +2500,7 @@ dependencies = [
  "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
+ "edr_trie",
  "log",
  "paste",
  "revm-context",
@@ -2490,6 +2509,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+ "tracing",
 ]
 
 [[package]]
@@ -2690,11 +2710,13 @@ version = "0.3.8"
 dependencies = [
  "edr_chain_spec",
  "edr_database_components",
+ "edr_primitives",
  "edr_state_api",
  "revm-context",
  "revm-handler",
  "revm-inspector",
  "revm-interpreter",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2994,7 +3016,10 @@ dependencies = [
 name = "edr_receipt_spec"
 version = "0.3.8"
 dependencies = [
+ "edr_chain_spec",
+ "edr_primitives",
  "edr_receipt",
+ "edr_rpc_spec",
 ]
 
 [[package]]
@@ -3083,11 +3108,13 @@ dependencies = [
  "edr_block_api",
  "edr_block_header",
  "edr_block_remote",
+ "edr_chain_config",
  "edr_chain_spec",
  "edr_database_components",
  "edr_eip1559",
  "edr_primitives",
  "edr_receipt",
+ "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_state_api",

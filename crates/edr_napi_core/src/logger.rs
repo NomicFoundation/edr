@@ -356,7 +356,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             if mining_result.block.transactions().is_empty() {
                 self.log_hardhat_mined_empty_block(&mining_result.block, empty_blocks_range_start)?;
 
-                let block_number = mining_result.block.header().number;
+                let block_number = mining_result.block.block_header().number;
                 self.state = LoggingState::HardhatMinining {
                     empty_blocks_range_start: Some(
                         empty_blocks_range_start.unwrap_or(block_number),
@@ -379,7 +379,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         hardfork: ChainSpecT::Hardfork,
         mining_result: &DebugMineBlockResultForChainSpec<ChainSpecT>,
     ) -> Result<(), LoggerError> {
-        let block_header = mining_result.block.header();
+        let block_header = mining_result.block.block_header();
         let block_number = block_header.number;
 
         if mining_result.block.transactions().is_empty() {
@@ -565,7 +565,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         debug_assert_eq!(num_transactions, transaction_results.len());
         debug_assert_eq!(num_transactions, transaction_traces.len());
 
-        let block_header = block.header();
+        let block_header = block.block_header();
 
         self.indented(|logger| {
             logger.log_block_id(block);
@@ -867,7 +867,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
         debug_assert_eq!(num_transactions, transaction_results.len());
         debug_assert_eq!(num_transactions, transaction_traces.len());
 
-        let block_header = block.header();
+        let block_header = block.block_header();
 
         self.indented(|logger| {
             logger.log_block_hash(block);
@@ -927,7 +927,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                     logger.log_block_hash(block);
 
                     logger.indented(|logger| {
-                        logger.log_base_fee(block.header().base_fee_per_gas.as_ref());
+                        logger.log_base_fee(block.block_header().base_fee_per_gas.as_ref());
 
                         for (idx, transaction, result, trace) in izip!(
                             0..num_transactions,
@@ -1067,7 +1067,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                 ),
             );
 
-            let block_number = block_result.block.header().number;
+            let block_number = block_result.block.block_header().number;
             logger.log_with_title(
                 format!("Block #{block_number}"),
                 block_result.block.block_hash(),

@@ -9,7 +9,6 @@
 #![allow(missing_docs)]
 
 pub mod execution;
-mod factory;
 pub mod log;
 mod transaction;
 
@@ -17,7 +16,7 @@ use auto_impl::auto_impl;
 use edr_primitives::{Address, Bloom, B256};
 pub use revm_context_interface::result::{ExecutionResult, Output};
 
-pub use self::{factory::ReceiptFactory, transaction::TransactionReceipt};
+pub use self::transaction::TransactionReceipt;
 
 /// Log generated after execution of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]

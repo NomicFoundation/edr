@@ -15,7 +15,7 @@ use tokio::runtime;
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
 #[derive(Debug, thiserror::Error)]
-pub enum ConversionError<TransactionConversionErrorT> {
+pub enum RpcBlockConversionError<TransactionConversionErrorT> {
     /// Missing hash
     #[error("Missing hash")]
     MissingHash,
@@ -111,7 +111,7 @@ impl<
         &self.hash
     }
 
-    fn header(&self) -> &BlockHeader {
+    fn block_header(&self) -> &BlockHeader {
         &self.header
     }
 

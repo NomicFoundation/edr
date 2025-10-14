@@ -376,7 +376,7 @@ impl<
         let is_cacheable = FORCE_CACHING
             || self
                 .client
-                .is_cacheable_block_number(block.header().number)
+                .is_cacheable_block_number(block.block_header().number)
                 .await?;
 
         let block = BlockT::from(block);

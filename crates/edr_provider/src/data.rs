@@ -446,7 +446,7 @@ where
         for (filter_id, filter) in self.filters.iter_mut() {
             match &mut filter.data {
                 FilterData::Logs { criteria, logs } => {
-                    let bloom = &block.header().logs_bloom;
+                    let bloom = &block.block_header().logs_bloom;
                     if bloom_contains_log_filter(bloom, criteria) {
                         let receipts = block.fetch_transaction_receipts()?;
                         let new_logs = receipts.iter().flat_map(ExecutionReceipt::transaction_logs);
@@ -1389,7 +1389,7 @@ where
 
         self.add_state_to_cache(
             result.state,
-            block_and_total_difficulty.block.header().number,
+            block_and_total_difficulty.block.block_header().number,
         );
 
         Ok(DebugMineBlockResult::new(
@@ -2085,7 +2085,7 @@ where
                     .last()
                     .expect("at least one block was mined")
                     .block
-                    .header()
+                    .block_header()
                     .timestamp;
 
                 let options = data.header_overrides_with_timestamp(previous_timestamp + interval);
@@ -2919,7 +2919,7 @@ fn create_blockchain_and_state<
                     blockchain
                         .last_block()
                         .map_err(CreationError::Blockchain)?
-                        .header()
+                        .block_header()
                         .timestamp,
                 );
 
@@ -2940,7 +2940,7 @@ fn create_blockchain_and_state<
                 let previous_base_fee = blockchain
                     .last_block()
                     .map_err(CreationError::Blockchain)?
-                    .header()
+                    .block_header()
                     .base_fee_per_gas;
 
                 if previous_base_fee.is_none() {
@@ -3408,7 +3408,7 @@ mod tests {
 
         let cached_state = fixture
             .provider_data
-            .get_or_compute_state(result.block.header().number)?;
+            .get_or_compute_state(result.block.block_header().number)?;
 
         let calculated_state = fixture.provider_data.blockchain.state_at_block_number(
             fixture.provider_data.last_block_number(),
@@ -3720,7 +3720,7 @@ mod tests {
         assert_eq!(receipt1.gas_used, 21_000);
         assert_eq!(receipt2.gas_used, 21_000);
         assert_eq!(
-            result.block.header().gas_used,
+            result.block.block_header().gas_used,
             receipt1.gas_used + receipt2.gas_used
         );
 

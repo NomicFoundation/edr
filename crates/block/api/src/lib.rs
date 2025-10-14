@@ -21,7 +21,7 @@ pub trait Block<SignedTransactionT>: Debug {
     fn block_hash(&self) -> &B256;
 
     /// Returns the block's header.
-    fn header(&self) -> &BlockHeader;
+    fn block_header(&self) -> &BlockHeader;
 
     /// Ommer/uncle block hashes.
     fn ommer_hashes(&self) -> &[B256];
@@ -134,8 +134,8 @@ pub fn validate_next_block<HardforkT: Into<EvmSpecId>, SignedTransactionT>(
     last_block: &dyn Block<SignedTransactionT>,
     next_block: &dyn Block<SignedTransactionT>,
 ) -> Result<(), BlockValidityError> {
-    let last_header = last_block.header();
-    let next_header = next_block.header();
+    let last_header = last_block.block_header();
+    let next_header = next_block.block_header();
 
     let next_block_number = last_header.number + 1;
     if next_header.number != next_block_number {
