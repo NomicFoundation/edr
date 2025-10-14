@@ -1,5 +1,4 @@
 use std::{
-    cell::Cell,
     collections::HashMap,
     fmt::Write as _,
     fs::{self, create_dir_all, File},
@@ -13,6 +12,7 @@ use std::{
 use anyhow::{anyhow, bail};
 use git2::Repository;
 use itertools::Itertools;
+use log::{LevelFilter, Metadata, Record};
 use op_revm::OpSpecId;
 use tempfile::tempdir;
 
@@ -30,17 +30,33 @@ const GENERATED_FILE_WARNING_MESSAGE: &str = "
 
 static WORKSPACE_ROOT_PATH: OnceLock<anyhow::Result<String>> = OnceLock::new();
 
-thread_local! {
-    static VERBOSE: Cell<bool> = const { Cell::<bool>::new(false) };
+struct SimpleLogger;
+
+const LOGGER: SimpleLogger = SimpleLogger;
+
+impl log::Log for SimpleLogger {
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+        metadata.level() <= log::max_level()
+    }
+
+    fn log(&self, record: &Record<'_>) {
+        if self.enabled(record.metadata()) {
+            println!("{} - {}", record.level(), record.args());
+        }
+    }
+
+    fn flush(&self) {}
 }
-macro_rules! log {
-    ($($arg:tt)*) => {
-        VERBOSE.with(|verbose| {
-            if verbose.get() {
-                println!($($arg)*);
-            }
-        })
+
+pub fn init_logger(verbose: bool) -> anyhow::Result<()> {
+    let level = if verbose {
+        LevelFilter::Debug
+    } else {
+        LevelFilter::Off
     };
+    log::set_logger(&LOGGER)
+        .map(|()| log::set_max_level(level))
+        .map_err(|error| anyhow!(error))
 }
 
 fn generated_module_path() -> anyhow::Result<String> {
@@ -73,9 +89,8 @@ fn get_current_commit_sha(repo_path: &Path) -> Result<String, git2::Error> {
 }
 
 pub fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()> {
-    VERBOSE.with(|verbose_config| {
-        verbose_config.set(verbose);
-    });
+    init_logger(verbose)?;
+
     // Create a temporary directory that will be automatically deleted on drop
     let superchain_registry_repo_dir = tempdir()?;
     Repository::clone(
@@ -104,14 +119,14 @@ pub fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()>
         path_buf.as_os_str().to_owned()
     };
 
-    log!("Formatting generated files...");
+    log::debug!("Formatting generated files...");
     Command::new("rustfmt")
         .arg("+nightly")
         .arg(generated_files_path)
         .arg(format!("{generated_module_path}.rs"))
         .output()?;
 
-    log!("Running `cargo check`...");
+    log::debug!("Running `cargo check`...");
     let cargo_check_output = Command::new("cargo")
         .arg("check")
         .arg("-p")
@@ -132,22 +147,22 @@ pub fn import_op_chain_configs(check: bool, verbose: bool) -> anyhow::Result<()>
             .arg("--exit-code").output()?;
 
         let result = if significant_diff.status.success() {
-            log!("OP chain configs are up to date ✓");
+            log::info!("OP chain configs are up to date ✓");
             Ok(())
         } else {
             Err(anyhow!("Significant changes pending to be included"))
         };
         // Rollback any modification done to generated/* files
-        let mut files_to_ignore = modules_dir.to_path_buf();
-        files_to_ignore.push("*");
+        let mut files_to_restore = modules_dir.to_path_buf();
+        files_to_restore.push("*");
         Command::new("git")
             .arg("checkout")
             .arg("--")
-            .arg(files_to_ignore)
+            .arg(files_to_restore)
             .output()?;
         result
     } else {
-        log!("Success ✓");
+        log::info!("Success ✓");
         Ok(())
     }
 }
@@ -169,7 +184,7 @@ fn generate_chain_modules(
                     networks: chain_config.networks,
                 }),
                 Err(error) => {
-                    log!(
+                    log::warn!(
                         "Skipping {} chain module generation due to {error}",
                         chain_config.file_name
                     );
@@ -383,7 +398,7 @@ fn generate_hardfork_activations_for(
     let superchain_activations = hardforks.into_iter().filter_map(
         |(hardfork, activation_value)| match get_op_hardfork_from(&hardfork) {
             Err(error) => {
-                log!("{chain_name}: ignoring activation - {error}");
+                log::warn!("{chain_name}: ignoring activation - {error}");
                 None
             }
             Ok(opt_hardfork) => opt_hardfork
