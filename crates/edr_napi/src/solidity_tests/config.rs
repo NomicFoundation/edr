@@ -277,22 +277,9 @@ impl SolidityTestRunnerConfigArgs {
             },
         )?;
 
-        let include_traces = if generate_gas_report.unwrap_or(false) {
-            IncludeTraces::All
-        } else {
-            include_traces.unwrap_or_default()
-        };
-
-        // If gas reporting is enabled, we enable EVM isolation for gas accuracy
-        let isolate = if generate_gas_report.unwrap_or(false) {
-            Some(true)
-        } else {
-            isolate
-        };
-
         let config = edr_napi_core::solidity::config::TestRunnerConfig {
             project_root: project_root.into(),
-            include_traces: include_traces.into(),
+            include_traces: include_traces.unwrap_or_default().into(),
             test_fail: test_fail.unwrap_or_default(),
             isolate,
             ffi,

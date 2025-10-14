@@ -186,8 +186,8 @@ async fn test_fuzz_gas_report() {
     config.invariant.runs = 1000;
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(6u32));
-    let mut runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    runner.enable_gas_report();
+    config.gas_report = true;
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let (test_result, _) = runner.test_collect(filter).await;
 
     assert!(test_result.gas_report.is_some());
@@ -202,7 +202,7 @@ async fn test_fuzz_gas_report() {
     let deployment = sample_contract_report.deployments.first().unwrap();
     println!("Deployment: {deployment:?}");
 
-    assert_eq!(deployment.gas, 160_519);
+    assert_eq!(deployment.gas, 224_987);
     assert_eq!(deployment.size, 743);
     assert_eq!(deployment.status, GasReportExecutionStatus::Success);
 

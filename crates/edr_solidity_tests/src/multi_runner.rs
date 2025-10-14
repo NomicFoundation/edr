@@ -120,6 +120,7 @@ pub struct MultiContractRunner<
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
+    /// Whether to collect gas report
     gas_report: bool,
 }
 
@@ -170,10 +171,10 @@ impl<
 
         let SolidityTestRunnerConfig {
             collect_stack_traces,
-            include_traces,
+            mut include_traces,
             coverage,
             test_fail,
-            evm_opts,
+            mut evm_opts,
             project_root,
             cheats_config_options,
             fuzz,
@@ -194,6 +195,13 @@ impl<
         .expect("Thread shouldn't panic")?;
 
         let test_options: TestOptions = TestOptions { fuzz, invariant };
+
+        if gas_report {
+            // Traces are needed to generate a gas report
+            include_traces = IncludeTraces::All;
+            // Enable EVM isolation for more accurate gas measurements
+            evm_opts.isolate = true;
+        }
 
         Ok(Self {
             project_root,
@@ -276,15 +284,10 @@ impl<
         let identifier = artifact_id.identifier();
         let mut span_name = identifier.as_str();
 
-        let mut evm_opts = self.evm_opts.clone();
-        if self.gas_report {
-            evm_opts.isolate = true;
-        }
-
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
             (*self.cheats_config_options).clone(),
-            evm_opts,
+            self.evm_opts.clone(),
             self.known_contracts.clone(),
             Some(artifact_id.clone()),
         );
@@ -403,7 +406,6 @@ impl<
                 result.gas_report_traces = Vec::default();
             }
         }
-
         debug!(duration=?r.duration, "executed all tests in contract");
 
         r
@@ -505,11 +507,6 @@ impl<
                 edr_gas_report::GasReport::from(finalized)
             }),
         }
-    }
-
-    /// Enables gas report collection.
-    pub fn enable_gas_report(&mut self) {
-        self.gas_report = true;
     }
 }
 

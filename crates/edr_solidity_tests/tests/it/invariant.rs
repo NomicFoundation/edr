@@ -982,8 +982,9 @@ async fn test_no_reverts_in_counterexample() {
 async fn test_invariant_gas_report() {
     let filter =
         SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTest1.t.sol");
-    let mut runner = TEST_DATA_DEFAULT.runner().await;
-    runner.enable_gas_report();
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.gas_report = true;
+    let runner = TEST_DATA_DEFAULT.runner().await;
     let (test_result, _) = runner.test_collect(filter).await;
 
     assert!(test_result.gas_report.is_some());
@@ -996,7 +997,7 @@ async fn test_invariant_gas_report() {
 
     let deployment_report = invariant_breaker_report.deployments.first().unwrap();
 
-    assert_eq!(deployment_report.gas, 99_653);
+    assert_eq!(deployment_report.gas, 159_061);
     assert_eq!(deployment_report.size, 434);
     assert_eq!(deployment_report.status, GasReportExecutionStatus::Success);
 

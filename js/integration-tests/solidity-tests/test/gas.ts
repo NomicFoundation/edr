@@ -121,6 +121,40 @@ describe("Gas report tests", () => {
     testContext = await TestContext.setup();
   });
 
+  it("CounterTest gas report", async function () {
+    const result = await testContext.runTestsWithStats("CounterTest", {
+      generateGasReport: true,
+    });
+    assert.equal(result.failedTests, 0);
+    assert.equal(result.totalTests, 2);
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    const contractReport =
+      gasReport.contracts["project/test-contracts/Counter.t.sol:Counter"];
+
+    assert.equal(contractReport.deployments.length, 1);
+    assert.equal(contractReport.deployments[0].gas, BigInt(156817));
+    assert.equal(contractReport.deployments[0].size, BigInt(510));
+    assert.equal(
+      contractReport!.deployments[0].status,
+      GasReportExecutionStatus.Success
+    );
+
+    assert(contractReport.functions["increment()"] !== undefined);
+    assert(contractReport.functions["number()"] !== undefined);
+    assert(contractReport.functions["setNumber(uint256)"] !== undefined);
+
+    const incrementReports = contractReport.functions["increment()"];
+    assert.equal(incrementReports.length, 1);
+    assert.equal(incrementReports[0].gas, BigInt(43483));
+    assert.equal(incrementReports[0].status, GasReportExecutionStatus.Success);
+  });
+
   it("ImpureInvariantTest gas report", async function () {
     const invariantConfig = {
       runs: 256,
