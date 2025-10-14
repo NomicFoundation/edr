@@ -120,8 +120,8 @@ pub struct MultiContractRunner<
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
-    /// Whether to collect gas report
-    gas_report: bool,
+    /// Whether to generate a gas report after running the tests.
+    generate_gas_report: bool,
 }
 
 impl<
@@ -182,7 +182,7 @@ impl<
             solidity_fuzz_fixtures,
             local_predeploys,
             on_collected_coverage_fn,
-            gas_report,
+            generate_gas_report,
         } = config;
 
         // Do canonicalization in blocking context.
@@ -196,7 +196,7 @@ impl<
 
         let test_options: TestOptions = TestOptions { fuzz, invariant };
 
-        if gas_report {
+        if generate_gas_report {
             // Traces are needed to generate a gas report
             include_traces = IncludeTraces::All;
             // Enable EVM isolation for more accurate gas measurements
@@ -223,7 +223,7 @@ impl<
             test_options,
             on_collected_coverage_fn,
             _phantom: PhantomData,
-            gas_report,
+            generate_gas_report,
         })
     }
 
@@ -353,7 +353,7 @@ impl<
             let mut trace_identifier = TraceIdentifiers::new().with_local(&self.known_contracts);
 
             for result in r.test_results.values_mut() {
-                if !self.gas_report
+                if !self.generate_gas_report
                     && result.status.is_success()
                     && self.include_traces != IncludeTraces::All
                 {
@@ -482,7 +482,9 @@ impl<
             find_time,
         );
 
-        let mut gas_report = self.gas_report.then(crate::gas_report::GasReport::default);
+        let mut gas_report = self
+            .generate_gas_report
+            .then(crate::gas_report::GasReport::default);
 
         for (id, contract) in contracts {
             let _guard = tokio_handle.enter();

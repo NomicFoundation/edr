@@ -127,7 +127,7 @@ impl ForgeTestProfile {
             solidity_fuzz_fixtures: true,
             local_predeploys: Vec::default(),
             on_collected_coverage_fn: None,
-            gas_report: false,
+            generate_gas_report: false,
         }
     }
 
