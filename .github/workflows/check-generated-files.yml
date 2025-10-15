@@ -28,7 +28,7 @@ jobs:
         run: cargo op-chain-config
 
       - name: Check that there are no uncommitted changes
-        run: git diff --exit-code
+        run: cargo op-chain-config --check
 
       - name: Notify failure
         if: failure()

@@ -7926,6 +7926,7 @@ dependencies = [
  "git2",
  "indicatif",
  "itertools 0.12.1",
+ "log",
  "mimalloc",
  "op-revm",
  "parking_lot 0.12.3",
