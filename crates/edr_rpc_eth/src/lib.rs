@@ -20,9 +20,9 @@ pub trait GetBlockNumber {
 
 /// Trait for specifying Ethereum-based JSON-RPC block types for a chain
 /// type.
-pub trait ChainRpcBlock {
+pub trait RpcBlockChainSpec {
     /// Type representing an RPC block
     type RpcBlock<DataT>: GetBlockNumber + DeserializeOwned + Serialize
     where
-        DataT: Default + DeserializeOwned + Serialize;
+        DataT: DeserializeOwned + Serialize;
 }

@@ -15,7 +15,9 @@ use edr_state_api::account::AccountInfo;
 use futures::StreamExt;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{fork::ForkMetadata, request_methods::RequestMethod, ChainRpcBlock, GetBlockNumber};
+use crate::{
+    fork::ForkMetadata, request_methods::RequestMethod, GetBlockNumber, RpcBlockChainSpec,
+};
 
 // Constrain parallel requests to avoid rate limiting on transport level and
 // thundering herd during backoff.
@@ -23,19 +25,19 @@ const MAX_PARALLEL_REQUESTS: usize = 20;
 
 #[derive_where(Debug)]
 pub struct EthRpcClient<
-    RpcBlockT: ChainRpcBlock,
+    RpcBlockChainSpecT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
 > {
     inner: RpcClient<RequestMethod>,
     #[allow(clippy::type_complexity)]
-    phantom: PhantomData<fn() -> (RpcBlockT, RpcReceiptT, RpcTransactionT)>,
+    phantom: PhantomData<fn() -> (RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT)>,
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
-        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
     > EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>
 {
     /// Creates a new instance, given a remote node URL.

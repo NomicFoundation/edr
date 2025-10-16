@@ -8,7 +8,7 @@ use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, Bytecode, B256, U256};
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
-    ChainRpcBlock,
+    RpcBlockChainSpec,
 };
 use edr_rpc_spec::RpcEthBlock;
 use edr_state_api::{account::AccountInfo, State, StateError};
@@ -20,7 +20,7 @@ pub use self::cached::CachedRemoteState;
 /// A state backed by a remote Ethereum node
 #[derive(Debug)]
 pub struct RemoteState<
-    RpcBlockT: ChainRpcBlock,
+    RpcBlockT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
 > {
@@ -30,7 +30,7 @@ pub struct RemoteState<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: DeserializeOwned + Serialize,
     > RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
@@ -61,7 +61,7 @@ impl<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: Default + DeserializeOwned + Serialize,
     > RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
@@ -87,7 +87,7 @@ impl<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: Default + DeserializeOwned + Serialize,
     > State for RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>

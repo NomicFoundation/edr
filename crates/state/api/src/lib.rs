@@ -3,6 +3,7 @@
 pub mod account;
 mod diff;
 mod error;
+pub mod irregular;
 mod r#override;
 
 use core::{fmt::Debug, ops::Deref};

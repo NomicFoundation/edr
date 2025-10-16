@@ -1,5 +1,5 @@
 use edr_primitives::{hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
-use edr_rpc_eth::ChainRpcBlock;
+use edr_rpc_eth::RpcBlockChainSpec;
 use edr_rpc_spec::RpcEthBlock;
 use edr_state_api::{account::AccountInfo, AccountStorage, State, StateError, StateMut};
 use serde::{de::DeserializeOwned, Serialize};
@@ -24,7 +24,7 @@ impl From<AccountInfo> for AccountAndStorage {
 /// A cached version of [`RemoteState`].
 #[derive(Debug)]
 pub struct CachedRemoteState<
-    RpcBlockT: ChainRpcBlock,
+    RpcBlockT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
 > {
@@ -36,7 +36,7 @@ pub struct CachedRemoteState<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: DeserializeOwned + Serialize,
     > CachedRemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
@@ -52,7 +52,7 @@ impl<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: Default + DeserializeOwned + Serialize,
     > StateMut for CachedRemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
@@ -135,7 +135,7 @@ impl<
 /// Fetches an account from the remote state. If it exists, code is split off
 /// and stored separately in the provided cache.
 fn fetch_remote_account<
-    RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+    RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: Default + DeserializeOwned + Serialize,
 >(

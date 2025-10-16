@@ -1,9 +1,9 @@
-use std::{
-    collections::{btree_map, BTreeMap},
-    fmt::Debug,
-};
+//! Container for state that was modified outside of mining a block.
 
-use edr_state_api::StateOverride;
+use core::fmt::Debug;
+use std::collections::{btree_map, BTreeMap};
+
+use crate::StateOverride;
 
 /// Container for state that was modified outside of mining a block.
 #[derive(Clone, Debug, Default)]

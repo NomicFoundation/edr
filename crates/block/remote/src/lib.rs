@@ -9,7 +9,7 @@ use edr_primitives::B256;
 use edr_receipt::ReceiptTrait;
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
-    ChainRpcBlock,
+    RpcBlockChainSpec,
 };
 use tokio::runtime;
 
@@ -40,9 +40,9 @@ pub enum RpcBlockConversionError<TransactionConversionErrorT> {
 #[derive_where(Clone, Debug; BlockReceiptT, SignedTransactionT)]
 pub struct RemoteBlock<
     BlockReceiptT,
-    RpcBlockT: ChainRpcBlock,
+    RpcBlockT: RpcBlockChainSpec,
     RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
-    RpcTransactionT: Default + serde::de::DeserializeOwned + serde::Serialize,
+    RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
     SignedTransactionT,
 > {
     header: BlockHeader,
@@ -65,14 +65,14 @@ pub struct RemoteBlock<
 impl<
         BlockReceiptT,
         RpcBlockConversionErrorT,
-        RpcBlockT: ChainRpcBlock<
+        RpcBlockT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: TryInto<
                 EthBlockData<SignedTransactionT>,
                 Error = RpcBlockConversionErrorT,
             >,
         >,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
-        RpcTransactionT: Default + serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT,
     > RemoteBlock<BlockReceiptT, RpcBlockT, RpcReceiptT, RpcTransactionT, SignedTransactionT>
 {
@@ -100,9 +100,9 @@ impl<
 
 impl<
         BlockReceiptT: Debug,
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
-        RpcTransactionT: Default + serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug,
     > Block<SignedTransactionT>
     for RemoteBlock<BlockReceiptT, RpcBlockT, RpcReceiptT, RpcTransactionT, SignedTransactionT>
@@ -151,10 +151,10 @@ pub enum FetchRemoteReceiptError<RpcReceiptConversionErrorT> {
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT, Error = RpcReceiptConversionErrorT>,
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptConversionErrorT,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
-        RpcTransactionT: Default + serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
     > BlockReceipts<Arc<BlockReceiptT>>
     for RemoteBlock<BlockReceiptT, RpcBlockT, RpcReceiptT, RpcTransactionT, SignedTransactionT>

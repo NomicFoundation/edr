@@ -16,7 +16,7 @@ use edr_evm_spec::{
 use edr_primitives::Bytes;
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_receipt_spec::ChainReceiptSpec;
-use edr_rpc_eth::ChainRpcBlock;
+use edr_rpc_eth::RpcBlockChainSpec;
 use edr_rpc_spec::RpcSpec;
 use edr_state_api::StateDiff;
 use revm_context::{CfgEnv, Journal, JournalTr as _, LocalContext};
@@ -149,7 +149,7 @@ impl ChainContextSpec for L1ChainSpec {
     type Context = ();
 }
 
-impl ChainRpcBlock for L1ChainSpec {
+impl RpcBlockChainSpec for L1ChainSpec {
     type RpcBlock<DataT>
         = L1RpcBlock<DataT>
     where

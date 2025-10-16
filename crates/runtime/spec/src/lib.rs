@@ -16,14 +16,14 @@ use edr_receipt::{
     MapReceiptLogs,
 };
 use edr_receipt_spec::ChainReceiptSpec;
-use edr_rpc_eth::ChainRpcBlock;
+use edr_rpc_eth::RpcBlockChainSpec;
 use edr_rpc_spec::{RpcEthBlock, RpcSpec, RpcTransaction, RpcTypeFrom};
 use edr_transaction::{TransactionAndBlock, TransactionType};
 
 /// Helper type for a chain-specific [`RemoteBlock`].
 pub type RemoteBlockForChainSpec<ChainSpecT> = RemoteBlock<
     <ChainSpecT as ChainReceiptSpec>::Receipt,
-    <ChainSpecT as ChainRpcBlock>::RpcBlock<<ChainSpecT as RpcSpec>::RpcTransaction>,
+    <ChainSpecT as RpcBlockChainSpec>::RpcBlock<<ChainSpecT as RpcSpec>::RpcTransaction>,
     <ChainSpecT as RpcSpec>::RpcReceipt,
     <ChainSpecT as RpcSpec>::RpcTransaction,
     <ChainSpecT as ChainSpec>::SignedTransaction,

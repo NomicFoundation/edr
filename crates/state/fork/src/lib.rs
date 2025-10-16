@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_primitives::{Address, Bytecode, HashMap, HashSet, B256, KECCAK_NULL_RLP, U256};
-use edr_rpc_eth::{client::EthRpcClient, ChainRpcBlock};
+use edr_rpc_eth::{client::EthRpcClient, RpcBlockChainSpec};
 use edr_rpc_spec::{RpcEthBlock, RpcSpec};
 use edr_state_api::{
     account::{Account, AccountInfo},
@@ -25,7 +25,7 @@ pub type ForkedStateForChainSpec<ChainSpecT> = ForkedState<
 /// local layered database.
 #[derive(Debug)]
 pub struct ForkedState<
-    RpcBlockT: ChainRpcBlock,
+    RpcBlockT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
 > {
@@ -39,7 +39,7 @@ pub struct ForkedState<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: DeserializeOwned + Serialize,
     > ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
@@ -78,7 +78,7 @@ impl<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: DeserializeOwned + Serialize,
     > Clone for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
@@ -97,7 +97,7 @@ impl<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: Default + DeserializeOwned + Serialize,
     > State for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
@@ -133,7 +133,7 @@ impl<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: DeserializeOwned + Serialize,
     > StateCommit for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
@@ -154,7 +154,7 @@ impl<
 }
 
 impl<
-        RpcBlockT: ChainRpcBlock<RpcBlock<B256>: RpcEthBlock>,
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: Default + DeserializeOwned + Serialize,
     > StateDebug for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>

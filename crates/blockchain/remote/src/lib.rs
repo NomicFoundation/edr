@@ -5,13 +5,13 @@ use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
 use edr_block_api::{Block, EthBlockData};
 use edr_block_remote::RemoteBlock;
 use edr_block_storage::{InsertBlockError, SparseBlockStorage};
-use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
 use edr_chain_spec::ExecutableTransaction;
+use edr_eth::{filter::OneOrMore, BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ReceiptTrait};
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
-    ChainRpcBlock,
+    RpcBlockChainSpec,
 };
 use edr_rpc_spec::{RpcEthBlock, RpcTransaction};
 use serde::{de::DeserializeOwned, Serialize};
@@ -21,7 +21,7 @@ use tokio::runtime;
 pub struct RemoteBlockchain<
     BlockReceiptT: ReceiptTrait,
     BlockT: Block<SignedTransactionT> + Clone,
-    RpcBlockT: ChainRpcBlock,
+    RpcBlockT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
     SignedTransactionT: ExecutableTransaction,
@@ -35,9 +35,9 @@ pub struct RemoteBlockchain<
 impl<
         BlockReceiptT: ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone,
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
-        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
         SignedTransactionT: ExecutableTransaction,
         const FORCE_CACHING: bool,
     >
@@ -129,7 +129,7 @@ pub enum FetchRemoteReceiptError<RpcReceiptConversionErrorT> {
 impl<
         BlockReceiptT: TryFrom<RpcReceiptT, Error = RpcReceiptConversionErrorT> + ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone,
-        RpcBlockT: ChainRpcBlock,
+        RpcBlockT: RpcBlockChainSpec,
         RpcReceiptConversionErrorT,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: Default + DeserializeOwned + Serialize,
@@ -237,7 +237,7 @@ impl<
                 >,
             >,
         RpcBlockConversionErrorT,
-        RpcBlockT: ChainRpcBlock<
+        RpcBlockT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock
                                            + TryInto<
                 EthBlockData<SignedTransactionT>,
@@ -405,7 +405,7 @@ impl<
                 >,
             >,
         RpcBlockConversionErrorT,
-        RpcBlockT: ChainRpcBlock<
+        RpcBlockT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock
                                            + TryInto<
                 EthBlockData<SignedTransactionT>,

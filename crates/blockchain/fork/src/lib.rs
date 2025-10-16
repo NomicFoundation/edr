@@ -1,50 +1,34 @@
-use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
+use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, sync::Arc};
 
-use derive_where::derive_where;
-use edr_block_api::{Block, BlockAndTotalDifficulty, BlockReceipts};
+use edr_block_api::{validate_next_block, Block, BlockAndTotalDifficulty, BlockReceipts};
 use edr_block_header::BlockConfig;
+use edr_block_remote::RemoteBlock;
 use edr_block_storage::ReservableSparseBlockStorage;
+use edr_blockchain_api::{utils::compute_state_at_block, BlockHash, Blockchain, BlockchainMut};
+use edr_blockchain_remote::RemoteBlockchain;
+use edr_chain_config::{Activations, ChainOverride};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
     BlockSpec, PreEip1898BlockSpec,
 };
-use edr_chain_spec::EvmSpecId;
 use edr_primitives::{Address, ChainId, HashMap, HashSet, B256, U256};
-use edr_receipt::log::FilterLog;
+use edr_receipt::{log::FilterLog, ReceiptTrait};
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
+    RpcBlockChainSpec,
 };
 use edr_rpc_spec::RpcEthBlock as _;
 use edr_state_api::{
     account::{Account, AccountStatus},
+    irregular::IrregularState,
     StateDiff, StateError, StateOverride, SyncState,
 };
 use edr_state_fork::ForkedState;
-use edr_utils::random::RandomHashGenerator;
+use edr_utils::{random::RandomHashGenerator, CastArc};
 use parking_lot::Mutex;
 use tokio::runtime;
-
-use super::{
-    validate_next_block, BlockHash, Blockchain, BlockchainError, BlockchainErrorForChainSpec,
-    BlockchainMut,
-};
-use crate::{
-    block::ReservableSparseBlockStorageForChainSpec,
-    eips::{
-        eip2935::{
-            add_history_storage_contract_to_state_diff, history_storage_contract,
-            HISTORY_STORAGE_ADDRESS,
-        },
-        eip4788::{
-            add_beacon_roots_contract_to_state_diff, beacon_roots_contract, BEACON_ROOTS_ADDRESS,
-        },
-    },
-    hardfork::{self, ChainOverride},
-    spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
-    state::IrregularState,
-    BlockAndTotalDifficultyForChainSpec, RemoteBlock,
-};
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
 #[derive(Debug, thiserror::Error)]
@@ -81,18 +65,9 @@ pub enum CreationError<HardforkT> {
     StorageOverridesUnsupported,
 }
 
-/// Helper type for a chain-specific [`ForkedBlockchainError`].
-pub type ForkedBlockchainErrorForChainSpec<ChainSpecT> = ForkedBlockchainError<
-    <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
-    <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
->;
-
 /// Error type for [`ForkedBlockchain`].
 #[derive(Debug, thiserror::Error)]
-pub enum ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT> {
-    /// Remote block creation error
-    #[error(transparent)]
-    BlockCreation(BlockConversionErrorT),
+pub enum ForkedBlockchainError {
     /// Remote blocks cannot be deleted
     #[error("Cannot delete remote block.")]
     CannotDeleteRemote,
@@ -108,20 +83,47 @@ pub enum ForkedBlockchainError<BlockConversionErrorT, ReceiptConversionErrorT> {
         /// The block hash
         block_hash: B256,
     },
-    /// An error occurred when converting an RPC receipt to an internal type.
-    #[error(transparent)]
-    ReceiptConversion(ReceiptConversionErrorT),
+    /// Block number does not exist in blockchain
+    #[error("Unknown block number")]
+    UnknownBlockNumber,
 }
 
 /// A blockchain that forked from a remote blockchain.
-#[derive_where(Debug; ChainSpecT::Hardfork)]
-pub struct ForkedBlockchain<ChainSpecT>
-where
-    ChainSpecT: RuntimeSpec,
-{
-    local_storage: ReservableSparseBlockStorageForChainSpec<ChainSpecT>,
+#[derive(Debug)]
+pub struct ForkedBlockchain<
+    BlockReceiptT: Debug + ReceiptTrait,
+    BlockT: Block<SignedTransactionT> + Clone,
+    HardforkT,
+    LocalBlockT,
+    RpcBlockChainSpecT: RpcBlockChainSpec,
+    RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+    RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+    SignedTransactionT: Debug + ExecutableTransaction,
+> {
+    local_storage: ReservableSparseBlockStorage<
+        Arc<BlockReceiptT>,
+        Arc<LocalBlockT>,
+        HardforkT,
+        SignedTransactionT,
+    >,
     // We can force caching here because we only fork from a safe block number.
-    remote: RemoteBlockchain<Arc<RemoteBlock<ChainSpecT>>, ChainSpecT, true>,
+    remote: RemoteBlockchain<
+        BlockReceiptT,
+        Arc<
+            RemoteBlock<
+                BlockReceiptT,
+                RpcBlockChainSpecT,
+                RpcReceiptT,
+                RpcTransactionT,
+                SignedTransactionT,
+            >,
+        >,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+        true,
+    >,
     state_root_generator: Arc<Mutex<RandomHashGenerator>>,
     fork_block_number: u64,
     /// The chan id of the forked blockchain is either the local chain id
@@ -130,25 +132,46 @@ where
     /// The chain id of the remote blockchain. It might deviate from `chain_id`.
     remote_chain_id: u64,
     network_id: u64,
-    hardfork: ChainSpecT::Hardfork,
-    hardfork_activations: Option<hardfork::Activations<ChainSpecT::Hardfork>>,
+    hardfork: HardforkT,
+    hardfork_activations: Option<Activations<HardforkT>>,
     min_ethash_difficulty: u64,
+    _phantom: PhantomData<fn() -> BlockT>,
 }
 
-impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
+impl<
+        BlockReceiptT: Debug + ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + Clone,
+        HardforkT: Clone,
+        LocalBlockT,
+        RpcBlockChainSpecT: RpcBlockChainSpec,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    >
+    ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
     /// Constructs a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         runtime: runtime::Handle,
         chain_id_override: Option<u64>,
-        hardfork: ChainSpecT::Hardfork,
-        rpc_client: Arc<EthRpcClient<ChainSpecT>>,
+        hardfork: HardforkT,
+        rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
         fork_block_number: Option<u64>,
         irregular_state: &mut IrregularState,
         state_root_generator: Arc<Mutex<RandomHashGenerator>>,
-        chain_overrides: &HashMap<ChainId, ChainOverride<ChainSpecT::Hardfork>>,
-    ) -> Result<Self, CreationError<ChainSpecT::Hardfork>> {
+        chain_overrides: &HashMap<ChainId, ChainOverride<HardforkT>>,
+    ) -> Result<Self, CreationError<HardforkT>> {
         let ForkMetadata {
             chain_id: remote_chain_id,
             network_id,
@@ -317,53 +340,58 @@ impl<ChainSpecT: RuntimeSpec> ForkedBlockchain<ChainSpecT> {
     }
 }
 
-impl<ChainSpecT> Blockchain<ChainSpecT::Block, ChainSpecT::BlockReceipt, ChainSpecT::Hardfork>
-    for ForkedBlockchain<ChainSpecT>
-where
-    ChainSpecT: SyncRuntimeSpec<
-        LocalBlock: BlockReceipts<
-            Arc<ChainSpecT::BlockReceipt>,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
-    >,
+impl<
+        BlockReceiptT: Debug + ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + Clone,
+        HardforkT,
+        LocalBlockT: BlockReceipts<Arc<BlockReceiptT>>,
+        RpcBlockChainSpecT: RpcBlockChainSpec,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > Blockchain<BlockT, BlockReceiptT, HardforkT>
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
 {
-    type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
+    type BlockchainError = ForkedBlockchainError;
 
     type StateError = StateError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::type_complexity)]
-    fn block_by_hash(
-        &self,
-        hash: &B256,
-    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
+    fn block_by_hash(&self, hash: &B256) -> Result<Option<Arc<BlockT>>, Self::BlockchainError> {
         if let Some(local_block) = self.local_storage.block_by_hash(hash) {
-            Ok(Some(ChainSpecT::cast_local_block(local_block)))
+            Ok(Some(CastArc::cast_arc(local_block)))
         } else {
             let remote_block = tokio::task::block_in_place(move || {
                 self.runtime().block_on(self.remote.block_by_hash(hash))
             })?;
 
-            Ok(remote_block.map(ChainSpecT::cast_remote_block))
+            Ok(remote_block.map(CastArc::cast_arc))
         }
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::type_complexity)]
-    fn block_by_number(
-        &self,
-        number: u64,
-    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
+    fn block_by_number(&self, number: u64) -> Result<Option<Arc<BlockT>>, Self::BlockchainError> {
         if number <= self.fork_block_number {
             let remote_block = tokio::task::block_in_place(move || {
                 self.runtime().block_on(self.remote.block_by_number(number))
             })?;
 
-            Ok(Some(ChainSpecT::cast_remote_block(remote_block)))
+            Ok(Some(CastArc::cast_arc(remote_block)))
         } else {
-            let local_block = self.local_storage.block_by_number::<ChainSpecT>(number)?;
+            let local_block = self.local_storage.block_by_number(number)?;
 
-            Ok(local_block.map(ChainSpecT::cast_local_block))
+            Ok(local_block.map(CastArc::cast_arc))
         }
     }
 
@@ -372,19 +400,19 @@ where
     fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<ChainSpecT::Block>>, Self::BlockchainError> {
+    ) -> Result<Option<Arc<BlockT>>, Self::BlockchainError> {
         if let Some(local_block) = self
             .local_storage
             .block_by_transaction_hash(transaction_hash)
         {
-            Ok(Some(ChainSpecT::cast_local_block(local_block)))
+            Ok(Some(CastArc::cast_arc(local_block)))
         } else {
             let remote_block = tokio::task::block_in_place(move || {
                 self.runtime()
                     .block_on(self.remote.block_by_transaction_hash(transaction_hash))
             })?;
 
-            Ok(remote_block.map(ChainSpecT::cast_remote_block))
+            Ok(remote_block.map(CastArc::cast_arc))
         }
     }
 
@@ -394,7 +422,7 @@ where
 
     fn chain_id_at_block_number(&self, block_number: u64) -> Result<u64, Self::BlockchainError> {
         if block_number > self.last_block_number() {
-            return Err(BlockchainError::UnknownBlockNumber);
+            return Err(ForkedBlockchainError::UnknownBlockNumber);
         }
 
         if block_number <= self.fork_block_number {
@@ -405,22 +433,22 @@ where
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn last_block(&self) -> Result<Arc<ChainSpecT::Block>, Self::BlockchainError> {
+    fn last_block(&self) -> Result<Arc<BlockT>, Self::BlockchainError> {
         let last_block_number = self.last_block_number();
         if self.fork_block_number < last_block_number {
             let local_block = self
                 .local_storage
-                .block_by_number::<ChainSpecT>(last_block_number)?
+                .block_by_number(last_block_number)?
                 .expect("Block must exist since block number is less than the last block number");
 
-            Ok(ChainSpecT::cast_local_block(local_block))
+            Ok(CastArc::cast_arc(local_block))
         } else {
             let remote_block = tokio::task::block_in_place(move || {
                 self.runtime()
                     .block_on(self.remote.block_by_number(self.fork_block_number))
             })?;
 
-            Ok(ChainSpecT::cast_remote_block(remote_block))
+            Ok(CastArc::cast_arc(remote_block))
         }
     }
 
@@ -474,7 +502,7 @@ where
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<ChainSpecT::BlockReceipt>>, Self::BlockchainError> {
+    ) -> Result<Option<Arc<BlockReceiptT>>, Self::BlockchainError> {
         if let Some(receipt) = self
             .local_storage
             .receipt_by_transaction_hash(transaction_hash)
@@ -489,12 +517,9 @@ where
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn spec_at_block_number(
-        &self,
-        block_number: u64,
-    ) -> Result<ChainSpecT::Hardfork, Self::BlockchainError> {
+    fn spec_at_block_number(&self, block_number: u64) -> Result<HardforkT, Self::BlockchainError> {
         if block_number > self.last_block_number() {
-            return Err(BlockchainError::UnknownBlockNumber);
+            return Err(ForkedBlockchainError::UnknownBlockNumber);
         }
 
         if block_number <= self.fork_block_number {
@@ -502,18 +527,17 @@ where
                 self.runtime()
                     .block_on(self.remote.block_by_number(block_number))
             })
-            .map_err(BlockchainError::Forked)
             .and_then(|block| {
                 if let Some(hardfork_activations) = &self.hardfork_activations {
                     let header = block.header();
                     hardfork_activations
                         .hardfork_at_block(header.number, header.timestamp)
-                        .ok_or(BlockchainError::UnknownBlockSpec {
+                        .ok_or(ForkedBlockchainError::UnknownBlockSpec {
                             block_number,
                             hardfork_activations: hardfork_activations.clone(),
                         })
                 } else {
-                    Err(BlockchainError::MissingHardforkActivations {
+                    Err(ForkedBlockchainError::MissingHardforkActivations {
                         block_number,
                         fork_block_number: self.fork_block_number,
                         chain_id: self.remote_chain_id,
@@ -525,7 +549,7 @@ where
         }
     }
 
-    fn hardfork(&self) -> ChainSpecT::Hardfork {
+    fn hardfork(&self) -> HardforkT {
         self.hardfork
     }
 
@@ -536,7 +560,7 @@ where
         state_overrides: &BTreeMap<u64, StateOverride>,
     ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError> {
         if block_number > self.last_block_number() {
-            return Err(BlockchainError::UnknownBlockNumber);
+            return Err(ForkedBlockchainError::UnknownBlockNumber);
         }
 
         let state_root = if let Some(state_override) = state_overrides.get(&block_number) {
@@ -595,28 +619,38 @@ where
     }
 }
 
-impl<ChainSpecT>
-    BlockchainMut<ChainSpecT::Block, ChainSpecT::LocalBlock, ChainSpecT::SignedTransaction>
-    for ForkedBlockchain<ChainSpecT>
-where
-    ChainSpecT: SyncRuntimeSpec<
-        LocalBlock: BlockReceipts<
-            Arc<ChainSpecT::BlockReceipt>,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
-    >,
+impl<
+        BlockReceiptT: Debug + ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + Clone,
+        HardforkT,
+        LocalBlockT: BlockReceipts<Arc<BlockReceiptT>>,
+        RpcBlockChainSpecT: RpcBlockChainSpec,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > BlockchainMut<BlockT, LocalBlockT, SignedTransactionT>
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
 {
-    type Error = BlockchainErrorForChainSpec<ChainSpecT>;
+    type Error = ForkedBlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn insert_block(
         &mut self,
-        block: ChainSpecT::LocalBlock,
+        block: LocalBlockT,
         state_diff: StateDiff,
-    ) -> Result<BlockAndTotalDifficultyForChainSpec<ChainSpecT>, Self::Error> {
+    ) -> Result<BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>, Self::Error> {
         let last_block = self.last_block()?;
 
-        validate_next_block::<ChainSpecT>(self.hardfork, &last_block, &block)?;
+        validate_next_block(self.hardfork, &last_block, &block)?;
 
         let previous_total_difficulty = self
             .total_difficulty_by_hash(last_block.block_hash())
@@ -630,7 +664,7 @@ where
                 .insert_block(Arc::new(block), state_diff, total_difficulty)?;
 
         Ok(BlockAndTotalDifficulty::new(
-            ChainSpecT::cast_local_block(block.clone()),
+            CastArc::cast_arc(block.clone()),
             Some(total_difficulty),
         ))
     }
@@ -678,15 +712,35 @@ where
                 if self.local_storage.revert_to_block(block_number) {
                     Ok(())
                 } else {
-                    Err(BlockchainError::UnknownBlockNumber)
+                    Err(ForkedBlockchainError::UnknownBlockNumber)
                 }
             }
         }
     }
 }
 
-impl<ChainSpecT: RuntimeSpec> BlockHash for ForkedBlockchain<ChainSpecT> {
-    type Error = BlockchainErrorForChainSpec<ChainSpecT>;
+impl<
+        BlockReceiptT: Debug + ReceiptTrait,
+        BlockT: Block<SignedTransactionT> + Clone,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT: RpcBlockChainSpec,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > BlockHash
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    type Error = ForkedBlockchainError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
@@ -698,9 +752,9 @@ impl<ChainSpecT: RuntimeSpec> BlockHash for ForkedBlockchain<ChainSpecT> {
             .map(|block| Ok(*block.block_hash()))?
         } else {
             self.local_storage
-                .block_by_number::<ChainSpecT>(block_number)?
+                .block_by_number(block_number)?
                 .map(|block| *block.block_hash())
-                .ok_or(BlockchainError::UnknownBlockNumber)
+                .ok_or(ForkedBlockchainError::UnknownBlockNumber)
         }
     }
 }
