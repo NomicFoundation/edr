@@ -14,7 +14,7 @@ use edr_evm_spec::{
     PrecompileProvider, TransactionError,
 };
 use edr_primitives::Bytes;
-use edr_receipt::{log::FilterLog, ChainExecutionReceipt};
+use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_receipt_spec::ChainReceiptSpec;
 use edr_rpc_eth::ChainRpcBlock;
 use edr_rpc_spec::RpcSpec;
@@ -133,7 +133,7 @@ impl ChainEvmSpec for L1ChainSpec {
     }
 }
 
-impl ChainExecutionReceipt for L1ChainSpec {
+impl ExecutionReceiptChainSpec for L1ChainSpec {
     type ExecutionReceipt<LogT> = TypedEnvelope<edr_receipt::execution::Eip658<LogT>>;
 }
 
@@ -142,7 +142,7 @@ impl ChainHardfork for L1ChainSpec {
 }
 
 impl ChainReceiptSpec for L1ChainSpec {
-    type Receipt = L1BlockReceipt<<Self as ChainExecutionReceipt>::ExecutionReceipt<FilterLog>>;
+    type Receipt = L1BlockReceipt<<Self as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>>;
 }
 
 impl ChainContextSpec for L1ChainSpec {

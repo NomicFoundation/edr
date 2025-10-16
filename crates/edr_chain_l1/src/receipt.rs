@@ -6,7 +6,7 @@ use alloy_rlp::BufMut;
 use edr_chain_spec::{ChainContextSpec, ChainHardfork, ChainSpec, EvmSpecId};
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
-    log::FilterLog, AsExecutionReceipt, ChainExecutionReceipt, ExecutionReceipt, ReceiptTrait,
+    log::FilterLog, AsExecutionReceipt, ExecutionReceiptChainSpec, ExecutionReceipt, ReceiptTrait,
     RootOrStatus, TransactionReceipt,
 };
 use edr_receipt_spec::ReceiptConstructor;
@@ -79,11 +79,11 @@ impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> ExecutionReceipt
 }
 
 impl ReceiptConstructor
-    for L1BlockReceipt<<L1ChainSpec as ChainExecutionReceipt>::ExecutionReceipt<FilterLog>>
+    for L1BlockReceipt<<L1ChainSpec as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>>
 {
     type Context = <L1ChainSpec as ChainContextSpec>::Context;
 
-    type ExecutionReceipt = <L1ChainSpec as ChainExecutionReceipt>::ExecutionReceipt<FilterLog>;
+    type ExecutionReceipt = <L1ChainSpec as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>;
 
     type Hardfork = <L1ChainSpec as ChainHardfork>::Hardfork;
 

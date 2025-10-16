@@ -1,8 +1,8 @@
-use core::{fmt::Debug, marker::PhantomData};
+use core::fmt::Debug;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use alloy_eips::eip7840::BlobParams;
-use edr_block_api::Block as _;
+use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError,
     BuiltBlockAndState, CfgEnv, Context, DatabaseComponents, ExecutionResult, Journal,
@@ -10,15 +10,17 @@ use edr_block_builder_api::{
 };
 use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_block_local::EthLocalBlock;
-use edr_chain_spec::{EvmSpecId, ExecutableTransaction as _, TransactionValidation};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction, HaltReasonTrait, TransactionValidation};
 use edr_evm_spec::{DatabaseComponentError, ExecutionResultAndState, Inspector, TransactionError};
-use edr_primitives::{Address, Bloom, HashMap, B256, KECCAK_NULL_RLP, U256};
+use edr_primitives::{Address, Bloom, HashMap, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
-    ExecutionReceipt, TransactionReceipt,
+    ExecutionReceipt, ExecutionReceiptChainSpec, MapReceiptLogs, ReceiptTrait, TransactionReceipt,
 };
+use edr_receipt_spec::ReceiptConstructor;
 use edr_state_api::{AccountModifierFn, StateDiff, SyncState};
 use edr_trie::ordered_trie_root;
+use revm_context::context;
 
 /// A builder for constructing Ethereum L1 blocks.
 pub struct EthBlockBuilder<
@@ -26,7 +28,8 @@ pub struct EthBlockBuilder<
     BlockReceiptT: Send + Sync,
     BlockT: ?Sized,
     BlockchainErrorT: Debug + Send,
-    ExecutionReceiptT: ExecutionReceipt<Log = ExecutionLog>,
+    ContextT,
+    ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec,
     HaltReasonT,
     HardforkT: Send + Sync,
     LocalBlockT: Send + Sync,
@@ -43,9 +46,10 @@ pub struct EthBlockBuilder<
         StateErrorT,
     >,
     cfg: CfgEnv<HardforkT>,
+    context: ContextT,
     header: PartialHeader,
     parent_gas_limit: Option<u64>,
-    receipts: Vec<TransactionReceipt<ExecutionReceiptT>>,
+    receipts: Vec<TransactionReceipt<ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>>>,
     state: Box<dyn SyncState<StateErrorT>>,
     state_diff: StateDiff,
     transactions: Vec<SignedTransactionT>,
@@ -58,11 +62,12 @@ impl<
         BlockReceiptT: Send + Sync,
         BlockT: ?Sized,
         BlockchainErrorT: Debug + Send,
-        ExecutionReceiptT: ExecutionReceipt<Log = ExecutionLog>,
+        ContextT,
+        ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec,
         HaltReasonT,
         HardforkT: Send + Sync,
         LocalBlockT: Send + Sync,
-        SignedTransactionT: Send + Sync,
+        SignedTransactionT: ExecutableTransaction + Send + Sync + TransactionValidation,
         StateErrorT,
     >
     EthBlockBuilder<
@@ -70,7 +75,8 @@ impl<
         BlockReceiptT,
         BlockT,
         BlockchainErrorT,
-        ExecutionReceiptT,
+        ContextT,
+        ExecutionReceiptChainSpecT,
         HaltReasonT,
         HardforkT,
         LocalBlockT,
@@ -117,7 +123,34 @@ impl<
     pub fn state(&self) -> &dyn SyncState<StateErrorT> {
         self.state.as_ref()
     }
+}
 
+impl<
+        BlockReceiptT: Send + Sync,
+        BlockT: ?Sized,
+        BlockchainErrorT: Debug + Send,
+        ContextT,
+        ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec,
+        HaltReasonT,
+        HardforkT: Clone + Into<EvmSpecId> + Send + Sync,
+        LocalBlockT: Send + Sync,
+        SignedTransactionT: ExecutableTransaction + Send + Sync + TransactionValidation,
+        StateErrorT,
+    >
+    EthBlockBuilder<
+        '_,
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        ContextT,
+        ExecutionReceiptChainSpecT,
+        HaltReasonT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+        StateErrorT,
+    >
+{
     fn validate_transaction(
         &self,
         transaction: &SignedTransactionT,
@@ -140,7 +173,7 @@ impl<
             ..
         }) = self.header.blob_gas.as_ref()
         {
-            let blob_params = if self.config().spec.into() >= EvmSpecId::PRAGUE {
+            let blob_params = if self.config().spec.clone().into() >= EvmSpecId::PRAGUE {
                 BlobParams::prague()
             } else {
                 BlobParams::cancun()
@@ -158,13 +191,14 @@ impl<
 impl<
         'builder,
         BlockReceiptT: Send + Sync,
-        BlockT: ?Sized,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         BlockchainErrorT: Debug + Send,
-        ExecutionReceiptT: ExecutionReceipt<Log = ExecutionLog>,
-        HaltReasonT,
-        HardforkT: Send + Sync,
+        ContextT,
+        ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd + Send + Sync,
         LocalBlockT: Send + Sync,
-        SignedTransactionT: Send + Sync,
+        SignedTransactionT: Clone + ExecutableTransaction + Send + Sync + TransactionValidation,
         StateErrorT,
     >
     EthBlockBuilder<
@@ -172,7 +206,8 @@ impl<
         BlockReceiptT,
         BlockT,
         BlockchainErrorT,
-        ExecutionReceiptT,
+        ContextT,
+        ExecutionReceiptChainSpecT,
         HaltReasonT,
         HardforkT,
         LocalBlockT,
@@ -186,6 +221,7 @@ impl<
     /// Creates a new instance.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn new(
+        context: ContextT,
         blockchain: &'builder dyn SyncBlockchain<
             BlockReceiptT,
             BlockT,
@@ -204,9 +240,9 @@ impl<
         Self,
         BlockBuilderCreationError<DatabaseComponentError<BlockchainErrorT, StateErrorT>, HardforkT>,
     > {
-        let parent_block = blockchain
-            .last_block()
-            .map_err(BlockBuilderCreationError::Blockchain)?;
+        let parent_block = blockchain.last_block().map_err(|error| {
+            BlockBuilderCreationError::Database(DatabaseComponentError::Blockchain(error))
+        })?;
 
         let eth_hardfork = cfg.spec.into();
         if eth_hardfork < EvmSpecId::BYZANTIUM {
@@ -238,6 +274,7 @@ impl<
         Ok(Self {
             blockchain,
             cfg,
+            context,
             header,
             parent_gas_limit,
             receipts: Vec::new(),
@@ -307,13 +344,13 @@ impl<
                         &'inspector dyn SyncBlockchain<
                             BlockReceiptT,
                             BlockT,
-                            Self::BlockchainError,
+                            BlockchainErrorT,
                             HardforkT,
                             LocalBlockT,
                             SignedTransactionT,
-                            Self::StateError,
+                            StateErrorT,
                         >,
-                        &'inspector dyn SyncState<Self::StateError>,
+                        &'inspector dyn SyncState<StateErrorT>,
                     >,
                 >,
                 Journal<
@@ -322,13 +359,13 @@ impl<
                             &'inspector dyn SyncBlockchain<
                                 BlockReceiptT,
                                 BlockT,
-                                Self::BlockchainError,
+                                BlockchainErrorT,
                                 HardforkT,
                                 LocalBlockT,
                                 SignedTransactionT,
-                                Self::StateError,
+                                StateErrorT,
                             >,
-                            &'inspector dyn SyncState<Self::StateError>,
+                            &'inspector dyn SyncState<StateErrorT>,
                         >,
                     >,
                 >,
@@ -404,42 +441,172 @@ impl<
 }
 
 impl<
-        BlockReceiptT: Send + Sync,
-        BlockT: ?Sized,
-        BlockchainErrorT: Debug + Send,
-        ExecutionReceiptT: ExecutionReceipt<Log = ExecutionLog>,
-        HaltReasonT,
-        HardforkT: Send + Sync,
-        LocalBlockT: Send + Sync,
-        SignedTransactionT: Send + Sync,
-        StateErrorT,
+        'builder,
+        BlockEnvT,
+        BlockReceiptT: ReceiptConstructor<
+                Context = ContextT,
+                ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
+                Hardfork = HardforkT,
+                SignedTransaction = SignedTransactionT,
+            > + ReceiptTrait
+            + Send
+            + Sync,
+        BlockT: ?Sized + Block<SignedTransactionT>,
+        BlockchainErrorT: Debug + Send + std::error::Error,
+        ContextT,
+        ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec<
+            ExecutionReceipt<ExecutionLog>: MapReceiptLogs<
+                ExecutionLog,
+                FilterLog,
+                ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
+            > + alloy_rlp::Encodable,
+        >,
+        HaltReasonT: HaltReasonTrait,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd + Send + Sync,
+        LocalBlockT: From<EthLocalBlock<BlockReceiptT, HardforkT, SignedTransactionT>> + Send + Sync,
+        SignedTransactionT: Clone + ExecutableTransaction + Send + Sync + TransactionValidation,
+        StateErrorT: Send + std::error::Error,
     >
-    EthBlockBuilder<
-        '_,
+    BlockBuilder<
+        'builder,
+        BlockEnvT,
+        BlockReceiptT,
+        BlockT,
+        ContextT,
+        HaltReasonT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    >
+    for EthBlockBuilder<
+        'builder,
         BlockReceiptT,
         BlockT,
         BlockchainErrorT,
-        ExecutionReceiptT,
+        ContextT,
+        ExecutionReceiptChainSpecT,
         HaltReasonT,
         HardforkT,
         LocalBlockT,
         SignedTransactionT,
         StateErrorT,
     >
+// Hardfork: Debug,
+// LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>,
+// StateErrorT: Send + std::error::Error,
 {
-    /// Finalizes the block, applying rewards to the state.
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    pub fn finalize(
+    type BlockchainError = BlockchainErrorT;
+
+    type StateError = StateErrorT;
+
+    fn new_block_builder(
+        blockchain: &'builder dyn SyncBlockchain<
+            BlockReceiptT,
+            BlockT,
+            Self::BlockchainError,
+            HardforkT,
+            LocalBlockT,
+            SignedTransactionT,
+            Self::StateError,
+        >,
+        state: Box<dyn SyncState<Self::StateError>>,
+        cfg: CfgEnv<HardforkT>,
+        inputs: BlockInputs,
+        overrides: HeaderOverrides<HardforkT>,
+        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
+    ) -> Result<
+        Self,
+        BlockBuilderCreationError<
+            DatabaseComponentError<Self::BlockchainError, Self::StateError>,
+            HardforkT,
+        >,
+    > {
+        Self::new(
+            blockchain,
+            state,
+            cfg,
+            inputs,
+            overrides,
+            custom_precompiles,
+        )
+    }
+
+    fn header(&self) -> &PartialHeader {
+        self.header()
+    }
+
+    fn add_transaction(
+        &mut self,
+        transaction: SignedTransactionT,
+    ) -> Result<
+        (),
+        BlockTransactionError<
+            DatabaseComponentError<Self::BlockchainError, Self::StateError>,
+            <SignedTransactionT as TransactionValidation>::ValidationError,
+        >,
+    > {
+        self.add_transaction(transaction)
+    }
+
+    fn add_transaction_with_inspector<InspectorT>(
+        &mut self,
+        transaction: SignedTransactionT,
+        inspector: &mut InspectorT,
+    ) -> Result<
+        (),
+        BlockTransactionError<
+            DatabaseComponentError<Self::BlockchainError, Self::StateError>,
+            <SignedTransactionT as TransactionValidation>::ValidationError,
+        >,
+    >
+    where
+        InspectorT: for<'inspector> Inspector<
+            Context<
+                BlockEnvT,
+                SignedTransactionT,
+                CfgEnv<HardforkT>,
+                WrapDatabaseRef<
+                    DatabaseComponents<
+                        &'inspector dyn SyncBlockchain<
+                            BlockReceiptT,
+                            BlockT,
+                            Self::BlockchainError,
+                            HardforkT,
+                            LocalBlockT,
+                            SignedTransactionT,
+                            Self::StateError,
+                        >,
+                        &'inspector dyn SyncState<Self::StateError>,
+                    >,
+                >,
+                Journal<
+                    WrapDatabaseRef<
+                        DatabaseComponents<
+                            &'inspector dyn SyncBlockchain<
+                                BlockReceiptT,
+                                BlockT,
+                                Self::BlockchainError,
+                                HardforkT,
+                                LocalBlockT,
+                                SignedTransactionT,
+                                Self::StateError,
+                            >,
+                            &'inspector dyn SyncState<Self::StateError>,
+                        >,
+                    >,
+                >,
+                ContextT,
+            >,
+        >,
+    {
+        self.add_transaction_with_inspector(transaction, inspector)
+    }
+
+    fn finalize(
         mut self,
         rewards: Vec<(Address, u128)>,
-    ) -> Result<
-        BuiltBlockAndState<
-            HaltReasonT,
-            EthLocalBlock<BlockReceiptT, ExecutionReceiptT, HardforkT, SignedTransactionT>,
-            StateErrorT,
-        >,
-        StateErrorT,
-    > {
+    ) -> Result<BuiltBlockAndState<HaltReasonT, LocalBlockT, Self::StateError>, Self::StateError>
+    {
         for (address, reward) in rewards {
             if reward > 0 {
                 let account_info = self.state.modify_account(
@@ -484,8 +651,8 @@ impl<
         }
 
         // TODO: handle ommers
-        let block = EthLocalBlock::new(
-            (),
+        let block = EthLocalBlock::new::<ExecutionReceiptChainSpecT>(
+            &self.context,
             self.cfg.spec,
             self.header,
             self.transactions,
@@ -495,143 +662,10 @@ impl<
         );
 
         Ok(BuiltBlockAndState {
-            block,
+            block: block.into(),
             state: self.state,
             state_diff: self.state_diff,
             transaction_results: self.transaction_results,
-        })
-    }
-}
-
-impl<'builder, BlockchainErrorT, ChainSpecT, StateErrorT>
-    BlockBuilder<
-        'builder,
-        BlockEnvT,
-        BlockReceiptT: Send + Sync,
-        BlockT: ?Sized,
-        ContextT,
-        HaltReasonT: HaltReasonTrait,
-        HardforkT: Send + Sync,
-        LocalBlockT: Send + Sync,
-        SignedTransactionT: TransactionValidation + Send + Sync,
-    >
-    for EthBlockBuilder<
-        'builder,
-        BlockReceiptT: Send + Sync,
-        BlockT: ?Sized,
-        BlockchainErrorT: Debug + Send,
-        ExecutionReceiptT: ExecutionReceipt<Log = ExecutionLog>,
-        HaltReasonT,
-        HardforkT: Send + Sync,
-        LocalBlockT: Send + Sync,
-        SignedTransactionT: Send + Sync,
-        StateErrorT,
-    >
-where
-    BlockchainErrorT: Send + std::error::Error,
-    ChainSpecT: SyncRuntimeSpec<
-        BlockReceiptFactory: Default,
-        Hardfork: Debug,
-        LocalBlock: From<EthLocalBlockForChainSpec<ChainSpecT>>,
-    >,
-    StateErrorT: Send + std::error::Error,
-{
-    type BlockchainError = BlockchainErrorT;
-
-    type StateError = StateErrorT;
-
-    fn new_block_builder(
-        blockchain: &'builder dyn SyncBlockchainForChainSpec<
-            Self::BlockchainError,
-            ChainSpecT,
-            Self::StateError,
-        >,
-        state: Box<dyn SyncState<Self::StateError>>,
-        cfg: CfgEnv<ChainSpecT::Hardfork>,
-        inputs: BlockInputs,
-        overrides: HeaderOverrides<ChainSpecT::Hardfork>,
-        custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
-    ) -> Result<
-        Self,
-        BlockBuilderCreationError<Self::BlockchainError, ChainSpecT::Hardfork, Self::StateError>,
-    > {
-        Self::new(
-            blockchain,
-            state,
-            cfg,
-            inputs,
-            overrides,
-            custom_precompiles,
-        )
-    }
-
-    fn block_receipt_factory(&self) -> ChainSpecT::BlockReceiptFactory {
-        ChainSpecT::BlockReceiptFactory::default()
-    }
-
-    fn header(&self) -> &PartialHeader {
-        self.header()
-    }
-
-    fn add_transaction(
-        &mut self,
-        transaction: SignedTransactionT,
-    ) -> Result<
-        (),
-        BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
-    > {
-        self.add_transaction(transaction)
-    }
-
-    fn add_transaction_with_inspector<InspectorT>(
-        &mut self,
-        transaction: SignedTransactionT,
-        inspector: &mut InspectorT,
-    ) -> Result<
-        (),
-        BlockTransactionErrorForChainSpec<Self::BlockchainError, ChainSpecT, Self::StateError>,
-    >
-    where
-        InspectorT: for<'inspector> Inspector<
-            ContextForChainSpec<
-                ChainSpecT,
-                WrapDatabaseRef<
-                    DatabaseComponents<
-                        &'inspector dyn SyncBlockchainForChainSpec<
-                            Self::BlockchainError,
-                            ChainSpecT,
-                            Self::StateError,
-                        >,
-                        &'inspector dyn SyncState<Self::StateError>,
-                    >,
-                >,
-            >,
-        >,
-    {
-        self.add_transaction_with_inspector(transaction, inspector)
-    }
-
-    fn finalize(
-        self,
-        rewards: Vec<(Address, u128)>,
-    ) -> Result<
-        MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, Self::StateError>,
-        Self::StateError,
-    > {
-        let receipt_factory = self.block_receipt_factory();
-
-        let MineBlockResultAndState {
-            block,
-            state,
-            state_diff,
-            transaction_results,
-        } = self.finalize(receipt_factory, rewards)?;
-
-        Ok(MineBlockResultAndState {
-            block: block.into(),
-            state,
-            state_diff,
-            transaction_results,
         })
     }
 }

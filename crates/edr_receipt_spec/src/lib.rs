@@ -3,13 +3,13 @@ use core::fmt::Debug;
 use edr_chain_spec::{ChainContextSpec, ChainHardfork, ChainSpec};
 use edr_primitives::B256;
 use edr_receipt::{
-    log::FilterLog, ChainExecutionReceipt, ExecutionReceipt, ReceiptTrait, TransactionReceipt,
+    log::FilterLog, ExecutionReceiptChainSpec, ExecutionReceipt, ReceiptTrait, TransactionReceipt,
 };
 use edr_rpc_spec::RpcSpec;
 
 /// Trait for a chain's transaction receipt specification.
 pub trait ChainReceiptSpec:
-    ChainContextSpec + ChainExecutionReceipt + ChainHardfork + ChainSpec + RpcSpec
+    ChainContextSpec + ExecutionReceiptChainSpec + ChainHardfork + ChainSpec + RpcSpec
 {
     /// Type representing a transaction's receipt in a block.
     type Receipt: Debug

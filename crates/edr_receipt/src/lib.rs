@@ -49,7 +49,7 @@ pub trait AsExecutionReceipt {
 
 /// Trait for specifying Ethereum-based execution receipt types for a chain
 /// type.
-pub trait ChainExecutionReceipt {
+pub trait ExecutionReceiptChainSpec {
     /// Type representing an execution receipt.
     type ExecutionReceipt<LogT>: ExecutionReceipt<Log = LogT>;
 }

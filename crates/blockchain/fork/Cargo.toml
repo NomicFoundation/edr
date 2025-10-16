@@ -19,6 +19,7 @@ edr_state_api.workspace = true
 edr_state_fork.workspace = true
 edr_utils.workspace = true
 parking_lot.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 
 [lints]
