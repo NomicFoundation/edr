@@ -106,9 +106,9 @@ export class TestContext {
     }
 
     let suiteResults: SuiteResult[] = [];
-    let testResult: SolidityTestResult | undefined = undefined;
+    let solidityTestResult: SolidityTestResult | undefined = undefined;
 
-    [testResult, suiteResults] = await runAllSolidityTests(
+    [solidityTestResult, suiteResults] = await runAllSolidityTests(
       this.edrContext,
       chainType,
       this.artifacts,
@@ -144,7 +144,7 @@ export class TestContext {
       stackTraces,
       callTraces,
       suiteResults,
-      testResult,
+      testResult: solidityTestResult,
     };
   }
 
