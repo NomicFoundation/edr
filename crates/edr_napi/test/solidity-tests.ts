@@ -24,7 +24,7 @@ describe("Solidity Tests", () => {
       projectRoot: __dirname,
     };
 
-    const results = await runAllSolidityTests(
+    const [, results] = await runAllSolidityTests(
       context,
       L1_CHAIN_TYPE,
       artifacts,
@@ -105,7 +105,7 @@ describe("Solidity Tests", () => {
     // All artifacts are test suites.
     const testSuites = artifacts.map((artifact) => artifact.id);
 
-    const results = await runAllSolidityTests(
+    const [, results] = await runAllSolidityTests(
       context,
       L1_CHAIN_TYPE,
       artifacts,

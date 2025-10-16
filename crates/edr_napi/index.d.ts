@@ -738,6 +738,8 @@ export interface SolidityTestRunnerConfigArgs {
   testPattern?: string
   /**
    * Controls whether to generate a gas report after running the tests.
+   * Enabling this also enables collection of all traces and EVM isolation
+   * mode.
    * Defaults to false.
    */
   generateGasReport?: boolean

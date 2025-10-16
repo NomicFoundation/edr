@@ -119,14 +119,16 @@ impl GasReport {
             let is_setup = name.test_function_kind().is_setup();
             // Ignore any test functions
             let should_include = !name.test_function_kind().is_known();
+            let status = if trace.is_revert() {
+                GasReportExecutionStatus::Revert
+            } else if trace.is_error() {
+                GasReportExecutionStatus::Halt
+            } else {
+                GasReportExecutionStatus::Success
+            };
+
             if is_setup {
-                contract_info.status = if trace.is_error() {
-                    GasReportExecutionStatus::Halt
-                } else if trace.is_revert() {
-                    GasReportExecutionStatus::Revert
-                } else {
-                    GasReportExecutionStatus::Success
-                };
+                contract_info.status = status;
             } else if should_include {
                 trace!(contract_name, signature, "adding gas info");
                 let gas_info = contract_info
@@ -135,16 +137,7 @@ impl GasReport {
                     .or_default()
                     .entry(signature.clone())
                     .or_default();
-                gas_info.calls.push((
-                    trace.gas_used,
-                    if trace.is_error() {
-                        GasReportExecutionStatus::Halt
-                    } else if trace.is_revert() {
-                        GasReportExecutionStatus::Revert
-                    } else {
-                        GasReportExecutionStatus::Success
-                    },
-                ));
+                gas_info.calls.push((trace.gas_used, status));
             }
         }
     }

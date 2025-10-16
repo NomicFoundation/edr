@@ -156,6 +156,8 @@ pub struct SolidityTestRunnerConfigArgs {
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
     /// Controls whether to generate a gas report after running the tests.
+    /// Enabling this also enables collection of all traces and EVM isolation
+    /// mode.
     /// Defaults to false.
     pub generate_gas_report: Option<bool>,
 }

@@ -135,7 +135,7 @@ describe("Fuzz and invariant testing", function () {
     // The invariant failure directory should not be created if we don't set the directory
     assert.ok(!existsSync(failureDir));
 
-    const results2 = await runAllSolidityTests(
+    const [, results2] = await runAllSolidityTests(
       testContext.edrContext,
       L1_CHAIN_TYPE,
       testContext.artifacts,
@@ -172,7 +172,7 @@ describe("Fuzz and invariant testing", function () {
     // The invariant failure directory should now be created
     assert.ok(existsSync(failureDir));
 
-    const results3 = await runAllSolidityTests(
+    const [, results3] = await runAllSolidityTests(
       testContext.edrContext,
       L1_CHAIN_TYPE,
       testContext.artifacts,

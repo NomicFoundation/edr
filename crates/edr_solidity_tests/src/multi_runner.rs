@@ -66,6 +66,11 @@ pub struct SolidityTestResult {
     pub gas_report: Option<edr_gas_report::GasReport>,
 }
 
+pub struct SolidityTestsRunResult<HaltReasonT> {
+    pub test_result: SolidityTestResult,
+    pub suite_results: BTreeMap<String, SuiteResult<HaltReasonT>>,
+}
+
 /// A multi contract runner receives a set of contracts deployed in an EVM
 /// instance and proceeds to run all test functions in these contracts.
 #[derive_where(Clone; BlockT, HardforkT, NestedTraceDecoderT, TransactionT)]
@@ -278,7 +283,7 @@ impl<
         contract: &TestContract,
         fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
         filter: &dyn TestFilter,
-        gas_report: &mut Option<crate::gas_report::GasReport>,
+        mut gas_report: Option<&mut crate::gas_report::GasReport>,
         handle: &tokio::runtime::Handle,
     ) -> SuiteResult<HaltReasonT> {
         let identifier = artifact_id.identifier();
@@ -353,10 +358,7 @@ impl<
             let mut trace_identifier = TraceIdentifiers::new().with_local(&self.known_contracts);
 
             for result in r.test_results.values_mut() {
-                if !self.generate_gas_report
-                    && result.status.is_success()
-                    && self.include_traces != IncludeTraces::All
-                {
+                if result.status.is_success() && self.include_traces != IncludeTraces::All {
                     continue;
                 }
 
@@ -375,7 +377,7 @@ impl<
                     });
                 }
 
-                if let Some(gas_report) = gas_report {
+                if let Some(gas_report) = &mut gas_report {
                     tokio::task::block_in_place(|| {
                         handle.block_on(
                             gas_report
@@ -420,10 +422,7 @@ impl<
     pub async fn test_collect(
         self,
         filter: impl TestFilter + 'static,
-    ) -> (
-        SolidityTestResult,
-        BTreeMap<String, SuiteResult<HaltReasonT>>,
-    ) {
+    ) -> SolidityTestsRunResult<HaltReasonT> {
         let (tx_results, mut rx_results) =
             tokio::sync::mpsc::unbounded_channel::<SuiteResultAndArtifactId<HaltReasonT>>();
 
@@ -435,17 +434,20 @@ impl<
             }),
         );
 
-        let mut results = BTreeMap::new();
+        let mut suite_results = BTreeMap::new();
 
         while let Some(SuiteResultAndArtifactId {
             artifact_id,
             result,
         }) = rx_results.recv().await
         {
-            results.insert(artifact_id.identifier(), result);
+            suite_results.insert(artifact_id.identifier(), result);
         }
 
-        (test_result, results)
+        SolidityTestsRunResult {
+            test_result,
+            suite_results,
+        }
     }
 
     /// Executes _all_ tests that match the given `filter`.
@@ -493,7 +495,7 @@ impl<
                 &contract,
                 fork.clone(),
                 filter.as_ref(),
-                &mut gas_report,
+                gas_report.as_mut(),
                 &tokio_handle,
             );
 

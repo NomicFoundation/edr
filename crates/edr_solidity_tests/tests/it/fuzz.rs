@@ -17,7 +17,7 @@ async fn test_fuzz() {
         .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)|testSuccessChecker\(uint256\)|testSuccessChecker2\(int256\)|testSuccessChecker3\(uint32\)")
         .exclude_paths("invariant");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let (_, suite_result) = runner.test_collect(filter).await;
+    let suite_result = runner.test_collect(filter).await.suite_results;
 
     assert!(!suite_result.is_empty());
 
@@ -54,7 +54,7 @@ async fn test_successful_fuzz_cases() {
         .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)")
         .exclude_paths("invariant");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let (_, suite_result) = runner.test_collect(filter).await;
+    let suite_result = runner.test_collect(filter).await.suite_results;
 
     assert!(!suite_result.is_empty());
 
@@ -90,7 +90,7 @@ async fn test_fuzz_collection() {
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(6u32));
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let (_, results) = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -139,7 +139,7 @@ async fn test_persist_fuzz_failure() {
             $runner
                 .clone()
                 .test_collect(filter.clone()).await
-                .1
+                .suite_results
                 .get("default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest")
                 .unwrap()
                 .test_results
@@ -188,7 +188,7 @@ async fn test_fuzz_gas_report() {
     config.fuzz.seed = Some(U256::from(6u32));
     config.generate_gas_report = true;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let (test_result, _) = runner.test_collect(filter).await;
+    let test_result = runner.test_collect(filter).await.test_result;
 
     assert!(test_result.gas_report.is_some());
 
@@ -227,5 +227,5 @@ async fn test_fuzz_gas_report() {
         .unwrap();
 
     assert!(!increment_by_reports.is_empty());
-    assert!(increment_by_reports.iter().any(|r| r.gas > 0));
+    assert!(increment_by_reports.iter().all(|r| r.gas > 0));
 }

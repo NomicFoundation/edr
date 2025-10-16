@@ -9,7 +9,7 @@ use edr_solidity::{
     nested_trace::NestedTrace,
 };
 use edr_solidity_tests::{
-    multi_runner::SolidityTestResult,
+    multi_runner::SolidityTestsRunResult,
     result::{SuiteResult, TestStatus},
     MultiContractRunner,
 };
@@ -131,12 +131,7 @@ impl<
     }
 
     /// Executes the test runner
-    pub async fn test(
-        self,
-    ) -> (
-        SolidityTestResult,
-        BTreeMap<String, SuiteResult<HaltReasonT>>,
-    ) {
+    pub async fn test(self) -> SolidityTestsRunResult<HaltReasonT> {
         self.runner.test_collect(self.filter).await
     }
 
@@ -152,7 +147,7 @@ impl<
     pub async fn try_run(self) -> eyre::Result<()> {
         let should_fail = self.should_fail;
         let known_contracts = self.runner.known_contracts().clone();
-        let (_, suite_result) = self.test().await;
+        let suite_result = self.test().await.suite_results;
         if suite_result.is_empty() {
             eyre::bail!("empty test result");
         }

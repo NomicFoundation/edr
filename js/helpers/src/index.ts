@@ -39,46 +39,6 @@ export async function runAllSolidityTests(
     suiteResult: SuiteResult,
     testResult: TestResult
   ) => void = () => {}
-): Promise<SuiteResult[]> {
-  return new Promise((resolve, reject) => {
-    const resultsFromCallback: SuiteResult[] = [];
-
-    context
-      .runSolidityTests(
-        chainType,
-        artifacts,
-        testSuites,
-        configArgs,
-        tracingConfig,
-        (suiteResult: SuiteResult) => {
-          for (const testResult of suiteResult.testResults) {
-            testResultCallback(suiteResult, testResult);
-          }
-
-          resultsFromCallback.push(suiteResult);
-          if (resultsFromCallback.length === testSuites.length) {
-            resolve(resultsFromCallback);
-          }
-        }
-      )
-      .catch(reject);
-  });
-}
-
-/**
- * Run all the given solidity tests and returns the whole results after finishing, including the gas report.
- */
-export async function runAllSolidityTestsWithGasReport(
-  context: EdrContext,
-  chainType: string,
-  artifacts: Artifact[],
-  testSuites: ArtifactId[],
-  tracingConfig: TracingConfigWithBuffers,
-  configArgs: SolidityTestRunnerConfigArgs,
-  testResultCallback: (
-    suiteResult: SuiteResult,
-    testResult: TestResult
-  ) => void = () => {}
 ): Promise<[SolidityTestResult, SuiteResult[]]> {
   return new Promise((resolve, reject) => {
     const resultsFromCallback: SuiteResult[] = [];
@@ -98,11 +58,7 @@ export async function runAllSolidityTestsWithGasReport(
         }
       )
       .then((testResult) => {
-        if (testResult === undefined) {
-          reject();
-        } else {
-          resolve([testResult, resultsFromCallback]);
-        }
+        resolve([testResult, resultsFromCallback]);
       })
       .catch(reject);
   });
