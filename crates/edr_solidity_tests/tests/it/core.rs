@@ -17,11 +17,9 @@ use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
 #[tokio::test(flavor = "multi_thread")]
 async fn test_core() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*core");
-    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.generate_gas_report = true;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner().await;
     let SolidityTestsRunResult {
-        test_result,
+        test_result: _,
         suite_results,
     } = runner.test_collect(filter).await;
 
@@ -111,33 +109,6 @@ async fn test_core() {
                 vec![("invariant_deprecated_cheatcode()", true, None, None, None)],
             ),
         ]),
-    );
-
-    let gas_report = test_result.gas_report.unwrap();
-
-    let setup_failure_reports = gas_report
-        .contracts
-        .get("default/core/FailingSetup.t.sol:FailingSetupTest")
-        .unwrap();
-
-    let deployment_failure = setup_failure_reports.deployments.first().unwrap();
-    assert_eq!(deployment_failure.status, GasReportExecutionStatus::Revert);
-
-    let payment_failure_reports = gas_report
-        .contracts
-        .get("default/core/PaymentFailure.t.sol:Payable")
-        .unwrap();
-
-    let pay_failure = payment_failure_reports
-        .functions
-        .get("pay()")
-        .unwrap()
-        .first();
-    assert!(pay_failure.is_some());
-    assert_eq!(pay_failure.unwrap().gas, 0);
-    assert_eq!(
-        pay_failure.unwrap().status,
-        GasReportExecutionStatus::Revert
     );
 }
 
@@ -899,5 +870,46 @@ async fn test_deprecated_cheatcode_warning() {
                 vec!["invariant_deprecated_cheatcode()"],
             ),
         ]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_report_revert() {
+    let filter = SolidityTestFilter::new(
+        ".*",
+        ".*",
+        "default/core/(FailingSetup|PaymentFailure).t.sol",
+    );
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.generate_gas_report = true;
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let SolidityTestsRunResult { test_result, .. } = runner.test_collect(filter).await;
+
+    let gas_report = test_result.gas_report.unwrap();
+
+    // Test reverts
+    let setup_failure_reports = gas_report
+        .contracts
+        .get("default/core/FailingSetup.t.sol:FailingSetupTest")
+        .unwrap();
+
+    let deployment_failure = setup_failure_reports.deployments.first().unwrap();
+    assert_eq!(deployment_failure.status, GasReportExecutionStatus::Revert);
+
+    let payment_failure_reports = gas_report
+        .contracts
+        .get("default/core/PaymentFailure.t.sol:Payable")
+        .unwrap();
+
+    let pay_failure = payment_failure_reports
+        .functions
+        .get("pay()")
+        .unwrap()
+        .first();
+    assert!(pay_failure.is_some());
+    assert_eq!(pay_failure.unwrap().gas, 0);
+    assert_eq!(
+        pay_failure.unwrap().status,
+        GasReportExecutionStatus::Revert
     );
 }
