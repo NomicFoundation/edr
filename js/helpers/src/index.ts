@@ -42,7 +42,7 @@ export async function runAllSolidityTests(
 ): Promise<[SolidityTestResult, SuiteResult[]]> {
   return new Promise((resolve, reject) => {
     const resultsFromCallback: SuiteResult[] = [];
-    let testResult: SolidityTestResult | undefined = undefined;
+    let testResult: SolidityTestResult | undefined;
     let isTestComplete = false;
 
     const tryResolve = () => {
