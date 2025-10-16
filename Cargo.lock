@@ -2491,6 +2491,7 @@ dependencies = [
  "edr_eip2930",
  "edr_eip7702",
  "edr_evm",
+ "edr_evm2",
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
@@ -2706,6 +2707,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_evm2"
+version = "0.3.8"
+dependencies = [
+ "edr_blockchain_api",
+ "edr_chain_spec",
+ "edr_database_components",
+ "edr_evm_spec",
+ "edr_precompile",
+ "edr_primitives",
+ "edr_state_api",
+ "tracing",
+]
+
+[[package]]
 name = "edr_evm_spec"
 version = "0.3.8"
 dependencies = [
@@ -2915,6 +2930,17 @@ dependencies = [
  "serial_test",
  "thiserror 1.0.69",
  "tokio",
+]
+
+[[package]]
+name = "edr_precompile"
+version = "0.3.8"
+dependencies = [
+ "edr_primitives",
+ "revm-context-interface",
+ "revm-handler",
+ "revm-interpreter",
+ "revm-precompile",
 ]
 
 [[package]]

@@ -11,6 +11,7 @@ use edr_block_builder_api::{
 use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction, HaltReasonTrait, TransactionValidation};
+use edr_evm2::dry_run;
 use edr_evm_spec::{DatabaseComponentError, ExecutionResultAndState, Inspector, TransactionError};
 use edr_primitives::{Address, Bloom, HashMap, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
@@ -232,6 +233,7 @@ impl<
             StateErrorT,
         >,
         state: Box<dyn SyncState<StateErrorT>>,
+        config: BlockConfig<'_, HardforkT>,
         cfg: CfgEnv<HardforkT>,
         inputs: BlockInputs,
         mut overrides: HeaderOverrides<HardforkT>,
@@ -246,7 +248,9 @@ impl<
 
         let eth_hardfork = cfg.spec.into();
         if eth_hardfork < EvmSpecId::BYZANTIUM {
-            return Err(BlockBuilderCreationError::UnsupportedHardfork(cfg.spec));
+            return Err(BlockBuilderCreationError::UnsupportedHardfork(
+                config.hardfork,
+            ));
         } else if eth_hardfork >= EvmSpecId::SHANGHAI && inputs.withdrawals.is_none() {
             return Err(BlockBuilderCreationError::MissingWithdrawals);
         }
@@ -260,11 +264,7 @@ impl<
 
         overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new(
-            BlockConfig {
-                base_fee_params: base_fee_params_for::<ChainSpecT>(cfg.chain_id),
-                hardfork: cfg.spec,
-                min_ethash_difficulty: inputs.min_ethash_difficulty,
-            },
+            config,
             overrides,
             Some(parent_header),
             &inputs.ommers,

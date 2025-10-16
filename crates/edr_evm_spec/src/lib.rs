@@ -24,7 +24,7 @@ pub type ContextForChainSpec<ChainSpecT, DatabaseT> = Context<
 >;
 
 /// A trait for running a transaction in a chain's associated EVM.
-pub trait ChainEvmSpec: ChainContextSpec + ChainHardfork + ChainSpec {
+pub trait EvmChainSpec: ChainContextSpec + ChainHardfork + ChainSpec {
     /// Type representing a precompile provider.
     type PrecompileProvider<DatabaseT: Database>: Default
         + PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>;

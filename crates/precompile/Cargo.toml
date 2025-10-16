@@ -1,0 +1,14 @@
+[package]
+name = "edr_precompile"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_primitives.workspace = true
+revm-context-interface.workspace = true
+revm-handler.workspace = true
+revm-interpreter.workspace = true
+revm-precompile.workspace = true
+
+[lints]
+workspace = true

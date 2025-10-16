@@ -1,14 +1,16 @@
+//! Types for EVM precompiles.
+#![warn(missing_docs)]
+
 use std::marker::PhantomData;
 
 use edr_primitives::{Address, Bytes, HashMap, HashSet};
+use revm_context_interface::{Cfg, ContextTr as ContextTrait};
 pub use revm_handler::{EthPrecompiles, PrecompileProvider};
-use revm_interpreter::{Gas, InstructionResult, InterpreterResult};
+use revm_interpreter::{interpreter::InputsImpl, Gas, InstructionResult, InterpreterResult};
 pub use revm_precompile::{
     secp256r1, u64_to_address, PrecompileError, PrecompileFn, PrecompileSpecId,
     PrecompileWithAddress, Precompiles,
 };
-
-use crate::{config::Cfg, interpreter::InputsImpl, spec::ContextTrait};
 
 /// A precompile provider that allows adding custom or overwriting existing
 /// precompiles.

@@ -10,7 +10,7 @@ use edr_evm_spec::{
     handler::{EthInstructions, EthPrecompiles},
     interpreter::InterpreterResult,
     result::EVMError,
-    ChainEvmSpec, ContextForChainSpec, Database, Evm, ExecuteEvm as _, InspectEvm as _, Inspector,
+    EvmChainSpec, ContextForChainSpec, Database, Evm, ExecuteEvm as _, InspectEvm as _, Inspector,
     PrecompileProvider, TransactionError,
 };
 use edr_primitives::Bytes;
@@ -55,7 +55,7 @@ fn cast_evm_error<DatabaseT: Database>(
     }
 }
 
-impl ChainEvmSpec for L1ChainSpec {
+impl EvmChainSpec for L1ChainSpec {
     type PrecompileProvider<DatabaseT: Database> = EthPrecompiles;
 
     fn dry_run<

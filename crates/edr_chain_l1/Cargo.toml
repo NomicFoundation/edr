@@ -17,6 +17,7 @@ edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_evm_spec.workspace = true
+edr_evm2.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_receipt_spec.workspace = true

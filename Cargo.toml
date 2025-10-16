@@ -41,6 +41,8 @@ members = [
     "crates/eips/2930",
     "crates/eips/4844",
     "crates/eips/7702",
+    "crates/evm",
+    "crates/precompile",
     "crates/primitives",
     "crates/runtime/spec",
     "crates/state/api",
@@ -136,12 +138,14 @@ edr_eip4844 = { path = "crates/eips/4844" }
 edr_eip7702 = { path = "crates/eips/7702" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/edr_evm" }
+edr_evm2 = { path = "crates/evm" }
 edr_evm_spec = { path = "crates/edr_evm_spec" }
 edr_generic = { path = "crates/edr_generic" }
 edr_macros = { path = "crates/edr_macros" }
 edr_napi_core = { path = "crates/edr_napi_core" }
 edr_op = { path = "crates/edr_op" }
 edr_primitives = { path = "crates/primitives" }
+edr_precompile = { path = "crates/precompile" }
 edr_provider = { path = "crates/edr_provider" }
 edr_receipt = { path = "crates/edr_receipt" }
 edr_receipt_spec = { path = "crates/edr_receipt_spec" }

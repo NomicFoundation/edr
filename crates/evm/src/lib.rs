@@ -1,53 +1,58 @@
+//! Utilities for running transactions in the EVM.
+#![warn(missing_docs)]
+
+mod config;
+
 use edr_blockchain_api::BlockHash;
 use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
-use edr_database_components::DatabaseComponents;
-use edr_evm_spec::{ChainEvmSpec, Context, Journal, TransactionError};
+use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
+use edr_evm_spec::{
+    result::{ExecutionResult, ExecutionResultAndState},
+    CfgEnv, ContextForChainSpec, DatabaseComponentError, EvmChainSpec, Inspector, TransactionError,
+};
+use edr_precompile::{OverriddenPrecompileProvider, PrecompileFn};
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{State, StateCommit};
-use revm::{precompile::PrecompileFn, Inspector};
-
-use crate::{
-    config::CfgEnv,
-    precompile::OverriddenPrecompileProvider,
-    result::{ExecutionResult, ExecutionResultAndState},
-    state::WrapDatabaseRef,
-};
 
 /// Runs a transaction without committing the state.
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 // Cannot meaningfully be simplified further
 #[allow(clippy::type_complexity)]
 pub fn dry_run<
+    // As this generic type always needs to be specified, placing it first makes the function
+    // easier to use; e.g.
+    // ```
+    // dry_run::<MyChainSpec, _, _>(...)
+    // ```
+    EvmChainSpecT: EvmChainSpec<
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError>,
+        >,
+    >,
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
-    BlockEnvT,
-    EvmT: ChainEvmSpec,
-    HaltReasonT,
-    HardforkT,
-    PrecompileProviderT: Default,
-    SignedTransactionT: TransactionValidation<ValidationError: From<EvmTransactionValidationError>>,
     StateT: State<Error: Send + std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
-    cfg: CfgEnv<HardforkT>,
-    transaction: SignedTransactionT,
-    block: BlockEnvT,
+    cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    transaction: EvmChainSpecT::SignedTransaction,
+    block: EvmChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    ExecutionResultAndState<HaltReasonT>,
+    ExecutionResultAndState<EvmChainSpecT::HaltReason>,
     TransactionError<
-        DatabaseComponents<BlockchainT::Error, StateT::Error>,
-        <SignedTransactionT as TransactionValidation>::ValidationError,
+        DatabaseComponentError<BlockchainT::Error, StateT::Error>,
+        <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
     >,
 > {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
     let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
-        PrecompileProviderT::default(),
+        EvmChainSpecT::PrecompileProvider::default(),
         custom_precompiles.clone(),
     );
 
-    EvmT::dry_run(block, cfg, transaction, database, precompile_provider)
+    EvmChainSpecT::dry_run(block, cfg, transaction, database, precompile_provider)
 }
 
 /// Runs a transaction while observing with an inspector, without committing the
@@ -56,47 +61,47 @@ pub fn dry_run<
 // Cannot meaningfully be simplified further
 #[allow(clippy::type_complexity)]
 pub fn dry_run_with_inspector<
-    BlockchainT: BlockHash<Error: Send + std::error::Error>,
-    BlockEnvT,
-    EvmT: ChainEvmSpec,
-    HaltReasonT,
-    HardforkT,
-    InspectorT: Inspector<
-        Context<
-            BlockEnvT,
-            SignedTransactionT,
-            HardforkT,
-            WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            Journal<WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
-            EvmT::Context,
+    // As this generic type always needs to be specified, placing it first makes the function
+    // easier to use; e.g.
+    // ```
+    // dry_run::<MyChainSpec, _, _, _>(...)
+    // ```
+    EvmChainSpecT: EvmChainSpec<
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError>,
         >,
     >,
-    PrecompileProviderT: Default,
-    SignedTransactionT: TransactionValidation<ValidationError: From<EvmTransactionValidationError>>,
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    InspectorT: Inspector<
+        ContextForChainSpec<
+            EvmChainSpecT,
+            WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+        >,
+    >,
     StateT: State<Error: Send + std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
-    cfg: CfgEnv<HardforkT>,
-    transaction: SignedTransactionT,
-    block: BlockEnvT,
+    cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    transaction: EvmChainSpecT::SignedTransaction,
+    block: EvmChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
     inspector: &mut InspectorT,
 ) -> Result<
-    ExecutionResultAndState<HaltReasonT>,
+    ExecutionResultAndState<EvmChainSpecT::HaltReason>,
     TransactionError<
-        DatabaseComponents<BlockchainT::Error, StateT::Error>,
-        <SignedTransactionT as TransactionValidation>::ValidationError,
+        DatabaseComponentError<BlockchainT::Error, StateT::Error>,
+        <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
     >,
 > {
     let database = WrapDatabaseRef(DatabaseComponents { blockchain, state });
 
     let precompile_provider = OverriddenPrecompileProvider::with_precompiles(
-        EvmT::PrecompileProvider::default(),
+        EvmChainSpecT::PrecompileProvider::default(),
         custom_precompiles.clone(),
     );
 
-    EvmT::dry_run_with_inspector(
+    EvmChainSpecT::dry_run_with_inspector(
         block,
         cfg,
         transaction,
@@ -112,31 +117,35 @@ pub fn dry_run_with_inspector<
 // Cannot meaningfully be simplified further
 #[allow(clippy::type_complexity)]
 pub fn guaranteed_dry_run<
+    // As this generic type always needs to be specified, placing it first makes the function
+    // easier to use; e.g.
+    // ```
+    // dry_run::<MyChainSpec, _, _>(...)
+    // ```
+    EvmChainSpecT: EvmChainSpec<
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError>,
+        >,
+    >,
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
-    BlockEnvT,
-    EvmT: ChainEvmSpec,
-    HaltReasonT,
-    HardforkT,
-    PrecompileProviderT: Default,
-    SignedTransactionT: TransactionValidation<ValidationError: From<EvmTransactionValidationError>>,
     StateT: State<Error: Send + std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
-    mut cfg: CfgEnv<HardforkT>,
-    transaction: SignedTransactionT,
-    block: BlockEnvT,
+    mut cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    transaction: EvmChainSpecT::SignedTransaction,
+    block: EvmChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    ExecutionResultAndState<HaltReasonT>,
+    ExecutionResultAndState<EvmChainSpecT::HaltReason>,
     TransactionError<
-        DatabaseComponents<BlockchainT::Error, StateT::Error>,
-        <SignedTransactionT as TransactionValidation>::ValidationError,
+        DatabaseComponentError<BlockchainT::Error, StateT::Error>,
+        <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
     >,
 > {
     set_guarantees(&mut cfg);
 
-    dry_run(
+    dry_run::<EvmChainSpecT, _, _>(
         blockchain,
         state,
         cfg,
@@ -153,42 +162,42 @@ pub fn guaranteed_dry_run<
 // Cannot meaningfully be simplified further
 #[allow(clippy::type_complexity)]
 pub fn guaranteed_dry_run_with_inspector<
-    BlockchainT: BlockHash<Error: Send + std::error::Error>,
-    BlockEnvT,
-    EvmT: ChainEvmSpec,
-    HaltReasonT,
-    HardforkT,
-    InspectorT: Inspector<
-        Context<
-            BlockEnvT,
-            SignedTransactionT,
-            HardforkT,
-            WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
-            Journal<WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
-            EvmT::Context,
+    // As this generic type always needs to be specified, placing it first makes the function
+    // easier to use; e.g.
+    // ```
+    // dry_run::<MyChainSpec, _, _, _>(...)
+    // ```
+    EvmChainSpecT: EvmChainSpec<
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError>,
         >,
     >,
-    PrecompileProviderT: Default,
-    SignedTransactionT: TransactionValidation<ValidationError: From<EvmTransactionValidationError>>,
+    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    InspectorT: Inspector<
+        ContextForChainSpec<
+            EvmChainSpecT,
+            WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
+        >,
+    >,
     StateT: State<Error: Send + std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
-    mut cfg: CfgEnv<HardforkT>,
-    transaction: SignedTransactionT,
-    block: BlockEnvT,
+    mut cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    transaction: EvmChainSpecT::SignedTransaction,
+    block: EvmChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
     inspector: &mut InspectorT,
 ) -> Result<
-    ExecutionResultAndState<HaltReasonT>,
+    ExecutionResultAndState<EvmChainSpecT::HaltReason>,
     TransactionError<
-        DatabaseComponents<BlockchainT::Error, StateT::Error>,
-        <SignedTransactionT as TransactionValidation>::ValidationError,
+        DatabaseComponentError<BlockchainT::Error, StateT::Error>,
+        <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
     >,
 > {
     set_guarantees(&mut cfg);
 
-    dry_run_with_inspector(
+    dry_run_with_inspector::<EvmChainSpecT, _, _, _>(
         blockchain,
         state,
         cfg,
@@ -204,32 +213,36 @@ pub fn guaranteed_dry_run_with_inspector<
 // Cannot meaningfully be simplified further
 #[allow(clippy::type_complexity)]
 pub fn run<
+    // As this generic type always needs to be specified, placing it first makes the function
+    // easier to use; e.g.
+    // ```
+    // dry_run::<MyChainSpec, _, _>(...)
+    // ```
+    EvmChainSpecT: EvmChainSpec<
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError>,
+        >,
+    >,
     BlockchainT: BlockHash<Error: Send + std::error::Error>,
-    BlockEnvT,
-    EvmT: ChainEvmSpec,
-    HaltReasonT,
-    HardforkT,
-    PrecompileProviderT: Default,
-    SignedTransactionT: TransactionValidation<ValidationError: From<EvmTransactionValidationError>>,
     StateT: State<Error: Send + std::error::Error> + StateCommit,
 >(
     blockchain: BlockchainT,
     mut state: StateT,
-    cfg: CfgEnv<HardforkT>,
-    transaction: SignedTransactionT,
-    block: BlockEnvT,
+    cfg: CfgEnv<EvmChainSpecT::Hardfork>,
+    transaction: EvmChainSpecT::SignedTransaction,
+    block: EvmChainSpecT::BlockEnv,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    ExecutionResult<HaltReasonT>,
+    ExecutionResult<EvmChainSpecT::HaltReason>,
     TransactionError<
-        DatabaseComponents<BlockchainT::Error, StateT::Error>,
-        <SignedTransactionT as TransactionValidation>::ValidationError,
+        DatabaseComponentError<BlockchainT::Error, StateT::Error>,
+        <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
     >,
 > {
     let ExecutionResultAndState {
         result,
         state: state_diff,
-    } = dry_run(
+    } = dry_run::<EvmChainSpecT, _, _>(
         blockchain,
         &state,
         cfg,
