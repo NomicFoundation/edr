@@ -42,12 +42,12 @@ export async function runAllSolidityTests(
 ): Promise<[SolidityTestResult, SuiteResult[]]> {
   return new Promise((resolve, reject) => {
     const resultsFromCallback: SuiteResult[] = [];
-    let testResult: SolidityTestResult | undefined;
+    let solidityTestResult: SolidityTestResult | undefined;
     let isTestComplete = false;
 
     const tryResolve = () => {
       if (isTestComplete && resultsFromCallback.length === testSuites.length) {
-        resolve([testResult!, resultsFromCallback]);
+        resolve([solidityTestResult!, resultsFromCallback]);
       }
     };
 
@@ -67,7 +67,7 @@ export async function runAllSolidityTests(
         }
       )
       .then((result) => {
-        testResult = result;
+        solidityTestResult = result;
         isTestComplete = true;
         tryResolve();
       })

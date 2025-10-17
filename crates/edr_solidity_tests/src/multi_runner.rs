@@ -27,6 +27,7 @@ use foundry_evm::{
         TracingMode,
     },
 };
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     config::CollectStackTraces,
@@ -123,10 +124,10 @@ pub struct MultiContractRunner<
     /// Optionally, a callback to be called when coverage is collected.
     #[debug(skip)]
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
-    #[allow(clippy::type_complexity)]
-    _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
     /// Whether to generate a gas report after running the tests.
     generate_gas_report: bool,
+    #[allow(clippy::type_complexity)]
+    _phantom: PhantomData<fn() -> (ChainContextT, EvmBuilderT, HaltReasonT, TransactionErrorT)>,
 }
 
 impl<
@@ -377,7 +378,7 @@ impl<
                     });
                 }
 
-                if let Some(gas_report) = &mut gas_report {
+                if let Some(gas_report) = gas_report.as_mut() {
                     tokio::task::block_in_place(|| {
                         handle.block_on(
                             gas_report
@@ -484,33 +485,47 @@ impl<
             find_time,
         );
 
-        let mut gas_report = self
-            .generate_gas_report
-            .then(crate::gas_report::GasReport::default);
+        // Gas reports are collected for each suite and merged at the end to allow
+        // parallel execution of test suites.
+        let gas_reports = contracts
+            .into_par_iter()
+            .map(|(id, contract)| {
+                let _guard = tokio_handle.enter();
+                let mut gas_report = self
+                    .generate_gas_report
+                    .then(crate::gas_report::GasReport::default);
 
-        for (id, contract) in contracts {
-            let _guard = tokio_handle.enter();
-            let result = self.run_tests(
-                &id,
-                &contract,
-                fork.clone(),
-                filter.as_ref(),
-                gas_report.as_mut(),
-                &tokio_handle,
-            );
+                let result = self.run_tests(
+                    &id,
+                    &contract,
+                    fork.clone(),
+                    filter.as_ref(),
+                    gas_report.as_mut(),
+                    &tokio_handle,
+                );
 
-            on_test_suite_completed_fn(SuiteResultAndArtifactId {
-                artifact_id: id,
-                result,
-            });
-        }
+                on_test_suite_completed_fn(SuiteResultAndArtifactId {
+                    artifact_id: id,
+                    result,
+                });
 
-        SolidityTestResult {
-            gas_report: gas_report.map(|report| {
-                let finalized = report.finalize();
-                edr_gas_report::GasReport::from(finalized)
-            }),
-        }
+                gas_report
+            })
+            .collect::<Vec<_>>();
+
+        // Merge gas reports
+        let gas_report = self.generate_gas_report.then(|| {
+            gas_reports
+                .into_iter()
+                .flatten()
+                .map(edr_gas_report::GasReport::from)
+                .fold(edr_gas_report::GasReport::default(), |mut acc, report| {
+                    acc.merge(report);
+                    acc
+                })
+        });
+
+        SolidityTestResult { gas_report }
     }
 }
 

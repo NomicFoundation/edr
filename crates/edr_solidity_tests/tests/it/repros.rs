@@ -206,7 +206,6 @@ remote_test_repro!(
 // https://github.com/foundry-rs/foundry/issues/3347
 test_repro!(3347, false, None, |res| {
     let mut res = res
-        .suite_results
         .remove("default/repros/Issue3347.t.sol:Issue3347Test")
         .unwrap();
     let test = res.test_results.remove("test()").unwrap();
@@ -268,7 +267,6 @@ test_repro!(4402);
 // https://github.com/foundry-rs/foundry/issues/4523
 test_repro!(4523, false, None, |res| {
     let mut res = res
-        .suite_results
         .remove("default/repros/Issue4523.t.sol:Issue4523Test")
         .unwrap();
 
@@ -305,7 +303,6 @@ test_repro!(5038);
 // https://github.com/foundry-rs/foundry/issues/5491
 test_repro!(5491, false, None, |res| {
     let mut res = res
-        .suite_results
         .remove("default/repros/Issue5491.t.sol:Issue5491Test")
         .unwrap();
 
@@ -365,7 +362,6 @@ test_repro!(6115);
 // https://github.com/foundry-rs/foundry/issues/6170
 test_repro!(6170, false, None, |res| {
     let mut res = res
-        .suite_results
         .remove("default/repros/Issue6170.t.sol:Issue6170Test")
         .unwrap();
     let test = res.test_results.remove("test()").unwrap();
@@ -382,7 +378,6 @@ test_repro!(6180);
 // https://github.com/foundry-rs/foundry/issues/6355
 test_repro!(6355, false, None, |res| {
     let mut res = res
-        .suite_results
         .remove("default/repros/Issue6355.t.sol:Issue6355Test")
         .unwrap();
     let test = res.test_results.remove("test_shouldFail()").unwrap();
@@ -402,7 +397,6 @@ test_repro!(6437);
 // https://github.com/foundry-rs/foundry/issues/6501
 test_repro!(6501, false, None, |res| {
     let mut res = res
-        .suite_results
         .remove("default/repros/Issue6501.t.sol:Issue6501Test")
         .unwrap();
     let test = res.test_results.remove("test_hhLogs()").unwrap();
