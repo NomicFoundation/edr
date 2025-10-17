@@ -284,9 +284,11 @@ impl<
         contract: &TestContract,
         fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
         filter: &dyn TestFilter,
-        mut gas_report: Option<&mut crate::gas_report::GasReport>,
         handle: &tokio::runtime::Handle,
-    ) -> SuiteResult<HaltReasonT> {
+    ) -> (
+        SuiteResult<HaltReasonT>,
+        Option<crate::gas_report::GasReport>,
+    ) {
         let identifier = artifact_id.identifier();
         let mut span_name = identifier.as_str();
 
@@ -354,6 +356,10 @@ impl<
             );
         let mut r = runner.run_tests(filter, &self.test_options, handle);
 
+        let mut gas_report = self
+            .generate_gas_report
+            .then(crate::gas_report::GasReport::default);
+
         if self.include_traces != IncludeTraces::None {
             let mut decoder = CallTraceDecoderBuilder::new().build();
             let mut trace_identifier = TraceIdentifiers::new().with_local(&self.known_contracts);
@@ -411,7 +417,7 @@ impl<
         }
         debug!(duration=?r.duration, "executed all tests in contract");
 
-        r
+        (r, gas_report)
     }
 
     /// Executes _all_ tests that match the given `filter`.
@@ -491,18 +497,8 @@ impl<
             .into_par_iter()
             .map(|(id, contract)| {
                 let _guard = tokio_handle.enter();
-                let mut gas_report = self
-                    .generate_gas_report
-                    .then(crate::gas_report::GasReport::default);
-
-                let result = self.run_tests(
-                    &id,
-                    &contract,
-                    fork.clone(),
-                    filter.as_ref(),
-                    gas_report.as_mut(),
-                    &tokio_handle,
-                );
+                let (result, gas_report) =
+                    self.run_tests(&id, &contract, fork.clone(), filter.as_ref(), &tokio_handle);
 
                 on_test_suite_completed_fn(SuiteResultAndArtifactId {
                     artifact_id: id,
