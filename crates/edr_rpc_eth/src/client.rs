@@ -789,7 +789,11 @@ mod tests {
                 .await
                 .expect_err("should have failed");
 
-            assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
+            let RpcClientError::HttpStatus(error) = error else {
+                panic!("Expected HttpStatus error, got: {error:?}");
+            };
+
+            assert!(reqwest::Error::from(error).status() == Some(reqwest::StatusCode::BAD_REQUEST));
         }
 
         #[tokio::test]
@@ -909,7 +913,11 @@ mod tests {
                 .await
                 .expect_err("should have failed");
 
-            assert!(matches!(error, RpcClientError::JsonRpcError { .. }));
+            let RpcClientError::HttpStatus(error) = error else {
+                panic!("Expected HttpStatus error, got: {error:?}");
+            };
+
+            assert!(reqwest::Error::from(error).status() == Some(reqwest::StatusCode::BAD_REQUEST));
         }
 
         #[tokio::test]
