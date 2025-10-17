@@ -19,6 +19,7 @@ edr_defaults = { path = "../edr_defaults" }
 edr_eip1559.workspace = true
 edr_evm_spec.workspace = true
 edr_evm = { path = "../edr_evm" }
+edr_gas_report.workspace = true
 edr_generic = { path = "../edr_generic" }
 edr_instrument = { path = "../edr_instrument" }
 edr_napi_core = { path = "../edr_napi_core" }

@@ -736,6 +736,13 @@ export interface SolidityTestRunnerConfigArgs {
    * match the pattern will be executed and reported as a test result.
    */
   testPattern?: string
+  /**
+   * Controls whether to generate a gas report after running the tests.
+   * Enabling this also enables collection of all traces and EVM isolation
+   * mode.
+   * Defaults to false.
+   */
+  generateGasReport?: boolean
 }
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {
@@ -1136,6 +1143,11 @@ export interface DecodedTraceParameters {
    */
   arguments: Array<string>
 }
+/** The result of a Solidity test run. */
+export interface SolidityTestResult {
+  /** Gas report, if it was generated. */
+  readonly gasReport?: GasReport
+}
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
   /** Callback to be called when a new event is received. */
@@ -1406,12 +1418,11 @@ export declare class EdrContext {
   /**
    *Executes Solidity tests.
    *
-   *The function will return as soon as test execution is started.
-   *The progress callback will be called with the results of each test
-   *suite. It is up to the caller to track how many times the callback
-   *is called to know when all tests are done.
+   *The function will return a promise that resolves to a [`SolidityTestResult`]
+   *after the tests are done. The progress callback will be called with the
+   *results of each test suite.
    */
-  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
+  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
 }
 export declare class ContractDecoder {
   /**Creates an empty instance. */

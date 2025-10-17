@@ -19,7 +19,7 @@ mod remote {
         let runner = TEST_DATA_DEFAULT
             .runner_with_config(TEST_DATA_DEFAULT.config_with_remote_rpc())
             .await;
-        let suite_result = runner.test_collect(filter).await;
+        let suite_result = runner.test_collect(filter).await.suite_results;
         assert_eq!(suite_result.len(), 1);
 
         for (_, SuiteResult { test_results, .. }) in suite_result {

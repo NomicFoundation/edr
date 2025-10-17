@@ -18,6 +18,7 @@ import {
   UnsafeToReplay,
   opSolidityTestRunnerFactory,
   SuiteResult,
+  SolidityTestResult,
 } from "@nomicfoundation/edr";
 import {
   buildSolidityTestsInput,
@@ -104,7 +105,10 @@ export class TestContext {
       throw new Error(`No matching test contract found for ${contractName}`);
     }
 
-    const suiteResults = await runAllSolidityTests(
+    let suiteResults: SuiteResult[] = [];
+    let solidityTestResult: SolidityTestResult | undefined = undefined;
+
+    [solidityTestResult, suiteResults] = await runAllSolidityTests(
       this.edrContext,
       chainType,
       this.artifacts,
@@ -134,7 +138,14 @@ export class TestContext {
         }
       }
     }
-    return { totalTests, failedTests, stackTraces, callTraces, suiteResults };
+    return {
+      totalTests,
+      failedTests,
+      stackTraces,
+      callTraces,
+      suiteResults,
+      testResult: solidityTestResult,
+    };
   }
 
   matchingTest(contractName: string): ArtifactId[] {
@@ -160,6 +171,7 @@ interface SolidityTestsRunResult {
   >;
   callTraces: Map<string, CallTrace[]>;
   suiteResults: SuiteResult[];
+  testResult?: SolidityTestResult;
 }
 
 type ActualStackTraceResult =

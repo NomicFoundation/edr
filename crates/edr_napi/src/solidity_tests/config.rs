@@ -155,6 +155,11 @@ pub struct SolidityTestRunnerConfigArgs {
     /// A regex pattern to filter tests. If provided, only test methods that
     /// match the pattern will be executed and reported as a test result.
     pub test_pattern: Option<String>,
+    /// Controls whether to generate a gas report after running the tests.
+    /// Enabling this also enables collection of all traces and EVM isolation
+    /// mode.
+    /// Defaults to false.
+    pub generate_gas_report: Option<bool>,
 }
 
 impl SolidityTestRunnerConfigArgs {
@@ -200,6 +205,7 @@ impl SolidityTestRunnerConfigArgs {
             include_traces,
             observability,
             test_pattern,
+            generate_gas_report,
         } = self;
 
         let test_pattern = TestFilterConfig {
@@ -305,6 +311,7 @@ impl SolidityTestRunnerConfigArgs {
             ),
             on_collected_coverage_fn,
             test_pattern,
+            generate_gas_report,
         };
 
         Ok(config)

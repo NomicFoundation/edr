@@ -10,6 +10,7 @@ import {
   SolidityTestRunnerConfigArgs,
   TestResult,
   TracingConfigWithBuffers,
+  SolidityTestResult,
 } from "@nomicfoundation/edr";
 import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import { BuildOptions } from "hardhat/types/solidity";
@@ -38,9 +39,17 @@ export async function runAllSolidityTests(
     suiteResult: SuiteResult,
     testResult: TestResult
   ) => void = () => {}
-): Promise<SuiteResult[]> {
+): Promise<[SolidityTestResult, SuiteResult[]]> {
   return new Promise((resolve, reject) => {
     const resultsFromCallback: SuiteResult[] = [];
+    let solidityTestResult: SolidityTestResult | undefined;
+    let isTestComplete = false;
+
+    const tryResolve = () => {
+      if (isTestComplete && resultsFromCallback.length === testSuites.length) {
+        resolve([solidityTestResult!, resultsFromCallback]);
+      }
+    };
 
     context
       .runSolidityTests(
@@ -53,13 +62,15 @@ export async function runAllSolidityTests(
           for (const testResult of suiteResult.testResults) {
             testResultCallback(suiteResult, testResult);
           }
-
           resultsFromCallback.push(suiteResult);
-          if (resultsFromCallback.length === testSuites.length) {
-            resolve(resultsFromCallback);
-          }
+          tryResolve();
         }
       )
+      .then((result) => {
+        solidityTestResult = result;
+        isTestComplete = true;
+        tryResolve();
+      })
       .catch(reject);
   });
 }

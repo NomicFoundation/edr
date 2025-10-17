@@ -118,7 +118,7 @@ export async function runSolidityTests(
   }
 
   const start = process.hrtime.bigint();
-  const results = await runAllSolidityTests(
+  const [, results] = await runAllSolidityTests(
     context,
     chainType,
     artifacts,
@@ -166,7 +166,7 @@ export async function runSolidityTestsBenchmark(resultsPath: string) {
         ids = ids.filter((id) => id.name === name);
       }
       const start = performance.now();
-      const results = await runAllSolidityTests(
+      const [, results] = await runAllSolidityTests(
         context,
         chainType,
         artifacts,

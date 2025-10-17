@@ -7,6 +7,10 @@ use std::{
 
 use comfy_table::{presets::ASCII_MARKDOWN, Attribute, Cell, Color, Table};
 use edr_common::calc;
+use edr_gas_report::{
+    ContractGasReport, DeploymentGasReport, FunctionGasReport, GasReportExecutionStatus,
+};
+use edr_primitives::HashMap;
 use foundry_evm::{abi::TestFunctionExt, traces::CallKind};
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
@@ -102,10 +106,6 @@ impl GasReport {
         };
         let contract_name = name.rsplit(':').next().unwrap_or(name);
 
-        if !self.should_report(contract_name) {
-            return;
-        }
-
         let decoded = || decoder.decode_function(&node.trace);
 
         let contract_info = self.contracts.entry(name.clone()).or_default();
@@ -115,9 +115,21 @@ impl GasReport {
             contract_info.size = trace.data.len();
         } else if let Some(DecodedCallData { signature, .. }) = decoded().await.call_data {
             let name = signature.split('(').next().unwrap();
-            // ignore any test/setup functions
+            // Contract deployment status is determined by the setUp function
+            let is_setup = name.test_function_kind().is_setup();
+            // Ignore any test functions
             let should_include = !name.test_function_kind().is_known();
-            if should_include {
+            let status = if trace.is_revert() {
+                GasReportExecutionStatus::Revert
+            } else if trace.is_error() {
+                GasReportExecutionStatus::Halt
+            } else {
+                GasReportExecutionStatus::Success
+            };
+
+            if is_setup {
+                contract_info.status = status;
+            } else if should_include {
                 trace!(contract_name, signature, "adding gas info");
                 let gas_info = contract_info
                     .functions
@@ -125,7 +137,7 @@ impl GasReport {
                     .or_default()
                     .entry(signature.clone())
                     .or_default();
-                gas_info.calls.push(trace.gas_used);
+                gas_info.calls.push((trace.gas_used, status));
             }
         }
     }
@@ -138,11 +150,12 @@ impl GasReport {
         for contract in self.contracts.values_mut() {
             for sigs in contract.functions.values_mut() {
                 for func in sigs.values_mut() {
-                    func.calls.sort_unstable();
-                    func.min = func.calls.first().copied().unwrap_or_default();
-                    func.max = func.calls.last().copied().unwrap_or_default();
-                    func.mean = calc::mean(&func.calls);
-                    func.median = calc::median_sorted(&func.calls);
+                    let mut calls_gas = func.calls.iter().map(|(g, _)| *g).collect::<Vec<_>>();
+                    calls_gas.sort_unstable();
+                    func.min = calls_gas.first().copied().unwrap_or_default();
+                    func.max = calls_gas.last().copied().unwrap_or_default();
+                    func.mean = calc::mean(&calls_gas);
+                    func.median = calc::median_sorted(&calls_gas);
                 }
             }
         }
@@ -221,15 +234,57 @@ impl Display for GasReport {
 pub struct ContractInfo {
     pub gas: u64,
     pub size: usize,
+    pub status: GasReportExecutionStatus,
     /// Function name -> Function signature -> `GasInfo`
     pub functions: BTreeMap<String, BTreeMap<String, GasInfo>>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct GasInfo {
-    pub calls: Vec<u64>,
+    pub calls: Vec<(u64, GasReportExecutionStatus)>,
     pub min: u64,
     pub mean: u64,
     pub median: u64,
     pub max: u64,
+}
+
+impl From<GasReport> for edr_gas_report::GasReport {
+    fn from(value: GasReport) -> Self {
+        let contracts = value
+            .contracts
+            .into_iter()
+            .map(|(contract_name, contract)| {
+                let deployments = vec![DeploymentGasReport {
+                    gas: contract.gas,
+                    size: contract.size as u64,
+                    status: contract.status,
+                }];
+
+                let mut functions: HashMap<String, Vec<FunctionGasReport>> = HashMap::new();
+                contract.functions.iter().for_each(|(_, sigs)| {
+                    for (sig, gas_info) in sigs.iter() {
+                        let reports = gas_info
+                            .calls
+                            .iter()
+                            .map(|(gas, status)| FunctionGasReport {
+                                gas: *gas,
+                                status: status.clone(),
+                            })
+                            .collect::<Vec<_>>();
+
+                        functions.insert(sig.clone(), reports);
+                    }
+                });
+                (
+                    contract_name,
+                    ContractGasReport {
+                        deployments,
+                        functions,
+                    },
+                )
+            })
+            .collect();
+
+        Self { contracts }
+    }
 }

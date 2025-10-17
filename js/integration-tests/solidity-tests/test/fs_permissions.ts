@@ -12,7 +12,7 @@ describe("Fs permissions tests", () => {
   });
 
   it("file + directory permissions", async function () {
-    const results = await runAllSolidityTests(
+    const [, results] = await runAllSolidityTests(
       testContext.edrContext,
       L1_CHAIN_TYPE,
       testContext.artifacts,
@@ -46,7 +46,7 @@ describe("Fs permissions tests", () => {
   });
 
   it("not allowed cli.js permission", async function () {
-    const results = await runAllSolidityTests(
+    const [, results] = await runAllSolidityTests(
       testContext.edrContext,
       L1_CHAIN_TYPE,
       testContext.artifacts,

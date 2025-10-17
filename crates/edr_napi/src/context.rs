@@ -26,7 +26,7 @@ use crate::{
         artifact::{Artifact, ArtifactId},
         config::SolidityTestRunnerConfigArgs,
         factory::SolidityTestRunnerFactory,
-        test_results::SuiteResult,
+        test_results::{SolidityTestResult, SuiteResult},
         LinkingOutput,
     },
     subscription::SubscriptionConfig,
@@ -155,12 +155,11 @@ impl EdrContext {
 
     #[doc = "Executes Solidity tests."]
     #[doc = ""]
-    #[doc = "The function will return as soon as test execution is started."]
-    #[doc = "The progress callback will be called with the results of each test"]
-    #[doc = "suite. It is up to the caller to track how many times the callback"]
-    #[doc = "is called to know when all tests are done."]
+    #[doc = "The function will return a promise that resolves to a [`SolidityTestResult`] "]
+    #[doc = "after the tests are done. The progress callback will be called with the "]
+    #[doc = "results of each test suite."]
     #[allow(clippy::too_many_arguments)]
-    #[napi(catch_unwind, ts_return_type = "Promise<void>")]
+    #[napi(catch_unwind, ts_return_type = "Promise<SolidityTestResult>")]
     pub fn run_solidity_tests(
         &self,
         env: Env,
@@ -291,7 +290,7 @@ impl EdrContext {
                 .expect("Failed to join test runner factory thread"));
 
             let runtime_for_runner = runtime.clone();
-            let () = try_or_reject_deferred!(runtime
+            let test_result = try_or_reject_deferred!(runtime
                 .clone()
                 .spawn_blocking(move || {
                     test_runner.run_tests(
@@ -323,7 +322,7 @@ impl EdrContext {
                 .await
                 .expect("Failed to join test runner thread"));
 
-            deferred.resolve(move |_env| Ok(()));
+            deferred.resolve(move |_env| Ok(SolidityTestResult::from(test_result)));
         });
 
         Ok(promise)

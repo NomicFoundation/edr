@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::U256;
+use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::fuzz::CounterExample;
 
 use crate::helpers::{
@@ -14,6 +15,7 @@ macro_rules! get_counterexample {
         $runner
             .test_collect($filter)
             .await
+            .suite_results
             .values()
             .last()
             .expect("Invariant contract should be testable.")
@@ -32,8 +34,7 @@ async fn test_invariant_with_alias() {
     let filter =
         SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTest1.t.sol");
     let runner = TEST_DATA_DEFAULT.runner().await;
-
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -77,7 +78,8 @@ async fn test_invariant_filters() {
                 ".*",
                 ".*fuzz/invariant/target/(ExcludeContracts|TargetContracts).t.sol",
             ))
-            .await,
+            .await
+            .suite_results,
         BTreeMap::from([
             (
                 "default/fuzz/invariant/target/ExcludeContracts.t.sol:ExcludeContracts",
@@ -99,7 +101,8 @@ async fn test_invariant_filters() {
                 ".*",
                 ".*fuzz/invariant/target/(ExcludeSenders|TargetSenders).t.sol",
             ))
-            .await,
+            .await
+            .suite_results,
         BTreeMap::from([
             (
                 "default/fuzz/invariant/target/ExcludeSenders.t.sol:ExcludeSenders",
@@ -127,7 +130,8 @@ async fn test_invariant_filters() {
                 ".*",
                 ".*fuzz/invariant/target/TargetInterfaces.t.sol",
             ))
-            .await,
+            .await
+            .suite_results,
         BTreeMap::from([(
             "default/fuzz/invariant/target/TargetInterfaces.t.sol:TargetWorldInterfaces",
             vec![(
@@ -149,7 +153,8 @@ async fn test_invariant_filters() {
                 ".*",
                 ".*fuzz/invariant/target/(ExcludeSelectors|TargetSelectors).t.sol",
             ))
-            .await,
+            .await
+            .suite_results,
         BTreeMap::from([
             (
                 "default/fuzz/invariant/target/ExcludeSelectors.t.sol:ExcludeSelectors",
@@ -168,7 +173,7 @@ async fn test_invariant_filters() {
             ".*",
             ".*",
             ".*fuzz/invariant/targetAbi/(ExcludeArtifacts|TargetArtifacts|TargetArtifactSelectors|TargetArtifactSelectors2).t.sol",
-        )).await,
+        )).await.suite_results,
         BTreeMap::from([
             (
                 "default/fuzz/invariant/targetAbi/ExcludeArtifacts.t.sol:ExcludeArtifacts",
@@ -220,7 +225,7 @@ async fn test_invariant_override() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -253,7 +258,7 @@ async fn test_invariant_fail_on_revert() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -288,7 +293,7 @@ async fn test_invariant_storage() {
             TEST_DATA_DEFAULT.config_with_mock_rpc(),
         )
         .await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -335,7 +340,12 @@ async fn test_invariant_inner_contract() {
         ".*",
         ".*fuzz/invariant/common/InvariantInnerContract.t.sol",
     );
-    let results = TEST_DATA_DEFAULT.runner().await.test_collect(filter).await;
+    let results = TEST_DATA_DEFAULT
+        .runner()
+        .await
+        .test_collect(filter)
+        .await
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -457,6 +467,7 @@ async fn test_shrink_big_sequence() {
         .clone()
         .test_collect(filter.clone())
         .await
+        .suite_results
         .values()
         .last()
         .expect("Invariant contract should be testable.")
@@ -476,7 +487,7 @@ async fn test_shrink_big_sequence() {
     assert_eq!(initial_sequence.len(), 77);
 
     // test failure persistence
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     let _test_result = results
         .get("default/fuzz/invariant/common/InvariantShrinkBigSequence.t.sol:ShrinkBigSequenceTest")
         .unwrap()
@@ -567,7 +578,7 @@ async fn test_invariant_preserve_state() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -592,7 +603,8 @@ async fn test_invariant_with_address_fixture() {
             ".*",
             ".*fuzz/invariant/common/InvariantCalldataDictionary.t.sol",
         ))
-        .await;
+        .await
+        .suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -619,7 +631,7 @@ async fn test_invariant_assume_does_not_revert() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -641,7 +653,7 @@ async fn test_invariant_assume_respects_restrictions() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -670,7 +682,7 @@ async fn test_invariant_decode_custom_error() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -699,7 +711,7 @@ async fn test_invariant_fuzzed_selected_targets() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([
@@ -735,7 +747,7 @@ async fn test_invariant_fixtures() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -767,7 +779,7 @@ async fn test_invariant_scrape_values() {
         })
         .await;
 
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([
@@ -818,7 +830,8 @@ async fn test_invariant_roll_fork_handler() {
             "InvariantRollForkBlockTest",
             path_pattern,
         ))
-        .await;
+        .await
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -851,7 +864,8 @@ async fn test_invariant_roll_fork_handler() {
             "InvariantRollForkStateTest",
             path_pattern,
         ))
-        .await;
+        .await
+        .suite_results;
 
     assert_multiple(
         &results,
@@ -881,7 +895,7 @@ async fn test_invariant_excluded_senders() {
             ..TestInvariantConfig::default()
         })
         .await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     assert_multiple(
         &results,
         BTreeMap::from([(
@@ -907,7 +921,7 @@ async fn test_invariant_after_invariant() {
         .await;
 
     assert_multiple(
-        &runner.test_collect(failure_filter).await,
+        &runner.test_collect(failure_filter).await.suite_results,
         BTreeMap::from([(
             "default/fuzz/invariant/common/InvariantAfterInvariant.t.sol:InvariantAfterInvariantTest",
             vec![
@@ -938,7 +952,7 @@ async fn test_invariant_after_invariant() {
         .await;
 
     assert_multiple(
-            &runner.clone().test_collect(success_pattern).await,
+            &runner.clone().test_collect(success_pattern).await.suite_results,
             BTreeMap::from([(
                 "default/fuzz/invariant/common/InvariantAfterInvariant.t.sol:InvariantAfterInvariantTest",
                 vec![
@@ -970,4 +984,43 @@ async fn test_no_reverts_in_counterexample() {
             assert_eq!(sequence.len(), 10);
         }
     };
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_gas_report() {
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTest1.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.generate_gas_report = true;
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let test_result = runner.test_collect(filter).await.test_result;
+
+    assert!(test_result.gas_report.is_some());
+
+    let gas_report = test_result.gas_report.as_ref().unwrap();
+    let invariant_breaker_report = gas_report
+        .contracts
+        .get("default/fuzz/invariant/common/InvariantTest1.t.sol:InvariantBreaker")
+        .unwrap();
+
+    let deployment_report = invariant_breaker_report.deployments.first().unwrap();
+
+    assert_eq!(deployment_report.gas, 159_061);
+    assert_eq!(deployment_report.size, 434);
+    assert_eq!(deployment_report.status, GasReportExecutionStatus::Success);
+
+    assert_eq!(invariant_breaker_report.functions.len(), 3);
+    assert!(invariant_breaker_report.functions.contains_key("flag1()"));
+    assert!(invariant_breaker_report
+        .functions
+        .contains_key("set0(int256)"));
+    assert!(invariant_breaker_report
+        .functions
+        .contains_key("set1(int256)"));
+
+    let flag1_reports = invariant_breaker_report.functions.get("flag1()").unwrap();
+    assert!(!flag1_reports.is_empty());
+    assert!(flag1_reports
+        .iter()
+        .all(|r| r.gas > 0 && r.status == GasReportExecutionStatus::Success));
 }

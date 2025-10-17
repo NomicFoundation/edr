@@ -34,8 +34,8 @@ pub struct FunctionGasReport {
     pub status: GasReportExecutionStatus,
 }
 
-impl From<edr_provider::gas_reports::GasReport> for GasReport {
-    fn from(value: edr_provider::gas_reports::GasReport) -> Self {
+impl From<edr_gas_report::GasReport> for GasReport {
+    fn from(value: edr_gas_report::GasReport) -> Self {
         Self {
             contracts: value
                 .into_inner()
@@ -46,8 +46,8 @@ impl From<edr_provider::gas_reports::GasReport> for GasReport {
     }
 }
 
-impl From<edr_provider::gas_reports::ContractGasReport> for ContractGasReport {
-    fn from(value: edr_provider::gas_reports::ContractGasReport) -> Self {
+impl From<edr_gas_report::ContractGasReport> for ContractGasReport {
+    fn from(value: edr_gas_report::ContractGasReport) -> Self {
         Self {
             deployments: value.deployments.into_iter().map(Into::into).collect(),
             functions: value
@@ -62,18 +62,18 @@ impl From<edr_provider::gas_reports::ContractGasReport> for ContractGasReport {
     }
 }
 
-impl From<edr_provider::gas_reports::GasReportExecutionStatus> for GasReportExecutionStatus {
-    fn from(value: edr_provider::gas_reports::GasReportExecutionStatus) -> Self {
+impl From<edr_gas_report::GasReportExecutionStatus> for GasReportExecutionStatus {
+    fn from(value: edr_gas_report::GasReportExecutionStatus) -> Self {
         match value {
-            edr_provider::gas_reports::GasReportExecutionStatus::Success => Self::Success,
-            edr_provider::gas_reports::GasReportExecutionStatus::Revert => Self::Revert,
-            edr_provider::gas_reports::GasReportExecutionStatus::Halt => Self::Halt,
+            edr_gas_report::GasReportExecutionStatus::Success => Self::Success,
+            edr_gas_report::GasReportExecutionStatus::Revert => Self::Revert,
+            edr_gas_report::GasReportExecutionStatus::Halt => Self::Halt,
         }
     }
 }
 
-impl From<edr_provider::gas_reports::DeploymentGasReport> for DeploymentGasReport {
-    fn from(value: edr_provider::gas_reports::DeploymentGasReport) -> Self {
+impl From<edr_gas_report::DeploymentGasReport> for DeploymentGasReport {
+    fn from(value: edr_gas_report::DeploymentGasReport) -> Self {
         Self {
             gas: BigInt::from(value.gas),
             size: BigInt::from(value.size),
@@ -82,8 +82,8 @@ impl From<edr_provider::gas_reports::DeploymentGasReport> for DeploymentGasRepor
     }
 }
 
-impl From<edr_provider::gas_reports::FunctionGasReport> for FunctionGasReport {
-    fn from(value: edr_provider::gas_reports::FunctionGasReport) -> Self {
+impl From<edr_gas_report::FunctionGasReport> for FunctionGasReport {
+    fn from(value: edr_gas_report::FunctionGasReport) -> Self {
         Self {
             gas: BigInt::from(value.gas),
             status: value.status.into(),

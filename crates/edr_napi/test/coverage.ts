@@ -287,7 +287,7 @@ describe("Code coverage", () => {
         },
       };
 
-      const suiteResults = await runAllSolidityTests(
+      const [, suiteResults] = await runAllSolidityTests(
         context,
         L1_CHAIN_TYPE,
         artifacts,

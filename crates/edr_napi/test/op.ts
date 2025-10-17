@@ -323,7 +323,7 @@ describe("Multi-chain", () => {
           projectRoot: __dirname,
         };
 
-        const results = await runAllSolidityTests(
+        const [, results] = await runAllSolidityTests(
           context,
           OP_CHAIN_TYPE,
           artifacts,

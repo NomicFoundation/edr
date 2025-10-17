@@ -5,7 +5,11 @@ use std::{
     env,
 };
 
-use edr_solidity_tests::result::{SuiteResult, TestStatus};
+use edr_gas_report::GasReportExecutionStatus;
+use edr_solidity_tests::{
+    multi_runner::SolidityTestsRunResult,
+    result::{SuiteResult, TestStatus},
+};
 use foundry_evm::traces::TraceKind;
 
 use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
@@ -14,10 +18,13 @@ use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
 async fn test_core() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*core");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let SolidityTestsRunResult {
+        test_result: _,
+        suite_results,
+    } = runner.test_collect(filter).await;
 
     assert_multiple(
-        &results,
+        &suite_results,
         BTreeMap::from([
             (
                 "default/core/FailingSetup.t.sol:FailingSetupTest",
@@ -109,7 +116,7 @@ async fn test_core() {
 async fn test_linking() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*linking");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -143,7 +150,7 @@ async fn test_linking() {
 async fn test_logs() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*logs");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -719,7 +726,7 @@ async fn test_env_vars() {
 async fn test_doesnt_run_abstract_contract() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*Abstract.t.sol".to_string().as_str());
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
     assert!(!results.contains_key("default/core/Abstract.t.sol:AbstractTestBase"));
     assert!(results.contains_key("default/core/Abstract.t.sol:AbstractTest"));
 }
@@ -728,7 +735,7 @@ async fn test_doesnt_run_abstract_contract() {
 async fn test_trace() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*trace");
     let runner = TEST_DATA_DEFAULT.tracing_runner().await;
-    let suite_result = runner.test_collect(filter).await;
+    let suite_result = runner.test_collect(filter).await.suite_results;
 
     // TODO: This trace test is very basic - it is probably a good candidate for
     // snapshot testing.
@@ -772,7 +779,7 @@ async fn test_fail_test() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.test_fail = false;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -845,7 +852,7 @@ async fn test_deprecated_cheatcode_warning() {
 
     let filter = SolidityTestFilter::new(".*", ".*", "default/core/DeprecatedCheatcode.t.sol");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple_deprecation_warnings(
         &results,
@@ -863,5 +870,46 @@ async fn test_deprecated_cheatcode_warning() {
                 vec!["invariant_deprecated_cheatcode()"],
             ),
         ]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_report_revert() {
+    let filter = SolidityTestFilter::new(
+        ".*",
+        ".*",
+        "default/core/(FailingSetup|PaymentFailure).t.sol",
+    );
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.generate_gas_report = true;
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let SolidityTestsRunResult { test_result, .. } = runner.test_collect(filter).await;
+
+    let gas_report = test_result.gas_report.unwrap();
+
+    // Test reverts
+    let setup_failure_reports = gas_report
+        .contracts
+        .get("default/core/FailingSetup.t.sol:FailingSetupTest")
+        .unwrap();
+
+    let deployment_failure = setup_failure_reports.deployments.first().unwrap();
+    assert_eq!(deployment_failure.status, GasReportExecutionStatus::Revert);
+
+    let payment_failure_reports = gas_report
+        .contracts
+        .get("default/core/PaymentFailure.t.sol:Payable")
+        .unwrap();
+
+    let pay_failure = payment_failure_reports
+        .functions
+        .get("pay()")
+        .unwrap()
+        .first();
+    assert!(pay_failure.is_some());
+    assert_eq!(pay_failure.unwrap().gas, 0);
+    assert_eq!(
+        pay_failure.unwrap().status,
+        GasReportExecutionStatus::Revert
     );
 }

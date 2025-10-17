@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { before, describe, it } from "node:test";
 import {
   StandardTestKind,
   FuzzTestKind,
   InvariantTestKind,
+  GasReportExecutionStatus,
 } from "@nomicfoundation/edr";
 
 import {
@@ -11,6 +12,7 @@ import {
   GasUsageFilter,
   SortOrder,
 } from "@nomicfoundation/edr/solidity-tests";
+import { TestContext } from "./testContext.js";
 
 describe("Gas tests", () => {
   let testResults: {
@@ -109,5 +111,89 @@ describe("Gas tests", () => {
       name: "Standard Test",
       gas: BigInt(1000),
     });
+  });
+});
+
+describe("Gas report tests", () => {
+  let testContext: TestContext;
+
+  before(async function () {
+    testContext = await TestContext.setup();
+  });
+
+  it("CounterTest gas report", async function () {
+    const result = await testContext.runTestsWithStats("CounterTest", {
+      generateGasReport: true,
+    });
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    const contractReport =
+      gasReport.contracts["project/test-contracts/Counter.t.sol:SomeCounter"];
+
+    assert.equal(contractReport.deployments.length, 1);
+    assert(contractReport.deployments[0].gas > 0n);
+    assert.equal(contractReport.deployments[0].size, 510n);
+    assert.equal(
+      contractReport!.deployments[0].status,
+      GasReportExecutionStatus.Success
+    );
+
+    assert(contractReport.functions["increment()"] !== undefined);
+    assert(contractReport.functions["number()"] !== undefined);
+    assert(contractReport.functions["setNumber(uint256)"] !== undefined);
+
+    const incrementReports = contractReport.functions["increment()"];
+    assert.equal(incrementReports.length, 1);
+    assert.equal(incrementReports[0].gas, 43_483n);
+    assert.equal(incrementReports[0].status, GasReportExecutionStatus.Success);
+  });
+
+  it("ImpureInvariantTest gas report", async function () {
+    const invariantConfig = {
+      runs: 256,
+      depth: 15,
+      // This is false by default, we just specify it here to make it obvious to the reader.
+      failOnRevert: false,
+    };
+
+    const result = await testContext.runTestsWithStats("ImpureInvariantTest", {
+      invariant: invariantConfig,
+      generateGasReport: true,
+    });
+
+    const testResult = result.testResult;
+    assert(testResult !== undefined);
+
+    const gasReport = testResult.gasReport;
+    assert(gasReport !== undefined);
+
+    // This is the contract that contains non setup/test functions.
+    const contractReport =
+      gasReport.contracts[
+        "project/test-contracts/Invariant.t.sol:StochasticWrongContract"
+      ];
+
+    assert.equal(contractReport.deployments.length, 1);
+    assert(contractReport.deployments[0].gas > 0n);
+    assert.equal(contractReport.deployments[0].size, 783n);
+    assert.equal(
+      contractReport!.deployments[0].status,
+      GasReportExecutionStatus.Success
+    );
+
+    assert(contractReport.functions["a()"] !== undefined);
+    assert(contractReport.functions["b()"] !== undefined);
+    assert(contractReport.functions["addToA(uint256)"] !== undefined);
+    assert(contractReport.functions["both()"] !== undefined);
+
+    const addToAReports = contractReport.functions["addToA(uint256)"];
+    assert.equal(addToAReports.length, 1);
+    assert.equal(addToAReports[0].gas, 22_978n);
+    assert.equal(addToAReports[0].status, GasReportExecutionStatus.Success);
   });
 });
