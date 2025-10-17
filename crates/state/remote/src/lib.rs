@@ -4,6 +4,7 @@ mod cached;
 
 use std::sync::Arc;
 
+use derive_where::derive_where;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, Bytecode, B256, U256};
 use edr_rpc_eth::{
@@ -18,13 +19,13 @@ use tokio::runtime;
 pub use self::cached::CachedRemoteState;
 
 /// A state backed by a remote Ethereum node
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct RemoteState<
-    RpcBlockT: RpcBlockChainSpec,
+    RpcBlockChainSpecT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
 > {
-    client: Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>>,
+    client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
     runtime: runtime::Handle,
     block_number: u64,
 }
@@ -63,7 +64,7 @@ impl<
 impl<
         RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
-        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
     > RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
 {
     /// Whether the current state is cacheable based on the block number.
@@ -89,7 +90,7 @@ impl<
 impl<
         RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
-        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
     > State for RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
 {
     type Error = StateError;

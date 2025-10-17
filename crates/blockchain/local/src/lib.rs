@@ -13,7 +13,7 @@ use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};
 use edr_state_persistent_trie::PersistentStateTrie;
-use edr_utils::CastArc;
+use edr_utils::CastArcInto;
 
 /// An error that occurs upon creation of a [`LocalBlockchain`].
 #[derive(Debug, thiserror::Error)]
@@ -117,7 +117,7 @@ impl<
         HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT>
             + BlockReceipts<Arc<BlockReceiptT>, Error = Infallible>
-            + CastArc<BlockT>
+            + CastArcInto<BlockT>
             + Clone
             + EmptyBlock<HardforkT>
             + LocalBlock<Arc<BlockReceiptT>>,
@@ -134,7 +134,7 @@ impl<
     fn block_by_hash(&self, hash: &B256) -> Result<Option<Arc<BlockT>>, Self::BlockchainError> {
         let local_block = self.storage.block_by_hash(hash);
 
-        Ok(local_block.map(CastArc::cast_arc))
+        Ok(local_block.map(CastArcInto::cast_arc_into))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -142,7 +142,7 @@ impl<
     fn block_by_number(&self, number: u64) -> Result<Option<Arc<BlockT>>, Self::BlockchainError> {
         let local_block = self.storage.block_by_number(number)?;
 
-        Ok(local_block.map(CastArc::cast_arc))
+        Ok(local_block.map(CastArcInto::cast_arc_into))
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
@@ -153,7 +153,7 @@ impl<
     ) -> Result<Option<Arc<BlockT>>, Self::BlockchainError> {
         let local_block = self.storage.block_by_transaction_hash(transaction_hash);
 
-        Ok(local_block.map(CastArc::cast_arc))
+        Ok(local_block.map(CastArcInto::cast_arc_into))
     }
 
     fn chain_id(&self) -> u64 {
@@ -167,7 +167,7 @@ impl<
             .block_by_number(self.storage.last_block_number())?
             .expect("Block must exist");
 
-        Ok(CastArc::cast_arc(local_block))
+        Ok(local_block.cast_arc_into())
     }
 
     fn last_block_number(&self) -> u64 {
@@ -245,11 +245,11 @@ impl<
 
 impl<
         BlockReceiptT: Clone + ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
-        BlockT: Block<SignedTransactionT> + ?Sized,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT>
             + BlockReceipts<Arc<BlockReceiptT>, Error = Infallible>
-            + CastArc<BlockT>
+            + CastArcInto<BlockT>
             + Clone
             + EmptyBlock<HardforkT>
             + LocalBlock<Arc<BlockReceiptT>>,
@@ -283,7 +283,7 @@ impl<
         )?;
 
         Ok(BlockAndTotalDifficulty::new(
-            CastArc::cast_arc(block.clone()),
+            block.clone().cast_arc_into(),
             Some(total_difficulty),
         ))
     }

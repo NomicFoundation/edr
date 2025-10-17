@@ -2395,6 +2395,7 @@ dependencies = [
 name = "edr_blockchain_fork"
 version = "0.3.8"
 dependencies = [
+ "derive-where",
  "edr_block_api",
  "edr_block_header",
  "edr_block_remote",
@@ -2403,6 +2404,7 @@ dependencies = [
  "edr_blockchain_remote",
  "edr_chain_config",
  "edr_chain_spec",
+ "edr_eip1559",
  "edr_eth",
  "edr_primitives",
  "edr_receipt",

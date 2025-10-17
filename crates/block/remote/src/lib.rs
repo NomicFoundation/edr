@@ -37,7 +37,8 @@ pub enum RpcBlockConversionError<TransactionConversionErrorT> {
 }
 
 /// A remote block, which lazily loads receipts.
-#[derive_where(Clone, Debug; BlockReceiptT, SignedTransactionT)]
+#[derive_where(Clone; SignedTransactionT)]
+#[derive_where(Debug; BlockReceiptT, SignedTransactionT)]
 pub struct RemoteBlock<
     BlockReceiptT,
     RpcBlockT: RpcBlockChainSpec,
@@ -65,7 +66,7 @@ pub struct RemoteBlock<
 impl<
         BlockReceiptT,
         RpcBlockConversionErrorT,
-        RpcBlockT: RpcBlockChainSpec<
+        RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: TryInto<
                 EthBlockData<SignedTransactionT>,
                 Error = RpcBlockConversionErrorT,
@@ -74,12 +75,13 @@ impl<
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT,
-    > RemoteBlock<BlockReceiptT, RpcBlockT, RpcReceiptT, RpcTransactionT, SignedTransactionT>
+    >
+    RemoteBlock<BlockReceiptT, RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT, SignedTransactionT>
 {
     /// Tries to construct a new instance from a JSON-RPC block.
     pub fn new(
-        block: RpcBlockT::RpcBlock<RpcTransactionT>,
-        rpc_client: Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>>,
+        block: RpcBlockChainSpecT::RpcBlock<RpcTransactionT>,
+        rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
         runtime: runtime::Handle,
     ) -> Result<Self, RpcBlockConversionErrorT> {
         let block: EthBlockData<SignedTransactionT> = block.try_into()?;

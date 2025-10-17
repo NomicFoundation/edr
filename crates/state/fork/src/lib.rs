@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use derive_where::derive_where;
 use edr_primitives::{Address, Bytecode, HashMap, HashSet, B256, KECCAK_NULL_RLP, U256};
 use edr_rpc_eth::{client::EthRpcClient, RpcBlockChainSpec};
 use edr_rpc_spec::{RpcEthBlock, RpcSpec};
@@ -23,14 +24,14 @@ pub type ForkedStateForChainSpec<ChainSpecT> = ForkedState<
 
 /// A database integrating the state from a remote node and the state from a
 /// local layered database.
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct ForkedState<
-    RpcBlockT: RpcBlockChainSpec,
+    RpcBlockChainSpecT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
 > {
     local_state: PersistentStateTrie,
-    remote_state: Arc<Mutex<CachedRemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>>>,
+    remote_state: Arc<Mutex<CachedRemoteState<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>>,
     removed_storage_slots: HashSet<(Address, U256)>,
     /// A pair of the latest state root and local state root
     current_state: RwLock<(B256, B256)>,
@@ -99,7 +100,7 @@ impl<
 impl<
         RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
-        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
     > State for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
 {
     type Error = StateError;
@@ -156,7 +157,7 @@ impl<
 impl<
         RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
-        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
     > StateDebug for ForkedState<RpcBlockT, RpcReceiptT, RpcTransactionT>
 {
     type Error = StateError;

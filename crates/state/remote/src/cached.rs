@@ -1,3 +1,4 @@
+use derive_where::derive_where;
 use edr_primitives::{hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
 use edr_rpc_eth::RpcBlockChainSpec;
 use edr_rpc_spec::RpcEthBlock;
@@ -22,13 +23,13 @@ impl From<AccountInfo> for AccountAndStorage {
 }
 
 /// A cached version of [`RemoteState`].
-#[derive(Debug)]
+#[derive_where(Debug)]
 pub struct CachedRemoteState<
-    RpcBlockT: RpcBlockChainSpec,
+    RpcBlockChainSpecT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
 > {
-    remote: RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>,
+    remote: RemoteState<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>,
     /// Mapping of block numbers to cached accounts
     account_cache: HashMap<u64, HashMap<Address, AccountAndStorage>>,
     /// Mapping of block numbers to cached code
@@ -54,7 +55,7 @@ impl<
 impl<
         RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: DeserializeOwned + Serialize,
-        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
     > StateMut for CachedRemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
 {
     type Error = StateError;
@@ -137,7 +138,7 @@ impl<
 fn fetch_remote_account<
     RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
     RpcReceiptT: DeserializeOwned + Serialize,
-    RpcTransactionT: Default + DeserializeOwned + Serialize,
+    RpcTransactionT: DeserializeOwned + Serialize,
 >(
     address: Address,
     remote: &RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>,

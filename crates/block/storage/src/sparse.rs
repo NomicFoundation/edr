@@ -12,7 +12,7 @@ use edr_receipt::{
 use crate::{InsertBlockError, InsertReceiptError};
 
 /// A storage solution for storing a subset of a blockchain's blocks in-memory.
-#[derive(Debug)]
+#[derive_where(Debug; BlockReceiptT, BlockT)]
 #[derive_where(Default)]
 pub struct SparseBlockStorage<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT> {
     hash_to_block: HashMap<B256, BlockT>,

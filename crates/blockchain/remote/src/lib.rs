@@ -2,6 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
+use derive_where::derive_where;
 use edr_block_api::{Block, EthBlockData};
 use edr_block_remote::RemoteBlock;
 use edr_block_storage::{InsertBlockError, SparseBlockStorage};
@@ -17,7 +18,7 @@ use edr_rpc_spec::{RpcEthBlock, RpcTransaction};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime;
 
-#[derive(Debug)]
+#[derive_where(Debug; BlockReceiptT, BlockT)]
 pub struct RemoteBlockchain<
     BlockReceiptT: ReceiptTrait,
     BlockT: Block<SignedTransactionT> + Clone,
@@ -127,12 +128,12 @@ pub enum FetchRemoteReceiptError<RpcReceiptConversionErrorT> {
 }
 
 impl<
-        BlockReceiptT: TryFrom<RpcReceiptT, Error = RpcReceiptConversionErrorT> + ReceiptTrait,
+        BlockReceiptT: ReceiptTrait + TryFrom<RpcReceiptT, Error = RpcReceiptConversionErrorT>,
         BlockT: Block<SignedTransactionT> + Clone,
         RpcBlockT: RpcBlockChainSpec,
         RpcReceiptConversionErrorT,
         RpcReceiptT: DeserializeOwned + Serialize,
-        RpcTransactionT: Default + DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
         SignedTransactionT: ExecutableTransaction,
         const FORCE_CACHING: bool,
     >
@@ -230,14 +231,14 @@ impl<
             + From<
                 RemoteBlock<
                     BlockReceiptT,
-                    RpcBlockT,
+                    RpcBlockChainSpecT,
                     RpcReceiptT,
                     RpcTransactionT,
                     SignedTransactionT,
                 >,
             >,
         RpcBlockConversionErrorT,
-        RpcBlockT: RpcBlockChainSpec<
+        RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock
                                            + TryInto<
                 EthBlockData<SignedTransactionT>,
@@ -245,14 +246,14 @@ impl<
             >,
         >,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
-        RpcTransactionT: Default + serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
         const FORCE_CACHING: bool,
     >
     RemoteBlockchain<
         BlockReceiptT,
         BlockT,
-        RpcBlockT,
+        RpcBlockChainSpecT,
         RpcReceiptT,
         RpcTransactionT,
         SignedTransactionT,
@@ -360,7 +361,7 @@ impl<
             '_,
             SparseBlockStorage<Arc<BlockReceiptT>, BlockT, SignedTransactionT>,
         >,
-        block: RpcBlockT::RpcBlock<RpcTransactionT>,
+        block: RpcBlockChainSpecT::RpcBlock<RpcTransactionT>,
     ) -> Result<BlockT, FetchAndCacheRemoteBlockError<RpcBlockConversionErrorT>> {
         // Geth has recently removed the total difficulty field from block RPC
         // responses, so we fall back to the terminal total difficulty of main net to
@@ -413,7 +414,7 @@ impl<
             >,
         >,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
-        RpcTransactionT: Default + RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
         const FORCE_CACHING: bool,
     >
