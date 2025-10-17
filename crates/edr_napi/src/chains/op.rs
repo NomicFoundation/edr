@@ -337,6 +337,8 @@ pub fn op_provider_factory() -> ProviderFactory {
 }
 
 fn gas_price_oracle_override(hardfork: edr_op::Hardfork) -> AccountOverride {
+    // When adding a new entry, make sure to add it to the
+    // `test_gas_price_oracle_overrides` test.
     if hardfork >= edr_op::Hardfork::ISTHMUS {
         gas_price_oracle_isthmus()
     } else if hardfork >= edr_op::Hardfork::FJORD {
@@ -430,4 +432,17 @@ export_spec_id! {
     GRANITE,
     HOLOCENE,
     ISTHMUS,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gas_price_oracle_overrides() {
+        // Ensure bytecode can be constructed without panics.
+        let _ecotone_override = gas_price_oracle_ecotone();
+        let _fjord_override = gas_price_oracle_fjord();
+        let _isthmus_override = gas_price_oracle_isthmus();
+    }
 }
