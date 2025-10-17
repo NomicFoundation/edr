@@ -19,7 +19,7 @@ use edr_rpc_eth::{
     fork::ForkMetadata,
     RpcBlockChainSpec,
 };
-use edr_rpc_spec::RpcEthBlock as _;
+use edr_rpc_spec::RpcEthBlock;
 use edr_state_api::{
     account::{Account, AccountStatus},
     irregular::IrregularState,
@@ -143,7 +143,7 @@ impl<
         BlockT: Block<SignedTransactionT> + Clone,
         HardforkT: Clone,
         LocalBlockT,
-        RpcBlockChainSpecT: RpcBlockChainSpec,
+        RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
