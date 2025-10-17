@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
+set -x
 set -o pipefail
 
 pnpm napi prepublish -t npm --skip-gh-release

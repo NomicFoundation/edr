@@ -3,9 +3,7 @@ env:
   DEBUG: napi:*
   APP_NAME: edr
   NUMBER_OF_TARGETS: 7
-permissions:
-  contents: write
-  id-token: write
+permissions: {} # TODO: add right permissions to existing jobs
 on:
   push:
     # pre-releases will be triggered in any of these branches
@@ -26,10 +24,16 @@ on:
   pull_request: null
   workflow_dispatch:
 
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
+    permissions:
+      - contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -169,6 +173,8 @@ jobs:
     name: Test bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      - contents: read # TODO: is write necessary for building the package?
     strategy:
       fail-fast: false
       matrix:
@@ -204,11 +210,12 @@ jobs:
         shell: bash
       - name: Test bindings
         run: pnpm testNoBuild
-
   test-linux-x64-gnu-binding:
     name: Test bindings on Linux-x64-gnu - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      - contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -240,6 +247,8 @@ jobs:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      - contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -269,6 +278,8 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      - contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -307,6 +318,8 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      - contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -339,9 +352,12 @@ jobs:
             wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node
             set -e
             pnpm testNoBuild
+  
   check_commit:
     name: Check commit
     runs-on: ubuntu-24.04
+    permissions:
+      - contents: read
     if: github.event_name != 'pull_request' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
       - uses: actions/checkout@v5
@@ -362,10 +378,11 @@ jobs:
           fi
     outputs:
       match: ${{ steps.check_commit.outputs.match }}
-  publish:
-    name: Publish
-    environment: edr-release
+  prepare:
+    name: Prepare release bundle
     runs-on: ubuntu-24.04
+    permissions:
+      - contents: write
     needs:
       - check_commit
       - test-macOS-windows-binding
@@ -373,8 +390,6 @@ jobs:
       - test-linux-x64-musl-binding
       - test-linux-aarch64-gnu-binding
       - test-linux-aarch64-musl-binding
-    # Only run workflow if the commit message is a release commit.
-    if: ${{ needs.check_commit.outputs.match == 'true' }}
     defaults:
       run:
         working-directory: ./crates/edr_napi
@@ -388,30 +403,90 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           path: ./crates/edr_napi/artifacts
-      - name: Check number of artifacts
-        shell: bash
-        run: |
-          tree artifacts
-          # get number of artifacts with unique names
-          NUMBER_OF_ARTIFACTS=$(ls -1q artifacts/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
-          echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
-          echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
-          test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
-      - name: Install sponge
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y moreutils
-      - name: Move artifacts
+      - name: Run prepublish to update all `package.json` files 
+        # we NEED to to this before pnpm artifacts, if not prepublish will try to publish
+        run: ../../scripts/prepublish.sh
+      - name: Move artifacts 
         run: pnpm artifacts
+      - name: Run publish --dry-run validate everything is ok
+        run: |
+          # Check in every cross-platform package
+          for platform in ./npm/* ; do
+            cd $platform
+            pnpm publish --dry-run
+            cd -
+          done
+          # And in root edr package
+          pnpm publish --dry-run
+      - name: Create pack bundle
+        # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
+        id: pack
+        run: |
+          FILENAME="edr_bundle.tar.gz"
+          EXTRA_FILES=("./npm/" "LICENSE" "README.md" "package.json")
+          readarray -t FILES < <(cat package.json | jq -r .files[] ) 
+          echo "Files defined in package.json: ${FILES[@]}"
+          echo "Other files to include in tarball: ${EXTRA_FILES[@]}"
+          echo "Creating bundle with necessary files for publishing"
+          tar -czvf $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
+          echo "FILENAME=$FILENAME"
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+      - name: Upload packed tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.filename }}
+          path: ${{ steps.pack.outputs.filename }}
+          retention-days: 2
+          overwrite: true
+          if-no-files-found: error
+
+  review:
+    name: Review release
+    runs-on: ubuntu-24.04
+    needs:
+      - prepare
+    defaults:
+      run:
+        working-directory: ./crates/edr_napi
+    steps:
+      # - We should download generated artifacts
+
+      # Check if the downloaded artiacts are in the same dir than old check
+      # - name: Check number of artifacts
+      #   shell: bash
+      #   run: |
+      #     tree artifacts
+      #     # get number of artifacts with unique names
+      #     NUMBER_OF_ARTIFACTS=$(ls -1q artifacts/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+      #     echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
+      #     echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
+      #     test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
+
+  publish:
+    name: Publish
+    environment: edr-release
+    runs-on: ubuntu-24.04
+    # Only run workflow if the commit message is a release commit.
+    if: ${{ needs.check_commit.outputs.match == 'true' }}
+    permissions:
+      actions: read # To download the tarball to publish
+      id-token: write # Needed for npm Trusted Publishing (OIDC)
+    needs: [prepare, review]
+    steps:
+      - name: Download packed tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.filename }}
+          path: .
+      - name: Decompress tarball
+        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
       - name: Publish
         run: |
           if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
           then
             if [ "${{ github.event_name }}" = "push" ]; then
               echo "Publishing pre-release"
-              echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-              bash ../../scripts/prepublish.sh
-              pnpm publish --no-git-checks --provenance --tag next --access public
+              pnpm publish --no-git-checks --tag next --access public
             else
               echo "Trying to publish a pre-release from a branch that is not 'main' or 'prerelease'"
             fi
@@ -419,15 +494,10 @@ jobs:
           then
             if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]; then
               echo "Publishing release"
-              echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-              bash ../../scripts/prepublish.sh
-              pnpm publish --no-git-checks --provenance --access public
+              pnpm publish --no-git-checks --access public
             else
               echo "Trying to publish a release from a branch that is not 'main' or 'h2'"
             fi
           else
             echo "Not a release, skipping publish"
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.IGNORED_ORG_NPM_TOKEN }}
