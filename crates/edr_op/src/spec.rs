@@ -8,24 +8,21 @@ use edr_block_header::{
     calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, PartialHeader,
 };
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
+use edr_chain_spec::{
+    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmHaltReason, EvmSpecId,
+    EvmTransactionValidationError, TransactionValidation,
+};
 use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
 use edr_evm::{
     evm::{Context, Evm, LocalContext},
     interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
     precompile::PrecompileProvider,
-    spec::{
-        base_fee_params_for, BlockEnvConstructor, ContextForChainSpec, GenesisBlockFactory,
-        RuntimeSpec,
-    },
+    spec::{base_fee_params_for, ContextForChainSpec, GenesisBlockFactory, RuntimeSpec},
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec},
     EthLocalBlockForChainSpec, LocalCreationError, RemoteBlock, RemoteBlockConversionError,
     SyncBlock,
-};
-use edr_chain_spec::{
-    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmHaltReason, EvmSpecId,
-    EvmTransactionValidationError, TransactionValidation,
 };
 use edr_napi_core::{
     napi,
@@ -302,85 +299,11 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for OpChainSpec {
     }
 }
 
-impl BlockEnvConstructor<PartialHeader> for OpChainSpec {
-    fn new_block_env(header: &PartialHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
-        BlockEnv {
-            number: U256::from(header.number),
-            beneficiary: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= EvmSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: header.blob_gas.as_ref().map(
-                |BlobGas { excess_gas, .. }| {
-                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
-                        BlobParams::prague()
-                    } else {
-                        BlobParams::cancun()
-                    };
-
-                    BlobExcessGasAndPrice::new(
-                        *excess_gas,
-                        blob_params
-                            .update_fraction
-                            .try_into()
-                            .expect("blob update fraction is too large"),
-                    )
-                },
-            ),
-        }
-    }
-}
-
-impl BlockEnvConstructor<BlockHeader> for OpChainSpec {
-    fn new_block_env(header: &BlockHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
-        BlockEnv {
-            number: U256::from(header.number),
-            beneficiary: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= EvmSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: header.blob_gas.as_ref().map(
-                |BlobGas { excess_gas, .. }| {
-                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
-                        BlobParams::prague()
-                    } else {
-                        BlobParams::cancun()
-                    };
-
-                    BlobExcessGasAndPrice::new(
-                        *excess_gas,
-                        blob_params
-                            .update_fraction
-                            .try_into()
-                            .expect("blob update fraction is too large"),
-                    )
-                },
-            ),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
-    use edr_evm::spec::BlockEnvConstructor as _;
     use edr_chain_spec::EvmSpecId;
+    use edr_evm::spec::BlockEnvConstructor as _;
     use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
     use super::*;

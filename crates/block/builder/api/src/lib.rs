@@ -2,11 +2,13 @@
 
 use std::fmt::Debug;
 
-use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
+use edr_block_header::{
+    BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, PartialHeaderAndEvmSpec, Withdrawal,
+};
 pub use edr_blockchain_api::sync::SyncBlockchain;
 use edr_chain_spec::{ChainSpec, EvmSpecId, HaltReasonTrait, TransactionValidation};
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
-use edr_evm_spec::config::EvmConfig;
+use edr_evm_spec::{config::EvmConfig, EvmChainSpec};
 pub use edr_evm_spec::{
     result::ExecutionResult, CfgEnv, Context, Inspector, Journal, TransactionError,
 };
@@ -95,14 +97,14 @@ pub struct BuiltBlockAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, StateEr
 /// A trait for building blocks.
 pub trait BlockBuilder<
     'builder,
-    BlockEnvT,
     BlockReceiptT: Send + Sync,
     BlockT: ?Sized,
-    ContextT,
-    HaltReasonT: HaltReasonTrait,
-    HardforkT: Send + Sync,
+    EvmChainSpecT: EvmChainSpec<
+        Hardfork: Send + Sync,
+        SignedTransaction: TransactionValidation + Send + Sync,
+    >,
+    // HaltReasonT: HaltReasonTrait,
     LocalBlockT: Send + Sync,
-    SignedTransactionT: TransactionValidation + Send + Sync,
 >: Sized
 {
     /// The blockchain's error type.
@@ -117,22 +119,22 @@ pub trait BlockBuilder<
             BlockReceiptT,
             BlockT,
             Self::BlockchainError,
-            HardforkT,
+            EvmChainSpecT::Hardfork,
             LocalBlockT,
-            SignedTransactionT,
+            EvmChainSpecT::SignedTransaction,
             Self::StateError,
         >,
         state: Box<dyn SyncState<Self::StateError>>,
-        block_config: BlockConfig<'_, HardforkT>,
+        block_config: BlockConfig<'_, EvmChainSpecT::Hardfork>,
         evm_config: EvmConfig,
         inputs: BlockInputs,
-        overrides: HeaderOverrides<HardforkT>,
+        overrides: HeaderOverrides<EvmChainSpecT::Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
         BlockBuilderCreationError<
             DatabaseComponentError<Self::BlockchainError, Self::StateError>,
-            HardforkT,
+            EvmChainSpecT::Hardfork,
         >,
     >;
 
@@ -142,42 +144,42 @@ pub trait BlockBuilder<
     /// Adds a transaction to the block.
     fn add_transaction(
         &mut self,
-        transaction: SignedTransactionT,
+        transaction: EvmChainSpecT::SignedTransaction,
     ) -> Result<
         (),
         BlockTransactionError<
             DatabaseComponentError<Self::BlockchainError, Self::StateError>,
-            <SignedTransactionT as TransactionValidation>::ValidationError,
+            <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     >;
 
     /// Adds a transaction to the block.
     fn add_transaction_with_inspector<InspectorT>(
         &mut self,
-        transaction: SignedTransactionT,
+        transaction: EvmChainSpecT::SignedTransaction,
         inspector: &mut InspectorT,
     ) -> Result<
         (),
         BlockTransactionError<
             DatabaseComponentError<Self::BlockchainError, Self::StateError>,
-            <SignedTransactionT as TransactionValidation>::ValidationError,
+            <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     >
     where
         InspectorT: for<'inspector> Inspector<
             Context<
-                BlockEnvT,
-                SignedTransactionT,
-                CfgEnv<HardforkT>,
+                PartialHeaderAndEvmSpec<'inspector>,
+                EvmChainSpecT::SignedTransaction,
+                CfgEnv<EvmChainSpecT::Hardfork>,
                 WrapDatabaseRef<
                     DatabaseComponents<
                         &'inspector dyn SyncBlockchain<
                             BlockReceiptT,
                             BlockT,
                             Self::BlockchainError,
-                            HardforkT,
+                            EvmChainSpecT::Hardfork,
                             LocalBlockT,
-                            SignedTransactionT,
+                            EvmChainSpecT::SignedTransaction,
                             Self::StateError,
                         >,
                         &'inspector dyn SyncState<Self::StateError>,
@@ -190,16 +192,16 @@ pub trait BlockBuilder<
                                 BlockReceiptT,
                                 BlockT,
                                 Self::BlockchainError,
-                                HardforkT,
+                                EvmChainSpecT::Hardfork,
                                 LocalBlockT,
-                                SignedTransactionT,
+                                EvmChainSpecT::SignedTransaction,
                                 Self::StateError,
                             >,
                             &'inspector dyn SyncState<Self::StateError>,
                         >,
                     >,
                 >,
-                ContextT,
+                EvmChainSpecT::Context,
             >,
         >;
 
@@ -207,5 +209,5 @@ pub trait BlockBuilder<
     fn finalize(
         self,
         rewards: Vec<(Address, u128)>,
-    ) -> Result<BuiltBlockAndState<HaltReasonT, LocalBlockT, Self::StateError>, Self::StateError>;
+    ) -> Result<BuiltBlockAndState<EvmChainSpecT::HaltReason, LocalBlockT, Self::StateError>, Self::StateError>;
 }

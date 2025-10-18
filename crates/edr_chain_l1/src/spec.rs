@@ -10,7 +10,8 @@ use edr_evm_spec::{
     handler::{EthInstructions, EthPrecompiles},
     interpreter::InterpreterResult,
     result::EVMError,
-    EvmChainSpec, ContextForChainSpec, Database, Evm, ExecuteEvm as _, InspectEvm as _, Inspector,
+    BlockEnvTrait, CfgEnv, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
+    ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, Journal, LocalContext,
     PrecompileProvider, TransactionError,
 };
 use edr_primitives::Bytes;
@@ -19,7 +20,7 @@ use edr_receipt_spec::ChainReceiptSpec;
 use edr_rpc_eth::RpcBlockChainSpec;
 use edr_rpc_spec::RpcSpec;
 use edr_state_api::StateDiff;
-use revm_context::{CfgEnv, Journal, JournalTr as _, LocalContext};
+use revm_context_interface::JournalTr as _;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -30,7 +31,7 @@ use crate::{
         receipt::L1RpcTransactionReceipt,
         transaction::{L1RpcTransactionRequest, L1RpcTransactionWithSignature},
     },
-    BlockEnv, HaltReason, Hardfork, L1SignedTransaction, TypedEnvelope,
+    HaltReason, Hardfork, L1SignedTransaction, TypedEnvelope,
 };
 
 /// Ethereum L1 extra data for genesis blocks.
@@ -56,25 +57,29 @@ fn cast_evm_error<DatabaseT: Database>(
 }
 
 impl EvmChainSpec for L1ChainSpec {
-    type PrecompileProvider<DatabaseT: Database> = EthPrecompiles;
+    type PrecompileProvider<BlockT: BlockEnvTrait, DatabaseT: Database> = EthPrecompiles;
 
     fn dry_run<
+        BlockT: BlockEnvTrait,
         DatabaseT: Database,
-        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
+        PrecompileProviderT: PrecompileProvider<
+            ContextForChainSpec<Self, BlockT, DatabaseT>,
+            Output = InterpreterResult,
+        >,
     >(
-        block: Self::BlockEnv,
+        block: BlockT,
         cfg: CfgEnv<Self::Hardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
     ) -> Result<
-        revm_context::result::ResultAndState<Self::HaltReason>,
+        ExecutionResultAndState<Self::HaltReason>,
         TransactionError<
             DatabaseT::Error,
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
-        let context = revm_context::Context {
+        let context = Context {
             block,
             tx: transaction,
             journaled_state: Journal::new(database),
@@ -90,24 +95,28 @@ impl EvmChainSpec for L1ChainSpec {
     }
 
     fn dry_run_with_inspector<
+        BlockT: BlockEnvTrait,
         DatabaseT: Database,
-        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
+        InspectorT: Inspector<ContextForChainSpec<Self, BlockT, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<
+            ContextForChainSpec<Self, BlockT, DatabaseT>,
+            Output = InterpreterResult,
+        >,
     >(
-        block: Self::BlockEnv,
+        block: BlockT,
         cfg: CfgEnv<Self::Hardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
         precompile_provider: PrecompileProviderT,
         inspector: InspectorT,
     ) -> Result<
-        revm_context::result::ResultAndState<Self::HaltReason>,
+        ExecutionResultAndState<Self::HaltReason>,
         TransactionError<
             DatabaseT::Error,
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
-        let context = revm_context::Context {
+        let context = Context {
             block,
             // We need to pass a transaction here to properly initialize the context.
             // This default transaction is immediately overridden by the actual transaction passed
@@ -153,11 +162,10 @@ impl RpcBlockChainSpec for L1ChainSpec {
     type RpcBlock<DataT>
         = L1RpcBlock<DataT>
     where
-        DataT: Default + DeserializeOwned + Serialize;
+        DataT: DeserializeOwned + Serialize;
 }
 
 impl ChainSpec for L1ChainSpec {
-    type BlockEnv = BlockEnv;
     type HaltReason = HaltReason;
     type SignedTransaction = L1SignedTransaction;
 }
@@ -167,7 +175,6 @@ impl GenesisBlockFactory for L1ChainSpec {
 
     type LocalBlock = EthLocalBlock<
         <Self as ChainReceiptSpec>::Receipt,
-        Self,
         Self::Hardfork,
         <Self as ChainSpec>::SignedTransaction,
     >;

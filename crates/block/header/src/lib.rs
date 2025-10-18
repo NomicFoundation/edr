@@ -2,10 +2,10 @@ mod difficulty;
 mod overrides;
 
 pub use alloy_eips::eip4895::Withdrawal;
-use alloy_eips::eip7840;
+use alloy_eips::eip7840::{self, BlobParams};
+use edr_chain_spec::{BlobExcessGasAndPrice, BlockEnvTrait, EvmSpecId};
 use edr_eip1559::BaseFeeParams;
 pub use edr_eip4844::BlobGas;
-use edr_chain_spec::EvmSpecId;
 use edr_primitives::{b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, U256};
 use edr_trie::ordered_trie_root;
 
@@ -107,6 +107,74 @@ impl BlockHeader {
     pub fn hash(&self) -> B256 {
         let encoded = alloy_rlp::encode(self);
         keccak256(encoded)
+    }
+}
+
+/// Calculates the blob excess gas and price for the specified [`EvmSpecId`].
+fn blob_excess_gas_and_price_for_evm_spec(
+    blob_gas: &BlobGas,
+    evm_spec_id: EvmSpecId,
+) -> BlobExcessGasAndPrice {
+    let blob_params = if evm_spec_id >= EvmSpecId::PRAGUE {
+        BlobParams::prague()
+    } else {
+        BlobParams::cancun()
+    };
+
+    BlobExcessGasAndPrice::new(
+        blob_gas.excess_gas,
+        blob_params
+            .update_fraction
+            .try_into()
+            .expect("blob update fraction is too large"),
+    )
+}
+
+pub struct BlockHeaderAndEvmSpec<'header> {
+    pub header: &'header BlockHeader,
+    pub evm_spec_id: EvmSpecId,
+}
+
+impl BlockEnvTrait for BlockHeaderAndEvmSpec<'_> {
+    fn number(&self) -> U256 {
+        U256::from(self.header.number)
+    }
+
+    fn beneficiary(&self) -> Address {
+        self.header.beneficiary
+    }
+
+    fn timestamp(&self) -> U256 {
+        U256::from(self.header.timestamp)
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.header.gas_limit
+    }
+
+    fn basefee(&self) -> u64 {
+        self.header.base_fee_per_gas.map_or(0u64, |base_fee| {
+            base_fee.try_into().expect("base fee is too large")
+        })
+    }
+
+    fn difficulty(&self) -> U256 {
+        self.header.difficulty
+    }
+
+    fn prevrandao(&self) -> Option<B256> {
+        if self.evm_spec_id >= EvmSpecId::MERGE {
+            Some(self.header.mix_hash)
+        } else {
+            None
+        }
+    }
+
+    fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
+        self.header
+            .blob_gas
+            .as_ref()
+            .map(|blob_gas| blob_excess_gas_and_price_for_evm_spec(blob_gas, self.evm_spec_id))
     }
 }
 
@@ -329,6 +397,58 @@ impl From<BlockHeader> for PartialHeader {
             parent_beacon_block_root: header.parent_beacon_block_root,
             requests_hash: header.requests_hash,
         }
+    }
+}
+
+/// Wrapper type combining a [`PartialHeader`] with its associated
+/// [`EvmSpecId`].
+///
+/// Both are needed to implement the [`Block`] trait.
+pub struct PartialHeaderAndEvmSpec<'header> {
+    pub header: &'header PartialHeader,
+    pub evm_spec_id: EvmSpecId,
+}
+
+impl BlockEnvTrait for PartialHeaderAndEvmSpec<'_> {
+    fn number(&self) -> U256 {
+        U256::from(self.header.number)
+    }
+
+    fn beneficiary(&self) -> Address {
+        self.header.beneficiary
+    }
+
+    fn timestamp(&self) -> U256 {
+        U256::from(self.header.timestamp)
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.header.gas_limit
+    }
+
+    fn basefee(&self) -> u64 {
+        self.header.base_fee.map_or(0u64, |base_fee| {
+            base_fee.try_into().expect("base fee is too large")
+        })
+    }
+
+    fn difficulty(&self) -> U256 {
+        self.header.difficulty
+    }
+
+    fn prevrandao(&self) -> Option<B256> {
+        if self.evm_spec_id >= EvmSpecId::MERGE {
+            Some(self.header.mix_hash)
+        } else {
+            None
+        }
+    }
+
+    fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
+        self.header
+            .blob_gas
+            .as_ref()
+            .map(|blob_gas| blob_excess_gas_and_price_for_evm_spec(blob_gas, self.evm_spec_id))
     }
 }
 

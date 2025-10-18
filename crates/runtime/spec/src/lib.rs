@@ -6,8 +6,8 @@ use edr_block_header::{BlockHeader, PartialHeader};
 use edr_block_remote::RemoteBlock;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
-    ChainHardfork, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction,
-    TransactionValidation,
+    BlockEnvTrait, ChainHardfork, ChainSpec, EvmSpecId, EvmTransactionValidationError,
+    ExecutableTransaction, TransactionValidation,
 };
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::B256;
@@ -30,7 +30,9 @@ pub type RemoteBlockForChainSpec<ChainSpecT> = RemoteBlock<
 >;
 
 /// A trait for constructing a (partial) block header into an EVM block.
-pub trait BlockEnvConstructor<HeaderT>: ChainSpec {
+pub trait BlockEnvConstructor<HeaderT> {
+    type BlockEnv: BlockEnvTrait;
+
     /// Converts the instance into an EVM block.
     fn new_block_env(header: &HeaderT, hardfork: EvmSpecId) -> Self::BlockEnv;
 }

@@ -2386,6 +2386,7 @@ dependencies = [
  "auto_impl",
  "edr_block_api",
  "edr_block_storage",
+ "edr_chain_spec",
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
@@ -2492,6 +2493,7 @@ dependencies = [
  "edr_block_header",
  "edr_block_local",
  "edr_block_remote",
+ "edr_chain_config",
  "edr_chain_spec",
  "edr_defaults",
  "edr_eip1559",
@@ -2502,6 +2504,7 @@ dependencies = [
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
+ "edr_receipt_builder_api",
  "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
@@ -2512,7 +2515,6 @@ dependencies = [
  "edr_trie",
  "log",
  "paste",
- "revm-context",
  "revm-context-interface",
  "revm-primitives",
  "serde",
@@ -3044,6 +3046,15 @@ dependencies = [
  "serial_test",
  "tempfile",
  "tokio",
+]
+
+[[package]]
+name = "edr_receipt_builder_api"
+version = "0.3.8"
+dependencies = [
+ "edr_block_header",
+ "edr_evm_spec",
+ "edr_state_api",
 ]
 
 [[package]]

@@ -1,12 +1,13 @@
 //! Utilities for running transactions in the EVM.
 #![warn(missing_docs)]
 
-use edr_blockchain_api::BlockHash;
+use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_evm_spec::{
     result::{ExecutionResult, ExecutionResultAndState},
-    CfgEnv, ContextForChainSpec, DatabaseComponentError, EvmChainSpec, Inspector, TransactionError,
+    BlockEnvTrait, CfgEnv, ContextForChainSpec, DatabaseComponentError, EvmChainSpec, Inspector,
+    TransactionError,
 };
 use edr_precompile::{OverriddenPrecompileProvider, PrecompileFn};
 use edr_primitives::{Address, HashMap};
@@ -27,14 +28,15 @@ pub fn dry_run<
             ValidationError: From<EvmTransactionValidationError>,
         >,
     >,
-    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    BlockT: BlockEnvTrait,
+    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
     StateT: State<Error: Send + std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
     cfg: CfgEnv<EvmChainSpecT::Hardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
-    block: EvmChainSpecT::BlockEnv,
+    block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     ExecutionResultAndState<EvmChainSpecT::HaltReason>,
@@ -69,10 +71,12 @@ pub fn dry_run_with_inspector<
             ValidationError: From<EvmTransactionValidationError>,
         >,
     >,
-    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    BlockT: BlockEnvTrait,
+    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
     InspectorT: Inspector<
         ContextForChainSpec<
             EvmChainSpecT,
+            BlockT,
             WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
         >,
     >,
@@ -82,7 +86,7 @@ pub fn dry_run_with_inspector<
     state: StateT,
     cfg: CfgEnv<EvmChainSpecT::Hardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
-    block: EvmChainSpecT::BlockEnv,
+    block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
     inspector: &mut InspectorT,
 ) -> Result<
@@ -125,14 +129,15 @@ pub fn guaranteed_dry_run<
             ValidationError: From<EvmTransactionValidationError>,
         >,
     >,
-    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    BlockT: BlockEnvTrait,
+    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
     StateT: State<Error: Send + std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
     mut cfg: CfgEnv<EvmChainSpecT::Hardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
-    block: EvmChainSpecT::BlockEnv,
+    block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     ExecutionResultAndState<EvmChainSpecT::HaltReason>,
@@ -143,7 +148,7 @@ pub fn guaranteed_dry_run<
 > {
     set_guarantees(&mut cfg);
 
-    dry_run::<EvmChainSpecT, _, _>(
+    dry_run::<EvmChainSpecT, _, _, _>(
         blockchain,
         state,
         cfg,
@@ -170,10 +175,12 @@ pub fn guaranteed_dry_run_with_inspector<
             ValidationError: From<EvmTransactionValidationError>,
         >,
     >,
-    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    BlockT: BlockEnvTrait,
+    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
     InspectorT: Inspector<
         ContextForChainSpec<
             EvmChainSpecT,
+            BlockT,
             WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
         >,
     >,
@@ -183,7 +190,7 @@ pub fn guaranteed_dry_run_with_inspector<
     state: StateT,
     mut cfg: CfgEnv<EvmChainSpecT::Hardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
-    block: EvmChainSpecT::BlockEnv,
+    block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
     inspector: &mut InspectorT,
 ) -> Result<
@@ -195,7 +202,7 @@ pub fn guaranteed_dry_run_with_inspector<
 > {
     set_guarantees(&mut cfg);
 
-    dry_run_with_inspector::<EvmChainSpecT, _, _, _>(
+    dry_run_with_inspector::<EvmChainSpecT, _, _, _, _>(
         blockchain,
         state,
         cfg,
@@ -221,14 +228,15 @@ pub fn run<
             ValidationError: From<EvmTransactionValidationError>,
         >,
     >,
-    BlockchainT: BlockHash<Error: Send + std::error::Error>,
+    BlockT: BlockEnvTrait,
+    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
     StateT: State<Error: Send + std::error::Error> + StateCommit,
 >(
     blockchain: BlockchainT,
     mut state: StateT,
     cfg: CfgEnv<EvmChainSpecT::Hardfork>,
     transaction: EvmChainSpecT::SignedTransaction,
-    block: EvmChainSpecT::BlockEnv,
+    block: BlockT,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
     ExecutionResult<EvmChainSpecT::HaltReason>,
@@ -240,7 +248,7 @@ pub fn run<
     let ExecutionResultAndState {
         result,
         state: state_diff,
-    } = dry_run::<EvmChainSpecT, _, _>(
+    } = dry_run::<EvmChainSpecT, _, _, _>(
         blockchain,
         &state,
         cfg,

@@ -1,5 +1,5 @@
 use edr_block_header::BlockHeader;
-use edr_blockchain_api::BlockHash;
+use edr_blockchain_api::BlockHashByNumber;
 use edr_database_components::DatabaseComponents;
 use edr_evm::{
     blockchain::BlockchainErrorForChainSpec, config::CfgEnv, inspector::Inspector,
@@ -25,7 +25,7 @@ pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT, TimerT>(
     inspector: &mut InspectorT,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    BlockchainT: BlockHash<Error = BlockchainErrorForChainSpec<ChainSpecT>>,
+    BlockchainT: BlockHashByNumber<Error = BlockchainErrorForChainSpec<ChainSpecT>>,
     ChainSpecT: SyncProviderSpec<
         TimerT,
         BlockEnv: Default,

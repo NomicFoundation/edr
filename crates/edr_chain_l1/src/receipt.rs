@@ -1,12 +1,14 @@
 //! Ethereum L1 receipt types
 
+mod builder;
+
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
 use edr_chain_spec::{ChainContextSpec, ChainHardfork, ChainSpec, EvmSpecId};
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
-    log::FilterLog, AsExecutionReceipt, ExecutionReceiptChainSpec, ExecutionReceipt, ReceiptTrait,
+    log::FilterLog, AsExecutionReceipt, ExecutionReceipt, ExecutionReceiptChainSpec, ReceiptTrait,
     RootOrStatus, TransactionReceipt,
 };
 use edr_receipt_spec::ReceiptConstructor;

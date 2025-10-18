@@ -14,7 +14,9 @@ use edr_block_remote::RemoteBlock;
 use edr_block_storage::{
     InsertBlockAndReceiptsError, InsertBlockError, ReservableSparseBlockStorage,
 };
-use edr_blockchain_api::{utils::compute_state_at_block, BlockHash, Blockchain, BlockchainMut};
+use edr_blockchain_api::{
+    utils::compute_state_at_block, BlockHashByNumber, Blockchain, BlockchainMut,
+};
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
 use edr_chain_config::{Activations, ChainConfig};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
@@ -479,7 +481,7 @@ impl<
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::type_complexity)]
-    fn block_by_hash(&self, hash: &B256) -> Result<Option<Arc<BlockT>>, Self::BlockchainError> {
+    fn block_by_hash(&self, hash: &B256) -> Result<Option<Arc<BlockT>>, Self::Error> {
         if let Some(local_block) = self.local_storage.block_by_hash(hash) {
             Ok(Some(local_block.cast_arc_into()))
         } else {
@@ -493,7 +495,7 @@ impl<
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::type_complexity)]
-    fn block_by_number(&self, number: u64) -> Result<Option<Arc<BlockT>>, Self::BlockchainError> {
+    fn block_by_number(&self, number: u64) -> Result<Option<Arc<BlockT>>, Self::Error> {
         if number <= self.fork_block_number {
             let remote_block = tokio::task::block_in_place(move || {
                 self.runtime().block_on(self.remote.block_by_number(number))
@@ -512,7 +514,7 @@ impl<
     fn block_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockT>>, Self::BlockchainError> {
+    ) -> Result<Option<Arc<BlockT>>, Self::Error> {
         if let Some(local_block) = self
             .local_storage
             .block_by_transaction_hash(transaction_hash)
@@ -532,7 +534,7 @@ impl<
         self.chain_id
     }
 
-    fn chain_id_at_block_number(&self, block_number: u64) -> Result<u64, Self::BlockchainError> {
+    fn chain_id_at_block_number(&self, block_number: u64) -> Result<u64, Self::Error> {
         if block_number > self.last_block_number() {
             return Err(ForkedBlockchainError::UnknownBlockNumber);
         }
@@ -545,7 +547,7 @@ impl<
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn last_block(&self) -> Result<Arc<BlockT>, Self::BlockchainError> {
+    fn last_block(&self) -> Result<Arc<BlockT>, Self::Error> {
         let last_block_number = self.last_block_number();
         if self.fork_block_number < last_block_number {
             let local_block = self
@@ -574,7 +576,7 @@ impl<
         to_block: u64,
         addresses: &HashSet<Address>,
         normalized_topics: &[Option<Vec<B256>>],
-    ) -> Result<Vec<FilterLog>, Self::BlockchainError> {
+    ) -> Result<Vec<FilterLog>, Self::Error> {
         if from_block <= self.fork_block_number {
             let (to_block, mut local_logs) = if to_block <= self.fork_block_number {
                 (to_block, Vec::new())
@@ -620,7 +622,7 @@ impl<
     fn receipt_by_transaction_hash(
         &self,
         transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceiptT>>, Self::BlockchainError> {
+    ) -> Result<Option<Arc<BlockReceiptT>>, Self::Error> {
         if let Some(receipt) = self
             .local_storage
             .receipt_by_transaction_hash(transaction_hash)
@@ -635,7 +637,7 @@ impl<
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn spec_at_block_number(&self, block_number: u64) -> Result<HardforkT, Self::BlockchainError> {
+    fn spec_at_block_number(&self, block_number: u64) -> Result<HardforkT, Self::Error> {
         if block_number > self.last_block_number() {
             return Err(ForkedBlockchainError::UnknownBlockNumber);
         }
@@ -677,7 +679,7 @@ impl<
         &self,
         block_number: u64,
         state_overrides: &BTreeMap<u64, StateOverride>,
-    ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError> {
+    ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::Error> {
         if block_number > self.last_block_number() {
             return Err(ForkedBlockchainError::UnknownBlockNumber);
         }
@@ -726,7 +728,7 @@ impl<
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::BlockchainError> {
+    fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::Error> {
         if let Some(difficulty) = self.local_storage.total_difficulty_by_hash(hash) {
             Ok(Some(difficulty))
         } else {
@@ -891,7 +893,7 @@ impl<
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
-    > BlockHash
+    > BlockHashByNumber
     for ForkedBlockchain<
         BlockReceiptT,
         BlockT,

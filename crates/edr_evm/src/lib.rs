@@ -19,8 +19,6 @@ pub mod blockchain;
 pub mod config;
 /// Types for interfacing with the evm.
 pub mod evm;
-/// Types for Ethereum hardforks
-pub mod hardfork;
 /// Types for EVM inspectors.
 pub mod inspector;
 /// Types for the EVM interpreter.
@@ -30,14 +28,10 @@ pub mod journal;
 /// Types for managing Ethereum mem pool
 pub mod mempool;
 mod miner;
-/// Types for managing Ethereum precompiles
-pub mod precompile;
 /// Types for Ethereum transaction receipts.
 pub mod receipt;
 /// Result types for EVM execution.
 pub mod result;
-/// Types and function for running the EVM.
-pub mod runtime;
 /// Types for chain specification.
 pub mod spec;
 /// Database types for managing Ethereum state

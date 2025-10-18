@@ -20,6 +20,7 @@ use edr_state_api::{StateCommit as _, StateDebug as _, StateDiff};
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_transaction::TransactionAndReceipt;
 use edr_trie::ordered_trie_root;
+use edr_utils::CastArcFrom;
 use itertools::izip;
 
 /// A locally mined block, which contains complete information.
@@ -249,6 +250,20 @@ impl<
 
     fn fetch_transaction_receipts(&self) -> Result<Vec<Arc<BlockReceiptT>>, Self::Error> {
         Ok(self.transaction_receipts.clone())
+    }
+}
+
+impl<
+        BlockReceiptT: 'static + Debug + ReceiptTrait + alloy_rlp::Encodable,
+        HardforkT: 'static,
+        SignedTransactionT: 'static + Debug + alloy_rlp::Encodable,
+    > CastArcFrom<EthLocalBlock<BlockReceiptT, HardforkT, SignedTransactionT>>
+    for dyn Block<SignedTransactionT>
+{
+    fn cast_arc_from(
+        value: Arc<EthLocalBlock<BlockReceiptT, HardforkT, SignedTransactionT>>,
+    ) -> Arc<Self> {
+        value
     }
 }
 

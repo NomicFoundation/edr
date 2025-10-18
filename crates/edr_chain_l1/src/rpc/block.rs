@@ -53,7 +53,9 @@ pub struct L1RpcBlock<TransactionT> {
     pub uncles: Vec<B256>,
     /// Array of transaction objects, or 32 Bytes transaction hashes depending
     /// on the last given parameter
-    #[serde(default)]
+    // Using `default = "Vec::default"` as `#[serde(default)]` imposes the trait bound
+    // `TransactionT: Default`.
+    #[serde(default = "Vec::default")]
     pub transactions: Vec<TransactionT>,
     /// the length of the RLP encoding of this block in bytes
     #[serde(with = "alloy_serde::quantity")]

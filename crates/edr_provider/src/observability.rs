@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_blockchain_api::BlockHash;
+use edr_blockchain_api::BlockHashByNumber;
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_database_components::DatabaseComponents;
 use edr_evm::{
@@ -100,7 +100,7 @@ impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
 }
 
 impl<
-        BlockchainT: BlockHash<Error: std::error::Error>,
+        BlockchainT: BlockHashByNumber<Error: std::error::Error>,
         ContextT: ContextTrait<
             Journal: JournalExt
                          + JournalTrait<

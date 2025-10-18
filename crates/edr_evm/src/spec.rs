@@ -112,7 +112,7 @@ impl RuntimeSpec for L1ChainSpec {
         Self::SignedTransaction,
     >;
 
-    type ReceiptBuilder = receipt::Builder;
+    type ReceiptBuilder = receipt::L1ExecutionReceiptBuilder;
     type RpcBlockConversionError = RemoteBlockConversionError<Self::RpcTransactionConversionError>;
     type RpcReceiptConversionError = edr_chain_l1::rpc::receipt::ConversionError;
     type RpcTransactionConversionError = edr_chain_l1::rpc::transaction::ConversionError;
@@ -155,80 +155,6 @@ impl RuntimeSpec for L1ChainSpec {
 
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
         hardfork::l1::default_base_fee_params()
-    }
-}
-
-impl BlockEnvConstructor<PartialHeader> for L1ChainSpec {
-    fn new_block_env(header: &PartialHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
-        edr_chain_l1::BlockEnv {
-            number: U256::from(header.number),
-            beneficiary: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= EvmSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: header.blob_gas.as_ref().map(
-                |BlobGas { excess_gas, .. }| {
-                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
-                        BlobParams::prague()
-                    } else {
-                        BlobParams::cancun()
-                    };
-
-                    BlobExcessGasAndPrice::new(
-                        *excess_gas,
-                        blob_params
-                            .update_fraction
-                            .try_into()
-                            .expect("blob update fraction is too large"),
-                    )
-                },
-            ),
-        }
-    }
-}
-
-impl BlockEnvConstructor<BlockHeader> for L1ChainSpec {
-    fn new_block_env(header: &BlockHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
-        edr_chain_l1::BlockEnv {
-            number: U256::from(header.number),
-            beneficiary: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= EvmSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: header.blob_gas.as_ref().map(
-                |BlobGas { excess_gas, .. }| {
-                    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
-                        BlobParams::prague()
-                    } else {
-                        BlobParams::cancun()
-                    };
-
-                    BlobExcessGasAndPrice::new(
-                        *excess_gas,
-                        blob_params
-                            .update_fraction
-                            .try_into()
-                            .expect("blob update fraction is too large"),
-                    )
-                },
-            ),
-        }
     }
 }
 

@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use derive_where::derive_where;
-use edr_blockchain_api::BlockHash;
+use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::HaltReasonTrait;
 use edr_database_components::DatabaseComponents;
 use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
@@ -199,7 +199,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
     /// Notifies the trace collector that a call is starting.
     pub fn notify_call_start<
-        BlockchainT: BlockHash<Error: std::error::Error>,
+        BlockchainT: BlockHashByNumber<Error: std::error::Error>,
         JournalT: JournalExt
             + JournalTrait<Database = WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
         StateT: State<Error: std::error::Error>,
@@ -260,7 +260,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
     /// Notifies the trace collector that a call has ended.
     pub fn notify_call_end<
-        BlockchainT: BlockHash<Error: std::error::Error>,
+        BlockchainT: BlockHashByNumber<Error: std::error::Error>,
         ContextT: ContextTrait<
             Journal: JournalExt
                          + JournalTrait<
@@ -328,7 +328,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
     /// Notifies the trace collector that a create is starting.
     pub fn notify_create_start<
-        BlockchainT: BlockHash<Error: std::error::Error>,
+        BlockchainT: BlockHashByNumber<Error: std::error::Error>,
         StateT: State<Error: std::error::Error>,
         FinalOutputT,
     >(
@@ -361,7 +361,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
     /// Notifies the trace collector that a create has ended.
     pub fn notify_create_end<
-        BlockchainT: BlockHash<Error: std::error::Error>,
+        BlockchainT: BlockHashByNumber<Error: std::error::Error>,
         ContextT: ContextTrait<
             Journal: JournalExt
                          + JournalTrait<
@@ -424,7 +424,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 
     /// Notifies the trace collector that a step has started.
     pub fn notify_step_start<
-        BlockchainT: BlockHash<Error: std::error::Error>,
+        BlockchainT: BlockHashByNumber<Error: std::error::Error>,
         StateT: State<Error: std::error::Error>,
         FinalOutputT,
     >(
@@ -472,7 +472,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
 }
 
 impl<
-        BlockchainT: BlockHash<Error: std::error::Error>,
+        BlockchainT: BlockHashByNumber<Error: std::error::Error>,
         ContextT: ContextTrait<
             Journal: JournalExt
                          + JournalTrait<

@@ -1,27 +1,25 @@
 use edr_block_header::PartialHeader;
-use edr_chain_l1::TypedEnvelope;
-use edr_chain_spec::{ExecutableTransaction, HaltReasonTrait, TransactionValidation};
-use edr_receipt::log::{logs_to_bloom, ExecutionLog};
+use edr_receipt::{
+    log::{logs_to_bloom, ExecutionLog},
+    ExecutionResult,
+};
+use edr_receipt_builder_api::ExecutionReceiptBuilder;
 use edr_state_api::State;
 use edr_transaction::TransactionType as _;
 
-use crate::result::ExecutionResult;
+use crate::{HaltReason, Hardfork, L1SignedTransaction, TypedEnvelope};
 
 /// Builder for execution receipts.
 pub struct L1ExecutionReceiptBuilder;
 
-impl
-    ExecutionReceiptBuilder<
-        edr_chain_l1::HaltReason,
-        edr_chain_l1::Hardfork,
-        edr_chain_l1::L1SignedTransaction,
-    > for L1ExecutionReceiptBuilder
+impl ExecutionReceiptBuilder<HaltReason, Hardfork, L1SignedTransaction>
+    for L1ExecutionReceiptBuilder
 {
     type Receipt = TypedEnvelope<edr_receipt::execution::Eip658<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
         _pre_execution_state: StateT,
-        _transaction: &edr_chain_l1::L1SignedTransaction,
+        _transaction: &L1SignedTransaction,
     ) -> Result<Self, StateT::Error> {
         Ok(Self)
     }
@@ -29,9 +27,9 @@ impl
     fn build_receipt(
         self,
         header: &PartialHeader,
-        transaction: &edr_chain_l1::L1SignedTransaction,
-        result: &ExecutionResult<edr_chain_l1::HaltReason>,
-        _hardfork: edr_chain_l1::Hardfork,
+        transaction: &L1SignedTransaction,
+        result: &ExecutionResult<HaltReason>,
+        _hardfork: Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = logs_to_bloom(&logs);

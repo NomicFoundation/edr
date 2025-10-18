@@ -2,8 +2,16 @@ use std::sync::Arc;
 
 use alloy_eips::eip7840::BlobParams;
 use edr_block_api::BlockReceipts;
-use edr_block_header::{BlobGas, BlockConfig, BlockHeader, PartialHeader};
+use edr_block_header::{
+    BlobGas, BlockConfig, BlockHeader, BlockHeaderAndEvmSpec, PartialHeader,
+    PartialHeaderAndEvmSpec,
+};
 use edr_chain_l1::L1ChainSpec;
+pub use edr_chain_l1::L1_MIN_ETHASH_DIFFICULTY;
+use edr_chain_spec::{
+    BlobExcessGasAndPrice, BlockEnvTrait, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
+    TransactionValidation,
+};
 use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
 use edr_evm::{
@@ -14,17 +22,13 @@ use edr_evm::{
     journal::{Journal, JournalTrait as _},
     precompile::{EthPrecompiles, PrecompileProvider},
     spec::{
-        BlockEnvConstructor, ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec,
-        GenesisBlockFactory, RuntimeSpec, EXTRA_DATA,
+        ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory,
+        RuntimeSpec, EXTRA_DATA,
     },
     state::Database,
     transaction::{TransactionError, TransactionErrorForChainSpec},
     EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, RemoteBlock,
     SyncBlock,
-};
-use edr_chain_spec::{
-    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
-    TransactionValidation,
 };
 use edr_primitives::{Bytes, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
@@ -44,15 +48,16 @@ impl ChainSpec for GenericChainSpec {
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
 }
 
-fn blob_excess_gas_and_price(
-    blob_gas: &Option<BlobGas>,
-    hardfork: edr_chain_l1::Hardfork,
+fn blob_excess_gas_and_price_for_evm_spec(
+    blob_gas: Option<&BlobGas>,
+    evm_spec_id: EvmSpecId,
 ) -> Option<BlobExcessGasAndPrice> {
-    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
+    let blob_params = if evm_spec_id >= EvmSpecId::PRAGUE {
         BlobParams::prague()
     } else {
         BlobParams::cancun()
     };
+
     let update_fraction = blob_params
         .update_fraction
         .try_into()
@@ -64,7 +69,7 @@ fn blob_excess_gas_and_price(
         .or_else(|| {
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
-            if hardfork >= edr_chain_l1::Hardfork::CANCUN {
+            if evm_spec_id >= edr_chain_l1::Hardfork::CANCUN {
                 Some(BlobExcessGasAndPrice::new(0u64, update_fraction))
             } else {
                 None
@@ -72,50 +77,86 @@ fn blob_excess_gas_and_price(
         })
 }
 
-impl BlockEnvConstructor<BlockHeader> for GenericChainSpec {
-    fn new_block_env(header: &BlockHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
-        edr_chain_l1::BlockEnv {
-            number: U256::from(header.number),
-            beneficiary: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= EvmSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: blob_excess_gas_and_price(&header.blob_gas, hardfork),
-        }
+pub struct BlockHeaderAndEvmSpecWithFallback<'header> {
+    inner: BlockHeaderAndEvmSpec<'header>,
+}
+
+impl BlockEnvTrait for BlockHeaderAndEvmSpecWithFallback<'_> {
+    fn number(&self) -> U256 {
+        self.inner.number()
+    }
+
+    fn beneficiary(&self) -> edr_primitives::Address {
+        self.inner.beneficiary()
+    }
+
+    fn timestamp(&self) -> U256 {
+        self.inner.timestamp()
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.inner.gas_limit()
+    }
+
+    fn basefee(&self) -> u64 {
+        self.inner.basefee()
+    }
+
+    fn difficulty(&self) -> U256 {
+        self.inner.difficulty()
+    }
+
+    fn prevrandao(&self) -> Option<edr_primitives::B256> {
+        self.inner.prevrandao()
+    }
+
+    fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
+        blob_excess_gas_and_price_for_evm_spec(
+            self.inner.header.blob_gas.as_ref(),
+            self.inner.evm_spec_id,
+        )
     }
 }
 
-impl BlockEnvConstructor<PartialHeader> for GenericChainSpec {
-    fn new_block_env(header: &PartialHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
-        edr_chain_l1::BlockEnv {
-            number: U256::from(header.number),
-            beneficiary: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= EvmSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: blob_excess_gas_and_price(&header.blob_gas, hardfork),
-        }
-    }
+pub struct PartialHeaderAndEvmSpecWithFallback<'header> {
+    inner: PartialHeaderAndEvmSpec<'header>,
 }
 
-impl EthHeaderConstants for GenericChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
+impl BlockEnvTrait for PartialHeaderAndEvmSpecWithFallback<'_> {
+    fn number(&self) -> U256 {
+        self.inner.number()
+    }
+
+    fn beneficiary(&self) -> Address {
+        self.inner.beneficiary()
+    }
+
+    fn timestamp(&self) -> U256 {
+        self.inner.timestamp()
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.inner.gas_limit()
+    }
+
+    fn basefee(&self) -> u64 {
+        self.inner.basefee()
+    }
+
+    fn difficulty(&self) -> U256 {
+        self.inner.difficulty()
+    }
+
+    fn prevrandao(&self) -> Option<B256> {
+        self.inner.prevrandao()
+    }
+
+    fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
+        blob_excess_gas_and_price_for_evm_spec(
+            self.inner.header.blob_gas.as_ref(),
+            self.inner.evm_spec_id,
+        )
+    }
 }
 
 impl GenesisBlockFactory for GenericChainSpec {
