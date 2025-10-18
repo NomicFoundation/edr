@@ -11,8 +11,10 @@ use edr_block_builder_api::{
 use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction, HaltReasonTrait, TransactionValidation};
-use edr_evm2::dry_run;
-use edr_evm_spec::{DatabaseComponentError, ExecutionResultAndState, Inspector, TransactionError};
+use edr_evm2::{dry_run, dry_run_with_inspector};
+use edr_evm_spec::{
+    config::EvmConfig, DatabaseComponentError, ExecutionResultAndState, Inspector, TransactionError,
+};
 use edr_primitives::{Address, Bloom, HashMap, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
@@ -21,7 +23,6 @@ use edr_receipt::{
 use edr_receipt_spec::ReceiptConstructor;
 use edr_state_api::{AccountModifierFn, StateDiff, SyncState};
 use edr_trie::ordered_trie_root;
-use revm_context::context;
 
 /// A builder for constructing Ethereum L1 blocks.
 pub struct EthBlockBuilder<
@@ -191,16 +192,29 @@ impl<
 
 impl<
         'builder,
-        BlockReceiptT: Send + Sync,
+        BlockReceiptT: ReceiptConstructor<
+                Context = ContextT,
+                ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
+                Hardfork = HardforkT,
+                SignedTransaction = SignedTransactionT,
+            > + ReceiptTrait
+            + Send
+            + Sync,
         BlockT: ?Sized + Block<SignedTransactionT>,
-        BlockchainErrorT: Debug + Send,
+        BlockchainErrorT: Debug + Send + std::error::Error,
         ContextT,
-        ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec,
+        ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec<
+            ExecutionReceipt<ExecutionLog>: MapReceiptLogs<
+                ExecutionLog,
+                FilterLog,
+                ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
+            > + alloy_rlp::Encodable,
+        >,
         HaltReasonT: HaltReasonTrait,
         HardforkT: Clone + Into<EvmSpecId> + PartialOrd + Send + Sync,
-        LocalBlockT: Send + Sync,
+        LocalBlockT: From<EthLocalBlock<BlockReceiptT, HardforkT, SignedTransactionT>> + Send + Sync,
         SignedTransactionT: Clone + ExecutableTransaction + Send + Sync + TransactionValidation,
-        StateErrorT,
+        StateErrorT: Send + Sync + std::error::Error,
     >
     EthBlockBuilder<
         'builder,
@@ -233,8 +247,8 @@ impl<
             StateErrorT,
         >,
         state: Box<dyn SyncState<StateErrorT>>,
-        config: BlockConfig<'_, HardforkT>,
-        cfg: CfgEnv<HardforkT>,
+        block_config: BlockConfig<'_, HardforkT>,
+        evm_config: EvmConfig,
         inputs: BlockInputs,
         mut overrides: HeaderOverrides<HardforkT>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
@@ -246,12 +260,12 @@ impl<
             BlockBuilderCreationError::Database(DatabaseComponentError::Blockchain(error))
         })?;
 
-        let eth_hardfork = cfg.spec.into();
-        if eth_hardfork < EvmSpecId::BYZANTIUM {
+        let evm_spec_id = block_config.hardfork.clone().into();
+        if evm_spec_id < EvmSpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(
-                config.hardfork,
+                block_config.hardfork,
             ));
-        } else if eth_hardfork >= EvmSpecId::SHANGHAI && inputs.withdrawals.is_none() {
+        } else if evm_spec_id >= EvmSpecId::SHANGHAI && inputs.withdrawals.is_none() {
             return Err(BlockBuilderCreationError::MissingWithdrawals);
         }
 
@@ -264,7 +278,7 @@ impl<
 
         overrides.parent_hash = Some(*parent_block.block_hash());
         let header = PartialHeader::new(
-            config,
+            block_config,
             overrides,
             Some(parent_header),
             &inputs.ommers,
@@ -397,6 +411,72 @@ impl<
         Ok(())
     }
 
+    pub fn finalize(
+        mut self,
+        rewards: Vec<(Address, u128)>,
+    ) -> Result<BuiltBlockAndState<HaltReasonT, LocalBlockT, StateErrorT>, StateErrorT> {
+        for (address, reward) in rewards {
+            if reward > 0 {
+                let account_info = self.state.modify_account(
+                    address,
+                    AccountModifierFn::new(Box::new(move |balance, _nonce, _code| {
+                        *balance += U256::from(reward);
+                    })),
+                )?;
+
+                self.state_diff.apply_account_change(address, account_info);
+            }
+        }
+
+        if let Some(gas_limit) = self.parent_gas_limit {
+            self.header.gas_limit = gas_limit;
+        }
+
+        self.header.logs_bloom = {
+            let mut logs_bloom = Bloom::ZERO;
+            self.receipts.iter().for_each(|receipt| {
+                logs_bloom.accrue_bloom(receipt.logs_bloom());
+            });
+            logs_bloom
+        };
+
+        self.header.receipts_root = ordered_trie_root(self.receipts.iter().map(alloy_rlp::encode));
+
+        // Only set the state root if it wasn't specified during construction
+        if self.header.state_root == KECCAK_NULL_RLP {
+            self.header.state_root = self
+                .state
+                .state_root()
+                .expect("Must be able to calculate state root");
+        }
+
+        // Only set the timestamp if it wasn't specified during construction
+        if self.header.timestamp == 0 {
+            self.header.timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("Current time must be after unix epoch")
+                .as_secs();
+        }
+
+        // TODO: handle ommers
+        let block = EthLocalBlock::new::<ExecutionReceiptChainSpecT>(
+            &self.context,
+            self.cfg.spec,
+            self.header,
+            self.transactions,
+            self.receipts,
+            Vec::new(),
+            self.withdrawals,
+        );
+
+        Ok(BuiltBlockAndState {
+            block: block.into(),
+            state: self.state,
+            state_diff: self.state_diff,
+            transaction_results: self.transaction_results,
+        })
+    }
+
     fn add_transaction_result(
         &mut self,
         receipt_builder: ChainSpecT::ReceiptBuilder,
@@ -453,7 +533,7 @@ impl<
             + Sync,
         BlockT: ?Sized + Block<SignedTransactionT>,
         BlockchainErrorT: Debug + Send + std::error::Error,
-        ContextT,
+        ContextT: Default,
         ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec<
             ExecutionReceipt<ExecutionLog>: MapReceiptLogs<
                 ExecutionLog,
@@ -465,7 +545,7 @@ impl<
         HardforkT: Clone + Into<EvmSpecId> + PartialOrd + Send + Sync,
         LocalBlockT: From<EthLocalBlock<BlockReceiptT, HardforkT, SignedTransactionT>> + Send + Sync,
         SignedTransactionT: Clone + ExecutableTransaction + Send + Sync + TransactionValidation,
-        StateErrorT: Send + std::error::Error,
+        StateErrorT: Send + Sync + std::error::Error,
     >
     BlockBuilder<
         'builder,
@@ -510,7 +590,8 @@ impl<
             Self::StateError,
         >,
         state: Box<dyn SyncState<Self::StateError>>,
-        cfg: CfgEnv<HardforkT>,
+        block_config: BlockConfig<'_, HardforkT>,
+        evm_config: EvmConfig,
         inputs: BlockInputs,
         overrides: HeaderOverrides<HardforkT>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
@@ -522,9 +603,11 @@ impl<
         >,
     > {
         Self::new(
+            ContextT::default(),
             blockchain,
             state,
-            cfg,
+            block_config,
+            evm_config,
             inputs,
             overrides,
             custom_precompiles,

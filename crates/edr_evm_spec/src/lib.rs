@@ -1,3 +1,4 @@
+pub mod config;
 mod error;
 pub mod handler;
 pub mod interpreter;

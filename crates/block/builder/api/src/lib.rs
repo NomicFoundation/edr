@@ -2,10 +2,11 @@
 
 use std::fmt::Debug;
 
-use edr_block_header::{BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
+use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 pub use edr_blockchain_api::sync::SyncBlockchain;
 use edr_chain_spec::{ChainSpec, EvmSpecId, HaltReasonTrait, TransactionValidation};
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
+use edr_evm_spec::config::EvmConfig;
 pub use edr_evm_spec::{
     result::ExecutionResult, CfgEnv, Context, Inspector, Journal, TransactionError,
 };
@@ -33,8 +34,6 @@ pub enum BlockBuilderCreationError<DatabaseErrorT, HardforkT> {
 /// Chain-agnostic inputs for building a block.
 #[derive(Debug, Default)]
 pub struct BlockInputs {
-    /// The minimum difficulty for the Ethash proof-of-work algorithm.
-    pub min_ethash_difficulty: u64,
     /// The ommers of the block.
     pub ommers: Vec<BlockHeader>,
     /// The withdrawals of the block. Present post-Shanghai hardfork.
@@ -45,10 +44,7 @@ impl BlockInputs {
     // TODO: https://github.com/NomicFoundation/edr/issues/990
     // Add support for specifying withdrawals
     /// Constructs default block inputs for the provided hardfork.
-    pub fn new<HardforkT: Into<EvmSpecId>>(
-        hardfork: HardforkT,
-        min_ethash_difficulty: u64,
-    ) -> Self {
+    pub fn new<HardforkT: Into<EvmSpecId>>(hardfork: HardforkT) -> Self {
         let withdrawals = if hardfork.into() >= EvmSpecId::SHANGHAI {
             Some(Vec::new())
         } else {
@@ -56,7 +52,6 @@ impl BlockInputs {
         };
 
         Self {
-            min_ethash_difficulty,
             ommers: Vec::new(),
             withdrawals,
         }
@@ -128,7 +123,8 @@ pub trait BlockBuilder<
             Self::StateError,
         >,
         state: Box<dyn SyncState<Self::StateError>>,
-        cfg: CfgEnv<HardforkT>,
+        block_config: BlockConfig<'_, HardforkT>,
+        evm_config: EvmConfig,
         inputs: BlockInputs,
         overrides: HeaderOverrides<HardforkT>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,

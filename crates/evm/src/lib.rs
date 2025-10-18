@@ -1,8 +1,6 @@
 //! Utilities for running transactions in the EVM.
 #![warn(missing_docs)]
 
-mod config;
-
 use edr_blockchain_api::BlockHash;
 use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
