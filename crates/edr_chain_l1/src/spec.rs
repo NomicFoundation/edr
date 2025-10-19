@@ -158,13 +158,6 @@ impl ChainContextSpec for L1ChainSpec {
     type Context = ();
 }
 
-impl RpcBlockChainSpec for L1ChainSpec {
-    type RpcBlock<DataT>
-        = L1RpcBlock<DataT>
-    where
-        DataT: DeserializeOwned + Serialize;
-}
-
 impl ChainSpec for L1ChainSpec {
     type HaltReason = HaltReason;
     type SignedTransaction = L1SignedTransaction;
@@ -193,6 +186,13 @@ impl GenesisBlockFactory for L1ChainSpec {
 
         EthLocalBlock::with_genesis_state(genesis_diff, block_config, options)
     }
+}
+
+impl RpcBlockChainSpec for L1ChainSpec {
+    type RpcBlock<DataT>
+        = L1RpcBlock<DataT>
+    where
+        DataT: DeserializeOwned + Serialize;
 }
 
 impl RpcSpec for L1ChainSpec {

@@ -22,13 +22,13 @@ use tokio::runtime;
 pub struct RemoteBlockchain<
     BlockReceiptT: ReceiptTrait,
     BlockT: Block<SignedTransactionT> + Clone,
-    RpcBlockT: RpcBlockChainSpec,
+    RpcBlockChainSpecT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
     SignedTransactionT: ExecutableTransaction,
     const FORCE_CACHING: bool,
 > {
-    client: Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>>,
+    client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
     cache: RwLock<SparseBlockStorage<Arc<BlockReceiptT>, BlockT, SignedTransactionT>>,
     runtime: runtime::Handle,
 }
@@ -36,7 +36,7 @@ pub struct RemoteBlockchain<
 impl<
         BlockReceiptT: ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone,
-        RpcBlockT: RpcBlockChainSpec,
+        RpcBlockChainSpecT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: DeserializeOwned + Serialize,
         SignedTransactionT: ExecutableTransaction,
@@ -45,7 +45,7 @@ impl<
     RemoteBlockchain<
         BlockReceiptT,
         BlockT,
-        RpcBlockT,
+        RpcBlockChainSpecT,
         RpcReceiptT,
         RpcTransactionT,
         SignedTransactionT,
@@ -54,7 +54,7 @@ impl<
 {
     /// Constructs a new instance with the provided RPC client.
     pub fn new(
-        client: Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>>,
+        client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
         runtime: runtime::Handle,
     ) -> Self {
         Self {
@@ -65,7 +65,7 @@ impl<
     }
 
     /// Retrieves the instance's RPC client.
-    pub fn client(&self) -> &Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>> {
+    pub fn client(&self) -> &Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>> {
         &self.client
     }
 
@@ -237,13 +237,8 @@ impl<
                     SignedTransactionT,
                 >,
             >,
-        RpcBlockConversionErrorT,
         RpcBlockChainSpecT: RpcBlockChainSpec<
-            RpcBlock<RpcTransactionT>: RpcEthBlock
-                                           + TryInto<
-                EthBlockData<SignedTransactionT>,
-                Error = RpcBlockConversionErrorT,
-            >,
+            RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
         >,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
@@ -265,7 +260,14 @@ impl<
     pub async fn block_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<BlockT>, FetchRemoteBlockError<RpcBlockConversionErrorT>> {
+    ) -> Result<
+        Option<BlockT>,
+        FetchRemoteBlockError<
+            <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+                EthBlockData<SignedTransactionT>,
+            >>::Error,
+        >,
+    > {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(block) = cache.block_by_hash(hash).cloned() {
@@ -295,7 +297,14 @@ impl<
     pub async fn block_by_number(
         &self,
         number: u64,
-    ) -> Result<BlockT, FetchRemoteBlockError<RpcBlockConversionErrorT>> {
+    ) -> Result<
+        BlockT,
+        FetchRemoteBlockError<
+            <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+                EthBlockData<SignedTransactionT>,
+            >>::Error,
+        >,
+    > {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(block) = cache.block_by_number(number).cloned() {
@@ -321,7 +330,14 @@ impl<
     pub async fn total_difficulty_by_hash(
         &self,
         hash: &B256,
-    ) -> Result<Option<U256>, FetchRemoteBlockError<RpcBlockConversionErrorT>> {
+    ) -> Result<
+        Option<U256>,
+        FetchRemoteBlockError<
+            <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+                EthBlockData<SignedTransactionT>,
+            >>::Error,
+        >,
+    > {
         let cache = self.cache.upgradable_read().await;
 
         if let Some(difficulty) = cache.total_difficulty_by_hash(hash).cloned() {
@@ -362,7 +378,14 @@ impl<
             SparseBlockStorage<Arc<BlockReceiptT>, BlockT, SignedTransactionT>,
         >,
         block: RpcBlockChainSpecT::RpcBlock<RpcTransactionT>,
-    ) -> Result<BlockT, FetchAndCacheRemoteBlockError<RpcBlockConversionErrorT>> {
+    ) -> Result<
+        BlockT,
+        FetchAndCacheRemoteBlockError<
+            <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+                EthBlockData<SignedTransactionT>,
+            >>::Error,
+        >,
+    > {
         // Geth has recently removed the total difficulty field from block RPC
         // responses, so we fall back to the terminal total difficulty of main net to
         // provide backwards compatibility.
@@ -463,7 +486,12 @@ impl<
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-    use edr_chain_l1::L1ChainSpec;
+    use edr_chain_l1::{
+        receipt::L1BlockReceipt,
+        rpc::{receipt::L1RpcTransactionReceipt, transaction::L1RpcTransactionWithSignature},
+        L1ChainSpec, L1SignedTransaction, TypedEnvelope,
+    };
+    use edr_receipt::execution::Eip658;
     use edr_rpc_spec::EthRpcClientForChainSpec;
     use edr_runtime_spec::RemoteBlockForChainSpec;
     use edr_test_utils::env::get_alchemy_url;
@@ -484,11 +512,15 @@ mod tests {
         // Latest block number is always unsafe to cache
         let block_number = rpc_client.block_number().await.unwrap();
 
-        let remote =
-            RemoteBlockchain::<RemoteBlockForChainSpec<L1ChainSpec>, L1ChainSpec, false>::new(
-                Arc::new(rpc_client),
-                runtime::Handle::current(),
-            );
+        let remote = RemoteBlockchain::<
+            L1BlockReceipt<TypedEnvelope<Eip658<FilterLog>>>,
+            RemoteBlockForChainSpec<L1ChainSpec>,
+            L1ChainSpec,
+            L1RpcTransactionReceipt,
+            L1RpcTransactionWithSignature,
+            L1SignedTransaction,
+            false,
+        >::new(Arc::new(rpc_client), runtime::Handle::current());
 
         let _ = remote.block_by_number(block_number).await.unwrap();
         assert!(remote

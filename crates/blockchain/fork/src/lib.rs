@@ -1,7 +1,6 @@
 /// Types and constants for Ethereum improvements proposals (EIPs)
 pub mod eips;
 
-use core::convert::Infallible;
 use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, sync::Arc};
 
 use derive_where::derive_where;
@@ -15,7 +14,9 @@ use edr_block_storage::{
     InsertBlockAndReceiptsError, InsertBlockError, ReservableSparseBlockStorage,
 };
 use edr_blockchain_api::{
-    utils::compute_state_at_block, BlockHashByNumber, Blockchain, BlockchainMut,
+    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock,
+    GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
+    StateAtBlock, TotalDifficultyByBlockHash,
 };
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
 use edr_chain_config::{Activations, ChainConfig};
@@ -432,10 +433,9 @@ impl<
 }
 
 impl<
-        BlockReceiptT: Debug + ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
         BlockT: Block<SignedTransactionT>
-            + CastArcFrom<LocalBlockT>
-            + CastArcFrom<
+            + From<
                 RemoteBlock<
                     BlockReceiptT,
                     RpcBlockChainSpecT,
@@ -445,19 +445,14 @@ impl<
                 >,
             >,
         HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
-        LocalBlockT: Block<SignedTransactionT>
-            + BlockReceipts<Arc<BlockReceiptT>, Error = Infallible>
-            + EmptyBlock<HardforkT>
-            + LocalBlock<Arc<BlockReceiptT>>,
-        RpcBlockChainSpecT: 'static
-            + RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>
-            + RpcBlockChainSpec<
-                RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
-            >,
-        RpcReceiptT: 'static + serde::de::DeserializeOwned + serde::Serialize,
-        RpcTransactionT: 'static + RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
+        LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
+        RpcBlockChainSpecT: RpcBlockChainSpec<
+            RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
+        >,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
-    > Blockchain<BlockT, BlockReceiptT, HardforkT>
+    > BlockHashByNumber
     for ForkedBlockchain<
         BlockReceiptT,
         BlockT,
@@ -469,7 +464,7 @@ impl<
         SignedTransactionT,
     >
 {
-    type BlockchainError = ForkedBlockchainError<
+    type Error = ForkedBlockchainError<
         HardforkT,
         <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
             EthBlockData<SignedTransactionT>,
@@ -477,7 +472,174 @@ impl<
         <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
     >;
 
-    type StateError = StateError;
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
+        if block_number <= self.fork_block_number {
+            tokio::task::block_in_place(move || {
+                self.runtime()
+                    .block_on(self.remote.block_by_number(block_number))
+            })
+            .map(|block| Ok(*block.block_hash()))?
+        } else {
+            self.local_storage
+                .block_by_number(block_number)?
+                .map(|block| *block.block_hash())
+                .ok_or(ForkedBlockchainError::UnknownBlockNumber)
+        }
+    }
+}
+
+impl<
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: Block<SignedTransactionT>
+            + From<
+                RemoteBlock<
+                    BlockReceiptT,
+                    RpcBlockChainSpecT,
+                    RpcReceiptT,
+                    RpcTransactionT,
+                    SignedTransactionT,
+                >,
+            >,
+        HardforkT: Clone,
+        LocalBlockT,
+        RpcBlockChainSpecT: RpcBlockChainSpec<
+            RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
+        >,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > BlockchainMetadata<HardforkT>
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    type Error = ForkedBlockchainError<
+        HardforkT,
+        <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+            EthBlockData<SignedTransactionT>,
+        >>::Error,
+        <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
+    >;
+
+    fn chain_id(&self) -> u64 {
+        self.chain_id
+    }
+
+    fn chain_id_at_block_number(&self, block_number: u64) -> Result<u64, Self::Error> {
+        if block_number > self.last_block_number() {
+            return Err(ForkedBlockchainError::UnknownBlockNumber);
+        }
+
+        if block_number <= self.fork_block_number {
+            Ok(self.remote_chain_id())
+        } else {
+            Ok(self.chain_id())
+        }
+    }
+
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    fn spec_at_block_number(&self, block_number: u64) -> Result<HardforkT, Self::Error> {
+        if block_number > self.last_block_number() {
+            return Err(ForkedBlockchainError::UnknownBlockNumber);
+        }
+
+        if block_number <= self.fork_block_number {
+            tokio::task::block_in_place(move || {
+                self.runtime()
+                    .block_on(self.remote.block_by_number(block_number))
+                    .map_err(ForkedBlockchainError::from)
+            })
+            .and_then(|block| {
+                if let Some(hardfork_activations) = &self.hardfork_activations {
+                    let header = block.block_header();
+                    hardfork_activations
+                        .hardfork_at_block(header.number, header.timestamp)
+                        .ok_or(ForkedBlockchainError::UnknownBlockSpec {
+                            block_number,
+                            hardfork_activations: hardfork_activations.clone(),
+                        })
+                } else {
+                    Err(ForkedBlockchainError::MissingHardforkActivations {
+                        block_number,
+                        fork_block_number: self.fork_block_number,
+                        chain_id: self.remote_chain_id,
+                    })
+                }
+            })
+        } else {
+            Ok(self.hardfork.clone())
+        }
+    }
+
+    fn hardfork(&self) -> HardforkT {
+        self.hardfork.clone()
+    }
+
+    fn last_block_number(&self) -> u64 {
+        self.local_storage.last_block_number()
+    }
+
+    fn network_id(&self) -> u64 {
+        self.network_id
+    }
+}
+
+impl<
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: Block<SignedTransactionT>
+            + CastArcFrom<LocalBlockT>
+            + CastArcFrom<
+                RemoteBlock<
+                    BlockReceiptT,
+                    RpcBlockChainSpecT,
+                    RpcReceiptT,
+                    RpcTransactionT,
+                    SignedTransactionT,
+                >,
+            > + From<
+                RemoteBlock<
+                    BlockReceiptT,
+                    RpcBlockChainSpecT,
+                    RpcReceiptT,
+                    RpcTransactionT,
+                    SignedTransactionT,
+                >,
+            >,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
+        RpcBlockChainSpecT: RpcBlockChainSpec<
+            RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
+        >,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > GetBlockchainBlock<BlockT, HardforkT>
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    type Error = ForkedBlockchainError<
+        HardforkT,
+        <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+            EthBlockData<SignedTransactionT>,
+        >>::Error,
+        <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
+    >;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::type_complexity)]
@@ -530,22 +692,6 @@ impl<
         }
     }
 
-    fn chain_id(&self) -> u64 {
-        self.chain_id
-    }
-
-    fn chain_id_at_block_number(&self, block_number: u64) -> Result<u64, Self::Error> {
-        if block_number > self.last_block_number() {
-            return Err(ForkedBlockchainError::UnknownBlockNumber);
-        }
-
-        if block_number <= self.fork_block_number {
-            Ok(self.remote_chain_id())
-        } else {
-            Ok(self.chain_id())
-        }
-    }
-
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn last_block(&self) -> Result<Arc<BlockT>, Self::Error> {
         let last_block_number = self.last_block_number();
@@ -565,10 +711,36 @@ impl<
             Ok(CastArcFrom::cast_arc_from(remote_block))
         }
     }
+}
 
-    fn last_block_number(&self) -> u64 {
-        self.local_storage.last_block_number()
-    }
+impl<
+        BlockReceiptT: Debug + ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: Block<SignedTransactionT>,
+        HardforkT,
+        LocalBlockT: BlockReceipts<Arc<BlockReceiptT>, Error: Debug>,
+        RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > GetBlockchainLogs
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    type Error = ForkedBlockchainError<
+        HardforkT,
+        <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+            EthBlockData<SignedTransactionT>,
+        >>::Error,
+        <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
+    >;
 
     fn logs(
         &self,
@@ -613,138 +785,10 @@ impl<
                 ))
         }
     }
-
-    fn network_id(&self) -> u64 {
-        self.network_id
-    }
-
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn receipt_by_transaction_hash(
-        &self,
-        transaction_hash: &B256,
-    ) -> Result<Option<Arc<BlockReceiptT>>, Self::Error> {
-        if let Some(receipt) = self
-            .local_storage
-            .receipt_by_transaction_hash(transaction_hash)
-        {
-            Ok(Some(receipt))
-        } else {
-            Ok(tokio::task::block_in_place(move || {
-                self.runtime()
-                    .block_on(self.remote.receipt_by_transaction_hash(transaction_hash))
-            })?)
-        }
-    }
-
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn spec_at_block_number(&self, block_number: u64) -> Result<HardforkT, Self::Error> {
-        if block_number > self.last_block_number() {
-            return Err(ForkedBlockchainError::UnknownBlockNumber);
-        }
-
-        if block_number <= self.fork_block_number {
-            tokio::task::block_in_place(move || {
-                self.runtime()
-                    .block_on(self.remote.block_by_number(block_number))
-                    .map_err(ForkedBlockchainError::from)
-            })
-            .and_then(|block| {
-                if let Some(hardfork_activations) = &self.hardfork_activations {
-                    let header = block.block_header();
-                    hardfork_activations
-                        .hardfork_at_block(header.number, header.timestamp)
-                        .ok_or(ForkedBlockchainError::UnknownBlockSpec {
-                            block_number,
-                            hardfork_activations: hardfork_activations.clone(),
-                        })
-                } else {
-                    Err(ForkedBlockchainError::MissingHardforkActivations {
-                        block_number,
-                        fork_block_number: self.fork_block_number,
-                        chain_id: self.remote_chain_id,
-                    })
-                }
-            })
-        } else {
-            Ok(self.hardfork.clone())
-        }
-    }
-
-    fn hardfork(&self) -> HardforkT {
-        self.hardfork.clone()
-    }
-
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn state_at_block_number(
-        &self,
-        block_number: u64,
-        state_overrides: &BTreeMap<u64, StateOverride>,
-    ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::Error> {
-        if block_number > self.last_block_number() {
-            return Err(ForkedBlockchainError::UnknownBlockNumber);
-        }
-
-        let state_root = if let Some(state_override) = state_overrides.get(&block_number) {
-            state_override.state_root
-        } else {
-            self.block_by_number(block_number)?
-                .expect(
-                    "Block must exist since block number is less than equal the last block number.",
-                )
-                .block_header()
-                .state_root
-        };
-
-        let mut state = ForkedState::new(
-            self.runtime().clone(),
-            self.remote.client().clone(),
-            self.state_root_generator.clone(),
-            block_number,
-            state_root,
-        );
-
-        let (first_block_number, last_block_number) =
-            match block_number.cmp(&self.fork_block_number) {
-                // Only override the state at the forked block
-                std::cmp::Ordering::Less => (block_number, block_number),
-                // Override blocks between the forked block and the requested block
-                std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
-                    (self.fork_block_number, block_number)
-                }
-            };
-
-        compute_state_at_block(
-            &mut state,
-            &self.local_storage,
-            first_block_number,
-            last_block_number,
-            state_overrides,
-        );
-
-        // Override the state root in case the local state was modified
-        state.set_state_root(state_root);
-
-        Ok(Box::new(state))
-    }
-
-    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::Error> {
-        if let Some(difficulty) = self.local_storage.total_difficulty_by_hash(hash) {
-            Ok(Some(difficulty))
-        } else {
-            Ok(tokio::task::block_in_place(move || {
-                self.runtime()
-                    .block_on(self.remote.total_difficulty_by_hash(hash))
-            })?)
-        }
-    }
 }
 
 impl<
-        BlockReceiptT: Debug
-            + ExecutionReceipt<Log = FilterLog>
-            + ReceiptTrait
-            + TryFrom<RpcReceiptT, Error: Debug>,
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT, Error: Debug>,
         BlockT: Block<SignedTransactionT>
             + CastArcFrom<LocalBlockT>
             + CastArcFrom<
@@ -755,25 +799,25 @@ impl<
                     RpcTransactionT,
                     SignedTransactionT,
                 >,
-            >,
-        HardforkT: Clone + Debug + Into<EvmSpecId> + PartialOrd,
-        LocalBlockT: Block<SignedTransactionT>
-            + BlockReceipts<Arc<BlockReceiptT>, Error = Infallible>
-            + EmptyBlock<HardforkT>
-            + LocalBlock<Arc<BlockReceiptT>>,
-        RpcBlockChainSpecT: 'static
-            + RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>
-            + RpcBlockChainSpec<
-                RpcBlock<RpcTransactionT>: RpcEthBlock
-                                               + TryInto<
-                    EthBlockData<SignedTransactionT>,
-                    Error: Debug,
+            > + From<
+                RemoteBlock<
+                    BlockReceiptT,
+                    RpcBlockChainSpecT,
+                    RpcReceiptT,
+                    RpcTransactionT,
+                    SignedTransactionT,
                 >,
             >,
-        RpcReceiptT: 'static + serde::de::DeserializeOwned + serde::Serialize,
-        RpcTransactionT: 'static + RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
+        HardforkT: Clone + Debug + Into<EvmSpecId> + PartialOrd,
+        LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
+        RpcBlockChainSpecT: RpcBlockChainSpec<
+            RpcBlock<RpcTransactionT>: RpcEthBlock
+                                           + TryInto<EthBlockData<SignedTransactionT>, Error: Debug>,
+        >,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
-    > BlockchainMut<BlockT, LocalBlockT, SignedTransactionT>
+    > InsertBlock<BlockT, LocalBlockT, SignedTransactionT>
     for ForkedBlockchain<
         BlockReceiptT,
         BlockT,
@@ -821,6 +865,104 @@ impl<
             Some(total_difficulty),
         ))
     }
+}
+
+impl<
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: Block<SignedTransactionT>,
+        HardforkT: Clone,
+        LocalBlockT,
+        RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > ReceiptByTransactionHash<BlockReceiptT>
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    type Error = ForkedBlockchainError<
+        HardforkT,
+        <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+            EthBlockData<SignedTransactionT>,
+        >>::Error,
+        <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
+    >;
+
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    fn receipt_by_transaction_hash(
+        &self,
+        transaction_hash: &B256,
+    ) -> Result<Option<Arc<BlockReceiptT>>, Self::Error> {
+        if let Some(receipt) = self
+            .local_storage
+            .receipt_by_transaction_hash(transaction_hash)
+        {
+            Ok(Some(receipt))
+        } else {
+            Ok(tokio::task::block_in_place(move || {
+                self.runtime()
+                    .block_on(self.remote.receipt_by_transaction_hash(transaction_hash))
+            })?)
+        }
+    }
+}
+
+impl<
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: Block<SignedTransactionT>
+            + CastArcFrom<LocalBlockT>
+            + CastArcFrom<
+                RemoteBlock<
+                    BlockReceiptT,
+                    RpcBlockChainSpecT,
+                    RpcReceiptT,
+                    RpcTransactionT,
+                    SignedTransactionT,
+                >,
+            > + From<
+                RemoteBlock<
+                    BlockReceiptT,
+                    RpcBlockChainSpecT,
+                    RpcReceiptT,
+                    RpcTransactionT,
+                    SignedTransactionT,
+                >,
+            >,
+        HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
+        LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
+        RpcBlockChainSpecT: RpcBlockChainSpec<
+            RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
+        >,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > ReserveBlocks
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    type Error = ForkedBlockchainError<
+        HardforkT,
+        <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+            EthBlockData<SignedTransactionT>,
+        >>::Error,
+        <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
+    >;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error> {
@@ -851,6 +993,36 @@ impl<
 
         Ok(())
     }
+}
+
+impl<
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: Block<SignedTransactionT>,
+        HardforkT,
+        LocalBlockT: Block<SignedTransactionT>,
+        RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > RevertToBlock
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    type Error = ForkedBlockchainError<
+        HardforkT,
+        <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+            EthBlockData<SignedTransactionT>,
+        >>::Error,
+        <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
+    >;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn revert_to_block(&mut self, block_number: u64) -> Result<(), Self::Error> {
@@ -875,8 +1047,16 @@ impl<
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
         BlockT: Block<SignedTransactionT>
-            + Clone
-            + From<
+            + CastArcFrom<LocalBlockT>
+            + CastArcFrom<
+                RemoteBlock<
+                    BlockReceiptT,
+                    RpcBlockChainSpecT,
+                    RpcReceiptT,
+                    RpcTransactionT,
+                    SignedTransactionT,
+                >,
+            > + From<
                 RemoteBlock<
                     BlockReceiptT,
                     RpcBlockChainSpecT,
@@ -886,14 +1066,103 @@ impl<
                 >,
             >,
         HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
-        LocalBlockT: Block<SignedTransactionT> + Clone + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
+        LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
+        RpcBlockChainSpecT: 'static
+            + RpcBlockChainSpec<
+                RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
+            >
+            + RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: 'static + serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: 'static + RpcTransaction + serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > StateAtBlock
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    type BlockchainError = ForkedBlockchainError<
+        HardforkT,
+        <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+            EthBlockData<SignedTransactionT>,
+        >>::Error,
+        <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
+    >;
+
+    type StateError = StateError;
+
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
+    fn state_at_block_number(
+        &self,
+        block_number: u64,
+        state_overrides: &BTreeMap<u64, StateOverride>,
+    ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError> {
+        if block_number > self.last_block_number() {
+            return Err(ForkedBlockchainError::UnknownBlockNumber);
+        }
+
+        let state_root = if let Some(state_override) = state_overrides.get(&block_number) {
+            state_override.state_root
+        } else {
+            self.block_by_number(block_number)?
+                .expect(
+                    "Block must exist since block number is less than equal the last block number.",
+                )
+                .block_header()
+                .state_root
+        };
+
+        let mut state = ForkedState::new(
+            self.runtime().clone(),
+            self.remote.client().clone(),
+            self.state_root_generator.clone(),
+            block_number,
+            state_root,
+        );
+
+        let (first_block_number, last_block_number) =
+            match block_number.cmp(&self.fork_block_number) {
+                // Only override the state at the forked block
+                std::cmp::Ordering::Less => (block_number, block_number),
+                // Override blocks between the forked block and the requested block
+                std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
+                    (self.fork_block_number, block_number)
+                }
+            };
+
+        compute_state_at_block(
+            &mut state,
+            &self.local_storage,
+            first_block_number,
+            last_block_number,
+            state_overrides,
+        );
+
+        // Override the state root in case the local state was modified
+        state.set_state_root(state_root);
+
+        Ok(Box::new(state))
+    }
+}
+
+impl<
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: Block<SignedTransactionT>,
+        HardforkT: Clone,
+        LocalBlockT,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
         >,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
-    > BlockHashByNumber
+    > TotalDifficultyByBlockHash
     for ForkedBlockchain<
         BlockReceiptT,
         BlockT,
@@ -914,18 +1183,14 @@ impl<
     >;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-    fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
-        if block_number <= self.fork_block_number {
-            tokio::task::block_in_place(move || {
-                self.runtime()
-                    .block_on(self.remote.block_by_number(block_number))
-            })
-            .map(|block| Ok(*block.block_hash()))?
+    fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::Error> {
+        if let Some(difficulty) = self.local_storage.total_difficulty_by_hash(hash) {
+            Ok(Some(difficulty))
         } else {
-            self.local_storage
-                .block_by_number(block_number)?
-                .map(|block| *block.block_hash())
-                .ok_or(ForkedBlockchainError::UnknownBlockNumber)
+            Ok(tokio::task::block_in_place(move || {
+                self.runtime()
+                    .block_on(self.remote.total_difficulty_by_hash(hash))
+            })?)
         }
     }
 }

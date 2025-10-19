@@ -2,22 +2,19 @@ use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use anyhow::anyhow;
 use edr_block_api::{Block as _, BlockReceipts, LocalBlock as _};
+use edr_block_builder_api::BlockInputs;
 use edr_block_header::{BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
-use edr_blockchain_api::Blockchain as _;
 use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_eth::{block::miner_reward, PreEip1898BlockSpec};
 use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _};
 use edr_rpc_eth::client::EthRpcClient;
-use edr_state_api::{account::AccountInfo, StateError};
+use edr_state_api::{account::AccountInfo, irregular::IrregularState, StateError};
 use edr_state_persistent_trie::{PersistentAccountAndStorageTrie, PersistentStateTrie};
 use edr_transaction::TxKind;
 use edr_utils::random::RandomHashGenerator;
 
-use crate::{
-    config::CfgEnv, spec::SyncRuntimeSpec, state::IrregularState, transaction, BlockBuilder,
-    BlockInputs, MemPool, MemPoolAddTransactionError,
-};
+use crate::{config::CfgEnv, transaction, MemPool, MemPoolAddTransactionError};
 
 /// A test fixture for `MemPool`.
 pub struct MemPoolTestFixture {
@@ -270,10 +267,7 @@ pub async fn run_full_block<
         &prior_blockchain,
         state,
         cfg,
-        BlockInputs {
-            ommers: Vec::new(),
-            withdrawals: expected_block.withdrawals().map(<[Withdrawal]>::to_vec),
-        },
+        BlockInputs::new(hardfork),
         header_overrides_constructor(replay_header),
         &custom_precompiles,
     )?;

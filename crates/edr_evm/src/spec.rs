@@ -37,9 +37,6 @@ use crate::{
     receipt::{self, ExecutionReceiptBuilder},
     result::{EVMErrorForChain, ExecutionResult},
     state::Database,
-    transaction::{remote::RpcTransaction, TransactionError, TransactionErrorForChainSpec},
-    BlockBuilder, EthBlockBuilder, EthBlockData, EthBlockReceiptFactory, EthLocalBlock,
-    EthLocalBlockForChainSpec, GenesisBlockOptions, RemoteBlock, RemoteBlockConversionError,
     SyncBlock,
 };
 

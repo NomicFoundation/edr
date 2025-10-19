@@ -41,7 +41,7 @@ pub enum RpcBlockConversionError<TransactionConversionErrorT> {
 #[derive_where(Debug; BlockReceiptT, SignedTransactionT)]
 pub struct RemoteBlock<
     BlockReceiptT,
-    RpcBlockT: RpcBlockChainSpec,
+    RpcBlockChainSpecT: RpcBlockChainSpec,
     RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
     RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
     SignedTransactionT,
@@ -59,7 +59,7 @@ pub struct RemoteBlock<
     /// The length of the RLP encoding of this block in bytes
     size: u64,
     // The RPC client is needed to lazily fetch receipts
-    rpc_client: Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>>,
+    rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
     runtime: runtime::Handle,
 }
 

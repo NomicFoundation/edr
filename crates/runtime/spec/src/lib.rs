@@ -23,7 +23,7 @@ use edr_transaction::{TransactionAndBlock, TransactionType};
 /// Helper type for a chain-specific [`RemoteBlock`].
 pub type RemoteBlockForChainSpec<ChainSpecT> = RemoteBlock<
     <ChainSpecT as ChainReceiptSpec>::Receipt,
-    <ChainSpecT as RpcBlockChainSpec>::RpcBlock<<ChainSpecT as RpcSpec>::RpcTransaction>,
+    ChainSpecT,
     <ChainSpecT as RpcSpec>::RpcReceipt,
     <ChainSpecT as RpcSpec>::RpcTransaction,
     <ChainSpecT as ChainSpec>::SignedTransaction,

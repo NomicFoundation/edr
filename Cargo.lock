@@ -2667,6 +2667,7 @@ dependencies = [
  "derive-where",
  "dyn-clone",
  "edr_block_api",
+ "edr_block_builder_api",
  "edr_block_header",
  "edr_block_storage",
  "edr_blockchain_api",

@@ -13,8 +13,6 @@ pub use crate::{
 
 /// Types for Ethereum blocks.
 pub mod block;
-/// Types for managing Ethereum blockchain
-pub mod blockchain;
 /// Types for configuring the runtime.
 pub mod config;
 /// Types for interfacing with the evm.
@@ -28,12 +26,8 @@ pub mod journal;
 /// Types for managing Ethereum mem pool
 pub mod mempool;
 mod miner;
-/// Types for Ethereum transaction receipts.
-pub mod receipt;
 /// Result types for EVM execution.
 pub mod result;
-/// Types for chain specification.
-pub mod spec;
 /// Database types for managing Ethereum state
 pub mod state;
 /// Utilities for testing

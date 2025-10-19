@@ -99,11 +99,7 @@ pub trait BlockBuilder<
     'builder,
     BlockReceiptT: Send + Sync,
     BlockT: ?Sized,
-    EvmChainSpecT: EvmChainSpec<
-        Hardfork: Send + Sync,
-        SignedTransaction: TransactionValidation + Send + Sync,
-    >,
-    // HaltReasonT: HaltReasonTrait,
+    EvmChainSpecT: EvmChainSpec<Hardfork: Send + Sync, SignedTransaction: TransactionValidation + Send + Sync>,
     LocalBlockT: Send + Sync,
 >: Sized
 {
@@ -209,5 +205,8 @@ pub trait BlockBuilder<
     fn finalize(
         self,
         rewards: Vec<(Address, u128)>,
-    ) -> Result<BuiltBlockAndState<EvmChainSpecT::HaltReason, LocalBlockT, Self::StateError>, Self::StateError>;
+    ) -> Result<
+        BuiltBlockAndState<EvmChainSpecT::HaltReason, LocalBlockT, Self::StateError>,
+        Self::StateError,
+    >;
 }

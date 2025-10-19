@@ -1,27 +1,27 @@
 use std::{cmp::Ordering, fmt::Debug};
 
 use edr_block_api::{Block as _, GenesisBlockFactory};
+use edr_block_builder_api::{
+    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError,
+    BuiltBlockAndState, SyncBlockchain,
+};
 use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides};
 use edr_chain_spec::{
     ChainHardfork, ChainSpec, EvmTransactionValidationError, ExecutableTransaction,
-    HaltReasonTrait, TransactionValidation,
+    TransactionValidation,
 };
 use edr_database_components::DatabaseComponents;
-use edr_evm_spec::{ContextForChainSpec, DatabaseComponentError, TransactionError};
+use edr_evm_spec::{ContextForChainSpec, DatabaseComponentError, EvmChainSpec, TransactionError};
 use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;
-use edr_state_api::{StateDiff, SyncState};
+use edr_state_api::SyncState;
 use revm::{precompile::PrecompileFn, Inspector};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    block::BlockBuilderCreationError, blockchain::SyncBlockchainForChainSpec, config::CfgEnv,
-    mempool::OrderedTransaction, result::ExecutionResult, spec::SyncRuntimeSpec,
-    state::WrapDatabaseRef, BlockBuilder, BlockInputs, BlockTransactionError, MemPool,
-};
+use crate::{config::CfgEnv, mempool::OrderedTransaction, state::WrapDatabaseRef, MemPool};
 
 /// Helper type for a chain-specific [`MineBlockResultAndState`].
-pub type MineBlockResultAndStateForChainSpec<ChainSpecT, StateErrorT> = MineBlockResultAndState<
+pub type MineBlockResultAndStateForChainSpec<ChainSpecT, StateErrorT> = BuiltBlockAndState<
     <ChainSpecT as ChainSpec>::HaltReason,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     StateErrorT,
@@ -94,7 +94,7 @@ pub fn mine_block<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
     mut inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
+    BuiltBlockAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
 >
 where
@@ -188,7 +188,7 @@ where
 }
 
 /// Helper type for a chain-specific [`MineTransactionError`].
-pub type MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> =
+pub type MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT, StateErrorT> =
     MineTransactionError<
         BlockchainErrorT,
         <ChainSpecT as ChainHardfork>::Hardfork,
@@ -300,35 +300,58 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block_with_single_transaction<BlockchainErrorT, ChainSpecT, InspectorT, StateErrorT>(
-    blockchain: &dyn SyncBlockchainForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
+pub fn mine_block_with_single_transaction<
+    'builder,
+    BlockBuilderT: BlockBuilder<'_, BlockReceiptT, BlockT, EvmChainSpecT, LocalBlockT>,
+    BlockEnvT,
+    BlockReceiptT: Send + Sync,
+    BlockT: ?Sized,
+    BlockchainErrorT: std::error::Error + Send,
+    EvmChainSpecT: EvmChainSpec<
+        Hardfork: Send + Sync,
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
+        > + Send
+                               + Sync,
+    >,
+    InspectorT,
+    LocalBlockT: Send + Sync,
+    StateErrorT,
+>(
+    blockchain: &dyn SyncBlockchain<
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        EvmChainSpecT::Hardfork,
+        LocalBlockT,
+        EvmChainSpecT::SignedTransaction,
+        StateErrorT,
+    >,
     state: Box<dyn SyncState<StateErrorT>>,
-    transaction: ChainSpecT::SignedTransaction,
-    cfg: &CfgEnv<ChainSpecT::Hardfork>,
-    overrides: HeaderOverrides<ChainSpecT::Hardfork>,
+    transaction: EvmChainSpecT::SignedTransaction,
+    cfg: &CfgEnv<EvmChainSpecT::Hardfork>,
+    overrides: HeaderOverrides<EvmChainSpecT::Hardfork>,
     min_gas_price: u128,
     reward: u128,
     inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    MineBlockResultAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
-    MineTransactionErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
+    BuiltBlockAndState<EvmChainSpecT::HaltReason, LocalBlockT, StateErrorT>,
+    MineTransactionErrorForChainSpec<EvmChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
-    BlockchainErrorT: std::error::Error + Send,
-    ChainSpecT: SyncRuntimeSpec<
-        SignedTransaction: TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
-    >,
     InspectorT: for<'inspector> Inspector<
         ContextForChainSpec<
-            ChainSpecT,
+            EvmChainSpecT,
             WrapDatabaseRef<
                 DatabaseComponents<
-                    &'inspector dyn SyncBlockchainForChainSpec<
+                    &'inspector dyn SyncBlockchain<
+                        BlockReceiptT,
+                        BlockT,
                         BlockchainErrorT,
-                        ChainSpecT,
+                        EvmChainSpecT::Hardfork,
+                        LocalBlockT,
+                        EvmChainSpecT::SignedTransaction,
                         StateErrorT,
                     >,
                     &'inspector dyn SyncState<StateErrorT>,
