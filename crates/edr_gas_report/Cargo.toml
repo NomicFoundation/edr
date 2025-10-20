@@ -18,6 +18,7 @@ thiserror.workspace = true
 serde.workspace = true
 
 comfy-table = "7"
+libc = "0.2.177"
 
 [lints]
 workspace = true
