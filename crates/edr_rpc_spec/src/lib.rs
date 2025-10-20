@@ -10,7 +10,7 @@ use edr_rpc_eth::{client::EthRpcClient, RpcBlockChainSpec};
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Trait for specifying Ethereum-based JSON-RPC method types.
-pub trait RpcSpec: ExecutionReceiptChainSpec + RpcBlockChainSpec {
+pub trait RpcChainSpec: ExecutionReceiptChainSpec + RpcBlockChainSpec {
     /// Type representing an RPC `eth_call` request.
     type RpcCallRequest: DeserializeOwned + Serialize;
 
@@ -57,6 +57,6 @@ pub trait RpcTypeFrom<InputT> {
 /// Helper type for a chain-specific [`EthRpcClient`].
 pub type EthRpcClientForChainSpec<ChainSpecT> = EthRpcClient<
     ChainSpecT,
-    <ChainSpecT as RpcSpec>::RpcReceipt,
-    <ChainSpecT as RpcSpec>::RpcTransaction,
+    <ChainSpecT as RpcChainSpec>::RpcReceipt,
+    <ChainSpecT as RpcChainSpec>::RpcTransaction,
 >;

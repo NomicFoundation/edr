@@ -1,16 +1,25 @@
 use core::fmt::Debug;
 
-use edr_chain_spec::{ChainContextSpec, ChainHardfork, ChainSpec};
+use edr_chain_spec::{ChainSpec, ContextChainSpec, HardforkChainSpec};
 use edr_primitives::B256;
 use edr_receipt::{
-    log::FilterLog, ExecutionReceiptChainSpec, ExecutionReceipt, ReceiptTrait, TransactionReceipt,
+    log::{ExecutionLog, FilterLog},
+    ExecutionReceipt, ExecutionReceiptChainSpec, ReceiptTrait, TransactionReceipt,
 };
-use edr_rpc_spec::RpcSpec;
+use edr_receipt_builder_api::ExecutionReceiptBuilder;
+use edr_rpc_spec::RpcChainSpec;
 
 /// Trait for a chain's transaction receipt specification.
-pub trait ChainReceiptSpec:
-    ChainContextSpec + ExecutionReceiptChainSpec + ChainHardfork + ChainSpec + RpcSpec
+pub trait ReceiptChainSpec:
+    ContextChainSpec + ExecutionReceiptChainSpec + HardforkChainSpec + ChainSpec + RpcChainSpec
 {
+    type ExecutionReceiptBuilder: ExecutionReceiptBuilder<
+        Self::HaltReason,
+        Self::Hardfork,
+        Self::SignedTransaction,
+        Receipt = Self::ExecutionReceipt<ExecutionLog>,
+    >;
+
     /// Type representing a transaction's receipt in a block.
     type Receipt: Debug
         + ExecutionReceipt<Log = FilterLog>

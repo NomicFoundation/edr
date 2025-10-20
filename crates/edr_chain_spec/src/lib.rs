@@ -23,13 +23,13 @@ pub type EvmSpecId = revm_primitives::hardfork::SpecId;
 pub type EvmTransactionValidationError = revm_context_interface::result::InvalidTransaction;
 
 /// Trait for specifying the contextual information type of a chain.
-pub trait ChainContextSpec {
+pub trait ContextChainSpec {
     /// The chain's contextual information type.
     type Context;
 }
 
 /// Trait for specifying the hardfork type of a chain.
-pub trait ChainHardfork {
+pub trait HardforkChainSpec {
     /// The chain's hardfork type.
     type Hardfork: Copy + Default + Into<EvmSpecId>;
 }

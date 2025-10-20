@@ -250,7 +250,7 @@ mod tests {
     use edr_evm::RemoteBlock;
     use edr_rpc_client::jsonrpc;
     use edr_rpc_eth::client::EthRpcClient;
-    use edr_rpc_spec::RpcSpec;
+    use edr_rpc_spec::RpcChainSpec;
 
     use crate::{rpc::transaction::TransactionWithSignature, GenericChainSpec};
 
@@ -286,7 +286,7 @@ mod tests {
         }"#;
 
         type BlockResponsePayload =
-            <GenericChainSpec as RpcSpec>::RpcBlock<TransactionWithSignature>;
+            <GenericChainSpec as RpcChainSpec>::RpcBlock<TransactionWithSignature>;
 
         let response: jsonrpc::Response<BlockResponsePayload> = serde_json::from_str(DATA).unwrap();
         let rpc_block = match response.data {

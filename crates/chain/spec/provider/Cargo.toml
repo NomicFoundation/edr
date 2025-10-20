@@ -1,0 +1,13 @@
+[package]
+name = "edr_chain_spec_provider"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_block_header.workspace = true
+edr_chain_config.workspace = true
+edr_chain_spec_block.workspace = true
+edr_eip1559.workspace = true
+
+[lints]
+workspace = true

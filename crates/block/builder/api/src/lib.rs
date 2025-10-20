@@ -3,7 +3,7 @@
 use std::fmt::Debug;
 
 use edr_block_header::{
-    BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, PartialHeaderAndEvmSpec, Withdrawal,
+    BlockConfig, BlockHeader, HeaderAndEvmSpec, HeaderOverrides, PartialHeader, Withdrawal,
 };
 pub use edr_blockchain_api::sync::SyncBlockchain;
 use edr_chain_spec::{ChainSpec, EvmSpecId, HaltReasonTrait, TransactionValidation};
@@ -99,12 +99,15 @@ pub trait BlockBuilder<
     'builder,
     BlockReceiptT: Send + Sync,
     BlockT: ?Sized,
-    EvmChainSpecT: EvmChainSpec<Hardfork: Send + Sync, SignedTransaction: TransactionValidation + Send + Sync>,
-    LocalBlockT: Send + Sync,
+    EvmChainSpecT: ?Sized
+        + EvmChainSpec<Hardfork: Send + Sync, SignedTransaction: TransactionValidation + Send + Sync>,
 >: Sized
 {
     /// The blockchain's error type.
     type BlockchainError: std::error::Error;
+
+    /// The local block type constructed by the builder.
+    type LocalBlock: Send + Sync;
 
     /// The state's error type.
     type StateError: Send + std::error::Error;
@@ -116,7 +119,7 @@ pub trait BlockBuilder<
             BlockT,
             Self::BlockchainError,
             EvmChainSpecT::Hardfork,
-            LocalBlockT,
+            Self::LocalBlock,
             EvmChainSpecT::SignedTransaction,
             Self::StateError,
         >,
@@ -164,7 +167,7 @@ pub trait BlockBuilder<
     where
         InspectorT: for<'inspector> Inspector<
             Context<
-                PartialHeaderAndEvmSpec<'inspector>,
+                HeaderAndEvmSpec<'inspector, PartialHeader>,
                 EvmChainSpecT::SignedTransaction,
                 CfgEnv<EvmChainSpecT::Hardfork>,
                 WrapDatabaseRef<
@@ -174,7 +177,7 @@ pub trait BlockBuilder<
                             BlockT,
                             Self::BlockchainError,
                             EvmChainSpecT::Hardfork,
-                            LocalBlockT,
+                            Self::LocalBlock,
                             EvmChainSpecT::SignedTransaction,
                             Self::StateError,
                         >,
@@ -189,7 +192,7 @@ pub trait BlockBuilder<
                                 BlockT,
                                 Self::BlockchainError,
                                 EvmChainSpecT::Hardfork,
-                                LocalBlockT,
+                                Self::LocalBlock,
                                 EvmChainSpecT::SignedTransaction,
                                 Self::StateError,
                             >,
@@ -206,7 +209,7 @@ pub trait BlockBuilder<
         self,
         rewards: Vec<(Address, u128)>,
     ) -> Result<
-        BuiltBlockAndState<EvmChainSpecT::HaltReason, LocalBlockT, Self::StateError>,
+        BuiltBlockAndState<EvmChainSpecT::HaltReason, Self::LocalBlock, Self::StateError>,
         Self::StateError,
     >;
 }

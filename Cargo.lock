@@ -2459,9 +2459,9 @@ dependencies = [
  "edr_eth",
  "edr_primitives",
  "edr_receipt",
+ "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
- "edr_runtime_spec",
  "edr_test_utils",
  "serde",
  "tempfile",
@@ -2495,6 +2495,7 @@ dependencies = [
  "edr_block_remote",
  "edr_chain_config",
  "edr_chain_spec",
+ "edr_chain_spec_block",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2508,6 +2509,7 @@ dependencies = [
  "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
+ "edr_runtime_spec",
  "edr_signer",
  "edr_state_api",
  "edr_test_utils",
@@ -2533,6 +2535,28 @@ dependencies = [
  "edr_primitives",
  "revm-context-interface",
  "revm-primitives",
+]
+
+[[package]]
+name = "edr_chain_spec_block"
+version = "0.3.8"
+dependencies = [
+ "edr_block_api",
+ "edr_block_builder_api",
+ "edr_block_header",
+ "edr_chain_spec",
+ "edr_evm_spec",
+ "edr_receipt_spec",
+]
+
+[[package]]
+name = "edr_chain_spec_provider"
+version = "0.3.8"
+dependencies = [
+ "edr_block_header",
+ "edr_chain_config",
+ "edr_chain_spec_block",
+ "edr_eip1559",
 ]
 
 [[package]]
@@ -2673,6 +2697,7 @@ dependencies = [
  "edr_blockchain_api",
  "edr_chain_l1",
  "edr_chain_spec",
+ "edr_chain_spec_block",
  "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
@@ -2700,13 +2725,9 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.3",
  "paste",
- "revm",
- "revm-context",
- "revm-context-interface",
- "revm-database-interface",
  "revm-handler",
+ "revm-inspector",
  "revm-interpreter",
- "revm-precompile",
  "serde",
  "serde_json",
  "serial_test",
@@ -2981,6 +3002,7 @@ dependencies = [
  "edr_blockchain_api",
  "edr_chain_l1",
  "edr_chain_spec",
+ "edr_chain_spec_provider",
  "edr_coverage",
  "edr_database_components",
  "edr_defaults",
@@ -3065,6 +3087,7 @@ dependencies = [
  "edr_chain_spec",
  "edr_primitives",
  "edr_receipt",
+ "edr_receipt_builder_api",
  "edr_rpc_spec",
 ]
 
@@ -3152,12 +3175,14 @@ version = "0.3.8"
 dependencies = [
  "alloy-rlp",
  "edr_block_api",
+ "edr_block_builder_api",
  "edr_block_header",
  "edr_block_remote",
  "edr_chain_config",
  "edr_chain_spec",
  "edr_database_components",
  "edr_eip1559",
+ "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
  "edr_receipt_spec",

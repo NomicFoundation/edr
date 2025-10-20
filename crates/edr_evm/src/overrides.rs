@@ -1,3 +1,5 @@
+//! Overrides for EVM state information.
+
 use std::fmt::Debug;
 
 use edr_primitives::{Address, Bytecode, HashMap, B256, KECCAK_EMPTY, U256};

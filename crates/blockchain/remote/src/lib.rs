@@ -491,12 +491,22 @@ mod tests {
         rpc::{receipt::L1RpcTransactionReceipt, transaction::L1RpcTransactionWithSignature},
         L1ChainSpec, L1SignedTransaction, TypedEnvelope,
     };
+    use edr_chain_spec::ChainSpec;
     use edr_receipt::execution::Eip658;
-    use edr_rpc_spec::EthRpcClientForChainSpec;
-    use edr_runtime_spec::RemoteBlockForChainSpec;
+    use edr_receipt_spec::ReceiptChainSpec;
+    use edr_rpc_spec::{EthRpcClientForChainSpec, RpcChainSpec};
     use edr_test_utils::env::get_alchemy_url;
 
     use super::*;
+
+    /// Helper type for a chain-specific [`RemoteBlock`].
+    pub type RemoteBlockForChainSpec<ChainSpecT> = RemoteBlock<
+        <ChainSpecT as ReceiptChainSpec>::Receipt,
+        ChainSpecT,
+        <ChainSpecT as RpcChainSpec>::RpcReceipt,
+        <ChainSpecT as RpcChainSpec>::RpcTransaction,
+        <ChainSpecT as ChainSpec>::SignedTransaction,
+    >;
 
     #[tokio::test]
     async fn no_cache_for_unsafe_block_number() {

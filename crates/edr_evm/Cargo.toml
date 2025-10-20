@@ -11,11 +11,13 @@ auto_impl.workspace = true
 derive-where.workspace = true
 dyn-clone.workspace = true
 edr_block_api.workspace = true
+edr_block_builder_api.workspace = true
 edr_block_header.workspace = true
 edr_block_storage.workspace = true
 edr_blockchain_api.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
+edr_chain_spec_block.workspace = true
 edr_database_components.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
@@ -39,19 +41,14 @@ itertools = { version = "0.11.0", default-features = false, features = ["use_all
 log = { version = "0.4.17", default-features = false }
 once_cell = { version = "1.19.0", default-features = false, features = ["alloc", "race", "std"] }
 parking_lot.workspace = true
-revm.workspace = true
-revm-context.workspace = true
-revm-context-interface.workspace = true
-revm-database-interface.workspace = true
 revm-handler.workspace = true
+revm-inspector.workspace = true
 revm-interpreter.workspace = true
-revm-precompile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
 tracing = { version = "0.1.37", features = ["attributes", "std"], optional = true }
-edr_block_builder_api.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true

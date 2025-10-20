@@ -9,7 +9,7 @@ use edr_block_builder_api::{
     PrecompileFn, SyncBlockchain, WrapDatabaseRef,
 };
 use edr_block_header::{
-    BlobGas, BlockConfig, HeaderOverrides, PartialHeader, PartialHeaderAndEvmSpec, Withdrawal,
+    BlobGas, BlockConfig, HeaderAndEvmSpec, HeaderOverrides, PartialHeader, Withdrawal,
 };
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::{
@@ -315,7 +315,7 @@ impl<
             BlockBuilderCreationError::Database(DatabaseComponentError::Blockchain(error))
         })?;
 
-        let evm_spec_id = block_config.hardfork.clone().into();
+        let evm_spec_id = block_config.hardfork.into();
         if evm_spec_id < EvmSpecId::BYZANTIUM {
             return Err(BlockBuilderCreationError::UnsupportedHardfork(
                 block_config.hardfork,
@@ -333,7 +333,7 @@ impl<
 
         overrides.parent_hash = Some(*parent_block.block_hash());
 
-        let cfg = evm_config.into_cfg_env(block_config.hardfork.clone());
+        let cfg = evm_config.into_cfg_env(block_config.hardfork);
         let header = PartialHeader::new(
             block_config,
             overrides,
@@ -373,7 +373,7 @@ impl<
     > {
         self.validate_transaction(&transaction)?;
 
-        let block_env = PartialHeaderAndEvmSpec {
+        let block_env = HeaderAndEvmSpec {
             header: &self.header,
             evm_spec_id: self.cfg.spec.clone().into(),
         };
@@ -416,7 +416,7 @@ impl<
     where
         InspectorT: for<'inspector> Inspector<
             Context<
-                PartialHeaderAndEvmSpec<'inspector>,
+                HeaderAndEvmSpec<'inspector, PartialHeader>,
                 EvmChainSpecT::SignedTransaction,
                 CfgEnv<EvmChainSpecT::Hardfork>,
                 WrapDatabaseRef<
@@ -455,9 +455,9 @@ impl<
     {
         self.validate_transaction(&transaction)?;
 
-        let block_env = PartialHeaderAndEvmSpec {
+        let block_env = HeaderAndEvmSpec {
             header: &self.header,
-            evm_spec_id: self.cfg.spec.clone().into(),
+            evm_spec_id: self.cfg.spec.into(),
         };
 
         let receipt_builder =
@@ -578,7 +578,7 @@ impl<
             &self.header,
             &transaction,
             &transaction_result,
-            self.cfg.spec.clone(),
+            self.cfg.spec,
         );
         let receipt = TransactionReceipt::new(
             receipt,
@@ -586,7 +586,7 @@ impl<
             &transaction_result,
             self.transactions.len() as u64,
             self.header.base_fee.unwrap_or(0),
-            self.cfg.spec.clone(),
+            self.cfg.spec,
         );
         self.receipts.push(receipt);
 
@@ -640,7 +640,7 @@ impl<
             > + Send
             + Sync,
         StateErrorT: Send + std::error::Error,
-    > BlockBuilder<'builder, BlockReceiptT, BlockT, EvmChainSpecT, LocalBlockT>
+    > BlockBuilder<'builder, BlockReceiptT, BlockT, EvmChainSpecT>
     for EthBlockBuilder<
         'builder,
         BlockReceiptT,
@@ -654,6 +654,8 @@ impl<
     >
 {
     type BlockchainError = BlockchainErrorT;
+
+    type LocalBlock = LocalBlockT;
 
     type StateError = StateErrorT;
 
@@ -723,7 +725,7 @@ impl<
     where
         InspectorT: for<'inspector> Inspector<
             Context<
-                PartialHeaderAndEvmSpec<'inspector>,
+                HeaderAndEvmSpec<'inspector, PartialHeader>,
                 EvmChainSpecT::SignedTransaction,
                 CfgEnv<EvmChainSpecT::Hardfork>,
                 WrapDatabaseRef<

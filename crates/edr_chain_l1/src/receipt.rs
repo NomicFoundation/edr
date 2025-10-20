@@ -1,11 +1,11 @@
 //! Ethereum L1 receipt types
 
-mod builder;
+pub mod builder;
 
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
-use edr_chain_spec::{ChainContextSpec, ChainHardfork, ChainSpec, EvmSpecId};
+use edr_chain_spec::{ChainSpec, ContextChainSpec, EvmSpecId, HardforkChainSpec};
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
     log::FilterLog, AsExecutionReceipt, ExecutionReceipt, ExecutionReceiptChainSpec, ReceiptTrait,
@@ -83,11 +83,11 @@ impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> ExecutionReceipt
 impl ReceiptConstructor
     for L1BlockReceipt<<L1ChainSpec as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>>
 {
-    type Context = <L1ChainSpec as ChainContextSpec>::Context;
+    type Context = <L1ChainSpec as ContextChainSpec>::Context;
 
     type ExecutionReceipt = <L1ChainSpec as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>;
 
-    type Hardfork = <L1ChainSpec as ChainHardfork>::Hardfork;
+    type Hardfork = <L1ChainSpec as HardforkChainSpec>::Hardfork;
 
     type SignedTransaction = <L1ChainSpec as ChainSpec>::SignedTransaction;
 

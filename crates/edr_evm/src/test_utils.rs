@@ -1,3 +1,5 @@
+#![cfg(any(test, feature = "test-utils"))]
+
 use std::{fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use anyhow::anyhow;
@@ -6,6 +8,7 @@ use edr_block_builder_api::BlockInputs;
 use edr_block_header::{BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_eth::{block::miner_reward, PreEip1898BlockSpec};
+use edr_evm_spec::CfgEnv;
 use edr_primitives::{Address, Bytes, HashMap, U256};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait as _};
 use edr_rpc_eth::client::EthRpcClient;
@@ -14,7 +17,7 @@ use edr_state_persistent_trie::{PersistentAccountAndStorageTrie, PersistentState
 use edr_transaction::TxKind;
 use edr_utils::random::RandomHashGenerator;
 
-use crate::{config::CfgEnv, transaction, MemPool, MemPoolAddTransactionError};
+use crate::{transaction, MemPool, MemPoolAddTransactionError};
 
 /// A test fixture for `MemPool`.
 pub struct MemPoolTestFixture {

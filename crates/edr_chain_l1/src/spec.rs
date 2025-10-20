@@ -1,11 +1,14 @@
+use std::sync::Arc;
+
 use alloy_rlp::RlpEncodable;
-use edr_block_api::{GenesisBlockFactory, GenesisBlockOptions};
-use edr_block_header::BlockConfig;
+use edr_block_api::{sync::SyncBlock, BlockReceipts, GenesisBlockFactory, GenesisBlockOptions};
+use edr_block_header::{BlockConfig, BlockEnvForHardfork, HeaderAndEvmSpec};
 use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
 use edr_chain_spec::{
-    ChainContextSpec, ChainHardfork, ChainSpec, EvmTransactionValidationError,
+    ChainSpec, ContextChainSpec, EvmTransactionValidationError, HardforkChainSpec,
     TransactionValidation,
 };
+use edr_chain_spec_block::BlockChainSpec;
 use edr_evm_spec::{
     handler::{EthInstructions, EthPrecompiles},
     interpreter::InterpreterResult,
@@ -16,15 +19,16 @@ use edr_evm_spec::{
 };
 use edr_primitives::Bytes;
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
-use edr_receipt_spec::ChainReceiptSpec;
+use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_eth::RpcBlockChainSpec;
-use edr_rpc_spec::RpcSpec;
+use edr_rpc_spec::RpcChainSpec;
 use edr_state_api::StateDiff;
 use revm_context_interface::JournalTr as _;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    receipt::L1BlockReceipt,
+    block::EthBlockBuilder,
+    receipt::{builder::L1ExecutionReceiptBuilder, L1BlockReceipt},
     rpc::{
         block::L1RpcBlock,
         call::L1CallRequest,
@@ -56,18 +60,49 @@ fn cast_evm_error<DatabaseT: Database>(
     }
 }
 
+impl BlockChainSpec for L1ChainSpec {
+    type Block = dyn SyncBlock<
+        Arc<Self::Receipt>,
+        Self::SignedTransaction,
+        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::Receipt>>>::Error,
+    >;
+
+    type BlockEnv<'header, BlockHeaderT>
+        = HeaderAndEvmSpec<'header, BlockHeaderT>
+    where
+        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
+
+    type BlockBuilder<
+        'builder,
+        BlockchainErrorT: 'builder + std::error::Error + Send,
+        StateErrorT: 'builder + std::error::Error + Send,
+    > = EthBlockBuilder<
+        'builder,
+        Self::Receipt,
+        Self::Block,
+        BlockchainErrorT,
+        Self,
+        Self::ExecutionReceiptBuilder,
+        Self,
+        Self::LocalBlock,
+        StateErrorT,
+    >;
+
+    type LocalBlock = EthLocalBlock<Self::Receipt, Self::Hardfork, Self::SignedTransaction>;
+}
+
 impl EvmChainSpec for L1ChainSpec {
-    type PrecompileProvider<BlockT: BlockEnvTrait, DatabaseT: Database> = EthPrecompiles;
+    type PrecompileProvider<BlockEnvT: BlockEnvTrait, DatabaseT: Database> = EthPrecompiles;
 
     fn dry_run<
-        BlockT: BlockEnvTrait,
+        BlockEnvT: BlockEnvTrait,
         DatabaseT: Database,
         PrecompileProviderT: PrecompileProvider<
-            ContextForChainSpec<Self, BlockT, DatabaseT>,
+            ContextForChainSpec<Self, BlockEnvT, DatabaseT>,
             Output = InterpreterResult,
         >,
     >(
-        block: BlockT,
+        block: BlockEnvT,
         cfg: CfgEnv<Self::Hardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
@@ -95,15 +130,15 @@ impl EvmChainSpec for L1ChainSpec {
     }
 
     fn dry_run_with_inspector<
-        BlockT: BlockEnvTrait,
+        BlockEnvT: BlockEnvTrait,
         DatabaseT: Database,
-        InspectorT: Inspector<ContextForChainSpec<Self, BlockT, DatabaseT>>,
+        InspectorT: Inspector<ContextForChainSpec<Self, BlockEnvT, DatabaseT>>,
         PrecompileProviderT: PrecompileProvider<
-            ContextForChainSpec<Self, BlockT, DatabaseT>,
+            ContextForChainSpec<Self, BlockEnvT, DatabaseT>,
             Output = InterpreterResult,
         >,
     >(
-        block: BlockT,
+        block: BlockEnvT,
         cfg: CfgEnv<Self::Hardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
@@ -146,15 +181,11 @@ impl ExecutionReceiptChainSpec for L1ChainSpec {
     type ExecutionReceipt<LogT> = TypedEnvelope<edr_receipt::execution::Eip658<LogT>>;
 }
 
-impl ChainHardfork for L1ChainSpec {
+impl HardforkChainSpec for L1ChainSpec {
     type Hardfork = Hardfork;
 }
 
-impl ChainReceiptSpec for L1ChainSpec {
-    type Receipt = L1BlockReceipt<<Self as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>>;
-}
-
-impl ChainContextSpec for L1ChainSpec {
+impl ContextChainSpec for L1ChainSpec {
     type Context = ();
 }
 
@@ -167,7 +198,7 @@ impl GenesisBlockFactory for L1ChainSpec {
     type CreationError = LocalBlockCreationError;
 
     type LocalBlock = EthLocalBlock<
-        <Self as ChainReceiptSpec>::Receipt,
+        <Self as ReceiptChainSpec>::Receipt,
         Self::Hardfork,
         <Self as ChainSpec>::SignedTransaction,
     >;
@@ -188,6 +219,12 @@ impl GenesisBlockFactory for L1ChainSpec {
     }
 }
 
+impl ReceiptChainSpec for L1ChainSpec {
+    type ExecutionReceiptBuilder = L1ExecutionReceiptBuilder;
+
+    type Receipt = L1BlockReceipt<<Self as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>>;
+}
+
 impl RpcBlockChainSpec for L1ChainSpec {
     type RpcBlock<DataT>
         = L1RpcBlock<DataT>
@@ -195,7 +232,7 @@ impl RpcBlockChainSpec for L1ChainSpec {
         DataT: DeserializeOwned + Serialize;
 }
 
-impl RpcSpec for L1ChainSpec {
+impl RpcChainSpec for L1ChainSpec {
     type RpcCallRequest = L1CallRequest;
     type RpcReceipt = L1RpcTransactionReceipt;
     type RpcTransaction = L1RpcTransactionWithSignature;

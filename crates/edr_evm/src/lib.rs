@@ -6,30 +6,18 @@
 //! Ethereum Virtual Machine (or EVM).
 
 pub use crate::{
-    block::*,
     mempool::{MemPool, MemPoolAddTransactionError, OrderedTransaction},
     miner::*,
 };
 
-/// Types for Ethereum blocks.
-pub mod block;
-/// Types for configuring the runtime.
-pub mod config;
-/// Types for interfacing with the evm.
-pub mod evm;
 /// Types for EVM inspectors.
 pub mod inspector;
-/// Types for the EVM interpreter.
-pub mod interpreter;
 /// Types for the EVM journal.
 pub mod journal;
 /// Types for managing Ethereum mem pool
 pub mod mempool;
 mod miner;
-/// Result types for EVM execution.
-pub mod result;
-/// Database types for managing Ethereum state
-pub mod state;
+pub mod overrides;
 /// Utilities for testing
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;

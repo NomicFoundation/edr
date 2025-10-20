@@ -1,3 +1,5 @@
+//! Ethereum L1 receipt builder
+
 use edr_block_header::PartialHeader;
 use edr_receipt::{
     log::{logs_to_bloom, ExecutionLog},

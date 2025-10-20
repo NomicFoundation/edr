@@ -2,6 +2,7 @@
 #![warn(missing_docs)]
 
 mod genesis;
+pub mod sync;
 
 use core::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
@@ -79,6 +80,20 @@ impl<BlockT: EmptyBlock<HardforkT>, HardforkT> EmptyBlock<HardforkT> for Arc<Blo
     fn empty(hardfork: HardforkT, partial_header: PartialHeader) -> Self {
         Arc::new(BlockT::empty(hardfork, partial_header))
     }
+}
+
+/// Trait that meets all requirements for an Ethereum block.
+pub trait EthBlock<BlockReceiptT: ReceiptTrait, SignedTransactionT>:
+    Block<SignedTransactionT> + BlockReceipts<BlockReceiptT>
+{
+}
+
+impl<BlockReceiptT, BlockT, SignedTransactionT> EthBlock<BlockReceiptT, SignedTransactionT>
+    for BlockT
+where
+    BlockReceiptT: ReceiptTrait,
+    BlockT: Block<SignedTransactionT> + BlockReceipts<BlockReceiptT>,
+{
 }
 
 /// A type containing the relevant data for an Ethereum block.

@@ -17,7 +17,7 @@ use edr_evm::{
     MemPoolAddTransactionError, MineBlockError, MineTransactionError,
 };
 use edr_chain_spec::{
-    ChainHardfork, ChainSpec, EvmSpecId, HaltReasonTrait, OutOfGasError, TransactionValidation,
+    HardforkChainSpec, ChainSpec, EvmSpecId, HaltReasonTrait, OutOfGasError, TransactionValidation,
 };
 use edr_primitives::{hex, Address, Bytes, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
@@ -35,7 +35,7 @@ use crate::{
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
     <ChainSpecT as GenesisBlockFactory>::CreationError,
-    <ChainSpecT as ChainHardfork>::Hardfork,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
     <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
 >;
 
@@ -80,7 +80,7 @@ pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
     <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
     <ChainSpecT as GenesisBlockFactory>::CreationError,
     <ChainSpecT as ChainSpec>::HaltReason,
-    <ChainSpecT as ChainHardfork>::Hardfork,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
     <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;

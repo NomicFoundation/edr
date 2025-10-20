@@ -3,14 +3,13 @@ use std::sync::Arc;
 use alloy_eips::eip7840::BlobParams;
 use edr_block_api::BlockReceipts;
 use edr_block_header::{
-    BlobGas, BlockConfig, BlockHeader, BlockHeaderAndEvmSpec, PartialHeader,
-    PartialHeaderAndEvmSpec,
+    BlobGas, BlockConfig, BlockHeader, HeaderAndEvmSpec, PartialHeader, PartialHeaderAndEvmSpec,
 };
 use edr_chain_l1::L1ChainSpec;
 pub use edr_chain_l1::L1_MIN_ETHASH_DIFFICULTY;
 use edr_chain_spec::{
-    BlobExcessGasAndPrice, BlockEnvTrait, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
-    TransactionValidation,
+    BlobExcessGasAndPrice, BlockEnvTrait, ChainSpec, EthHeaderConstants, EvmSpecId,
+    HardforkChainSpec, TransactionValidation,
 };
 use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
@@ -37,7 +36,7 @@ use edr_state_api::StateDiff;
 
 use crate::GenericChainSpec;
 
-impl ChainHardfork for GenericChainSpec {
+impl HardforkChainSpec for GenericChainSpec {
     type Hardfork = edr_chain_l1::Hardfork;
 }
 
@@ -78,7 +77,7 @@ fn blob_excess_gas_and_price_for_evm_spec(
 }
 
 pub struct BlockHeaderAndEvmSpecWithFallback<'header> {
-    inner: BlockHeaderAndEvmSpec<'header>,
+    inner: HeaderAndEvmSpec<'header>,
 }
 
 impl BlockEnvTrait for BlockHeaderAndEvmSpecWithFallback<'_> {

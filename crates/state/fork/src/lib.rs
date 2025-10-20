@@ -3,7 +3,7 @@ use std::sync::Arc;
 use derive_where::derive_where;
 use edr_primitives::{Address, Bytecode, HashMap, HashSet, B256, KECCAK_NULL_RLP, U256};
 use edr_rpc_eth::{client::EthRpcClient, RpcBlockChainSpec};
-use edr_rpc_spec::{RpcEthBlock, RpcSpec};
+use edr_rpc_spec::{RpcEthBlock, RpcChainSpec};
 use edr_state_api::{
     account::{Account, AccountInfo},
     AccountModifierFn, State, StateCommit, StateDebug, StateError, StateMut as _,
@@ -18,8 +18,8 @@ use tokio::runtime;
 /// Helper type for a chain-specific [`ForkedState`].
 pub type ForkedStateForChainSpec<ChainSpecT> = ForkedState<
     ChainSpecT,
-    <ChainSpecT as RpcSpec>::RpcReceipt,
-    <ChainSpecT as RpcSpec>::RpcTransaction,
+    <ChainSpecT as RpcChainSpec>::RpcReceipt,
+    <ChainSpecT as RpcChainSpec>::RpcTransaction,
 >;
 
 /// A database integrating the state from a remote node and the state from a

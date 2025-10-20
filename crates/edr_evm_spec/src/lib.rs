@@ -4,10 +4,11 @@ pub mod handler;
 pub mod interpreter;
 pub mod result;
 
-use edr_chain_spec::{ChainContextSpec, ChainHardfork, ChainSpec, TransactionValidation};
+use edr_chain_spec::{ChainSpec, ContextChainSpec, HardforkChainSpec, TransactionValidation};
 pub use edr_database_components::DatabaseComponentError;
 pub use revm_context::{
-    Block as BlockEnvTrait, CfgEnv, Context, Database, Evm, Journal, LocalContext,
+    Block as BlockEnvTrait, CfgEnv, Context, ContextTr as ContextTrait, Database, Evm, Journal,
+    JournalEntry, JournalTr as JournalTrait, LocalContext,
 };
 pub use revm_handler::{ExecuteEvm, PrecompileProvider};
 use revm_inspector::NoOpInspector;
@@ -17,17 +18,18 @@ pub use self::error::{TransactionError, TransactionErrorForChainSpec};
 pub use crate::{interpreter::InterpreterResult, result::ExecutionResultAndState};
 
 /// Helper type for a chain-specific [`Context`].
-pub type ContextForChainSpec<ChainSpecT, BlockT, DatabaseT> = Context<
-    BlockT,
+pub type ContextForChainSpec<ChainSpecT, BlockEnvT, DatabaseT> = Context<
+    BlockEnvT,
     <ChainSpecT as ChainSpec>::SignedTransaction,
-    CfgEnv<<ChainSpecT as ChainHardfork>::Hardfork>,
+    CfgEnv<<ChainSpecT as HardforkChainSpec>::Hardfork>,
     DatabaseT,
     Journal<DatabaseT>,
-    <ChainSpecT as ChainContextSpec>::Context,
+    <ChainSpecT as ContextChainSpec>::Context,
 >;
 
-/// A trait for running a transaction in a chain's associated EVM.
-pub trait EvmChainSpec: ChainContextSpec + ChainHardfork + ChainSpec {
+/// Trait for specifying the types for running a transaction in a chain's
+/// associated EVM.
+pub trait EvmChainSpec: ContextChainSpec + HardforkChainSpec + ChainSpec {
     /// Type representing a precompile provider.
     type PrecompileProvider<BlockT: BlockEnvTrait, DatabaseT: Database>: Default
         + PrecompileProvider<ContextForChainSpec<Self, BlockT, DatabaseT>, Output = InterpreterResult>;

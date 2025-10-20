@@ -16,6 +16,10 @@ use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };
 use edr_blockchain_api::Blockchain as _;
+use edr_chain_spec::{
+    ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
+    TransactionValidation,
+};
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::miner_reward,
@@ -41,10 +45,6 @@ use edr_evm::{
     state::{IrregularState, StateOverrides, StateRefOverrider},
     trace::Trace,
     transaction, GenesisBlockOptions, MemPool, MineBlockResultAndState, OrderedTransaction,
-};
-use edr_chain_spec::{
-    ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
-    TransactionValidation,
 };
 use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
@@ -2797,10 +2797,7 @@ struct BlockchainAndState<ChainSpecT: SyncRuntimeSpec> {
     next_block_base_fee_per_gas: Option<u128>,
 }
 
-fn create_blockchain_and_state<
-    ChainSpecT: SyncProviderSpec<TimerT>,
-    TimerT: Clone + TimeSinceEpoch,
->(
+fn create_blockchain_and_state<ChainSpecT: ProviderChainSpec, TimerT: Clone + TimeSinceEpoch>(
     runtime: runtime::Handle,
     config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &TimerT,
@@ -3005,16 +3002,19 @@ fn create_blockchain_and_state<
             })
             .collect();
 
+        let block_config = BlockConfig {
+            base_fee_params: config
+                .base_fee_params
+                .as_ref()
+                .unwrap_or(base_fee_params_for::<ChainSpecT>(config.chain_id)),
+            hardfork: config.hardfork,
+            min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
+        };
+
         let genesis_diff = StateDiff::from(genesis_state);
         let genesis_block = ChainSpecT::genesis_block(
             genesis_diff.clone(),
-            BlockConfig {
-                hardfork: config.hardfork,
-                base_fee_params: config
-                    .base_fee_params
-                    .as_ref()
-                    .unwrap_or(base_fee_params_for::<ChainSpecT>(config.chain_id)),
-            },
+            block_config.clone(),
             GenesisBlockOptions {
                 extra_data: None,
                 gas_limit: Some(config.block_gas_limit.get()),

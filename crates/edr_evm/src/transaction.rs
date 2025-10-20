@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError};
+use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, Transaction};
 use edr_transaction::TxKind;
 use revm_handler::validation::validate_initial_tx_gas;
 pub use revm_interpreter::gas::calculate_initial_tx_gas_for_tx;
@@ -30,7 +30,7 @@ pub enum CreationError {
 }
 
 /// Validates the transaction.
-pub fn validate<TransactionT: revm_context_interface::Transaction>(
+pub fn validate<TransactionT: Transaction>(
     transaction: TransactionT,
     spec_id: EvmSpecId,
 ) -> Result<TransactionT, CreationError> {

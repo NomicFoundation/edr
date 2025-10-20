@@ -9,8 +9,8 @@ use edr_block_header::{
 };
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_chain_spec::{
-    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmHaltReason, EvmSpecId,
-    EvmTransactionValidationError, TransactionValidation,
+    BlobExcessGasAndPrice, ChainSpec, EthHeaderConstants, EvmHaltReason, EvmSpecId,
+    EvmTransactionValidationError, HardforkChainSpec, TransactionValidation,
 };
 use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
@@ -31,7 +31,7 @@ use edr_napi_core::{
 use edr_primitives::U256;
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_rpc_eth::jsonrpc;
-use edr_rpc_spec::RpcSpec;
+use edr_rpc_spec::RpcChainSpec;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_state_api::StateDiff;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpSpecId};
@@ -53,7 +53,7 @@ use crate::{
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct OpChainSpec;
 
-impl RpcSpec for OpChainSpec {
+impl RpcChainSpec for OpChainSpec {
     type ExecutionReceipt<Log> = TypedEnvelope<receipt::Execution<Log>>;
     type RpcBlock<Data>
         = edr_chain_l1::rpc::Block<Data>
@@ -65,7 +65,7 @@ impl RpcSpec for OpChainSpec {
     type RpcTransactionRequest = TransactionRequest;
 }
 
-impl ChainHardfork for OpChainSpec {
+impl HardforkChainSpec for OpChainSpec {
     type Hardfork = Hardfork;
 }
 

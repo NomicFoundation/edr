@@ -1,23 +1,22 @@
 use std::fmt::Debug;
 
 use derive_where::derive_where;
+use edr_block_builder_api::WrapDatabaseRef;
 use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::HaltReasonTrait;
 use edr_database_components::DatabaseComponents;
-use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
-use edr_state_api::State;
-use revm::Inspector;
-use revm_database_interface::WrapDatabaseRef;
-
-use crate::{
+use edr_evm_spec::{
     interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
-        EthInterpreter, Interpreter, Jumps as _, SuccessOrHalt,
+        EthInterpreter, Interpreter, SuccessOrHalt,
     },
-    journal::{JournalExt, JournalTrait},
     result::{ExecutionResult, Output},
-    spec::ContextTrait,
+    ContextTrait, Inspector, JournalTrait,
 };
+use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
+use edr_state_api::State;
+
+use crate::journal::JournalExt;
 
 /// Stack tracing message
 #[derive(Clone, Debug)]
@@ -274,7 +273,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         outcome: &CallOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
-        use crate::interpreter::InstructionResult;
+        use edr_evm_spec::interpreter::InstructionResult;
 
         match outcome.instruction_result() {
             return_revert!() if self.pending_before.is_some() => {
@@ -375,7 +374,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         outcome: &CreateOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
-        use crate::interpreter::InstructionResult;
+        use edr_evm_spec::interpreter::InstructionResult;
 
         self.validate_before_message();
 
