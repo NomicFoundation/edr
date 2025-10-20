@@ -275,7 +275,7 @@ sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
 similar-asserts = "1.5"
 rand = "0.9"
-rustc-hash = "1.1"
+rustc-hash = "2.1"
 serde = { version = "1.0", features = ["derive", "std"] }
 # Arbitrary precision is needed by the `parseJson` cheatcode and preserve order is needed by `edr_solidity`.
 # The features are listed here instead of in the Cargo.toml of those packages to avoid surprises from feature unification.
