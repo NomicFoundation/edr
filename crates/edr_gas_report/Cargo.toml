@@ -19,6 +19,7 @@ serde.workspace = true
 
 comfy-table = "7"
 libc = "0.2.177"
+prometheus-http-query = "0.8.3"
 
 [lints]
 workspace = true
