@@ -1,6 +1,7 @@
 name: EDR Benchmarks
 
 on:
+  # Deliberately do not run on merge_group
   push:
     branches:
       - "main"
@@ -26,7 +27,7 @@ jobs:
     # Only run for trusted collaborators since third-parties could run malicious code on the self-hosted benchmark runner.
     if: github.ref == 'refs/heads/main' || github.repository == github.event.pull_request.head.repo.full_name
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-rust
 
@@ -42,7 +43,7 @@ jobs:
     runs-on: self-hosted
     needs: benchmarks-test
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-rust
 
@@ -95,7 +96,7 @@ jobs:
     runs-on: self-hosted
     needs: benchmarks-test
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-rust
 
