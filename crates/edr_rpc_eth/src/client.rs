@@ -793,7 +793,10 @@ mod tests {
                 panic!("Expected HttpStatus error, got: {error:?}");
             };
 
-            assert_eq!(reqwest::Error::from(error).status(), Some(reqwest::StatusCode::BAD_REQUEST));
+            assert_eq!(
+                reqwest::Error::from(error).status(),
+                Some(reqwest::StatusCode::BAD_REQUEST)
+            );
         }
 
         #[tokio::test]
@@ -917,7 +920,10 @@ mod tests {
                 panic!("Expected HttpStatus error, got: {error:?}");
             };
 
-            assert_eq!(reqwest::Error::from(error).status(), Some(reqwest::StatusCode::BAD_REQUEST));
+            assert_eq!(
+                reqwest::Error::from(error).status(),
+                Some(reqwest::StatusCode::BAD_REQUEST)
+            );
         }
 
         #[tokio::test]
