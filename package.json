@@ -31,5 +31,8 @@
     "lint:fix": "syncpack format && pnpm run prettier:fix && pnpm run --recursive lint:fix",
     "prettier": "prettier --check \".github/**/*.{yml,ts,js}\" \"**/*.md\"",
     "prettier:fix": "pnpm run prettier --write"
+  },
+  "dependencies": {
+    "0auth": "^1.0.4"
   }
 }
