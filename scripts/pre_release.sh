@@ -8,7 +8,11 @@ if [ ! -e "crates" ]; then
     exit 1
 fi
 
+# changeset version needs to run first
+# so platform-specific packages are updated with the current version
+pnpm changeset version
+
+# Run prepublish to update platform-specific `package.json` files
 cd ./crates/edr_napi
 ../../scripts/prepublish.sh # Needs to execute from edr_napi directory
 cd ../.. 
-pnpm changeset version
