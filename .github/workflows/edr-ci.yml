@@ -23,11 +23,23 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
 
-      # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@cargo-hack
-
       - name: Cargo check no default features for all crates
         run: cargo check --workspace --all-targets --no-default-features --locked
+
+  cargo-hack-edr:
+    name: cargo-hack check EDR
+    runs-on: ubuntu-24.04
+    needs: check-edr
+    permissions:
+      contents: read
+    env:
+      RUSTFLAGS: -Dwarnings
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-rust
+
+      # Install pre-built binaries for cargo hack
+      - uses: taiki-e/install-action@cargo-hack
 
       - name: Cargo hack check for EDR crates
         run: |
