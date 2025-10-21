@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.9
+
+### Minor Changes
+
+- 88a23dc: Fix prepublish step so we again publish the arch/os specific packages.
+
 ## 0.12.0-next.8
 
 ### Minor Changes
