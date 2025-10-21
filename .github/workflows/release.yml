@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - ci/improve-changeset-release
 
 jobs:
   release:
@@ -41,8 +40,8 @@ jobs:
       - name: Create Release Pull Request
         uses: changesets/action@v1
         with:
-          title: "TESTING CI - edr-${{ steps.get-version.outputs.version }}"
-          commit: "testing ci edr-${{ steps.get-version.outputs.version }}"
+          title: "edr-${{ steps.get-version.outputs.version }}"
+          commit: "edr-${{ steps.get-version.outputs.version }}"
           version: "bash ./scripts/pre_release.sh"
         env:
           # If the default GITHUB_TOKEN is used, checks will not run in release PRs.
