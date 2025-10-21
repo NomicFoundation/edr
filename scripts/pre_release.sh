@@ -20,11 +20,3 @@ cd ./crates/edr_napi
 # Also to update edr_napi/package.json accordingly
 pnpm napi prepublish -t npm --skip-gh-release
 cd ../.. 
-
-# Run pnpm to update pnpm.lock file
-# this is necessary since the edr_napi/package.json was updated
-# since the platform-specific packages versions have changed
-#
-# Overriding default CI --frozen-lockfile since these changes
-# are going to be reviewed in a PR
-pnpm install --prefer-offline --no-frozen-lockfile
