@@ -24,4 +24,7 @@ cd ../..
 # Run pnpm to update pnpm.lock file
 # this is necessary since the edr_napi/package.json was updated
 # since the platform-specific packages versions have changed
-pnpm install --prefer-offline
+#
+# Overriding default CI --frozen-lockfile since these changes
+# are going to be reviewed in a PR
+pnpm install --prefer-offline --no-frozen-lockfile
