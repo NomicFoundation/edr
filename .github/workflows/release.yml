@@ -43,7 +43,7 @@ jobs:
         with:
           title: "TESTING CI - edr-${{ steps.get-version.outputs.version }}"
           commit: "testing ci edr-${{ steps.get-version.outputs.version }}"
-          version: "bash -c 'cd ./crates/edr_napi && ../../scripts/prepublish.sh && cd ../.. && pnpm changeset version'"
+          version: "bash ./scripts/pre_release.sh"
         env:
           # If the default GITHUB_TOKEN is used, checks will not run in release PRs.
           # To have checks run, set up CHANGESETS_TOKEN in repo secrets with read/write
