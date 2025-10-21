@@ -39,8 +39,11 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Run Prepublish before changesets
-        run: bash ./scripts/prepublish.sh
-        
+        run: |
+          cd ./crates/edr_napi
+          bash ../../scripts/prepublish.sh
+          cd ../..
+
       - name: Create Release Pull Request
         uses: changesets/action@v1
         with:
