@@ -39,7 +39,7 @@ pub struct EdrContext {
 
 #[napi]
 impl EdrContext {
-    #[doc = "Creates a new [`EdrContext`] instance. Should only be called once!"]
+    /// Creates a new [`EdrContext`] instance. Should only be called once!
     #[napi(catch_unwind, constructor)]
     pub fn new() -> napi::Result<Self> {
         let context = Context::new()?;
@@ -49,7 +49,7 @@ impl EdrContext {
         })
     }
 
-    #[doc = "Constructs a new provider with the provided configuration."]
+    /// Constructs a new provider with the provided configuration.
     #[napi(catch_unwind, ts_return_type = "Promise<Provider>")]
     pub fn create_provider(
         &self,
@@ -130,7 +130,7 @@ impl EdrContext {
         Ok(promise)
     }
 
-    #[doc = "Registers a new provider factory for the provided chain type."]
+    /// Registers a new provider factory for the provided chain type.
     #[napi(catch_unwind)]
     pub async fn register_provider_factory(
         &self,
@@ -153,11 +153,27 @@ impl EdrContext {
         Ok(())
     }
 
-    #[doc = "Executes Solidity tests."]
-    #[doc = ""]
-    #[doc = "The function will return a promise that resolves to a [`SolidityTestResult`] "]
-    #[doc = "after the tests are done. The progress callback will be called with the "]
-    #[doc = "results of each test suite."]
+    /// Executes Solidity tests
+    ///
+    /// The function will return a promise that resolves to a
+    /// [`SolidityTestResult`].
+    ///
+    /// Arguments:
+    /// - `chainType`: the same chain type that was passed to
+    ///   `registerProviderFactory`.
+    /// - `artifacts`: the project's compilation output artifacts. It's
+    ///   important to include include all artifacts here, otherwise cheatcodes
+    ///   that access artifacts and other functionality (e.g. auto-linking, gas
+    ///   reports) can break.
+    /// - `testSuites`: the test suite ids that specify which test suites to
+    ///   execute. The test suite artifacts must be present in `artifacts`.
+    /// - `configArgs`: solidity test runner configuration. See the struct docs
+    ///   for details.
+    /// - `tracingConfig`: the build infos used for stack trace generation.
+    ///   These are lazily parsed and it's important that they're passed as
+    ///   Uint8 arrays for performance.
+    /// - `onTestSuiteCompletedCallback`: The progress callback will be called
+    ///   with the results of each test suite as soon as it finished executing.
     #[allow(clippy::too_many_arguments)]
     #[napi(catch_unwind, ts_return_type = "Promise<SolidityTestResult>")]
     pub fn run_solidity_tests(
