@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - ci/improve-changeset-release
 
 jobs:
   release:
@@ -24,6 +25,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Install sponge # Needed for prepublish script
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y moreutils
+
       - name: Get version from package.json
         id: get-version
         run: |
@@ -35,8 +41,9 @@ jobs:
       - name: Create Release Pull Request
         uses: changesets/action@v1
         with:
-          title: "edr-${{ steps.get-version.outputs.version }}"
-          commit: "edr-${{ steps.get-version.outputs.version }}"
+          title: "TESTING CI - edr-${{ steps.get-version.outputs.version }}"
+          commit: "testing ci edr-${{ steps.get-version.outputs.version }}"
+          version: "changeset version && bash ./scripts/prepublish.sh"
         env:
           # If the default GITHUB_TOKEN is used, checks will not run in release PRs.
           # To have checks run, set up CHANGESETS_TOKEN in repo secrets with read/write
