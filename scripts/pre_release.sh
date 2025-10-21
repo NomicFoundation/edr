@@ -24,4 +24,4 @@ cd ../..
 # Run pnpm to update pnpm.lock file
 # this is necessary since the edr_napi/package.json was updated
 # since the platform-specific packages versions have changed
-pnpm install --lockfile-only --offline
+pnpm install --prefer-offline
