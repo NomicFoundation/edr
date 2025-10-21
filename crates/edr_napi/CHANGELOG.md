@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.10
+
+### Patch Changes
+
+- 8c1f798: Fixed gas calculation for EIP-7702 refunds
+
 ## 0.12.0-next.9
 
 ### Minor Changes
