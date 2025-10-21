@@ -166,7 +166,7 @@ impl EdrContext {
     ///   that access artifacts and other functionality (e.g. auto-linking, gas
     ///   reports) can break.
     /// - `testSuites`: the test suite ids that specify which test suites to
-    ///   execute. The test suite artifacts must present in `artifacts`.
+    ///   execute. The test suite artifacts must be present in `artifacts`.
     /// - `configArgs`: solidity test runner configuration. See the struct docs
     ///   for details.
     /// - `tracingConfig`: the build infos used for stack trace generation.
