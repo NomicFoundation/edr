@@ -16,3 +16,8 @@ pnpm changeset version
 cd ./crates/edr_napi
 ../../scripts/prepublish.sh # Needs to execute from edr_napi directory
 cd ../.. 
+
+# Run pnpm to update pnpm.lock file
+# this is necessary since the lockfile references the platform-specific packages
+# and their versions have changed
+pnpm install --prefer-offline 
