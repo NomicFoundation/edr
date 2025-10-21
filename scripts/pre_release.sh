@@ -9,6 +9,6 @@ if [ ! -e "crates" ]; then
 fi
 
 cd ./crates/edr_napi
-../../scripts/prepublish.sh
+../../scripts/prepublish.sh # Needs to execute from edr_napi directory
 cd ../.. 
 pnpm changeset version
