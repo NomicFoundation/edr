@@ -1,4 +1,4 @@
-name: Open changesets PR
+name: Open pre-release PR
 
 on:
   push:
