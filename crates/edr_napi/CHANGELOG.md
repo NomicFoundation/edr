@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.10
+
+### Patch Changes
+
+- 102ab6a: "Testing CI action"
+
 ## 0.12.0-next.9
 
 ### Minor Changes
