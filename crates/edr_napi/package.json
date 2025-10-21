@@ -70,7 +70,6 @@
     "eslint": "eslint 'test/**/*.ts'",
     "lint": "pnpm run prettier && pnpm run eslint",
     "lint:fix": "pnpm run prettier --write",
-    "prepublishOnly": "bash ../../scripts/prepublish.sh",
     "pretest": "pnpm build:dev",
     "prettier": "prettier --check \"test/**.ts\"",
     "test": "node --max-old-space-size=8192 node_modules/mocha/bin/_mocha --recursive \"test/**/*.ts\"",
