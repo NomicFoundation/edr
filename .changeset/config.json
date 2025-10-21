@@ -4,7 +4,7 @@
   "commit": false,
   "linked": [],
   "access": "public",
-  "baseBranch": "ci/improve-changeset-release",
+  "baseBranch": "main",
   "updateInternalDependencies": "minor",
   "ignore": ["benchmark"],
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
