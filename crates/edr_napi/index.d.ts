@@ -1408,19 +1408,34 @@ export interface Withdrawal {
   amount: bigint
 }
 export declare class EdrContext {
-  /**Creates a new [`EdrContext`] instance. Should only be called once! */
+  /** Creates a new [`EdrContext`] instance. Should only be called once! */
   constructor()
-  /**Constructs a new provider with the provided configuration. */
+  /** Constructs a new provider with the provided configuration. */
   createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder): Promise<Provider>
-  /**Registers a new provider factory for the provided chain type. */
+  /** Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
   registerSolidityTestRunnerFactory(chainType: string, factory: SolidityTestRunnerFactory): Promise<void>
   /**
-   *Executes Solidity tests.
+   * Executes Solidity tests
    *
-   *The function will return a promise that resolves to a [`SolidityTestResult`]
-   *after the tests are done. The progress callback will be called with the
-   *results of each test suite.
+   * The function will return a promise that resolves to a [`SolidityTestResult`].
+   *
+   * Arguments:
+   * - `chainType`: the same chain type that was passed to
+   *   `registerProviderFactory`.
+   * - `artifacts`: the project's compilation output artifacts. It's
+   *   important to include include all artifacts here, otherwise cheatcodes
+   *   that access artifacts and other functionality (e.g. auto-linking, gas
+   *   reports) can break.
+   * - `testSuites`: the test suite ids that specify which test suites to
+   *   execute. The test suite artifacts must present in `artifacts`.
+   * - `configArgs`: solidity test runner configuration. See the struct docs
+   *   for details.
+   * - `tracingConfig`: the build infos used for stack trace generation.
+   *   These are lazily parsed and it's important that they're passed as
+   *   Uint8 arrays for performance.
+   * - `onTestSuiteCompletedCallback`: The progress callback will be called
+   *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
 }
