@@ -15,10 +15,13 @@ pnpm changeset version
 
 # Run prepublish to update platform-specific `package.json` files
 cd ./crates/edr_napi
-../../scripts/prepublish.sh # Needs to execute from edr_napi directory
+# Run napi prepublish so that platform-specific packages are updated
+# to the same version that edr_napi.
+# Also to update edr_napi/package.json accordingly
+pnpm napi prepublish -t npm --skip-gh-release
 cd ../.. 
 
 # Run pnpm to update pnpm.lock file
-# this is necessary since the lockfile references the platform-specific packages
-# and their versions have changed
-pnpm install --prefer-offline 
+# this is necessary since the edr_napi/package.json was updated
+# since the platform-specific packages versions have changed
+pnpm install --lockfile-only --offline
