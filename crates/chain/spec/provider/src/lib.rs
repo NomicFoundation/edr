@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use edr_block_api::{EthBlockData, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
-use edr_block_remote::RemoteBlock;
+use edr_block_remote::{FetchRemoteReceiptError, RemoteBlock};
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::ChainSpec;
 use edr_chain_spec_block::BlockChainSpec;
@@ -24,6 +24,13 @@ pub trait ProviderChainSpec:
                 <Self as RpcChainSpec>::RpcReceipt,
                 <Self as RpcChainSpec>::RpcTransaction,
                 <Self as ChainSpec>::SignedTransaction,
+            >,
+        >,
+        FetchReceiptError: From<
+            FetchRemoteReceiptError<
+                <<Self as ReceiptChainSpec>::Receipt as TryFrom<
+                    <Self as RpcChainSpec>::RpcReceipt,
+                >>::Error,
             >,
         >,
         Hardfork: PartialOrd,

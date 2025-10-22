@@ -30,7 +30,7 @@ pub trait BlockChainSpec:
         StateError = StateErrorT>;
 
     /// Type representing errors that can occur when fetching receipts.
-    type FetchReceiptError;
+    type FetchReceiptError: std::error::Error;
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction>

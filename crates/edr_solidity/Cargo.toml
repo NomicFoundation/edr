@@ -13,6 +13,7 @@ derive-where.workspace = true
 edr_chain_spec.workspace = true
 edr_eth.workspace = true
 edr_evm.workspace = true
+edr_evm_spec.workspace = true
 edr_primitives.workspace = true
 foundry-compilers.workspace = true
 indexmap = { version = "2", features = ["serde"] }

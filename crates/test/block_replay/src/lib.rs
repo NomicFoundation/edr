@@ -6,7 +6,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use edr_block_api::{Block, FetchBlockReceipts, EthBlockData, LocalBlock as _};
+use edr_block_api::{Block, EthBlockData, FetchBlockReceipts, LocalBlock as _};
 use edr_block_builder_api::{BlockBuilder as _, BlockInputs};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_block_remote::RemoteBlock;
@@ -159,6 +159,7 @@ pub async fn run_full_block<
     ChainSpecT: 'static
         + ProviderChainSpec<
             ExecutionReceipt<FilterLog>: Debug + PartialEq,
+            FetchReceiptError: Send + Sync,
             Hardfork: 'static + Debug + Send + Sync,
             Receipt: AsExecutionReceipt<ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>>,
             RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<

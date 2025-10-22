@@ -3263,6 +3263,7 @@ dependencies = [
  "edr_chain_spec",
  "edr_eth",
  "edr_evm",
+ "edr_evm_spec",
  "edr_primitives",
  "foundry-compilers",
  "indexmap 2.9.0",
