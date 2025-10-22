@@ -301,6 +301,7 @@ hyper = "1.0"
 reqwest = { version = "0.12", default-features = false }
 tower = "0.4"
 tower-http = "0.5"
+prometheus-http-query = "0.8.3"
 
 [workspace.lints.rust]
 future_incompatible = "warn"

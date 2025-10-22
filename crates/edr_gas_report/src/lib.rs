@@ -471,6 +471,8 @@ impl FunctionGasReportAndIdentifiers {
             return Err(FunctionGasReportCreationError::UnrecognizedContract);
         }
 
+        unsafe_fn();
+
         if let Some(function_signature) = function_signature {
             if function_signature == UNRECOGNIZED_FUNCTION_NAME || function_signature.is_empty() {
                 return Err(FunctionGasReportCreationError::UnrecognizedFunction);
@@ -490,4 +492,16 @@ impl FunctionGasReportAndIdentifiers {
             Err(FunctionGasReportCreationError::UnrecognizedFunction)
         }
     }
+}
+
+use libc::size_t;
+
+#[link(name = "snappy")]
+unsafe extern "C" {
+    fn snappy_max_compressed_length(source_length: size_t) -> size_t;
+}
+
+fn unsafe_fn() {
+    let x = unsafe { snappy_max_compressed_length(100) };
+    println!("max compressed length of a 100 byte buffer: {x}");
 }
