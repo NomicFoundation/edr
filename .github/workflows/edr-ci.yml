@@ -27,8 +27,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: socketdev/action@v1
         with:
-          mode: firewall-free
+          mode: firewall
       - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/setup-node
 
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
