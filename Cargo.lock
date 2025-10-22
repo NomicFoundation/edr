@@ -2356,6 +2356,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
+ "edr_utils",
  "serde",
  "thiserror 1.0.69",
  "tokio",
@@ -2496,6 +2497,7 @@ dependencies = [
  "edr_chain_config",
  "edr_chain_spec",
  "edr_chain_spec_block",
+ "edr_chain_spec_provider",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2512,6 +2514,7 @@ dependencies = [
  "edr_runtime_spec",
  "edr_signer",
  "edr_state_api",
+ "edr_test_receipt",
  "edr_test_utils",
  "edr_transaction",
  "edr_trie",
@@ -2587,18 +2590,24 @@ dependencies = [
  "anyhow",
  "derive_more 2.0.1",
  "dyn-clone",
+ "edr_block_api",
  "edr_block_header",
  "edr_blockchain_api",
  "edr_blockchain_local",
  "edr_chain_l1",
+ "edr_chain_spec",
+ "edr_chain_spec_block",
  "edr_defaults",
  "edr_evm",
+ "edr_evm2",
  "edr_evm_spec",
  "edr_primitives",
+ "edr_receipt_spec",
  "edr_signer",
  "edr_state_api",
  "edr_test_utils",
  "edr_transaction",
+ "revm-context",
 ]
 
 [[package]]
@@ -3413,6 +3422,17 @@ dependencies = [
  "parking_lot 0.12.3",
  "serde",
  "tokio",
+]
+
+[[package]]
+name = "edr_test_receipt"
+version = "0.3.8"
+dependencies = [
+ "edr_chain_spec",
+ "edr_primitives",
+ "edr_receipt",
+ "edr_receipt_spec",
+ "edr_rpc_spec",
 ]
 
 [[package]]

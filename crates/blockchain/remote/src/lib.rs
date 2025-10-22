@@ -1,4 +1,4 @@
-use core::fmt::Debug;
+use core::{fmt::Debug, marker::PhantomData};
 use std::sync::Arc;
 
 use async_rwlock::{RwLock, RwLockUpgradableReadGuard};
@@ -22,6 +22,7 @@ use tokio::runtime;
 pub struct RemoteBlockchain<
     BlockReceiptT: ReceiptTrait,
     BlockT: Block<SignedTransactionT> + Clone,
+    FetchReceiptErrorT,
     RpcBlockChainSpecT: RpcBlockChainSpec,
     RpcReceiptT: DeserializeOwned + Serialize,
     RpcTransactionT: DeserializeOwned + Serialize,
@@ -31,11 +32,13 @@ pub struct RemoteBlockchain<
     client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
     cache: RwLock<SparseBlockStorage<Arc<BlockReceiptT>, BlockT, SignedTransactionT>>,
     runtime: runtime::Handle,
+    _phantom: PhantomData<FetchReceiptErrorT>,
 }
 
 impl<
         BlockReceiptT: ReceiptTrait,
         BlockT: Block<SignedTransactionT> + Clone,
+        FetchReceiptErrorT,
         RpcBlockChainSpecT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: DeserializeOwned + Serialize,
@@ -45,6 +48,7 @@ impl<
     RemoteBlockchain<
         BlockReceiptT,
         BlockT,
+        FetchReceiptErrorT,
         RpcBlockChainSpecT,
         RpcReceiptT,
         RpcTransactionT,
@@ -61,6 +65,7 @@ impl<
             client,
             cache: RwLock::new(SparseBlockStorage::default()),
             runtime,
+            _phantom: PhantomData,
         }
     }
 
@@ -130,6 +135,7 @@ pub enum FetchRemoteReceiptError<RpcReceiptConversionErrorT> {
 impl<
         BlockReceiptT: ReceiptTrait + TryFrom<RpcReceiptT, Error = RpcReceiptConversionErrorT>,
         BlockT: Block<SignedTransactionT> + Clone,
+        FetchReceiptErrorT,
         RpcBlockT: RpcBlockChainSpec,
         RpcReceiptConversionErrorT,
         RpcReceiptT: DeserializeOwned + Serialize,
@@ -140,6 +146,7 @@ impl<
     RemoteBlockchain<
         BlockReceiptT,
         BlockT,
+        FetchReceiptErrorT,
         RpcBlockT,
         RpcReceiptT,
         RpcTransactionT,
@@ -231,12 +238,14 @@ impl<
             + From<
                 RemoteBlock<
                     BlockReceiptT,
+                    FetchReceiptErrorT,
                     RpcBlockChainSpecT,
                     RpcReceiptT,
                     RpcTransactionT,
                     SignedTransactionT,
                 >,
             >,
+        FetchReceiptErrorT,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
         >,
@@ -248,6 +257,7 @@ impl<
     RemoteBlockchain<
         BlockReceiptT,
         BlockT,
+        FetchReceiptErrorT,
         RpcBlockChainSpecT,
         RpcReceiptT,
         RpcTransactionT,
@@ -422,12 +432,14 @@ impl<
             + From<
                 RemoteBlock<
                     BlockReceiptT,
+                    FetchReceiptErrorT,
                     RpcBlockT,
                     RpcReceiptT,
                     RpcTransactionT,
                     SignedTransactionT,
                 >,
             >,
+        FetchReceiptErrorT,
         RpcBlockConversionErrorT,
         RpcBlockT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock
@@ -444,6 +456,7 @@ impl<
     RemoteBlockchain<
         BlockReceiptT,
         BlockT,
+        FetchReceiptErrorT,
         RpcBlockT,
         RpcReceiptT,
         RpcTransactionT,
@@ -492,7 +505,6 @@ mod tests {
         L1ChainSpec, L1SignedTransaction, TypedEnvelope,
     };
     use edr_chain_spec::ChainSpec;
-    use edr_receipt::execution::Eip658;
     use edr_receipt_spec::ReceiptChainSpec;
     use edr_rpc_spec::{EthRpcClientForChainSpec, RpcChainSpec};
     use edr_test_utils::env::get_alchemy_url;
@@ -523,7 +535,7 @@ mod tests {
         let block_number = rpc_client.block_number().await.unwrap();
 
         let remote = RemoteBlockchain::<
-            L1BlockReceipt<TypedEnvelope<Eip658<FilterLog>>>,
+            L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>,
             RemoteBlockForChainSpec<L1ChainSpec>,
             L1ChainSpec,
             L1RpcTransactionReceipt,

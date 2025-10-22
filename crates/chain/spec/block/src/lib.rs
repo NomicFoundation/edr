@@ -13,7 +13,7 @@ pub trait BlockChainSpec:
     + ReceiptChainSpec
 {
     /// Type representing block trait objects.
-    type Block: ?Sized + Block<Self::SignedTransaction> + BlockReceipts<Arc<Self::Receipt>>;
+    type Block: ?Sized + Block<Self::SignedTransaction> + BlockReceipts<Arc<Self::Receipt>, Error = Self::FetchReceiptError>;
 
     /// Type representing a block builder.
     type BlockBuilder<
@@ -28,6 +28,9 @@ pub trait BlockChainSpec:
         BlockchainError = BlockchainErrorT,
         LocalBlock = Self::LocalBlock,
         StateError = StateErrorT>;
+
+    /// Type representing errors that can occur when fetching receipts.
+    type FetchReceiptError;
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction>

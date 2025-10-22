@@ -475,7 +475,7 @@ mod tests {
             .collect::<HashMap<_, _>>()
             .into();
 
-        let chain_config = l1_chain_config(edr_chain_l1::chains::MAINNET_CHAIN_ID)
+        let chain_config = l1_chain_config(edr_chain_l1::chains::L1_MAINNET_CHAIN_ID)
             .expect("L1 Mainnet chain config exists");
 
         let block_config = BlockConfig {

@@ -1,23 +1,40 @@
 use std::{collections::BTreeMap, str::FromStr};
 
+use edr_block_api::{GenesisBlockFactory as _, GenesisBlockOptions};
 use edr_block_header::BlockConfig;
-use edr_blockchain_api::Blockchain as _;
+use edr_blockchain_api::{BlockchainMetadata as _, StateAtBlock as _};
 use edr_blockchain_local::LocalBlockchain;
-use edr_chain_l1::L1ChainSpec;
+use edr_chain_l1::{L1ChainSpec, L1_BASE_FEE_PARAMS, L1_MIN_ETHASH_DIFFICULTY};
+use edr_chain_spec::{ChainSpec, HardforkChainSpec};
+use edr_chain_spec_block::BlockChainSpec;
 use edr_coverage::CoverageHitCollector;
+use edr_evm2::{dry_run_with_inspector, run};
+use edr_evm_spec::{
+    config::EvmConfig,
+    result::{ExecutionResult, Output},
+};
 use edr_primitives::{bytes, Address, Bytes, HashMap, HashSet, B256, U256};
+use edr_receipt_spec::ReceiptChainSpec;
 use edr_signer::public_key_to_address;
 use edr_state_api::{AccountModifierFn, StateDiff, StateError, SyncState};
 use edr_test_utils::secret_key::secret_key_from_str;
 use edr_transaction::TxKind;
+use revm_context::BlockEnv;
 
 const CHAIN_ID: u64 = 31337;
 
 const INCREMENT_DEPLOYED_BYTECODE: &str =
     include_str!("../../../../data/deployed_bytecode/increment.in");
 
+type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
+    <ChainSpecT as ReceiptChainSpec>::Receipt,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as BlockChainSpec>::LocalBlock,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
+
 fn deploy_contract(
-    blockchain: &LocalBlockchain<L1ChainSpec>,
+    blockchain: &LocalBlockchainForChainSpec<L1ChainSpec>,
     state: &mut dyn SyncState<StateError>,
     bytecode: Bytes,
 ) -> anyhow::Result<Address> {
@@ -39,18 +56,18 @@ fn deploy_contract(
 
     let signed = request.sign(&secret_key)?;
 
-    let cfg = CfgEnv::new_with_spec(blockchain.hardfork()).with_chain_id(blockchain.chain_id());
-    let block = edr_chain_l1::BlockEnv {
+    let evm_config = EvmConfig::with_chain_id(blockchain.chain_id());
+    let block_env = BlockEnv {
         number: U256::from(1),
-        ..edr_chain_l1::BlockEnv::default()
+        ..BlockEnv::default()
     };
 
-    let result = run::<_, L1ChainSpec, _>(
+    let result = run::<L1ChainSpec, _, _, _>(
         blockchain,
         state,
-        cfg,
+        evm_config.to_cfg_env(blockchain.hardfork()),
         signed.into(),
-        block,
+        block_env,
         &HashMap::new(),
     )?;
     let address = if let ExecutionResult::Success {
@@ -67,7 +84,7 @@ fn deploy_contract(
 }
 
 fn call_inc_by(
-    blockchain: &LocalBlockchain<L1ChainSpec>,
+    blockchain: &LocalBlockchainForChainSpec<L1ChainSpec>,
     state: &dyn SyncState<StateError>,
     deployed_address: Address,
     increment: U256,
@@ -97,20 +114,19 @@ fn call_inc_by(
 
     let signed = request.sign(&secret_key)?;
 
-    let cfg =
-        CfgEnv::new_with_spec(edr_chain_l1::Hardfork::CANCUN).with_chain_id(blockchain.chain_id());
-    let block = edr_chain_l1::BlockEnv {
+    let evm_config = EvmConfig::with_chain_id(blockchain.chain_id());
+    let block_env = BlockEnv {
         number: U256::from(1),
-        ..edr_chain_l1::BlockEnv::default()
+        ..BlockEnv::default()
     };
 
     let mut coverage_collector = CoverageHitCollector::default();
-    let result = dry_run_with_inspector::<_, L1ChainSpec, _, _>(
+    let result = dry_run_with_inspector::<L1ChainSpec, _, _, _, _>(
         blockchain,
         state,
-        cfg,
+        evm_config.to_cfg_env(blockchain.hardfork()),
         signed.into(),
-        block,
+        block_env,
         &HashMap::new(),
         &mut coverage_collector,
     )?;
@@ -125,24 +141,27 @@ fn call_inc_by(
 
 #[test]
 fn record_hits() -> anyhow::Result<()> {
+    let block_config = BlockConfig {
+        base_fee_params: &L1_BASE_FEE_PARAMS,
+        hardfork: edr_chain_l1::Hardfork::CANCUN,
+        min_ethash_difficulty: L1_MIN_ETHASH_DIFFICULTY,
+    };
+
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
-        BlockConfig {
-            hardfork: edr_chain_l1::Hardfork::CANCUN,
-            base_fee_params: base_fee_params_for::<L1ChainSpec>(CHAIN_ID),
-        },
+        block_config.clone(),
         GenesisBlockOptions {
             mix_hash: Some(B256::random()),
             ..GenesisBlockOptions::default()
         },
     )?;
 
-    let blockchain = LocalBlockchain::<L1ChainSpec>::new(
+    let blockchain = LocalBlockchainForChainSpec::<L1ChainSpec>::new(
         genesis_block,
         genesis_diff,
         CHAIN_ID,
-        edr_chain_l1::Hardfork::CANCUN,
+        block_config,
     )?;
 
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;

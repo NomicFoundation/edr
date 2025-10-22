@@ -1,8 +1,8 @@
-use core::fmt::Debug;
+use core::{fmt::Debug, marker::PhantomData};
 use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
-use edr_block_api::{Block, BlockReceipts, EthBlockData};
+use edr_block_api::{sync::SyncBlock, Block, BlockReceipts, EthBlockData};
 use edr_block_header::{BlockHeader, Withdrawal};
 use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::B256;
@@ -11,6 +11,7 @@ use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     RpcBlockChainSpec,
 };
+use edr_utils::CastArcFrom;
 use tokio::runtime;
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
@@ -41,6 +42,7 @@ pub enum RpcBlockConversionError<TransactionConversionErrorT> {
 #[derive_where(Debug; BlockReceiptT, SignedTransactionT)]
 pub struct RemoteBlock<
     BlockReceiptT,
+    FetchReceiptErrorT,
     RpcBlockChainSpecT: RpcBlockChainSpec,
     RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
     RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
@@ -61,16 +63,25 @@ pub struct RemoteBlock<
     // The RPC client is needed to lazily fetch receipts
     rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
     runtime: runtime::Handle,
+    _phantom: PhantomData<fn() -> FetchReceiptErrorT>,
 }
 
 impl<
         BlockReceiptT,
+        FetchReceiptErrorT,
         RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT,
     >
-    RemoteBlock<BlockReceiptT, RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT, SignedTransactionT>
+    RemoteBlock<
+        BlockReceiptT,
+        FetchReceiptErrorT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
 {
     /// Tries to construct a new instance from a JSON-RPC block.
     pub fn new(
@@ -95,18 +106,27 @@ impl<
             size: block.rlp_size,
             rpc_client,
             runtime,
+            _phantom: PhantomData,
         })
     }
 }
 
 impl<
         BlockReceiptT: Debug,
+        FetchReceiptErrorT,
         RpcBlockT: RpcBlockChainSpec,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug,
     > Block<SignedTransactionT>
-    for RemoteBlock<BlockReceiptT, RpcBlockT, RpcReceiptT, RpcTransactionT, SignedTransactionT>
+    for RemoteBlock<
+        BlockReceiptT,
+        FetchReceiptErrorT,
+        RpcBlockT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
 {
     fn block_hash(&self) -> &B256 {
         &self.hash
@@ -152,17 +172,25 @@ pub enum FetchRemoteReceiptError<RpcReceiptConversionErrorT> {
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT, Error = RpcReceiptConversionErrorT>,
-        RpcBlockT: RpcBlockChainSpec,
+        FetchReceiptErrorT: From<FetchRemoteReceiptError<RpcReceiptConversionErrorT>>,
+        RpcBlockChainSpecT: RpcBlockChainSpec,
         RpcReceiptConversionErrorT,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
     > BlockReceipts<Arc<BlockReceiptT>>
-    for RemoteBlock<BlockReceiptT, RpcBlockT, RpcReceiptT, RpcTransactionT, SignedTransactionT>
+    for RemoteBlock<
+        BlockReceiptT,
+        FetchReceiptErrorT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
 {
-    type Error = FetchRemoteReceiptError<RpcReceiptConversionErrorT>;
+    type Error = FetchReceiptErrorT;
 
-    fn fetch_transaction_receipts(&self) -> Result<Vec<Arc<BlockReceiptT>>, Self::Error> {
+    fn fetch_transaction_receipts(&self) -> Result<Vec<Arc<BlockReceiptT>>, FetchReceiptErrorT> {
         if let Some(receipts) = self.receipts.get() {
             return Ok(receipts.clone());
         }
@@ -190,5 +218,46 @@ impl<
             .expect("We checked that receipts are not set");
 
         Ok(receipts)
+    }
+}
+
+impl<
+        BlockReceiptT: 'static
+            + Debug
+            + ReceiptTrait
+            + Send
+            + Sync
+            + TryFrom<RpcReceiptT, Error = RpcReceiptConversionErrorT>,
+        FetchReceiptErrorT: 'static + From<FetchRemoteReceiptError<RpcReceiptConversionErrorT>>,
+        RpcBlockChainSpecT: 'static + RpcBlockChainSpec,
+        RpcReceiptConversionErrorT: 'static,
+        RpcReceiptT: 'static + serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: 'static + serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: 'static + Debug + ExecutableTransaction + Send + Sync,
+    >
+    CastArcFrom<
+        RemoteBlock<
+            BlockReceiptT,
+            FetchReceiptErrorT,
+            RpcBlockChainSpecT,
+            RpcReceiptT,
+            RpcTransactionT,
+            SignedTransactionT,
+        >,
+    > for dyn SyncBlock<Arc<BlockReceiptT>, SignedTransactionT, Error = FetchReceiptErrorT>
+{
+    fn cast_arc_from(
+        value: Arc<
+            RemoteBlock<
+                BlockReceiptT,
+                FetchReceiptErrorT,
+                RpcBlockChainSpecT,
+                RpcReceiptT,
+                RpcTransactionT,
+                SignedTransactionT,
+            >,
+        >,
+    ) -> Arc<Self> {
+        value
     }
 }

@@ -28,6 +28,17 @@ pub struct EvmConfig {
 }
 
 impl EvmConfig {
+    /// Creates a new EVM configuration with the specified chain ID.
+    ///
+    /// Does not disable EIP-3607 and does not set a contract code size limit.
+    pub fn with_chain_id(chain_id: u64) -> Self {
+        Self {
+            chain_id,
+            disable_eip3607: false,
+            limit_contract_code_size: None,
+        }
+    }
+
     /// Converts the EVM configuration into a `CfgEnv` for the specified
     /// hardfork.
     pub fn to_cfg_env<HardforkT: Into<EvmSpecId>>(&self, hardfork: HardforkT) -> CfgEnv<HardforkT> {

@@ -249,7 +249,14 @@ impl<
                 ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
             > + alloy_rlp::Encodable,
         >,
-        LocalBlockT: From<EthLocalBlock<BlockReceiptT, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>>,
+        LocalBlockT: From<
+            EthLocalBlock<
+                BlockReceiptT,
+                ChainSpecT::FetchReceiptError,
+                ChainSpecT::Hardfork,
+                ChainSpecT::SignedTransaction,
+            >,
+        >,
         StateErrorT: std::error::Error,
     >
     EthBlockBuilder<
@@ -590,7 +597,14 @@ impl<
                 ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
             > + alloy_rlp::Encodable,
         >,
-        LocalBlockT: From<EthLocalBlock<BlockReceiptT, ChainSpecT::Hardfork, ChainSpecT::SignedTransaction>>,
+        LocalBlockT: From<
+            EthLocalBlock<
+                BlockReceiptT,
+                ChainSpecT::FetchReceiptError,
+                ChainSpecT::Hardfork,
+                ChainSpecT::SignedTransaction,
+            >,
+        >,
         StateErrorT: std::error::Error,
     > BlockBuilder<'builder, ChainSpecT, BlockReceiptT, BlockT>
     for EthBlockBuilder<

@@ -9,7 +9,7 @@ pub use revm_primitives::hardfork::name;
 use crate::{Hardfork, L1_BASE_FEE_PARAMS};
 
 /// Mainnet chain ID
-pub const MAINNET_CHAIN_ID: u64 = 0x1;
+pub const L1_MAINNET_CHAIN_ID: u64 = 0x1;
 
 const MAINNET_HARDFORKS: &[Activation<Hardfork>] = &[
     Activation {
@@ -208,12 +208,12 @@ fn sepolia_config() -> &'static ChainConfig<Hardfork> {
     })
 }
 
-fn l1_chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Hardfork>> {
+pub(crate) fn l1_chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Hardfork>> {
     static CONFIGS: OnceLock<HashMap<u64, &'static ChainConfig<Hardfork>>> = OnceLock::new();
 
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
-        hardforks.insert(MAINNET_CHAIN_ID, mainnet_config());
+        hardforks.insert(L1_MAINNET_CHAIN_ID, mainnet_config());
         hardforks.insert(HOLESKY_CHAIN_ID, holesky_config());
         hardforks.insert(HOODI_CHAIN_ID, hoodi_config());
         hardforks.insert(SEPOLIA_CHAIN_ID, sepolia_config());

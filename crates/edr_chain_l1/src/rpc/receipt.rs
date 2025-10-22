@@ -284,9 +284,9 @@ impl TryFrom<L1RpcTransactionReceipt>
 #[cfg(test)]
 mod test {
     use assert_json_diff::assert_json_eq;
-    use edr_primitives::{Bloom, Bytes};
+    use edr_primitives::{Address, Bloom, Bytes, B256};
     use edr_receipt::log::ExecutionLog;
-    use edr_rpc_spec::impl_execution_receipt_serde_tests;
+    use edr_test_receipt::impl_execution_receipt_serde_tests;
     use serde_json::json;
 
     use crate::{rpc::receipt::L1RpcTransactionReceipt, Hardfork, L1ChainSpec, TypedEnvelope};
@@ -338,7 +338,7 @@ mod test {
     }
 
     impl_execution_receipt_serde_tests! {
-        L1ChainSpec, EthBlockReceiptFactory::default() => {
+        L1ChainSpec => {
             legacy, Hardfork::default() => TypedEnvelope::Legacy(edr_receipt::Execution::Legacy(edr_receipt::execution::Legacy {
                 root: B256::random(),
                 cumulative_gas_used: 0xffff,

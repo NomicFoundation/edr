@@ -1,9 +1,6 @@
 #![warn(missing_docs)]
 //! Ethereum JSON-RPC specification types
 
-#[cfg(any(feature = "test-utils", test))]
-mod test_utils;
-
 use edr_primitives::{B256, U256};
 use edr_receipt::ExecutionReceiptChainSpec;
 use edr_rpc_eth::{client::EthRpcClient, RpcBlockChainSpec};

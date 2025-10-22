@@ -1,6 +1,14 @@
-#![cfg(any(feature = "test-utils", test))]
+//! Utilities for testing receipts.
 
-//! Utilities for testing RPC types.
+// Re-export types that are used in the macros as `$crate::...`
+pub use edr_chain_spec::{ChainSpec, ContextChainSpec};
+pub use edr_primitives::{Address, B256};
+pub use edr_receipt::{
+    log::{FilterLog, FullBlockLog, ReceiptLog},
+    MapReceiptLogs, TransactionReceipt,
+};
+pub use edr_receipt_spec::{ReceiptChainSpec, ReceiptConstructor};
+pub use edr_rpc_spec::{RpcChainSpec, RpcTypeFrom};
 
 /// Helper macro for testing serialization and deserialization roundtrips of
 /// execution receipts.
@@ -15,23 +23,19 @@ macro_rules! impl_execution_receipt_serde_tests {
             paste::item! {
                 #[test]
                 fn [<typed_receipt_rpc_receipt_roundtrip_ $name>]() -> anyhow::Result<()> {
-                    use edr_primitives::{Address, B256};
-                    use edr_chain_spec::ChainSpec;
-                    use edr_receipt::{log::{FilterLog, FullBlockLog, ReceiptLog}, MapReceiptLogs as _, TransactionReceipt};
+                    use $crate::{MapReceiptLogs as _, RpcTypeFrom as _};
 
-                    use $crate::{RpcTypeFrom as _, RpcChainSpec};
-
-                    let block_hash = B256::random();
+                    let block_hash = $crate::B256::random();
                     let block_number = 10u64;
-                    let transaction_hash = B256::random();
+                    let transaction_hash = $crate::B256::random();
                     let transaction_index = 5u64;
 
                     let execution_receipt = $receipt;
 
                     let mut log_index = 0;
-                    let execution_receipt = execution_receipt.map_logs(|log| FilterLog {
-                        inner: FullBlockLog {
-                            inner: ReceiptLog {
+                    let execution_receipt = execution_receipt.map_logs(|log| $crate::FilterLog {
+                        inner: $crate::FullBlockLog {
+                            inner: $crate::ReceiptLog {
                                 inner: log,
                                 transaction_hash,
                             },
@@ -47,23 +51,24 @@ macro_rules! impl_execution_receipt_serde_tests {
                         removed: false,
                     });
 
-                    let transaction_receipt = TransactionReceipt {
+                    let transaction_receipt = $crate::TransactionReceipt {
                         inner: execution_receipt,
                         transaction_hash,
                         transaction_index,
-                        from: Address::random(),
-                        to: Some(Address::random()),
-                        contract_address: Some(Address::random()),
+                        from: $crate::Address::random(),
+                        to: Some($crate::Address::random()),
+                        contract_address: Some($crate::Address::random()),
                         gas_used: 100,
                         effective_gas_price: Some(100),
                     };
 
                     // ASSUMPTION: The transaction data doesn't matter for this test, so we can use a default transaction.
-                    let transaction = <$chain_spec as ChainSpec>::SignedTransaction::default();
+                    let transaction = <$chain_spec as $crate::ChainSpec>::SignedTransaction::default();
 
-                    let block_receipt = <$chain_spec as  receipt_factory.create_receipt($hardfork, &transaction, transaction_receipt, &block_hash, block_number);
+                    let context = <$chain_spec as $crate::ContextChainSpec>::Context::default();
+                    let block_receipt = <<$chain_spec as $crate::ReceiptChainSpec>::Receipt as $crate::ReceiptConstructor>::new_receipt(&context, $hardfork, &transaction, transaction_receipt, &block_hash, block_number);
 
-                    let rpc_receipt = <$chain_spec as RpcChainSpec>::RpcReceipt::rpc_type_from(&block_receipt, Default::default());
+                    let rpc_receipt = <$chain_spec as $crate::RpcChainSpec>::RpcReceipt::rpc_type_from(&block_receipt, Default::default());
 
                     let serialized = serde_json::to_string(&rpc_receipt)?;
                     let deserialized = serde_json::from_str(&serialized)?;

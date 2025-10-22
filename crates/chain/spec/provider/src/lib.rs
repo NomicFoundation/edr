@@ -19,6 +19,7 @@ pub trait ProviderChainSpec:
                    + CastArcFrom<
             RemoteBlock<
                 <Self as ReceiptChainSpec>::Receipt,
+                <Self as BlockChainSpec>::FetchReceiptError,
                 Self,
                 <Self as RpcChainSpec>::RpcReceipt,
                 <Self as RpcChainSpec>::RpcTransaction,
@@ -30,7 +31,7 @@ pub trait ProviderChainSpec:
         Receipt: TryFrom<<Self as RpcChainSpec>::RpcReceipt, Error: Send + Sync>,
         RpcBlock<B256>: RpcEthBlock,
         RpcTransaction: RpcTransaction,
-        SignedTransaction: Clone + serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransaction: Clone + serde::Serialize, // serde::de::DeserializeOwned
     > + BlockChainSpec<
         RpcBlock<<Self as RpcChainSpec>::RpcTransaction>: RpcEthBlock
                                                               + TryInto<
@@ -43,7 +44,7 @@ pub trait ProviderChainSpec:
     const MIN_ETHASH_DIFFICULTY: u64;
 
     /// Returns the chain configurations for this chain type.
-    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>>;
+    fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Self::Hardfork>>;
 
     /// Returns the default base fee params to fallback to for the given spec
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork>;
@@ -51,8 +52,7 @@ pub trait ProviderChainSpec:
     /// Returns the `base_fee_per_gas` for the next block.
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        chain_id: u64,
+        base_fee_params: &BaseFeeParams<Self::Hardfork>,
         hardfork: Self::Hardfork,
-        base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
     ) -> u128;
 }

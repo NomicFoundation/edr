@@ -2,13 +2,19 @@ use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
 use edr_block_api::{sync::SyncBlock, BlockReceipts, GenesisBlockFactory, GenesisBlockOptions};
-use edr_block_header::{BlockConfig, HeaderAndEvmSpec};
+use edr_block_header::{
+    calculate_next_base_fee_per_gas, BlockConfig, BlockHeader, HeaderAndEvmSpec,
+};
 use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
+use edr_block_remote::FetchRemoteReceiptError;
+use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec,
     EvmTransactionValidationError, HardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
+use edr_chain_spec_provider::ProviderChainSpec;
+use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{
     handler::{EthInstructions, EthPrecompiles},
     interpreter::InterpreterResult,
@@ -17,7 +23,7 @@ use edr_evm_spec::{
     ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, Journal, LocalContext,
     PrecompileProvider, TransactionError,
 };
-use edr_primitives::Bytes;
+use edr_primitives::{Bytes, HashMap};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_eth::RpcBlockChainSpec;
@@ -28,6 +34,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     block::EthBlockBuilder,
+    chains::l1_chain_configs,
     receipt::{builder::L1ExecutionReceiptBuilder, L1BlockReceipt},
     rpc::{
         block::L1RpcBlock,
@@ -35,7 +42,8 @@ use crate::{
         receipt::L1RpcTransactionReceipt,
         transaction::{L1RpcTransactionRequest, L1RpcTransactionWithSignature},
     },
-    HaltReason, Hardfork, L1SignedTransaction, TypedEnvelope,
+    HaltReason, Hardfork, L1SignedTransaction, TypedEnvelope, L1_BASE_FEE_PARAMS,
+    L1_MIN_ETHASH_DIFFICULTY,
 };
 
 /// Ethereum L1 extra data for genesis blocks.
@@ -61,11 +69,8 @@ fn cast_evm_error<DatabaseT: Database>(
 }
 
 impl BlockChainSpec for L1ChainSpec {
-    type Block = dyn SyncBlock<
-        Arc<Self::Receipt>,
-        Self::SignedTransaction,
-        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::Receipt>>>::Error,
-    >;
+    type Block =
+        dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
     type BlockBuilder<
         'builder,
@@ -83,7 +88,15 @@ impl BlockChainSpec for L1ChainSpec {
         StateErrorT,
     >;
 
-    type LocalBlock = EthLocalBlock<Self::Receipt, Self::Hardfork, Self::SignedTransaction>;
+    type FetchReceiptError =
+        FetchRemoteReceiptError<<Self::Receipt as TryFrom<Self::RpcReceipt>>::Error>;
+
+    type LocalBlock = EthLocalBlock<
+        Self::Receipt,
+        Self::FetchReceiptError,
+        Self::Hardfork,
+        Self::SignedTransaction,
+    >;
 }
 
 impl BlockEnvChainSpec for L1ChainSpec {
@@ -180,7 +193,7 @@ impl EvmChainSpec for L1ChainSpec {
 }
 
 impl ExecutionReceiptChainSpec for L1ChainSpec {
-    type ExecutionReceipt<LogT> = TypedEnvelope<edr_receipt::execution::Eip658<LogT>>;
+    type ExecutionReceipt<LogT> = TypedEnvelope<edr_receipt::Execution<LogT>>;
 }
 
 impl HardforkChainSpec for L1ChainSpec {
@@ -201,6 +214,7 @@ impl GenesisBlockFactory for L1ChainSpec {
 
     type LocalBlock = EthLocalBlock<
         <Self as ReceiptChainSpec>::Receipt,
+        <Self as BlockChainSpec>::FetchReceiptError,
         Self::Hardfork,
         <Self as ChainSpec>::SignedTransaction,
     >;
@@ -218,6 +232,26 @@ impl GenesisBlockFactory for L1ChainSpec {
         );
 
         EthLocalBlock::with_genesis_state(genesis_diff, block_config, options)
+    }
+}
+
+impl ProviderChainSpec for L1ChainSpec {
+    const MIN_ETHASH_DIFFICULTY: u64 = L1_MIN_ETHASH_DIFFICULTY;
+
+    fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Self::Hardfork>> {
+        l1_chain_configs()
+    }
+
+    fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
+        &L1_BASE_FEE_PARAMS
+    }
+
+    fn next_base_fee_per_gas(
+        header: &BlockHeader,
+        base_fee_params: &BaseFeeParams<Self::Hardfork>,
+        hardfork: Self::Hardfork,
+    ) -> u128 {
+        calculate_next_base_fee_per_gas(header, base_fee_params, hardfork)
     }
 }
 

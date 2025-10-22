@@ -1,14 +1,14 @@
 [package]
-name = "edr_rpc_spec"
+name = "edr_test_receipt"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
+edr_chain_spec.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
-edr_rpc_eth.workspace = true
-edr_utils.workspace = true
-serde.workspace = true
+edr_receipt_spec.workspace = true
+edr_rpc_spec.workspace = true
 
 [lints]
 workspace = true

@@ -11,9 +11,10 @@ edr_chain_spec.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_rpc_eth.workspace = true
+edr_utils.workspace = true
 serde.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [lints]
 workspace = true
