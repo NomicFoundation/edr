@@ -7,7 +7,7 @@ on:
 
 jobs:
   pre-release:
-    name: Open pre-release PR
+    name: Prepare pre-release PR
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -32,7 +32,7 @@ jobs:
           VERSION="$(jq -r '.releases[] | select(.name == "@nomicfoundation/edr").newVersion' "$STATUS")"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Create Pull Request
+      - name: Update version & Create Pull Request
         uses: changesets/action@v1
         with:
           title: "edr-${{ steps.get-version.outputs.version }}"

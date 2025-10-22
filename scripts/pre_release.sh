@@ -16,18 +16,20 @@ pnpm changeset version
 # Add changes to staged area
 git add .
 
-# Run prepublish to update platform-specific `package.json` files
 cd ./crates/edr_napi
-# Run napi prepublish so that platform-specific packages are updated
-# to the same version that edr_napi.
-# Also to update edr_napi/package.json accordingly
+# Run napi prepublish to update platform-specific `package.json` files
 pnpm napi prepublish -t npm --skip-gh-release
 
-# Ignore changes done to napi root package.json (optionalDependencies)
+# Ignore changes done to napi root `package.json`
+# The command adds the `optionalDependencies` field
+# We don't want to include because adding it would make the 
+# pnpm-lock.yaml differ with package.json - and `pnpm install` does
+# not fix the lockfile in this case.
 # TODO: NAPI.rs v3 has a skipOptionalPublish option
 git restore ./package.json 
 
 cd ../.. 
 
 # Leave all changes not staged for commit
+# since Changesets action takes care of committing them
 git restore --staged .
