@@ -5,8 +5,8 @@ use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU6
 
 use derive_where::derive_where;
 use edr_block_api::{
-    validate_next_block, Block, BlockAndTotalDifficulty, BlockReceipts, BlockValidityError,
-    EmptyBlock, EthBlockData, LocalBlock,
+    validate_next_block, Block, BlockAndTotalDifficulty, BlockValidityError, EmptyBlock,
+    EthBlockData, FetchBlockReceipts, LocalBlock,
 };
 use edr_block_header::BlockConfig;
 use edr_block_remote::RemoteBlock;
@@ -715,7 +715,7 @@ impl<
         BlockT: ?Sized + Block<SignedTransactionT>,
         FetchReceiptErrorT,
         HardforkT,
-        LocalBlockT: BlockReceipts<Arc<BlockReceiptT>, Error: Debug>,
+        LocalBlockT: FetchBlockReceipts<Arc<BlockReceiptT>, Error: Debug>,
         RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
@@ -752,7 +752,7 @@ impl<
             let (to_block, mut local_logs) = if to_block <= self.fork_block_number {
                 (to_block, Vec::new())
             } else {
-                let local_logs = self.local_storage.logs(
+                let local_logs = self.local_storage.try_fetch_logs(
                     self.fork_block_number + 1,
                     to_block,
                     addresses,
@@ -778,7 +778,7 @@ impl<
         } else {
             Ok(self
                 .local_storage
-                .logs(from_block, to_block, addresses, normalized_topics)
+                .try_fetch_logs(from_block, to_block, addresses, normalized_topics)
                 .expect(
                     "Trait bound guarantees fetching of receipts from local storage is infallible",
                 ))

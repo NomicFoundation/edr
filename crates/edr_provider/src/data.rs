@@ -11,7 +11,7 @@ use std::{
 };
 
 use alloy_dyn_abi::eip712::TypedData;
-use edr_block_api::{Block, BlockAndTotalDifficulty, BlockReceipts as _};
+use edr_block_api::{Block, BlockAndTotalDifficulty, FetchBlockReceipts as _};
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };

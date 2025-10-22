@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_block_api::{BlockReceipts, EthBlockData};
+use edr_block_api::{EthBlockData, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
 use edr_block_remote::RemoteBlock;
 use edr_chain_config::ChainConfig;
@@ -27,7 +27,7 @@ pub trait ProviderChainSpec:
             >,
         >,
         Hardfork: PartialOrd,
-        LocalBlock: BlockReceipts<Arc<<Self as ReceiptChainSpec>::Receipt>, Error: Debug>,
+        LocalBlock: FetchBlockReceipts<Arc<<Self as ReceiptChainSpec>::Receipt>, Error: Debug>,
         Receipt: TryFrom<<Self as RpcChainSpec>::RpcReceipt, Error: Send + Sync>,
         RpcBlock<B256>: RpcEthBlock,
         RpcTransaction: RpcTransaction,
@@ -44,7 +44,7 @@ pub trait ProviderChainSpec:
     const MIN_ETHASH_DIFFICULTY: u64;
 
     /// Returns the chain configurations for this chain type.
-    fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Self::Hardfork>>;
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>>;
 
     /// Returns the default base fee params to fallback to for the given spec
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork>;

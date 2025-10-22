@@ -208,15 +208,15 @@ fn sepolia_config() -> &'static ChainConfig<Hardfork> {
     })
 }
 
-pub(crate) fn l1_chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Hardfork>> {
-    static CONFIGS: OnceLock<HashMap<u64, &'static ChainConfig<Hardfork>>> = OnceLock::new();
+pub(crate) fn l1_chain_configs() -> &'static HashMap<u64, ChainConfig<Hardfork>> {
+    static CONFIGS: OnceLock<HashMap<u64, ChainConfig<Hardfork>>> = OnceLock::new();
 
     CONFIGS.get_or_init(|| {
         let mut hardforks = HashMap::new();
-        hardforks.insert(L1_MAINNET_CHAIN_ID, mainnet_config());
-        hardforks.insert(HOLESKY_CHAIN_ID, holesky_config());
-        hardforks.insert(HOODI_CHAIN_ID, hoodi_config());
-        hardforks.insert(SEPOLIA_CHAIN_ID, sepolia_config());
+        hardforks.insert(L1_MAINNET_CHAIN_ID, mainnet_config().clone());
+        hardforks.insert(HOLESKY_CHAIN_ID, holesky_config().clone());
+        hardforks.insert(HOODI_CHAIN_ID, hoodi_config().clone());
+        hardforks.insert(SEPOLIA_CHAIN_ID, sepolia_config().clone());
 
         hardforks
     })
@@ -225,5 +225,5 @@ pub(crate) fn l1_chain_configs() -> &'static HashMap<u64, &'static ChainConfig<H
 /// Returns the corresponding configuration to the provided chain ID, if
 /// it is supported.
 pub fn l1_chain_config(chain_id: u64) -> Option<&'static ChainConfig<Hardfork>> {
-    l1_chain_configs().get(&chain_id).copied()
+    l1_chain_configs().get(&chain_id)
 }

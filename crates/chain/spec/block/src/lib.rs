@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_block_api::{Block, BlockReceipts, EmptyBlock, LocalBlock};
+use edr_block_api::{Block, FetchBlockReceipts, EmptyBlock, LocalBlock};
 use edr_block_builder_api::BlockBuilder;
 use edr_chain_spec::BlockEnvChainSpec;
 use edr_evm_spec::EvmChainSpec;
@@ -13,7 +13,7 @@ pub trait BlockChainSpec:
     + ReceiptChainSpec
 {
     /// Type representing block trait objects.
-    type Block: ?Sized + Block<Self::SignedTransaction> + BlockReceipts<Arc<Self::Receipt>, Error = Self::FetchReceiptError>;
+    type Block: ?Sized + Block<Self::SignedTransaction> + FetchBlockReceipts<Arc<Self::Receipt>, Error = Self::FetchReceiptError>;
 
     /// Type representing a block builder.
     type BlockBuilder<
@@ -34,7 +34,7 @@ pub trait BlockChainSpec:
 
     /// Type representing a locally mined block.
     type LocalBlock: Block<Self::SignedTransaction>
-        + BlockReceipts<Arc<Self::Receipt>>
+        + FetchBlockReceipts<Arc<Self::Receipt>>
         + EmptyBlock<Self::Hardfork>
         + LocalBlock<Arc<Self::Receipt>>;
 }

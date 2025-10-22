@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use derive_where::derive_where;
-use edr_block_api::{Block, BlockReceipts};
+use edr_block_api::{Block, BlockReceipts, FetchBlockReceipts};
 use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{hash_map::OccupiedError, Address, HashMap, HashSet, B256, U256};
 use edr_receipt::{
@@ -225,6 +225,38 @@ impl<BlockReceiptT: ReceiptTrait, BlockT, SignedTransactionT>
 pub fn logs<
     BlockReceiptT: ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
     BlockT: BlockReceipts<BlockReceiptT>,
+    SignedTransactionT,
+>(
+    storage: &SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>,
+    from_block: u64,
+    to_block: u64,
+    addresses: &HashSet<Address>,
+    topics_filter: &[Option<Vec<B256>>],
+) -> Vec<FilterLog> {
+    let mut logs = Vec::new();
+    let addresses: HashSet<Address> = addresses.iter().copied().collect();
+
+    for block_number in from_block..=to_block {
+        if let Some(block) = storage.block_by_number(block_number) {
+            let receipts = block.transaction_receipts();
+            for receipt in receipts {
+                let filtered_logs = receipt.transaction_logs().iter().filter(|log| {
+                    matches_address_filter(&log.address, &addresses)
+                        && matches_topics_filter(log.topics(), topics_filter)
+                });
+
+                logs.extend(filtered_logs.cloned());
+            }
+        }
+    }
+
+    logs
+}
+
+/// Tries to fetch the logs that match the provided filter.
+pub fn try_fetch_logs<
+    BlockReceiptT: ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
+    BlockT: FetchBlockReceipts<BlockReceiptT>,
     SignedTransactionT,
 >(
     storage: &SparseBlockStorage<BlockReceiptT, BlockT, SignedTransactionT>,

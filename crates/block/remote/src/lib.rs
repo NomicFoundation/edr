@@ -2,7 +2,7 @@ use core::{fmt::Debug, marker::PhantomData};
 use std::sync::{Arc, OnceLock};
 
 use derive_where::derive_where;
-use edr_block_api::{sync::SyncBlock, Block, BlockReceipts, EthBlockData};
+use edr_block_api::{sync::SyncBlock, Block, EthBlockData, FetchBlockReceipts};
 use edr_block_header::{BlockHeader, Withdrawal};
 use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::B256;
@@ -178,7 +178,7 @@ impl<
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
-    > BlockReceipts<Arc<BlockReceiptT>>
+    > FetchBlockReceipts<Arc<BlockReceiptT>>
     for RemoteBlock<
         BlockReceiptT,
         FetchReceiptErrorT,

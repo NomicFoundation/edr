@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use std::num::NonZeroU64;
 
-use edr_block_api::{Block, BlockReceipts, EmptyBlock, LocalBlock};
+use edr_block_api::{Block, BlockReceipts, EmptyBlock, FetchBlockReceipts, LocalBlock};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eip1559::BaseFeeParams;
@@ -140,7 +140,6 @@ impl<
         true
     }
 }
-
 impl<
         BlockReceiptT: ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
         BlockT: BlockReceipts<BlockReceiptT>,
@@ -155,9 +154,29 @@ impl<
         to_block: u64,
         addresses: &HashSet<Address>,
         normalized_topics: &[Option<Vec<B256>>],
-    ) -> Result<Vec<FilterLog>, BlockT::Error> {
+    ) -> Vec<FilterLog> {
         let storage = self.storage.read();
         sparse::logs(&storage, from_block, to_block, addresses, normalized_topics)
+    }
+}
+
+impl<
+        BlockReceiptT: ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
+        BlockT: FetchBlockReceipts<BlockReceiptT>,
+        HardforkT,
+        SignedTransactionT,
+    > ReservableSparseBlockStorage<BlockReceiptT, BlockT, HardforkT, SignedTransactionT>
+{
+    /// Tries to fetch the logs that match the provided filter.
+    pub fn try_fetch_logs(
+        &self,
+        from_block: u64,
+        to_block: u64,
+        addresses: &HashSet<Address>,
+        normalized_topics: &[Option<Vec<B256>>],
+    ) -> Result<Vec<FilterLog>, BlockT::Error> {
+        let storage = self.storage.read();
+        sparse::try_fetch_logs(&storage, from_block, to_block, addresses, normalized_topics)
     }
 }
 

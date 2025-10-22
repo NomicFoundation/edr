@@ -61,13 +61,8 @@ impl<BlockT, SignedTransactionT> BlockAndTotalDifficulty<BlockT, SignedTransacti
 /// Trait for fetching the receipts of a block's transactions.
 #[auto_impl(Arc)]
 pub trait BlockReceipts<BlockReceiptT: ReceiptTrait> {
-    /// The blockchain error type.
-    type Error;
-
-    /// Fetches the receipts of the block's transactions.
-    ///
-    /// This may block if the receipts are stored remotely.
-    fn fetch_transaction_receipts(&self) -> Result<Vec<BlockReceiptT>, Self::Error>;
+    /// Retrieves the receipts of the block's transactions.
+    fn transaction_receipts(&self) -> &[BlockReceiptT];
 }
 
 /// Trait for creating an empty block.
@@ -84,7 +79,7 @@ impl<BlockT: EmptyBlock<HardforkT>, HardforkT> EmptyBlock<HardforkT> for Arc<Blo
 
 /// Trait that meets all requirements for an Ethereum block.
 pub trait EthBlock<BlockReceiptT: ReceiptTrait, SignedTransactionT>:
-    Block<SignedTransactionT> + BlockReceipts<BlockReceiptT>
+    Block<SignedTransactionT> + FetchBlockReceipts<BlockReceiptT>
 {
 }
 
@@ -92,7 +87,7 @@ impl<BlockReceiptT, BlockT, SignedTransactionT> EthBlock<BlockReceiptT, SignedTr
     for BlockT
 where
     BlockReceiptT: ReceiptTrait,
-    BlockT: Block<SignedTransactionT> + BlockReceipts<BlockReceiptT>,
+    BlockT: Block<SignedTransactionT> + FetchBlockReceipts<BlockReceiptT>,
 {
 }
 
@@ -110,6 +105,18 @@ pub struct EthBlockData<SignedTransactionT> {
     pub hash: B256,
     /// The length of the RLP encoding of this block in bytes.
     pub rlp_size: u64,
+}
+
+/// Trait for fetching the receipts of a block's transactions.
+#[auto_impl(Arc)]
+pub trait FetchBlockReceipts<BlockReceiptT: ReceiptTrait> {
+    /// The blockchain error type.
+    type Error;
+
+    /// Fetches the receipts of the block's transactions.
+    ///
+    /// This may block if the receipts are stored remotely.
+    fn fetch_transaction_receipts(&self) -> Result<Vec<BlockReceiptT>, Self::Error>;
 }
 
 /// Trait for locally mined blocks.

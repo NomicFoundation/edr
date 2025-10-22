@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use clap::ValueEnum;
-use edr_block_api::BlockReceipts;
+use edr_block_api::FetchBlockReceipts;
 use edr_block_header::{BlockHeader, HeaderOverrides};
 use edr_chain_l1::L1ChainSpec;
 use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block};
@@ -59,7 +59,7 @@ where
                 ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>,
             >,
             ExecutionReceipt<FilterLog>: PartialEq,
-            LocalBlock: BlockReceipts<
+            LocalBlock: FetchBlockReceipts<
                 Arc<ChainSpecT::BlockReceipt>,
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,
             >,

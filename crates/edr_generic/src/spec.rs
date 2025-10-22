@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use alloy_eips::eip7840::BlobParams;
-use edr_block_api::BlockReceipts;
+use edr_block_api::FetchBlockReceipts;
 use edr_block_header::{
     BlobGas, BlockConfig, BlockHeader, HeaderAndEvmSpec, PartialHeader, PartialHeaderAndEvmSpec,
 };
@@ -187,7 +187,7 @@ impl RuntimeSpec for GenericChainSpec {
     type Block = dyn SyncBlock<
         Arc<Self::BlockReceipt>,
         Self::SignedTransaction,
-        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
+        Error = <Self::LocalBlock as FetchBlockReceipts<Arc<Self::BlockReceipt>>>::Error,
     >;
 
     type BlockBuilder<

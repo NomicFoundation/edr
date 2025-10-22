@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use edr_block_api::{BlockAndTotalDifficulty, BlockReceipts};
+use edr_block_api::{BlockAndTotalDifficulty, FetchBlockReceipts};
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
@@ -25,8 +25,8 @@ use crate::{
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     GenesisBlockFactory<LocalBlock = <Self as RuntimeSpec>::LocalBlock>
     + RuntimeSpec<
-        Block: BlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
-        LocalBlock: BlockReceipts<
+        Block: FetchBlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
+        LocalBlock: FetchBlockReceipts<
             Arc<Self::BlockReceipt>,
             Error = BlockchainErrorForChainSpec<Self>,
         >,

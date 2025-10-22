@@ -2456,6 +2456,7 @@ dependencies = [
  "edr_block_storage",
  "edr_chain_l1",
  "edr_chain_spec",
+ "edr_chain_spec_block",
  "edr_defaults",
  "edr_eth",
  "edr_primitives",

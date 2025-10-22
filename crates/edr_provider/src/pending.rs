@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
-use edr_block_api::{Block as _, BlockAndTotalDifficulty, BlockReceipts};
+use edr_block_api::{Block as _, BlockAndTotalDifficulty, FetchBlockReceipts};
 use edr_blockchain_api::{BlockHashByNumber, Blockchain, BlockchainMut};
 use edr_chain_spec::ExecutableTransaction as _;
 use edr_evm::{
@@ -58,7 +58,7 @@ impl<ChainSpecT> Blockchain<ChainSpecT::Block, ChainSpecT::BlockReceipt, ChainSp
     for BlockchainWithPending<'_, ChainSpecT>
 where
     ChainSpecT: SyncRuntimeSpec<
-        LocalBlock: BlockReceipts<
+        LocalBlock: FetchBlockReceipts<
             Arc<ChainSpecT::BlockReceipt>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,

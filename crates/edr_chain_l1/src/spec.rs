@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
-use edr_block_api::{sync::SyncBlock, BlockReceipts, GenesisBlockFactory, GenesisBlockOptions};
+use edr_block_api::{sync::SyncBlock, FetchBlockReceipts, GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::{
     calculate_next_base_fee_per_gas, BlockConfig, BlockHeader, HeaderAndEvmSpec,
 };
@@ -238,7 +238,7 @@ impl GenesisBlockFactory for L1ChainSpec {
 impl ProviderChainSpec for L1ChainSpec {
     const MIN_ETHASH_DIFFICULTY: u64 = L1_MIN_ETHASH_DIFFICULTY;
 
-    fn chain_configs() -> &'static HashMap<u64, &'static ChainConfig<Self::Hardfork>> {
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>> {
         l1_chain_configs()
     }
 

@@ -7,7 +7,8 @@ use std::{
 use alloy_rlp::Encodable as _;
 use derive_where::derive_where;
 use edr_block_api::{
-    sync::SyncBlock, Block, BlockReceipts, EmptyBlock, GenesisBlockOptions, LocalBlock,
+    sync::SyncBlock, Block, BlockReceipts, EmptyBlock, FetchBlockReceipts, GenesisBlockOptions,
+    LocalBlock,
 };
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
@@ -257,6 +258,19 @@ impl<
         HardforkT: Debug,
         SignedTransactionT: Debug + alloy_rlp::Encodable,
     > BlockReceipts<Arc<BlockReceiptT>>
+    for EthLocalBlock<BlockReceiptT, FetchReceiptErrorT, HardforkT, SignedTransactionT>
+{
+    fn transaction_receipts(&self) -> &[Arc<BlockReceiptT>] {
+        &self.transaction_receipts
+    }
+}
+
+impl<
+        BlockReceiptT: ReceiptTrait + Debug + alloy_rlp::Encodable,
+        FetchReceiptErrorT,
+        HardforkT: Debug,
+        SignedTransactionT: Debug + alloy_rlp::Encodable,
+    > FetchBlockReceipts<Arc<BlockReceiptT>>
     for EthLocalBlock<BlockReceiptT, FetchReceiptErrorT, HardforkT, SignedTransactionT>
 {
     type Error = FetchReceiptErrorT;

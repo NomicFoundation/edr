@@ -6,7 +6,7 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use edr_block_api::{Block, BlockReceipts, EthBlockData, LocalBlock as _};
+use edr_block_api::{Block, FetchBlockReceipts, EthBlockData, LocalBlock as _};
 use edr_block_builder_api::{BlockBuilder as _, BlockInputs};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_block_remote::RemoteBlock;
@@ -30,6 +30,7 @@ use edr_utils::random::RandomHashGenerator;
 type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as BlockChainSpec>::Block,
+    <ChainSpecT as BlockChainSpec>::FetchReceiptError,
     <ChainSpecT as HardforkChainSpec>::Hardfork,
     <ChainSpecT as BlockChainSpec>::LocalBlock,
     ChainSpecT,
@@ -41,6 +42,7 @@ type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain
 struct ForkedStateAndBlockchain<
     BlockReceiptT: Debug + ReceiptTrait,
     BlockT: ?Sized + Block<SignedTransactionT>,
+    FetchReceiptErrorT,
     HardforkT: Clone + Into<EvmSpecId>,
     LocalBlockT,
     RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
@@ -50,6 +52,7 @@ struct ForkedStateAndBlockchain<
 > {
     pub expected_block: RemoteBlock<
         BlockReceiptT,
+        FetchReceiptErrorT,
         RpcBlockChainSpecT,
         RpcReceiptT,
         RpcTransactionT,
@@ -58,6 +61,7 @@ struct ForkedStateAndBlockchain<
     pub prior_blockchain: ForkedBlockchain<
         BlockReceiptT,
         BlockT,
+        FetchReceiptErrorT,
         HardforkT,
         LocalBlockT,
         RpcBlockChainSpecT,

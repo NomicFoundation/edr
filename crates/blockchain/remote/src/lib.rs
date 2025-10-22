@@ -505,6 +505,7 @@ mod tests {
         L1ChainSpec, L1SignedTransaction, TypedEnvelope,
     };
     use edr_chain_spec::ChainSpec;
+    use edr_chain_spec_block::BlockChainSpec;
     use edr_receipt_spec::ReceiptChainSpec;
     use edr_rpc_spec::{EthRpcClientForChainSpec, RpcChainSpec};
     use edr_test_utils::env::get_alchemy_url;
@@ -514,6 +515,7 @@ mod tests {
     /// Helper type for a chain-specific [`RemoteBlock`].
     pub type RemoteBlockForChainSpec<ChainSpecT> = RemoteBlock<
         <ChainSpecT as ReceiptChainSpec>::Receipt,
+        <ChainSpecT as BlockChainSpec>::FetchReceiptError,
         ChainSpecT,
         <ChainSpecT as RpcChainSpec>::RpcReceipt,
         <ChainSpecT as RpcChainSpec>::RpcTransaction,
@@ -537,6 +539,7 @@ mod tests {
         let remote = RemoteBlockchain::<
             L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>,
             RemoteBlockForChainSpec<L1ChainSpec>,
+            <L1ChainSpec as BlockChainSpec>::FetchReceiptError,
             L1ChainSpec,
             L1RpcTransactionReceipt,
             L1RpcTransactionWithSignature,

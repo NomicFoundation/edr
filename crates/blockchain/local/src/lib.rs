@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, convert::Infallible, fmt::Debug, num::NonZeroU6
 
 use edr_block_api::{
     validate_next_block, Block, BlockAndTotalDifficulty, BlockReceipts, BlockValidityError,
-    EmptyBlock, LocalBlock,
+    EmptyBlock, FetchBlockReceipts, LocalBlock,
 };
 use edr_block_header::BlockConfig;
 use edr_block_storage::ReservableSparseBlockStorage;
@@ -52,7 +52,7 @@ pub struct LocalBlockchain<BlockReceiptT: ReceiptTrait, HardforkT, LocalBlockT, 
 impl<
         BlockReceiptT: ReceiptTrait,
         HardforkT: Clone + Into<EvmSpecId>,
-        LocalBlockT: Block<SignedTransactionT> + BlockReceipts<Arc<BlockReceiptT>>,
+        LocalBlockT: Block<SignedTransactionT> + FetchBlockReceipts<Arc<BlockReceiptT>>,
         SignedTransactionT: ExecutableTransaction,
     > LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
 {
@@ -205,7 +205,7 @@ impl<
         BlockT: ?Sized,
         HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT>
-            + BlockReceipts<Arc<BlockReceiptT>, Error = Infallible>
+            + FetchBlockReceipts<Arc<BlockReceiptT>>
             + CastArcInto<BlockT>
             + EmptyBlock<HardforkT>
             + LocalBlock<Arc<BlockReceiptT>>,
@@ -251,7 +251,7 @@ impl<
 impl<
         BlockReceiptT: ExecutionReceipt<Log = FilterLog> + ReceiptTrait,
         HardforkT,
-        LocalBlockT: BlockReceipts<Arc<BlockReceiptT>, Error = Infallible>,
+        LocalBlockT: BlockReceipts<Arc<BlockReceiptT>>,
         SignedTransactionT,
     > GetBlockchainLogs
     for LocalBlockchain<BlockReceiptT, HardforkT, LocalBlockT, SignedTransactionT>
@@ -267,8 +267,7 @@ impl<
     ) -> Result<Vec<FilterLog>, Self::Error> {
         let logs = self
             .storage
-            .logs(from_block, to_block, addresses, normalized_topics)
-            .expect("BlockReceipts::logs cannot fail as error type is Infallible");
+            .logs(from_block, to_block, addresses, normalized_topics);
 
         Ok(logs)
     }
@@ -337,7 +336,7 @@ impl<
         BlockReceiptT: ReceiptTrait,
         HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT>
-            + BlockReceipts<Arc<BlockReceiptT>, Error = Infallible>
+            + BlockReceipts<Arc<BlockReceiptT>>
             + EmptyBlock<HardforkT>
             + LocalBlock<Arc<BlockReceiptT>>,
         SignedTransactionT: ExecutableTransaction,

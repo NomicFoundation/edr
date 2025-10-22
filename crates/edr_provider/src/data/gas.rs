@@ -1,7 +1,7 @@
 use core::cmp;
 use std::sync::Arc;
 
-use edr_block_api::{Block as _, BlockReceipts};
+use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
 use edr_eth::reward_percentile::RewardPercentile;
 use edr_evm::{
@@ -190,7 +190,7 @@ pub(super) fn compute_rewards<ChainSpecT, TimerT>(
 where
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        Block: BlockReceipts<
+        Block: FetchBlockReceipts<
             Arc<ChainSpecT::BlockReceipt>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,

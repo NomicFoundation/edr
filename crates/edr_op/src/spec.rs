@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use alloy_eips::eip7840::BlobParams;
 use alloy_rlp::RlpEncodable;
-use edr_block_api::BlockReceipts;
+use edr_block_api::FetchBlockReceipts;
 use edr_block_header::{
     calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, PartialHeader,
 };
@@ -114,7 +114,7 @@ impl RuntimeSpec for OpChainSpec {
     type Block = dyn SyncBlock<
         Arc<Self::BlockReceipt>,
         Self::SignedTransaction,
-        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
+        Error = <Self::LocalBlock as FetchBlockReceipts<Arc<Self::BlockReceipt>>>::Error,
     >;
 
     type BlockBuilder<
