@@ -13,12 +13,21 @@ fi
 # so platform-specific packages are updated with the current version
 pnpm changeset version
 
+# Add changes to staged area
+git add .
+
 # Run prepublish to update platform-specific `package.json` files
 cd ./crates/edr_napi
 # Run napi prepublish so that platform-specific packages are updated
 # to the same version that edr_napi.
 # Also to update edr_napi/package.json accordingly
 pnpm napi prepublish -t npm --skip-gh-release
+
 # Ignore changes done to napi root package.json (optionalDependencies)
-git checkout -- ./package.json
+# TODO: NAPI.rs v3 has a skipOptionalPublish option
+git restore ./package.json 
+
 cd ../.. 
+
+# Leave all changes not staged for commit
+git restore --staged .
