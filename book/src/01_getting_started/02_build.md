@@ -5,7 +5,7 @@ EDR exists in a mono-repo. In order to test EDR with Hardhat, we use a pnpm work
 To get started, install all dependencies in the root directory:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
 The Rust build may require installing OpenSSL development and build dependencies.

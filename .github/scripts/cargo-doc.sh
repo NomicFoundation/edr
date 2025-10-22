@@ -14,7 +14,7 @@ foundry_pkgs=($(
 ))
 
 # For EDR crates, test that docs build and they don't have warnings
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features "${edr_pkgs[@]/#/--package=}"
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features --locked "${edr_pkgs[@]/#/--package=}"
 
 # For Foundry crates, only test that docs build and allow linking to private items
-RUSTDOCFLAGS="-A warnings" cargo doc --no-deps --all-features --document-private-items "${foundry_pkgs[@]/#/--package=}"
+RUSTDOCFLAGS="-A warnings" cargo doc --no-deps --all-features --locked --document-private-items "${foundry_pkgs[@]/#/--package=}"

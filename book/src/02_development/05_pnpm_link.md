@@ -6,7 +6,7 @@ To use the local version of EDR in Hardhat, you need to go to the `hardhat-core`
 
 ```bash
 cd ~/repos/hardhat/packages/hardhat-core
-pnpm install
+pnpm install --frozen-lockfile
 pnpm link ~/repos/edr/crates/edr_napi
 pnpm build
 ```
@@ -15,7 +15,7 @@ You can then use the same process to link Hardhat in some Hardhat-based project[
 
 ```bash
 cd ~/repos/some-hardhat-project
-pnpm install
+pnpm install --frozen-lockfile
 pnpm link ~/repos/hardhat/packages/hardhat-core
 
 # this task will now use the local versions of Hardhat and EDR
