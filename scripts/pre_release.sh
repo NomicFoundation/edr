@@ -19,4 +19,6 @@ cd ./crates/edr_napi
 # to the same version that edr_napi.
 # Also to update edr_napi/package.json accordingly
 pnpm napi prepublish -t npm --skip-gh-release
+# Ignore changes done to napi root package.json (optionalDependencies)
+git checkout -- ./package.json
 cd ../.. 
