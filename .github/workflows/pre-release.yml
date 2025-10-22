@@ -24,11 +24,6 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Install sponge # Needed for prepublish script
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y moreutils
-
       - name: Get version from package.json
         id: get-version
         run: |

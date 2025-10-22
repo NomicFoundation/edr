@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-"Testing CI action"
+"Patch EDR CI triggering release workflow"
