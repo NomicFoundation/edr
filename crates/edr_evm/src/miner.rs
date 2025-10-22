@@ -2,8 +2,8 @@ use std::{cmp::Ordering, fmt::Debug};
 
 use edr_block_api::{Block as _, GenesisBlockFactory};
 use edr_block_builder_api::{
-    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError,
-    BuiltBlockAndState, PrecompileFn, SyncBlockchain, WrapDatabaseRef,
+    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError, Blockchain,
+    BuiltBlockAndState, PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides, PartialHeader};
 use edr_chain_spec::{
@@ -13,7 +13,7 @@ use edr_chain_spec::{
 use edr_chain_spec_block::BlockChainSpec;
 use edr_database_components::DatabaseComponents;
 use edr_evm_spec::{
-    CfgEnv, ContextForChainSpec, DatabaseComponentError, Inspector, TransactionError,
+    config::EvmConfig, ContextForChainSpec, DatabaseComponentError, Inspector, TransactionError,
 };
 use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;
@@ -84,8 +84,20 @@ pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionVal
 // `DebugContext` cannot be simplified further
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
-pub fn mine_block<BlockchainErrorT, ChainSpecT: BlockChainSpec, InspectorT, StateErrorT>(
-    blockchain: &dyn SyncBlockchain<
+pub fn mine_block<
+    BlockchainErrorT,
+    ChainSpecT: BlockChainSpec<
+        SignedTransaction: 'static
+                               + Clone
+                               + Debug
+                               + TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError> + PartialEq,
+        >,
+    >,
+    InspectorT,
+    StateErrorT,
+>(
+    blockchain: &dyn Blockchain<
         ChainSpecT::Receipt,
         ChainSpecT::Block,
         BlockchainErrorT,
@@ -96,7 +108,7 @@ pub fn mine_block<BlockchainErrorT, ChainSpecT: BlockChainSpec, InspectorT, Stat
     >,
     state: Box<dyn SyncState<StateErrorT>>,
     mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
-    cfg: &CfgEnv<ChainSpecT::Hardfork>,
+    evm_config: &EvmConfig,
     overrides: HeaderOverrides<ChainSpecT::Hardfork>,
     min_gas_price: u128,
     mine_ordering: MineOrdering,
@@ -115,7 +127,7 @@ where
             ChainSpecT::BlockEnv<'inspector, PartialHeader>,
             WrapDatabaseRef<
                 DatabaseComponents<
-                    &'inspector dyn SyncBlockchain<
+                    &'inspector dyn Blockchain<
                         ChainSpecT::Receipt,
                         ChainSpecT::Block,
                         BlockchainErrorT,
@@ -131,17 +143,21 @@ where
     >,
     StateErrorT: std::error::Error + Send,
 {
+    let block_inputs = BlockInputs::new(blockchain.hardfork());
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
         blockchain,
         state,
-        cfg.clone(),
-        BlockInputs::new(cfg.spec),
+        evm_config,
+        block_inputs,
         overrides,
         custom_precompiles,
     )?;
 
     let mut pending_transactions = {
-        type MineOrderComparator<ChainSpecT> = dyn Fn(&OrderedTransaction<ChainSpecT>, &OrderedTransaction<ChainSpecT>) -> Ordering
+        type MineOrderComparator<SignedTransactionT> = dyn Fn(
+                &OrderedTransaction<SignedTransactionT>,
+                &OrderedTransaction<SignedTransactionT>,
+            ) -> Ordering
             + Send;
 
         let base_fee = block_builder.header().base_fee;
@@ -193,7 +209,7 @@ where
     let rewards = vec![(beneficiary, reward)];
 
     block_builder
-        .finalize(rewards)
+        .finalize_block(rewards)
         .map_err(MineBlockError::BlockFinalize)
 }
 
@@ -315,10 +331,9 @@ pub fn mine_block_with_single_transaction<
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: BlockChainSpec,
     InspectorT,
-    LocalBlockT: Send + Sync,
     StateErrorT,
 >(
-    blockchain: &dyn SyncBlockchain<
+    blockchain: &dyn Blockchain<
         ChainSpecT::Receipt,
         ChainSpecT::Block,
         BlockchainErrorT,
@@ -329,14 +344,14 @@ pub fn mine_block_with_single_transaction<
     >,
     state: Box<dyn SyncState<StateErrorT>>,
     transaction: ChainSpecT::SignedTransaction,
-    cfg: &CfgEnv<ChainSpecT::Hardfork>,
+    evm_config: &EvmConfig,
     overrides: HeaderOverrides<ChainSpecT::Hardfork>,
     min_gas_price: u128,
     reward: u128,
     inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    BuiltBlockAndState<ChainSpecT::HaltReason, LocalBlockT, StateErrorT>,
+    BuiltBlockAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
     MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT, StateErrorT>,
 >
 where
@@ -346,7 +361,7 @@ where
             ChainSpecT::BlockEnv<'inspector, PartialHeader>,
             WrapDatabaseRef<
                 DatabaseComponents<
-                    &'inspector dyn SyncBlockchain<
+                    &'inspector dyn Blockchain<
                         ChainSpecT::Receipt,
                         ChainSpecT::Block,
                         BlockchainErrorT,
@@ -360,7 +375,7 @@ where
             >,
         >,
     >,
-    StateErrorT: std::error::Error + Send,
+    StateErrorT: std::error::Error,
 {
     let max_priority_fee_per_gas = transaction
         .max_priority_fee_per_gas()
@@ -396,9 +411,11 @@ where
         .last_block()
         .map_err(MineTransactionError::Blockchain)?;
 
+    let hardfork = blockchain.hardfork();
+
     if let Some(max_fee_per_blob_gas) = transaction.max_fee_per_blob_gas() {
         let base_fee_per_blob_gas =
-            calculate_next_base_fee_per_blob_gas(parent_block.block_header(), cfg.spec);
+            calculate_next_base_fee_per_blob_gas(parent_block.block_header(), hardfork);
         if *max_fee_per_blob_gas < base_fee_per_blob_gas {
             return Err(MineTransactionError::MaxFeePerBlobGasTooLow {
                 expected: base_fee_per_blob_gas,
@@ -432,8 +449,8 @@ where
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
         blockchain,
         state,
-        cfg.clone(),
-        BlockInputs::new(cfg.spec),
+        evm_config,
+        BlockInputs::new(hardfork),
         overrides,
         custom_precompiles,
     )?;
@@ -448,7 +465,7 @@ where
     }
 
     block_builder
-        .finalize(rewards)
+        .finalize_block(rewards)
         .map_err(MineTransactionError::State)
 }
 

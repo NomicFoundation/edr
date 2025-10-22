@@ -65,13 +65,7 @@ pub struct RemoteBlock<
 
 impl<
         BlockReceiptT,
-        RpcBlockConversionErrorT,
-        RpcBlockChainSpecT: RpcBlockChainSpec<
-            RpcBlock<RpcTransactionT>: TryInto<
-                EthBlockData<SignedTransactionT>,
-                Error = RpcBlockConversionErrorT,
-            >,
-        >,
+        RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT,
@@ -83,7 +77,12 @@ impl<
         block: RpcBlockChainSpecT::RpcBlock<RpcTransactionT>,
         rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
         runtime: runtime::Handle,
-    ) -> Result<Self, RpcBlockConversionErrorT> {
+    ) -> Result<
+        Self,
+        <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
+            EthBlockData<SignedTransactionT>,
+        >>::Error,
+    > {
         let block: EthBlockData<SignedTransactionT> = block.try_into()?;
 
         Ok(Self {

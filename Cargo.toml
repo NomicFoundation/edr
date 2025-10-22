@@ -52,6 +52,7 @@ members = [
     "crates/state/fork",
     "crates/state/persistent_trie",
     "crates/state/remote",
+    "crates/test/block_replay",
     "crates/tools",
     "crates/trie",
     # Foundry
@@ -167,6 +168,7 @@ edr_state_api = { path = "crates/state/api" }
 edr_state_fork = { path = "crates/state/fork" }
 edr_state_persistent_trie = { path = "crates/state/persistent_trie" }
 edr_state_remote = { path = "crates/state/remote" }
+edr_test_replay_block = { path = "crates/test/block_replay" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 edr_transaction = { path = "crates/edr_transaction" }
 edr_trie = { path = "crates/trie" }

@@ -1,10 +1,12 @@
+#![cfg(any(feature = "test-utils", test))]
+
 //! Utilities for testing RPC types.
 
 /// Helper macro for testing serialization and deserialization roundtrips of
 /// execution receipts.
 #[macro_export]
 macro_rules! impl_execution_receipt_serde_tests {
-    ($chain_spec:ty, $block_receipt_factory:expr => {
+    ($chain_spec:ty => {
         $(
             $name:ident, $hardfork:expr => $receipt:expr,
         )+
@@ -15,9 +17,9 @@ macro_rules! impl_execution_receipt_serde_tests {
                 fn [<typed_receipt_rpc_receipt_roundtrip_ $name>]() -> anyhow::Result<()> {
                     use edr_primitives::{Address, B256};
                     use edr_chain_spec::ChainSpec;
-                    use edr_receipt::{log::{FilterLog, FullBlockLog, ReceiptLog}, MapReceiptLogs as _, ReceiptFactory as _, TransactionReceipt};
+                    use edr_receipt::{log::{FilterLog, FullBlockLog, ReceiptLog}, MapReceiptLogs as _, TransactionReceipt};
 
-                    use $crate::{RpcTypeFrom as _, RpcSpec};
+                    use $crate::{RpcTypeFrom as _, RpcChainSpec};
 
                     let block_hash = B256::random();
                     let block_number = 10u64;
@@ -59,10 +61,9 @@ macro_rules! impl_execution_receipt_serde_tests {
                     // ASSUMPTION: The transaction data doesn't matter for this test, so we can use a default transaction.
                     let transaction = <$chain_spec as ChainSpec>::SignedTransaction::default();
 
-                    let receipt_factory = $block_receipt_factory;
-                    let block_receipt = receipt_factory.create_receipt($hardfork, &transaction, transaction_receipt, &block_hash, block_number);
+                    let block_receipt = <$chain_spec as  receipt_factory.create_receipt($hardfork, &transaction, transaction_receipt, &block_hash, block_number);
 
-                    let rpc_receipt = <$chain_spec as RpcSpec>::RpcReceipt::rpc_type_from(&block_receipt, Default::default());
+                    let rpc_receipt = <$chain_spec as RpcChainSpec>::RpcReceipt::rpc_type_from(&block_receipt, Default::default());
 
                     let serialized = serde_json::to_string(&rpc_receipt)?;
                     let deserialized = serde_json::from_str(&serialized)?;

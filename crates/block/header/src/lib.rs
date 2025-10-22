@@ -3,7 +3,9 @@ mod overrides;
 
 pub use alloy_eips::eip4895::Withdrawal;
 use alloy_eips::eip7840::{self, BlobParams};
-use edr_chain_spec::{BlobExcessGasAndPrice, BlockEnvTrait, EvmSpecId};
+use edr_chain_spec::{
+    BlobExcessGasAndPrice, BlockEnvConstructor, BlockEnvForHardfork, BlockEnvTrait, EvmSpecId,
+};
 use edr_eip1559::BaseFeeParams;
 pub use edr_eip4844::BlobGas;
 use edr_primitives::{b256, keccak256, Address, Bloom, Bytes, B256, B64, KECCAK_NULL_RLP, U256};
@@ -11,82 +13,6 @@ use edr_trie::ordered_trie_root;
 
 pub use self::overrides::HeaderOverrides;
 use crate::difficulty::calculate_ethash_canonical_difficulty;
-
-/// A trait for constructing a (partial) block header into an EVM block.
-pub trait BlockEnvConstructor<HardforkT, HeaderT> {
-    /// Converts the instance into an EVM block.
-    fn new_block_env(header: HeaderT, hardfork: HardforkT) -> Self;
-}
-
-/// Trait for providing block environment values for a specific hardfork.
-pub trait BlockEnvForHardfork<HardforkT> {
-    /// The number of ancestor blocks of this block (block height).
-    fn number_for_hardfork(&self, hardfork: HardforkT) -> U256;
-
-    /// Beneficiary (Coinbase, miner) is a address that have signed the block.
-    ///
-    /// This is the receiver address of priority gas rewards.
-    fn beneficiary_for_hardfork(&self, hardfork: HardforkT) -> Address;
-
-    /// The timestamp of the block in seconds since the UNIX epoch.
-    fn timestamp_for_hardfork(&self, hardfork: HardforkT) -> U256;
-
-    /// The gas limit of the block.
-    fn gas_limit_for_hardfork(&self, hardfork: HardforkT) -> u64;
-
-    /// The base fee per gas, added in the London upgrade with [EIP-1559].
-    ///
-    /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-    fn basefee_for_hardfork(&self, hardfork: HardforkT) -> u64;
-
-    /// The difficulty of the block.
-    ///
-    /// Unused after the Paris (AKA the merge) upgrade, and replaced by
-    /// `prevrandao`.
-    fn difficulty_for_hardfork(&self, hardfork: HardforkT) -> U256;
-
-    /// The output of the randomness beacon provided by the beacon chain.
-    ///
-    /// Replaces `difficulty` after the Paris (AKA the merge) upgrade with
-    /// [EIP-4399].
-    ///
-    /// Note: `prevrandao` can be found in a block in place of `mix_hash`.
-    ///
-    /// [EIP-4399]: https://eips.ethereum.org/EIPS/eip-4399
-    fn prevrandao_for_hardfork(&self, hardfork: HardforkT) -> Option<B256>;
-
-    /// Excess blob gas and blob gasprice.
-    /// See also [`calc_excess_blob_gas`]
-    /// and [`calc_blob_gasprice`].
-    ///
-    /// Incorporated as part of the Cancun upgrade via [EIP-4844].
-    ///
-    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-    fn blob_excess_gas_and_price_for_hardfork(
-        &self,
-        hardfork: HardforkT,
-    ) -> Option<BlobExcessGasAndPrice>;
-
-    /// See [EIP-4844] and [`calc_blob_gasprice`].
-    ///
-    /// Returns `None` if `Cancun` is not enabled.
-    ///
-    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-    fn blob_gasprice_for_hardfork(&self, hardfork: HardforkT) -> Option<u128> {
-        self.blob_excess_gas_and_price_for_hardfork(hardfork)
-            .map(|a| a.blob_gasprice)
-    }
-
-    /// Return `blob_excess_gas` header field. See [EIP-4844].
-    ///
-    /// Returns `None` if `Cancun` is not enabled.
-    ///
-    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-    fn blob_excess_gas_for_hardfork(&self, hardfork: HardforkT) -> Option<u64> {
-        self.blob_excess_gas_and_price_for_hardfork(hardfork)
-            .map(|a| a.excess_blob_gas)
-    }
-}
 
 /// ethereum block header
 #[derive(
@@ -206,35 +132,35 @@ fn blob_excess_gas_and_price_for_evm_spec(
     )
 }
 
-impl BlockEnvForHardfork<EvmSpecId> for BlockHeader {
-    fn number_for_hardfork(&self, _hardfork: EvmSpecId) -> U256 {
+impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for BlockHeader {
+    fn number_for_hardfork(&self, _hardfork: HardforkT) -> U256 {
         U256::from(self.number)
     }
 
-    fn beneficiary_for_hardfork(&self, _hardfork: EvmSpecId) -> Address {
+    fn beneficiary_for_hardfork(&self, _hardfork: HardforkT) -> Address {
         self.beneficiary
     }
 
-    fn timestamp_for_hardfork(&self, _hardfork: EvmSpecId) -> U256 {
+    fn timestamp_for_hardfork(&self, _hardfork: HardforkT) -> U256 {
         U256::from(self.timestamp)
     }
 
-    fn gas_limit_for_hardfork(&self, _hardfork: EvmSpecId) -> u64 {
+    fn gas_limit_for_hardfork(&self, _hardfork: HardforkT) -> u64 {
         self.gas_limit
     }
 
-    fn basefee_for_hardfork(&self, _hardfork: EvmSpecId) -> u64 {
+    fn basefee_for_hardfork(&self, _hardfork: HardforkT) -> u64 {
         self.base_fee_per_gas.map_or(0u64, |base_fee| {
             base_fee.try_into().expect("base fee is too large")
         })
     }
 
-    fn difficulty_for_hardfork(&self, _hardfork: EvmSpecId) -> U256 {
+    fn difficulty_for_hardfork(&self, _hardfork: HardforkT) -> U256 {
         self.difficulty
     }
 
-    fn prevrandao_for_hardfork(&self, hardfork: EvmSpecId) -> Option<B256> {
-        if hardfork >= EvmSpecId::MERGE {
+    fn prevrandao_for_hardfork(&self, hardfork: HardforkT) -> Option<B256> {
+        if hardfork.into() >= EvmSpecId::MERGE {
             Some(self.mix_hash)
         } else {
             None
@@ -243,68 +169,68 @@ impl BlockEnvForHardfork<EvmSpecId> for BlockHeader {
 
     fn blob_excess_gas_and_price_for_hardfork(
         &self,
-        hardfork: EvmSpecId,
+        hardfork: HardforkT,
     ) -> Option<BlobExcessGasAndPrice> {
         self.blob_gas
             .as_ref()
-            .map(|blob_gas| blob_excess_gas_and_price_for_evm_spec(blob_gas, hardfork))
+            .map(|blob_gas| blob_excess_gas_and_price_for_evm_spec(blob_gas, hardfork.into()))
     }
 }
 
-/// Wrapper type combining a header with its associated [`EvmSpecId`].
+/// Wrapper type combining a header with its associated hardfork.
 ///
 /// Both are needed to implement the [`BlockEnvTrait`] trait.
-pub struct HeaderAndEvmSpec<'header, HeaderT: BlockEnvForHardfork<EvmSpecId>> {
-    pub header: &'header HeaderT,
-    pub evm_spec_id: EvmSpecId,
+pub struct HeaderAndEvmSpec<'header, BlockHeaderT: BlockEnvForHardfork<HardforkT>, HardforkT> {
+    pub hardfork: HardforkT,
+    pub header: &'header BlockHeaderT,
 }
 
-impl<'header, HardforkT: Into<EvmSpecId>, HeaderT: BlockEnvForHardfork<EvmSpecId>>
-    BlockEnvConstructor<HardforkT, &'header HeaderT> for HeaderAndEvmSpec<'header, HeaderT>
+impl<'header, HardforkT, BlockHeaderT: BlockEnvForHardfork<HardforkT>>
+    BlockEnvConstructor<HardforkT, &'header BlockHeaderT>
+    for HeaderAndEvmSpec<'header, BlockHeaderT, HardforkT>
 {
     fn new_block_env(
-        header: &'header HeaderT,
+        header: &'header BlockHeaderT,
         hardfork: HardforkT,
-    ) -> HeaderAndEvmSpec<'header, HeaderT> {
-        HeaderAndEvmSpec {
-            header,
-            evm_spec_id: hardfork.into(),
-        }
+    ) -> HeaderAndEvmSpec<'header, BlockHeaderT, HardforkT> {
+        HeaderAndEvmSpec { hardfork, header }
     }
 }
 
-impl<HeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait for HeaderAndEvmSpec<'_, HeaderT> {
+impl<HardforkT: Copy + Into<EvmSpecId>, BlockHeaderT: BlockEnvForHardfork<HardforkT>> BlockEnvTrait
+    for HeaderAndEvmSpec<'_, BlockHeaderT, HardforkT>
+{
     fn number(&self) -> U256 {
-        self.header.number_for_hardfork(self.evm_spec_id)
+        self.header.number_for_hardfork(self.hardfork)
     }
 
     fn beneficiary(&self) -> Address {
-        self.header.beneficiary_for_hardfork(self.evm_spec_id)
+        self.header.beneficiary_for_hardfork(self.hardfork)
     }
 
     fn timestamp(&self) -> U256 {
-        self.header.timestamp_for_hardfork(self.evm_spec_id)
+        self.header.timestamp_for_hardfork(self.hardfork)
     }
 
     fn gas_limit(&self) -> u64 {
-        self.header.gas_limit_for_hardfork(self.evm_spec_id)
+        self.header.gas_limit_for_hardfork(self.hardfork)
     }
 
     fn basefee(&self) -> u64 {
-        self.header.basefee_for_hardfork(self.evm_spec_id)
+        self.header.basefee_for_hardfork(self.hardfork)
     }
 
     fn difficulty(&self) -> U256 {
-        self.header.difficulty_for_hardfork(self.evm_spec_id)
+        self.header.difficulty_for_hardfork(self.hardfork)
     }
 
     fn prevrandao(&self) -> Option<B256> {
-        self.header.prevrandao_for_hardfork(self.evm_spec_id)
+        self.header.prevrandao_for_hardfork(self.hardfork)
     }
 
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
         self.header
-            .blob_excess_gas_and_price_for_hardfork(self.evm_spec_id)
+            .blob_excess_gas_and_price_for_hardfork(self.hardfork)
     }
 }
 
@@ -530,35 +456,35 @@ impl From<BlockHeader> for PartialHeader {
     }
 }
 
-impl BlockEnvForHardfork<EvmSpecId> for PartialHeader {
-    fn number_for_hardfork(&self, _hardfork: EvmSpecId) -> U256 {
+impl<HardforkT: Into<EvmSpecId>> BlockEnvForHardfork<HardforkT> for PartialHeader {
+    fn number_for_hardfork(&self, _hardfork: HardforkT) -> U256 {
         U256::from(self.number)
     }
 
-    fn beneficiary_for_hardfork(&self, _hardfork: EvmSpecId) -> Address {
+    fn beneficiary_for_hardfork(&self, _hardfork: HardforkT) -> Address {
         self.beneficiary
     }
 
-    fn timestamp_for_hardfork(&self, _hardfork: EvmSpecId) -> U256 {
+    fn timestamp_for_hardfork(&self, _hardfork: HardforkT) -> U256 {
         U256::from(self.timestamp)
     }
 
-    fn gas_limit_for_hardfork(&self, _hardfork: EvmSpecId) -> u64 {
+    fn gas_limit_for_hardfork(&self, _hardfork: HardforkT) -> u64 {
         self.gas_limit
     }
 
-    fn basefee_for_hardfork(&self, _hardfork: EvmSpecId) -> u64 {
+    fn basefee_for_hardfork(&self, _hardfork: HardforkT) -> u64 {
         self.base_fee.map_or(0u64, |base_fee| {
             base_fee.try_into().expect("base fee is too large")
         })
     }
 
-    fn difficulty_for_hardfork(&self, _hardfork: EvmSpecId) -> U256 {
+    fn difficulty_for_hardfork(&self, _hardfork: HardforkT) -> U256 {
         self.difficulty
     }
 
-    fn prevrandao_for_hardfork(&self, hardfork: EvmSpecId) -> Option<B256> {
-        if hardfork >= EvmSpecId::MERGE {
+    fn prevrandao_for_hardfork(&self, hardfork: HardforkT) -> Option<B256> {
+        if hardfork.into() >= EvmSpecId::MERGE {
             Some(self.mix_hash)
         } else {
             None
@@ -567,11 +493,11 @@ impl BlockEnvForHardfork<EvmSpecId> for PartialHeader {
 
     fn blob_excess_gas_and_price_for_hardfork(
         &self,
-        hardfork: EvmSpecId,
+        hardfork: HardforkT,
     ) -> Option<BlobExcessGasAndPrice> {
         self.blob_gas
             .as_ref()
-            .map(|blob_gas| blob_excess_gas_and_price_for_evm_spec(blob_gas, hardfork))
+            .map(|blob_gas| blob_excess_gas_and_price_for_evm_spec(blob_gas, hardfork.into()))
     }
 }
 
@@ -677,7 +603,6 @@ mod tests {
     use alloy_rlp::Decodable as _;
     use edr_chain_l1::L1ChainSpec;
     use edr_eip1559::ConstantBaseFeeParams;
-    use edr_evm::{hardfork::l1, spec::base_fee_params_for};
     use edr_primitives::{hex, KECCAK_RLP_EMPTY_ARRAY};
 
     use super::*;
@@ -946,7 +871,10 @@ mod tests {
             base_fee: Some(configured_base_fee),
             ..HeaderOverrides::default()
         };
-        let partial_header = PartialHeader::new::<edr_chain_l1::L1ChainSpec>(
+
+        let chain_config = l1_chain_config(edr_chain_l1::chains::MAINNET_CHAIN_ID);
+
+        let partial_header = PartialHeader::new::<L1ChainSpec>(
             BlockConfig {
                 base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
                 hardfork: edr_chain_l1::Hardfork::LONDON,

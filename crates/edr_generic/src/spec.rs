@@ -112,7 +112,7 @@ impl BlockEnvTrait for BlockHeaderAndEvmSpecWithFallback<'_> {
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
         blob_excess_gas_and_price_for_evm_spec(
             self.inner.header.blob_gas.as_ref(),
-            self.inner.evm_spec_id,
+            self.inner.hardfork,
         )
     }
 }

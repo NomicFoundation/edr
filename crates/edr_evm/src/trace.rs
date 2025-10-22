@@ -8,7 +8,7 @@ use edr_database_components::DatabaseComponents;
 use edr_evm_spec::{
     interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
-        EthInterpreter, Interpreter, SuccessOrHalt,
+        EthInterpreter, Interpreter, Jumps as _, SuccessOrHalt,
     },
     result::{ExecutionResult, Output},
     ContextTrait, Inspector, JournalTrait,

@@ -162,6 +162,10 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 {
     type Error = LocalBlockchainError;
 
+    fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
+        &self.base_fee_params
+    }
+
     fn chain_id(&self) -> u64 {
         self.chain_id
     }
@@ -185,6 +189,10 @@ impl<BlockReceiptT: ReceiptTrait, HardforkT: Clone, LocalBlockT, SignedTransacti
 
     fn last_block_number(&self) -> u64 {
         self.storage.last_block_number()
+    }
+
+    fn min_ethash_difficulty(&self) -> u64 {
+        self.min_ethash_difficulty
     }
 
     fn network_id(&self) -> u64 {

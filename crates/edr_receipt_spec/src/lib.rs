@@ -29,7 +29,7 @@ pub trait ReceiptChainSpec:
             Hardfork = Self::Hardfork,
             SignedTransaction = Self::SignedTransaction,
         > + ReceiptTrait
-        + TryFrom<Self::RpcReceipt>;
+        + TryFrom<Self::RpcReceipt, Error: std::error::Error>;
 }
 
 /// Trait for constructing a receipt type from a transaction's execution receipt

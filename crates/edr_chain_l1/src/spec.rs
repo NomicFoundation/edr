@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
 use edr_block_api::{sync::SyncBlock, BlockReceipts, GenesisBlockFactory, GenesisBlockOptions};
-use edr_block_header::{BlockConfig, BlockEnvForHardfork, HeaderAndEvmSpec};
+use edr_block_header::{BlockConfig, HeaderAndEvmSpec};
 use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
 use edr_chain_spec::{
-    ChainSpec, ContextChainSpec, EvmTransactionValidationError, HardforkChainSpec,
-    TransactionValidation,
+    BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec,
+    EvmTransactionValidationError, HardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_evm_spec::{
@@ -67,15 +67,10 @@ impl BlockChainSpec for L1ChainSpec {
         Error = <Self::LocalBlock as BlockReceipts<Arc<Self::Receipt>>>::Error,
     >;
 
-    type BlockEnv<'header, BlockHeaderT>
-        = HeaderAndEvmSpec<'header, BlockHeaderT>
-    where
-        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
-
     type BlockBuilder<
         'builder,
-        BlockchainErrorT: 'builder + std::error::Error + Send,
-        StateErrorT: 'builder + std::error::Error + Send,
+        BlockchainErrorT: 'builder + std::error::Error,
+        StateErrorT: 'builder + std::error::Error,
     > = EthBlockBuilder<
         'builder,
         Self::Receipt,
@@ -89,6 +84,13 @@ impl BlockChainSpec for L1ChainSpec {
     >;
 
     type LocalBlock = EthLocalBlock<Self::Receipt, Self::Hardfork, Self::SignedTransaction>;
+}
+
+impl BlockEnvChainSpec for L1ChainSpec {
+    type BlockEnv<'header, BlockHeaderT>
+        = HeaderAndEvmSpec<'header, BlockHeaderT, Self::Hardfork>
+    where
+        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
 }
 
 impl EvmChainSpec for L1ChainSpec {

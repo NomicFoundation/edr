@@ -13,8 +13,10 @@ dyn-clone.workspace = true
 edr_block_api.workspace = true
 edr_block_builder_api.workspace = true
 edr_block_header.workspace = true
+edr_block_remote = { workspace = true, optional = true}
 edr_block_storage.workspace = true
 edr_blockchain_api.workspace = true
+edr_blockchain_fork = { workspace = true, optional = true }
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true
@@ -62,7 +64,7 @@ tempfile.workspace = true
 
 [features]
 test-remote = []
-test-utils = ["dep:anyhow"]
+test-utils = ["dep:anyhow", "dep:edr_block_remote", "dep:edr_blockchain_fork"]
 tracing = ["dep:tracing"]
 
 [lints]

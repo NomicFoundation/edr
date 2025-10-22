@@ -35,10 +35,10 @@ pub struct EthRpcClient<
 }
 
 impl<
-        RpcBlockT: RpcBlockChainSpec,
+        RpcBlockChainSpecT: RpcBlockChainSpec,
         RpcReceiptT: DeserializeOwned + Serialize,
         RpcTransactionT: DeserializeOwned + Serialize,
-    > EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>
+    > EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>
 {
     /// Creates a new instance, given a remote node URL.
     ///
@@ -151,7 +151,7 @@ impl<
     pub async fn get_block_by_hash(
         &self,
         hash: B256,
-    ) -> Result<Option<RpcBlockT::RpcBlock<B256>>, RpcClientError> {
+    ) -> Result<Option<RpcBlockChainSpecT::RpcBlock<B256>>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetBlockByHash(hash, false))
             .await
@@ -174,7 +174,7 @@ impl<
     pub async fn get_block_by_hash_with_transaction_data(
         &self,
         hash: B256,
-    ) -> Result<Option<RpcBlockT::RpcBlock<RpcTransactionT>>, RpcClientError> {
+    ) -> Result<Option<RpcBlockChainSpecT::RpcBlock<RpcTransactionT>>, RpcClientError> {
         self.inner
             .call(RequestMethod::GetBlockByHash(hash, true))
             .await
@@ -185,11 +185,11 @@ impl<
     pub async fn get_block_by_number(
         &self,
         spec: PreEip1898BlockSpec,
-    ) -> Result<Option<RpcBlockT::RpcBlock<B256>>, RpcClientError> {
+    ) -> Result<Option<RpcBlockChainSpecT::RpcBlock<B256>>, RpcClientError> {
         self.inner
             .call_with_resolver(
                 RequestMethod::GetBlockByNumber(spec, false),
-                |block: &Option<RpcBlockT::RpcBlock<B256>>| {
+                |block: &Option<RpcBlockChainSpecT::RpcBlock<B256>>| {
                     block.as_ref().and_then(GetBlockNumber::number)
                 },
             )
@@ -201,11 +201,11 @@ impl<
     pub async fn get_block_by_number_with_transaction_data(
         &self,
         spec: PreEip1898BlockSpec,
-    ) -> Result<RpcBlockT::RpcBlock<RpcTransactionT>, RpcClientError> {
+    ) -> Result<RpcBlockChainSpecT::RpcBlock<RpcTransactionT>, RpcClientError> {
         self.inner
             .call_with_resolver(
                 RequestMethod::GetBlockByNumber(spec, true),
-                |block: &RpcBlockT::RpcBlock<RpcTransactionT>| block.number(),
+                |block: &RpcBlockChainSpecT::RpcBlock<RpcTransactionT>| block.number(),
             )
             .await
     }
@@ -339,7 +339,7 @@ mod tests {
     use super::*;
 
     struct TestRpcClient {
-        client: EthRpcClient<L1ChainSpec>,
+        client: EthRpcClient<L1ChainSpec, L1ChainSpec::RpcReceipt, L1ChainSpec::RpcTransaction>,
 
         // Need to keep the tempdir around to prevent it from being deleted
         // Only accessed when feature = "test-remote", hence the allow.

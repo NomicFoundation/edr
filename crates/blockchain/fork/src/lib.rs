@@ -150,7 +150,7 @@ pub enum ForkedBlockchainError<HardforkT, RpcBlockConversionErrorT, RpcReceiptCo
 #[derive_where(Debug; BlockT, HardforkT, LocalBlockT)]
 pub struct ForkedBlockchain<
     BlockReceiptT: Debug + ReceiptTrait,
-    BlockT: Block<SignedTransactionT>,
+    BlockT: ?Sized + Block<SignedTransactionT>,
     HardforkT,
     LocalBlockT,
     RpcBlockChainSpecT: RpcBlockChainSpec,
@@ -200,7 +200,7 @@ pub struct ForkedBlockchain<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait,
-        BlockT: Block<SignedTransactionT>,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         HardforkT: Clone + Into<EvmSpecId>,
         LocalBlockT,
         RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
@@ -403,7 +403,7 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait,
-        BlockT: Block<SignedTransactionT>,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         HardforkT,
         LocalBlockT,
         RpcBlockChainSpecT: RpcBlockChainSpec,
@@ -434,16 +434,7 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: Block<SignedTransactionT>
-            + From<
-                RemoteBlock<
-                    BlockReceiptT,
-                    RpcBlockChainSpecT,
-                    RpcReceiptT,
-                    RpcTransactionT,
-                    SignedTransactionT,
-                >,
-            >,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         HardforkT: Clone + Into<EvmSpecId> + PartialOrd,
         LocalBlockT: Block<SignedTransactionT> + EmptyBlock<HardforkT> + LocalBlock<Arc<BlockReceiptT>>,
         RpcBlockChainSpecT: RpcBlockChainSpec<
@@ -491,16 +482,7 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: Block<SignedTransactionT>
-            + From<
-                RemoteBlock<
-                    BlockReceiptT,
-                    RpcBlockChainSpecT,
-                    RpcReceiptT,
-                    RpcTransactionT,
-                    SignedTransactionT,
-                >,
-            >,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         HardforkT: Clone,
         LocalBlockT,
         RpcBlockChainSpecT: RpcBlockChainSpec<
@@ -528,6 +510,10 @@ impl<
         >>::Error,
         <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
     >;
+
+    fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
+        &self.base_fee_params
+    }
 
     fn chain_id(&self) -> u64 {
         self.chain_id
@@ -587,6 +573,10 @@ impl<
         self.local_storage.last_block_number()
     }
 
+    fn min_ethash_difficulty(&self) -> u64 {
+        self.min_ethash_difficulty
+    }
+
     fn network_id(&self) -> u64 {
         self.network_id
     }
@@ -594,17 +584,10 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: Block<SignedTransactionT>
+        BlockT: ?Sized
+            + Block<SignedTransactionT>
             + CastArcFrom<LocalBlockT>
             + CastArcFrom<
-                RemoteBlock<
-                    BlockReceiptT,
-                    RpcBlockChainSpecT,
-                    RpcReceiptT,
-                    RpcTransactionT,
-                    SignedTransactionT,
-                >,
-            > + From<
                 RemoteBlock<
                     BlockReceiptT,
                     RpcBlockChainSpecT,
@@ -715,7 +698,7 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ExecutionReceipt<Log = FilterLog> + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: Block<SignedTransactionT>,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         HardforkT,
         LocalBlockT: BlockReceipts<Arc<BlockReceiptT>, Error: Debug>,
         RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
@@ -789,17 +772,10 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT, Error: Debug>,
-        BlockT: Block<SignedTransactionT>
+        BlockT: ?Sized
+            + Block<SignedTransactionT>
             + CastArcFrom<LocalBlockT>
             + CastArcFrom<
-                RemoteBlock<
-                    BlockReceiptT,
-                    RpcBlockChainSpecT,
-                    RpcReceiptT,
-                    RpcTransactionT,
-                    SignedTransactionT,
-                >,
-            > + From<
                 RemoteBlock<
                     BlockReceiptT,
                     RpcBlockChainSpecT,
@@ -869,7 +845,7 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: Block<SignedTransactionT>,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         HardforkT: Clone,
         LocalBlockT,
         RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
@@ -917,17 +893,10 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: Block<SignedTransactionT>
+        BlockT: ?Sized
+            + Block<SignedTransactionT>
             + CastArcFrom<LocalBlockT>
             + CastArcFrom<
-                RemoteBlock<
-                    BlockReceiptT,
-                    RpcBlockChainSpecT,
-                    RpcReceiptT,
-                    RpcTransactionT,
-                    SignedTransactionT,
-                >,
-            > + From<
                 RemoteBlock<
                     BlockReceiptT,
                     RpcBlockChainSpecT,
@@ -997,7 +966,7 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: Block<SignedTransactionT>,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         HardforkT,
         LocalBlockT: Block<SignedTransactionT>,
         RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
@@ -1046,17 +1015,10 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: Block<SignedTransactionT>
+        BlockT: ?Sized
+            + Block<SignedTransactionT>
             + CastArcFrom<LocalBlockT>
             + CastArcFrom<
-                RemoteBlock<
-                    BlockReceiptT,
-                    RpcBlockChainSpecT,
-                    RpcReceiptT,
-                    RpcTransactionT,
-                    SignedTransactionT,
-                >,
-            > + From<
                 RemoteBlock<
                     BlockReceiptT,
                     RpcBlockChainSpecT,
@@ -1153,7 +1115,7 @@ impl<
 
 impl<
         BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
-        BlockT: Block<SignedTransactionT>,
+        BlockT: ?Sized + Block<SignedTransactionT>,
         HardforkT: Clone,
         LocalBlockT,
         RpcBlockChainSpecT: RpcBlockChainSpec<

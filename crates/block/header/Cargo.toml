@@ -17,7 +17,6 @@ serde.workspace = true
 
 [dev-dependencies]
 edr_chain_l1.workspace = true
-edr_evm.workspace = true
 
 [lints]
 workspace = true

@@ -284,7 +284,6 @@ impl TryFrom<L1RpcTransactionReceipt>
 #[cfg(test)]
 mod test {
     use assert_json_diff::assert_json_eq;
-    use edr_evm::block::EthBlockReceiptFactory;
     use edr_primitives::{Bloom, Bytes};
     use edr_receipt::log::ExecutionLog;
     use edr_rpc_spec::impl_execution_receipt_serde_tests;

@@ -29,8 +29,8 @@ pub fn dry_run<
         >,
     >,
     BlockT: BlockEnvTrait,
-    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
-    StateT: State<Error: Send + std::error::Error>,
+    BlockchainT: BlockHashByNumber<Error: std::error::Error>,
+    StateT: State<Error: std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
@@ -72,7 +72,7 @@ pub fn dry_run_with_inspector<
         >,
     >,
     BlockT: BlockEnvTrait,
-    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
+    BlockchainT: BlockHashByNumber<Error: std::error::Error>,
     InspectorT: Inspector<
         ContextForChainSpec<
             EvmChainSpecT,
@@ -80,7 +80,7 @@ pub fn dry_run_with_inspector<
             WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
         >,
     >,
-    StateT: State<Error: Send + std::error::Error>,
+    StateT: State<Error: std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
@@ -130,8 +130,8 @@ pub fn guaranteed_dry_run<
         >,
     >,
     BlockT: BlockEnvTrait,
-    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
-    StateT: State<Error: Send + std::error::Error>,
+    BlockchainT: BlockHashByNumber<Error: std::error::Error>,
+    StateT: State<Error: std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
@@ -176,7 +176,7 @@ pub fn guaranteed_dry_run_with_inspector<
         >,
     >,
     BlockT: BlockEnvTrait,
-    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
+    BlockchainT: BlockHashByNumber<Error: std::error::Error>,
     InspectorT: Inspector<
         ContextForChainSpec<
             EvmChainSpecT,
@@ -184,7 +184,7 @@ pub fn guaranteed_dry_run_with_inspector<
             WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
         >,
     >,
-    StateT: State<Error: Send + std::error::Error>,
+    StateT: State<Error: std::error::Error>,
 >(
     blockchain: BlockchainT,
     state: StateT,
@@ -229,8 +229,8 @@ pub fn run<
         >,
     >,
     BlockT: BlockEnvTrait,
-    BlockchainT: BlockHashByNumber<Error: Send + std::error::Error>,
-    StateT: State<Error: Send + std::error::Error> + StateCommit,
+    BlockchainT: BlockHashByNumber<Error: std::error::Error>,
+    StateT: State<Error: std::error::Error> + StateCommit,
 >(
     blockchain: BlockchainT,
     mut state: StateT,

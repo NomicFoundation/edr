@@ -8,6 +8,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use auto_impl::auto_impl;
 use edr_block_api::BlockAndTotalDifficulty;
+use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
 use edr_state_api::{StateDiff, StateOverride, SyncState};
@@ -22,10 +23,14 @@ pub trait BlockHashByNumber {
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error>;
 }
 
+/// Trait for retrieving blockchain metadata.
 #[auto_impl(&)]
 pub trait BlockchainMetadata<HardforkT> {
     /// The blockchain's error type
     type Error;
+
+    /// Retrieves the base fee parameters for the blockchain.
+    fn base_fee_params(&self) -> &BaseFeeParams<HardforkT>;
 
     /// Retrieves the instances chain ID.
     fn chain_id(&self) -> u64;
@@ -47,6 +52,9 @@ pub trait BlockchainMetadata<HardforkT> {
 
     /// Retrieves the last block number in the blockchain.
     fn last_block_number(&self) -> u64;
+
+    /// Retrieves the minimum difficulty for the Ethash proof-of-work algorithm.
+    fn min_ethash_difficulty(&self) -> u64;
 
     /// Retrieves the network ID of the blockchain.
     fn network_id(&self) -> u64;
@@ -78,6 +86,7 @@ pub trait GetBlockchainBlock<BlockT: ?Sized, HardforkT> {
     fn last_block(&self) -> Result<Arc<BlockT>, Self::Error>;
 }
 
+/// Trait for retrieving logs from the blockchain.
 #[auto_impl(&)]
 pub trait GetBlockchainLogs {
     /// The blockchain's error type
@@ -107,6 +116,7 @@ pub trait InsertBlock<BlockT: ?Sized, LocalBlockT, SignedTransactionT> {
     ) -> Result<BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>, Self::Error>;
 }
 
+/// Trait for retrieving a receipt by its transaction hash.
 #[auto_impl(&)]
 pub trait ReceiptByTransactionHash<BlockReceiptT> {
     /// The blockchain's error type
@@ -120,6 +130,7 @@ pub trait ReceiptByTransactionHash<BlockReceiptT> {
     ) -> Result<Option<Arc<BlockReceiptT>>, Self::Error>;
 }
 
+/// Trait for reserving blocks in the blockchain.
 pub trait ReserveBlocks {
     /// The blockchain's error type
     type Error;
@@ -129,6 +140,7 @@ pub trait ReserveBlocks {
     fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error>;
 }
 
+/// Trait for reverting the blockchain to a previous block.
 pub trait RevertToBlock {
     /// The blockchain's error type
     type Error;
@@ -138,6 +150,7 @@ pub trait RevertToBlock {
     fn revert_to_block(&mut self, block_number: u64) -> Result<(), Self::Error>;
 }
 
+/// Trait for retrieving the state at a given block.
 #[auto_impl(&)]
 pub trait StateAtBlock {
     /// The blockchain's error type
@@ -159,6 +172,7 @@ pub trait StateAtBlock {
     ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError>;
 }
 
+/// Trait for retrieving the total difficulty by its block hash.
 #[auto_impl(&)]
 pub trait TotalDifficultyByBlockHash {
     /// The blockchain's error type
