@@ -14,9 +14,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-edr-safety:
+    name: Check EDR dependencies safety (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-24.04", "macos-15", "windows-2025"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: socketdev/action@v1
+        with:
+          mode: firewall
+      - uses: ./.github/actions/setup-rust
+
+      - name: Pnpm safety
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Cargo safety
+        run: sfw cargo fetch
+
   check-edr:
     name: Check EDR
     runs-on: ubuntu-24.04
+    needs: check-edr-safety
     env:
       RUSTFLAGS: -Dwarnings
     steps:
@@ -38,7 +59,7 @@ jobs:
   test-edr-rs:
     name: Test EDR (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: check-edr
+    needs: [check-edr-safety, check-edr]
     strategy:
       fail-fast: false
       matrix:
@@ -101,7 +122,7 @@ jobs:
   test-edr-ts:
     name: Test EDR TS bindings (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: check-edr
+    needs: [check-edr-safety, check-edr]
     strategy:
       fail-fast: false
       matrix:
@@ -161,7 +182,7 @@ jobs:
   edr-style:
     name: Check EDR Style
     runs-on: ubuntu-24.04
-    needs: check-edr
+    needs: [check-edr-safety, check-edr]
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
@@ -184,7 +205,7 @@ jobs:
   edr-docs:
     name: Build EDR Docs
     runs-on: ubuntu-24.04
-    needs: check-edr
+    needs: [check-edr-safety, check-edr]
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
@@ -198,6 +219,7 @@ jobs:
   build-and-lint:
     name: Build and lint
     runs-on: ubuntu-24.04
+    needs: check-edr-safety
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
@@ -212,6 +234,7 @@ jobs:
   edr-napi-typings-file:
     name: Check that edr_napi typings file is up to date
     runs-on: ubuntu-24.04
+    needs: check-edr-safety
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
@@ -227,6 +250,7 @@ jobs:
   edr-integration-tests:
     name: Run integration tests
     runs-on: ubuntu-24.04
+    needs: check-edr-safety
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
