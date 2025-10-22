@@ -2,16 +2,11 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use derive_where::derive_where;
 use edr_block_api::{Block as _, BlockAndTotalDifficulty, FetchBlockReceipts};
-use edr_blockchain_api::{BlockHashByNumber, Blockchain, BlockchainMut};
+use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::ExecutableTransaction as _;
-use edr_evm::{
-    blockchain::{BlockchainErrorForChainSpec, SyncBlockchainForChainSpec},
-    spec::SyncRuntimeSpec,
-};
-use edr_primitives::{Address, HashSet, B256};
+use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ReceiptTrait as _};
 use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};
-use edr_transaction::U256;
 
 /// A blockchain with a pending block.
 ///

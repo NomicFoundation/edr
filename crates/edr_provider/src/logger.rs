@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 
 use derive_where::derive_where;
 use dyn_clone::DynClone;
-use edr_evm::blockchain::BlockchainErrorForChainSpec;
 
 use crate::{
     data::CallResult,

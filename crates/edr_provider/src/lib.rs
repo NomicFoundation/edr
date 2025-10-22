@@ -29,10 +29,8 @@ mod utils;
 
 use core::fmt::Debug;
 
-// Re-export parts of `edr_evm`
-pub use edr_evm::hardfork;
-use edr_evm::trace::Trace;
 use edr_chain_spec::{ChainSpec, HaltReasonTrait};
+use edr_evm::trace::Trace;
 use edr_primitives::HashSet;
 use lazy_static::lazy_static;
 

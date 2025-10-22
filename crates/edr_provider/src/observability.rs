@@ -2,19 +2,16 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use edr_blockchain_api::BlockHashByNumber;
+use edr_chain_spec::HaltReasonTrait;
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_database_components::DatabaseComponents;
-use edr_evm::{
-    inspector::Inspector,
+use edr_evm::{inspector::Inspector, journal::JournalExt, trace::TraceCollector};
+use edr_evm_spec::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, Interpreter,
     },
-    journal::{JournalExt, JournalTrait},
-    spec::ContextTrait,
-    state::WrapDatabaseRef,
-    trace::TraceCollector,
+    ContextTrait, JournalTrait,
 };
-use edr_chain_spec::HaltReasonTrait;
 use edr_state_api::State;
 
 use crate::{

@@ -1,18 +1,17 @@
 use std::sync::Arc;
 
-use edr_block_api::{BlockAndTotalDifficulty, FetchBlockReceipts};
+use edr_block_api::{
+    BlockAndTotalDifficulty, FetchBlockReceipts, GenesisBlockFactory, SyncGenesisBlockFactory,
+};
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
-use edr_eth::{Blob, BlockSpec};
-pub use edr_evm::spec::{RuntimeSpec, SyncRuntimeSpec};
-use edr_evm::{
-    blockchain::BlockchainErrorForChainSpec,
-    spec::{GenesisBlockFactory, SyncGenesisBlockFactory},
-    state::StateOverrides,
-};
 use edr_chain_spec::ExecutableTransaction;
+use edr_chain_spec_block::BlockChainSpec;
+use edr_chain_spec_provider::ProviderChainSpec;
+use edr_eth::{Blob, BlockSpec};
+use edr_evm::overrides::StateOverrides;
 use edr_primitives::{Address, B256};
 use edr_signer::{FakeSign, Sign};
 use edr_transaction::IsSupported;
@@ -23,11 +22,11 @@ use crate::{
 };
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    GenesisBlockFactory<LocalBlock = <Self as RuntimeSpec>::LocalBlock>
-    + RuntimeSpec<
-        Block: FetchBlockReceipts<Arc<Self::BlockReceipt>, Error = BlockchainErrorForChainSpec<Self>>,
+    GenesisBlockFactory<LocalBlock = <Self as BlockChainSpec>::LocalBlock>
+    + ProviderChainSpec<
+        Block: FetchBlockReceipts<Arc<Self::Receipt>, Error = BlockchainErrorForChainSpec<Self>>,
         LocalBlock: FetchBlockReceipts<
-            Arc<Self::BlockReceipt>,
+            Arc<Self::Receipt>,
             Error = BlockchainErrorForChainSpec<Self>,
         >,
         RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
@@ -147,16 +146,13 @@ pub trait FromRpcType<RpcT, TimerT: Clone + TimeSinceEpoch>: Sized {
 }
 
 pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    ProviderSpec<TimerT>
-    + SyncGenesisBlockFactory<LocalBlock = <Self as RuntimeSpec>::LocalBlock>
-    + SyncRuntimeSpec
+    ProviderSpec<TimerT> + SyncGenesisBlockFactory<LocalBlock = <Self as BlockChainSpec>::LocalBlock>
 {
 }
 
 impl<
         ProviderSpecT: ProviderSpec<TimerT>
-            + SyncGenesisBlockFactory<LocalBlock = <Self as RuntimeSpec>::LocalBlock>
-            + SyncRuntimeSpec,
+            + SyncGenesisBlockFactory<LocalBlock = <Self as BlockChainSpec>::LocalBlock>,
         TimerT: Clone + TimeSinceEpoch,
     > SyncProviderSpec<TimerT> for ProviderSpecT
 {

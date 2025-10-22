@@ -65,6 +65,8 @@ tracing = { version = "0.1.37", features = [
     "std",
 ], optional = true }
 edr_chain_spec_provider.workspace = true
+edr_chain_spec_block.workspace = true
+edr_evm_spec.workspace = true
 
 [dev-dependencies]
 alloy-eips.workspace = true
