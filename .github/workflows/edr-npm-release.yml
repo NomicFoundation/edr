@@ -135,7 +135,8 @@ jobs:
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
-            sfw pnpm run build --strip
+            sfw cargo fetch
+            pnpm run build --strip
 
       - name: Build in docker (musl)
         uses: addnab/docker-run-action@v3
@@ -159,7 +160,8 @@ jobs:
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
-            sfw pnpm run build --strip
+            sfw cargo fetch
+            pnpm run build --strip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
