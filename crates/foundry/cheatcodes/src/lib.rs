@@ -7,13 +7,15 @@
     unused_crate_dependencies,
     rust_2018_idioms
 )]
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![allow(elided_lifetimes_in_paths)] // Cheats context uses 3 lifetimes
 // TODO https://github.com/NomicFoundation/edr/issues/1076
-#![allow(clippy::indexing_slicing)]
-#![allow(clippy::match_same_arms)]
+#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
 
 #[macro_use]
 pub extern crate foundry_cheatcodes_spec as spec;
+
 #[macro_use]
 extern crate tracing;
 
@@ -26,9 +28,9 @@ use foundry_evm_core::{
     evm_context::{EvmBuilderTrait, TransactionErrorTrait},
 };
 pub use fs_permissions::{FsAccessKind, FsAccessPermission, FsPermissions, PathPermission};
-pub use inspector::{BroadcastableTransaction, BroadcastableTransactions, Cheatcodes, Context};
+pub use inspector::{Cheatcodes};
 use revm::{
-    context::{result::HaltReasonTr, CfgEnv, Context as EvmContext},
+    context::{result::HaltReasonTr, CfgEnv},
     Journal,
 };
 use spec::Status;
@@ -36,28 +38,45 @@ pub use spec::{CheatcodeDef, Vm};
 
 #[macro_use]
 mod error;
+
 mod base64;
+
 mod cache;
+
 mod config;
+
+mod crypto;
+
 mod endpoints;
+
 mod env;
+
 mod evm;
+
 mod fs;
+
 mod fs_permissions;
+
 mod inspector;
+
 mod json;
+
 mod string;
+
 mod test;
+
 mod toml;
+
 mod utils;
 
 pub use cache::{CachedChains, CachedEndpoints, StorageCachingConfig};
 use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
 pub use test::expect::ExpectedCallTracker;
 pub use Vm::ExecutionContext;
+use crate::inspector::CheatcodesExecutor;
 
 /// Cheatcode implementation.
-pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
+pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode {
     /// Applies this cheatcode to the given state.
     ///
     /// Implement this function if you don't need access to the EVM data.
@@ -65,11 +84,20 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -89,6 +117,34 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
     /// Applies this cheatcode to the given context.
     ///
     /// Implement this function if you need access to the EVM data.
+    #[inline(always)]
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<'_, '_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>
+    ) -> Result {
+        self.apply::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(ccx.state)
+    }
+
+    /// Applies this cheatcode to the given context and executor.
+    ///
+    /// Implement this function if you need access to the executor.
     #[inline(always)]
     fn apply_full<
         BlockT: BlockEnvTr,
@@ -119,31 +175,7 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
             ChainContextT,
             DatabaseT,
         >,
-    ) -> Result {
-        self.apply(ccx.state)
-    }
-
-    #[inline]
-    fn apply_traced<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
-        ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-        >,
-    >(
-        &self,
-        ccx: &mut CheatsCtxt<
+        executor: &mut dyn CheatcodesExecutor<
             BlockT,
             TxT,
             EvmBuilderT,
@@ -152,106 +184,48 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode + IsPure {
             TransactionErrorT,
             ChainContextT,
             DatabaseT,
-        >,
+        >
     ) -> Result {
-        // Separate and non-generic functions to avoid inline and monomorphization
-        // bloat.
-        #[inline(never)]
-        fn trace_span_and_call(cheat: &dyn DynCheatcode) -> tracing::span::EnteredSpan {
-            let span = debug_span!(target: "cheatcodes", "apply");
-            if !span.is_disabled() {
-                if enabled!(tracing::Level::TRACE) {
-                    span.record("cheat", tracing::field::debug(cheat.as_debug()));
-                } else {
-                    span.record("id", cheat.cheatcode().func.id);
-                }
-            }
-            let entered = span.entered();
-            trace!(target: "cheatcodes", "applying");
-            entered
-        }
-
-        #[inline(never)]
-        fn trace_return(result: &Result) {
-            trace!(
-                target: "cheatcodes",
-                return = match result {
-                    Ok(b) => hex::encode(b),
-                    Err(e) => e.to_string(),
-                }
-            );
-        }
-
-        if let spec::Status::Deprecated(replacement) = self.status() {
-            ccx.state.deprecated.insert(self.signature(), *replacement);
-        }
-
-        let _span = trace_span_and_call(self);
-        ccx.journaled_state
-            .database
-            .record_cheatcode_purity(Self::CHEATCODE.func.declaration, self.is_pure());
-        let result = self.apply_full(ccx);
-        trace_return(&result);
-        result
+        let _ = executor;
+        self.apply_stateful(ccx)
     }
 }
-
-pub(crate) trait DynCheatcode {
+pub(crate) trait DynCheatcode: IsPure {
     fn cheatcode(&self) -> &'static foundry_cheatcodes_spec::Cheatcode<'static>;
+    fn name(&self) -> &'static str;
+    fn id(&self) -> &'static str;
     fn signature(&self) -> &'static str;
     fn status(&self) -> &Status<'static>;
     fn as_debug(&self) -> &dyn std::fmt::Debug;
 }
 
-impl<T: Cheatcode> DynCheatcode for T {
+impl<
+    T: Cheatcode> DynCheatcode for T {
+    #[inline]
     fn cheatcode(&self) -> &'static foundry_cheatcodes_spec::Cheatcode<'static> {
         T::CHEATCODE
     }
 
+    fn name(&self) -> &'static str {
+        self.cheatcode().func.signature.split('(').next().unwrap()
+    }
+
+    fn id(&self) -> &'static str {
+        self.cheatcode().func.id
+    }
+
     fn signature(&self) -> &'static str {
-        T::CHEATCODE.func.signature
+        self.cheatcode().func.signature
     }
 
     fn status(&self) -> &Status<'static> {
-        &T::CHEATCODE.status
+        &self.cheatcode().status
     }
 
+    #[inline]
     fn as_debug(&self) -> &dyn std::fmt::Debug {
         self
     }
-}
-
-pub(crate) trait IsPure {
-    /// Whether the cheatcode is a pure function if its inputs.
-    /// If it's not, that means it's not safe to re-execute a call that invokes
-    /// it and expect the same results.
-    fn is_pure(&self) -> bool;
-}
-
-/// Implement `IsPure::is_pure` to return `true`.
-#[macro_export]
-macro_rules! impl_is_pure_true {
-    ($type:ty) => {
-        impl $crate::IsPure for $type {
-            #[inline(always)]
-            fn is_pure(&self) -> bool {
-                true
-            }
-        }
-    };
-}
-
-/// Implement `IsPure::is_pure` to return `false`.
-#[macro_export]
-macro_rules! impl_is_pure_false {
-    ($type:ty) => {
-        impl $crate::IsPure for $type {
-            #[inline(always)]
-            fn is_pure(&self) -> bool {
-                false
-            }
-        }
-    };
 }
 
 /// The cheatcode context, used in [`Cheatcode`].
@@ -286,7 +260,7 @@ pub(crate) struct CheatsCtxt<
         TransactionErrorT,
     >,
     /// The EVM data.
-    pub(crate) ecx: &'evm mut EvmContext<
+    pub(crate) ecx: &'evm mut revm::context::Context<
         BlockT,
         TxT,
         CfgEnv<HardforkT>,
@@ -331,7 +305,7 @@ impl<
     >
 {
     type Target =
-        EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>;
+        revm::context::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
@@ -412,4 +386,37 @@ impl<
     pub(crate) fn is_precompile(&self, address: &Address) -> bool {
         self.ecx.journaled_state.inner.precompiles.contains(address)
     }
+}
+
+pub(crate) trait IsPure {
+    /// Whether the cheatcode is a pure function if its inputs.
+    /// If it's not, that means it's not safe to re-execute a call that invokes
+    /// it and expect the same results.
+    fn is_pure(&self) -> bool;
+}
+
+/// Implement `IsPure::is_pure` to return `true`.
+#[macro_export]
+macro_rules! impl_is_pure_true {
+    ($type:ty) => {
+        impl $crate::IsPure for $type {
+            #[inline(always)]
+            fn is_pure(&self) -> bool {
+                true
+            }
+        }
+    };
+}
+
+/// Implement `IsPure::is_pure` to return `false`.
+#[macro_export]
+macro_rules! impl_is_pure_false {
+    ($type:ty) => {
+        impl $crate::IsPure for $type {
+            #[inline(always)]
+            fn is_pure(&self) -> bool {
+                false
+            }
+        }
+    };
 }

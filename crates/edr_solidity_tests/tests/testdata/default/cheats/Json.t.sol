@@ -97,7 +97,7 @@ contract ParseJsonTest is DSTest {
     }
 
     function test_coercionRevert() public {
-        vm._expectCheatcodeRevert("values at \".nestedObject\" must not be JSON objects");
+        vm._expectCheatcodeRevert("expected uint256, found JSON object");
         vm.parseJsonUint(json, ".nestedObject");
     }
 
@@ -277,13 +277,13 @@ contract WriteJsonTest is DSTest {
     // Github issue: https://github.com/foundry-rs/foundry/issues/5745
     function test_serializeRootObject() public {
         string memory serialized = vm.serializeJson(json1, '{"foo": "bar"}');
-        assertEq(serialized, '{"foo":"bar"}');
+        assertEq(serialized, '{"foo": "bar"}');
         serialized = vm.serializeBool(json1, "boolean", true);
         assertEq(vm.parseJsonString(serialized, ".foo"), "bar");
         assertEq(vm.parseJsonBool(serialized, ".boolean"), true);
 
         string memory overwritten = vm.serializeJson(json1, '{"value": 123}');
-        assertEq(overwritten, '{"value":123}');
+        assertEq(overwritten, '{"value": 123}');
     }
 
     struct simpleJson {
