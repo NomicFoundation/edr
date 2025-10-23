@@ -36,7 +36,7 @@ op-revm.workspace = true
 revm.workspace = true
 revm-primitives.workspace = true
 
-auto_impl = "1"
+auto_impl.workspace = true
 derive_more.workspace = true
 derive-where.workspace = true
 eyre = "0.6"

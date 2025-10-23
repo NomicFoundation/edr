@@ -619,7 +619,12 @@ impl<
 
         let (deprecated_cheatcodes, value_snapshots) = cheatcodes.map_or_else(
             || (HashMap::new(), BTreeMap::new()),
-            |cheatcodes| (cheatcodes.deprecated, cheatcodes.gas_snapshots),
+            |cheatcodes| {
+                (
+                    cheatcodes.deprecated.into_iter().collect(),
+                    cheatcodes.gas_snapshots,
+                )
+            },
         );
 
         TestResult {
