@@ -16,7 +16,7 @@ use edr_evm_spec::{
 use edr_primitives::{bytes, Address, Bytes, HashMap, HashSet, B256, U256};
 use edr_receipt_spec::ReceiptChainSpec;
 use edr_signer::public_key_to_address;
-use edr_state_api::{AccountModifierFn, StateDiff, StateError, SyncState};
+use edr_state_api::{AccountModifierFn, DynState, StateDiff};
 use edr_test_utils::secret_key::secret_key_from_str;
 use edr_transaction::TxKind;
 use revm_context::BlockEnv;
@@ -35,7 +35,7 @@ type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
 
 fn deploy_contract(
     blockchain: &LocalBlockchainForChainSpec<L1ChainSpec>,
-    state: &mut dyn SyncState<StateError>,
+    state: &mut dyn DynState,
     bytecode: Bytes,
 ) -> anyhow::Result<Address> {
     let secret_key = secret_key_from_str(edr_defaults::SECRET_KEYS[0])?;
@@ -85,7 +85,7 @@ fn deploy_contract(
 
 fn call_inc_by(
     blockchain: &LocalBlockchainForChainSpec<L1ChainSpec>,
-    state: &dyn SyncState<StateError>,
+    state: &dyn DynState,
     deployed_address: Address,
     increment: U256,
 ) -> anyhow::Result<HashSet<Bytes>> {

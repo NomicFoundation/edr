@@ -11,7 +11,7 @@ use edr_block_api::BlockAndTotalDifficulty;
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
-use edr_state_api::{StateDiff, StateOverride, SyncState};
+use edr_state_api::{DynState, StateDiff, StateOverride};
 
 /// Trait for retrieving a block's hash by number.
 #[auto_impl(&, &mut, Box, Rc, Arc)]
@@ -156,9 +156,6 @@ pub trait StateAtBlock {
     /// The blockchain's error type
     type BlockchainError;
 
-    /// The state's error type
-    type StateError;
-
     /// Retrieves the state at a given block.
     ///
     /// The state overrides are applied after the block they are associated
@@ -169,7 +166,7 @@ pub trait StateAtBlock {
         block_number: u64,
         // Block number -> state overrides
         state_overrides: &BTreeMap<u64, StateOverride>,
-    ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError>;
+    ) -> Result<Box<dyn DynState>, Self::BlockchainError>;
 }
 
 /// Trait for retrieving the total difficulty by its block hash.
@@ -190,7 +187,6 @@ pub trait Blockchain<
     HardforkT,
     LocalBlockT,
     SignedTransactionT,
-    StateErrorT,
 >:
     BlockHashByNumber<Error = BlockchainErrorT>
     + BlockchainMetadata<HardforkT, Error = BlockchainErrorT>
@@ -200,7 +196,7 @@ pub trait Blockchain<
     + ReceiptByTransactionHash<BlockReceiptT, Error = BlockchainErrorT>
     + ReserveBlocks<Error = BlockchainErrorT>
     + RevertToBlock<Error = BlockchainErrorT>
-    + StateAtBlock<BlockchainError = BlockchainErrorT, StateError = StateErrorT>
+    + StateAtBlock<BlockchainError = BlockchainErrorT>
     + TotalDifficultyByBlockHash<Error = BlockchainErrorT>
 {
 }
@@ -213,17 +209,9 @@ impl<
         HardforkT,
         LocalBlockT,
         SignedTransactionT,
-        StateErrorT,
     >
-    Blockchain<
-        BlockReceiptT,
-        BlockT,
-        BlockchainErrorT,
-        HardforkT,
-        LocalBlockT,
-        SignedTransactionT,
-        StateErrorT,
-    > for BlockchainT
+    Blockchain<BlockReceiptT, BlockT, BlockchainErrorT, HardforkT, LocalBlockT, SignedTransactionT>
+    for BlockchainT
 where
     BlockchainT: BlockHashByNumber<Error = BlockchainErrorT>
         + BlockchainMetadata<HardforkT, Error = BlockchainErrorT>
@@ -233,7 +221,7 @@ where
         + ReceiptByTransactionHash<BlockReceiptT, Error = BlockchainErrorT>
         + ReserveBlocks<Error = BlockchainErrorT>
         + RevertToBlock<Error = BlockchainErrorT>
-        + StateAtBlock<BlockchainError = BlockchainErrorT, StateError = StateErrorT>
+        + StateAtBlock<BlockchainError = BlockchainErrorT>
         + TotalDifficultyByBlockHash<Error = BlockchainErrorT>,
 {
 }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use alloy_rlp::RlpEncodable;
-use edr_block_api::{sync::SyncBlock, FetchBlockReceipts, GenesisBlockFactory, GenesisBlockOptions};
+use edr_block_api::{sync::SyncBlock, GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::{
     calculate_next_base_fee_per_gas, BlockConfig, BlockHeader, HeaderAndEvmSpec,
 };
@@ -72,11 +72,7 @@ impl BlockChainSpec for L1ChainSpec {
     type Block =
         dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
-    type BlockBuilder<
-        'builder,
-        BlockchainErrorT: 'builder + std::error::Error,
-        StateErrorT: 'builder + std::error::Error,
-    > = EthBlockBuilder<
+    type BlockBuilder<'builder, BlockchainErrorT: 'builder + std::error::Error> = EthBlockBuilder<
         'builder,
         Self::Receipt,
         Self::Block,
@@ -85,7 +81,6 @@ impl BlockChainSpec for L1ChainSpec {
         Self::ExecutionReceiptBuilder,
         Self,
         Self::LocalBlock,
-        StateErrorT,
     >;
 
     type FetchReceiptError =

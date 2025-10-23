@@ -37,7 +37,7 @@ use edr_rpc_spec::{RpcEthBlock, RpcTransaction};
 use edr_state_api::{
     account::{Account, AccountStatus},
     irregular::IrregularState,
-    StateDiff, StateError, StateOverride, SyncState,
+    DynState, StateDiff, StateOverride,
 };
 use edr_state_fork::ForkedState;
 use edr_utils::{random::RandomHashGenerator, CastArcFrom, CastArcInto};
@@ -1086,14 +1086,12 @@ impl<
         <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
     >;
 
-    type StateError = StateError;
-
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn state_at_block_number(
         &self,
         block_number: u64,
         state_overrides: &BTreeMap<u64, StateOverride>,
-    ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError> {
+    ) -> Result<Box<dyn DynState>, Self::BlockchainError> {
         if block_number > self.last_block_number() {
             return Err(ForkedBlockchainError::UnknownBlockNumber);
         }

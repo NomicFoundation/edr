@@ -2,6 +2,7 @@
 
 pub mod account;
 mod diff;
+pub mod r#dyn;
 mod error;
 pub mod irregular;
 mod r#override;
@@ -9,13 +10,12 @@ mod r#override;
 use core::{fmt::Debug, ops::Deref};
 
 use auto_impl::auto_impl;
-use dyn_clone::DynClone;
 use edr_primitives::{Address, Bytecode, HashMap, B256, U256};
 use edr_trie::sec_trie_root;
 pub use revm_database_interface::DatabaseCommit as StateCommit;
 pub use revm_state::{EvmState, EvmStorage, EvmStorageSlot};
 
-pub use self::{diff::StateDiff, error::StateError, r#override::StateOverride};
+pub use self::{diff::StateDiff, error::StateError, r#dyn::DynState, r#override::StateOverride};
 use crate::account::{AccountInfo, BasicAccount};
 
 /// Account storage mapping of indices to values.
@@ -135,6 +135,7 @@ pub trait StateMut {
     fn storage_mut(&mut self, address: Address, index: U256) -> Result<U256, Self::Error>;
 }
 
+/*
 /// Trait that meets all requirements for a synchronous database
 pub trait SyncState<ErrorT: Debug + Send>:
     State<Error = ErrorT> + StateCommit + StateDebug<Error = ErrorT> + Debug + DynClone + Send + Sync
@@ -159,6 +160,7 @@ where
         + Sync,
 {
 }
+*/
 
 /// Calculates the state root hash of the provided state.
 pub fn state_root<'a, I>(state: I) -> B256

@@ -17,16 +17,15 @@ use edr_evm_spec::{
 };
 use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;
-use edr_state_api::SyncState;
+use edr_state_api::{DynState, StateError};
 use serde::{Deserialize, Serialize};
 
 use crate::{mempool::OrderedTransaction, MemPool};
 
 /// Helper type for a chain-specific [`MineBlockResultAndState`].
-pub type MineBlockResultAndStateForChainSpec<ChainSpecT, StateErrorT> = BuiltBlockAndState<
+pub type MineBlockResultAndStateForChainSpec<ChainSpecT> = BuiltBlockAndState<
     <ChainSpecT as ChainSpec>::HaltReason,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
-    StateErrorT,
 >;
 
 /// The type of ordering to use when selecting blocks to mine.
@@ -95,7 +94,6 @@ pub fn mine_block<
         >,
     >,
     InspectorT,
-    StateErrorT,
 >(
     blockchain: &dyn Blockchain<
         ChainSpecT::Receipt,
@@ -104,9 +102,8 @@ pub fn mine_block<
         ChainSpecT::Hardfork,
         ChainSpecT::LocalBlock,
         ChainSpecT::SignedTransaction,
-        StateErrorT,
     >,
-    state: Box<dyn SyncState<StateErrorT>>,
+    state: Box<dyn DynState>,
     mem_pool: &MemPool<ChainSpecT::SignedTransaction>,
     evm_config: &EvmConfig,
     overrides: HeaderOverrides<ChainSpecT::Hardfork>,
@@ -116,8 +113,8 @@ pub fn mine_block<
     mut inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    BuiltBlockAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
-    MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
+    BuiltBlockAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock>,
+    MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateError>,
 >
 where
     BlockchainErrorT: std::error::Error + Send,
@@ -134,14 +131,12 @@ where
                         ChainSpecT::Hardfork,
                         ChainSpecT::LocalBlock,
                         ChainSpecT::SignedTransaction,
-                        StateErrorT,
                     >,
-                    &'inspector dyn SyncState<StateErrorT>,
+                    &'inspector dyn DynState,
                 >,
             >,
         >,
     >,
-    StateErrorT: std::error::Error + Send,
 {
     let block_inputs = BlockInputs::new(blockchain.hardfork());
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
@@ -214,33 +209,27 @@ where
 }
 
 /// Helper type for a chain-specific [`MineTransactionError`].
-pub type MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT, StateErrorT> =
-    MineTransactionError<
-        BlockchainErrorT,
-        <ChainSpecT as HardforkChainSpec>::Hardfork,
-        StateErrorT,
-        <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
-    >;
+pub type MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT> = MineTransactionError<
+    BlockchainErrorT,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
+>;
 
 /// An error that occurred while mining a block with a single transaction.
 #[derive(Debug, thiserror::Error)]
-pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, TransactionValidationErrorT>
-{
+pub enum MineTransactionError<BlockchainErrorT, HardforkT, TransactionValidationErrorT> {
     /// An error that occurred while constructing a block builder.
     #[error(transparent)]
     BlockBuilderCreation(
         #[from]
-        BlockBuilderCreationError<
-            DatabaseComponentError<BlockchainErrorT, StateErrorT>,
-            HardforkT,
-        >,
+        BlockBuilderCreationError<DatabaseComponentError<BlockchainErrorT, StateError>, HardforkT>,
     ),
     /// An error that occurred while executing a transaction.
     #[error(transparent)]
     BlockTransaction(
         #[from]
         BlockTransactionError<
-            DatabaseComponentError<BlockchainErrorT, StateErrorT>,
+            DatabaseComponentError<BlockchainErrorT, StateError>,
             TransactionValidationErrorT,
         >,
     ),
@@ -316,7 +305,7 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, StateErrorT, Transact
     Signature(#[from] SignatureError),
     /// An error that occurred while querying state.
     #[error(transparent)]
-    State(StateErrorT),
+    State(StateError),
 }
 
 /// Mines a block with a single transaction.
@@ -331,7 +320,6 @@ pub fn mine_block_with_single_transaction<
     BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: BlockChainSpec,
     InspectorT,
-    StateErrorT,
 >(
     blockchain: &dyn Blockchain<
         ChainSpecT::Receipt,
@@ -340,9 +328,8 @@ pub fn mine_block_with_single_transaction<
         ChainSpecT::Hardfork,
         ChainSpecT::LocalBlock,
         ChainSpecT::SignedTransaction,
-        StateErrorT,
     >,
-    state: Box<dyn SyncState<StateErrorT>>,
+    state: Box<dyn DynState>,
     transaction: ChainSpecT::SignedTransaction,
     evm_config: &EvmConfig,
     overrides: HeaderOverrides<ChainSpecT::Hardfork>,
@@ -351,8 +338,8 @@ pub fn mine_block_with_single_transaction<
     inspector: Option<&mut InspectorT>,
     custom_precompiles: &HashMap<Address, PrecompileFn>,
 ) -> Result<
-    BuiltBlockAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock, StateErrorT>,
-    MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT, StateErrorT>,
+    BuiltBlockAndState<ChainSpecT::HaltReason, ChainSpecT::LocalBlock>,
+    MineTransactionErrorForChainSpec<ChainSpecT, BlockchainErrorT>,
 >
 where
     InspectorT: for<'inspector> Inspector<
@@ -368,14 +355,12 @@ where
                         ChainSpecT::Hardfork,
                         ChainSpecT::LocalBlock,
                         ChainSpecT::SignedTransaction,
-                        StateErrorT,
                     >,
-                    &'inspector dyn SyncState<StateErrorT>,
+                    &'inspector dyn DynState,
                 >,
             >,
         >,
     >,
-    StateErrorT: std::error::Error,
 {
     let max_priority_fee_per_gas = transaction
         .max_priority_fee_per_gas()

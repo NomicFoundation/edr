@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, convert::Infallible, fmt::Debug, num::NonZeroU64, sync::Arc};
+use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, sync::Arc};
 
 use edr_block_api::{
     validate_next_block, Block, BlockAndTotalDifficulty, BlockReceipts, BlockValidityError,
@@ -15,7 +15,7 @@ use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
-use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};
+use edr_state_api::{DynState, StateDiff, StateOverride};
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_utils::CastArcInto;
 
@@ -404,14 +404,12 @@ impl<
 {
     type BlockchainError = LocalBlockchainError;
 
-    type StateError = StateError;
-
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn state_at_block_number(
         &self,
         block_number: u64,
         state_overrides: &BTreeMap<u64, StateOverride>,
-    ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError> {
+    ) -> Result<Box<dyn DynState>, Self::BlockchainError> {
         if block_number > self.last_block_number() {
             return Err(LocalBlockchainError::UnknownBlockNumber);
         }

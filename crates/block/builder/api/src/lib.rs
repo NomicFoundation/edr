@@ -13,7 +13,7 @@ pub use edr_evm_spec::{
     result::ExecutionResult, CfgEnv, Context, Inspector, Journal, TransactionError,
 };
 use edr_primitives::{Address, HashMap};
-use edr_state_api::{StateDiff, SyncState};
+use edr_state_api::{DynState, StateDiff, StateError};
 pub use revm_precompile::PrecompileFn;
 
 /// An error caused during construction of a block builder.
@@ -83,11 +83,11 @@ pub enum BlockTransactionError<DatabaseErrorT, TransactionValidationErrorT> {
 /// The result of building a block, including the state. This result needs to be
 /// inserted into the blockchain to be persistent.
 #[derive(Debug)]
-pub struct BuiltBlockAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT> {
+pub struct BuiltBlockAndState<HaltReasonT: HaltReasonTrait, LocalBlockT> {
     /// Mined block
     pub block: LocalBlockT,
     /// State after mining the block
-    pub state: Box<dyn SyncState<StateErrorT>>,
+    pub state: Box<dyn DynState>,
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
@@ -115,9 +115,6 @@ pub trait BlockBuilder<
     /// The local block type constructed by the builder.
     type LocalBlock;
 
-    /// The state's error type.
-    type StateError: std::error::Error;
-
     /// Creates a new block builder.
     fn new_block_builder(
         blockchain: &'builder dyn Blockchain<
@@ -127,9 +124,9 @@ pub trait BlockBuilder<
             ChainSpecT::Hardfork,
             Self::LocalBlock,
             ChainSpecT::SignedTransaction,
-            Self::StateError,
+            
         >,
-        state: Box<dyn SyncState<Self::StateError>>,
+        state: Box<dyn DynState>,
         evm_config: &EvmConfig,
         inputs: BlockInputs,
         overrides: HeaderOverrides<ChainSpecT::Hardfork>,
@@ -137,7 +134,7 @@ pub trait BlockBuilder<
     ) -> Result<
         Self,
         BlockBuilderCreationError<
-            DatabaseComponentError<Self::BlockchainError, Self::StateError>,
+            DatabaseComponentError<Self::BlockchainError, StateError>,
             ChainSpecT::Hardfork,
         >,
     >;
@@ -152,7 +149,7 @@ pub trait BlockBuilder<
     ) -> Result<
         (),
         BlockTransactionError<
-            DatabaseComponentError<Self::BlockchainError, Self::StateError>,
+            DatabaseComponentError<Self::BlockchainError, StateError>,
             <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     >;
@@ -165,7 +162,7 @@ pub trait BlockBuilder<
     ) -> Result<
         (),
         BlockTransactionError<
-            DatabaseComponentError<Self::BlockchainError, Self::StateError>,
+            DatabaseComponentError<Self::BlockchainError, StateError>,
             <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     >
@@ -183,9 +180,9 @@ pub trait BlockBuilder<
                             ChainSpecT::Hardfork,
                             Self::LocalBlock,
                             ChainSpecT::SignedTransaction,
-                            Self::StateError,
+                            
                         >,
-                        &'inspector dyn SyncState<Self::StateError>,
+                        &'inspector dyn DynState,
                     >,
                 >,
             >,
@@ -196,7 +193,7 @@ pub trait BlockBuilder<
         self,
         rewards: Vec<(Address, u128)>,
     ) -> Result<
-        BuiltBlockAndState<ChainSpecT::HaltReason, Self::LocalBlock, Self::StateError>,
-        Self::StateError,
+        BuiltBlockAndState<ChainSpecT::HaltReason, Self::LocalBlock>,
+        StateError,
     >;
 }

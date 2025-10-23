@@ -14,17 +14,9 @@ pub trait SyncBlockchain<
     HardforkT: Send + Sync,
     LocalBlockT: Send + Sync,
     SignedTransactionT: Send + Sync,
-    StateErrorT,
 >:
-    Blockchain<
-        BlockReceiptT,
-        BlockT,
-        BlockchainErrorT,
-        HardforkT,
-        LocalBlockT,
-        SignedTransactionT,
-        StateErrorT,
-    > + Send
+    Blockchain<BlockReceiptT, BlockT, BlockchainErrorT, HardforkT, LocalBlockT, SignedTransactionT>
+    + Send
     + Sync
     + Debug
 {
@@ -41,14 +33,12 @@ impl<
                 HardforkT,
                 LocalBlockT,
                 SignedTransactionT,
-                StateErrorT,
             > + Send
             + Sync
             + Debug,
         HardforkT: Send + Sync,
         LocalBlockT: Send + Sync,
         SignedTransactionT: TransactionValidation<ValidationError: Send + Sync> + Send + Sync,
-        StateErrorT,
     >
     SyncBlockchain<
         BlockReceiptT,
@@ -57,7 +47,6 @@ impl<
         HardforkT,
         LocalBlockT,
         SignedTransactionT,
-        StateErrorT,
     > for BlockchainT
 {
 }
