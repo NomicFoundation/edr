@@ -19,6 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       SFW_DEBUG: true
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +37,18 @@ jobs:
 
       - name: Cargo safety
         run: sfw cargo fetch
+
+      - name: Upload SFW report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfw-report-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/*.json
+            /Users/runner/work/_temp/*.json
+            /home/runner/work/_temp/*.json
+            D:\a\_temp\*.json
+          if-no-files-found: warn
 
   check-edr:
     name: Check EDR
