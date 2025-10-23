@@ -133,6 +133,7 @@ jobs:
 
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
+            npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
             sfw pnpm run build --strip
 
@@ -156,6 +157,7 @@ jobs:
 
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
+            npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
             sfw pnpm run build --strip
 
