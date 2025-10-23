@@ -111,6 +111,10 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Download Cargo dependecies
+        if: ${{ !matrix.settings.docker }}
+        run: sfw cargo fetch
+
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
         run: ${{ matrix.settings.build }}
@@ -135,7 +139,7 @@ jobs:
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
-            sfw cargo fetch
+            cargo fetch
             pnpm run build --strip
 
       - name: Build in docker (musl)
@@ -160,7 +164,7 @@ jobs:
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
-            sfw cargo fetch
+            cargo fetch
             pnpm run build --strip
 
       - name: Upload artifact
