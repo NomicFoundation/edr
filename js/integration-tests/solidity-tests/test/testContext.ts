@@ -209,7 +209,7 @@ export function assertStackTraces(
   }
   if (actual.stackTrace.kind === "UnsafeToReplay") {
     throw new Error(
-      `Stack trace is unsafe to replay. Global forking with latest block: '${actual.stackTrace.impureCheatcodes}' to impure cheatcodes: '${actual.stackTrace.impureCheatcodes}'`
+      `Stack trace is unsafe to replay. Impure cheatcodes: '${actual.stackTrace.impureCheatcodes}'`
     );
   }
   if (actual.stackTrace.kind === "UnexpectedError") {

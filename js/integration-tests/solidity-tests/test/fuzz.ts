@@ -207,7 +207,7 @@ describe("Fuzz and invariant testing", function () {
   });
 
   it("BuggyInvariant", async function () {
-    const expectedReason = "revert: one is not two";
+    const expectedReason = "one is not two";
     const expectedStackTraces = [
       { contract: "BuggyInvariantTest", function: "invariant" },
     ];

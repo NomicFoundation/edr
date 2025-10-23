@@ -5,6 +5,7 @@ use std::{
     fmt,
     ops::Deref,
 };
+use alloy_sol_types::{sol_data, SolValue};
 
 /// Container type for API endpoints, like various RPC endpoints
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -78,41 +79,40 @@ impl fmt::Display for RpcEndpointType {
     }
 }
 
-/// Represents a single endpoint
+/// Represents a single endpoint url (ws, http)
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RpcEndpointUrl {
-    /// A raw Url (ws, http)
-    Url(String),
-    /// An endpoint that contains at least one `${ENV_VAR}` placeholder
-    ///
-    /// **Note:** this contains the endpoint as is, like `https://eth-mainnet.alchemyapi.io/v2/${API_KEY}` or `${EPC_ENV_VAR}`
-    Env(String),
-}
+pub struct RpcEndpointUrl(String);
 
 impl RpcEndpointUrl {
-    /// Returns the url variant
-    pub fn as_url(&self) -> Option<&str> {
-        match self {
-            Self::Url(url) => Some(url),
-            Self::Env(_) => None,
-        }
+    pub fn new(url: impl Into<String>) -> Self {
+        Self(url.into())
     }
+}
 
-    /// Returns the env variant
-    pub fn as_env(&self) -> Option<&str> {
-        match self {
-            Self::Env(val) => Some(val),
-            Self::Url(_) => None,
-        }
+impl SolValue for RpcEndpointUrl {
+    type SolType = sol_data::String;
+
+    #[inline]
+    fn abi_encode(&self) -> Vec<u8> {
+        self.0.abi_encode()
+    }
+}
+
+impl AsRef<str> for RpcEndpointUrl {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
     }
 }
 
 impl fmt::Display for RpcEndpointUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Url(url) => url.fmt(f),
-            Self::Env(var) => var.fmt(f),
-        }
+        self.0.fmt(f)
+    }
+}
+
+impl From<RpcEndpointUrl> for String {
+    fn from(endpoint: RpcEndpointUrl) -> Self {
+        endpoint.0
     }
 }
 
@@ -124,7 +124,7 @@ impl From<RpcEndpointUrl> for RpcEndpointType {
 
 impl From<RpcEndpointUrl> for RpcEndpoint {
     fn from(endpoint: RpcEndpointUrl) -> Self {
-        Self { endpoint, ..Default::default() }
+        Self { url: endpoint, ..Default::default() }
     }
 }
 
@@ -184,7 +184,7 @@ impl fmt::Display for RpcEndpointConfig {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RpcEndpoint {
     /// endpoint url or env
-    pub endpoint: RpcEndpointUrl,
+    pub url: RpcEndpointUrl,
 
     /// Token to be used as authentication
     pub auth: Option<RpcAuth>,
@@ -194,14 +194,14 @@ pub struct RpcEndpoint {
 }
 
 impl RpcEndpoint {
-    pub fn new(endpoint: RpcEndpointUrl) -> Self {
-        Self { endpoint, ..Default::default() }
+    pub fn new(url: RpcEndpointUrl) -> Self {
+        Self { url, ..Default::default() }
     }
 }
 
 impl fmt::Display for RpcEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { endpoint, auth, config } = self;
+        let Self { url: endpoint, auth, config } = self;
         write!(f, "{endpoint}")?;
         write!(f, "{config}")?;
         if let Some(auth) = auth {
@@ -220,7 +220,7 @@ impl From<RpcEndpoint> for RpcEndpointType {
 impl Default for RpcEndpoint {
     fn default() -> Self {
         Self {
-            endpoint: RpcEndpointUrl::Url("http://localhost:8545".to_string()),
+            url: RpcEndpointUrl::new("http://localhost:8545"),
             config: RpcEndpointConfig::default(),
             auth: None,
         }
