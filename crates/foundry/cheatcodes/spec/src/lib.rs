@@ -1,15 +1,16 @@
-#![doc = include_str!("../README.md")]
-#![warn(
-    missing_docs,
-    unreachable_pub,
-    unused_crate_dependencies,
-    rust_2018_idioms
-)]
-#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
+//! Cheatcode specification for Foundry.
 
-use std::{borrow::Cow, fmt};
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
+// TODO https://github.com/NomicFoundation/edr/issues/1076
+#![allow(clippy::indexing_slicing)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::default_trait_access)]
 
 use serde::{Deserialize, Serialize};
+use std::{borrow::Cow, fmt};
 
 mod cheatcode;
 pub use cheatcode::{Cheatcode, CheatcodeDef, Group, Safety, Status};
@@ -88,19 +89,23 @@ impl Cheatcodes<'static> {
                 Vm::Wallet::STRUCT.clone(),
                 Vm::FfiResult::STRUCT.clone(),
                 Vm::ChainInfo::STRUCT.clone(),
+                Vm::Chain::STRUCT.clone(),
                 Vm::AccountAccess::STRUCT.clone(),
                 Vm::StorageAccess::STRUCT.clone(),
                 Vm::Gas::STRUCT.clone(),
+                Vm::DebugStep::STRUCT.clone(),
+                Vm::PotentialRevert::STRUCT.clone(),
+                Vm::AccessListItem::STRUCT.clone(),
             ]),
             enums: Cow::Owned(vec![
                 Vm::CallerMode::ENUM.clone(),
                 Vm::AccountAccessKind::ENUM.clone(),
                 Vm::ExecutionContext::ENUM.clone(),
             ]),
-            errors: Vm::VM_ERRORS.iter().map(|&x| x.clone()).collect(),
+            errors: Vm::VM_ERRORS.iter().copied().cloned().collect(),
             events: Cow::Borrowed(&[]),
-            // events: Vm::VM_EVENTS.iter().map(|&x| x.clone()).collect(),
-            cheatcodes: Vm::CHEATCODES.iter().map(|&x| x.clone()).collect(),
+            // events: Vm::VM_EVENTS.iter().copied().cloned().collect(),
+            cheatcodes: Vm::CHEATCODES.iter().copied().cloned().collect(),
         }
     }
 }
@@ -176,7 +181,7 @@ interface Vm {{
 
         eprintln!("\n\x1b[31;1merror\x1b[0m: {} was not up-to-date, updating\n", file.display());
         if std::env::var("CI").is_ok() {
-            eprintln!("    NOTE: run `cargo generate-cheats-interface` locally and commit the updated files\n");
+            eprintln!("    NOTE: run `cargo cheats` locally and commit the updated files\n");
         }
         if let Some(parent) = file.parent() {
             let _ = fs::create_dir_all(parent);

@@ -246,7 +246,7 @@ impl SolidityTestRunnerConfigArgs {
                     RpcEndpoints::new(
                         endpoints
                             .into_iter()
-                            .map(|(chain, url)| (chain, RpcEndpointUrl::Url(url))),
+                            .map(|(chain, url)| (chain, RpcEndpointUrl::new(url))),
                     )
                 })
                 .unwrap_or_default(),
@@ -267,6 +267,7 @@ impl SolidityTestRunnerConfigArgs {
                 .into_iter()
                 .map(|AddressLabel { address, label }| Ok((address.try_cast()?, label)))
                 .collect::<Result<_, napi::Error>>()?,
+            seed: fuzz.seed,
             allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
         };
 

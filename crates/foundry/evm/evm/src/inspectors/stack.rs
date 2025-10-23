@@ -29,7 +29,6 @@ use revm::{
     state::{Account, AccountStatus},
     DatabaseCommit, ExecuteEvm, Inspector, Journal,
 };
-
 use super::{Cheatcodes, CheatsConfig, CoverageCollector, Fuzzer, LogCollector, TracingInspector};
 
 #[derive(Clone, Debug, Default)]
@@ -459,20 +458,24 @@ impl<
             code_coverage.report().map_err(|error| eyre!(error))?;
         }
 
+        let labels = self
+            .cheatcodes
+            .as_ref()
+            .map(|cheatcodes| {
+                cheatcodes
+                    .labels
+                    .clone()
+                    .into_iter()
+                    .map(|l| (l.0, l.1))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let logs = self.log_collector.map(|logs| logs.logs).unwrap_or_default();
+
         Ok(InspectorData {
-            logs: self.log_collector.map(|logs| logs.logs).unwrap_or_default(),
-            labels: self
-                .cheatcodes
-                .as_ref()
-                .map(|cheatcodes| {
-                    cheatcodes
-                        .labels
-                        .clone()
-                        .into_iter()
-                        .map(|l| (l.0, l.1))
-                        .collect()
-                })
-                .unwrap_or_default(),
+            logs,
+            labels,
             traces,
             coverage: self
                 .coverage

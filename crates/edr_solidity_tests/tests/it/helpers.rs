@@ -717,7 +717,7 @@ pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
 fn mock_rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([(
         "rpcAliasFake",
-        RpcEndpointUrl::Url("https://example.com".to_string()),
+        RpcEndpointUrl::new("https://example.com".to_string()),
     )])
 }
 
@@ -725,27 +725,23 @@ fn remote_rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
         (
             "rpcAliasMainnet",
-            RpcEndpointUrl::Url(get_alchemy_url_for_network(NetworkType::Ethereum)),
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Ethereum)),
         ),
         (
             "rpcAliasSepolia",
-            RpcEndpointUrl::Url(get_alchemy_url_for_network(NetworkType::Sepolia)),
-        ),
-        (
-            "rpcEnvAlias",
-            RpcEndpointUrl::Env("${RPC_ENV_ALIAS}".to_string()),
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Sepolia)),
         ),
         (
             "rpcAliasOptimism",
-            RpcEndpointUrl::Url(get_alchemy_url_for_network(NetworkType::Optimism)),
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Optimism)),
         ),
         (
             "rpcAliasPolygon",
-            RpcEndpointUrl::Url(get_alchemy_url_for_network(NetworkType::Polygon)),
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Polygon)),
         ),
         (
             "rpcAliasArbitrum",
-            RpcEndpointUrl::Url(get_alchemy_url_for_network(NetworkType::Arbitrum)),
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Arbitrum)),
         ),
     ])
 }
