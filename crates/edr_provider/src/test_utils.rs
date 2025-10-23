@@ -8,7 +8,7 @@ use edr_chain_l1::{
     rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::TransactionValidation;
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -142,11 +142,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
 pub fn pending_base_fee<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -154,7 +150,7 @@ pub fn pending_base_fee<
 ) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
     let block = data.mine_pending_block()?.block;
 
-    let base_fee = block.header().base_fee_per_gas.unwrap_or(1);
+    let base_fee = block.block_header().base_fee_per_gas.unwrap_or(1);
 
     Ok(base_fee)
 }

@@ -1,6 +1,6 @@
 use edr_block_header::{BlobGas, BlockConfig, HeaderOverrides};
-use edr_eip1559::BaseFeeParams;
 use edr_chain_spec::HardforkChainSpec;
+use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Bytes, B256};
 use edr_state_api::StateDiff;
 
@@ -51,9 +51,9 @@ impl<HardforkT> From<GenesisBlockOptions<HardforkT>> for HeaderOverrides<Hardfor
 /// Trait for constructing a chain-specific genesis block.
 pub trait GenesisBlockFactory: HardforkChainSpec {
     /// The error type for genesis block creation.
-    type CreationError: std::error::Error;
+    type GenesisBlockCreationError: std::error::Error;
 
-    /// The local block type.
+    /// Type representing a locally mined block.
     type LocalBlock;
 
     /// Constructs a genesis block for the given chain spec.
@@ -61,17 +61,17 @@ pub trait GenesisBlockFactory: HardforkChainSpec {
         genesis_diff: StateDiff,
         block_config: BlockConfig<'_, Self::Hardfork>,
         options: GenesisBlockOptions<Self::Hardfork>,
-    ) -> Result<Self::LocalBlock, Self::CreationError>;
+    ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError>;
 }
 
 /// A supertrait for [`GenesisBlockFactory`] that is safe to send between
 /// threads.
 pub trait SyncGenesisBlockFactory:
-    GenesisBlockFactory<CreationError: Send + Sync> + Sync + Send
+    GenesisBlockFactory<GenesisBlockCreationError: Send + Sync> + Sync + Send
 {
 }
 
 impl<FactoryT> SyncGenesisBlockFactory for FactoryT where
-    FactoryT: GenesisBlockFactory<CreationError: Send + Sync> + Sync + Send
+    FactoryT: GenesisBlockFactory<GenesisBlockCreationError: Send + Sync> + Sync + Send
 {
 }

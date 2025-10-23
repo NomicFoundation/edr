@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use edr_block_api::Block;
-use edr_chain_spec::{
-    EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
-};
+use edr_blockchain_api::r#dyn::DynBlockchainError;
+use edr_chain_spec::{ExecutableTransaction as _, TransactionValidation};
 use edr_eth::PreEip1898BlockSpec;
 use edr_evm::transaction;
 use edr_primitives::{Bytes, B256, U256};
@@ -48,10 +47,7 @@ pub fn handle_get_transaction_by_block_hash_and_index<
 pub fn handle_get_transaction_by_block_spec_and_index<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -166,9 +162,7 @@ pub fn handle_send_transaction_request<
         TimerT,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+                               + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -191,9 +185,7 @@ pub fn handle_send_raw_transaction_request<
         TimerT,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+                               + TransactionValidation<ValidationError: PartialEq>,
         PooledTransaction: IsEip155,
     >,
     TimerT: Clone + TimeSinceEpoch,
@@ -227,16 +219,14 @@ pub fn calculate_eip1559_fee_parameters<
         TimerT,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+                               + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     max_fee_per_gas: Option<u128>,
     max_priority_fee_per_gas: Option<u128>,
-) -> Result<(u128, u128), Box<dyn std::error::Error>> {
+) -> Result<(u128, u128), DynBlockchainError> {
     const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
 
     /// # Panics
@@ -247,15 +237,13 @@ pub fn calculate_eip1559_fee_parameters<
             TimerT,
             SignedTransaction: Default
                                    + TransactionType<Type: IsEip4844>
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + PartialEq,
-            >,
+                                   + TransactionValidation<ValidationError: PartialEq>,
         >,
         TimerT: Clone + TimeSinceEpoch,
     >(
         data: &ProviderData<ChainSpecT, TimerT>,
         max_priority_fee_per_gas: u128,
-    ) -> Result<u128, Box<dyn std::error::Error>> {
+    ) -> Result<u128, DynBlockchainError> {
         let base_fee_per_gas = data
             .next_block_base_fee_per_gas()?
             .expect("We already validated that the block is post-London.");
@@ -289,9 +277,7 @@ fn send_raw_transaction_and_log<
         TimerT,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+                               + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(

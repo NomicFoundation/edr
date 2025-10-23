@@ -89,9 +89,7 @@ pub fn mine_block<
         SignedTransaction: 'static
                                + Clone
                                + Debug
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+                               + TransactionValidation<ValidationError: PartialEq>,
     >,
     InspectorT,
 >(

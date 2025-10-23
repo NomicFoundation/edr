@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use edr_evm::hardfork::ChainOverride;
 use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_evm::hardfork::ChainOverride;
 use edr_provider::{
     test_utils::create_test_config_with_fork, time::CurrentTime, ForkConfig, NoopLogger, Provider,
     ProviderSpec, SyncProviderSpec,
@@ -17,10 +17,7 @@ pub(crate) fn get_chain_fork_provider<
             CurrentTime,
             BlockEnv: Default,
             Hardfork = edr_chain_l1::Hardfork,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + PartialEq,
-            >,
+            SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
         > + ProviderSpec<CurrentTime>,
 >(
     chain_id: u64,

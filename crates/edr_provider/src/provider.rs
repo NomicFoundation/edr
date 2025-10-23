@@ -82,10 +82,7 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + PartialEq,
-            >,
+            SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
         >,
         TimerT: Clone + TimeSinceEpoch,
     > Provider<ChainSpecT, TimerT>
@@ -151,9 +148,7 @@ impl<
             SignedTransaction: Default
                                    + TransactionMut
                                    + TransactionType<Type: IsEip4844>
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + PartialEq,
-            >,
+                                   + TransactionValidation<ValidationError: PartialEq>,
         >,
         TimerT: Clone + TimeSinceEpoch,
     > Provider<ChainSpecT, TimerT>

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use edr_chain_l1::L1ChainSpec;
-use edr_evm::trace::Trace;
 use edr_chain_spec::{
     EvmHaltReason, EvmTransactionValidationError, HaltReasonTrait, TransactionValidation,
 };
+use edr_evm::trace::Trace;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,
@@ -57,9 +57,7 @@ pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
     SignedTransaction: Default
                            + TransactionMut
                            + TransactionType<Type: IsEip4844>
-                           + TransactionValidation<
-        ValidationError: From<EvmTransactionValidationError> + PartialEq,
-    >,
+                           + TransactionValidation<ValidationError: PartialEq>,
 >
 {
     /// The string type identifier of the chain.

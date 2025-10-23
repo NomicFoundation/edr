@@ -1,4 +1,5 @@
-use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
+use edr_block_api::Block as _;
+use edr_chain_spec::{EvmSpecId, TransactionValidation};
 use edr_eth::{fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, BlockSpec};
 use edr_evm::{overrides::StateOverrides, transaction};
 use edr_primitives::{U256, U64};
@@ -19,9 +20,7 @@ pub fn handle_estimate_gas<
         TimerT,
         SignedTransaction: Default
                                + TransactionMut
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+                               + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -56,10 +55,7 @@ pub fn handle_estimate_gas<
 pub fn handle_fee_history<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -120,10 +116,7 @@ The reward percentiles should be in non-decreasing order, but the percentile num
 fn resolve_estimate_gas_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -156,7 +149,8 @@ fn resolve_estimate_gas_request<
             let max_fee_per_gas = max_fee_per_gas.map_or_else(
                 || -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
                     let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
-                        max_priority_fee_per_gas + block.header().base_fee_per_gas.unwrap_or(0)
+                        max_priority_fee_per_gas
+                            + block.block_header().base_fee_per_gas.unwrap_or(0)
                     } else {
                         // Pending block
                         let base_fee = data

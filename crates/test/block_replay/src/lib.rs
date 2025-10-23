@@ -6,7 +6,9 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use edr_block_api::{Block, EthBlockData, FetchBlockReceipts, LocalBlock as _};
+use edr_block_api::{
+    Block, EthBlockData, FetchBlockReceipts, GenesisBlockFactory, LocalBlock as _,
+};
 use edr_block_builder_api::{BlockBuilder as _, BlockInputs};
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_block_remote::RemoteBlock;
@@ -32,7 +34,7 @@ type ForkedStateAndBlockchainForChainSpec<ChainSpecT> = ForkedStateAndBlockchain
     <ChainSpecT as BlockChainSpec>::Block,
     <ChainSpecT as BlockChainSpec>::FetchReceiptError,
     <ChainSpecT as HardforkChainSpec>::Hardfork,
-    <ChainSpecT as BlockChainSpec>::LocalBlock,
+    <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     ChainSpecT,
     <ChainSpecT as RpcChainSpec>::RpcReceipt,
     <ChainSpecT as RpcChainSpec>::RpcTransaction,
@@ -381,8 +383,7 @@ pub async fn assert_replay_header<
             *   ChainSpecT::ExecutionReceipt<FilterLog>, >, ExecutionReceipt<FilterLog>:
             *   PartialEq, LocalBlock: BlockReceipts< Arc<ChainSpecT::BlockReceipt>, Error =
             *   BlockchainErrorForChainSpec<ChainSpecT>, >, SignedTransaction:
-            *   TransactionValidation< ValidationError: From<EvmTransactionValidationError> +
-            *   Send + Sync, >,
+            *   TransactionValidation< ValidationError: Send + Sync, >,
             * >, */
 >(
     runtime: tokio::runtime::Handle,
@@ -460,9 +461,10 @@ macro_rules! impl_full_block_tests {
                 #[serial_test::serial]
                 #[tokio::test(flavor = "multi_thread")]
                 async fn [<full_block_ $name>]() -> anyhow::Result<()> {
+                    let runtime = tokio::runtime::Handle::current();
                     let url = $url;
 
-                    $crate::test_utils::run_full_block::<$chain_spec>(url, $block_number, $header_overrides_constructor).await
+                    $crate::run_full_block::<$chain_spec>(runtime, url, $block_number, $header_overrides_constructor).await
                 }
             }
         )+

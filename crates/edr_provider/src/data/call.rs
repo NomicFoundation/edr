@@ -1,19 +1,18 @@
 use edr_block_header::BlockHeader;
-use edr_blockchain_api::BlockHashByNumber;
-use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
+use edr_chain_spec::BlockEnvConstructor;
+use edr_chain_spec_provider::ProviderChainSpec;
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_evm2::guaranteed_dry_run_with_inspector;
-use edr_evm_spec::{result::ExecutionResult, ContextForChainSpec, Inspector};
+use edr_evm_spec::{result::ExecutionResult, CfgEnv, ContextForChainSpec, Inspector};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{State, StateError};
 
-use crate::{
-    error::ProviderErrorForChainSpec, time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
-};
+use crate::{error::ProviderErrorForChainSpec, ProviderError};
 
 /// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT, TimerT>(
+pub(super) fn run_call<ChainSpecT, BlockchainT, InspectorT, StateT>(
     blockchain: BlockchainT,
     header: &BlockHeader,
     state: StateT,
@@ -23,27 +22,24 @@ pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT, TimerT>(
     inspector: &mut InspectorT,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    BlockchainT: BlockHashByNumber<Error = Box<dyn std::error::Error>>,
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
+    BlockchainT: BlockHashByNumber<Error = DynBlockchainError>,
+    ChainSpecT: ProviderChainSpec,
+    InspectorT: for<'inspector> Inspector<
+        ContextForChainSpec<
+            ChainSpecT,
+            ChainSpecT::BlockEnv<'inspector, BlockHeader>,
+            WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
         >,
     >,
-    InspectorT: Inspector<
-        ContextForChainSpec<ChainSpecT, WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>>,
-    >,
     StateT: State<Error = StateError>,
-    TimerT: Clone + TimeSinceEpoch,
 {
     // `eth_call` uses a base fee of zero to mimick geth's behavior
     let mut header = header.clone();
     header.base_fee_per_gas = header.base_fee_per_gas.map(|_| 0);
 
-    let block = ChainSpecT::new_block_env(&header, cfg_env.spec.into());
+    let block = ChainSpecT::BlockEnv::new_block_env(&header, cfg_env.spec);
 
-    guaranteed_dry_run_with_inspector::<_, ChainSpecT, _, _>(
+    guaranteed_dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
         blockchain,
         state,
         cfg_env,

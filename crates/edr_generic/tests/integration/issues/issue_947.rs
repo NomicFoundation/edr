@@ -2,12 +2,12 @@
 use std::str::FromStr as _;
 
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
+use edr_chain_spec::{
+    EvmHeaderValidationError, EvmTransactionValidationError, TransactionValidation,
+};
 use edr_evm::{
     hardfork::{self, ChainOverride},
     transaction::TransactionError,
-};
-use edr_chain_spec::{
-    EvmHeaderValidationError, EvmTransactionValidationError, TransactionValidation,
 };
 use edr_generic::GenericChainSpec;
 use edr_primitives::{address, B256};
@@ -30,10 +30,7 @@ fn get_provider<
             CurrentTime,
             BlockEnv: Default,
             Hardfork = edr_chain_l1::Hardfork,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + PartialEq,
-            >,
+            SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
         > + ProviderSpec<CurrentTime>,
 >(
     hardfork: edr_chain_l1::Hardfork,

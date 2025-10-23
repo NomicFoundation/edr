@@ -1,4 +1,4 @@
-use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::TransactionValidation;
 
 use crate::{
     data::ProviderData, spec::SyncProviderSpec, time::TimeSinceEpoch, ProviderError,
@@ -8,10 +8,7 @@ use crate::{
 pub fn handle_mine<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(

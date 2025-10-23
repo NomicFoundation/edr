@@ -1,12 +1,11 @@
 use std::{collections::BTreeMap, str::FromStr};
 
-use edr_block_api::{GenesisBlockFactory as _, GenesisBlockOptions};
+use edr_block_api::{GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::BlockConfig;
 use edr_blockchain_api::{BlockchainMetadata as _, StateAtBlock as _};
 use edr_blockchain_local::LocalBlockchain;
 use edr_chain_l1::{L1ChainSpec, L1_BASE_FEE_PARAMS, L1_MIN_ETHASH_DIFFICULTY};
 use edr_chain_spec::{ChainSpec, HardforkChainSpec};
-use edr_chain_spec_block::BlockChainSpec;
 use edr_coverage::CoverageHitCollector;
 use edr_evm2::{dry_run_with_inspector, run};
 use edr_evm_spec::{
@@ -29,7 +28,7 @@ const INCREMENT_DEPLOYED_BYTECODE: &str =
 type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as HardforkChainSpec>::Hardfork,
-    <ChainSpecT as BlockChainSpec>::LocalBlock,
+    <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
 

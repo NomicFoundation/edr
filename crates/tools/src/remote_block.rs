@@ -5,8 +5,8 @@ use clap::ValueEnum;
 use edr_block_api::FetchBlockReceipts;
 use edr_block_header::{BlockHeader, HeaderOverrides};
 use edr_chain_l1::L1ChainSpec;
-use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block};
 use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_evm::{blockchain::BlockchainErrorForChainSpec, test_utils::run_full_block};
 use edr_op::{test_utils::isthmus_header_overrides, OpChainSpec};
 use edr_provider::{spec::SyncRuntimeSpec, test_utils::l1_header_overrides};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt};
@@ -63,10 +63,7 @@ where
                 Arc<ChainSpecT::BlockReceipt>,
                 Error = BlockchainErrorForChainSpec<ChainSpecT>,
             >,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + Send + Sync,
-            >,
+            SignedTransaction: Default + TransactionValidation<ValidationError: Send + Sync>,
         >,
 {
     let rpc_client = EthRpcClient::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;

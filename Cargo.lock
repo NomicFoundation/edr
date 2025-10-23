@@ -2391,6 +2391,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_state_api",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -2567,6 +2568,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt_spec",
  "edr_rpc_spec",
+ "edr_transaction",
  "edr_utils",
  "serde",
 ]
@@ -2597,7 +2599,6 @@ dependencies = [
  "edr_blockchain_local",
  "edr_chain_l1",
  "edr_chain_spec",
- "edr_chain_spec_block",
  "edr_defaults",
  "edr_evm",
  "edr_evm2",
@@ -3043,11 +3044,13 @@ dependencies = [
  "edr_precompile",
  "edr_primitives",
  "edr_receipt",
+ "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_signer",
  "edr_solidity",
  "edr_state_api",
+ "edr_test_block_replay",
  "edr_test_utils",
  "edr_transaction",
  "edr_utils",

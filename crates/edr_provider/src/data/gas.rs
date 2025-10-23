@@ -1,29 +1,27 @@
 use core::cmp;
-use std::sync::Arc;
 
 use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
-use edr_chain_spec::{
-    EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
-};
+use edr_chain_spec::ExecutableTransaction as _;
+use edr_chain_spec_block::BlockChainSpec;
+use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eth::reward_percentile::RewardPercentile;
 use edr_evm::trace::TraceCollector;
-use edr_evm_spec::result::ExecutionResult;
+use edr_evm_spec::{result::ExecutionResult, CfgEnv};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
-use edr_state_api::{DynState, StateError};
+use edr_state_api::DynState;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
 
-use crate::{data::call, error::ProviderErrorForChainSpec, time::TimeSinceEpoch, SyncProviderSpec};
+use crate::{
+    data::call, error::ProviderErrorForChainSpec, spec::BlockchainForChainSpec,
+    time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
+};
 
-pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain: &'a dyn SyncBlockchainForChainSpec<
-        BlockchainErrorForChainSpec<ChainSpecT>,
-        ChainSpecT,
-        StateError,
-    >,
+pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: BlockChainSpec> {
+    pub blockchain: &'a dyn BlockchainForChainSpec<ChainSpecT>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
@@ -40,15 +38,7 @@ pub(super) fn check_gas_limit<ChainSpecT, TimerT>(
     args: CheckGasLimitArgs<'_, ChainSpecT>,
 ) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: Default + TransactionMut>,
     TimerT: Clone + TimeSinceEpoch,
 {
     let CheckGasLimitArgs {
@@ -64,7 +54,7 @@ where
 
     transaction.set_gas_limit(gas_limit);
 
-    let result = call::run_call::<_, ChainSpecT, _, _, TimerT>(
+    let result = call::run_call::<ChainSpecT, _, _, _>(
         blockchain,
         header,
         state,
@@ -77,12 +67,8 @@ where
     Ok(matches!(result, ExecutionResult::Success { .. }))
 }
 
-pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain: &'a dyn SyncBlockchainForChainSpec<
-        BlockchainErrorForChainSpec<ChainSpecT>,
-        ChainSpecT,
-        StateError,
-    >,
+pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: BlockChainSpec> {
+    pub blockchain: &'a dyn BlockchainForChainSpec<ChainSpecT>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
@@ -100,14 +86,7 @@ pub(super) fn binary_search_estimation<ChainSpecT, TimerT>(
     args: BinarySearchEstimationArgs<'_, ChainSpecT>,
 ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: Default + TransactionMut>,
     TimerT: Clone + TimeSinceEpoch,
 {
     const MAX_ITERATIONS: usize = 20;
@@ -177,28 +156,19 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<ChainSpecT, TimerT>(
+pub(super) fn compute_rewards<ChainSpecT: ProviderChainSpec>(
     block: &ChainSpecT::Block,
     reward_percentiles: &[RewardPercentile],
-) -> Result<Vec<U256>, ProviderErrorForChainSpec<ChainSpecT>>
-where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        Block: FetchBlockReceipts<
-            Arc<ChainSpecT::Receipt>,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
-{
+) -> Result<Vec<U256>, ProviderErrorForChainSpec<ChainSpecT>> {
     if block.transactions().is_empty() {
         return Ok(reward_percentiles.iter().map(|_| U256::ZERO).collect());
     }
 
-    let base_fee_per_gas = block.header().base_fee_per_gas.unwrap_or_default();
+    let base_fee_per_gas = block.block_header().base_fee_per_gas.unwrap_or_default();
 
     let gas_used_and_effective_reward = block
-        .fetch_transaction_receipts()?
+        .fetch_transaction_receipts()
+        .map_err(ProviderError::FetchReceipt)?
         .iter()
         .enumerate()
         .map(|(i, receipt)| {
@@ -224,7 +194,7 @@ where
         .collect::<Vec<(_, _)>>();
 
     // Ethereum block gas limit is 30 million, so it's safe to cast to f64.
-    let gas_limit = block.header().gas_limit as f64;
+    let gas_limit = block.block_header().gas_limit as f64;
 
     Ok(reward_percentiles
         .iter()

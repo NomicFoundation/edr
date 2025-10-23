@@ -90,6 +90,17 @@ pub struct ChainConfig<HardforkT> {
     pub base_fee_params: BaseFeeParams<HardforkT>,
 }
 
+impl<HardforkT> ChainConfig<HardforkT> {
+    /// Applies the provided override to the current instance.
+    pub fn apply_override(&mut self, override_config: ChainOverride<HardforkT>) {
+        self.name = override_config.name;
+
+        if let Some(hardfork_activations) = override_config.hardfork_activation_overrides {
+            self.hardfork_activations = hardfork_activations;
+        }
+    }
+}
+
 /// Type that stores the configuration for a chain.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_block_api::{EthBlockData, FetchBlockReceipts};
+use edr_block_api::{EthBlockData, FetchBlockReceipts, GenesisBlockFactory};
 use edr_block_header::BlockHeader;
 use edr_block_remote::{FetchRemoteReceiptError, RemoteBlock};
 use edr_chain_config::ChainConfig;
@@ -10,12 +10,13 @@ use edr_chain_spec_block::BlockChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{HashMap, B256};
 use edr_receipt_spec::ReceiptChainSpec;
-use edr_rpc_spec::{RpcChainSpec, RpcEthBlock, RpcTransaction};
+use edr_rpc_spec::{RpcChainSpec, RpcEthBlock, RpcTransaction, RpcTypeFrom};
+use edr_transaction::TransactionAndBlock;
 use edr_utils::CastArcFrom;
 
 pub trait ProviderChainSpec:
     BlockChainSpec<
-        Block: CastArcFrom<<Self as BlockChainSpec>::LocalBlock>
+        Block: CastArcFrom<<Self as GenesisBlockFactory>::LocalBlock>
                    + CastArcFrom<
             RemoteBlock<
                 <Self as ReceiptChainSpec>::Receipt,
@@ -33,11 +34,12 @@ pub trait ProviderChainSpec:
                 >>::Error,
             >,
         >,
-        Hardfork: PartialOrd,
+        Hardfork: Debug + PartialOrd,
         LocalBlock: FetchBlockReceipts<Arc<<Self as ReceiptChainSpec>::Receipt>, Error: Debug>,
         Receipt: TryFrom<<Self as RpcChainSpec>::RpcReceipt, Error: Send + Sync>,
         RpcBlock<B256>: RpcEthBlock,
-        RpcTransaction: RpcTransaction,
+        RpcTransaction: RpcTransaction
+          + RpcTypeFrom<TransactionAndBlock<Arc<Self::Block>, Self::SignedTransaction>, Hardfork = Self::Hardfork>,
         SignedTransaction: Clone + serde::Serialize, // serde::de::DeserializeOwned
     > + BlockChainSpec<
         RpcBlock<<Self as RpcChainSpec>::RpcTransaction>: RpcEthBlock

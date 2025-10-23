@@ -12,8 +12,8 @@ use edr_block_header::{
 };
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::{
-    BlockEnvChainSpec, BlockEnvConstructor as _, EvmSpecId, EvmTransactionValidationError,
-    ExecutableTransaction, TransactionValidation,
+    BlockEnvChainSpec, BlockEnvConstructor as _, EvmSpecId, ExecutableTransaction,
+    TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_evm2::{dry_run, dry_run_with_inspector};
@@ -37,11 +37,7 @@ pub struct EthBlockBuilder<
     BlockReceiptT,
     BlockT: ?Sized,
     BlockchainErrorT: Debug,
-    EvmChainSpecT: EvmChainSpec<
-        SignedTransaction: TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
-    >,
+    EvmChainSpecT: EvmChainSpec,
     ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
         EvmChainSpecT::HaltReason,
         EvmChainSpecT::Hardfork,
@@ -77,12 +73,7 @@ impl<
         BlockReceiptT,
         BlockT: ?Sized,
         BlockchainErrorT: Debug,
-        EvmChainSpecT: EvmChainSpec<
-            SignedTransaction: ExecutableTransaction
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError>,
-            >,
-        >,
+        EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
             EvmChainSpecT::Hardfork,
@@ -147,12 +138,7 @@ impl<
         BlockReceiptT,
         BlockT: ?Sized,
         BlockchainErrorT: Debug,
-        EvmChainSpecT: EvmChainSpec<
-            SignedTransaction: ExecutableTransaction
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError>,
-            >,
-        >,
+        EvmChainSpecT: EvmChainSpec<SignedTransaction: ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             EvmChainSpecT::HaltReason,
             EvmChainSpecT::Hardfork,
@@ -221,14 +207,7 @@ impl<
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
         BlockchainErrorT: Debug + std::error::Error,
         ChainSpecT: BlockChainSpec
-            + EvmChainSpec<
-                Hardfork: PartialOrd,
-                SignedTransaction: Clone
-                                       + ExecutableTransaction
-                                       + TransactionValidation<
-                    ValidationError: From<EvmTransactionValidationError>,
-                >,
-            >,
+            + EvmChainSpec<Hardfork: PartialOrd, SignedTransaction: Clone + ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
             ChainSpecT::Hardfork,
@@ -566,11 +545,7 @@ impl<
             + EvmChainSpec<
                 Context: Default,
                 Hardfork: PartialOrd,
-                SignedTransaction: Clone
-                                       + ExecutableTransaction
-                                       + TransactionValidation<
-                    ValidationError: From<EvmTransactionValidationError>,
-                >,
+                SignedTransaction: Clone + ExecutableTransaction,
             >,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,

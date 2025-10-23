@@ -7,11 +7,13 @@ use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_block_api::GenesisBlockFactory;
+use edr_blockchain_api::r#dyn::DynBlockchainError;
 use edr_blockchain_fork::CreationError as ForkedCreationError;
 use edr_blockchain_local::InvalidGenesisBlock;
 use edr_chain_spec::{
     ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec, OutOfGasError, TransactionValidation,
 };
+use edr_chain_spec_block::BlockChainSpec;
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
 use edr_evm::{
     overrides::AccountOverrideConversionError, trace::Trace, transaction,
@@ -32,15 +34,15 @@ use crate::{
 
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
-    <ChainSpecT as GenesisBlockFactory>::CreationError,
+    <ChainSpecT as GenesisBlockFactory>::GenesisBlockCreationError,
     <ChainSpecT as HardforkChainSpec>::Hardfork,
 >;
 
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError<GenesisBlockCreationErrorT, HardforkT: Debug> {
+pub enum CreationError<GenesisBlockCreationErrorT, HardforkT> {
     /// A blockchain error
     #[error(transparent)]
-    Blockchain(Box<dyn std::error::Error>),
+    Blockchain(#[from] DynBlockchainError),
     /// A contract decoder error
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
@@ -69,7 +71,8 @@ pub enum CreationError<GenesisBlockCreationErrorT, HardforkT: Debug> {
 
 /// Helper type for a chain-specific [`ProviderError`].
 pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
-    <ChainSpecT as GenesisBlockFactory>::CreationError,
+    <ChainSpecT as BlockChainSpec>::FetchReceiptError,
+    <ChainSpecT as GenesisBlockFactory>::GenesisBlockCreationError,
     <ChainSpecT as ChainSpec>::HaltReason,
     <ChainSpecT as HardforkChainSpec>::Hardfork,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
@@ -77,6 +80,7 @@ pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError<
+    FetchReceiptErrorT,
     GenesisBlockCreationErrorT,
     HaltReasonT: HaltReasonTrait,
     HardforkT: Debug,
@@ -123,14 +127,11 @@ pub enum ProviderError<
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
-    Blockchain(Box<dyn std::error::Error>),
+    Blockchain(#[from] DynBlockchainError),
     #[error(transparent)]
     Creation(#[from] CreationError<GenesisBlockCreationErrorT, HardforkT>),
     #[error(transparent)]
-    DebugTrace(
-        #[from]
-        DebugTraceError<Box<dyn std::error::Error>, StateError, TransactionValidationErrorT>,
-    ),
+    DebugTrace(#[from] DebugTraceError<TransactionValidationErrorT>),
     #[error(
         "An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182"
     )]
@@ -150,6 +151,9 @@ pub enum ProviderError<
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
     EstimateGasTransactionFailure(#[from] Box<EstimateGasFailure<HaltReasonT>>),
+    /// Failed to fetch transaction receipt
+    #[error(transparent)]
+    FetchReceipt(FetchReceiptErrorT),
     #[error("{0}")]
     InvalidArgument(String),
     /// Block number or hash doesn't exist in blockchain
@@ -213,18 +217,12 @@ pub enum ProviderError<
     #[error(transparent)]
     MineBlock(
         #[from]
-        MineBlockError<
-            Box<dyn std::error::Error>,
-            HardforkT,
-            StateError,
-            TransactionValidationErrorT,
-        >,
+        MineBlockError<DynBlockchainError, HardforkT, StateError, TransactionValidationErrorT>,
     ),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
     MineTransaction(
-        #[from]
-        MineTransactionError<Box<dyn std::error::Error>, HardforkT, TransactionValidationErrorT>,
+        #[from] MineTransactionError<DynBlockchainError, HardforkT, TransactionValidationErrorT>,
     ),
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
     #[error(transparent)]
@@ -243,7 +241,7 @@ pub enum ProviderError<
     RunTransaction(
         #[from]
         TransactionError<
-            DatabaseComponentError<Box<dyn std::error::Error>, StateError>,
+            DatabaseComponentError<DynBlockchainError, StateError>,
             TransactionValidationErrorT,
         >,
     ),
@@ -361,12 +359,19 @@ pub enum ProviderError<
 }
 
 impl<
+        FetchReceiptErrorT,
         GenesisBlockCreationErrorT,
         HaltReasonT: HaltReasonTrait,
         HardforkT: Debug,
         TransactionValidationErrorT,
     >
-    ProviderError<GenesisBlockCreationErrorT, HaltReasonT, HardforkT, TransactionValidationErrorT>
+    ProviderError<
+        FetchReceiptErrorT,
+        GenesisBlockCreationErrorT,
+        HaltReasonT,
+        HardforkT,
+        TransactionValidationErrorT,
+    >
 {
     /// Returns the transaction failure if the error contains one.
     pub fn as_transaction_failure(&self) -> Option<&TransactionFailureWithTraces<HaltReasonT>> {
@@ -381,12 +386,14 @@ impl<
 }
 
 impl<
+        FetchReceiptErrorT,
         GenesisBlockCreationErrorT: std::error::Error,
         HaltReasonT: HaltReasonTrait,
         HardforkT: Debug,
         TransactionValidationErrorT: std::error::Error,
     > From<GasReportCreationError>
     for ProviderError<
+        FetchReceiptErrorT,
         GenesisBlockCreationErrorT,
         HaltReasonT,
         HardforkT,
@@ -401,6 +408,7 @@ impl<
 }
 
 impl<
+        FetchReceiptErrorT: std::error::Error,
         GenesisBlockCreationErrorT: std::error::Error,
         HaltReasonT: HaltReasonTrait + Serialize,
         HardforkT: Debug,
@@ -408,6 +416,7 @@ impl<
     >
     From<
         ProviderError<
+            FetchReceiptErrorT,
             GenesisBlockCreationErrorT,
             HaltReasonT,
             HardforkT,
@@ -417,6 +426,7 @@ impl<
 {
     fn from(
         value: ProviderError<
+            FetchReceiptErrorT,
             GenesisBlockCreationErrorT,
             HaltReasonT,
             HardforkT,
@@ -447,6 +457,7 @@ impl<
             ProviderError::Eip7702TransactionWithoutAuthorizations => INVALID_INPUT,
             ProviderError::Eip712Error(_) => INVALID_INPUT,
             ProviderError::EstimateGasTransactionFailure(_) => INVALID_INPUT,
+            ProviderError::FetchReceipt(_) => INTERNAL_ERROR,
             ProviderError::InvalidArgument(_) => INVALID_PARAMS,
             ProviderError::InvalidBlockNumberOrHash { .. } => INVALID_INPUT,
             ProviderError::InvalidBlockTag { .. } => INVALID_PARAMS,

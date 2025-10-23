@@ -1,16 +1,21 @@
 use std::sync::Arc;
 
-use edr_block_api::{BlockAndTotalDifficulty, GenesisBlockFactory, SyncGenesisBlockFactory};
+use edr_block_api::{BlockAndTotalDifficulty, GenesisBlockFactory};
+use edr_blockchain_api::{r#dyn::DynBlockchainError, Blockchain};
+use edr_blockchain_fork::ForkedBlockchain;
+use edr_blockchain_local::LocalBlockchain;
 use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
-use edr_chain_spec::ExecutableTransaction;
+use edr_chain_spec::{ChainSpec, ExecutableTransaction, HardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eth::{Blob, BlockSpec};
 use edr_evm::overrides::StateOverrides;
 use edr_primitives::{Address, B256};
+use edr_receipt_spec::ReceiptChainSpec;
+use edr_rpc_spec::RpcChainSpec;
 use edr_signer::{FakeSign, Sign};
 use edr_transaction::IsSupported;
 
@@ -19,9 +24,56 @@ use crate::{
     TransactionFailureReason,
 };
 
+/// Helper trait for a chain-specific [`Blockchain`].
+pub trait BlockchainForChainSpec<ChainSpecT: BlockChainSpec>:
+    Blockchain<
+    <ChainSpecT as ReceiptChainSpec>::Receipt,
+    <ChainSpecT as BlockChainSpec>::Block,
+    DynBlockchainError,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>
+{
+}
+
+/// Helper type for a chain-specific [`ForkedBlockchain`].
+pub type ForkedBlockchainForChainSpec<ChainSpecT> = ForkedBlockchain<
+    <ChainSpecT as ReceiptChainSpec>::Receipt,
+    <ChainSpecT as BlockChainSpec>::Block,
+    <ChainSpecT as BlockChainSpec>::FetchReceiptError,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+    ChainSpecT,
+    <ChainSpecT as RpcChainSpec>::RpcReceipt,
+    <ChainSpecT as RpcChainSpec>::RpcTransaction,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
+
+/// Helper type for a chain-specific [`LocalBlockchain`].
+pub type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
+    <ChainSpecT as ReceiptChainSpec>::Receipt,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
+
+impl<
+        BlockchainT: Blockchain<
+            <ChainSpecT as ReceiptChainSpec>::Receipt,
+            <ChainSpecT as BlockChainSpec>::Block,
+            DynBlockchainError,
+            <ChainSpecT as HardforkChainSpec>::Hardfork,
+            <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+            <ChainSpecT as ChainSpec>::SignedTransaction,
+        >,
+        ChainSpecT: BlockChainSpec,
+    > BlockchainForChainSpec<ChainSpecT> for BlockchainT
+{
+}
+
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    GenesisBlockFactory<LocalBlock = <Self as BlockChainSpec>::LocalBlock>
-    + ProviderChainSpec<
+    ProviderChainSpec<
         // Block: FetchBlockReceipts<Arc<Self::Receipt>, Error = BlockchainErrorForChainSpec<Self>>,
         // LocalBlock: FetchBlockReceipts<
         //     Arc<Self::Receipt>,
@@ -143,16 +195,10 @@ pub trait FromRpcType<RpcT, TimerT: Clone + TimeSinceEpoch>: Sized {
     fn from_rpc_type(value: RpcT, context: Self::Context<'_>) -> Result<Self, Self::Error>;
 }
 
-pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>:
-    ProviderSpec<TimerT> + SyncGenesisBlockFactory<LocalBlock = <Self as BlockChainSpec>::LocalBlock>
-{
-}
+pub trait SyncProviderSpec<TimerT: Clone + TimeSinceEpoch>: ProviderSpec<TimerT> {}
 
-impl<
-        ProviderSpecT: ProviderSpec<TimerT>
-            + SyncGenesisBlockFactory<LocalBlock = <Self as BlockChainSpec>::LocalBlock>,
-        TimerT: Clone + TimeSinceEpoch,
-    > SyncProviderSpec<TimerT> for ProviderSpecT
+impl<ProviderSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> SyncProviderSpec<TimerT>
+    for ProviderSpecT
 {
 }
 

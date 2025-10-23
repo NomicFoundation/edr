@@ -2,7 +2,7 @@
 #![warn(missing_docs)]
 
 use edr_blockchain_api::BlockHashByNumber;
-use edr_chain_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{EvmSpecId, TransactionValidation};
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_evm_spec::{
     result::{ExecutionResult, ExecutionResultAndState},
@@ -23,11 +23,7 @@ pub fn dry_run<
     // ```
     // dry_run::<MyChainSpec, _, _>(...)
     // ```
-    EvmChainSpecT: EvmChainSpec<
-        SignedTransaction: TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
-    >,
+    EvmChainSpecT: EvmChainSpec,
     BlockT: BlockEnvTrait,
     BlockchainT: BlockHashByNumber<Error: std::error::Error>,
     StateT: State<Error: std::error::Error>,
@@ -66,11 +62,7 @@ pub fn dry_run_with_inspector<
     // ```
     // dry_run::<MyChainSpec, _, _, _>(...)
     // ```
-    EvmChainSpecT: EvmChainSpec<
-        SignedTransaction: TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
-    >,
+    EvmChainSpecT: EvmChainSpec,
     BlockT: BlockEnvTrait,
     BlockchainT: BlockHashByNumber<Error: std::error::Error>,
     InspectorT: Inspector<
@@ -124,11 +116,7 @@ pub fn guaranteed_dry_run<
     // ```
     // dry_run::<MyChainSpec, _, _>(...)
     // ```
-    EvmChainSpecT: EvmChainSpec<
-        SignedTransaction: TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
-    >,
+    EvmChainSpecT: EvmChainSpec,
     BlockT: BlockEnvTrait,
     BlockchainT: BlockHashByNumber<Error: std::error::Error>,
     StateT: State<Error: std::error::Error>,
@@ -170,11 +158,7 @@ pub fn guaranteed_dry_run_with_inspector<
     // ```
     // dry_run::<MyChainSpec, _, _, _>(...)
     // ```
-    EvmChainSpecT: EvmChainSpec<
-        SignedTransaction: TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
-    >,
+    EvmChainSpecT: EvmChainSpec,
     BlockT: BlockEnvTrait,
     BlockchainT: BlockHashByNumber<Error: std::error::Error>,
     InspectorT: Inspector<
@@ -223,11 +207,7 @@ pub fn run<
     // ```
     // dry_run::<MyChainSpec, _, _>(...)
     // ```
-    EvmChainSpecT: EvmChainSpec<
-        SignedTransaction: TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
-    >,
+    EvmChainSpecT: EvmChainSpec,
     BlockT: BlockEnvTrait,
     BlockchainT: BlockHashByNumber<Error: std::error::Error>,
     StateT: State<Error: std::error::Error> + StateCommit,

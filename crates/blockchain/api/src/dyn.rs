@@ -1,9 +1,26 @@
+//! Types for dynamic dispatch of blockchain implementations.
+
 use core::marker::PhantomData;
 
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::B256;
 
 use crate::{BlockHashByNumber, Blockchain, BlockchainMetadata};
+
+/// Wrapper around `Box<dyn std::error::Error` to allow implementation of
+/// `std::error::Error`.
+// This is required because of:
+// <https://stackoverflow.com/questions/65151237/why-doesnt-boxdyn-error-implement-error#65151318>
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct DynBlockchainError(Box<dyn std::error::Error>);
+
+impl DynBlockchainError {
+    /// Constructs a new instance.
+    pub fn new<ErrorT: Into<Box<dyn std::error::Error>>>(error: ErrorT) -> Self {
+        Self(error.into())
+    }
+}
 
 /// Wrapper struct for dynamic dispatch of a blockchain implementation.
 ///
@@ -129,7 +146,7 @@ impl<
         SignedTransactionT,
     >
 {
-    type Error = Box<dyn std::error::Error>;
+    type Error = DynBlockchainError;
 
     fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
         self.inner.base_fee_params()
@@ -142,7 +159,7 @@ impl<
     fn spec_at_block_number(&self, block_number: u64) -> Result<HardforkT, Self::Error> {
         self.inner
             .spec_at_block_number(block_number)
-            .map_err(Into::into)
+            .map_err(DynBlockchainError::new)
     }
 
     fn hardfork(&self) -> HardforkT {

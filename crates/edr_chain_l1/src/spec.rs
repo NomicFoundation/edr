@@ -85,13 +85,6 @@ impl BlockChainSpec for L1ChainSpec {
 
     type FetchReceiptError =
         FetchRemoteReceiptError<<Self::Receipt as TryFrom<Self::RpcReceipt>>::Error>;
-
-    type LocalBlock = EthLocalBlock<
-        Self::Receipt,
-        Self::FetchReceiptError,
-        Self::Hardfork,
-        Self::SignedTransaction,
-    >;
 }
 
 impl BlockEnvChainSpec for L1ChainSpec {
@@ -205,7 +198,7 @@ impl ChainSpec for L1ChainSpec {
 }
 
 impl GenesisBlockFactory for L1ChainSpec {
-    type CreationError = LocalBlockCreationError;
+    type GenesisBlockCreationError = LocalBlockCreationError;
 
     type LocalBlock = EthLocalBlock<
         <Self as ReceiptChainSpec>::Receipt,
@@ -218,7 +211,7 @@ impl GenesisBlockFactory for L1ChainSpec {
         genesis_diff: StateDiff,
         block_config: BlockConfig<'_, Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
-    ) -> Result<Self::LocalBlock, Self::CreationError> {
+    ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         // If no option is provided, use the default extra data for L1 Ethereum.
         options.extra_data = Some(
             options

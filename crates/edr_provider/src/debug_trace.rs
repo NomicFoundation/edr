@@ -1,9 +1,12 @@
 use std::{collections::HashMap, fmt::Debug};
 
+use edr_block_header::BlockHeader;
+use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{
     ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
     HaltReasonTrait, TransactionValidation,
 };
+use edr_chain_spec_block::BlockChainSpec;
 use edr_evm::{
     inspector::DualInspector,
     journal::JournalExt,
@@ -16,13 +19,14 @@ use edr_evm_spec::{
         Interpreter, InterpreterResult, Jumps as _,
     },
     result::{ExecutionResult, ExecutionResultAndState},
-    ContextTrait, DatabaseComponentError, Inspector, JournalEntry, TransactionError,
+    BlockEnvTrait as _, CfgEnv, ContextTrait, DatabaseComponentError, Inspector, JournalEntry,
+    JournalTrait as _, TransactionError,
 };
 use edr_primitives::{
     bytecode::opcode::{self, OpCode},
     hex, Address, Bytes, B256, U256,
 };
-use edr_state_api::DynState;
+use edr_state_api::{DynState, StateError};
 
 use crate::{
     observability::{EvmObserver, EvmObserverConfig},
@@ -32,31 +36,23 @@ use crate::{
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 #[allow(clippy::too_many_arguments)]
-pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
-    blockchain: &dyn SyncBlockchainForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
+pub fn debug_trace_transaction<
+    'header,
+    ChainSpecT: BlockChainSpec<BlockEnv<'header, BlockHeader>: Clone>,
+>(
+    blockchain: &dyn BlockHashByNumber<Error = DynBlockchainError>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn DynState>,
     evm_config: CfgEnv<ChainSpecT::Hardfork>,
     trace_config: DebugTraceConfig,
-    block: ChainSpecT::BlockEnv,
+    block: ChainSpecT::BlockEnv<'header, BlockHeader>,
     transactions: Vec<ChainSpecT::SignedTransaction>,
     transaction_hash: &B256,
     observer_config: EvmObserverConfig,
 ) -> Result<
     DebugTraceResultWithTraces<ChainSpecT::HaltReason>,
-    DebugTraceErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
->
-where
-    ChainSpecT: RuntimeSpec<
-        BlockEnv: Clone,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
-    >,
-    BlockchainErrorT: Send + std::error::Error,
-    StateErrorT: Send + std::error::Error,
-{
+    DebugTraceErrorForChainSpec<ChainSpecT>,
+> {
     let evm_spec_id = evm_config.spec.into();
     if evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
         // Matching Hardhat Network behaviour: https://github.com/NomicFoundation/hardhat/blob/af7e4ce6a18601ec9cd6d4aa335fa7e24450e638/packages/hardhat-core/src/internal/hardhat-network/provider/vm/ethereumjs.ts#L427
@@ -72,7 +68,7 @@ where
             let mut evm_observer = EvmObserver::new(observer_config);
 
             let ExecutionResultAndState { result, .. } =
-                dry_run_with_inspector::<_, ChainSpecT, _, _>(
+                dry_run_with_inspector::<ChainSpecT, _, _, _, _>(
                     blockchain,
                     state.as_ref(),
                     evm_config,
@@ -101,7 +97,7 @@ where
                 eip3155_tracer,
             ));
         } else {
-            run::<_, ChainSpecT, _>(
+            run::<ChainSpecT, _, _, _>(
                 blockchain,
                 state.as_mut(),
                 evm_config.clone(),
@@ -164,15 +160,13 @@ pub struct DebugTraceConfig {
 }
 
 /// Helper type for a chain-specific [`DebugTraceError`].
-pub type DebugTraceErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT> = DebugTraceError<
-    BlockchainErrorT,
-    StateErrorT,
+pub type DebugTraceErrorForChainSpec<ChainSpecT> = DebugTraceError<
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
 
 /// Debug trace error.
 #[derive(Debug, thiserror::Error)]
-pub enum DebugTraceError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT> {
+pub enum DebugTraceError<TransactionValidationErrorT> {
     /// Invalid hardfork spec argument.
     #[error(
         "Invalid spec id: {spec_id:?}. `debug_traceTransaction` is not supported prior to Spurious Dragon"
@@ -197,7 +191,7 @@ pub enum DebugTraceError<BlockchainErrorT, StateErrorT, TransactionValidationErr
     TransactionError(
         #[from]
         TransactionError<
-            DatabaseComponentError<BlockchainErrorT, StateErrorT>,
+            DatabaseComponentError<DynBlockchainError, StateError>,
             TransactionValidationErrorT,
         >,
     ),

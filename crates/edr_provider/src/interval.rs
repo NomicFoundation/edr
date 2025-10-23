@@ -30,10 +30,7 @@ struct Inner<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
 impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + PartialEq,
-            >,
+            SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
         >,
         TimerT: Clone + TimeSinceEpoch,
     > IntervalMiner<ChainSpecT, TimerT>
@@ -62,10 +59,7 @@ impl<
 async fn interval_mining_loop<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
