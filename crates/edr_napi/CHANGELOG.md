@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.11
+
+### Patch Changes
+
+- 3701f76: "Patch EDR CI triggering release workflow"
+
 ## 0.12.0-next.10
 
 ### Patch Changes
