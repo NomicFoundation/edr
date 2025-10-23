@@ -123,6 +123,8 @@ jobs:
         shell: bash
 
       - name: Build in docker (gnu)
+        env:
+          SFW_DEBUG: true
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
         with:
@@ -145,6 +147,8 @@ jobs:
             pnpm run build --strip
 
       - name: Build in docker (musl)
+        env:
+          SFW_DEBUG: true
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
         with:
