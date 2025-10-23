@@ -30,6 +30,8 @@ jobs:
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
+    env:
+      SFW_DEBUG: true
     strategy:
       fail-fast: false
       matrix:
@@ -139,7 +141,7 @@ jobs:
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
-            cargo fetch
+            sfw cargo fetch
             pnpm run build --strip
 
       - name: Build in docker (musl)
@@ -164,7 +166,7 @@ jobs:
             pnpm -v
             npm i -g sfw
             sfw pnpm install --frozen-lockfile --prefer-offline
-            cargo fetch
+            sfw cargo fetch
             pnpm run build --strip
 
       - name: Upload artifact
