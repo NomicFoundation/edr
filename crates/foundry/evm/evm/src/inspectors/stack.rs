@@ -25,7 +25,6 @@ use revm::{
     },
     DatabaseCommit, ExecuteEvm, Inspector, Journal,
 };
-
 use super::{Cheatcodes, CheatsConfig, CoverageCollector, Fuzzer, LogCollector, TracingInspector};
 
 #[derive(Clone, Debug, Default)]
@@ -487,20 +486,24 @@ impl<
             code_coverage.report().map_err(|error| eyre!(error))?;
         }
 
+        let labels = self
+            .cheatcodes
+            .as_ref()
+            .map(|cheatcodes| {
+                cheatcodes
+                    .labels
+                    .clone()
+                    .into_iter()
+                    .map(|l| (l.0, l.1))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let logs = self.log_collector.map(|logs| logs.logs).unwrap_or_default();
+
         Ok(InspectorData {
-            logs: self.log_collector.map(|logs| logs.logs).unwrap_or_default(),
-            labels: self
-                .cheatcodes
-                .as_ref()
-                .map(|cheatcodes| {
-                    cheatcodes
-                        .labels
-                        .clone()
-                        .into_iter()
-                        .map(|l| (l.0, l.1))
-                        .collect()
-                })
-                .unwrap_or_default(),
+            logs,
+            labels,
             traces,
             coverage: self
                 .coverage
@@ -660,9 +663,9 @@ impl<
         // ecx.env.tx.caller = caller;
         context.tx.set_caller(caller);
         // ecx.env.tx.transact_to = transact_to;
-        context.tx.set_transact_to(transact_to);
+        context.tx.set_kind(transact_to);
         // ecx.env.tx.data = input;
-        context.tx.set_input(input);
+        context.tx.set_data(input);
         // ecx.env.tx.value = value;
         context.tx.set_value(value);
         // ecx.env.tx.nonce = Some(nonce);

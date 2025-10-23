@@ -277,6 +277,14 @@ contract ExpectRevertCountFailureTest is DSTest {
         reverter.callThenRevert(dummy, "called a function and then reverted");
         reverter.callThenRevert(dummy, "wrong revert");
     }
+
+
+    // <https://github.com/foundry-rs/foundry/issues/10858>
+    function testFailIfExpectRevertWrongString() public {
+        Reverter reverter = new Reverter();
+        vm.expectRevert("my not so cool error", 0);
+        reverter.revertWithMessage("my cool error");
+    }
 }
 
 contract ExpectRevertCountWithReverterFailures is DSTest {

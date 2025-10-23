@@ -8,7 +8,7 @@ use edr_solidity_tests::{
     inspectors::cheatcodes::{CheatsConfigOptions, ExecutionContextConfig},
     TestFilterConfig,
 };
-use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
+use foundry_cheatcodes::{FsPermissions, RpcEndpointUrl, RpcEndpoints};
 use napi::{
     bindgen_prelude::{BigInt, Uint8Array},
     tokio::runtime,
@@ -246,7 +246,7 @@ impl SolidityTestRunnerConfigArgs {
                     RpcEndpoints::new(
                         endpoints
                             .into_iter()
-                            .map(|(chain, url)| (chain, RpcEndpoint::Url(url))),
+                            .map(|(chain, url)| (chain, RpcEndpointUrl::new(url))),
                     )
                 })
                 .unwrap_or_default(),
@@ -267,6 +267,7 @@ impl SolidityTestRunnerConfigArgs {
                 .into_iter()
                 .map(|AddressLabel { address, label }| Ok((address.try_cast()?, label)))
                 .collect::<Result<_, napi::Error>>()?,
+            seed: fuzz.seed,
             allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
         };
 

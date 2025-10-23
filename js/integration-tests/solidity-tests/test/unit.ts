@@ -26,7 +26,7 @@ describe("Unit tests", () => {
 
     assertStackTraces(
       stackTraces.get("testThatFails()"),
-      "revert: 1 is not equal to 2",
+      "1 is not equal to 2",
       [{ contract: "SuccessAndFailureTest", function: "testThatFails" }]
     );
 
@@ -203,7 +203,7 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("FailingDeployTest");
 
-    assertStackTraces(stackTraces.get("setUp()"), "revert: Deployment failed", [
+    assertStackTraces(stackTraces.get("setUp()"), "Deployment failed", [
       { contract: "FailingDeployTest", function: "constructor" },
     ]);
 

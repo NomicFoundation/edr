@@ -282,6 +282,8 @@ mod tests {
 
     use super::*;
 
+    use crate as edr_common;
+
     macro_rules! logf1 {
         ($a:ident) => {
             console_format(&$a.p_0, &[&$a.p_1])

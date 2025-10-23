@@ -28,7 +28,7 @@ revm = { workspace = true, features = [
 eyre = "0.6"
 itertools.workspace = true
 parking_lot.workspace = true
-proptest = "1"
+proptest.workspace = true
 rand.workspace = true
 serde.workspace = true
 thiserror = "1"

@@ -541,7 +541,7 @@ impl<
             Err(EvmError::Skip(reason)) => {
                 return TestResult {
                     status: TestStatus::Skipped,
-                    reason: reason.into(),
+                    reason: reason.0,
                     decoded_logs: decode_console_logs(&logs),
                     traces,
                     labeled_addresses,
@@ -619,7 +619,12 @@ impl<
 
         let (deprecated_cheatcodes, value_snapshots) = cheatcodes.map_or_else(
             || (HashMap::new(), BTreeMap::new()),
-            |cheatcodes| (cheatcodes.deprecated, cheatcodes.gas_snapshots),
+            |cheatcodes| {
+                (
+                    cheatcodes.deprecated.into_iter().collect(),
+                    cheatcodes.gas_snapshots,
+                )
+            },
         );
 
         TestResult {
@@ -951,7 +956,7 @@ impl<
         ) {
             return TestResult {
                 status: TestStatus::Skipped,
-                reason: reason.into(),
+                reason: reason.0,
                 decoded_logs: decode_console_logs(&logs),
                 labeled_addresses,
                 kind: TestKind::Invariant {

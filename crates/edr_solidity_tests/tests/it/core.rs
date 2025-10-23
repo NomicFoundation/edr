@@ -31,7 +31,7 @@ async fn test_core() {
                 vec![(
                     "setUp()",
                     false,
-                    Some("revert: setup failed predictably".to_string()),
+                    Some("setup failed predictably".to_string()),
                     None,
                     None,
                 )],
@@ -788,7 +788,7 @@ async fn test_fail_test() {
             vec![(
                 "testFailRevert()",
                 /* should succeed */ false,
-                /* revert message */ Some("revert: should revert here".into()),
+                /* revert message */ Some("should revert here".into()),
                 None,
                 None,
             )],

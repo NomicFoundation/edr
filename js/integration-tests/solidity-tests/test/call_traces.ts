@@ -272,7 +272,7 @@ describe("Call traces - IncludeTraces.All", () => {
       name: "revertWithString",
       arguments: [],
     });
-    assert.equal(stringRevert.outputs, "revert: Something went wrong");
+    assert.equal(stringRevert.outputs, "Something went wrong");
 
     const customErrorRevert = trace[0].children[2];
     assert.equal(customErrorRevert.kind, CallKind.Call);
@@ -293,7 +293,7 @@ describe("Call traces - IncludeTraces.All", () => {
       name: "revertWithBytes",
       arguments: [],
     });
-    assert.deepEqual(bytesRevert.outputs, "custom error deadbeef:cafe");
+    assert.deepEqual(bytesRevert.outputs, "custom error 0xdeadbeef: cafe");
   });
 
   it("reverted contract creation", async function () {

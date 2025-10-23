@@ -1,14 +1,16 @@
-#![doc = include_str!("../README.md")]
-#![warn(
-    missing_docs,
-    unreachable_pub,
-    unused_crate_dependencies,
-    rust_2018_idioms
-)]
+//! Cheatcode specification for Foundry.
 
-use std::{borrow::Cow, fmt};
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
+// TODO https://github.com/NomicFoundation/edr/issues/1076
+#![allow(clippy::indexing_slicing)]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::default_trait_access)]
 
 use serde::{Deserialize, Serialize};
+use std::{borrow::Cow, fmt};
 
 mod cheatcode;
 pub use cheatcode::{Cheatcode, CheatcodeDef, Group, Safety, Status};
@@ -87,39 +89,38 @@ impl Cheatcodes<'static> {
                 Vm::Wallet::STRUCT.clone(),
                 Vm::FfiResult::STRUCT.clone(),
                 Vm::ChainInfo::STRUCT.clone(),
+                Vm::Chain::STRUCT.clone(),
                 Vm::AccountAccess::STRUCT.clone(),
                 Vm::StorageAccess::STRUCT.clone(),
                 Vm::Gas::STRUCT.clone(),
+                Vm::DebugStep::STRUCT.clone(),
+                Vm::PotentialRevert::STRUCT.clone(),
+                Vm::AccessListItem::STRUCT.clone(),
             ]),
             enums: Cow::Owned(vec![
                 Vm::CallerMode::ENUM.clone(),
                 Vm::AccountAccessKind::ENUM.clone(),
                 Vm::ExecutionContext::ENUM.clone(),
             ]),
-            errors: Vm::VM_ERRORS.iter().map(|&x| x.clone()).collect(),
+            errors: Vm::VM_ERRORS.iter().copied().cloned().collect(),
             events: Cow::Borrowed(&[]),
-            // events: Vm::VM_EVENTS.iter().map(|&x| x.clone()).collect(),
-            cheatcodes: Vm::CHEATCODES.iter().map(|&x| x.clone()).collect(),
+            // events: Vm::VM_EVENTS.iter().copied().cloned().collect(),
+            cheatcodes: Vm::CHEATCODES.iter().copied().cloned().collect(),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::Path};
-
     use super::*;
+    use std::{fs, path::Path};
 
     const JSON_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/cheatcodes.json");
     #[cfg(feature = "schema")]
-    const SCHEMA_PATH: &str = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../assets/cheatcodes.schema.json"
-    );
-    const IFACE_PATH: &str = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../edr_solidity_tests/tests/testdata/cheats/Vm.sol"
-    );
+    const SCHEMA_PATH: &str =
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/cheatcodes.schema.json");
+    const IFACE_PATH: &str =
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../../../testdata/cheats/Vm.sol");
 
     /// Generates the `cheatcodes.json` file contents.
     fn json_cheatcodes() -> String {
@@ -134,7 +135,7 @@ mod tests {
 
     fn sol_iface() -> String {
         let mut cheats = Cheatcodes::new();
-        cheats.errors = Cow::default(); // Skip errors to allow <0.8.4.
+        cheats.errors = Default::default(); // Skip errors to allow <0.8.4.
         let cheats = cheats.to_string().trim().replace('\n', "\n    ");
         format!(
             "\
@@ -178,12 +179,9 @@ interface Vm {{
             return;
         }
 
-        eprintln!(
-            "\n\x1b[31;1merror\x1b[0m: {} was not up-to-date, updating\n",
-            file.display()
-        );
+        eprintln!("\n\x1b[31;1merror\x1b[0m: {} was not up-to-date, updating\n", file.display());
         if std::env::var("CI").is_ok() {
-            eprintln!("    NOTE: run `cargo generate-cheats-interface` locally and commit the updated files\n");
+            eprintln!("    NOTE: run `cargo cheats` locally and commit the updated files\n");
         }
         if let Some(parent) = file.parent() {
             let _ = fs::create_dir_all(parent);

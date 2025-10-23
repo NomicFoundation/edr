@@ -90,7 +90,7 @@
       "variants": [
         {
           "name": "TestGroup",
-          "description": "Test group execution context: any of test, coverage or snapshot."
+          "description": "Test group execution context (test, coverage or snapshot)."
         },
         {
           "name": "Test",
@@ -3172,7 +3172,7 @@
         ]
       },
       "group": "evm",
-      "status": "experimental",
+      "status": "stable",
       "safety": "unsafe"
     },
     {
@@ -4103,7 +4103,7 @@
       "func": {
         "id": "eth_getLogs",
         "description": "Gets all the logs according to specified filter.",
-        "declaration": "function eth_getLogs(uint256 fromBlock, uint256 toBlock, address target, bytes32[] memory topics) external returns (EthGetLogs[] memory logs);",
+        "declaration": "function eth_getLogs(uint256 fromBlock, uint256 toBlock, address target, bytes32[] calldata topics) external returns (EthGetLogs[] memory logs);",
         "visibility": "external",
         "mutability": "",
         "signature": "eth_getLogs(uint256,uint256,address,bytes32[])",
@@ -4123,9 +4123,9 @@
       "func": {
         "id": "exists",
         "description": "Returns true if the given path points to an existing entity, else returns false.",
-        "declaration": "function exists(string calldata path) external returns (bool result);",
+        "declaration": "function exists(string calldata path) external view returns (bool result);",
         "visibility": "external",
-        "mutability": "",
+        "mutability": "view",
         "signature": "exists(string)",
         "selector": "0x261a323e",
         "selectorBytes": [
@@ -5243,9 +5243,9 @@
       "func": {
         "id": "isDir",
         "description": "Returns true if the path exists on disk and is pointing at a directory, else returns false.",
-        "declaration": "function isDir(string calldata path) external returns (bool result);",
+        "declaration": "function isDir(string calldata path) external view returns (bool result);",
         "visibility": "external",
-        "mutability": "",
+        "mutability": "view",
         "signature": "isDir(string)",
         "selector": "0x7d15d019",
         "selectorBytes": [
@@ -5263,9 +5263,9 @@
       "func": {
         "id": "isFile",
         "description": "Returns true if the path exists on disk and is pointing at a regular file, else returns false.",
-        "declaration": "function isFile(string calldata path) external returns (bool result);",
+        "declaration": "function isFile(string calldata path) external view returns (bool result);",
         "visibility": "external",
-        "mutability": "",
+        "mutability": "view",
         "signature": "isFile(string)",
         "selector": "0xe0eb04d4",
         "selectorBytes": [
@@ -5424,7 +5424,7 @@
     {
       "func": {
         "id": "loadAllocs",
-        "description": "Load a genesis JSON file's `allocs` into the in-memory revm state.",
+        "description": "Load a genesis JSON file's `allocs` into the in-memory EVM state.",
         "declaration": "function loadAllocs(string calldata pathToAllocsJson) external;",
         "visibility": "external",
         "mutability": "",
@@ -7668,7 +7668,7 @@
     {
       "func": {
         "id": "skip",
-        "description": "Marks a test as skipped. Must be called at the top of the test.",
+        "description": "Marks a test as skipped. Must be called at the top level of a test.",
         "declaration": "function skip(bool skipTest) external;",
         "visibility": "external",
         "mutability": "",
@@ -8471,9 +8471,9 @@
       "func": {
         "id": "unixTime",
         "description": "Returns the time since unix epoch in milliseconds.",
-        "declaration": "function unixTime() external returns (uint256 milliseconds);",
+        "declaration": "function unixTime() external view returns (uint256 milliseconds);",
         "visibility": "external",
-        "mutability": "",
+        "mutability": "view",
         "signature": "unixTime()",
         "selector": "0x625387dc",
         "selectorBytes": [

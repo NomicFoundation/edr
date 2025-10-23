@@ -44,14 +44,14 @@ async fn test_invariant_with_alias() {
                 (
                     "invariant_neverFalse()",
                     false,
-                    Some("revert: false".into()),
+                    Some("false".into()),
                     None,
                     None,
                 ),
                 (
                     "statefulFuzz_neverFalseWithInvariantAlias()",
                     false,
-                    Some("revert: false".into()),
+                    Some("false".into()),
                     None,
                     None,
                 ),
@@ -113,7 +113,7 @@ async fn test_invariant_filters() {
                 vec![(
                     "invariantTrueWorld()",
                     false,
-                    Some("revert: false world".into()),
+                    Some("false world".into()),
                     None,
                     None,
                 )],
@@ -137,7 +137,7 @@ async fn test_invariant_filters() {
             vec![(
                 "invariantTrueWorld()",
                 false,
-                Some("revert: false world".into()),
+                Some("false world".into()),
                 None,
                 None,
             )],
@@ -186,7 +186,7 @@ async fn test_invariant_filters() {
                     (
                         "invariantShouldFail()",
                         false,
-                        Some("revert: false world".into()),
+                        Some("false world".into()),
                         None,
                         None,
                     ),
@@ -201,7 +201,7 @@ async fn test_invariant_filters() {
                 vec![(
                     "invariantShouldFail()",
                     false,
-                    Some("revert: it's false".into()),
+                    Some("it's false".into()),
                     None,
                     None,
                 )],
@@ -234,7 +234,7 @@ async fn test_invariant_override() {
             vec![(
                 "invariantNotStolen()",
                 false,
-                Some("revert: stolen".into()),
+                Some("stolen".into()),
                 None,
                 None,
             )],
@@ -267,7 +267,7 @@ async fn test_invariant_fail_on_revert() {
             vec![(
                 "statefulFuzz_BrokenInvariant()",
                 false,
-                Some("revert: failed on revert".into()),
+                Some("failed on revert".into()),
                 None,
                 None,
             )],
@@ -353,7 +353,7 @@ async fn test_invariant_inner_contract() {
             vec![(
                 "invariantHideJesus()",
                 false,
-                Some("revert: jesus betrayed".into()),
+                Some("jesus betrayed".into()),
                 None,
                 None,
             )],
@@ -724,7 +724,7 @@ async fn test_invariant_fuzzed_selected_targets() {
                 vec![(
                     "invariant_dynamic_targets()",
                     false,
-                    Some("revert: wrong target selector called".into()),
+                    Some("wrong target selector called".into()),
                     None,
                     None,
                 )],
@@ -788,7 +788,7 @@ async fn test_invariant_scrape_values() {
                 vec![(
                     "invariant_value_not_found()",
                     false,
-                    Some("revert: value from return found".into()),
+                    Some("value from return found".into()),
                     None,
                     None,
                 )],
@@ -798,7 +798,7 @@ async fn test_invariant_scrape_values() {
                 vec![(
                     "invariant_value_not_found()",
                     false,
-                    Some("revert: value from logs found".into()),
+                    Some("value from logs found".into()),
                     None,
                     None,
                 )],
@@ -840,7 +840,7 @@ async fn test_invariant_roll_fork_handler() {
             vec![(
                 "invariant_fork_handler_block()",
                 false,
-                Some("revert: too many blocks mined".into()),
+                Some("too many blocks mined".into()),
                 None,
                 None,
             )],
@@ -874,7 +874,7 @@ async fn test_invariant_roll_fork_handler() {
             vec![(
                 "invariant_fork_handler_state()",
                 false,
-                Some("revert: wrong supply".into()),
+                Some("wrong supply".into()),
                 None,
                 None,
             )],
@@ -928,14 +928,14 @@ async fn test_invariant_after_invariant() {
                 (
                     "invariant_after_invariant_failure()",
                     false,
-                    Some("revert: afterInvariant failure".into()),
+                    Some("afterInvariant failure".into()),
                     None,
                     None,
                 ),
                 (
                     "invariant_failure()",
                     false,
-                    Some("revert: invariant failure".into()),
+                    Some("invariant failure".into()),
                     None,
                     None,
                 ),
