@@ -6,19 +6,21 @@ edition.workspace = true
 [dependencies]
 alloy-dyn-abi.workspace = true
 alloy-rlp.workspace = true
-alloy-sol-types.workspace = true
 alloy-serde.workspace = true
+alloy-sol-types.workspace = true
 anyhow = { workspace = true, optional = true }
 auto_impl = { version = "1.2", default-features = false }
-derive_more = { workspace = true, features = ["debug"] }
 derive-where.workspace = true
+derive_more = { workspace = true, features = ["debug"] }
 dyn-clone.workspace = true
 edr_block_api.workspace = true
 edr_block_header.workspace = true
 edr_blockchain_api.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
-edr_coverage = { path = "../edr_coverage" }
+edr_chain_spec_block.workspace = true
+edr_chain_spec_provider.workspace = true
+edr_coverage.workspace = true
 edr_database_components.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
@@ -26,6 +28,9 @@ edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_eth.workspace = true
 edr_evm = { workspace = true, features = ["tracing"] }
+edr_evm2.workspace = true
+edr_evm_spec.workspace = true
+edr_precompile.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_rpc_eth.workspace = true
@@ -53,7 +58,6 @@ log = { version = "0.4.20", default-features = false }
 lru = "0.12.2"
 parking_lot.workspace = true
 rand.workspace = true
-revm-precompile.workspace = true
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -64,9 +68,10 @@ tracing = { version = "0.1.37", features = [
     "attributes",
     "std",
 ], optional = true }
-edr_chain_spec_provider.workspace = true
-edr_chain_spec_block.workspace = true
-edr_evm_spec.workspace = true
+
+[build-dependencies]
+cargo_toml = { version = "0.22.3", default-features = false }
+toml = { version = "0.9.5", default-features = false }
 
 [dev-dependencies]
 alloy-eips.workspace = true
@@ -76,10 +81,6 @@ edr_test_utils.workspace = true
 paste = { version = "1.0.14", default-features = false }
 serial_test = "2.0.0"
 tempfile = "3.7.1"
-
-[build-dependencies]
-cargo_toml = { version = "0.22.3", default-features = false }
-toml = { version = "0.9.5", default-features = false }
 
 [features]
 test-utils = ["dep:anyhow", "dep:edr_test_utils"]

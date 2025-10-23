@@ -14,9 +14,10 @@ use edr_block_storage::{
     InsertBlockAndReceiptsError, InsertBlockError, ReservableSparseBlockStorage,
 };
 use edr_blockchain_api::{
-    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata, GetBlockchainBlock,
-    GetBlockchainLogs, InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock,
-    StateAtBlock, TotalDifficultyByBlockHash,
+    utils::compute_state_at_block, BlockHashByNumber, BlockchainMetadata,
+    BlockchainMetadataAtBlockNumber, GetBlockchainBlock, GetBlockchainLogs, InsertBlock,
+    ReceiptByTransactionHash, ReserveBlocks, RevertToBlock, StateAtBlock,
+    TotalDifficultyByBlockHash,
 };
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
 use edr_chain_config::{Activations, ChainConfig};
@@ -37,7 +38,7 @@ use edr_rpc_spec::{RpcEthBlock, RpcTransaction};
 use edr_state_api::{
     account::{Account, AccountStatus},
     irregular::IrregularState,
-    StateDiff, StateError, StateOverride, SyncState,
+    DynState, StateDiff, StateOverride,
 };
 use edr_state_fork::ForkedState;
 use edr_utils::{random::RandomHashGenerator, CastArcFrom, CastArcInto};
@@ -495,13 +496,61 @@ impl<
         FetchReceiptErrorT,
         HardforkT: Clone,
         LocalBlockT,
+        RpcBlockChainSpecT: RpcBlockChainSpec<RpcBlock<RpcTransactionT>: TryInto<EthBlockData<SignedTransactionT>>>,
+        RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
+        RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
+        SignedTransactionT: Debug + ExecutableTransaction,
+    > BlockchainMetadata<HardforkT>
+    for ForkedBlockchain<
+        BlockReceiptT,
+        BlockT,
+        FetchReceiptErrorT,
+        HardforkT,
+        LocalBlockT,
+        RpcBlockChainSpecT,
+        RpcReceiptT,
+        RpcTransactionT,
+        SignedTransactionT,
+    >
+{
+    fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
+        &self.base_fee_params
+    }
+
+    fn chain_id(&self) -> u64 {
+        self.chain_id
+    }
+
+    fn hardfork(&self) -> HardforkT {
+        self.hardfork.clone()
+    }
+
+    fn last_block_number(&self) -> u64 {
+        self.local_storage.last_block_number()
+    }
+
+    fn min_ethash_difficulty(&self) -> u64 {
+        self.min_ethash_difficulty
+    }
+
+    fn network_id(&self) -> u64 {
+        self.network_id
+    }
+}
+
+impl<
+        BlockReceiptT: Debug + ReceiptTrait + TryFrom<RpcReceiptT>,
+        BlockT: ?Sized + Block<SignedTransactionT>,
+        FetchReceiptErrorT,
+        HardforkT: Clone,
+        LocalBlockT,
         RpcBlockChainSpecT: RpcBlockChainSpec<
             RpcBlock<RpcTransactionT>: RpcEthBlock + TryInto<EthBlockData<SignedTransactionT>>,
         >,
         RpcReceiptT: serde::de::DeserializeOwned + serde::Serialize,
         RpcTransactionT: serde::de::DeserializeOwned + serde::Serialize,
         SignedTransactionT: Debug + ExecutableTransaction,
-    > BlockchainMetadata<HardforkT>
+    > BlockchainMetadataAtBlockNumber<HardforkT>
     for ForkedBlockchain<
         BlockReceiptT,
         BlockT,
@@ -521,14 +570,6 @@ impl<
         >>::Error,
         <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
     >;
-
-    fn base_fee_params(&self) -> &BaseFeeParams<HardforkT> {
-        &self.base_fee_params
-    }
-
-    fn chain_id(&self) -> u64 {
-        self.chain_id
-    }
 
     fn chain_id_at_block_number(&self, block_number: u64) -> Result<u64, Self::Error> {
         if block_number > self.last_block_number() {
@@ -574,22 +615,6 @@ impl<
         } else {
             Ok(self.hardfork.clone())
         }
-    }
-
-    fn hardfork(&self) -> HardforkT {
-        self.hardfork.clone()
-    }
-
-    fn last_block_number(&self) -> u64 {
-        self.local_storage.last_block_number()
-    }
-
-    fn min_ethash_difficulty(&self) -> u64 {
-        self.min_ethash_difficulty
-    }
-
-    fn network_id(&self) -> u64 {
-        self.network_id
     }
 }
 
@@ -1086,14 +1111,12 @@ impl<
         <BlockReceiptT as TryFrom<RpcReceiptT>>::Error,
     >;
 
-    type StateError = StateError;
-
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn state_at_block_number(
         &self,
         block_number: u64,
         state_overrides: &BTreeMap<u64, StateOverride>,
-    ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError> {
+    ) -> Result<Box<dyn DynState>, Self::BlockchainError> {
         if block_number > self.last_block_number() {
             return Err(ForkedBlockchainError::UnknownBlockNumber);
         }

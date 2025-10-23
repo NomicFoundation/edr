@@ -4,7 +4,7 @@ use core::fmt::Debug;
 
 use edr_chain_spec::TransactionValidation;
 
-use crate::Blockchain;
+use crate::DynBlockchain;
 
 /// Trait that meets all requirements for a synchronous blockchain.
 pub trait SyncBlockchain<
@@ -16,15 +16,8 @@ pub trait SyncBlockchain<
     SignedTransactionT: Send + Sync,
     StateErrorT,
 >:
-    Blockchain<
-        BlockReceiptT,
-        BlockT,
-        BlockchainErrorT,
-        HardforkT,
-        LocalBlockT,
-        SignedTransactionT,
-        StateErrorT,
-    > + Send
+    DynBlockchain<BlockReceiptT, BlockT, HardforkT, LocalBlockT, SignedTransactionT>
+    + Send
     + Sync
     + Debug
 {
@@ -34,15 +27,8 @@ impl<
         BlockReceiptT: Send + Sync,
         BlockT: ?Sized,
         BlockchainErrorT: Debug + Send,
-        BlockchainT: Blockchain<
-                BlockReceiptT,
-                BlockT,
-                BlockchainErrorT,
-                HardforkT,
-                LocalBlockT,
-                SignedTransactionT,
-                StateErrorT,
-            > + Send
+        BlockchainT: DynBlockchain<BlockReceiptT, BlockT, HardforkT, LocalBlockT, SignedTransactionT>
+            + Send
             + Sync
             + Debug,
         HardforkT: Send + Sync,

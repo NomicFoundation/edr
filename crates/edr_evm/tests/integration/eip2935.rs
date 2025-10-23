@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use edr_block_header::BlockConfig;
-use edr_blockchain_api::Blockchain as _;
+use edr_blockchain_api::DynBlockchain as _;
 use edr_chain_l1::L1ChainSpec;
 use edr_evm::{
     blockchain::LocalBlockchain,

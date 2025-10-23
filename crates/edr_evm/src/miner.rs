@@ -2,7 +2,7 @@ use std::{cmp::Ordering, fmt::Debug};
 
 use edr_block_api::{Block as _, GenesisBlockFactory};
 use edr_block_builder_api::{
-    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError, Blockchain,
+    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError, DynBlockchain,
     BuiltBlockAndState, PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides, PartialHeader};
@@ -97,7 +97,7 @@ pub fn mine_block<
     InspectorT,
     StateErrorT,
 >(
-    blockchain: &dyn Blockchain<
+    blockchain: &dyn DynBlockchain<
         ChainSpecT::Receipt,
         ChainSpecT::Block,
         BlockchainErrorT,
@@ -127,7 +127,7 @@ where
             ChainSpecT::BlockEnv<'inspector, PartialHeader>,
             WrapDatabaseRef<
                 DatabaseComponents<
-                    &'inspector dyn Blockchain<
+                    &'inspector dyn DynBlockchain<
                         ChainSpecT::Receipt,
                         ChainSpecT::Block,
                         BlockchainErrorT,
@@ -333,7 +333,7 @@ pub fn mine_block_with_single_transaction<
     InspectorT,
     StateErrorT,
 >(
-    blockchain: &dyn Blockchain<
+    blockchain: &dyn DynBlockchain<
         ChainSpecT::Receipt,
         ChainSpecT::Block,
         BlockchainErrorT,
@@ -361,7 +361,7 @@ where
             ChainSpecT::BlockEnv<'inspector, PartialHeader>,
             WrapDatabaseRef<
                 DatabaseComponents<
-                    &'inspector dyn Blockchain<
+                    &'inspector dyn DynBlockchain<
                         ChainSpecT::Receipt,
                         ChainSpecT::Block,
                         BlockchainErrorT,

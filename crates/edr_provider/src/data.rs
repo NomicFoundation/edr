@@ -15,11 +15,12 @@ use edr_block_api::{Block, BlockAndTotalDifficulty, FetchBlockReceipts as _};
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };
-use edr_blockchain_api::Blockchain as _;
+use edr_blockchain_api::DynBlockchain as _;
 use edr_chain_spec::{
     ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction, HaltReasonTrait,
     TransactionValidation,
 };
+use edr_chain_spec_block::BlockChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::miner_reward,
@@ -29,23 +30,11 @@ use edr_eth::{
     BlockSpec, BlockTag, Eip1898BlockSpec,
 };
 use edr_evm::{
-    block::transaction::{
-        BlockDataForTransaction, TransactionAndBlock, TransactionAndBlockForChainSpec,
-    },
-    blockchain::{
-        BlockchainError, BlockchainErrorForChainSpec, ForkedBlockchain, ForkedCreationError,
-        LocalBlockchain, SyncBlockchainForChainSpec,
-    },
-    config::CfgEnv,
-    inspector::DualInspector,
-    mempool, mine_block, mine_block_with_single_transaction,
-    precompile::PrecompileFn,
-    result::ExecutionResult,
-    spec::{base_fee_params_for, RuntimeSpec, SyncRuntimeSpec},
-    state::{IrregularState, StateOverrides, StateRefOverrider},
-    trace::Trace,
-    transaction, GenesisBlockOptions, MemPool, MineBlockResultAndState, OrderedTransaction,
+    inspector::DualInspector, mempool, mine_block, mine_block_with_single_transaction,
+    trace::Trace, transaction, MemPool, OrderedTransaction,
 };
+use edr_evm_spec::result::ExecutionResult;
+use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
@@ -55,6 +44,7 @@ use edr_signer::{
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_state_api::{
     account::{Account, AccountInfo, AccountStatus},
+    irregular::IrregularState,
     AccountModifierFn, EvmStorageSlot, StateDiff, StateError, StateOverride, SyncState,
 };
 use edr_transaction::{
@@ -119,7 +109,7 @@ pub struct EstimateGasResult<HaltReasonT: HaltReasonTrait> {
 
 /// Helper type for a chain-specific [`SendTransactionResult`].
 pub type SendTransactionResultForChainSpec<ChainSpecT> = SendTransactionResult<
-    Arc<<ChainSpecT as RuntimeSpec>::Block>,
+    Arc<<ChainSpecT as BlockChainSpec>::Block>,
     <ChainSpecT as ChainSpec>::HaltReason,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
@@ -189,13 +179,8 @@ pub struct ProviderData<
     bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
-    blockchain: Box<
-        dyn SyncBlockchainForChainSpec<
-            BlockchainErrorForChainSpec<ChainSpecT>,
-            ChainSpecT,
-            StateError,
-        >,
-    >,
+    blockchain:
+        Box<dyn SyncBlockchain<BlockchainErrorForChainSpec<ChainSpecT>, ChainSpecT, StateError>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_config: MiningConfig,

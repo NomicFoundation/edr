@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use edr_blockchain_api::Blockchain as _;
+use edr_blockchain_api::DynBlockchain as _;
 use edr_defaults::CACHE_DIR;
 use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState};
 use edr_generic::GenericChainSpec;

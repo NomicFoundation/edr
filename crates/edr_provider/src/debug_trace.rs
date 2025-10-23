@@ -1,24 +1,15 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use edr_evm::{
-    blockchain::SyncBlockchainForChainSpec,
-    config::CfgEnv,
-    inspector::{DualInspector, Inspector},
-    interpreter::{
-        CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, InputsTr as _,
-        Interpreter, InterpreterResult, Jumps as _,
-    },
-    journal::{JournalEntry, JournalExt, JournalTrait as _},
-    result::{ExecutionResult, ExecutionResultAndState},
-    runtime::{dry_run_with_inspector, run},
-    spec::{ContextTrait, RuntimeSpec},
-    trace::{Trace, TraceCollector},
-    transaction::TransactionError,
-};
 use edr_chain_spec::{
-    Block as _, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
+    ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
     HaltReasonTrait, TransactionValidation,
 };
+use edr_evm::{
+    inspector::{DualInspector, Inspector},
+    journal::JournalExt,
+    trace::{Trace, TraceCollector},
+};
+use edr_evm_spec::result::{ExecutionResult, ExecutionResultAndState};
 use edr_primitives::{
     bytecode::opcode::{self, OpCode},
     hex, Address, Bytes, B256, U256,

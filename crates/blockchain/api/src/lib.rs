@@ -1,6 +1,7 @@
 //! Types for Ethereum blockchains
 #![warn(missing_docs)]
 
+pub mod r#dyn;
 pub mod sync;
 pub mod utils;
 
@@ -11,7 +12,9 @@ use edr_block_api::BlockAndTotalDifficulty;
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::log::FilterLog;
-use edr_state_api::{StateDiff, StateOverride, SyncState};
+use edr_state_api::{DynState, StateDiff, StateOverride};
+
+pub use self::r#dyn::DynBlockchain;
 
 /// Trait for retrieving a block's hash by number.
 #[auto_impl(&, &mut, Box, Rc, Arc)]
@@ -26,26 +29,11 @@ pub trait BlockHashByNumber {
 /// Trait for retrieving blockchain metadata.
 #[auto_impl(&)]
 pub trait BlockchainMetadata<HardforkT> {
-    /// The blockchain's error type
-    type Error;
-
     /// Retrieves the base fee parameters for the blockchain.
     fn base_fee_params(&self) -> &BaseFeeParams<HardforkT>;
 
     /// Retrieves the instances chain ID.
     fn chain_id(&self) -> u64;
-
-    /// Retrieves the chain ID of the block at the provided number.
-    /// The chain ID can be different in fork mode pre- and post-fork block
-    /// number.
-    fn chain_id_at_block_number(&self, _block_number: u64) -> Result<u64, Self::Error> {
-        // Chain id only depends on the block number in fork mode
-        Ok(self.chain_id())
-    }
-
-    /// Retrieves the hardfork specification of the block at the provided
-    /// number.
-    fn spec_at_block_number(&self, block_number: u64) -> Result<HardforkT, Self::Error>;
 
     /// Retrieves the hardfork specification used for new blocks.
     fn hardfork(&self) -> HardforkT;
@@ -58,6 +46,22 @@ pub trait BlockchainMetadata<HardforkT> {
 
     /// Retrieves the network ID of the blockchain.
     fn network_id(&self) -> u64;
+}
+
+/// Trait for retrieving blockchain metadata at a specific block number.
+#[auto_impl(&)]
+pub trait BlockchainMetadataAtBlockNumber<HardforkT> {
+    /// The blockchain's error type
+    type Error;
+
+    /// Retrieves the chain ID of the block at the provided number.
+    /// The chain ID can be different in fork mode pre- and post-fork block
+    /// number.
+    fn chain_id_at_block_number(&self, _block_number: u64) -> Result<u64, Self::Error>;
+
+    /// Retrieves the hardfork specification of the block at the provided
+    /// number.
+    fn spec_at_block_number(&self, block_number: u64) -> Result<HardforkT, Self::Error>;
 }
 
 /// Trait for implementations of an Ethereum blockchain.
@@ -156,9 +160,6 @@ pub trait StateAtBlock {
     /// The blockchain's error type
     type BlockchainError;
 
-    /// The state's error type
-    type StateError;
-
     /// Retrieves the state at a given block.
     ///
     /// The state overrides are applied after the block they are associated
@@ -169,7 +170,7 @@ pub trait StateAtBlock {
         block_number: u64,
         // Block number -> state overrides
         state_overrides: &BTreeMap<u64, StateOverride>,
-    ) -> Result<Box<dyn SyncState<Self::StateError>>, Self::BlockchainError>;
+    ) -> Result<Box<dyn DynState>, Self::BlockchainError>;
 }
 
 /// Trait for retrieving the total difficulty by its block hash.
@@ -180,60 +181,4 @@ pub trait TotalDifficultyByBlockHash {
 
     /// Retrieves the total difficulty at the block with the provided hash.
     fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::Error>;
-}
-
-/// Super-trait for implementations of an Ethereum blockchain.
-pub trait Blockchain<
-    BlockReceiptT,
-    BlockT: ?Sized,
-    BlockchainErrorT,
-    HardforkT,
-    LocalBlockT,
-    SignedTransactionT,
-    StateErrorT,
->:
-    BlockHashByNumber<Error = BlockchainErrorT>
-    + BlockchainMetadata<HardforkT, Error = BlockchainErrorT>
-    + GetBlockchainBlock<BlockT, HardforkT, Error = BlockchainErrorT>
-    + GetBlockchainLogs<Error = BlockchainErrorT>
-    + InsertBlock<BlockT, LocalBlockT, SignedTransactionT, Error = BlockchainErrorT>
-    + ReceiptByTransactionHash<BlockReceiptT, Error = BlockchainErrorT>
-    + ReserveBlocks<Error = BlockchainErrorT>
-    + RevertToBlock<Error = BlockchainErrorT>
-    + StateAtBlock<BlockchainError = BlockchainErrorT, StateError = StateErrorT>
-    + TotalDifficultyByBlockHash<Error = BlockchainErrorT>
-{
-}
-
-impl<
-        BlockReceiptT,
-        BlockT: ?Sized,
-        BlockchainT,
-        BlockchainErrorT,
-        HardforkT,
-        LocalBlockT,
-        SignedTransactionT,
-        StateErrorT,
-    >
-    Blockchain<
-        BlockReceiptT,
-        BlockT,
-        BlockchainErrorT,
-        HardforkT,
-        LocalBlockT,
-        SignedTransactionT,
-        StateErrorT,
-    > for BlockchainT
-where
-    BlockchainT: BlockHashByNumber<Error = BlockchainErrorT>
-        + BlockchainMetadata<HardforkT, Error = BlockchainErrorT>
-        + GetBlockchainBlock<BlockT, HardforkT, Error = BlockchainErrorT>
-        + GetBlockchainLogs<Error = BlockchainErrorT>
-        + InsertBlock<BlockT, LocalBlockT, SignedTransactionT, Error = BlockchainErrorT>
-        + ReceiptByTransactionHash<BlockReceiptT, Error = BlockchainErrorT>
-        + ReserveBlocks<Error = BlockchainErrorT>
-        + RevertToBlock<Error = BlockchainErrorT>
-        + StateAtBlock<BlockchainError = BlockchainErrorT, StateError = StateErrorT>
-        + TotalDifficultyByBlockHash<Error = BlockchainErrorT>,
-{
 }

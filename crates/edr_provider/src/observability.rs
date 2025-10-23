@@ -4,7 +4,7 @@ use std::sync::Arc;
 use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::HaltReasonTrait;
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
-use edr_database_components::DatabaseComponents;
+use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_evm::{inspector::Inspector, journal::JournalExt, trace::TraceCollector};
 use edr_evm_spec::{
     interpreter::{

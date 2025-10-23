@@ -6,19 +6,15 @@ use core::fmt::Debug;
 use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
+use edr_chain_spec::{
+    ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec, OutOfGasError, TransactionValidation,
+};
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
 use edr_evm::{
-    blockchain::{BlockchainError, ForkedCreationError, InvalidGenesisBlock},
-    result::ExecutionResult,
-    spec::{GenesisBlockFactory, RuntimeSpec},
-    state::AccountOverrideConversionError,
-    trace::Trace,
-    transaction::{self, TransactionError},
-    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
+    overrides::AccountOverrideConversionError, trace::Trace, MemPoolAddTransactionError,
+    MineBlockError, MineTransactionError,
 };
-use edr_chain_spec::{
-    HardforkChainSpec, ChainSpec, EvmSpecId, HaltReasonTrait, OutOfGasError, TransactionValidation,
-};
+use edr_evm_spec::result::ExecutionResult;
 use edr_primitives::{hex, Address, Bytes, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
 use edr_signer::SignatureError;

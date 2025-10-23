@@ -12,6 +12,7 @@ edr_block_builder_api.workspace = true
 edr_block_header.workspace = true
 edr_block_local.workspace = true
 edr_block_remote.workspace = true
+edr_blockchain_api.workspace = true
 edr_chain_config.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true
