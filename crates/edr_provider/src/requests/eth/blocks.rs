@@ -4,16 +4,14 @@ use std::sync::Arc;
 use edr_block_api::Block as _;
 use edr_block_header::Withdrawal;
 use edr_chain_l1::rpc::block::L1RpcBlock;
-use edr_eth::{BlockSpec, PreEip1898BlockSpec};
-use edr_evm::{
-    block::transaction::{BlockDataForTransaction, TransactionAndBlock},
-    spec::RuntimeSpec,
-};
 use edr_chain_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
+use edr_chain_spec_block::BlockChainSpec;
+use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{B256, U256, U64};
 use edr_rpc_spec::RpcTypeFrom as _;
+use edr_transaction::{BlockDataForTransaction, TransactionAndBlock};
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec,
@@ -23,9 +21,9 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(untagged)]
-pub enum HashOrTransaction<ChainSpecT: RuntimeSpec> {
+pub enum HashOrTransaction<RpcTransactionT> {
     Hash(B256),
-    Transaction(ChainSpecT::RpcTransaction),
+    Transaction(RpcTransactionT),
 }
 
 pub fn handle_get_block_by_hash_request<
@@ -55,7 +53,6 @@ pub fn handle_get_block_by_hash_request<
 pub fn handle_get_block_by_number_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<EvmTransactionValidationError> + PartialEq,
@@ -102,7 +99,6 @@ pub fn handle_get_block_transaction_count_by_hash_request<
 pub fn handle_get_block_transaction_count_by_block_number<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<EvmTransactionValidationError> + PartialEq,
@@ -119,7 +115,7 @@ pub fn handle_get_block_transaction_count_by_block_number<
 
 /// Helper type for a chain-specific [`BlockByNumberResult`].
 type BlockByNumberResultForChainSpec<ChainSpecT> =
-    BlockByNumberResult<Arc<<ChainSpecT as RuntimeSpec>::Block>>;
+    BlockByNumberResult<Arc<<ChainSpecT as BlockChainSpec>::Block>>;
 
 /// The result returned by requesting a block by number.
 #[derive(Clone, Debug)]
@@ -135,7 +131,6 @@ struct BlockByNumberResult<BlockT> {
 fn block_by_number<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<EvmTransactionValidationError> + PartialEq,
@@ -169,7 +164,8 @@ fn block_by_number<
             let previous_total_difficulty = data
                 .total_difficulty_by_hash(last_block.block_hash())?
                 .expect("last block has total difficulty");
-            let total_difficulty = previous_total_difficulty + pending_block.block_header().difficulty;
+            let total_difficulty =
+                previous_total_difficulty + pending_block.block_header().difficulty;
 
             Ok(Some(BlockByNumberResult {
                 block: ChainSpecT::cast_local_block(pending_block),

@@ -8,7 +8,6 @@ use crate::{
 pub fn handle_mine<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<EvmTransactionValidationError> + PartialEq,

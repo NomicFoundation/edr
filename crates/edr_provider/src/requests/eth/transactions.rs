@@ -1,20 +1,16 @@
 use std::sync::Arc;
 
 use edr_block_api::Block;
-use edr_eth::PreEip1898BlockSpec;
-use edr_evm::{
-    block::transaction::{BlockDataForTransaction, TransactionAndBlock},
-    blockchain::BlockchainErrorForChainSpec,
-    transaction,
-};
 use edr_chain_spec::{
     EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
 };
+use edr_eth::PreEip1898BlockSpec;
+use edr_evm::transaction;
 use edr_primitives::{Bytes, B256, U256};
 use edr_rpc_spec::RpcTypeFrom as _;
 use edr_transaction::{
-    request::TransactionRequestAndSender, IsEip155, IsEip4844, TransactionType,
-    INVALID_TX_TYPE_ERROR_MESSAGE,
+    request::TransactionRequestAndSender, BlockDataForTransaction, IsEip155, IsEip4844,
+    TransactionAndBlock, TransactionType, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 
 use crate::{
@@ -52,7 +48,6 @@ pub fn handle_get_transaction_by_block_hash_and_index<
 pub fn handle_get_transaction_by_block_spec_and_index<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<EvmTransactionValidationError> + PartialEq,
@@ -169,7 +164,6 @@ fn transaction_from_block<BlockT: Block<SignedTransactionT> + Clone, SignedTrans
 pub fn handle_send_transaction_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
@@ -195,7 +189,6 @@ pub fn handle_send_transaction_request<
 pub fn handle_send_raw_transaction_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
@@ -232,7 +225,6 @@ pub fn handle_send_raw_transaction_request<
 pub fn calculate_eip1559_fee_parameters<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<
@@ -244,7 +236,7 @@ pub fn calculate_eip1559_fee_parameters<
     data: &mut ProviderData<ChainSpecT, TimerT>,
     max_fee_per_gas: Option<u128>,
     max_priority_fee_per_gas: Option<u128>,
-) -> Result<(u128, u128), BlockchainErrorForChainSpec<ChainSpecT>> {
+) -> Result<(u128, u128), Box<dyn std::error::Error>> {
     const DEFAULT_MAX_PRIORITY_FEE_PER_GAS: u128 = 1_000_000_000;
 
     /// # Panics
@@ -253,7 +245,6 @@ pub fn calculate_eip1559_fee_parameters<
     fn calculate_max_fee_per_gas<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            BlockEnv: Default,
             SignedTransaction: Default
                                    + TransactionType<Type: IsEip4844>
                                    + TransactionValidation<
@@ -264,7 +255,7 @@ pub fn calculate_eip1559_fee_parameters<
     >(
         data: &ProviderData<ChainSpecT, TimerT>,
         max_priority_fee_per_gas: u128,
-    ) -> Result<u128, BlockchainErrorForChainSpec<ChainSpecT>> {
+    ) -> Result<u128, Box<dyn std::error::Error>> {
         let base_fee_per_gas = data
             .next_block_base_fee_per_gas()?
             .expect("We already validated that the block is post-London.");
@@ -296,7 +287,6 @@ pub fn calculate_eip1559_fee_parameters<
 fn send_raw_transaction_and_log<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionType<Type: IsEip4844>
                                + TransactionValidation<

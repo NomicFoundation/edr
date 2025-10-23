@@ -12,8 +12,6 @@ use crate::{
 };
 
 pub trait Logger<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
-    type BlockchainError;
-
     /// Whether the logger is enabled.
     fn is_enabled(&self) -> bool;
 
@@ -105,8 +103,8 @@ where
 {
 }
 
-impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch, BlockchainErrorT> Clone
-    for Box<dyn SyncLogger<ChainSpecT, TimerT, BlockchainError = BlockchainErrorT>>
+impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> Clone
+    for Box<dyn SyncLogger<ChainSpecT, TimerT>>
 {
     fn clone(&self) -> Self {
         dyn_clone::clone_box(&**self)
@@ -125,8 +123,6 @@ pub struct NoopLogger<
 impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> Logger<ChainSpecT, TimerT>
     for NoopLogger<ChainSpecT, TimerT>
 {
-    type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
-
     fn is_enabled(&self) -> bool {
         false
     }

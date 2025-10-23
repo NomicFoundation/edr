@@ -1,11 +1,14 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use edr_evm_spec::interpreter::{
-    CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter, InterpreterTypes,
+use edr_evm_spec::{
+    interpreter::{
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter, InterpreterTypes,
+    },
+    Inspector,
 };
 use edr_primitives::{Address, U256};
 use edr_receipt::log::ExecutionLog;
-pub use revm_inspector::{Inspector, NoOpInspector};
+pub use revm_inspector::NoOpInspector;
 
 // TODO: Improve this design by introducing a InspectorMut trait
 

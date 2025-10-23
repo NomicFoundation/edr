@@ -1,29 +1,28 @@
 use std::{collections::HashMap, fmt::Debug};
 
+use edr_chain_spec::{
+    ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
+    HaltReasonTrait, TransactionValidation,
+};
 use edr_evm::{
-    blockchain::SyncBlockchainForChainSpec,
-    config::CfgEnv,
-    inspector::{DualInspector, Inspector},
+    inspector::DualInspector,
+    journal::JournalExt,
+    trace::{Trace, TraceCollector},
+};
+use edr_evm2::{dry_run_with_inspector, run};
+use edr_evm_spec::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, InputsTr as _,
         Interpreter, InterpreterResult, Jumps as _,
     },
-    journal::{JournalEntry, JournalExt, JournalTrait as _},
     result::{ExecutionResult, ExecutionResultAndState},
-    runtime::{dry_run_with_inspector, run},
-    spec::{ContextTrait, RuntimeSpec},
-    trace::{Trace, TraceCollector},
-    transaction::TransactionError,
-};
-use edr_chain_spec::{
-    Block as _, ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
-    HaltReasonTrait, TransactionValidation,
+    ContextTrait, DatabaseComponentError, Inspector, JournalEntry, TransactionError,
 };
 use edr_primitives::{
     bytecode::opcode::{self, OpCode},
     hex, Address, Bytes, B256, U256,
 };
-use edr_state_api::SyncState;
+use edr_state_api::DynState;
 
 use crate::{
     observability::{EvmObserver, EvmObserverConfig},
@@ -36,7 +35,7 @@ use crate::{
 pub fn debug_trace_transaction<ChainSpecT, BlockchainErrorT, StateErrorT>(
     blockchain: &dyn SyncBlockchainForChainSpec<BlockchainErrorT, ChainSpecT, StateErrorT>,
     // Take ownership of the state so that we can apply throw-away modifications on it
-    mut state: Box<dyn SyncState<StateErrorT>>,
+    mut state: Box<dyn DynState>,
     evm_config: CfgEnv<ChainSpecT::Hardfork>,
     trace_config: DebugTraceConfig,
     block: ChainSpecT::BlockEnv,
@@ -196,7 +195,11 @@ pub enum DebugTraceError<BlockchainErrorT, StateErrorT, TransactionValidationErr
     /// Transaction error.
     #[error(transparent)]
     TransactionError(
-        #[from] TransactionError<BlockchainErrorT, StateErrorT, TransactionValidationErrorT>,
+        #[from]
+        TransactionError<
+            DatabaseComponentError<BlockchainErrorT, StateErrorT>,
+            TransactionValidationErrorT,
+        >,
     ),
 }
 

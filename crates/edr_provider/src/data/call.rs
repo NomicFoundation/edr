@@ -2,9 +2,8 @@ use edr_block_header::BlockHeader;
 use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
-use edr_evm::inspector::Inspector;
 use edr_evm2::guaranteed_dry_run_with_inspector;
-use edr_evm_spec::{result::ExecutionResult, ContextForChainSpec};
+use edr_evm_spec::{result::ExecutionResult, ContextForChainSpec, Inspector};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{State, StateError};
@@ -24,10 +23,9 @@ pub(super) fn run_call<BlockchainT, ChainSpecT, InspectorT, StateT, TimerT>(
     inspector: &mut InspectorT,
 ) -> Result<ExecutionResult<ChainSpecT::HaltReason>, ProviderErrorForChainSpec<ChainSpecT>>
 where
-    BlockchainT: BlockHashByNumber<Error = BlockchainErrorForChainSpec<ChainSpecT>>,
+    BlockchainT: BlockHashByNumber<Error = Box<dyn std::error::Error>>,
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionValidation<
             ValidationError: From<EvmTransactionValidationError>,

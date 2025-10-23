@@ -82,7 +82,6 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            BlockEnv: Default,
             SignedTransaction: Default
                                    + TransactionValidation<
                 ValidationError: From<EvmTransactionValidationError> + PartialEq,
@@ -94,13 +93,7 @@ impl<
     /// Constructs a new instance.
     pub fn new(
         runtime: runtime::Handle,
-        logger: Box<
-            dyn SyncLogger<
-                ChainSpecT,
-                TimerT,
-                BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
-            >,
-        >,
+        logger: Box<dyn SyncLogger<ChainSpecT, TimerT>>,
         subscriber_callback: Box<
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
@@ -154,7 +147,6 @@ impl<
 impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            BlockEnv: Clone + Default,
             PooledTransaction: IsEip155,
             SignedTransaction: Default
                                    + TransactionMut

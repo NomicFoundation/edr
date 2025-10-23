@@ -14,8 +14,12 @@ derive-where.workspace = true
 derive_more = { workspace = true, features = ["debug"] }
 dyn-clone.workspace = true
 edr_block_api.workspace = true
+edr_block_builder_api.workspace = true
 edr_block_header.workspace = true
 edr_blockchain_api.workspace = true
+edr_blockchain_fork.workspace = true
+edr_blockchain_local.workspace = true
+edr_chain_config.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true

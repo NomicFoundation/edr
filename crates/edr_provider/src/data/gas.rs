@@ -9,9 +9,10 @@ use edr_chain_spec::{
 use edr_eth::reward_percentile::RewardPercentile;
 use edr_evm::trace::TraceCollector;
 use edr_evm_spec::result::ExecutionResult;
+use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
-use edr_state_api::{StateError, SyncState};
+use edr_state_api::{DynState, StateError};
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
 
@@ -24,7 +25,7 @@ pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
         StateError,
     >,
     pub header: &'a BlockHeader,
-    pub state: &'a dyn SyncState<StateError>,
+    pub state: &'a dyn DynState,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
     pub gas_limit: u64,
@@ -83,7 +84,7 @@ pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
         StateError,
     >,
     pub header: &'a BlockHeader,
-    pub state: &'a dyn SyncState<StateError>,
+    pub state: &'a dyn DynState,
     pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     pub transaction: ChainSpecT::SignedTransaction,
     pub lower_bound: u64,
@@ -101,7 +102,6 @@ pub(super) fn binary_search_estimation<ChainSpecT, TimerT>(
 where
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
                                + TransactionValidation<
@@ -185,7 +185,7 @@ where
     ChainSpecT: SyncProviderSpec<
         TimerT,
         Block: FetchBlockReceipts<
-            Arc<ChainSpecT::BlockReceipt>,
+            Arc<ChainSpecT::Receipt>,
             Error = BlockchainErrorForChainSpec<ChainSpecT>,
         >,
     >,

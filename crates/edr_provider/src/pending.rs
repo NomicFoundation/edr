@@ -6,7 +6,7 @@ use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::ExecutableTransaction as _;
 use edr_primitives::{Address, HashSet, B256, U256};
 use edr_receipt::{log::FilterLog, ReceiptTrait as _};
-use edr_state_api::{StateDiff, StateError, StateOverride, SyncState};
+use edr_state_api::{DynState, StateDiff, StateError, StateOverride};
 
 /// A blockchain with a pending block.
 ///
