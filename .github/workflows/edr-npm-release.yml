@@ -104,6 +104,16 @@ jobs:
             .cargo-cache
             target/
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+      - name: Configure Cargo for Socket.dev proxy
+        if: ${{ !matrix.settings.docker }}
+        run: |
+          cat >> ~/.cargo/config.toml << 'EOF'
+          [http]
+          check-revoke = false
+
+          [net]
+          git-fetch-with-cli = true
+          EOF
 
       - name: Install dependencies
         if: ${{ !matrix.settings.docker }}
