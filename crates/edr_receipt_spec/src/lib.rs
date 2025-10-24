@@ -24,17 +24,17 @@ pub trait ReceiptChainSpec:
     type Receipt: Debug
         + ExecutionReceipt<Log = FilterLog>
         + ReceiptConstructor<
+            Self::SignedTransaction,
             Context = Self::Context,
             ExecutionReceipt = Self::ExecutionReceipt<FilterLog>,
             Hardfork = Self::Hardfork,
-            SignedTransaction = Self::SignedTransaction,
         > + ReceiptTrait
         + TryFrom<Self::RpcReceipt, Error: std::error::Error>;
 }
 
 /// Trait for constructing a receipt type from a transaction's execution receipt
 /// and the block it was executed in.
-pub trait ReceiptConstructor {
+pub trait ReceiptConstructor<SignedTransactionT> {
     /// Type representing the receipt's contextual information.
     type Context;
 
@@ -44,15 +44,12 @@ pub trait ReceiptConstructor {
     /// Type representing the receipt's hardfork type.
     type Hardfork;
 
-    /// Type representing a signed transaction.
-    type SignedTransaction;
-
     /// Constructs a new instance from a transaction's receipt and the block it
     /// was executed in.
     fn new_receipt(
         context: &Self::Context,
         hardfork: Self::Hardfork,
-        transaction: &Self::SignedTransaction,
+        transaction: &SignedTransactionT,
         transaction_receipt: TransactionReceipt<Self::ExecutionReceipt>,
         block_hash: &B256,
         block_number: u64,

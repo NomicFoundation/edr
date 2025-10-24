@@ -4,13 +4,11 @@ use std::sync::Arc;
 use edr_block_api::Block;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_primitives::B256;
-use edr_state_api::StateDiff;
 
 /// A blockchain with a pending block.
 pub(crate) struct BlockchainWithPending<'blockchain, LocalBlockT, SignedTransactionT> {
     blockchain: &'blockchain dyn BlockHashByNumber<Error = DynBlockchainError>,
     pending_block: Arc<LocalBlockT>,
-    pending_state_diff: StateDiff,
     _phantom: PhantomData<SignedTransactionT>,
 }
 
@@ -22,12 +20,10 @@ impl<'blockchain, LocalBlockT, SignedTransactionT>
     pub fn new(
         blockchain: &'blockchain dyn BlockHashByNumber<Error = DynBlockchainError>,
         pending_block: LocalBlockT,
-        pending_state_diff: StateDiff,
     ) -> Self {
         Self {
             blockchain,
             pending_block: pending_block.into(),
-            pending_state_diff,
             _phantom: PhantomData,
         }
     }

@@ -9,8 +9,8 @@ use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
-    BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec,
-    EvmTransactionValidationError, HardforkChainSpec, TransactionValidation,
+    BlockEnvChainSpec, BlockEnvForHardfork, ChainSpec, ContextChainSpec, HardforkChainSpec,
+    TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec;
@@ -18,7 +18,6 @@ use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{
     handler::{EthInstructions, EthPrecompiles},
     interpreter::InterpreterResult,
-    result::EVMError,
     BlockEnvTrait, CfgEnv, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
     ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, Journal, LocalContext,
     PrecompileProvider, TransactionError,
@@ -43,30 +42,12 @@ use crate::{
         transaction::{L1RpcTransactionRequest, L1RpcTransactionWithSignature},
     },
     HaltReason, Hardfork, L1SignedTransaction, TypedEnvelope, L1_BASE_FEE_PARAMS,
-    L1_MIN_ETHASH_DIFFICULTY,
+    L1_GENESIS_BLOCK_EXTRA_DATA, L1_MIN_ETHASH_DIFFICULTY,
 };
-
-/// Ethereum L1 extra data for genesis blocks.
-pub const EXTRA_DATA: &[u8] = b"\x12\x34";
 
 /// The chain specification for Ethereum Layer 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
 pub struct L1ChainSpec;
-
-fn cast_evm_error<DatabaseT: Database>(
-    error: EVMError<DatabaseT::Error, EvmTransactionValidationError>,
-) -> TransactionError<DatabaseT::Error, EvmTransactionValidationError> {
-    match error {
-        EVMError::Custom(error) => TransactionError::Custom(error),
-        EVMError::Database(error) => TransactionError::Database(error),
-        EVMError::Header(error) => TransactionError::InvalidHeader(error),
-        EVMError::Transaction(EvmTransactionValidationError::LackOfFundForMaxFee {
-            fee,
-            balance,
-        }) => TransactionError::LackOfFundForMaxFee { fee, balance },
-        EVMError::Transaction(error) => TransactionError::InvalidTransaction(error),
-    }
-}
 
 impl BlockChainSpec for L1ChainSpec {
     type Block =
@@ -92,6 +73,15 @@ impl BlockEnvChainSpec for L1ChainSpec {
         = HeaderAndEvmSpec<'header, BlockHeaderT, Self::Hardfork>
     where
         BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
+}
+
+impl ChainSpec for L1ChainSpec {
+    type HaltReason = HaltReason;
+    type SignedTransaction = L1SignedTransaction;
+}
+
+impl ContextChainSpec for L1ChainSpec {
+    type Context = ();
 }
 
 impl EvmChainSpec for L1ChainSpec {
@@ -129,7 +119,7 @@ impl EvmChainSpec for L1ChainSpec {
 
         let mut evm = Evm::new(context, EthInstructions::default(), precompile_provider);
 
-        evm.replay().map_err(cast_evm_error::<DatabaseT>)
+        evm.replay().map_err(TransactionError::from)
     }
 
     fn dry_run_with_inspector<
@@ -175,26 +165,12 @@ impl EvmChainSpec for L1ChainSpec {
             precompile_provider,
         );
 
-        evm.inspect_tx(transaction)
-            .map_err(cast_evm_error::<DatabaseT>)
+        evm.inspect_tx(transaction).map_err(TransactionError::from)
     }
 }
 
 impl ExecutionReceiptChainSpec for L1ChainSpec {
     type ExecutionReceipt<LogT> = TypedEnvelope<edr_receipt::Execution<LogT>>;
-}
-
-impl HardforkChainSpec for L1ChainSpec {
-    type Hardfork = Hardfork;
-}
-
-impl ContextChainSpec for L1ChainSpec {
-    type Context = ();
-}
-
-impl ChainSpec for L1ChainSpec {
-    type HaltReason = HaltReason;
-    type SignedTransaction = L1SignedTransaction;
 }
 
 impl GenesisBlockFactory for L1ChainSpec {
@@ -216,11 +192,15 @@ impl GenesisBlockFactory for L1ChainSpec {
         options.extra_data = Some(
             options
                 .extra_data
-                .unwrap_or(Bytes::copy_from_slice(EXTRA_DATA)),
+                .unwrap_or(Bytes::copy_from_slice(L1_GENESIS_BLOCK_EXTRA_DATA)),
         );
 
         EthLocalBlock::with_genesis_state(genesis_diff, block_config, options)
     }
+}
+
+impl HardforkChainSpec for L1ChainSpec {
+    type Hardfork = Hardfork;
 }
 
 impl ProviderChainSpec for L1ChainSpec {

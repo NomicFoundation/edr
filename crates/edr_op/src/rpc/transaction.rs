@@ -52,7 +52,7 @@ impl TryFrom<Transaction> for transaction::signed::Deposit {
 pub enum ConversionError {
     /// L1 conversion error
     #[error(transparent)]
-    L1(#[from] edr_chain_l1::rpc::transaction::ConversionError),
+    L1(#[from] edr_chain_l1::rpc::transaction::RpcTransactionConversionError),
     /// Missing mint
     #[error("Missing mint")]
     Mint,

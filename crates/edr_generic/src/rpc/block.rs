@@ -1,13 +1,12 @@
-use derive_where::derive_where;
-use edr_block_api::{Block, BlockAndTotalDifficulty};
+use edr_block_api::{Block, BlockAndTotalDifficulty, EthBlockData};
 use edr_block_header::{BlobGas, BlockHeader, Withdrawal};
-use edr_evm::{spec::RuntimeSpec, EthBlockData};
 use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
-use edr_rpc_spec::{GetBlockNumber, RpcEthBlock};
+use edr_rpc_eth::GetBlockNumber;
+use edr_rpc_spec::RpcEthBlock;
 use serde::{Deserialize, Serialize};
 
-use crate::GenericChainSpec;
+use crate::transaction::SignedTransactionWithFallbackToPostEip155;
 
 /// block object returned by `eth_getBlockBy*`
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -50,7 +49,9 @@ pub struct GenericRpcBlock<TransactionT> {
     pub uncles: Vec<B256>,
     /// Array of transaction objects, or 32 Bytes transaction hashes depending
     /// on the last given parameter
-    #[serde(default)]
+    // Using `default = "Vec::default"` as `#[serde(default)]` imposes the trait bound
+    // `TransactionT: Default`.
+    #[serde(default = "Vec::default")]
     pub transactions: Vec<TransactionT>,
     /// the length of the RLP encoding of this block in bytes
     #[serde(with = "alloy_serde::quantity")]
@@ -121,9 +122,8 @@ impl<T> RpcEthBlock for GenericRpcBlock<T> {
 }
 
 /// Error that occurs when trying to convert the JSON-RPC `Block` type.
-#[derive(thiserror::Error)]
-#[derive_where(Debug; ChainSpecT::RpcTransactionConversionError)]
-pub enum ConversionError<ChainSpecT: RuntimeSpec> {
+#[derive(Debug, thiserror::Error)]
+pub enum GenericRpcBlockConversionError<TransactionConversionErrorT> {
     /// Missing hash
     #[error("Missing hash")]
     MissingHash,
@@ -135,29 +135,31 @@ pub enum ConversionError<ChainSpecT: RuntimeSpec> {
     MissingNumber,
     /// Transaction conversion error
     #[error(transparent)]
-    Transaction(ChainSpecT::RpcTransactionConversionError),
+    Transaction(TransactionConversionErrorT),
 }
 
-impl<TransactionT> TryFrom<GenericRpcBlock<TransactionT>> for EthBlockData<GenericChainSpec>
+impl<RpcTransactionT> TryFrom<GenericRpcBlock<RpcTransactionT>>
+    for EthBlockData<SignedTransactionWithFallbackToPostEip155>
 where
-    TransactionT: TryInto<
-        crate::transaction::SignedWithFallbackToPostEip155,
-        Error = crate::rpc::transaction::ConversionError,
-    >,
+    RpcTransactionT: TryInto<SignedTransactionWithFallbackToPostEip155>,
 {
-    type Error = ConversionError<GenericChainSpec>;
+    type Error = GenericRpcBlockConversionError<RpcTransactionT::Error>;
 
-    fn try_from(value: GenericRpcBlock<TransactionT>) -> Result<Self, Self::Error> {
+    fn try_from(value: GenericRpcBlock<RpcTransactionT>) -> Result<Self, Self::Error> {
         let header = BlockHeader {
             parent_hash: value.parent_hash,
             ommers_hash: value.sha3_uncles,
-            beneficiary: value.miner.ok_or(ConversionError::MissingMiner)?,
+            beneficiary: value
+                .miner
+                .ok_or(GenericRpcBlockConversionError::MissingMiner)?,
             state_root: value.state_root,
             transactions_root: value.transactions_root,
             receipts_root: value.receipts_root,
             logs_bloom: value.logs_bloom,
             difficulty: value.difficulty,
-            number: value.number.ok_or(ConversionError::MissingNumber)?,
+            number: value
+                .number
+                .ok_or(GenericRpcBlockConversionError::MissingNumber)?,
             gas_limit: value.gas_limit,
             gas_used: value.gas_used,
             timestamp: value.timestamp,
@@ -183,9 +185,11 @@ where
             .into_iter()
             .map(TryInto::try_into)
             .collect::<Result<Vec<_>, _>>()
-            .map_err(ConversionError::Transaction)?;
+            .map_err(GenericRpcBlockConversionError::Transaction)?;
 
-        let hash = value.hash.ok_or(ConversionError::MissingHash)?;
+        let hash = value
+            .hash
+            .ok_or(GenericRpcBlockConversionError::MissingHash)?;
 
         Ok(Self {
             header,
@@ -247,12 +251,12 @@ impl<BlockT: Block<SignedTransactionT>, SignedTransactionT: ExecutableTransactio
 mod tests {
     use std::sync::Arc;
 
-    use edr_evm::RemoteBlock;
+    use edr_block_remote::RemoteBlock;
     use edr_rpc_client::jsonrpc;
-    use edr_rpc_eth::client::EthRpcClient;
-    use edr_rpc_spec::RpcChainSpec;
+    use edr_rpc_eth::{client::EthRpcClient, RpcBlockChainSpec};
+    use edr_rpc_spec::EthRpcClientForChainSpec;
 
-    use crate::{rpc::transaction::TransactionWithSignature, GenericChainSpec};
+    use crate::{rpc::transaction::GenericRpcTransactionWithSignature, GenericChainSpec};
 
     #[tokio::test(flavor = "current_thread")]
     async fn test_allow_missing_nonce_or_mix_hash() {
@@ -286,7 +290,7 @@ mod tests {
         }"#;
 
         type BlockResponsePayload =
-            <GenericChainSpec as RpcChainSpec>::RpcBlock<TransactionWithSignature>;
+            <GenericChainSpec as RpcBlockChainSpec>::RpcBlock<GenericRpcTransactionWithSignature>;
 
         let response: jsonrpc::Response<BlockResponsePayload> = serde_json::from_str(DATA).unwrap();
         let rpc_block = match response.data {
@@ -299,8 +303,12 @@ mod tests {
         // by reliable providers like Alchemy or Infura.
         // Instead, we use a static response here.
         let dummy_client = Arc::new(
-            EthRpcClient::<GenericChainSpec>::new("http://example.com", "<dummy>".into(), None)
-                .unwrap(),
+            EthRpcClientForChainSpec::<GenericChainSpec>::new(
+                "http://example.com",
+                "<dummy>".into(),
+                None,
+            )
+            .unwrap(),
         );
         let runtime = tokio::runtime::Handle::current();
 

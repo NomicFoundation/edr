@@ -35,9 +35,12 @@ pub type InvalidTransaction = revm_context_interface::result::InvalidTransaction
 /// L1 Ethereum chain type
 pub const CHAIN_TYPE: &str = "L1";
 
-/// The minimum difficulty for the Ethash proof-of-work algorithm.
-pub const L1_MIN_ETHASH_DIFFICULTY: u64 = 131_072;
-
 /// Base fee parameters for L1 Ethereum.
 pub const L1_BASE_FEE_PARAMS: BaseFeeParams<Hardfork> =
     BaseFeeParams::Constant(ConstantBaseFeeParams::ethereum());
+
+/// The minimum difficulty for the Ethash proof-of-work algorithm.
+pub const L1_MIN_ETHASH_DIFFICULTY: u64 = 131_072;
+
+/// Ethereum L1 extra data for genesis blocks.
+pub const L1_GENESIS_BLOCK_EXTRA_DATA: &[u8] = b"\x12\x34";

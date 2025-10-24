@@ -293,7 +293,7 @@ fn insert_dummy_block_with_transaction(
     let receipt_factory = EthBlockReceiptFactory::default();
 
     let block = EthLocalBlock::<
-        RemoteBlockConversionError<edr_chain_l1::rpc::transaction::ConversionError>,
+        RemoteBlockConversionError<edr_chain_l1::rpc::transaction::RpcTransactionConversionError>,
         L1BlockReceipt<edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
         ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
         edr_chain_l1::Hardfork,

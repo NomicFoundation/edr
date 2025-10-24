@@ -1,14 +1,11 @@
+use edr_block_api::Block;
 use edr_chain_l1::rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature};
-use edr_evm::{
-    block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
-    transaction::remote::RpcTransaction,
-};
 use edr_primitives::B256;
-use edr_rpc_spec::RpcTypeFrom;
-use edr_transaction::SignedTransaction as _;
+use edr_rpc_spec::{RpcTransaction, RpcTypeFrom};
+use edr_transaction::{BlockDataForTransaction, SignedTransaction as _, TransactionAndBlock};
 use serde::{Deserialize, Serialize};
 
-use crate::{transaction, GenericChainSpec};
+use crate::transaction::{self, SignedTransactionWithFallbackToPostEip155};
 
 // We need to use a newtype here as `RpcTypeFrom` cannot be implemented here,
 // in an external crate, even though `TransactionAndBlock` is generic over
@@ -17,25 +14,28 @@ use crate::{transaction, GenericChainSpec};
 // defining crate of `edr_evm::TransactionAndBlock`, which probably shouldn't
 // as far as defining spec externally is concerned.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct TransactionWithSignature(L1RpcTransactionWithSignature);
+pub struct GenericRpcTransactionWithSignature(L1RpcTransactionWithSignature);
 
-impl RpcTransaction for TransactionWithSignature {
+impl RpcTransaction for GenericRpcTransactionWithSignature {
     fn block_hash(&self) -> Option<&B256> {
         self.0.block_hash()
     }
 }
 
-impl From<L1RpcTransactionWithSignature> for TransactionWithSignature {
+impl From<L1RpcTransactionWithSignature> for GenericRpcTransactionWithSignature {
     fn from(value: L1RpcTransactionWithSignature) -> Self {
         Self(value)
     }
 }
 
-impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for TransactionWithSignature {
+impl<BlockT: Block<SignedTransactionWithFallbackToPostEip155>>
+    RpcTypeFrom<TransactionAndBlock<BlockT, SignedTransactionWithFallbackToPostEip155>>
+    for GenericRpcTransactionWithSignature
+{
     type Hardfork = edr_chain_l1::Hardfork;
 
     fn rpc_type_from(
-        value: &TransactionAndBlockForChainSpec<GenericChainSpec>,
+        value: &TransactionAndBlock<BlockT, SignedTransactionWithFallbackToPostEip155>,
         hardfork: Self::Hardfork,
     ) -> Self {
         let (header, transaction_index) = value
@@ -69,15 +69,19 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<GenericChainSpec>> for Transact
     }
 }
 
-pub use edr_chain_l1::rpc::transaction::ConversionError;
+/// Error that occurs when trying to convert the JSON-RPC `Transaction` type.
+pub type GenericRpcTransactionConversionError =
+    edr_chain_l1::rpc::transaction::RpcTransactionConversionError;
 
-impl TryFrom<TransactionWithSignature> for transaction::SignedWithFallbackToPostEip155 {
-    type Error = ConversionError;
+impl TryFrom<GenericRpcTransactionWithSignature>
+    for transaction::SignedTransactionWithFallbackToPostEip155
+{
+    type Error = GenericRpcTransactionConversionError;
 
-    fn try_from(value: TransactionWithSignature) -> Result<Self, Self::Error> {
+    fn try_from(value: GenericRpcTransactionWithSignature) -> Result<Self, Self::Error> {
         use edr_chain_l1::L1SignedTransaction;
 
-        let TransactionWithSignature(value) = value;
+        let GenericRpcTransactionWithSignature(value) = value;
 
         let tx_type = match value
             .transaction_type

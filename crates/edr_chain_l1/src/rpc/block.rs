@@ -191,10 +191,10 @@ pub enum MissingFieldError {
     Number,
 }
 
-impl<TransactionT> TryFrom<&L1RpcBlock<TransactionT>> for BlockHeader {
+impl<RpcTransactionT> TryFrom<&L1RpcBlock<RpcTransactionT>> for BlockHeader {
     type Error = MissingFieldError;
 
-    fn try_from(value: &L1RpcBlock<TransactionT>) -> Result<Self, Self::Error> {
+    fn try_from(value: &L1RpcBlock<RpcTransactionT>) -> Result<Self, Self::Error> {
         let header = BlockHeader {
             parent_hash: value.parent_hash,
             ommers_hash: value.sha3_uncles,

@@ -1,6 +1,11 @@
-use edr_chain_spec::{ChainSpec, EvmHeaderValidationError, TransactionValidation};
+use edr_chain_spec::{
+    ChainSpec, EvmHeaderValidationError, EvmTransactionValidationError, TransactionValidation,
+};
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_primitives::U256;
+use revm_context::DBErrorMarker;
+
+use crate::result::EVMError;
 
 /// Invalid transaction error
 #[derive(Debug, thiserror::Error)]
@@ -28,6 +33,24 @@ pub enum TransactionError<DatabaseErrorT, TransactionValidationErrorT> {
         /// The sender's balance
         balance: Box<U256>,
     },
+}
+
+impl<ErrorT: DBErrorMarker + std::error::Error>
+    From<EVMError<ErrorT, EvmTransactionValidationError>>
+    for TransactionError<ErrorT, EvmTransactionValidationError>
+{
+    fn from(value: EVMError<ErrorT, EvmTransactionValidationError>) -> Self {
+        match value {
+            EVMError::Custom(error) => TransactionError::Custom(error),
+            EVMError::Database(error) => TransactionError::Database(error),
+            EVMError::Header(error) => TransactionError::InvalidHeader(error),
+            EVMError::Transaction(EvmTransactionValidationError::LackOfFundForMaxFee {
+                fee,
+                balance,
+            }) => TransactionError::LackOfFundForMaxFee { fee, balance },
+            EVMError::Transaction(error) => TransactionError::InvalidTransaction(error),
+        }
+    }
 }
 
 /// Helper type for a chain-specific [`TransactionError`].

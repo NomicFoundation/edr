@@ -45,11 +45,8 @@ pub struct EthLocalBlock<
 }
 
 impl<
-        BlockReceiptT: ReceiptConstructor<
-                Context = ContextT,
-                Hardfork = HardforkT,
-                SignedTransaction = SignedTransactionT,
-            > + ReceiptTrait,
+        BlockReceiptT: ReceiptConstructor<SignedTransactionT, Context = ContextT, Hardfork = HardforkT>
+            + ReceiptTrait,
         ContextT,
         FetchReceiptErrorT,
         HardforkT: Clone,

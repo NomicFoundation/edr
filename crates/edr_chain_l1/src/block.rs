@@ -199,10 +199,10 @@ impl<
 impl<
         'builder,
         BlockReceiptT: ReceiptConstructor<
+                ChainSpecT::SignedTransaction,
                 Context = ChainSpecT::Context,
                 ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
                 Hardfork = ChainSpecT::Hardfork,
-                SignedTransaction = ChainSpecT::SignedTransaction,
             > + ReceiptTrait,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
         BlockchainErrorT: Debug + std::error::Error,
@@ -533,10 +533,10 @@ impl<
 impl<
         'builder,
         BlockReceiptT: ReceiptConstructor<
+                ChainSpecT::SignedTransaction,
                 Context = ChainSpecT::Context,
                 ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
                 Hardfork = ChainSpecT::Hardfork,
-                SignedTransaction = ChainSpecT::SignedTransaction,
             > + ReceiptTrait,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
         BlockchainErrorT: Debug + std::error::Error,

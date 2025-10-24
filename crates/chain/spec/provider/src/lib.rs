@@ -46,7 +46,7 @@ pub trait ProviderChainSpec:
                                + Debug
                                + TransactionType
                                + TransactionValidation<ValidationError: PartialEq>
-                               + serde::Serialize,
+                               //+ serde::Serialize,
                                // serde::de::DeserializeOwned
     > + BlockChainSpec<
         RpcBlock<<Self as RpcChainSpec>::RpcTransaction>: RpcEthBlock

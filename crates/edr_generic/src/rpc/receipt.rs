@@ -1,5 +1,5 @@
-use edr_chain_l1::rpc::receipt::L1RpcTransactionReceipt;
-use edr_receipt::{log::FilterLog, AsExecutionReceipt as _};
+use edr_chain_l1::{receipt::L1BlockReceipt, rpc::receipt::L1RpcTransactionReceipt};
+use edr_receipt::log::FilterLog;
 use edr_rpc_spec::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
@@ -22,15 +22,15 @@ use edr_transaction::TransactionType;
 // We need to introduce a newtype for BlockReceipt again due to the orphan rule,
 // even though we use our own TypedEnvelope.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BlockReceipt(L1RpcTransactionReceipt);
+pub struct GenericRpcTransactionReceipt(L1RpcTransactionReceipt);
 
-impl TryFrom<BlockReceipt>
-    for crate::receipt::L1BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>
+impl TryFrom<GenericRpcTransactionReceipt>
+    for L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>
 {
     type Error = ConversionError;
 
-    fn try_from(value: BlockReceipt) -> Result<Self, Self::Error> {
-        let BlockReceipt(value) = value;
+    fn try_from(value: GenericRpcTransactionReceipt) -> Result<Self, Self::Error> {
+        let GenericRpcTransactionReceipt(value) = value;
 
         // We explicitly treat unknown transaction types as post-EIP 155 legacy
         // transactions
@@ -47,6 +47,7 @@ impl TryFrom<BlockReceipt>
                     logs_bloom: value.logs_bloom,
                     logs: value.logs,
                 }
+                .into()
             } else if let Some(state_root) = value.state_root {
                 Legacy {
                     root: state_root,
@@ -65,6 +66,7 @@ impl TryFrom<BlockReceipt>
                 logs_bloom: value.logs_bloom,
                 logs: value.logs,
             }
+            .into()
         };
 
         let enveloped = TypedEnvelope::new(execution, transaction_type);
@@ -86,42 +88,15 @@ impl TryFrom<BlockReceipt>
     }
 }
 
-impl
-    RpcTypeFrom<
-        crate::receipt::L1BlockReceipt<TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
-    > for BlockReceipt
+impl RpcTypeFrom<L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>>
+    for GenericRpcTransactionReceipt
 {
     type Hardfork = edr_chain_l1::Hardfork;
 
     fn rpc_type_from(
-        value: &crate::receipt::L1BlockReceipt<
-            TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>,
-        >,
+        value: &L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
-        let transaction_type = if hardfork >= edr_chain_l1::Hardfork::BERLIN {
-            Some(u8::from(value.inner.transaction_type()))
-        } else {
-            None
-        };
-
-        BlockReceipt(L1RpcTransactionReceipt {
-            block_hash: value.block_hash,
-            block_number: value.block_number,
-            transaction_hash: value.inner.transaction_hash,
-            transaction_index: value.inner.transaction_index,
-            transaction_type,
-            from: value.inner.from,
-            to: value.inner.to,
-            cumulative_gas_used: value.inner.cumulative_gas_used(),
-            gas_used: value.inner.gas_used,
-            contract_address: value.inner.contract_address,
-            logs: value.inner.transaction_logs().to_vec(),
-            logs_bloom: *value.inner.logs_bloom(),
-            state_root: None,
-            status: Some(value.as_execution_receipt().data().status),
-            effective_gas_price: value.inner.effective_gas_price,
-            authorization_list: None,
-        })
+        GenericRpcTransactionReceipt(L1RpcTransactionReceipt::rpc_type_from(value, hardfork))
     }
 }

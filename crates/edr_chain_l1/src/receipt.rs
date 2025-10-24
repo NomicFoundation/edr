@@ -5,11 +5,11 @@ pub mod builder;
 use std::ops::Deref;
 
 use alloy_rlp::BufMut;
-use edr_chain_spec::{ChainSpec, ContextChainSpec, EvmSpecId, HardforkChainSpec};
+use edr_chain_spec::{ContextChainSpec, EvmSpecId, HardforkChainSpec};
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
-    log::FilterLog, AsExecutionReceipt, ExecutionReceipt, ExecutionReceiptChainSpec, ReceiptTrait,
-    RootOrStatus, TransactionReceipt,
+    log::FilterLog, AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus,
+    TransactionReceipt,
 };
 use edr_receipt_spec::ReceiptConstructor;
 
@@ -80,21 +80,19 @@ impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>> ExecutionReceipt
     }
 }
 
-impl ReceiptConstructor
-    for L1BlockReceipt<<L1ChainSpec as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>>
+impl<ExecutionReceiptT: ExecutionReceipt<Log = FilterLog>, SignedTransactionT>
+    ReceiptConstructor<SignedTransactionT> for L1BlockReceipt<ExecutionReceiptT>
 {
     type Context = <L1ChainSpec as ContextChainSpec>::Context;
 
-    type ExecutionReceipt = <L1ChainSpec as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>;
+    type ExecutionReceipt = ExecutionReceiptT;
 
     type Hardfork = <L1ChainSpec as HardforkChainSpec>::Hardfork;
-
-    type SignedTransaction = <L1ChainSpec as ChainSpec>::SignedTransaction;
 
     fn new_receipt(
         _context: &Self::Context,
         hardfork: Self::Hardfork,
-        _transaction: &Self::SignedTransaction,
+        _transaction: &SignedTransactionT,
         mut transaction_receipt: TransactionReceipt<Self::ExecutionReceipt>,
         block_hash: &B256,
         block_number: u64,

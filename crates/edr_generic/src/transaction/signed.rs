@@ -1,8 +1,10 @@
+use edr_chain_l1::L1SignedTransaction;
 use edr_chain_spec::{ExecutableTransaction, TransactionValidation};
+use edr_primitives::{Address, Bytes, B256, U256};
 use edr_signer::Signature;
 use edr_transaction::{
-    impl_revm_transaction_trait, Address, Bytes, IsEip155, IsEip4844, IsLegacy, IsSupported,
-    SignedTransaction, TransactionMut, TransactionType, TxKind, B256, U256,
+    impl_revm_transaction_trait, IsEip155, IsEip4844, IsLegacy, IsSupported, SignedTransaction,
+    TransactionMut, TransactionType, TxKind,
 };
 
 /// The type of transaction.
@@ -81,19 +83,19 @@ impl IsLegacy for Type {
 // `TryFrom<TransactionWithSignature>` impl that treats unrecognized transaction
 // types different.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct SignedWithFallbackToPostEip155 {
-    inner: edr_chain_l1::L1SignedTransaction,
+pub struct SignedTransactionWithFallbackToPostEip155 {
+    inner: L1SignedTransaction,
     r#type: Type,
 }
 
-impl SignedWithFallbackToPostEip155 {
+impl SignedTransactionWithFallbackToPostEip155 {
     /// Constructs a new instance with the provided transaction its type.
-    pub fn with_type(inner: edr_chain_l1::L1SignedTransaction, r#type: Type) -> Self {
+    pub fn with_type(inner: L1SignedTransaction, r#type: Type) -> Self {
         Self { inner, r#type }
     }
 }
 
-impl alloy_rlp::Encodable for SignedWithFallbackToPostEip155 {
+impl alloy_rlp::Encodable for SignedTransactionWithFallbackToPostEip155 {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         self.inner.encode(out);
     }
@@ -103,8 +105,8 @@ impl alloy_rlp::Encodable for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl From<edr_chain_l1::L1SignedTransaction> for SignedWithFallbackToPostEip155 {
-    fn from(value: edr_chain_l1::L1SignedTransaction) -> Self {
+impl From<L1SignedTransaction> for SignedTransactionWithFallbackToPostEip155 {
+    fn from(value: L1SignedTransaction) -> Self {
         Self {
             r#type: value.transaction_type().into(),
             inner: value,
@@ -112,24 +114,23 @@ impl From<edr_chain_l1::L1SignedTransaction> for SignedWithFallbackToPostEip155 
     }
 }
 
-impl IsSupported for SignedWithFallbackToPostEip155 {
+impl IsSupported for SignedTransactionWithFallbackToPostEip155 {
     fn is_supported_transaction(&self) -> bool {
         !matches!(self.r#type, Type::Unrecognized(_))
     }
 }
 
-impl From<edr_chain_l1::L1PooledTransaction> for SignedWithFallbackToPostEip155 {
+impl From<edr_chain_l1::L1PooledTransaction> for SignedTransactionWithFallbackToPostEip155 {
     fn from(value: edr_chain_l1::L1PooledTransaction) -> Self {
-        edr_chain_l1::L1SignedTransaction::from(value).into()
+        L1SignedTransaction::from(value).into()
     }
 }
 
-impl TransactionValidation for SignedWithFallbackToPostEip155 {
-    type ValidationError =
-        <edr_chain_l1::L1SignedTransaction as TransactionValidation>::ValidationError;
+impl TransactionValidation for SignedTransactionWithFallbackToPostEip155 {
+    type ValidationError = <L1SignedTransaction as TransactionValidation>::ValidationError;
 }
 
-impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
+impl ExecutableTransaction for SignedTransactionWithFallbackToPostEip155 {
     fn caller(&self) -> &Address {
         self.inner.caller()
     }
@@ -203,19 +204,19 @@ impl ExecutableTransaction for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl TransactionMut for SignedWithFallbackToPostEip155 {
+impl TransactionMut for SignedTransactionWithFallbackToPostEip155 {
     fn set_gas_limit(&mut self, gas_limit: u64) {
         self.inner.set_gas_limit(gas_limit);
     }
 }
 
-impl SignedTransaction for SignedWithFallbackToPostEip155 {
+impl SignedTransaction for SignedTransactionWithFallbackToPostEip155 {
     fn signature(&self) -> &dyn Signature {
         self.inner.signature()
     }
 }
 
-impl TransactionType for SignedWithFallbackToPostEip155 {
+impl TransactionType for SignedTransactionWithFallbackToPostEip155 {
     type Type = Type;
 
     fn transaction_type(&self) -> Self::Type {
@@ -223,22 +224,22 @@ impl TransactionType for SignedWithFallbackToPostEip155 {
     }
 }
 
-impl IsEip155 for SignedWithFallbackToPostEip155 {
+impl IsEip155 for SignedTransactionWithFallbackToPostEip155 {
     fn is_eip155(&self) -> bool {
         self.inner.is_eip155()
     }
 }
 
-impl IsEip4844 for SignedWithFallbackToPostEip155 {
+impl IsEip4844 for SignedTransactionWithFallbackToPostEip155 {
     fn is_eip4844(&self) -> bool {
         self.inner.is_eip4844()
     }
 }
 
-impl IsLegacy for SignedWithFallbackToPostEip155 {
+impl IsLegacy for SignedTransactionWithFallbackToPostEip155 {
     fn is_legacy(&self) -> bool {
         self.inner.is_legacy()
     }
 }
 
-impl_revm_transaction_trait!(SignedWithFallbackToPostEip155);
+impl_revm_transaction_trait!(SignedTransactionWithFallbackToPostEip155);

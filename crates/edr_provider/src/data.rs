@@ -2259,8 +2259,7 @@ where
             // Block spec is pending
             let result = self.mine_pending_block()?;
 
-            let blockchain =
-                BlockchainWithPending::new(&*self.blockchain, result.block, result.state_diff);
+            let blockchain = BlockchainWithPending::new(&*self.blockchain, result.block);
 
             let block: Arc<ChainSpecT::Block> = blockchain.last_block().clone().cast_arc_into();
 

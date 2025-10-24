@@ -11,17 +11,26 @@ alloy-serde = { workspace = true, features = ["std"] }
 derive-where.workspace = true
 edr_block_api.workspace = true
 edr_block_header.workspace = true
+edr_block_local.workspace = true
+edr_block_remote.workspace = true
+edr_chain_config.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
+edr_chain_spec_block.workspace = true
+edr_chain_spec_provider.workspace = true
 edr_database_components.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_eth.workspace = true
 edr_evm.workspace = true
+edr_evm_spec.workspace = true
 edr_primitives.workspace = true
 edr_provider.workspace = true
 edr_receipt.workspace = true
+edr_receipt_builder_api.workspace = true
+edr_receipt_spec.workspace = true
+edr_rpc_eth = { path = "../edr_rpc_eth" }
 edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
@@ -46,6 +55,7 @@ paste = { version = "1.0.14", default-features = false }
 serde_json.workspace = true
 serial_test = "2.0.0"
 tokio = { version = "1.21.2", default-features = false, features = ["macros", "rt-multi-thread", "sync"] }
+edr_block_remote.workspace = true
 
 [features]
 test-remote = []
