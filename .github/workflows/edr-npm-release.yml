@@ -114,11 +114,18 @@ jobs:
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
       - name: Download Cargo dependecies
-        if: ${{ !matrix.settings.docker }}
+        if: ${{ matrix.settings.host == 'macos-13' || matrix.settings.host == 'macos-14' }}
         run: |
           rustup toolchain install 1.89.0
           rustup default 1.89.0
-          rustup set auto-self-update disable  
+          rustup set auto-self-update disable
+
+          cat >> ~/.cargo/config.toml << 'EOF'
+          [http]
+          check-revoke = false
+
+          EOF
+
           sfw cargo fetch
 
       - name: Build (non-docker)
@@ -166,7 +173,7 @@ jobs:
             set -e
 
             # Install Rust toolchain
-            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake gcompat
+            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
             # Conditional symlink only for ARM builds
             if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
               ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
@@ -174,29 +181,9 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
-            rustup toolchain install 1.89.0
-            rustup default 1.89.0
-            rustup set auto-self-update disable
-
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
-            npm i -g sfw
-
-            # Debug: Check if sfw is available
-            echo "Checking sfw installation..."
-            which sfw
-            ls -la $(which sfw)
-            file $(which sfw) || true
-
-            # Try to run sfw with explicit error handling
-            echo "Attempting to run sfw..."
-            sfw --version || {
-              echo "sfw failed to run, trying with node directly..."
-              node $(which sfw) --version || echo "Even node failed"
-            }
-
-            sfw pnpm install --frozen-lockfile --prefer-offline
-            sfw cargo fetch
+            pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
 
       - name: Upload artifact
