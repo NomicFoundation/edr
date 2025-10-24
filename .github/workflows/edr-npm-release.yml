@@ -33,7 +33,7 @@ jobs:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     permissions:
-      - contents: write
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -174,7 +174,7 @@ jobs:
     needs:
       - build
     permissions:
-      - contents: read # TODO: is write necessary for building the package?
+      contents: read # TODO: is write necessary for building the package?
     strategy:
       fail-fast: false
       matrix:
@@ -215,7 +215,7 @@ jobs:
     needs:
       - build
     permissions:
-      - contents: read
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -248,7 +248,7 @@ jobs:
     needs:
       - build
     permissions:
-      - contents: read
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -279,7 +279,7 @@ jobs:
     needs:
       - build
     permissions:
-      - contents: read
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -319,7 +319,7 @@ jobs:
     needs:
       - build
     permissions:
-      - contents: read
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -357,7 +357,7 @@ jobs:
     name: Check commit
     runs-on: ubuntu-24.04
     permissions:
-      - contents: read
+      contents: read
     if: github.event_name != 'pull_request' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
       - uses: actions/checkout@v5
@@ -383,7 +383,7 @@ jobs:
     name: Prepare release bundle
     runs-on: ubuntu-24.04
     permissions:
-      - contents: write
+      contents: write
     needs:
       - build
       - check_commit
