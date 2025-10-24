@@ -85,12 +85,8 @@ jobs:
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/setup-rust
         if: ${{ !matrix.settings.docker }}
-        with:
-          toolchain: stable
-          targets: ${{ matrix.settings.target }}
-          components: rust-src
 
       - name: Setup node and pnpm
         if: ${{ !matrix.settings.docker }}
@@ -118,10 +114,9 @@ jobs:
         run: |
           cat >> ~/.cargo/config.toml << 'EOF'
           [http]
+          cainfo = "/etc/ssl/cert.pem"
           check-revoke = false
 
-          [net]
-          git-fetch-with-cli = true
           EOF
 
           sfw cargo fetch
