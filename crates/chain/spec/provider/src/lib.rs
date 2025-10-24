@@ -11,7 +11,7 @@ use edr_eip1559::BaseFeeParams;
 use edr_primitives::{HashMap, B256};
 use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_spec::{RpcChainSpec, RpcEthBlock, RpcTransaction, RpcTypeFrom};
-use edr_transaction::TransactionAndBlock;
+use edr_transaction::{TransactionAndBlock, TransactionType};
 use edr_utils::CastArcFrom;
 
 pub trait ProviderChainSpec:
@@ -38,11 +38,13 @@ pub trait ProviderChainSpec:
         LocalBlock: 'static +FetchBlockReceipts<Arc<<Self as ReceiptChainSpec>::Receipt>, Error: Debug>,
         Receipt: 'static + TryFrom<<Self as RpcChainSpec>::RpcReceipt, Error: Send + Sync>,
         RpcBlock<B256>: RpcEthBlock,
+        RpcReceipt: RpcTypeFrom<Self::Receipt, Hardfork = Self::Hardfork>,
         RpcTransaction: RpcTransaction
           + RpcTypeFrom<TransactionAndBlock<Arc<Self::Block>, Self::SignedTransaction>, Hardfork = Self::Hardfork>,
         SignedTransaction: 'static
                                + Clone
                                + Debug
+                               + TransactionType
                                + TransactionValidation<ValidationError: PartialEq>
                                + serde::Serialize,
                                // serde::de::DeserializeOwned

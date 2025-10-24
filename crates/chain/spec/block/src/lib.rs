@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
-use edr_block_api::{Block, EmptyBlock, FetchBlockReceipts, GenesisBlockFactory, LocalBlock};
+use edr_block_api::{
+    Block, BlockReceipts, EmptyBlock, FetchBlockReceipts, GenesisBlockFactory, LocalBlock,
+};
 use edr_block_builder_api::BlockBuilder;
-use edr_chain_spec::BlockEnvChainSpec;
+use edr_chain_spec::{BlockEnvChainSpec, TransactionValidation};
 use edr_evm_spec::EvmChainSpec;
 use edr_receipt_spec::ReceiptChainSpec;
 
@@ -12,6 +14,7 @@ pub trait BlockChainSpec:
     + EvmChainSpec
     + GenesisBlockFactory<
         LocalBlock: Block<Self::SignedTransaction>
+                        + BlockReceipts<Arc<Self::Receipt>>
                         + FetchBlockReceipts<Arc<Self::Receipt>>
                         + EmptyBlock<Self::Hardfork>
                         + LocalBlock<Arc<Self::Receipt>>,
@@ -34,4 +37,35 @@ pub trait BlockChainSpec:
 
     /// Type representing errors that can occur when fetching receipts.
     type FetchReceiptError: std::error::Error;
+}
+
+/// Trait for [`BlockChainSpec`] that meets all requirements for synchronous
+/// operations.
+pub trait SyncBlockChainSpec:
+    BlockChainSpec<
+    Block: Send,
+    FetchReceiptError: Send,
+    GenesisBlockCreationError: Send + Sync,
+    HaltReason: Send,
+    Hardfork: Send + Sync,
+    LocalBlock: Send + Sync,
+    Receipt: Send + Sync,
+    SignedTransaction: Send + Sync + TransactionValidation<ValidationError: Send>,
+>
+{
+}
+
+impl<
+        ChainSpecT: BlockChainSpec<
+            Block: Send,
+            FetchReceiptError: Send,
+            GenesisBlockCreationError: Send + Sync,
+            HaltReason: Send,
+            Hardfork: Send + Sync,
+            LocalBlock: Send + Sync,
+            Receipt: Send + Sync,
+            SignedTransaction: Send + Sync + TransactionValidation<ValidationError: Send>,
+        >,
+    > SyncBlockChainSpec for ChainSpecT
+{
 }

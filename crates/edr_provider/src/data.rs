@@ -21,7 +21,7 @@ use edr_block_header::{
 };
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
-    BlockHashByNumber,
+    BlockHashByNumber, BlockchainMetadata as _, GetBlockchainBlock as _, StateAtBlock as _,
 };
 use edr_blockchain_fork::CreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
@@ -94,8 +94,8 @@ use crate::{
     requests::hardhat::rpc_types::ForkMetadata,
     snapshot::Snapshot,
     spec::{
-        BlockchainForChainSpec, ForkedBlockchainForChainSpec, LocalBlockchainForChainSpec,
-        ProviderSpec, SyncProviderSpec,
+        ForkedBlockchainForChainSpec, LocalBlockchainForChainSpec, ProviderSpec,
+        SyncBlockchainForChainSpec, SyncProviderSpec,
     },
     time::{CurrentTime, TimeSinceEpoch},
     MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
@@ -195,7 +195,7 @@ pub struct ProviderData<
     bail_on_call_failure: bool,
     /// Whether to return an `Err` when a `eth_sendTransaction` fails
     bail_on_transaction_failure: bool,
-    blockchain: Box<dyn BlockchainForChainSpec<ChainSpecT>>,
+    blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     pub irregular_state: IrregularState,
     mem_pool: MemPool<ChainSpecT::SignedTransaction>,
     mining_config: MiningConfig,
@@ -2491,7 +2491,7 @@ where
             |blockchain, _prev_block, state| {
                 let block_env = ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec);
 
-                debug_trace_transaction::<ChainSpecT, _, _>(
+                debug_trace_transaction::<ChainSpecT>(
                     blockchain,
                     state.clone(),
                     cfg_env,
@@ -2573,7 +2573,7 @@ where
             // Measure the gas used by the transaction with optional limit from call request
             // defaulting to block limit. Report errors from initial call as if from
             // `eth_call`.
-            let result = call::run_call::<_, ChainSpecT, _, _, TimerT>(
+            let result = call::run_call::<'_, ChainSpecT, _, _, _>(
                 blockchain,
                 header,
                 state,
@@ -2633,7 +2633,7 @@ where
             }
 
             // Test if the transaction would be successful with the initial estimation
-            let success = gas::check_gas_limit(CheckGasLimitArgs {
+            let success = gas::check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
                 blockchain,
                 header,
                 state,
@@ -2655,17 +2655,18 @@ where
             // Correct the initial estimation if the transaction failed with the actually
             // used gas limit. This can happen if the execution logic is based
             // on the available gas.
-            let estimation = gas::binary_search_estimation(BinarySearchEstimationArgs {
-                blockchain,
-                header,
-                state,
-                cfg_env: cfg_env.clone(),
-                transaction,
-                lower_bound: initial_estimation,
-                upper_bound: header.gas_limit,
-                custom_precompiles: &custom_precompiles,
-                trace_collector: &mut trace_collector,
-            })?;
+            let estimation =
+                gas::binary_search_estimation::<ChainSpecT>(BinarySearchEstimationArgs {
+                    blockchain,
+                    header,
+                    state,
+                    cfg_env: cfg_env.clone(),
+                    transaction,
+                    lower_bound: initial_estimation,
+                    upper_bound: header.gas_limit,
+                    custom_precompiles: &custom_precompiles,
+                    trace_collector: &mut trace_collector,
+                })?;
 
             let traces = trace_collector.into_traces();
             Ok(EstimateGasResult { estimation, traces })
@@ -2685,7 +2686,7 @@ impl StateId {
     }
 }
 
-fn block_time_offset_seconds<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
+fn block_time_offset_seconds<ChainSpecT: ProviderChainSpec, TimerT: TimeSinceEpoch>(
     config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &TimerT,
 ) -> Result<i64, CreationErrorForChainSpec<ChainSpecT>> {
@@ -2706,7 +2707,7 @@ fn block_time_offset_seconds<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + T
 }
 
 struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
-    blockchain: Box<dyn BlockchainForChainSpec<ChainSpecT>>,
+    blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     fork_metadata: Option<ForkMetadata>,
     rpc_client:
         Option<Arc<EthRpcClient<ChainSpecT, ChainSpecT::RpcReceipt, ChainSpecT::RpcTransaction>>>,
@@ -2717,7 +2718,10 @@ struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     next_block_base_fee_per_gas: Option<u128>,
 }
 
-fn create_blockchain_and_state<ChainSpecT: ProviderChainSpec, TimerT: Clone + TimeSinceEpoch>(
+fn create_blockchain_and_state<
+    ChainSpecT: SyncProviderSpec<TimerT>,
+    TimerT: Clone + TimeSinceEpoch,
+>(
     runtime: runtime::Handle,
     config: &ProviderConfig<ChainSpecT::Hardfork>,
     timer: &TimerT,
@@ -2735,7 +2739,11 @@ fn create_blockchain_and_state<ChainSpecT: ProviderChainSpec, TimerT: Clone + Ti
             .map(|headers| HeaderMap::try_from(headers).map_err(CreationError::InvalidHttpHeaders))
             .transpose()?;
 
-        let rpc_client = Arc::new(EthRpcClient::<ChainSpecT>::new(
+        let rpc_client = Arc::new(EthRpcClient::<
+            ChainSpecT,
+            ChainSpecT::RpcReceipt,
+            ChainSpecT::RpcTransaction,
+        >::new(
             &fork_config.url,
             fork_config.cache_dir.clone(),
             http_headers.clone(),
@@ -2744,20 +2752,23 @@ fn create_blockchain_and_state<ChainSpecT: ProviderChainSpec, TimerT: Clone + Ti
         let mut chain_configs = ChainSpecT::chain_configs().clone();
         for (chain_id, chain_override) in fork_config.chain_overrides.iter() {
             chain_configs
-                .entry_mut(*chain_id)
+                .entry(*chain_id)
+                .and_modify(|chain_config| chain_config.apply_override(chain_override))
                 .or_insert_with(|| ChainConfig {
                     name: chain_override.name.clone(),
-                    hardfork_activations: chain_override.unwrap_or_default(),
+                    hardfork_activations: chain_override
+                        .hardfork_activation_overrides
+                        .clone()
+                        .unwrap_or_default(),
                     base_fee_params: config
                         .base_fee_params
-                        .unwrap_or_else(ChainSpecT::default_base_fee_params),
-                })
-                // TODO: or modify
-                .apply_chain_override(chain_override);
+                        .clone()
+                        .unwrap_or_else(|| ChainSpecT::default_base_fee_params().clone()),
+                });
         }
 
         let block_config = BlockConfig {
-            base_fee_params: todo!(),
+            base_fee_params: ChainSpecT::default_base_fee_params(),
             hardfork: config.hardfork,
             min_ethash_difficulty: ChainSpecT::MIN_ETHASH_DIFFICULTY,
         };
@@ -2767,14 +2778,14 @@ fn create_blockchain_and_state<ChainSpecT: ProviderChainSpec, TimerT: Clone + Ti
                 let mut irregular_state = IrregularState::default();
                 let blockchain =
                     runtime.block_on(ForkedBlockchainForChainSpec::<ChainSpecT>::new(
+                        block_config,
                         runtime.clone(),
-                        Some(config.chain_id),
-                        config.hardfork,
                         rpc_client.clone(),
-                        fork_config.block_number,
                         &mut irregular_state,
                         state_root_generator.clone(),
-                        &fork_config.chain_overrides,
+                        &chain_configs,
+                        fork_config.block_number,
+                        Some(config.chain_id),
                     ))?;
 
                 Ok((blockchain, irregular_state))
@@ -2857,7 +2868,7 @@ fn create_blockchain_and_state<ChainSpecT: ProviderChainSpec, TimerT: Clone + Ti
                 + Duration::from_secs(
                     blockchain
                         .last_block()
-                        .map_err(CreationError::Blockchain)?
+                        .map_err(DynBlockchainError::new)?
                         .block_header()
                         .timestamp,
                 );
@@ -2878,7 +2889,7 @@ fn create_blockchain_and_state<ChainSpecT: ProviderChainSpec, TimerT: Clone + Ti
             } else {
                 let previous_base_fee = blockchain
                     .last_block()
-                    .map_err(CreationError::Blockchain)?
+                    .map_err(DynBlockchainError::new)?
                     .block_header()
                     .base_fee_per_gas;
 
@@ -2898,7 +2909,7 @@ fn create_blockchain_and_state<ChainSpecT: ProviderChainSpec, TimerT: Clone + Ti
                 fork_block_number,
                 fork_block_hash: *blockchain
                     .block_by_number(fork_block_number)
-                    .map_err(CreationError::Blockchain)?
+                    .map_err(DynBlockchainError::new)?
                     .expect("Fork block must exist")
                     .block_hash(),
             }),
@@ -2944,13 +2955,12 @@ fn create_blockchain_and_state<ChainSpecT: ProviderChainSpec, TimerT: Clone + Ti
             })
             .collect();
 
-        let base_fee_params = config.base_fee_params.unwrap_or_else(|| {
+        let base_fee_params = config.base_fee_params.as_ref().unwrap_or_else(|| {
             ChainSpecT::chain_configs()
                 .get(&config.chain_id)
                 .map_or_else(ChainSpecT::default_base_fee_params, |chain_config| {
-                    chain_config.base_fee_params
+                    &chain_config.base_fee_params
                 })
-                .clone()
         });
 
         let block_config = BlockConfig {

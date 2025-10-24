@@ -1,11 +1,19 @@
 //! Types for dynamic dispatch of blockchain implementations.
 
 use core::marker::PhantomData;
+use std::{collections::BTreeMap, sync::Arc};
 
+use edr_block_api::BlockAndTotalDifficulty;
 use edr_eip1559::BaseFeeParams;
-use edr_primitives::B256;
+use edr_primitives::{Address, HashSet, B256, U256};
+use edr_receipt::log::FilterLog;
+use edr_state_api::{DynState, StateDiff, StateOverride};
 
-use crate::{BlockHashByNumber, Blockchain, BlockchainMetadata};
+use crate::{
+    BlockHashByNumber, Blockchain, BlockchainMetadata, GetBlockchainBlock, GetBlockchainLogs,
+    InsertBlock, ReceiptByTransactionHash, ReserveBlocks, RevertToBlock, StateAtBlock,
+    TotalDifficultyByBlockHash,
+};
 
 /// Wrapper around `Box<dyn std::error::Error` to allow implementation of
 /// `std::error::Error`.
@@ -13,12 +21,12 @@ use crate::{BlockHashByNumber, Blockchain, BlockchainMetadata};
 // <https://stackoverflow.com/questions/65151237/why-doesnt-boxdyn-error-implement-error#65151318>
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
-pub struct DynBlockchainError(Box<dyn std::error::Error>);
+pub struct DynBlockchainError(Box<dyn std::error::Error + Send + Sync>);
 
 impl DynBlockchainError {
     /// Constructs a new instance.
-    pub fn new<ErrorT: Into<Box<dyn std::error::Error>>>(error: ErrorT) -> Self {
-        Self(error.into())
+    pub fn new<ErrorT: 'static + std::error::Error + Send + Sync>(error: ErrorT) -> Self {
+        Self(Box::<dyn std::error::Error + Send + Sync>::from(error))
     }
 }
 
@@ -29,7 +37,7 @@ impl DynBlockchainError {
 pub struct DynBlockchain<
     BlockReceiptT,
     BlockT: ?Sized,
-    BlockchainErrorT: Into<Box<dyn std::error::Error>>,
+    BlockchainErrorT: 'static + std::error::Error + Send + Sync,
     BlockchainT: Blockchain<BlockReceiptT, BlockT, BlockchainErrorT, HardforkT, LocalBlockT, SignedTransactionT>,
     HardforkT,
     LocalBlockT,
@@ -53,7 +61,7 @@ pub struct DynBlockchain<
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
-        BlockchainErrorT: Into<Box<dyn std::error::Error>>,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
         BlockchainT: Blockchain<
             BlockReceiptT,
             BlockT,
@@ -88,7 +96,7 @@ impl<
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
-        BlockchainErrorT: Into<Box<dyn std::error::Error>>,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
         BlockchainT: Blockchain<
             BlockReceiptT,
             BlockT,
@@ -111,19 +119,19 @@ impl<
         SignedTransactionT,
     >
 {
-    type Error = Box<dyn std::error::Error>;
+    type Error = DynBlockchainError;
 
     fn block_hash_by_number(&self, block_number: u64) -> Result<B256, Self::Error> {
         self.inner
             .block_hash_by_number(block_number)
-            .map_err(Into::into)
+            .map_err(DynBlockchainError::new)
     }
 }
 
 impl<
         BlockReceiptT,
         BlockT: ?Sized,
-        BlockchainErrorT: Into<Box<dyn std::error::Error>>,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
         BlockchainT: Blockchain<
             BlockReceiptT,
             BlockT,
@@ -176,5 +184,321 @@ impl<
 
     fn network_id(&self) -> u64 {
         self.inner.network_id()
+    }
+}
+
+impl<
+        BlockReceiptT,
+        BlockT: ?Sized,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
+        BlockchainT: Blockchain<
+            BlockReceiptT,
+            BlockT,
+            BlockchainErrorT,
+            HardforkT,
+            LocalBlockT,
+            SignedTransactionT,
+        >,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    > GetBlockchainBlock<BlockT, HardforkT>
+    for DynBlockchain<
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        BlockchainT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    >
+{
+    type Error = DynBlockchainError;
+
+    fn block_by_hash(&self, hash: &B256) -> Result<Option<Arc<BlockT>>, Self::Error> {
+        self.inner
+            .block_by_hash(hash)
+            .map_err(DynBlockchainError::new)
+    }
+
+    fn block_by_number(&self, block_number: u64) -> Result<Option<Arc<BlockT>>, Self::Error> {
+        self.inner
+            .block_by_number(block_number)
+            .map_err(DynBlockchainError::new)
+    }
+
+    fn block_by_transaction_hash(
+        &self,
+        transaction_hash: &B256,
+    ) -> Result<Option<Arc<BlockT>>, Self::Error> {
+        self.inner
+            .block_by_transaction_hash(transaction_hash)
+            .map_err(DynBlockchainError::new)
+    }
+
+    fn last_block(&self) -> Result<Arc<BlockT>, Self::Error> {
+        self.inner.last_block().map_err(DynBlockchainError::new)
+    }
+}
+
+impl<
+        BlockReceiptT,
+        BlockT: ?Sized,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
+        BlockchainT: Blockchain<
+            BlockReceiptT,
+            BlockT,
+            BlockchainErrorT,
+            HardforkT,
+            LocalBlockT,
+            SignedTransactionT,
+        >,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    > GetBlockchainLogs
+    for DynBlockchain<
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        BlockchainT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    >
+{
+    type Error = DynBlockchainError;
+
+    fn logs(
+        &self,
+        from_block: u64,
+        to_block: u64,
+        addresses: &HashSet<Address>,
+        normalized_topics: &[Option<Vec<B256>>],
+    ) -> Result<Vec<FilterLog>, Self::Error> {
+        self.inner
+            .logs(from_block, to_block, addresses, normalized_topics)
+            .map_err(DynBlockchainError::new)
+    }
+}
+
+impl<
+        BlockReceiptT,
+        BlockT: ?Sized,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
+        BlockchainT: Blockchain<
+            BlockReceiptT,
+            BlockT,
+            BlockchainErrorT,
+            HardforkT,
+            LocalBlockT,
+            SignedTransactionT,
+        >,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    > InsertBlock<BlockT, LocalBlockT, SignedTransactionT>
+    for DynBlockchain<
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        BlockchainT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    >
+{
+    type Error = DynBlockchainError;
+
+    fn insert_block(
+        &mut self,
+        block: LocalBlockT,
+        state_diff: StateDiff,
+    ) -> Result<BlockAndTotalDifficulty<Arc<BlockT>, SignedTransactionT>, Self::Error> {
+        self.inner
+            .insert_block(block, state_diff)
+            .map_err(DynBlockchainError::new)
+    }
+}
+
+impl<
+        BlockReceiptT,
+        BlockT: ?Sized,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
+        BlockchainT: Blockchain<
+            BlockReceiptT,
+            BlockT,
+            BlockchainErrorT,
+            HardforkT,
+            LocalBlockT,
+            SignedTransactionT,
+        >,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    > ReceiptByTransactionHash<BlockReceiptT>
+    for DynBlockchain<
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        BlockchainT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    >
+{
+    type Error = DynBlockchainError;
+
+    fn receipt_by_transaction_hash(
+        &self,
+        transaction_hash: &B256,
+    ) -> Result<Option<Arc<BlockReceiptT>>, Self::Error> {
+        self.inner
+            .receipt_by_transaction_hash(transaction_hash)
+            .map_err(DynBlockchainError::new)
+    }
+}
+
+impl<
+        BlockReceiptT,
+        BlockT: ?Sized,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
+        BlockchainT: Blockchain<
+            BlockReceiptT,
+            BlockT,
+            BlockchainErrorT,
+            HardforkT,
+            LocalBlockT,
+            SignedTransactionT,
+        >,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    > ReserveBlocks
+    for DynBlockchain<
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        BlockchainT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    >
+{
+    type Error = DynBlockchainError;
+
+    fn reserve_blocks(&mut self, additional: u64, interval: u64) -> Result<(), Self::Error> {
+        self.inner
+            .reserve_blocks(additional, interval)
+            .map_err(DynBlockchainError::new)
+    }
+}
+
+impl<
+        BlockReceiptT,
+        BlockT: ?Sized,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
+        BlockchainT: Blockchain<
+            BlockReceiptT,
+            BlockT,
+            BlockchainErrorT,
+            HardforkT,
+            LocalBlockT,
+            SignedTransactionT,
+        >,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    > RevertToBlock
+    for DynBlockchain<
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        BlockchainT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    >
+{
+    type Error = DynBlockchainError;
+
+    fn revert_to_block(&mut self, block_number: u64) -> Result<(), Self::Error> {
+        self.inner
+            .revert_to_block(block_number)
+            .map_err(DynBlockchainError::new)
+    }
+}
+
+impl<
+        BlockReceiptT,
+        BlockT: ?Sized,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
+        BlockchainT: Blockchain<
+            BlockReceiptT,
+            BlockT,
+            BlockchainErrorT,
+            HardforkT,
+            LocalBlockT,
+            SignedTransactionT,
+        >,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    > StateAtBlock
+    for DynBlockchain<
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        BlockchainT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    >
+{
+    type BlockchainError = DynBlockchainError;
+
+    fn state_at_block_number(
+        &self,
+        block_number: u64,
+        state_overrides: &BTreeMap<u64, StateOverride>,
+    ) -> Result<Box<dyn DynState>, Self::BlockchainError> {
+        self.inner
+            .state_at_block_number(block_number, state_overrides)
+            .map_err(DynBlockchainError::new)
+    }
+}
+
+impl<
+        BlockReceiptT,
+        BlockT: ?Sized,
+        BlockchainErrorT: 'static + std::error::Error + Send + Sync,
+        BlockchainT: Blockchain<
+            BlockReceiptT,
+            BlockT,
+            BlockchainErrorT,
+            HardforkT,
+            LocalBlockT,
+            SignedTransactionT,
+        >,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    > TotalDifficultyByBlockHash
+    for DynBlockchain<
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        BlockchainT,
+        HardforkT,
+        LocalBlockT,
+        SignedTransactionT,
+    >
+{
+    type Error = DynBlockchainError;
+
+    fn total_difficulty_by_hash(&self, hash: &B256) -> Result<Option<U256>, Self::Error> {
+        self.inner
+            .total_difficulty_by_hash(hash)
+            .map_err(DynBlockchainError::new)
     }
 }

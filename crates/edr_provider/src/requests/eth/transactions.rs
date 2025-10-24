@@ -11,6 +11,7 @@ use edr_transaction::{
     request::TransactionRequestAndSender, BlockDataForTransaction, IsEip155, IsEip4844,
     TransactionAndBlock, TransactionType, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
+use edr_utils::CastArcInto as _;
 
 use crate::{
     data::ProviderData,
@@ -65,7 +66,7 @@ pub fn handle_get_transaction_by_block_spec_and_index<
         Ok(None) => {
             let result = data.mine_pending_block()?;
             let pending_block = Arc::new(result.block);
-            Some((ChainSpecT::cast_local_block(pending_block), true))
+            Some((pending_block.cast_arc_into(), true))
         }
         // Matching Hardhat behavior in returning None for invalid block hash or number.
         Err(ProviderError::InvalidBlockNumberOrHash { .. }) => None,

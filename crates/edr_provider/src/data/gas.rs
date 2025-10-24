@@ -2,8 +2,8 @@ use core::cmp;
 
 use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
-use edr_chain_spec::ExecutableTransaction as _;
-use edr_chain_spec_block::BlockChainSpec;
+use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
+use edr_chain_spec::{ExecutableTransaction as _, HaltReasonTrait};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eth::reward_percentile::RewardPercentile;
 use edr_evm::trace::TraceCollector;
@@ -15,32 +15,31 @@ use edr_state_api::DynState;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
 
-use crate::{
-    data::call, error::ProviderErrorForChainSpec, spec::BlockchainForChainSpec,
-    time::TimeSinceEpoch, ProviderError, SyncProviderSpec,
-};
+use crate::{data::call, error::ProviderErrorForChainSpec, ProviderError};
 
-pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: BlockChainSpec> {
-    pub blockchain: &'a dyn BlockchainForChainSpec<ChainSpecT>,
+pub(super) struct CheckGasLimitArgs<'a, HaltReasonT: HaltReasonTrait, HardforkT, SignedTransactionT>
+{
+    pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
-    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
-    pub transaction: ChainSpecT::SignedTransaction,
+    pub cfg_env: CfgEnv<HardforkT>,
+    pub transaction: SignedTransactionT,
     pub gas_limit: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
+    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
-pub(super) fn check_gas_limit<ChainSpecT, TimerT>(
-    args: CheckGasLimitArgs<'_, ChainSpecT>,
-) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>>
-where
-    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: Default + TransactionMut>,
-    TimerT: Clone + TimeSinceEpoch,
-{
+pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
+    args: CheckGasLimitArgs<
+        '_,
+        ChainSpecT::HaltReason,
+        ChainSpecT::Hardfork,
+        ChainSpecT::SignedTransaction,
+    >,
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     let CheckGasLimitArgs {
         blockchain,
         header,
@@ -67,28 +66,36 @@ where
     Ok(matches!(result, ExecutionResult::Success { .. }))
 }
 
-pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: BlockChainSpec> {
-    pub blockchain: &'a dyn BlockchainForChainSpec<ChainSpecT>,
+pub(super) struct BinarySearchEstimationArgs<
+    'a,
+    HaltReasonT: HaltReasonTrait,
+    HardforkT,
+    SignedTransactionT,
+> {
+    pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
     pub header: &'a BlockHeader,
     pub state: &'a dyn DynState,
-    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
-    pub transaction: ChainSpecT::SignedTransaction,
+    pub cfg_env: CfgEnv<HardforkT>,
+    pub transaction: SignedTransactionT,
     pub lower_bound: u64,
     pub upper_bound: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
+    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
-pub(super) fn binary_search_estimation<ChainSpecT, TimerT>(
-    args: BinarySearchEstimationArgs<'_, ChainSpecT>,
-) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>>
-where
-    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: Default + TransactionMut>,
-    TimerT: Clone + TimeSinceEpoch,
-{
+pub(super) fn binary_search_estimation<
+    ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>,
+>(
+    args: BinarySearchEstimationArgs<
+        '_,
+        ChainSpecT::HaltReason,
+        ChainSpecT::Hardfork,
+        ChainSpecT::SignedTransaction,
+    >,
+) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
     const MAX_ITERATIONS: usize = 20;
 
     let BinarySearchEstimationArgs {
@@ -114,7 +121,7 @@ where
             mid = cmp::min(mid, initial_mid);
         }
 
-        let success = check_gas_limit(CheckGasLimitArgs {
+        let success = check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
             blockchain,
             header,
             state,

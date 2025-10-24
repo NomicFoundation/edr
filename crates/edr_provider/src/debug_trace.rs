@@ -35,10 +35,7 @@ use crate::{
 /// Get trace output for `debug_traceTransaction`
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 #[allow(clippy::too_many_arguments)]
-pub fn debug_trace_transaction<
-    'header,
-    ChainSpecT: BlockChainSpec<BlockEnv<'header, BlockHeader>: Clone>,
->(
+pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
     blockchain: &dyn BlockHashByNumber<Error = DynBlockchainError>,
     // Take ownership of the state so that we can apply throw-away modifications on it
     mut state: Box<dyn DynState>,
@@ -72,7 +69,7 @@ pub fn debug_trace_transaction<
                     state.as_ref(),
                     evm_config,
                     transaction,
-                    block,
+                    &block,
                     &edr_primitives::HashMap::new(),
                     &mut DualInspector::new(&mut eip3155_tracer, &mut evm_observer),
                 )?;
@@ -101,7 +98,7 @@ pub fn debug_trace_transaction<
                 state.as_mut(),
                 evm_config.clone(),
                 transaction,
-                block.clone(),
+                &block,
                 &edr_primitives::HashMap::new(),
             )?;
         }

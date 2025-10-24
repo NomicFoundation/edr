@@ -225,20 +225,27 @@ impl<
     >
 {
     /// Constructs a new instance.
+    ///
+    /// If the remote chain ID is found in the provided `chain_configs`, the
+    /// corresponding `ChainConfig` is used to determine hardfork activations
+    /// and base fee parameters.
+    ///
+    /// Otherwise, the base fee parameters from the [`BlockConfig`] will be used
+    /// as a default.
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         config: BlockConfig<'_, HardforkT>,
         runtime: runtime::Handle,
         rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
-        fork_block_number: Option<u64>,
         irregular_state: &mut IrregularState,
         state_root_generator: Arc<Mutex<RandomHashGenerator>>,
         chain_configs: &HashMap<ChainId, ChainConfig<HardforkT>>,
+        fork_block_number: Option<u64>,
         chain_id_override: Option<u64>,
     ) -> Result<Self, CreationError<HardforkT>> {
         let BlockConfig {
-            base_fee_params,
+            base_fee_params: default_base_fee_params,
             hardfork,
             min_ethash_difficulty,
         } = config;
@@ -283,6 +290,10 @@ impl<
             rpc_client.get_block_by_number(PreEip1898BlockSpec::Number(fork_block_number));
 
         let chain_config = chain_configs.get(&remote_chain_id);
+        let base_fee_params = chain_config.map_or_else(
+            || default_base_fee_params.clone(),
+            |config| config.base_fee_params.clone(),
+        );
         let hardfork_activations = chain_config.as_ref().and_then(
             |ChainConfig {
                  hardfork_activations,
@@ -393,7 +404,7 @@ impl<
             local_storage: ReservableSparseBlockStorage::empty(fork_block_number),
             remote: RemoteBlockchain::new(rpc_client, runtime),
             state_root_generator,
-            base_fee_params: base_fee_params.clone(),
+            base_fee_params,
             chain_id: chain_id_override.unwrap_or(remote_chain_id),
             remote_chain_id,
             fork_block_number,

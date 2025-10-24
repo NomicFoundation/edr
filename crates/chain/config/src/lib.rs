@@ -21,7 +21,7 @@ pub struct Activation<HardforkT> {
 }
 
 /// A struct that stores the hardforks for a chain.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
 #[serde(transparent)]
 pub struct Activations<HardforkT> {
     /// (Start block number -> hardfork) mapping
@@ -90,13 +90,13 @@ pub struct ChainConfig<HardforkT> {
     pub base_fee_params: BaseFeeParams<HardforkT>,
 }
 
-impl<HardforkT> ChainConfig<HardforkT> {
+impl<HardforkT: Clone> ChainConfig<HardforkT> {
     /// Applies the provided override to the current instance.
-    pub fn apply_override(&mut self, override_config: ChainOverride<HardforkT>) {
-        self.name = override_config.name;
+    pub fn apply_override(&mut self, override_config: &ChainOverride<HardforkT>) {
+        self.name = override_config.name.clone();
 
-        if let Some(hardfork_activations) = override_config.hardfork_activation_overrides {
-            self.hardfork_activations = hardfork_activations;
+        if let Some(hardfork_activations) = &override_config.hardfork_activation_overrides {
+            self.hardfork_activations = hardfork_activations.clone();
         }
     }
 }

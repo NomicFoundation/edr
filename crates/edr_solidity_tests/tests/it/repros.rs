@@ -8,7 +8,7 @@ use alloy_primitives::{Address, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
-    revm::context::TxEnv,
+    revm::context::{BlockEnv, TxEnv},
     IncludeTraces, SolidityTestRunnerConfig,
 };
 use foundry_cheatcodes::{FsPermissions, PathPermission};
@@ -137,7 +137,7 @@ async fn repro_config(
     test_data: &L1ForgeTestData,
     rpc_config: bool,
 ) -> TestConfig<
-    edr_chain_l1::BlockEnv,
+    BlockEnv,
     (),
     L1EvmBuilder,
     edr_chain_l1::HaltReason,
