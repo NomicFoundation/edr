@@ -166,7 +166,7 @@ jobs:
             set -e
 
             # Install Rust toolchain
-            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake gcompat
             # Conditional symlink only for ARM builds
             if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
               ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
@@ -195,8 +195,8 @@ jobs:
               node $(which sfw) --version || echo "Even node failed"
             }
 
-            sfw pnpm install --frozen-lockfile --prefer-offline || exit 1
-            sfw cargo fetch || exit 1
+            sfw pnpm install --frozen-lockfile --prefer-offline
+            sfw cargo fetch
             pnpm run build --strip
 
       - name: Upload artifact
