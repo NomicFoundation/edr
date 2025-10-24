@@ -3,7 +3,7 @@ env:
   DEBUG: napi:*
   APP_NAME: edr
   NUMBER_OF_TARGETS: 7
-permissions: {} # TODO: add right permissions to existing jobs
+permissions: {}
 on:
   push:
     # pre-releases will be triggered in any of these branches
@@ -352,7 +352,7 @@ jobs:
             wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node
             set -e
             pnpm testNoBuild
-  
+
   check_commit:
     name: Check commit
     runs-on: ubuntu-24.04
@@ -378,12 +378,14 @@ jobs:
           fi
     outputs:
       match: ${{ steps.check_commit.outputs.match }}
+
   prepare:
     name: Prepare release bundle
     runs-on: ubuntu-24.04
     permissions:
       - contents: write
     needs:
+      - build
       - check_commit
       - test-macOS-windows-binding
       - test-linux-x64-gnu-binding
@@ -403,26 +405,16 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           path: ./crates/edr_napi/artifacts
-      - name: Run prepublish to update all `package.json` files 
+      - name: Run prepublish to update all `package.json` files
         # we NEED to to this before pnpm artifacts, if not prepublish will try to publish
         run: ../../scripts/prepublish.sh
-      - name: Move artifacts 
+      - name: Move artifacts
         run: pnpm artifacts
-      - name: Run publish --dry-run validate everything is ok
-        run: |
-          # Check in every cross-platform package
-          for platform in ./npm/* ; do
-            cd $platform
-            pnpm publish --dry-run
-            cd -
-          done
-          # And in root edr package
-          pnpm publish --dry-run
       - name: Create pack bundle
         # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
         id: pack
         run: |
-          FILENAME="edr_bundle.tar.gz"
+          FILENAME="${{ env.APP_NAME }}_bundle.tar.gz"
           EXTRA_FILES=("./npm/" "LICENSE" "README.md" "package.json")
           readarray -t FILES < <(cat package.json | jq -r .files[] ) 
           echo "Files defined in package.json: ${FILES[@]}"
@@ -445,22 +437,35 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - prepare
-    defaults:
-      run:
-        working-directory: ./crates/edr_napi
     steps:
-      # - We should download generated artifacts
+      - name: Download packed tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.filename }}
+          path: .
+      - name: Decompress tarball
+        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
+      - name: Inspect contents
+        run: tree .
+      - name: Check number of artifacts
+        shell: bash
+        run: |
+          # get number of artifacts with unique names
+          NUMBER_OF_ARTIFACTS=$(ls -1q npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+          echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
+          echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
+          test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
+      - name: Validate that package has everything for publishing
+        run: |
+          # Check in every cross-platform package
+          for platform in ./npm/* ; do
+            cd $platform
+            pnpm publish --dry-run
+            cd -
+          done
+          # And in root edr package
+          pnpm publish --dry-run
 
-      # Check if the downloaded artiacts are in the same dir than old check
-      # - name: Check number of artifacts
-      #   shell: bash
-      #   run: |
-      #     tree artifacts
-      #     # get number of artifacts with unique names
-      #     NUMBER_OF_ARTIFACTS=$(ls -1q artifacts/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
-      #     echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
-      #     echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
-      #     test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
 
   publish:
     name: Publish

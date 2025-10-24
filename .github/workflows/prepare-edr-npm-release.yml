@@ -1,0 +1,238 @@
+name: (Sandbox) EDR NPM release - no publish
+env:
+  APP_NAME: edr
+  NUMBER_OF_TARGETS: 7
+permissions: {}
+on:
+  push:
+    branches:
+      - fix/release-workflow 
+  pull_request: null
+  workflow_dispatch:
+
+concurrency:
+  group: sandbox-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: stable - ${{ matrix.settings.target }} - node@20
+    runs-on: ${{ matrix.settings.host }}
+    permissions:
+      - contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-13
+            target: x86_64-apple-darwin
+            build: pnpm run build --strip
+
+          - host: macos-14
+            target: aarch64-apple-darwin
+            build: pnpm run build --strip
+
+          - host: windows-2022
+            target: x86_64-pc-windows-msvc
+            build: pnpm run build --strip
+
+          - host: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            docker: node:20-bullseye-slim
+            flavor: gnu
+
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            docker: node:20-bullseye-slim
+            flavor: gnu
+
+          - host: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            docker: node:20-alpine3.20
+            flavor: musl
+
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            docker: node:20-alpine3.20
+            flavor: musl
+    defaults:
+      run:
+        working-directory: ./crates/edr_napi
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check number of targets
+        shell: bash
+        run: |
+          echo "Number of build jobs: ${{ strategy.job-total }}"
+          echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
+          test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        if: ${{ !matrix.settings.docker }}
+        with:
+          toolchain: stable
+          targets: ${{ matrix.settings.target }}
+          components: rust-src
+
+      - name: Setup node and pnpm
+        if: ${{ !matrix.settings.docker }}
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: 20
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .cargo-cache
+            target/
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+
+      - name: Install dependencies
+        if: ${{ !matrix.settings.docker }}
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build (non-docker)
+        if: ${{ !matrix.settings.docker }}
+        run: ${{ matrix.settings.build }}
+        shell: bash
+
+      - name: Build in docker (gnu)
+        uses: addnab/docker-run-action@v3
+        if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: |
+            set -e
+
+            # Install Rust toolchain
+            apt-get update
+            apt-get install -y curl ca-certificates build-essential pkg-config
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            export PATH="/root/.cargo/bin:$PATH"
+
+            npm i -g pnpm@10.17.1 --ignore-scripts
+            pnpm -v
+            pnpm install --frozen-lockfile --prefer-offline
+            pnpm run build --strip
+
+      - name: Build in docker (musl)
+        uses: addnab/docker-run-action@v3
+        if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: |
+            set -e
+
+            # Install Rust toolchain
+            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+            # Conditional symlink only for ARM builds
+            if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
+              ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
+            fi
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            export PATH="/root/.cargo/bin:$PATH"
+
+            npm i -g pnpm@10.17.1 --ignore-scripts
+            pnpm -v
+            pnpm install --frozen-lockfile --prefer-offline
+            pnpm run build --strip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-bindings-${{ matrix.settings.target }}
+          # The upload artifact action doesn't respect the working directory setting. Unclear if this is a bug or not
+          # https://github.com/actions/upload-artifact/issues/294
+          path: ./crates/edr_napi/${{ env.APP_NAME }}.*.node
+          if-no-files-found: error
+
+  prepare:
+    name: Prepare release bundle
+    runs-on: ubuntu-24.04
+    permissions:
+      - contents: write
+    needs:
+      - build
+
+    defaults:
+      run:
+        working-directory: ./crates/edr_napi
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup node
+        uses: ./.github/actions/setup-node
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: ./crates/edr_napi/artifacts
+      - name: Run prepublish to update all `package.json` files 
+        # we NEED to to this before pnpm artifacts, if not prepublish will try to publish
+        run: ../../scripts/prepublish.sh
+      - name: Move artifacts 
+        run: pnpm artifacts
+      - name: Create pack bundle
+        # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
+        id: pack
+        run: |
+          FILENAME="sandbox-${{ env.APP_NAME }}_bundle.tar.gz"
+          EXTRA_FILES=("./npm/" "LICENSE" "README.md" "package.json")
+          readarray -t FILES < <(cat package.json | jq -r .files[] ) 
+          echo "Files defined in package.json: ${FILES[@]}"
+          echo "Other files to include in tarball: ${EXTRA_FILES[@]}"
+          echo "Creating bundle with necessary files for publishing"
+          tar -czvf $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
+          echo "FILENAME=$FILENAME"
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+      - name: Upload packed tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.filename }}
+          path: ${{ steps.pack.outputs.filename }}
+          retention-days: 2
+          overwrite: true
+          if-no-files-found: error
+
+  review:
+    name: Review release
+    runs-on: ubuntu-24.04
+    needs:
+      - prepare
+    steps:
+      - name: Download packed tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.filename }}
+          path: .
+      - name: Decompress tarball
+        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
+      - name: Inspect contents
+        run: tree .
+      - name: Check number of artifacts
+        shell: bash
+        run: |
+          # get number of artifacts with unique names
+          NUMBER_OF_ARTIFACTS=$(ls -1q npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+          echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
+          echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
+          test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
+      - name: Validate that package has everything for publishing
+        run: |
+          # Check in every cross-platform package
+          for platform in ./npm/* ; do
+            cd $platform
+            pnpm publish --dry-run
+            cd -
+          done
+          # And in root edr package
+          pnpm publish --dry-run
