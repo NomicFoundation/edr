@@ -431,7 +431,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.pack.outputs.filename }}
-          path: ${{ steps.pack.outputs.filename }}
+          path: ./crates/edr_napi/${{ steps.pack.outputs.filename }}
           retention-days: 2
           overwrite: true
           if-no-files-found: error
