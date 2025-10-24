@@ -145,9 +145,14 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
+            rustup set auto-self-update disable
+
             cat > /root/.cargo/config.toml << 'EOF'
             [http]
-            cainfo = "/etc/ssl/certs/ca-certificates.crt"
+            check-revoke = false
+
+            [net]
+            git-fetch-with-cli = true
             EOF
 
             npm i -g pnpm@10.17.1 --ignore-scripts
