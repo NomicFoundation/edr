@@ -166,7 +166,7 @@ jobs:
             set -e
 
             # Install Rust toolchain
-            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake nodejs npm
+            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
             # Conditional symlink only for ARM builds
             if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
               ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
@@ -181,8 +181,22 @@ jobs:
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
             npm i -g sfw
-            sfw pnpm install --frozen-lockfile --prefer-offline
-            sfw cargo fetch
+
+            # Debug: Check if sfw is available
+            echo "Checking sfw installation..."
+            which sfw
+            ls -la $(which sfw)
+            file $(which sfw) || true
+
+            # Try to run sfw with explicit error handling
+            echo "Attempting to run sfw..."
+            sfw --version || {
+              echo "sfw failed to run, trying with node directly..."
+              node $(which sfw) --version || echo "Even node failed"
+            }
+
+            sfw pnpm install --frozen-lockfile --prefer-offline || exit 1
+            sfw cargo fetch || exit 1
             pnpm run build --strip
 
       - name: Upload artifact
