@@ -172,6 +172,10 @@ jobs:
         uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Install sponge # needed por prepublish script
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y moreutils
       - name: Download all artifacts
         uses: actions/download-artifact@v5
         with:
