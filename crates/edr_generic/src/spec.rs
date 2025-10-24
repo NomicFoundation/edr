@@ -1,50 +1,42 @@
 use std::sync::Arc;
 
 use alloy_eips::eip7840::BlobParams;
-use edr_block_api::FetchBlockReceipts;
-use edr_block_header::{
-    BlobGas, BlockConfig, BlockHeader, HeaderAndEvmSpec, PartialHeader, PartialHeaderAndEvmSpec,
-};
+use edr_block_api::{FetchBlockReceipts, GenesisBlockFactory};
+use edr_block_header::{BlobGas, BlockConfig, BlockHeader, HeaderAndEvmSpec};
 use edr_chain_l1::L1ChainSpec;
 pub use edr_chain_l1::L1_MIN_ETHASH_DIFFICULTY;
 use edr_chain_spec::{
-    BlobExcessGasAndPrice, BlockEnvTrait, ChainSpec, EthHeaderConstants, EvmSpecId,
-    HardforkChainSpec, TransactionValidation,
+    BlobExcessGasAndPrice, BlockEnvChainSpec, BlockEnvConstructor, BlockEnvForHardfork,
+    BlockEnvTrait, ChainSpec, ContextChainSpec, EvmSpecId, HardforkChainSpec,
+    TransactionValidation,
 };
 use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
-use edr_evm::{
-    config::CfgEnv,
-    evm::{Context, EthFrame, Evm, LocalContext},
-    inspector::Inspector,
-    interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
-    journal::{Journal, JournalTrait as _},
-    precompile::{EthPrecompiles, PrecompileProvider},
-    spec::{
-        ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory,
-        RuntimeSpec, EXTRA_DATA,
-    },
-    state::Database,
-    transaction::{TransactionError, TransactionErrorForChainSpec},
-    EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, RemoteBlock,
-    SyncBlock,
-};
-use edr_primitives::{Bytes, U256};
+use edr_primitives::{Address, Bytes, B256, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
-use edr_receipt::{log::FilterLog, L1BlockReceipt};
+use edr_receipt::log::FilterLog;
 use edr_state_api::StateDiff;
 
 use crate::GenericChainSpec;
 
-impl HardforkChainSpec for GenericChainSpec {
-    type Hardfork = edr_chain_l1::Hardfork;
+impl BlockEnvChainSpec for GenericChainSpec {
+    type BlockEnv<'header, BlockHeaderT>
+        = HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
+    where
+        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
+}
+
+impl ContextChainSpec for GenericChainSpec {
+    type Context = ();
 }
 
 impl ChainSpec for GenericChainSpec {
-    type BlockEnv = edr_chain_l1::BlockEnv;
-    type Context = ();
     type HaltReason = edr_chain_l1::HaltReason;
     type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
+}
+
+impl HardforkChainSpec for GenericChainSpec {
+    type Hardfork = edr_chain_l1::Hardfork;
 }
 
 fn blob_excess_gas_and_price_for_evm_spec(
@@ -76,52 +68,24 @@ fn blob_excess_gas_and_price_for_evm_spec(
         })
 }
 
-pub struct BlockHeaderAndEvmSpecWithFallback<'header> {
-    inner: HeaderAndEvmSpec<'header>,
+pub struct HeaderAndEvmSpecWithFallback<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> {
+    inner: HeaderAndEvmSpec<'header, BlockHeaderT, EvmSpecId>,
 }
 
-impl BlockEnvTrait for BlockHeaderAndEvmSpecWithFallback<'_> {
-    fn number(&self) -> U256 {
-        self.inner.number()
-    }
-
-    fn beneficiary(&self) -> edr_primitives::Address {
-        self.inner.beneficiary()
-    }
-
-    fn timestamp(&self) -> U256 {
-        self.inner.timestamp()
-    }
-
-    fn gas_limit(&self) -> u64 {
-        self.inner.gas_limit()
-    }
-
-    fn basefee(&self) -> u64 {
-        self.inner.basefee()
-    }
-
-    fn difficulty(&self) -> U256 {
-        self.inner.difficulty()
-    }
-
-    fn prevrandao(&self) -> Option<edr_primitives::B256> {
-        self.inner.prevrandao()
-    }
-
-    fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
-        blob_excess_gas_and_price_for_evm_spec(
-            self.inner.header.blob_gas.as_ref(),
-            self.inner.hardfork,
-        )
+impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>>
+    BlockEnvConstructor<EvmSpecId, &'header BlockHeaderT>
+    for HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
+{
+    fn new_block_env(header: &'header BlockHeaderT, hardfork: EvmSpecId) -> Self {
+        Self {
+            inner: HeaderAndEvmSpec::new_block_env(header, hardfork),
+        }
     }
 }
 
-pub struct PartialHeaderAndEvmSpecWithFallback<'header> {
-    inner: PartialHeaderAndEvmSpec<'header>,
-}
-
-impl BlockEnvTrait for PartialHeaderAndEvmSpecWithFallback<'_> {
+impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
+    for HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
+{
     fn number(&self) -> U256 {
         self.inner.number()
     }
@@ -153,15 +117,23 @@ impl BlockEnvTrait for PartialHeaderAndEvmSpecWithFallback<'_> {
     fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
         blob_excess_gas_and_price_for_evm_spec(
             self.inner.header.blob_gas.as_ref(),
-            self.inner.evm_spec_id,
+            self.inner.hardfork,
         )
     }
 }
 
 impl GenesisBlockFactory for GenericChainSpec {
-    type CreationError = <L1ChainSpec as GenesisBlockFactory>::CreationError;
+    type GenesisBlockCreationError =
+        <L1ChainSpec as GenesisBlockFactory>::GenesisBlockCreationError;
 
-    type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
+    type LocalBlock = EthLocalBlock<
+        Self::RpcBlockConversionError,
+        Self::BlockReceipt,
+        ExecutionReceiptTypeConstructorForChainSpec<Self>,
+        Self::Hardfork,
+        Self::RpcReceiptConversionError,
+        Self::SignedTransaction,
+    >;
 
     fn genesis_block(
         genesis_diff: StateDiff,
