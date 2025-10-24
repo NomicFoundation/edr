@@ -145,6 +145,8 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
+            rustup toolchain install 1.89.0
+            rustup default 1.89.0
             rustup set auto-self-update disable
 
             cat > /root/.cargo/config.toml << 'EOF'
