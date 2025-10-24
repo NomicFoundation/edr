@@ -115,7 +115,11 @@ jobs:
 
       - name: Download Cargo dependecies
         if: ${{ !matrix.settings.docker }}
-        run: sfw cargo fetch
+        run: |
+          rustup toolchain install 1.89.0
+          rustup default 1.89.0
+          rustup set auto-self-update disable  
+          sfw cargo fetch
 
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
@@ -162,7 +166,7 @@ jobs:
             set -e
 
             # Install Rust toolchain
-            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake nodejs npm
             # Conditional symlink only for ARM builds
             if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
               ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
