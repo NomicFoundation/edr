@@ -3,8 +3,7 @@ use std::{collections::HashMap, fmt::Debug};
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{
-    ChainSpec, EvmSpecId, EvmTransactionValidationError, ExecutableTransaction as _,
-    HaltReasonTrait, TransactionValidation,
+    ChainSpec, EvmSpecId, ExecutableTransaction as _, HaltReasonTrait, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_evm::{

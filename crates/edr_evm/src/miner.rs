@@ -84,13 +84,13 @@ pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionVal
 #[allow(clippy::type_complexity)]
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block<
-    BlockchainErrorT,
     ChainSpecT: BlockChainSpec<
         SignedTransaction: 'static
                                + Clone
                                + Debug
                                + TransactionValidation<ValidationError: PartialEq>,
     >,
+    BlockchainErrorT: std::error::Error,
     InspectorT,
 >(
     blockchain: &dyn Blockchain<
@@ -115,7 +115,6 @@ pub fn mine_block<
     MineBlockErrorForChainSpec<BlockchainErrorT, ChainSpecT, StateError>,
 >
 where
-    BlockchainErrorT: std::error::Error + Send,
     InspectorT: for<'inspector> Inspector<
         ContextForChainSpec<
             ChainSpecT,
@@ -315,8 +314,8 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, TransactionValidation
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 pub fn mine_block_with_single_transaction<
     'builder,
-    BlockchainErrorT: std::error::Error + Send,
     ChainSpecT: BlockChainSpec,
+    BlockchainErrorT: std::error::Error,
     InspectorT,
 >(
     blockchain: &dyn Blockchain<

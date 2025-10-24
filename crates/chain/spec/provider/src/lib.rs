@@ -5,7 +5,7 @@ use edr_block_api::{EthBlockData, FetchBlockReceipts, GenesisBlockFactory};
 use edr_block_header::BlockHeader;
 use edr_block_remote::{FetchRemoteReceiptError, RemoteBlock};
 use edr_chain_config::ChainConfig;
-use edr_chain_spec::ChainSpec;
+use edr_chain_spec::{ChainSpec, TransactionValidation};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{HashMap, B256};
@@ -16,7 +16,7 @@ use edr_utils::CastArcFrom;
 
 pub trait ProviderChainSpec:
     BlockChainSpec<
-        Block: CastArcFrom<<Self as GenesisBlockFactory>::LocalBlock>
+        Block: 'static + CastArcFrom<<Self as GenesisBlockFactory>::LocalBlock>
                    + CastArcFrom<
             RemoteBlock<
                 <Self as ReceiptChainSpec>::Receipt,
@@ -34,13 +34,18 @@ pub trait ProviderChainSpec:
                 >>::Error,
             >,
         >,
-        Hardfork: Debug + PartialOrd,
-        LocalBlock: FetchBlockReceipts<Arc<<Self as ReceiptChainSpec>::Receipt>, Error: Debug>,
-        Receipt: TryFrom<<Self as RpcChainSpec>::RpcReceipt, Error: Send + Sync>,
+        Hardfork: 'static + Debug + PartialOrd,
+        LocalBlock: 'static +FetchBlockReceipts<Arc<<Self as ReceiptChainSpec>::Receipt>, Error: Debug>,
+        Receipt: 'static + TryFrom<<Self as RpcChainSpec>::RpcReceipt, Error: Send + Sync>,
         RpcBlock<B256>: RpcEthBlock,
         RpcTransaction: RpcTransaction
           + RpcTypeFrom<TransactionAndBlock<Arc<Self::Block>, Self::SignedTransaction>, Hardfork = Self::Hardfork>,
-        SignedTransaction: Clone + serde::Serialize, // serde::de::DeserializeOwned
+        SignedTransaction: 'static
+                               + Clone
+                               + Debug
+                               + TransactionValidation<ValidationError: PartialEq>
+                               + serde::Serialize,
+                               // serde::de::DeserializeOwned
     > + BlockChainSpec<
         RpcBlock<<Self as RpcChainSpec>::RpcTransaction>: RpcEthBlock
                                                               + TryInto<

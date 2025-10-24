@@ -26,7 +26,8 @@ use edr_blockchain_api::{
 use edr_blockchain_fork::CreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
-    ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait, TransactionValidation,
+    BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
+    TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec;
@@ -63,7 +64,7 @@ use edr_transaction::{
     request::TransactionRequestAndSender, BlockDataForTransaction, IsEip4844, IsSupported as _,
     TransactionAndBlock, TransactionMut, TransactionType, TxKind,
 };
-use edr_utils::random::RandomHashGenerator;
+use edr_utils::{random::RandomHashGenerator, CastArcInto};
 use gas::gas_used_ratio;
 use indexmap::IndexMap;
 use itertools::izip;
@@ -1295,7 +1296,9 @@ where
                 });
             }
 
-            self.blockchain.spec_at_block_number(block_number)
+            self.blockchain
+                .spec_at_block_number(block_number)
+                .map_err(ProviderError::Blockchain)
         } else {
             Ok(self.blockchain.hardfork())
         }
@@ -2178,7 +2181,7 @@ where
         self.execute_in_block_context(Some(block_spec), |blockchain, block, state| {
             let state_overrider = StateRefOverrider::new(state_overrides, state.as_ref());
 
-            let execution_result = call::run_call::<_, ChainSpecT, _, _, TimerT>(
+            let execution_result = call::run_call::<ChainSpecT, _, _, _>(
                 blockchain,
                 block.block_header(),
                 state_overrider,
@@ -2234,7 +2237,7 @@ where
         &mut self,
         block_spec: Option<&BlockSpec>,
         function: impl FnOnce(
-            &dyn BlockHashByNumber<DynBlockchainError>,
+            &dyn BlockHashByNumber<Error = DynBlockchainError>,
             &Arc<ChainSpecT::Block>,
             &Box<dyn DynState>,
         ) -> T,
@@ -2259,9 +2262,7 @@ where
             let blockchain =
                 BlockchainWithPending::new(&*self.blockchain, result.block, result.state_diff);
 
-            let block = blockchain
-                .last_block()
-                .expect("The pending block is the last block");
+            let block: Arc<ChainSpecT::Block> = blockchain.last_block().clone().cast_arc_into();
 
             Ok(function(&blockchain, &block, &result.state))
         }
@@ -2279,7 +2280,7 @@ where
         let reward = miner_reward(self.blockchain.hardfork().into()).unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
 
-        let result = mine_block(
+        let result = mine_block::<ChainSpecT, _, _>(
             self.blockchain.as_ref(),
             state_to_be_modified,
             &self.mem_pool,
@@ -2306,10 +2307,10 @@ where
         BuiltBlockAndState<ChainSpecT::HaltReason, <ChainSpecT as GenesisBlockFactory>::LocalBlock>,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
-        let reward = miner_reward(evm_config.spec.into()).unwrap_or(0);
+        let reward = miner_reward(self.blockchain.hardfork().into()).unwrap_or(0);
         let state_to_be_modified = (*self.current_state()?).clone();
 
-        let result = mine_block_with_single_transaction(
+        let result = mine_block_with_single_transaction::<ChainSpecT, _, _>(
             self.blockchain.as_ref(),
             state_to_be_modified,
             transaction,
@@ -2490,7 +2491,7 @@ where
             |blockchain, _prev_block, state| {
                 let block_env = ChainSpecT::BlockEnv::new_block_env(header, cfg_env.spec);
 
-                debug_trace_transaction(
+                debug_trace_transaction::<ChainSpecT, _, _>(
                     blockchain,
                     state.clone(),
                     cfg_env,
@@ -4005,6 +4006,7 @@ mod tests {
     #[cfg(feature = "test-remote")]
     mod alchemy {
         use edr_chain_l1::L1ChainSpec;
+        use edr_chain_spec::EvmTransactionValidationError;
         use edr_evm_spec::TransactionError;
         use edr_test_block_replay::impl_full_block_tests;
         use edr_test_utils::env::get_alchemy_url;

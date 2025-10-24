@@ -12,9 +12,9 @@ use edr_state_api::{State, StateError};
 use crate::{error::ProviderErrorForChainSpec, ProviderError};
 
 /// Execute a transaction as a call. Returns the gas used and the output.
-pub(super) fn run_call<ChainSpecT, BlockchainT, InspectorT, StateT>(
+pub(super) fn run_call<'header, ChainSpecT, BlockchainT, InspectorT, StateT>(
     blockchain: BlockchainT,
-    header: &BlockHeader,
+    header: &'header BlockHeader,
     state: StateT,
     cfg_env: CfgEnv<ChainSpecT::Hardfork>,
     transaction: ChainSpecT::SignedTransaction,
@@ -24,10 +24,10 @@ pub(super) fn run_call<ChainSpecT, BlockchainT, InspectorT, StateT>(
 where
     BlockchainT: BlockHashByNumber<Error = DynBlockchainError>,
     ChainSpecT: ProviderChainSpec,
-    InspectorT: for<'inspector> Inspector<
+    InspectorT: Inspector<
         ContextForChainSpec<
             ChainSpecT,
-            ChainSpecT::BlockEnv<'inspector, BlockHeader>,
+            ChainSpecT::BlockEnv<'header, BlockHeader>,
             WrapDatabaseRef<DatabaseComponents<BlockchainT, StateT>>,
         >,
     >,

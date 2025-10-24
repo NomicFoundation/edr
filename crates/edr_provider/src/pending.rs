@@ -31,6 +31,11 @@ impl<'blockchain, LocalBlockT, SignedTransactionT>
             _phantom: PhantomData,
         }
     }
+
+    /// Returns the last block (i.e. the pending block).
+    pub fn last_block(&self) -> &Arc<LocalBlockT> {
+        &self.pending_block
+    }
 }
 
 impl<LocalBlockT: Block<SignedTransactionT>, SignedTransactionT> BlockHashByNumber
