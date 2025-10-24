@@ -30,6 +30,8 @@ jobs:
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
+    env:
+      SFW_DEBUG: true
     strategy:
       fail-fast: false
       matrix:
@@ -71,6 +73,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+      - uses: socketdev/action@v1
+        with:
+          mode: firewall
 
       - name: Check number of targets
         shell: bash
@@ -80,12 +85,8 @@ jobs:
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/setup-rust
         if: ${{ !matrix.settings.docker }}
-        with:
-          toolchain: stable
-          targets: ${{ matrix.settings.target }}
-          components: rust-src
 
       - name: Setup node and pnpm
         if: ${{ !matrix.settings.docker }}
@@ -106,7 +107,18 @@ jobs:
 
       - name: Install dependencies
         if: ${{ !matrix.settings.docker }}
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Download Cargo dependecies
+        if: ${{ matrix.settings.host == 'macos-13' || matrix.settings.host == 'macos-14' }}
+        run: |
+          cat >> ~/.cargo/config.toml << 'EOF'
+          [http]
+          cainfo = "/etc/ssl/cert.pem"
+
+          EOF
+
+          sfw cargo fetch
 
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
@@ -114,6 +126,8 @@ jobs:
         shell: bash
 
       - name: Build in docker (gnu)
+        env:
+          SFW_DEBUG: true
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
         with:
@@ -128,12 +142,20 @@ jobs:
             curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
             export PATH="/root/.cargo/bin:$PATH"
 
+            rustup toolchain install 1.89.0
+            rustup default 1.89.0
+            rustup set auto-self-update disable
+
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
-            pnpm install --frozen-lockfile --prefer-offline
+            npm i -g sfw
+            sfw pnpm install --frozen-lockfile --prefer-offline
+            sfw cargo fetch
             pnpm run build --strip
 
       - name: Build in docker (musl)
+        env:
+          SFW_DEBUG: true
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
         with:
