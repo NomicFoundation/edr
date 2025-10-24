@@ -149,14 +149,6 @@ jobs:
             rustup default 1.89.0
             rustup set auto-self-update disable
 
-            cat > /root/.cargo/config.toml << 'EOF'
-            [http]
-            check-revoke = false
-
-            [net]
-            git-fetch-with-cli = true
-            EOF
-
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
             npm i -g sfw
