@@ -116,10 +116,6 @@ jobs:
       - name: Download Cargo dependecies
         if: ${{ matrix.settings.host == 'macos-13' || matrix.settings.host == 'macos-14' }}
         run: |
-          rustup toolchain install 1.89.0
-          rustup default 1.89.0
-          rustup set auto-self-update disable
-
           cat >> ~/.cargo/config.toml << 'EOF'
           [http]
           check-revoke = false
