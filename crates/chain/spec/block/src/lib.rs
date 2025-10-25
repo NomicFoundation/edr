@@ -4,9 +4,12 @@ use edr_block_api::{
     Block, BlockReceipts, EmptyBlock, FetchBlockReceipts, GenesisBlockFactory, LocalBlock,
 };
 use edr_block_builder_api::BlockBuilder;
-use edr_chain_spec::{BlockEnvChainSpec, TransactionValidation};
+use edr_block_remote::{FetchRemoteReceiptError, RemoteBlock};
+use edr_chain_spec::{BlockEnvChainSpec, ChainSpec, TransactionValidation};
 use edr_evm_spec::EvmChainSpec;
 use edr_receipt_spec::ReceiptChainSpec;
+use edr_rpc_spec::RpcChainSpec;
+use edr_utils::CastArcFrom;
 
 /// Trait for specifying the types representing and building a chain's blocks.
 pub trait BlockChainSpec:
@@ -23,7 +26,17 @@ pub trait BlockChainSpec:
     /// Type representing block trait objects.
     type Block: ?Sized
         + Block<Self::SignedTransaction>
-        + FetchBlockReceipts<Arc<Self::Receipt>, Error = Self::FetchReceiptError>;
+        + CastArcFrom<<Self as GenesisBlockFactory>::LocalBlock>
+        + CastArcFrom<
+            RemoteBlock<
+                <Self as ReceiptChainSpec>::Receipt,
+                <Self as BlockChainSpec>::FetchReceiptError,
+                Self,
+                <Self as RpcChainSpec>::RpcReceipt,
+                <Self as RpcChainSpec>::RpcTransaction,
+                <Self as ChainSpec>::SignedTransaction,
+            >,
+        > + FetchBlockReceipts<Arc<Self::Receipt>, Error = Self::FetchReceiptError>;
 
     /// Type representing a block builder.
     type BlockBuilder<'builder, BlockchainErrorT: 'builder + std::error::Error>: BlockBuilder<
@@ -36,7 +49,13 @@ pub trait BlockChainSpec:
     >;
 
     /// Type representing errors that can occur when fetching receipts.
-    type FetchReceiptError: std::error::Error;
+    type FetchReceiptError: std::error::Error + From<
+            FetchRemoteReceiptError<
+                <<Self as ReceiptChainSpec>::Receipt as TryFrom<
+                    <Self as RpcChainSpec>::RpcReceipt,
+                >>::Error,
+            >,
+        >;
 }
 
 /// Trait for [`BlockChainSpec`] that meets all requirements for synchronous
@@ -69,3 +88,13 @@ impl<
     > SyncBlockChainSpec for ChainSpecT
 {
 }
+
+/// Helper type for a chain-specific [`RemoteBlock`].
+pub type RemoteBlockForChainSpec<ChainSpecT> = RemoteBlock<
+    <ChainSpecT as ReceiptChainSpec>::Receipt,
+    <ChainSpecT as BlockChainSpec>::FetchReceiptError,
+    ChainSpecT,
+    <ChainSpecT as RpcChainSpec>::RpcReceipt,
+    <ChainSpecT as RpcChainSpec>::RpcTransaction,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;

@@ -45,7 +45,7 @@ impl<BlockT: Block<SignedTransactionWithFallbackToPostEip155>>
                 |BlockDataForTransaction {
                      block,
                      transaction_index,
-                 }| (block.header(), *transaction_index),
+                 }| (block.block_header(), *transaction_index),
             )
             .unzip();
 

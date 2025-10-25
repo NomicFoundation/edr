@@ -251,9 +251,9 @@ impl<BlockT: Block<SignedTransactionT>, SignedTransactionT: ExecutableTransactio
 mod tests {
     use std::sync::Arc;
 
-    use edr_block_remote::RemoteBlock;
+    use edr_chain_spec_block::RemoteBlockForChainSpec;
     use edr_rpc_client::jsonrpc;
-    use edr_rpc_eth::{client::EthRpcClient, RpcBlockChainSpec};
+    use edr_rpc_eth::RpcBlockChainSpec;
     use edr_rpc_spec::EthRpcClientForChainSpec;
 
     use crate::{rpc::transaction::GenericRpcTransactionWithSignature, GenericChainSpec};
@@ -312,7 +312,7 @@ mod tests {
         );
         let runtime = tokio::runtime::Handle::current();
 
-        RemoteBlock::new(rpc_block, dummy_client, runtime)
+        RemoteBlockForChainSpec::<GenericChainSpec>::new(rpc_block, dummy_client, runtime)
             .expect("Conversion should accept a missing nonce or mix hash");
     }
 }

@@ -262,7 +262,7 @@ mod tests {
         fixture.provider_data.send_transaction(transaction)?;
 
         let last_block = fixture.provider_data.last_block()?;
-        assert_eq!(last_block.header().number, 1);
+        assert_eq!(last_block.block_header().number, 1);
 
         let max_priority_fee_per_gas = 1u128;
         let request = L1CallRequest {
@@ -282,7 +282,7 @@ mod tests {
         assert_eq!(
             Some(*resolved.gas_price()),
             last_block
-                .header()
+                .block_header()
                 .base_fee_per_gas
                 .map(|base_fee| base_fee + max_priority_fee_per_gas)
         );

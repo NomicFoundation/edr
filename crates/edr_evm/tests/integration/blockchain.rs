@@ -2,29 +2,15 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use edr_block_api::EmptyBlock as _;
+use edr_block_api::{EmptyBlock as _, GenesisBlockOptions};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_chain_l1::L1ChainSpec;
 use edr_chain_spec::ExecutableTransaction as _;
-use edr_evm::{
-    blockchain::{
-        BlockchainError, BlockchainErrorForChainSpec, LocalBlockchain, SyncBlockchainForChainSpec,
-    },
-    hardfork::l1,
-    receipt::{self, ExecutionReceiptBuilder as _},
-    result::{ExecutionResult, Output, SuccessReason},
-    spec::{
-        base_fee_params_for, ExecutionReceiptTypeConstructorForChainSpec, GenesisBlockFactory,
-        RuntimeSpec,
-    },
-    test_utils::dummy_eip155_transaction,
-    EthBlockReceiptFactory, EthLocalBlock, EthLocalBlockForChainSpec, GenesisBlockOptions,
-    RemoteBlockConversionError,
-};
+use edr_evm::test_utils::dummy_eip155_transaction;
 use edr_primitives::{Address, Bytes, HashSet, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
-    ExecutionReceipt as _, L1BlockReceipt, TransactionReceipt,
+    ExecutionReceipt as _, TransactionReceipt,
 };
 use edr_state_api::{StateDiff, StateError};
 use serial_test::serial;
@@ -103,8 +89,8 @@ async fn create_dummy_blockchains() -> Vec<
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
         BlockConfig {
-            hardfork: edr_chain_l1::Hardfork::default(),
             base_fee_params: base_fee_params_for::<L1ChainSpec>(CHAIN_ID),
+            hardfork: edr_chain_l1::Hardfork::default(),
         },
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),

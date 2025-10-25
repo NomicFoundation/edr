@@ -44,7 +44,6 @@ thiserror.workspace = true
 anyhow = "1.0.89"
 edr_blockchain_api.workspace = true
 edr_defaults = { path = "../edr_defaults" }
-edr_evm = { path = "../edr_evm", features = ["test-utils"] }
 edr_provider = { path = "../edr_provider", features = ["test-utils"] }
 edr_rpc_eth = { path = "../edr_rpc_eth", features = ["test-utils"] }
 edr_rpc_client = { path = "../edr_rpc_client" }

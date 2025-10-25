@@ -1,14 +1,10 @@
 #![cfg(feature = "test-remote")]
 use std::str::FromStr as _;
 
+use edr_chain_config::{ChainOverride, HardforkActivations};
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
-use edr_chain_spec::{
-    EvmHeaderValidationError, EvmTransactionValidationError, TransactionValidation,
-};
-use edr_evm::{
-    hardfork::{self, ChainOverride},
-    transaction::TransactionError,
-};
+use edr_chain_spec::{EvmHeaderValidationError, TransactionValidation};
+use edr_evm_spec::TransactionError;
 use edr_generic::GenericChainSpec;
 use edr_primitives::{address, B256};
 use edr_provider::{
@@ -28,7 +24,6 @@ const CANCUN_BLOCK_NUMBER: u64 = 361_518_399;
 fn get_provider<
     ChainSpecT: SyncProviderSpec<
             CurrentTime,
-            BlockEnv: Default,
             Hardfork = edr_chain_l1::Hardfork,
             SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
         > + ProviderSpec<CurrentTime>,
@@ -41,7 +36,7 @@ fn get_provider<
 
     let chain_override = ChainOverride {
         name: "Arbitrum".to_owned(),
-        hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(hardfork)),
+        hardfork_activation_overrides: Some(HardforkActivations::with_spec_id(hardfork)),
     };
     let url = get_alchemy_url().replace("eth-mainnet", "arb-mainnet");
     // THIS CALL IS UNSAFE AND MIGHT LEAD TO UNDEFINED BEHAVIOR. WE DEEM THE RISK

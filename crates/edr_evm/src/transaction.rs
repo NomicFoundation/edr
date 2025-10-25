@@ -60,7 +60,7 @@ pub fn validate<TransactionT: Transaction>(
 
 #[cfg(test)]
 mod tests {
-    use edr_primitives::{Address, Bytes};
+    use edr_primitives::{Address, Bytes, U256};
 
     use super::*;
 

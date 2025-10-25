@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use edr_chain_l1::L1ChainSpec;
-use edr_chain_spec::{
-    EvmHaltReason, EvmTransactionValidationError, HaltReasonTrait, TransactionValidation,
-};
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait, TransactionValidation};
 use edr_evm::trace::Trace;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
@@ -52,7 +50,6 @@ pub struct SolidityTraceData<HaltReasonT: HaltReasonTrait> {
 pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
     SyncProviderSpec<
     TimerT,
-    BlockEnv: Clone + Default,
     PooledTransaction: IsEip155,
     SignedTransaction: Default
                            + TransactionMut

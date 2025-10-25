@@ -140,10 +140,10 @@ async fn get_fork_state<
         block_config,
         runtime.clone(),
         rpc_client,
-        Some(block_number - 1),
         &mut irregular_state,
         state_root_generator,
         chain_configs,
+        Some(block_number - 1),
         Some(chain_id),
     )
     .await?;

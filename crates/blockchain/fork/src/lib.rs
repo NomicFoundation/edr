@@ -19,7 +19,7 @@ use edr_blockchain_api::{
     StateAtBlock, TotalDifficultyByBlockHash,
 };
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
-use edr_chain_config::{Activations, ChainConfig};
+use edr_chain_config::{ChainConfig, HardforkActivations};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
@@ -142,7 +142,7 @@ pub enum ForkedBlockchainError<HardforkT, RpcBlockConversionErrorT, RpcReceiptCo
         /// Block number
         block_number: u64,
         /// Hardfork activation history
-        hardfork_activations: Activations<HardforkT>,
+        hardfork_activations: HardforkActivations<HardforkT>,
     },
 }
 
@@ -196,7 +196,7 @@ pub struct ForkedBlockchain<
     remote_chain_id: u64,
     network_id: u64,
     hardfork: HardforkT,
-    hardfork_activations: Option<Activations<HardforkT>>,
+    hardfork_activations: Option<HardforkActivations<HardforkT>>,
     min_ethash_difficulty: u64,
     _phantom: PhantomData<fn() -> BlockT>,
 }
@@ -235,7 +235,7 @@ impl<
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        config: BlockConfig<'_, HardforkT>,
+        block_config: BlockConfig<'_, HardforkT>,
         runtime: runtime::Handle,
         rpc_client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
         irregular_state: &mut IrregularState,
@@ -248,7 +248,7 @@ impl<
             base_fee_params: default_base_fee_params,
             hardfork,
             min_ethash_difficulty,
-        } = config;
+        } = block_config;
 
         let ForkMetadata {
             chain_id: remote_chain_id,

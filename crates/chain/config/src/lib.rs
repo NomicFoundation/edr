@@ -13,7 +13,7 @@ pub enum ForkCondition {
 /// A type representing the activation of a hardfork.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Activation<HardforkT> {
+pub struct HardforkActivation<HardforkT> {
     /// The condition for the hardfork activation.
     pub condition: ForkCondition,
     /// The hardfork to be activated.
@@ -23,26 +23,26 @@ pub struct Activation<HardforkT> {
 /// A struct that stores the hardforks for a chain.
 #[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
 #[serde(transparent)]
-pub struct Activations<HardforkT> {
+pub struct HardforkActivations<HardforkT> {
     /// (Start block number -> hardfork) mapping
-    hardforks: Vec<Activation<HardforkT>>,
+    hardforks: Vec<HardforkActivation<HardforkT>>,
 }
 
-impl<HardforkT> Activations<HardforkT> {
+impl<HardforkT> HardforkActivations<HardforkT> {
     /// Constructs a new instance with the provided hardforks.
-    pub fn new(hardforks: Vec<Activation<HardforkT>>) -> Self {
+    pub fn new(hardforks: Vec<HardforkActivation<HardforkT>>) -> Self {
         Self { hardforks }
     }
 
     /// Returns the inner hardforks.
-    pub fn into_inner(self) -> Vec<Activation<HardforkT>> {
+    pub fn into_inner(self) -> Vec<HardforkActivation<HardforkT>> {
         self.hardforks
     }
 
     /// Creates a new instance for a new chain with the provided hardfork.
     pub fn with_spec_id(hardfork: HardforkT) -> Self {
         Self {
-            hardforks: vec![Activation {
+            hardforks: vec![HardforkActivation {
                 condition: ForkCondition::Block(0),
                 hardfork,
             }],
@@ -55,14 +55,14 @@ impl<HardforkT> Activations<HardforkT> {
     }
 }
 
-impl<HardforkT: Clone> Activations<HardforkT> {
+impl<HardforkT: Clone> HardforkActivations<HardforkT> {
     /// Returns the hardfork's `SpecId` corresponding to the provided block
     /// number.
     pub fn hardfork_at_block(&self, block_number: u64, timestamp: u64) -> Option<HardforkT> {
         self.hardforks
             .iter()
             .rev()
-            .find(|Activation { condition, .. }| match condition {
+            .find(|HardforkActivation { condition, .. }| match condition {
                 ForkCondition::Block(activation) => block_number >= *activation,
                 ForkCondition::Timestamp(activation) => timestamp >= *activation,
             })
@@ -70,8 +70,8 @@ impl<HardforkT: Clone> Activations<HardforkT> {
     }
 }
 
-impl<HardforkT: Clone> From<&[Activation<HardforkT>]> for Activations<HardforkT> {
-    fn from(hardforks: &[Activation<HardforkT>]) -> Self {
+impl<HardforkT: Clone> From<&[HardforkActivation<HardforkT>]> for HardforkActivations<HardforkT> {
+    fn from(hardforks: &[HardforkActivation<HardforkT>]) -> Self {
         Self {
             hardforks: hardforks.to_vec(),
         }
@@ -85,7 +85,7 @@ pub struct ChainConfig<HardforkT> {
     /// Chain name
     pub name: String,
     /// Hardfork activations for the chain
-    pub hardfork_activations: Activations<HardforkT>,
+    pub hardfork_activations: HardforkActivations<HardforkT>,
     /// Base fee param activations for the chain
     pub base_fee_params: BaseFeeParams<HardforkT>,
 }
@@ -108,5 +108,5 @@ pub struct ChainOverride<HardforkT> {
     /// Chain name
     pub name: String,
     /// Hardfork activations for the chain
-    pub hardfork_activation_overrides: Option<Activations<HardforkT>>,
+    pub hardfork_activation_overrides: Option<HardforkActivations<HardforkT>>,
 }

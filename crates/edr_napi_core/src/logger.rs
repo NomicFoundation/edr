@@ -4,13 +4,10 @@ use std::{fmt::Display, marker::PhantomData, sync::Arc};
 use ansi_term::{Color, Style};
 use derive_where::derive_where;
 use edr_block_api::Block as _;
-use edr_evm::{
-    blockchain::BlockchainErrorForChainSpec,
-    precompile::{self, Precompiles},
-    result::{self, ExecutionResult},
-    trace::{AfterMessage, Trace, TraceMessage},
-};
 use edr_chain_spec::ExecutableTransaction;
+use edr_evm::trace::{AfterMessage, Trace, TraceMessage};
+use edr_evm_spec::result::{ExecutionResult, Output};
+use edr_precompile::{PrecompileSpecId, Precompiles};
 use edr_primitives::{Bytecode, Bytes, B256, U256};
 use edr_provider::{
     time::TimeSinceEpoch, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
@@ -107,8 +104,6 @@ where
     ChainSpecT: ProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
 {
-    type BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>;
-
     fn is_enabled(&self) -> bool {
         self.collector.config.enable
     }
@@ -611,14 +606,14 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     }
 
     fn log_block_id(&mut self, block: &ChainSpecT::Block) {
-        let block_number = block.header().number;
+        let block_number = block.block_header().number;
         let block_hash = block.block_hash();
 
         self.log(format!("Block #{block_number}: {block_hash}"));
     }
 
     fn log_block_number(&mut self, block: &ChainSpecT::Block) {
-        let block_number = block.header().number;
+        let block_number = block.block_header().number;
 
         self.log(format!("Mined block #{block_number}"));
     }
@@ -717,9 +712,8 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             if let Some(to) = before_message.to {
                 // Call
                 let is_precompile = {
-                    let precompiles = Precompiles::new(precompile::PrecompileSpecId::from_spec_id(
-                        hardfork.into(),
-                    ));
+                    let precompiles =
+                        Precompiles::new(PrecompileSpecId::from_spec_id(hardfork.into()));
                     precompiles.contains(&to)
                 };
 
@@ -788,7 +782,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
                 self.log_with_title("Contract deployment", contract_name);
 
                 if let ExecutionResult::Success { output, .. } = result {
-                    if let result::Output::Create(_, address) = output {
+                    if let Output::Create(_, address) = output {
                         if let Some(deployed_address) = address {
                             self.log_with_title(
                                 "Contract address",
@@ -804,7 +798,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
     }
 
     fn log_empty_block(&mut self, block: &ChainSpecT::Block) {
-        let block_header = block.header();
+        let block_header = block.block_header();
         let block_number = block_header.number;
 
         let base_fee = if let Some(base_fee) = block_header.base_fee_per_gas.as_ref() {
@@ -835,7 +829,7 @@ impl<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
             if let Some(empty_blocks_range_start) = empty_blocks_range_start {
                 logger.replace_last_log_line(format!(
                     "Mined empty block range #{empty_blocks_range_start} to #{block_number}",
-                    block_number = block.header().number
+                    block_number = block.block_header().number
                 ));
             } else {
                 logger.log_empty_block(block);

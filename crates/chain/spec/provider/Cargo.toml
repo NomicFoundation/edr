@@ -6,7 +6,6 @@ edition.workspace = true
 [dependencies]
 edr_block_api.workspace = true
 edr_block_header.workspace = true
-edr_block_remote.workspace = true
 edr_chain_config.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true
@@ -15,7 +14,6 @@ edr_primitives.workspace = true
 edr_receipt_spec.workspace = true
 edr_rpc_spec.workspace = true
 edr_transaction.workspace = true
-edr_utils.workspace = true
 serde.workspace = true
 
 [lints]

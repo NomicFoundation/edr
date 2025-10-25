@@ -1,5 +1,5 @@
 use edr_chain_l1::{receipt::L1BlockReceipt, rpc::receipt::L1RpcTransactionReceipt};
-use edr_receipt::log::FilterLog;
+use edr_receipt::{log::FilterLog, AsExecutionReceipt as _};
 use edr_rpc_spec::RpcTypeFrom;
 use serde::{Deserialize, Serialize};
 
@@ -97,6 +97,35 @@ impl RpcTypeFrom<L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>
         value: &L1BlockReceipt<TypedEnvelope<edr_receipt::Execution<FilterLog>>>,
         hardfork: Self::Hardfork,
     ) -> Self {
-        GenericRpcTransactionReceipt(L1RpcTransactionReceipt::rpc_type_from(value, hardfork))
+        let transaction_type = if hardfork >= edr_chain_l1::Hardfork::BERLIN {
+            Some(u8::from(value.inner.transaction_type()))
+        } else {
+            None
+        };
+
+        GenericRpcTransactionReceipt(L1RpcTransactionReceipt {
+            block_hash: value.block_hash,
+            block_number: value.block_number,
+            transaction_hash: value.inner.transaction_hash,
+            transaction_index: value.inner.transaction_index,
+            transaction_type,
+            from: value.inner.from,
+            to: value.inner.to,
+            cumulative_gas_used: value.inner.cumulative_gas_used(),
+            gas_used: value.inner.gas_used,
+            contract_address: value.inner.contract_address,
+            logs: value.inner.transaction_logs().to_vec(),
+            logs_bloom: *value.inner.logs_bloom(),
+            state_root: match value.as_execution_receipt().data() {
+                edr_receipt::Execution::Legacy(receipt) => Some(receipt.root),
+                edr_receipt::Execution::Eip658(_) => None,
+            },
+            status: match value.as_execution_receipt().data() {
+                edr_receipt::Execution::Legacy(_) => None,
+                edr_receipt::Execution::Eip658(receipt) => Some(receipt.status),
+            },
+            effective_gas_price: value.inner.effective_gas_price,
+            authorization_list: None,
+        })
     }
 }
