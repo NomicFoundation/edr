@@ -194,7 +194,7 @@ jobs:
         id: pack
         run: |
           FILENAME="sandbox-${{ env.APP_NAME }}_bundle.tar.gz"
-          EXTRA_FILES=("./npm/" "LICENSE" "README.md" "package.json" "Cargo.toml" "Cargo.lock")
+          EXTRA_FILES=("./npm/" "LICENSE" "README.md" "package.json" "../../Cargo.toml" "../../Cargo.lock")
           readarray -t FILES < <(cat package.json | jq -r .files[] ) 
           echo "Files defined in package.json: ${FILES[@]}"
           echo "Other files to include in tarball: ${EXTRA_FILES[@]}"
