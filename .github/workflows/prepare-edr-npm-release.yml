@@ -189,8 +189,11 @@ jobs:
         run: ../../scripts/prepublish.sh
       - name: Move artifacts 
         run: pnpm artifacts
-      - name: Track down files to include in package
+      - name: Create pack bundle
+        # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
+        id: pack
         run: |
+          FILENAME="sandbox-${{ env.APP_NAME }}_bundle.tar.gz"
           EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml")
           readarray -t FILES < <(cat package.json | jq -r .files[] ) 
           ALL_FILES=("${FILES[@]}" "${EXTRA_FILES[@]}")
@@ -198,12 +201,6 @@ jobs:
           for file in "${ALL_FILES[@]}"; do
             NAPI_FILES+=("crates/edr_napi/${file}")
           done
-          echo "NAPI_FILES=${NAPI_FILES[@]}" >> $GITHUB_ENV
-      - name: Create pack bundle
-        # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
-        id: pack
-        run: |
-          FILENAME="sandbox-${{ env.APP_NAME }}_bundle.tar.gz"
           echo "Creating bundle with necessary files for publishing"
           cd ../.. # cd to root dir
           ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
