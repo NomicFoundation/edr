@@ -162,10 +162,11 @@ jobs:
       contents: write
     needs:
       - build
-
     defaults:
       run:
         working-directory: ./crates/edr_napi
+    outputs:
+      filename: ${{ steps.pack.outputs.filename }}
     steps:
       - uses: actions/checkout@v5
       - name: Setup node
