@@ -47,6 +47,9 @@ jobs:
           [http]
           cainfo = "/etc/ssl/cert.pem"
 
+          [net]
+          git-fetch-with-cli = true
+
           EOF
 
       - name: Cargo safety
