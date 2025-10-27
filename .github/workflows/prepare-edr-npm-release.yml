@@ -196,7 +196,7 @@ jobs:
           ALL_FILES=("${FILES[@]}" "${EXTRA_FILES[@]}")
           NAPI_FILES=()
           for file in "${ALL_FILES[@]}"; do
-            NAPI_FILES+=("\"crates/edr_napi/${file}\"")
+            NAPI_FILES+=("crates/edr_napi/${file}")
           done
           echo "NAPI_FILES=${NAPI_FILES[@]}" >> $GITHUB_ENV
       - name: Create pack bundle
@@ -206,8 +206,10 @@ jobs:
           FILENAME="sandbox-${{ env.APP_NAME }}_bundle.tar.gz"
           echo "Creating bundle with necessary files for publishing"
           cd ../.. # cd to root dir
-          echo "NAPI files to include: ${NAPI_FILES[@]}"
-          tar --dereference -czvf $FILENAME "package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml" "${NAPI_FILES[@]}"
+          ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
+          ALL_FILES=("${ROOT_FILES[@]}" "${NAPI_FILES[@]}")
+          echo "files to include in tar: ${ALL_FILES[@]}"
+          tar --dereference -czvf $FILENAME "${ALL_FILES[@]}"
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
       - name: Upload packed tarball
