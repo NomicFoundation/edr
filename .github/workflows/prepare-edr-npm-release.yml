@@ -198,7 +198,7 @@ jobs:
           for file in "${ALL_FILES[@]}"; do
             NAPI_FILES+=("crates/edr_napi/${file}")
           done
-          echo "NAPI_FILES=${NAPI_FILES}" >> $GITHUB_ENV
+          echo "NAPI_FILES=${NAPI_FILES[@]}" >> $GITHUB_ENV
       - name: Create pack bundle
         # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
         id: pack
