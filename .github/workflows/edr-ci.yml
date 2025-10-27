@@ -29,19 +29,16 @@ jobs:
       - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/setup-node
 
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            .cargo-cache
-            target/
-          key: cargo-${{ matrix.os }}
-
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Update CA certificates
+        if: ${{ matrix.os == 'macos-15' }}
+        run: |
+          brew install ca-certificates
+          brew link --force ca-certificates
+          echo "SSL_CERT_FILE=/usr/local/etc/openssl/cert.pem" >> $GITHUB_ENV
+          echo "CURL_CA_BUNDLE=/usr/local/etc/openssl/cert.pem" >> $GITHUB_ENV
 
       - name: Fix MacOS certificates for SFW
         if: ${{ matrix.os == 'macos-15' }}
