@@ -23,7 +23,7 @@ use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
     BlockHashByNumber, BlockchainMetadata as _, GetBlockchainBlock as _, StateAtBlock as _,
 };
-use edr_blockchain_fork::CreationError as ForkedCreationError;
+use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::{
     BlockEnvConstructor as _, ChainSpec, EvmSpecId, ExecutableTransaction, HaltReasonTrait,
@@ -50,7 +50,7 @@ use edr_evm_spec::{config::EvmConfig, result::ExecutionResult, CfgEnv};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
-use edr_rpc_eth::client::{EthRpcClient, HeaderMap};
+use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
 use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
@@ -95,7 +95,7 @@ use crate::{
     snapshot::Snapshot,
     spec::{
         ForkedBlockchainForChainSpec, LocalBlockchainForChainSpec, ProviderSpec,
-        SyncBlockchainForChainSpec, SyncProviderSpec,
+        SyncBlockchainForChainSpec, SyncProviderSpec, TransactionAndBlockForChainSpec,
     },
     time::{CurrentTime, TimeSinceEpoch},
     MiningConfig, ProviderConfig, ProviderError, SubscriptionEvent, SubscriptionEventData,
@@ -210,8 +210,7 @@ pub struct ProviderData<
     fork_metadata: Option<ForkMetadata>,
     // Must be set if the provider is created with a fork config.
     // Hack to get around the type erasure with the dyn blockchain trait.
-    rpc_client:
-        Option<Arc<EthRpcClient<ChainSpecT, ChainSpecT::RpcReceipt, ChainSpecT::RpcTransaction>>>,
+    rpc_client: Option<Arc<EthRpcClientForChainSpec<ChainSpecT>>>,
     instance_id: B256,
     is_auto_mining: bool,
     next_block_base_fee_per_gas: Option<u128>,
@@ -1132,7 +1131,7 @@ where
         &self,
         hash: &B256,
     ) -> Result<
-        Option<TransactionAndBlock<Arc<ChainSpecT::Block>, ChainSpecT::SignedTransaction>>,
+        Option<TransactionAndBlockForChainSpec<ChainSpecT>>,
         ProviderErrorForChainSpec<ChainSpecT>,
     > {
         let transaction = if let Some(tx) = self.mem_pool.transaction_by_hash(hash) {
@@ -2708,8 +2707,7 @@ fn block_time_offset_seconds<ChainSpecT: ProviderChainSpec, TimerT: TimeSinceEpo
 struct BlockchainAndState<ChainSpecT: BlockChainSpec> {
     blockchain: Box<dyn SyncBlockchainForChainSpec<ChainSpecT>>,
     fork_metadata: Option<ForkMetadata>,
-    rpc_client:
-        Option<Arc<EthRpcClient<ChainSpecT, ChainSpecT::RpcReceipt, ChainSpecT::RpcTransaction>>>,
+    rpc_client: Option<Arc<EthRpcClientForChainSpec<ChainSpecT>>>,
     state: Box<dyn DynState>,
     irregular_state: IrregularState,
     prev_randao_generator: RandomHashGenerator,

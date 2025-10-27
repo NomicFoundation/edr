@@ -18,16 +18,16 @@ edr_chain_spec.workspace = true
 edr_coverage.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
-edr_evm = { path = "../edr_evm" }
-edr_generic = { path = "../edr_generic" }
-edr_instrument = { path = "../edr_instrument" }
-edr_napi_core = { path = "../edr_napi_core" }
-edr_op = { path = "../edr_op", optional = true }
+edr_evm.workspace = true
+edr_generic.workspace = true
+edr_instrument.workspace = true
+edr_napi_core.workspace = true
+edr_op = { workspace = true, optional = true }
 edr_primitives.workspace = true
-edr_provider = { path = "../edr_provider" }
+edr_provider.workspace = true
 edr_receipt.workspace = true
 edr_rpc_client.workspace = true
-edr_rpc_eth = { path = "../edr_rpc_eth" }
+edr_rpc_spec.workspace = true
 edr_scenarios = { workspace = true, optional = true }
 edr_state_api.workspace = true
 edr_signer.workspace = true

@@ -24,7 +24,7 @@ edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true
 edr_chain_spec_provider.workspace = true
-edr_coverage = { path = "../edr_coverage" }
+edr_coverage.workspace = true
 edr_database_components.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
@@ -77,8 +77,8 @@ tracing = { version = "0.1.37", features = [
 [dev-dependencies]
 alloy-eips.workspace = true
 anyhow = "1.0.89"
-edr_evm = { path = "../edr_evm", features = ["test-utils"] }
-edr_test_block_replay = { path = "../test/block_replay" }
+edr_evm = { workspace = true, features = ["test-utils"] }
+edr_test_block_replay.workspace = true
 edr_test_utils.workspace = true
 paste = { version = "1.0.14", default-features = false }
 serial_test = "2.0.0"

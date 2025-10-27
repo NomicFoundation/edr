@@ -2399,6 +2399,7 @@ dependencies = [
 name = "edr_blockchain_fork"
 version = "0.3.8"
 dependencies = [
+ "anyhow",
  "derive-where",
  "edr_block_api",
  "edr_block_header",
@@ -2407,19 +2408,25 @@ dependencies = [
  "edr_blockchain_api",
  "edr_blockchain_remote",
  "edr_chain_config",
+ "edr_chain_l1",
  "edr_chain_spec",
+ "edr_chain_spec_provider",
+ "edr_defaults",
  "edr_eip1559",
  "edr_eth",
  "edr_primitives",
+ "edr_provider",
  "edr_receipt",
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_state_api",
  "edr_state_fork",
+ "edr_test_utils",
  "edr_utils",
  "log",
  "parking_lot 0.12.3",
  "serde",
+ "serial_test",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
@@ -2435,10 +2442,14 @@ dependencies = [
  "edr_block_header",
  "edr_block_storage",
  "edr_blockchain_api",
+ "edr_blockchain_fork",
  "edr_chain_l1",
  "edr_chain_spec",
+ "edr_chain_spec_provider",
+ "edr_defaults",
  "edr_eip1559",
  "edr_primitives",
+ "edr_provider",
  "edr_receipt",
  "edr_state_api",
  "edr_state_persistent_trie",
@@ -2729,6 +2740,7 @@ dependencies = [
  "edr_evm_spec",
  "edr_generic",
  "edr_primitives",
+ "edr_provider",
  "edr_receipt",
  "edr_rpc_eth",
  "edr_rpc_spec",
@@ -2737,6 +2749,7 @@ dependencies = [
  "edr_state_fork",
  "edr_state_persistent_trie",
  "edr_state_remote",
+ "edr_test_transaction",
  "edr_test_utils",
  "edr_transaction",
  "edr_trie",
@@ -2895,7 +2908,7 @@ dependencies = [
  "edr_provider",
  "edr_receipt",
  "edr_rpc_client",
- "edr_rpc_eth",
+ "edr_rpc_spec",
  "edr_scenarios",
  "edr_signer",
  "edr_solidity",
@@ -3461,6 +3474,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_test_blockchain"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "edr_block_api",
+ "edr_block_header",
+ "edr_block_local",
+ "edr_chain_l1",
+ "edr_chain_spec",
+ "edr_chain_spec_block",
+ "edr_chain_spec_provider",
+ "edr_evm_spec",
+ "edr_primitives",
+ "edr_provider",
+ "edr_receipt",
+ "edr_receipt_builder_api",
+ "edr_receipt_spec",
+ "edr_state_api",
+ "edr_test_transaction",
+]
+
+[[package]]
 name = "edr_test_receipt"
 version = "0.3.8"
 dependencies = [
@@ -3469,6 +3504,17 @@ dependencies = [
  "edr_receipt",
  "edr_receipt_spec",
  "edr_rpc_spec",
+]
+
+[[package]]
+name = "edr_test_transaction"
+version = "0.3.8"
+dependencies = [
+ "edr_chain_l1",
+ "edr_chain_spec",
+ "edr_evm",
+ "edr_primitives",
+ "edr_transaction",
 ]
 
 [[package]]

@@ -4,8 +4,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use alloy_eips::eip7840::BlobParams;
 use edr_block_api::Block;
 use edr_block_builder_api::{
-    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError, Blockchain,
-    BuiltBlockAndState, CfgEnv, DatabaseComponents, ExecutionResult, PrecompileFn, WrapDatabaseRef,
+    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError,
+    BlockTransactionErrorForChainSpec, Blockchain, BuiltBlockAndState, CfgEnv, DatabaseComponents,
+    ExecutionResult, PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{
     BlobGas, BlockConfig, HeaderAndEvmSpec, HeaderOverrides, PartialHeader, Withdrawal,
@@ -164,9 +165,9 @@ impl<
         transaction: &EvmChainSpecT::SignedTransaction,
     ) -> Result<
         (),
-        BlockTransactionError<
+        BlockTransactionErrorForChainSpec<
+            EvmChainSpecT,
             DatabaseComponentError<BlockchainErrorT, StateError>,
-            <EvmChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
         // The transaction's gas limit cannot be greater than the remaining gas in the
@@ -206,8 +207,7 @@ impl<
             > + ReceiptTrait,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
         BlockchainErrorT: Debug + std::error::Error,
-        ChainSpecT: BlockChainSpec
-            + EvmChainSpec<Hardfork: PartialOrd, SignedTransaction: Clone + ExecutableTransaction>,
+        ChainSpecT: BlockChainSpec<Hardfork: PartialOrd, SignedTransaction: Clone + ExecutableTransaction>,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
             ChainSpecT::Hardfork,
@@ -324,9 +324,9 @@ impl<
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<
         (),
-        BlockTransactionError<
+        BlockTransactionErrorForChainSpec<
+            ChainSpecT,
             DatabaseComponentError<BlockchainErrorT, StateError>,
-            <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
         self.validate_transaction(&transaction)?;
@@ -366,9 +366,9 @@ impl<
         extension: &mut InspectorT,
     ) -> Result<
         (),
-        BlockTransactionError<
+        BlockTransactionErrorForChainSpec<
+            ChainSpecT,
             DatabaseComponentError<BlockchainErrorT, StateError>,
-            <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     >
     where

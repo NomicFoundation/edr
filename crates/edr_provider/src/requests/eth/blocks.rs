@@ -26,6 +26,9 @@ pub enum HashOrTransaction<RpcTransactionT> {
     Transaction(RpcTransactionT),
 }
 
+// The result type can not be meaningfully simplified further without reducing
+// readability.
+#[allow(clippy::type_complexity)]
 pub fn handle_get_block_by_hash_request<
     ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
@@ -52,6 +55,9 @@ pub fn handle_get_block_by_hash_request<
         .transpose()
 }
 
+// The result type can not be meaningfully simplified further without reducing
+// readability.
+#[allow(clippy::type_complexity)]
 pub fn handle_get_block_by_number_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,

@@ -21,7 +21,11 @@ tracing = { workspace = true, optional = true }
 
 [dev-dependencies]
 anyhow.workspace = true
+edr_blockchain_fork.workspace = true
 edr_chain_l1.workspace = true
+edr_chain_spec_provider.workspace = true
+edr_defaults.workspace = true
+edr_provider.workspace = true
 
 [features]
 tracing = ["dep:tracing"]

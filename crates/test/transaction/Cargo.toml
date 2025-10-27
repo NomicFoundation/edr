@@ -1,0 +1,14 @@
+[package]
+name = "edr_test_transaction"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+edr_chain_l1.workspace = true
+edr_chain_spec.workspace = true
+edr_evm.workspace = true
+edr_primitives.workspace = true
+edr_transaction.workspace = true
+
+[lints]
+workspace = true

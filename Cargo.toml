@@ -53,7 +53,9 @@ members = [
     "crates/state/persistent_trie",
     "crates/state/remote",
     "crates/test/block_replay",
+    "crates/test/blockchain",
     "crates/test/receipt",
+    "crates/test/transaction",
     "crates/tool/cli",
     "crates/tool/op_chain_config_generator",
     "crates/trie",
@@ -148,6 +150,7 @@ edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/edr_evm" }
 edr_evm2 = { path = "crates/evm" }
 edr_evm_spec = { path = "crates/edr_evm_spec" }
+edr_instrument = { path = "crates/edr_instrument" }
 edr_generic = { path = "crates/edr_generic" }
 edr_macros = { path = "crates/edr_macros" }
 edr_napi_core = { path = "crates/edr_napi_core" }
@@ -172,6 +175,8 @@ edr_state_persistent_trie = { path = "crates/state/persistent_trie" }
 edr_state_remote = { path = "crates/state/remote" }
 edr_test_receipt = { path = "crates/test/receipt" }
 edr_test_block_replay = { path = "crates/test/block_replay" }
+edr_test_blockchain = { path = "crates/test/blockchain" }
+edr_test_transaction = { path = "crates/test/transaction" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 edr_transaction = { path = "crates/edr_transaction" }
 edr_trie = { path = "crates/trie" }

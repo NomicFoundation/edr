@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use edr_block_header::{BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 pub use edr_blockchain_api::Blockchain;
 use edr_chain_spec::{
-    BlockEnvChainSpec, ChainSpec, EvmSpecId, HaltReasonTrait, TransactionValidation,
+    BlockEnvChainSpec, ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec, TransactionValidation
 };
 pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
 use edr_evm_spec::{config::EvmConfig, ContextForChainSpec, EvmChainSpec};
@@ -15,6 +15,12 @@ pub use edr_evm_spec::{
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{DynState, StateDiff, StateError};
 pub use revm_precompile::PrecompileFn;
+
+/// Helper type for a chain-specific [`BlockBuilderCreationError`].
+pub type BlockBuilderCreationErrorForChainSpec<
+    ChainSpecT,
+    DatabaseErrorT,
+> = BlockBuilderCreationError<DatabaseErrorT, <ChainSpecT as HardforkChainSpec>::Hardfork>;
 
 /// An error caused during construction of a block builder.
 #[derive(Debug, thiserror::Error)]
@@ -133,9 +139,9 @@ pub trait BlockBuilder<
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
-        BlockBuilderCreationError<
+        BlockBuilderCreationErrorForChainSpec<
+            ChainSpecT,
             DatabaseComponentError<Self::BlockchainError, StateError>,
-            ChainSpecT::Hardfork,
         >,
     >;
 
@@ -148,9 +154,9 @@ pub trait BlockBuilder<
         transaction: ChainSpecT::SignedTransaction,
     ) -> Result<
         (),
-        BlockTransactionError<
+        BlockTransactionErrorForChainSpec<
+            ChainSpecT,
             DatabaseComponentError<Self::BlockchainError, StateError>,
-            <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     >;
 
@@ -161,9 +167,9 @@ pub trait BlockBuilder<
         inspector: &mut InspectorT,
     ) -> Result<
         (),
-        BlockTransactionError<
+        BlockTransactionErrorForChainSpec<
+            ChainSpecT,
             DatabaseComponentError<Self::BlockchainError, StateError>,
-            <ChainSpecT::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     >
     where

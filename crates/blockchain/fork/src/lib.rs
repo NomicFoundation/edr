@@ -55,7 +55,7 @@ use crate::eips::{
 
 /// An error that occurs upon creation of a [`ForkedBlockchain`].
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError<HardforkT> {
+pub enum ForkedBlockchainCreationError<HardforkT> {
     /// JSON-RPC error
     #[error(transparent)]
     RpcClientError(#[from] RpcClientError),
@@ -242,7 +242,7 @@ impl<
         chain_configs: &HashMap<ChainId, ChainConfig<HardforkT>>,
         fork_block_number: Option<u64>,
         chain_id_override: Option<u64>,
-    ) -> Result<Self, CreationError<HardforkT>> {
+    ) -> Result<Self, ForkedBlockchainCreationError<HardforkT>> {
         let BlockConfig {
             base_fee_params: default_base_fee_params,
             hardfork,
@@ -263,7 +263,7 @@ impl<
 
         let fork_block_number = if let Some(fork_block_number) = fork_block_number {
             if fork_block_number > latest_block_number {
-                return Err(CreationError::InvalidBlockNumber {
+                return Err(ForkedBlockchainCreationError::InvalidBlockNumber {
                     fork_block_number,
                     latest_block_number,
                 });
@@ -321,7 +321,7 @@ impl<
         {
             let remote_evm_spec_id = remote_hardfork.clone().into();
             if remote_evm_spec_id < EvmSpecId::SPURIOUS_DRAGON {
-                return Err(CreationError::InvalidHardfork {
+                return Err(ForkedBlockchainCreationError::InvalidHardfork {
                     chain_name: chain_config
                         .map_or("unknown".to_string(), |config| config.name.clone()),
                     fork_block_number,

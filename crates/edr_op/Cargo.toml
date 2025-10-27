@@ -49,12 +49,12 @@ tokio = { version = "1.21.2", default-features = false, features = ["macros", "r
 [dev-dependencies]
 anyhow = "1.0.89"
 edr_block_api.workspace = true
-edr_defaults = { path = "../edr_defaults" }
+edr_defaults.workspace = true
 edr_eth.workspace = true
-edr_evm = { path = "../edr_evm", features = ["test-utils"] }
-edr_provider = { path = "../edr_provider", features = ["test-utils"] }
+edr_evm = { workspace = true, features = ["test-utils"] }
+edr_provider = { workspace = true, features = ["test-utils"] }
 edr_rpc_eth.workspace = true
-edr_test_utils = { path = "../edr_test_utils" }
+edr_test_utils.workspace = true
 parking_lot.workspace = true
 paste.workspace = true
 serde_json.workspace = true

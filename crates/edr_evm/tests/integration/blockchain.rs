@@ -4,9 +4,12 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_api::{EmptyBlock as _, GenesisBlockOptions};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
-use edr_chain_l1::{receipt::builder::L1ExecutionReceiptBuilder, L1ChainSpec};
+use edr_chain_l1::{
+    chains::{l1_chain_config, L1_MAINNET_CHAIN_ID},
+    receipt::builder::L1ExecutionReceiptBuilder,
+    L1ChainSpec,
+};
 use edr_chain_spec::ExecutableTransaction as _;
-use edr_evm::test_utils::dummy_eip155_transaction;
 use edr_evm_spec::result::SuccessReason;
 use edr_primitives::{Address, Bytes, HashSet, B256, U256};
 use edr_receipt::{
@@ -55,15 +58,15 @@ async fn create_forked_dummy_blockchain(
     Box::new(
         ForkedBlockchain::new(
             tokio::runtime::Handle::current().clone(),
-            None,
             edr_chain_l1::Hardfork::default(),
             Arc::new(rpc_client),
-            fork_block_number,
             &mut irregular_state,
             Arc::new(Mutex::new(RandomHashGenerator::with_seed(
                 edr_defaults::STATE_ROOT_HASH_SEED,
             ))),
             &HashMap::new(),
+            fork_block_number,
+            None,
         )
         .await
         .expect("Failed to construct forked blockchain"),
@@ -81,16 +84,19 @@ async fn create_dummy_blockchains() -> Vec<
         >,
     >,
 > {
-    const CHAIN_ID: u64 = 1;
     const DEFAULT_GAS_LIMIT: u64 = 0xffffffffffffff;
     const DEFAULT_INITIAL_BASE_FEE: u128 = 1000000000;
+
+    let chain_config =
+        l1_chain_config(L1_MAINNET_CHAIN_ID).expect("Chain config must exist for L1 mainnet");
 
     let genesis_diff = StateDiff::default();
     let genesis_block = L1ChainSpec::genesis_block(
         genesis_diff.clone(),
         BlockConfig {
-            base_fee_params: base_fee_params_for::<L1ChainSpec>(CHAIN_ID),
+            base_fee_params: &chain_config.base_fee_params,
             hardfork: edr_chain_l1::Hardfork::default(),
+            min_ethash_difficulty: L1ChainSpec::MIN_ETHASH_DIFFICULTY,
         },
         GenesisBlockOptions {
             gas_limit: Some(DEFAULT_GAS_LIMIT),
@@ -104,7 +110,7 @@ async fn create_dummy_blockchains() -> Vec<
     let local_blockchain = LocalBlockchain::<L1ChainSpec>::new(
         genesis_block,
         genesis_diff,
-        CHAIN_ID,
+        L1_MAINNET_CHAIN_ID,
         edr_chain_l1::Hardfork::default(),
     )
     .expect("Should construct without issues");
@@ -114,193 +120,6 @@ async fn create_dummy_blockchains() -> Vec<
         #[cfg(feature = "test-remote")]
         create_forked_dummy_blockchain(None).await,
     ]
-}
-
-fn create_dummy_block(
-    blockchain: &dyn SyncBlockchainForChainSpec<
-        BlockchainErrorForChainSpec<L1ChainSpec>,
-        L1ChainSpec,
-        StateError,
-    >,
-) -> EthLocalBlockForChainSpec<L1ChainSpec> {
-    let block_number = blockchain.last_block_number() + 1;
-
-    create_dummy_block_with_number(blockchain, block_number)
-}
-
-fn create_dummy_block_with_number(
-    blockchain: &dyn SyncBlockchainForChainSpec<
-        BlockchainErrorForChainSpec<L1ChainSpec>,
-        L1ChainSpec,
-        StateError,
-    >,
-    number: u64,
-) -> EthLocalBlockForChainSpec<L1ChainSpec> {
-    let parent_hash = *blockchain
-        .last_block()
-        .expect("Failed to retrieve last block")
-        .block_hash();
-
-    create_dummy_block_with_hash(blockchain.hardfork(), number, parent_hash)
-}
-
-fn create_dummy_block_with_difficulty(
-    blockchain: &dyn SyncBlockchainForChainSpec<
-        BlockchainErrorForChainSpec<L1ChainSpec>,
-        L1ChainSpec,
-        StateError,
-    >,
-    number: u64,
-    difficulty: u64,
-) -> EthLocalBlockForChainSpec<L1ChainSpec> {
-    let parent_hash = *blockchain
-        .last_block()
-        .expect("Failed to retrieve last block")
-        .block_hash();
-
-    create_dummy_block_with_header(
-        blockchain.hardfork(),
-        PartialHeader::new::<L1ChainSpec>(
-            BlockConfig {
-                hardfork: blockchain.hardfork(),
-                base_fee_params: base_fee_params_for::<L1ChainSpec>(blockchain.chain_id()),
-            },
-            HeaderOverrides {
-                parent_hash: Some(parent_hash),
-                number: Some(number),
-                difficulty: Some(U256::from(difficulty)),
-                ..HeaderOverrides::default()
-            },
-            None,
-            &Vec::new(),
-            None,
-        ),
-    )
-}
-
-fn create_dummy_block_with_hash(
-    hardfork: edr_chain_l1::Hardfork,
-    number: u64,
-    parent_hash: B256,
-) -> EthLocalBlockForChainSpec<L1ChainSpec> {
-    create_dummy_block_with_header(
-        hardfork,
-        PartialHeader::new::<L1ChainSpec>(
-            BlockConfig {
-                hardfork,
-                base_fee_params: base_fee_params_for::<L1ChainSpec>(l1::MAINNET_CHAIN_ID),
-            },
-            HeaderOverrides {
-                parent_hash: Some(parent_hash),
-                number: Some(number),
-                ..HeaderOverrides::default()
-            },
-            None,
-            &Vec::new(),
-            None,
-        ),
-    )
-}
-
-fn create_dummy_block_with_header(
-    spec_id: edr_chain_l1::Hardfork,
-    partial_header: PartialHeader,
-) -> EthLocalBlockForChainSpec<L1ChainSpec> {
-    EthLocalBlock::empty(spec_id, partial_header)
-}
-
-struct DummyBlockAndTransaction {
-    block: Arc<<L1ChainSpec as RuntimeSpec>::Block>,
-    transaction_hash: B256,
-    transaction_receipt: TransactionReceipt<
-        edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<ExecutionLog>>,
-    >,
-}
-
-/// Returns the transaction's hash.
-fn insert_dummy_block_with_transaction(
-    blockchain: &mut dyn SyncBlockchainForChainSpec<
-        BlockchainErrorForChainSpec<L1ChainSpec>,
-        L1ChainSpec,
-        StateError,
-    >,
-) -> anyhow::Result<DummyBlockAndTransaction> {
-    const GAS_USED: u64 = 100;
-
-    let caller = Address::random();
-    let transaction = dummy_eip155_transaction(caller, 0)?;
-    let transaction_hash = *transaction.transaction_hash();
-
-    let mut header = PartialHeader::new::<L1ChainSpec>(
-        BlockConfig {
-            hardfork: blockchain.hardfork(),
-            base_fee_params: base_fee_params_for::<L1ChainSpec>(blockchain.chain_id()),
-        },
-        HeaderOverrides::default(),
-        Some(blockchain.last_block()?.header()),
-        &Vec::new(),
-        None,
-    );
-    header.gas_used = GAS_USED;
-
-    let state_overrides = BTreeMap::new();
-    let state = blockchain.state_at_block_number(header.number - 1, &state_overrides)?;
-
-    let receipt_builder = L1ExecutionReceiptBuilder::new_receipt_builder(state, &transaction)?;
-
-    let execution_result = ExecutionResult::Success {
-        reason: SuccessReason::Stop,
-        gas_used: GAS_USED,
-        gas_refunded: 0,
-        logs: vec![
-            ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
-            ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::new()),
-        ],
-        output: Output::Call(Bytes::new()),
-    };
-
-    let execution_receipt = receipt_builder.build_receipt(
-        &header,
-        &transaction,
-        &execution_result,
-        blockchain.hardfork(),
-    );
-
-    let transaction_receipt = TransactionReceipt::new(
-        execution_receipt,
-        &transaction,
-        &execution_result,
-        0,
-        0,
-        blockchain.hardfork(),
-    );
-
-    let receipt_factory = EthBlockReceiptFactory::default();
-
-    let block = EthLocalBlock::<
-        RemoteBlockConversionError<edr_chain_l1::rpc::transaction::RpcTransactionConversionError>,
-        L1BlockReceipt<edr_chain_l1::TypedEnvelope<edr_receipt::execution::Eip658<FilterLog>>>,
-        ExecutionReceiptTypeConstructorForChainSpec<L1ChainSpec>,
-        edr_chain_l1::Hardfork,
-        edr_chain_l1::rpc::receipt::ConversionError,
-        edr_chain_l1::L1SignedTransaction,
-    >::new(
-        &receipt_factory,
-        blockchain.hardfork(),
-        header,
-        vec![transaction],
-        vec![transaction_receipt.clone()],
-        Vec::new(),
-        Some(Vec::new()),
-    );
-    let block = blockchain.insert_block(block, StateDiff::default())?;
-    assert_eq!(block.block.transactions().len(), 1);
-
-    Ok(DummyBlockAndTransaction {
-        block: block.block,
-        transaction_hash,
-        transaction_receipt,
-    })
 }
 
 #[tokio::test(flavor = "multi_thread")]

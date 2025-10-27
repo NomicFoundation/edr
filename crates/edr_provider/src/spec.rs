@@ -17,7 +17,7 @@ use edr_primitives::{Address, B256};
 use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_spec::RpcChainSpec;
 use edr_signer::{FakeSign, Sign};
-use edr_transaction::IsSupported;
+use edr_transaction::{IsSupported, TransactionAndBlock};
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec, time::TimeSinceEpoch,
@@ -97,6 +97,12 @@ pub type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as HardforkChainSpec>::Hardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
+
+/// Helper type for a chain-specific [`TransactionAndBlock`].
+pub type TransactionAndBlockForChainSpec<ChainSpecT> = TransactionAndBlock<
+    Arc<<ChainSpecT as BlockChainSpec>::Block>,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
 

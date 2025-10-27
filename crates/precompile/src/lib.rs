@@ -133,3 +133,16 @@ impl<
         self.unique_addresses.contains(address)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn issue_364_kzg_point_evaluation_present_in_cancun() {
+        const KZG_POINT_EVALUATION_ADDRESS: Address = u64_to_address(0x0A);
+
+        let precompiles = Precompiles::cancun();
+        assert!(precompiles.contains(&KZG_POINT_EVALUATION_ADDRESS));
+    }
+}

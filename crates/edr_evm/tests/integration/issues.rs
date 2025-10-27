@@ -5,6 +5,7 @@ use std::{str::FromStr, sync::Arc};
 use edr_chain_l1::L1ChainSpec;
 use edr_defaults::CACHE_DIR;
 use edr_primitives::{Address, HashMap, U256};
+use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClient;
 use edr_state_api::{irregular::IrregularState, AccountModifierFn, StateDebug};
 use edr_state_fork::ForkedState;
@@ -57,7 +58,7 @@ async fn issue_hh_4974_forking_avalanche_c_chain() -> anyhow::Result<()> {
     let state_root_generator = Arc::new(Mutex::new(RandomHashGenerator::with_seed("test")));
     let hardfork_activation_overrides = HashMap::new();
 
-    let _blockchain = ForkedBlockchain::new(
+    let _blockchain = ForkedBlockchainForChainSpec::new(
         runtime::Handle::current(),
         None,
         edr_chain_l1::Hardfork::default(),
@@ -70,12 +71,4 @@ async fn issue_hh_4974_forking_avalanche_c_chain() -> anyhow::Result<()> {
     .await?;
 
     Ok(())
-}
-
-#[test]
-fn issue_364_kzg_point_evaluation_present_in_cancun() {
-    const KZG_POINT_EVALUATION_ADDRESS: Address = precompile::u64_to_address(0x0A);
-
-    let precompiles = Precompiles::cancun();
-    assert!(precompiles.contains(&KZG_POINT_EVALUATION_ADDRESS));
 }

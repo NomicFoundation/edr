@@ -8,7 +8,7 @@ use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_block_api::GenesisBlockFactory;
 use edr_blockchain_api::r#dyn::DynBlockchainError;
-use edr_blockchain_fork::CreationError as ForkedCreationError;
+use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_blockchain_local::InvalidGenesisBlock;
 use edr_chain_spec::{
     ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec, OutOfGasError, TransactionValidation,

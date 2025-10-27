@@ -30,7 +30,17 @@ tokio.workspace = true
 tracing = { workspace = true, optional = true }
 
 [features]
+test-remote = []
 tracing = ["dep:tracing"]
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+edr_chain_l1.workspace = true
+edr_chain_spec_provider.workspace = true
+edr_defaults.workspace = true
+edr_provider.workspace = true
+edr_test_utils.workspace = true
+serial_test = "2.0.0"

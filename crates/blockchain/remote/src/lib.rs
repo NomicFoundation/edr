@@ -185,6 +185,11 @@ impl<
     }
 }
 
+/// Helper type for a [`FetchRemoteBlockError`] that is specific to an RPC
+/// block. This reduces type complexity in function signatures.
+pub type FetchRemoteBlockErrorForRpcBlock<RpcBlockT, SignedTransactionT> =
+    FetchRemoteBlockError<<RpcBlockT as TryInto<EthBlockData<SignedTransactionT>>>::Error>;
+
 /// An error that occurs when fetching a remote block.
 #[derive(Debug, thiserror::Error)]
 pub enum FetchRemoteBlockError<RpcBlockConversionErrorT> {
@@ -195,6 +200,11 @@ pub enum FetchRemoteBlockError<RpcBlockConversionErrorT> {
     #[error(transparent)]
     RpcClient(#[from] RpcClientError),
 }
+
+/// Helper type for a [`FetchRemoteBlockError`] that is specific to an RPC
+/// block. This reduces type complexity in function signatures.
+type FetchAndCacheRemoteBlockErrorForRpcBlock<RpcBlockT, SignedTransactionT> =
+    FetchAndCacheRemoteBlockError<<RpcBlockT as TryInto<EthBlockData<SignedTransactionT>>>::Error>;
 
 /// An error that occurs when fetching and caching a remote block.
 #[derive(Debug, thiserror::Error)]
@@ -269,10 +279,9 @@ impl<
         hash: &B256,
     ) -> Result<
         Option<BlockT>,
-        FetchRemoteBlockError<
-            <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
-                EthBlockData<SignedTransactionT>,
-            >>::Error,
+        FetchRemoteBlockErrorForRpcBlock<
+            RpcBlockChainSpecT::RpcBlock<RpcTransactionT>,
+            SignedTransactionT,
         >,
     > {
         let cache = self.cache.upgradable_read().await;
@@ -306,10 +315,9 @@ impl<
         number: u64,
     ) -> Result<
         BlockT,
-        FetchRemoteBlockError<
-            <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
-                EthBlockData<SignedTransactionT>,
-            >>::Error,
+        FetchRemoteBlockErrorForRpcBlock<
+            RpcBlockChainSpecT::RpcBlock<RpcTransactionT>,
+            SignedTransactionT,
         >,
     > {
         let cache = self.cache.upgradable_read().await;
@@ -339,10 +347,9 @@ impl<
         hash: &B256,
     ) -> Result<
         Option<U256>,
-        FetchRemoteBlockError<
-            <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
-                EthBlockData<SignedTransactionT>,
-            >>::Error,
+        FetchRemoteBlockErrorForRpcBlock<
+            RpcBlockChainSpecT::RpcBlock<RpcTransactionT>,
+            SignedTransactionT,
         >,
     > {
         let cache = self.cache.upgradable_read().await;
@@ -387,10 +394,9 @@ impl<
         block: RpcBlockChainSpecT::RpcBlock<RpcTransactionT>,
     ) -> Result<
         BlockT,
-        FetchAndCacheRemoteBlockError<
-            <RpcBlockChainSpecT::RpcBlock<RpcTransactionT> as TryInto<
-                EthBlockData<SignedTransactionT>,
-            >>::Error,
+        FetchAndCacheRemoteBlockErrorForRpcBlock<
+            RpcBlockChainSpecT::RpcBlock<RpcTransactionT>,
+            SignedTransactionT,
         >,
     > {
         // Geth has recently removed the total difficulty field from block RPC
