@@ -33,38 +33,79 @@ jobs:
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
       # macOS-only: export Apple root CAs and use them for this *one* fetch
-      - name: Cargo safety (macOS)
+      - name: Cargo safety (macOS; trust Apple + Socket CA)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p "$HOME/.cargo"
-          # export Apple trust store -> PEM
-          security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain > "$RUNNER_TEMP/cacert.pem"
-          security find-certificate -a -p /Library/Keychains/System.keychain >> "$RUNNER_TEMP/cacert.pem" || true
 
-          # force Cargo to use git CLI for git deps
+          BUNDLE="$RUNNER_TEMP/ca-bundle.pem"
+          mkdir -p "$HOME/.cargo"
+
+          # 1) Apple trusted roots -> base bundle
+          security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain > "$BUNDLE"
+          security find-certificate -a -p /Library/Keychains/System.keychain >> "$BUNDLE" || true
+
+          # 2) Append Socket Firewall CA if we can find it
+          # Try common env vars first (the action often exports one of these)
+          for VAR in SOCKET_CA_CERT SOCKET_CA_CERT_PEM SOCKET_FIREWALL_CA SFW_CA_CERT; do
+            VAL="$(printenv "$VAR" || true)"
+            if [ -n "${VAL:-}" ]; then
+              printf '%s\n' "$VAL" >> "$BUNDLE"
+            fi
+          done
+
+          # If a file path is provided, append its contents
+          for VAR in SOCKET_CA_CERT_PATH SOCKET_FIREWALL_CA_PATH SFW_CA_CERT_PATH; do
+            P="$(printenv "$VAR" || true)"
+            if [ -n "${P:-}" ] && [ -f "$P" ]; then
+              cat "$P" >> "$BUNDLE"
+            fi
+          done
+
+          # Probe a few likely file locations the action may use
+          for P in \
+            "$HOME/.socketfirewall/ca.pem" \
+            "$HOME/.config/socketfirewall/ca.pem" \
+            "$RUNNER_TEMP/socket-firewall-ca.pem" \
+            "/usr/local/share/ca-certificates/socket-firewall.crt" \
+            "/etc/ssl/certs/socket-firewall.pem"
+          do
+            [ -f "$P" ] && cat "$P" >> "$BUNDLE" || true
+          done
+
+          # If the action dropped a JSON report in $RUNNER_TEMP, try to extract an embedded PEM block
+          # (jq may not be installed; use a simple grep to grab any PEMs)
+          for R in "$RUNNER_TEMP"/*.json; do
+            [ -f "$R" ] || continue
+            awk 'BEGIN{p=0} /-----BEGIN CERTIFICATE-----/{p=1} p==1{print} /-----END CERTIFICATE-----/{p=0}' "$R" >> "$BUNDLE" || true
+          done
+
+          # 3) Cargo config: use git CLI and our CA bundle; also prefer sparse index
           {
             echo "[net]"
             echo "git-fetch-with-cli = true"
             echo "[http]"
-            echo "cainfo = \"$RUNNER_TEMP/cacert.pem\""
+            echo "cainfo = \"$BUNDLE\""
+            echo "[registries.crates-io]"
+            echo "protocol = \"sparse\""
           } >> "$HOME/.cargo/config.toml"
 
-          # quick TLS probe through the same CA bundle (helps debug)
-          SSL_CERT_FILE="$RUNNER_TEMP/cacert.pem" CURL_CA_BUNDLE="$RUNNER_TEMP/cacert.pem" curl -sSfI https://index.crates.io/config.json >/dev/null
+          # Quick probe **through the bundle** (outside sfw) — should succeed
+          SSL_CERT_FILE="$BUNDLE" CURL_CA_BUNDLE="$BUNDLE" curl -sSfI https://index.crates.io/config.json >/dev/null
 
-          set +e
-          SSL_CERT_FILE="$RUNNER_TEMP/cacert.pem" CURL_CA_BUNDLE="$RUNNER_TEMP/cacert.pem" \
-            curl -v https://index.crates.io/config.json -o /dev/null
-          set -e
+          # Print helpful env for debugging if this still fails (non-fatal)
+          (env | sort | grep -i -E 'socket|sfw|firewall|proxy' || true) || true
 
-          # now run fetch with env *inline* so sfw cannot drop them
-          SSL_CERT_FILE="$RUNNER_TEMP/cacert.pem" \
-          CURL_CA_BUNDLE="$RUNNER_TEMP/cacert.pem" \
-          CARGO_HTTP_CAINFO="$RUNNER_TEMP/cacert.pem" \
+          # 4) Now run the wrapped fetch with inline env so the wrapper can't drop them
+          SSL_CERT_FILE="$BUNDLE" \
+          CURL_CA_BUNDLE="$BUNDLE" \
+          CARGO_HTTP_CAINFO="$BUNDLE" \
           CARGO_NET_GIT_FETCH_WITH_CLI=true \
-            sfw cargo fetch
+            sfw cargo \
+              --config net.git-fetch-with-cli=true \
+              --config http.cainfo="$BUNDLE" \
+              fetch
 
   check-edr:
     name: Check EDR
