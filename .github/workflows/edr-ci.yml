@@ -32,8 +32,28 @@ jobs:
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Force Cargo to use git CLI (fix macOS TLS issues)
-        if: ${{ matrix.os == 'macos-15' }}
+      # ── macOS TLS fix for crates.io (libcurl) ───────────────────────────────
+      - name: Export macOS root CAs and point Cargo/curl to them
+        if: runner.os == 'macOS'
+        run: |
+          # Export Apple system roots (and system keychain if present) to PEM
+          security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain > "$HOME/cacert.pem"
+          security find-certificate -a -p /Library/Keychains/System.keychain >> "$HOME/cacert.pem" || true
+
+          # Tell Cargo/libcurl where the CA bundle is
+          {
+            echo "[http]"
+            echo "cainfo = \"$HOME/cacert.pem\""
+          } >> "$HOME/.cargo/config.toml"
+
+          # Also set common envs used by curl/git just in case:
+          echo "CARGO_HTTP_CAINFO=$HOME/cacert.pem" >> $GITHUB_ENV
+          echo "CURL_CA_BUNDLE=$HOME/cacert.pem"     >> $GITHUB_ENV
+          echo "SSL_CERT_FILE=$HOME/cacert.pem"      >> $GITHUB_ENV
+
+      # ── Make Cargo use the system git (fixes TLS for git deps) ─────────────
+      - name: Force Cargo to use git CLI
+        if: runner.os == 'macOS'
         run: |
           mkdir -p $HOME/.cargo
           { echo "[net]"; echo "git-fetch-with-cli = true"; } >> $HOME/.cargo/config.toml
