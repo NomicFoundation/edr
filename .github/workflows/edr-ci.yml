@@ -54,6 +54,11 @@ jobs:
           # quick TLS probe through the same CA bundle (helps debug)
           SSL_CERT_FILE="$RUNNER_TEMP/cacert.pem" CURL_CA_BUNDLE="$RUNNER_TEMP/cacert.pem" curl -sSfI https://index.crates.io/config.json >/dev/null
 
+          set +e
+          SSL_CERT_FILE="$RUNNER_TEMP/cacert.pem" CURL_CA_BUNDLE="$RUNNER_TEMP/cacert.pem" \
+            curl -v https://index.crates.io/config.json -o /dev/null
+          set -e
+
           # now run fetch with env *inline* so sfw cannot drop them
           SSL_CERT_FILE="$RUNNER_TEMP/cacert.pem" \
           CURL_CA_BUNDLE="$RUNNER_TEMP/cacert.pem" \
