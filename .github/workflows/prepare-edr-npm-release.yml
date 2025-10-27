@@ -189,20 +189,20 @@ jobs:
         run: ../../scripts/prepublish.sh
       - name: Move artifacts 
         run: pnpm artifacts
-      - name: Create pack bundle
+      - name: Create bundle with pnpm root & napi files
         # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
         id: pack
         run: |
           FILENAME="sandbox-${{ env.APP_NAME }}_bundle.tar.gz"
-          EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml")
+          NAPI_EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml")
           readarray -t FILES < <(cat package.json | jq -r .files[] ) 
-          ALL_FILES=("${FILES[@]}" "${EXTRA_FILES[@]}")
+          ALL_FILES=("${FILES[@]}" "${NAPI_EXTRA_FILES[@]}")
           NAPI_FILES=()
           for file in "${ALL_FILES[@]}"; do
             NAPI_FILES+=("crates/edr_napi/${file}")
           done
-          echo "Creating bundle with necessary files for publishing"
           cd ../.. # cd to root dir
+          echo "Creating bundle with necessary files for publishing"
           ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
           ALL_FILES=("${ROOT_FILES[@]}" "${NAPI_FILES[@]}")
           echo "files to include in tar: ${ALL_FILES[@]}"
@@ -251,7 +251,7 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-      - name: Validate that package has everything for publishing
+      - name: Validate that packages have everything for publishing
         run: |
           cd crates/edr_napi
           # Check in every cross-platform package
@@ -262,3 +262,13 @@ jobs:
           done
           # And in root edr package
           pnpm publish --dry-run
+      - name: Checkout repository for comparison
+        uses: actions/checkout@v4
+        with:
+          path: remote-repository
+          # TODO: add ref pointing to commit used when building 
+      - name: Compare bundle files with repo files
+        run: |
+          git diff --color=always --no-index ./package.json remote-repository/package.json  || true
+          git diff --color=always --no-index ./Cargo.toml remote-repository/Cargo.toml  || true
+          git diff --color=always --no-index ./Cargo.lock remote-repository/Cargo.lock  || true
