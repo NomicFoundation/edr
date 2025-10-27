@@ -15,153 +15,152 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # build:
-  #   name: stable - ${{ matrix.settings.target }} - node@20
-  #   runs-on: ${{ matrix.settings.host }}
-  #   permissions:
-  #     contents: write
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       settings:
-  #         - host: macos-13
-  #           target: x86_64-apple-darwin
-  #           build: pnpm run build --strip
+  build:
+    name: stable - ${{ matrix.settings.target }} - node@20
+    runs-on: ${{ matrix.settings.host }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-13
+            target: x86_64-apple-darwin
+            build: pnpm run build --strip
 
-  #         - host: macos-14
-  #           target: aarch64-apple-darwin
-  #           build: pnpm run build --strip
+          - host: macos-14
+            target: aarch64-apple-darwin
+            build: pnpm run build --strip
 
-  #         - host: windows-2022
-  #           target: x86_64-pc-windows-msvc
-  #           build: pnpm run build --strip
+          - host: windows-2022
+            target: x86_64-pc-windows-msvc
+            build: pnpm run build --strip
 
-  #         - host: ubuntu-24.04
-  #           target: x86_64-unknown-linux-gnu
-  #           docker: node:20-bullseye-slim
-  #           flavor: gnu
+          - host: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            docker: node:20-bullseye-slim
+            flavor: gnu
 
-  #         - host: ubuntu-24.04-arm
-  #           target: aarch64-unknown-linux-gnu
-  #           docker: node:20-bullseye-slim
-  #           flavor: gnu
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            docker: node:20-bullseye-slim
+            flavor: gnu
 
-  #         - host: ubuntu-24.04
-  #           target: x86_64-unknown-linux-musl
-  #           docker: node:20-alpine3.20
-  #           flavor: musl
+          - host: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            docker: node:20-alpine3.20
+            flavor: musl
 
-  #         - host: ubuntu-24.04-arm
-  #           target: aarch64-unknown-linux-musl
-  #           docker: node:20-alpine3.20
-  #           flavor: musl
-  #   defaults:
-  #     run:
-  #       working-directory: ./crates/edr_napi
-  #   steps:
-  #     - uses: actions/checkout@v5
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            docker: node:20-alpine3.20
+            flavor: musl
+    defaults:
+      run:
+        working-directory: ./crates/edr_napi
+    steps:
+      - uses: actions/checkout@v5
 
-  #     - name: Check number of targets
-  #       shell: bash
-  #       run: |
-  #         echo "Number of build jobs: ${{ strategy.job-total }}"
-  #         echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
-  #         test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
+      - name: Check number of targets
+        shell: bash
+        run: |
+          echo "Number of build jobs: ${{ strategy.job-total }}"
+          echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
+          test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
 
-  #     - name: Install Rust toolchain
-  #       uses: dtolnay/rust-toolchain@stable
-  #       if: ${{ !matrix.settings.docker }}
-  #       with:
-  #         toolchain: stable
-  #         targets: ${{ matrix.settings.target }}
-  #         components: rust-src
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        if: ${{ !matrix.settings.docker }}
+        with:
+          toolchain: stable
+          targets: ${{ matrix.settings.target }}
+          components: rust-src
 
-  #     - name: Setup node and pnpm
-  #       if: ${{ !matrix.settings.docker }}
-  #       uses: ./.github/actions/setup-node
-  #       with:
-  #         node-version: 20
+      - name: Setup node and pnpm
+        if: ${{ !matrix.settings.docker }}
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: 20
 
-  #     - name: Cache cargo
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: |
-  #           ~/.cargo/registry/index/
-  #           ~/.cargo/registry/cache/
-  #           ~/.cargo/git/db/
-  #           .cargo-cache
-  #           target/
-  #         key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .cargo-cache
+            target/
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
 
-  #     - name: Install dependencies
-  #       if: ${{ !matrix.settings.docker }}
-  #       run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Install dependencies
+        if: ${{ !matrix.settings.docker }}
+        run: pnpm install --frozen-lockfile --prefer-offline
 
-  #     - name: Build (non-docker)
-  #       if: ${{ !matrix.settings.docker }}
-  #       run: ${{ matrix.settings.build }}
-  #       shell: bash
+      - name: Build (non-docker)
+        if: ${{ !matrix.settings.docker }}
+        run: ${{ matrix.settings.build }}
+        shell: bash
 
-  #     - name: Build in docker (gnu)
-  #       uses: addnab/docker-run-action@v3
-  #       if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
-  #       with:
-  #         image: ${{ matrix.settings.docker }}
-  #         options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
-  #         run: |
-  #           set -e
+      - name: Build in docker (gnu)
+        uses: addnab/docker-run-action@v3
+        if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: |
+            set -e
 
-  #           # Install Rust toolchain
-  #           apt-get update
-  #           apt-get install -y curl ca-certificates build-essential pkg-config
-  #           curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-  #           export PATH="/root/.cargo/bin:$PATH"
+            # Install Rust toolchain
+            apt-get update
+            apt-get install -y curl ca-certificates build-essential pkg-config
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            export PATH="/root/.cargo/bin:$PATH"
 
-  #           npm i -g pnpm@10.17.1 --ignore-scripts
-  #           pnpm -v
-  #           pnpm install --frozen-lockfile --prefer-offline
-  #           pnpm run build --strip
+            npm i -g pnpm@10.17.1 --ignore-scripts
+            pnpm -v
+            pnpm install --frozen-lockfile --prefer-offline
+            pnpm run build --strip
 
-  #     - name: Build in docker (musl)
-  #       uses: addnab/docker-run-action@v3
-  #       if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
-  #       with:
-  #         image: ${{ matrix.settings.docker }}
-  #         options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
-  #         run: |
-  #           set -e
+      - name: Build in docker (musl)
+        uses: addnab/docker-run-action@v3
+        if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: |
+            set -e
 
-  #           # Install Rust toolchain
-  #           apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
-  #           # Conditional symlink only for ARM builds
-  #           if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
-  #             ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
-  #           fi
-  #           curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-  #           export PATH="/root/.cargo/bin:$PATH"
+            # Install Rust toolchain
+            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+            # Conditional symlink only for ARM builds
+            if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
+              ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
+            fi
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            export PATH="/root/.cargo/bin:$PATH"
 
-  #           npm i -g pnpm@10.17.1 --ignore-scripts
-  #           pnpm -v
-  #           pnpm install --frozen-lockfile --prefer-offline
-  #           pnpm run build --strip
+            npm i -g pnpm@10.17.1 --ignore-scripts
+            pnpm -v
+            pnpm install --frozen-lockfile --prefer-offline
+            pnpm run build --strip
 
-  #     - name: Upload artifact
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: sandbox-bindings-${{ matrix.settings.target }}
-  #         # The upload artifact action doesn't respect the working directory setting. Unclear if this is a bug or not
-  #         # https://github.com/actions/upload-artifact/issues/294
-  #         path: ./crates/edr_napi/${{ env.APP_NAME }}.*.node
-  #         if-no-files-found: error
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-bindings-${{ matrix.settings.target }}
+          # The upload artifact action doesn't respect the working directory setting. Unclear if this is a bug or not
+          # https://github.com/actions/upload-artifact/issues/294
+          path: ./crates/edr_napi/${{ env.APP_NAME }}.*.node
+          if-no-files-found: error
 
   prepare:
     name: Prepare release bundle
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-      actions: read # TODO: remove when re-enabling build job
-    # needs:
-    #   - build
+    needs:
+      - build
     defaults:
       run:
         working-directory: ./crates/edr_napi
@@ -181,9 +180,6 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           path: ./crates/edr_napi/artifacts
-          github-token: ${{ secrets.GITHUB_TOKEN }} 
-          repository: NomicFoundation/edr
-          run-id: 18851878946
       - name: Run prepublish to update all `package.json` files 
         # we NEED to to this before pnpm artifacts, if not prepublish will try to publish
         run: ../../scripts/prepublish.sh
@@ -266,7 +262,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: remote-repository
-          ref: b29a1e4c28b9d6bd548a6a3a1fea6993a81bc773 # TODO: add ref pointing to commit used when building 
+          # TODO: add ref pointing to commit used when building 
       - name: Validate there were no modifications to `package.json` when building
         run: |
           git diff --color=always --exit-code --no-index remote-repository/package.json ./package.json
