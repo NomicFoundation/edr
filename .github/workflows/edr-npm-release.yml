@@ -110,16 +110,15 @@ jobs:
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
       - name: Fix MacOS certificates for SFW
-        if: ${{ matrix.settings.host == 'macos-13' || matrix.settings.host == 'macos-14' }}
+        if: ${{ matrix.settings.host == 'macos-13' }}
         run: |
-          brew install ca-certificates || brew upgrade ca-certificates
-          export SSL_CERT_FILE=/etc/ssl/cert.pem
-          export NODE_EXTRA_CA_CERTS=/etc/ssl/cert.pem
+          cat >> ~/.cargo/config.toml << 'EOF'
+          [http]
+          cainfo = "/etc/ssl/cert.pem"
+
+          EOF
 
       - name: Download Cargo dependecies
-        env:
-          SSL_CERT_FILE: /etc/ssl/cert.pem
-          NODE_EXTRA_CA_CERTS: /etc/ssl/cert.pem
         if: ${{ !matrix.settings.docker }}
         run: sfw cargo fetch
 

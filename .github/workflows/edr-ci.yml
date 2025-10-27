@@ -29,21 +29,11 @@ jobs:
       - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/setup-node
 
+      - name: Cargo safety
+        run: sfw cargo fetch
+
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
-
-      - name: Fix MacOS certificates for SFW
-        if: ${{ matrix.os == 'macos-15' }}
-        run: |
-          cat >> ~/.cargo/config.toml << 'EOF'
-
-          [net]
-          git-fetch-with-cli = true
-
-          EOF
-
-      - name: Cargo safety
-        run: cargo fetch
 
       - name: Upload SFW report
         if: always()
