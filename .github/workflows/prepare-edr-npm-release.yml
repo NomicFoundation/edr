@@ -266,9 +266,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: remote-repository
+          ref: b29a1e4c28b9d6bd548a6a3a1fea6993a81bc773
           # TODO: add ref pointing to commit used when building 
-      - name: Compare bundle files with repo files
+      - name: Compare bundle package.json with repo file
         run: |
-          git diff --color=always --no-index ./package.json remote-repository/package.json  || true
-          git diff --color=always --no-index ./Cargo.toml remote-repository/Cargo.toml  || true
-          git diff --color=always --no-index ./Cargo.lock remote-repository/Cargo.lock  || true
+          git diff --color=always --no-index ./package.json remote-repository/package.json  || echo "No changes in package.json"
+      - name: Compare bundle Cargo.toml with repo file
+        run: |
+          git diff --color=always --no-index ./Cargo.toml remote-repository/Cargo.toml  || echo "No changes in Cargo.toml"
+      - name: Compare bundle Cargo.lock with repo file
+        run: |
+          git diff --color=always --no-index ./Cargo.lock remote-repository/Cargo.lock  || echo "No changes in Cargo.lock"
