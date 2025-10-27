@@ -189,24 +189,32 @@ jobs:
         run: ../../scripts/prepublish.sh
       - name: Move artifacts 
         run: pnpm artifacts
+      - name: Track down files to include in package
+        run: |
+          EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml")
+          readarray -t FILES < <(cat package.json | jq -r .files[] ) 
+          ALL_FILES=("${FILES[@]}" "${EXTRA_FILES[@]}")
+          NAPI_FILES=()
+          for file in "${ALL_FILES[@]}"; do
+            NAPI_FILES+=("crates/edr_napi/${file}")
+          done
+          echo "NAPI_FILES=${NAPI_FILES}" >> $GITHUB_ENV
       - name: Create pack bundle
         # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
         id: pack
         run: |
           FILENAME="sandbox-${{ env.APP_NAME }}_bundle.tar.gz"
-          EXTRA_FILES=("./npm/" "LICENSE" "README.md" "package.json" "../../Cargo.toml" "../../Cargo.lock")
-          readarray -t FILES < <(cat package.json | jq -r .files[] ) 
-          echo "Files defined in package.json: ${FILES[@]}"
-          echo "Other files to include in tarball: ${EXTRA_FILES[@]}"
           echo "Creating bundle with necessary files for publishing"
-          tar --dereference -czvf $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
+          cd ../.. # cd to root dir
+          echo "NAPI files to include: ${NAPI_FILES[@]}"
+          tar --dereference -czvf $FILENAME "package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml" "${NAPI_FILES[@]}"
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
       - name: Upload packed tarball
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.pack.outputs.filename }}
-          path: ./crates/edr_napi/${{ steps.pack.outputs.filename }}
+          path: ./${{ steps.pack.outputs.filename }}
           retention-days: 2
           overwrite: true
           if-no-files-found: error
@@ -232,14 +240,12 @@ jobs:
         shell: bash
         run: |
           # get number of artifacts with unique names
-          NUMBER_OF_ARTIFACTS=$(ls -1q npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+          NUMBER_OF_ARTIFACTS=$(ls -1q crates/edr_napi/npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
           echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
           echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
           test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10.17.1
       - name: Setup node
         uses: actions/setup-node@v5
         id: setup-node
@@ -248,6 +254,7 @@ jobs:
           cache: pnpm
       - name: Validate that package has everything for publishing
         run: |
+          cd crates/edr_napi
           # Check in every cross-platform package
           for platform in ./npm/* ; do
             cd $platform
