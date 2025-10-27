@@ -441,6 +441,8 @@ jobs:
   review:
     name: Review release
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     needs:
       - prepare
     steps:
@@ -461,6 +463,14 @@ jobs:
           echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
           echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
           test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup node
+        uses: actions/setup-node@v5
+        id: setup-node
+        with:
+          node-version: 20
+          cache: pnpm
       - name: Validate that package has everything for publishing
         run: |
           # Check in every cross-platform package
@@ -471,7 +481,6 @@ jobs:
           done
           # And in root edr package
           pnpm publish --dry-run
-
 
   publish:
     name: Publish
