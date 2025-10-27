@@ -196,7 +196,7 @@ jobs:
           ALL_FILES=("${FILES[@]}" "${EXTRA_FILES[@]}")
           NAPI_FILES=()
           for file in "${ALL_FILES[@]}"; do
-            NAPI_FILES+=("crates/edr_napi/${file}")
+            NAPI_FILES+=("\"crates/edr_napi/${file}\"")
           done
           echo "NAPI_FILES=${NAPI_FILES[@]}" >> $GITHUB_ENV
       - name: Create pack bundle
