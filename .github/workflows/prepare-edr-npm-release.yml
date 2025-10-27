@@ -270,10 +270,10 @@ jobs:
           # TODO: add ref pointing to commit used when building 
       - name: Compare bundle package.json with repo file
         run: |
-          git diff --color=always --no-index ./package.json remote-repository/package.json  || echo "No changes in package.json"
+          git diff --color=always --no-index remote-repository/package.json ./package.json || true
       - name: Compare bundle Cargo.toml with repo file
         run: |
-          git diff --color=always --no-index ./Cargo.toml remote-repository/Cargo.toml  || echo "No changes in Cargo.toml"
+          git diff --color=always --no-index remote-repository/Cargo.toml ./Cargo.toml || true
       - name: Compare bundle Cargo.lock with repo file
         run: |
-          git diff --color=always --no-index ./Cargo.lock remote-repository/Cargo.lock  || echo "No changes in Cargo.lock"
+          git diff --color=always --no-index remote-repository/Cargo.lock ./Cargo.lock || true
