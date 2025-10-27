@@ -238,6 +238,8 @@ jobs:
           test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
       - name: Setup node
         uses: actions/setup-node@v5
         id: setup-node
