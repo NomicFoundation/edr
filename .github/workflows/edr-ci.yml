@@ -29,6 +29,17 @@ jobs:
       - uses: ./.github/actions/setup-rust
       - uses: ./.github/actions/setup-node
 
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .cargo-cache
+            target/
+          key: cargo-${{ matrix.os }}
+
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
@@ -38,17 +49,8 @@ jobs:
           cat >> ~/.cargo/config.toml << 'EOF'
           [http]
           cainfo = "/etc/ssl/cert.pem"
-          check-revoke = false
 
-          [net]
-          git-fetch-with-cli = true
           EOF
-      - name: Install OpenSSL
-        run: brew install openssl
-      - name: Update CA Certificates Path
-        run: echo "SSL_CERT_FILE=/usr/local/etc/openssl/cert.pem" >> $GITHUB_ENV
-      - name: Set Cargo to Use Git CLI
-        run: echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
 
       - name: Cargo safety
         run: sfw cargo fetch
