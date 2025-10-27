@@ -43,6 +43,12 @@ jobs:
           [net]
           git-fetch-with-cli = true
           EOF
+      - name: Install OpenSSL
+        run: brew install openssl
+      - name: Update CA Certificates Path
+        run: echo "SSL_CERT_FILE=/usr/local/etc/openssl/cert.pem" >> $GITHUB_ENV
+      - name: Set Cargo to Use Git CLI
+        run: echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
 
       - name: Cargo safety
         run: sfw cargo fetch
