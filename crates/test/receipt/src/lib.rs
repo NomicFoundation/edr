@@ -66,7 +66,11 @@ macro_rules! impl_execution_receipt_serde_tests {
                     let transaction = <$chain_spec as $crate::ChainSpec>::SignedTransaction::default();
 
                     let context = <$chain_spec as $crate::ContextChainSpec>::Context::default();
-                    let block_receipt = <<$chain_spec as $crate::ReceiptChainSpec>::Receipt as $crate::ReceiptConstructor>::new_receipt(&context, $hardfork, &transaction, transaction_receipt, &block_hash, block_number);
+                    let block_receipt = <
+                        <
+                            $chain_spec as $crate::ReceiptChainSpec
+                        >::Receipt as $crate::ReceiptConstructor<<$chain_spec as $crate::ChainSpec>::SignedTransaction>
+                    >::new_receipt(&context, $hardfork, &transaction, transaction_receipt, &block_hash, block_number);
 
                     let rpc_receipt = <$chain_spec as $crate::RpcChainSpec>::RpcReceipt::rpc_type_from(&block_receipt, Default::default());
 

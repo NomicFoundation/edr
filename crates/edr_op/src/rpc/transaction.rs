@@ -1,19 +1,18 @@
 use std::sync::OnceLock;
 
+use edr_block_api::Block;
 use edr_chain_l1::rpc::transaction::{L1RpcTransaction, L1RpcTransactionWithSignature};
-use edr_evm::{
-    block::transaction::{BlockDataForTransaction, TransactionAndBlockForChainSpec},
-    transaction::remote::RpcTransaction,
-};
 use edr_primitives::B256;
-use edr_rpc_spec::RpcTypeFrom;
+use edr_rpc_spec::{RpcTransaction, RpcTypeFrom};
 use edr_signer::Signature;
-use edr_transaction::{MaybeSignedTransaction as _, TxKind};
+use edr_transaction::{
+    BlockDataForTransaction, MaybeSignedTransaction as _, TransactionAndBlock, TxKind,
+};
 
 use super::Transaction;
 use crate::{
-    transaction::{self, OpTxTrait as _},
-    Hardfork, OpChainSpec,
+    transaction::{self, OpSignedTransaction, OpTxTrait as _},
+    Hardfork,
 };
 
 impl RpcTransaction for Transaction {
@@ -70,15 +69,14 @@ pub enum ConversionError {
     SourceHash,
 }
 
-impl TryFrom<Transaction> for transaction::Signed {
+impl TryFrom<Transaction> for transaction::OpSignedTransaction {
     type Error = ConversionError;
 
     fn try_from(value: Transaction) -> Result<Self, Self::Error> {
-        let transaction_type = match value
-            .l1
-            .transaction_type
-            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
-        {
+        let transaction_type = match value.l1.transaction_type.map_or(
+            Ok(transaction::OpTransactionType::Legacy),
+            transaction::OpTransactionType::try_from,
+        ) {
             Ok(r#type) => r#type,
             Err(r#type) => {
                 log::warn!(
@@ -87,12 +85,12 @@ impl TryFrom<Transaction> for transaction::Signed {
 
                 // As the transaction type is not 0 or `None`, this will always result in a
                 // post-EIP 155 legacy transaction.
-                transaction::Type::Legacy
+                transaction::OpTransactionType::Legacy
             }
         };
 
         let transaction = match transaction_type {
-            transaction::Type::Deposit => Self::Deposit(value.try_into()?),
+            transaction::OpTransactionType::Deposit => Self::Deposit(value.try_into()?),
             transaction_type => {
                 let r = value.r.ok_or(ConversionError::SignatureR)?;
                 let s = value.s.ok_or(ConversionError::SignatureS)?;
@@ -102,26 +100,26 @@ impl TryFrom<Transaction> for transaction::Signed {
                     L1RpcTransactionWithSignature::new(value.l1, r, s, v, value.y_parity);
 
                 match transaction_type {
-                    transaction::Type::Legacy => {
+                    transaction::OpTransactionType::Legacy => {
                         if transaction_with_signature.is_legacy() {
                             Self::PreEip155Legacy(transaction_with_signature.into())
                         } else {
                             Self::PostEip155Legacy(transaction_with_signature.into())
                         }
                     }
-                    transaction::Type::Eip2930 => {
+                    transaction::OpTransactionType::Eip2930 => {
                         Self::Eip2930(transaction_with_signature.try_into()?)
                     }
-                    transaction::Type::Eip1559 => {
+                    transaction::OpTransactionType::Eip1559 => {
                         Self::Eip1559(transaction_with_signature.try_into()?)
                     }
-                    transaction::Type::Eip4844 => {
+                    transaction::OpTransactionType::Eip4844 => {
                         Self::Eip4844(transaction_with_signature.try_into()?)
                     }
-                    transaction::Type::Eip7702 => {
+                    transaction::OpTransactionType::Eip7702 => {
                         Self::Eip7702(transaction_with_signature.try_into()?)
                     }
-                    transaction::Type::Deposit => unreachable!("already handled"),
+                    transaction::OpTransactionType::Deposit => unreachable!("already handled"),
                 }
             }
         };
@@ -130,11 +128,13 @@ impl TryFrom<Transaction> for transaction::Signed {
     }
 }
 
-impl RpcTypeFrom<TransactionAndBlockForChainSpec<OpChainSpec>> for Transaction {
+impl<BlockT: Block<OpSignedTransaction>>
+    RpcTypeFrom<TransactionAndBlock<BlockT, OpSignedTransaction>> for Transaction
+{
     type Hardfork = Hardfork;
 
     fn rpc_type_from(
-        value: &TransactionAndBlockForChainSpec<OpChainSpec>,
+        value: &TransactionAndBlock<BlockT, OpSignedTransaction>,
         hardfork: Self::Hardfork,
     ) -> Self {
         let (header, transaction_index) = value
@@ -158,11 +158,12 @@ impl RpcTypeFrom<TransactionAndBlockForChainSpec<OpChainSpec>> for Transaction {
 
         let signature = value.transaction.maybe_signature();
 
-        let is_system_tx = if l1.transaction_type == Some(transaction::Type::Deposit.into()) {
-            Some(value.transaction.is_system_transaction())
-        } else {
-            None
-        };
+        let is_system_tx =
+            if l1.transaction_type == Some(transaction::OpTransactionType::Deposit.into()) {
+                Some(value.transaction.is_system_transaction())
+            } else {
+                None
+            };
 
         Self {
             l1,

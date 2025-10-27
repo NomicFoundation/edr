@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use edr_block_api::{BlockAndTotalDifficulty, GenesisBlockFactory};
-use edr_blockchain_api::{r#dyn::DynBlockchainError, sync::SyncBlockchain};
+use edr_blockchain_api::{r#dyn::DynBlockchainError, sync::SyncBlockchain, Blockchain};
 use edr_blockchain_fork::ForkedBlockchain;
 use edr_blockchain_local::LocalBlockchain;
 use edr_chain_l1::{
@@ -25,6 +25,34 @@ use crate::{
 };
 
 /// Helper trait for a chain-specific [`Blockchain`].
+pub trait BlockchainForChainSpec<ChainSpecT: BlockChainSpec>:
+    Blockchain<
+    <ChainSpecT as ReceiptChainSpec>::Receipt,
+    <ChainSpecT as BlockChainSpec>::Block,
+    DynBlockchainError,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
+    <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>
+{
+}
+
+impl<
+        BlockchainT: Blockchain<
+            <ChainSpecT as ReceiptChainSpec>::Receipt,
+            <ChainSpecT as BlockChainSpec>::Block,
+            DynBlockchainError,
+            <ChainSpecT as HardforkChainSpec>::Hardfork,
+            <ChainSpecT as GenesisBlockFactory>::LocalBlock,
+            <ChainSpecT as ChainSpec>::SignedTransaction,
+        >,
+        ChainSpecT: BlockChainSpec,
+    > BlockchainForChainSpec<ChainSpecT> for BlockchainT
+{
+}
+
+/// Helper trait for a chain-specific [`Blockchain`] that can be used
+/// asynchronously.
 pub trait SyncBlockchainForChainSpec<ChainSpecT: SyncBlockChainSpec>:
     SyncBlockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,

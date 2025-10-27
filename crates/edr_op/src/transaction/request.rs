@@ -12,54 +12,71 @@ use edr_signer::{FakeSign, SecretKey, Sign, SignatureError};
 pub use edr_transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::TxKind;
 
-use super::{Request, Signed};
+use super::OpSignedTransaction;
 use crate::OpChainSpec;
 
-impl FakeSign for Request {
-    type Signed = Signed;
+/// An OP transaction request.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum OpTransactionRequest {
+    /// A legacy transaction request
+    Legacy(Legacy),
+    /// An EIP-155 transaction request
+    Eip155(Eip155),
+    /// An EIP-2930 transaction request
+    Eip2930(Eip2930),
+    /// An EIP-1559 transaction request
+    Eip1559(Eip1559),
+    /// An EIP-4844 transaction request
+    Eip4844(Eip4844),
+    /// An EIP-7702 transaction request
+    Eip7702(Eip7702),
+}
 
-    fn fake_sign(self, sender: Address) -> Signed {
+impl FakeSign for OpTransactionRequest {
+    type Signed = OpSignedTransaction;
+
+    fn fake_sign(self, sender: Address) -> OpSignedTransaction {
         match self {
-            Request::Legacy(transaction) => transaction.fake_sign(sender).into(),
-            Request::Eip155(transaction) => transaction.fake_sign(sender).into(),
-            Request::Eip2930(transaction) => transaction.fake_sign(sender).into(),
-            Request::Eip1559(transaction) => transaction.fake_sign(sender).into(),
-            Request::Eip4844(transaction) => transaction.fake_sign(sender).into(),
-            Request::Eip7702(transaction) => transaction.fake_sign(sender).into(),
+            OpTransactionRequest::Legacy(transaction) => transaction.fake_sign(sender).into(),
+            OpTransactionRequest::Eip155(transaction) => transaction.fake_sign(sender).into(),
+            OpTransactionRequest::Eip2930(transaction) => transaction.fake_sign(sender).into(),
+            OpTransactionRequest::Eip1559(transaction) => transaction.fake_sign(sender).into(),
+            OpTransactionRequest::Eip4844(transaction) => transaction.fake_sign(sender).into(),
+            OpTransactionRequest::Eip7702(transaction) => transaction.fake_sign(sender).into(),
         }
     }
 }
 
-impl Sign for Request {
-    type Signed = Signed;
+impl Sign for OpTransactionRequest {
+    type Signed = OpSignedTransaction;
 
     unsafe fn sign_for_sender_unchecked(
         self,
         secret_key: &SecretKey,
         caller: Address,
-    ) -> Result<Signed, SignatureError> {
+    ) -> Result<OpSignedTransaction, SignatureError> {
         Ok(match self {
-            Request::Legacy(transaction) => {
+            OpTransactionRequest::Legacy(transaction) => {
                 // SAFETY: The safety concern is propagated in the function signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
-            Request::Eip155(transaction) => {
+            OpTransactionRequest::Eip155(transaction) => {
                 // SAFETY: The safety concern is propagated in the function signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
-            Request::Eip2930(transaction) => {
+            OpTransactionRequest::Eip2930(transaction) => {
                 // SAFETY: The safety concern is propagated in the function signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
-            Request::Eip1559(transaction) => {
+            OpTransactionRequest::Eip1559(transaction) => {
                 // SAFETY: The safety concern is propagated in the function signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
-            Request::Eip4844(transaction) => {
+            OpTransactionRequest::Eip4844(transaction) => {
                 // SAFETY: The safety concern is propagated in the function signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
-            Request::Eip7702(transaction) => {
+            OpTransactionRequest::Eip7702(transaction) => {
                 // SAFETY: The safety concern is propagated in the function signature.
                 unsafe { transaction.sign_for_sender_unchecked(secret_key, caller) }?.into()
             }
@@ -67,7 +84,7 @@ impl Sign for Request {
     }
 }
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for Request {
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for OpTransactionRequest {
     type Context<'context> = CallContext<'context, OpChainSpec, TimerT>;
 
     type Error = ProviderErrorForChainSpec<OpChainSpec>;
@@ -115,7 +132,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for Requ
             let gas_price = gas_price.map_or_else(|| default_gas_price_fn(data), Ok)?;
             match access_list {
                 Some(access_list) if evm_spec_id >= EvmSpecId::BERLIN => {
-                    Request::Eip2930(Eip2930 {
+                    OpTransactionRequest::Eip2930(Eip2930 {
                         nonce,
                         gas_price,
                         gas_limit,
@@ -126,7 +143,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for Requ
                         access_list,
                     })
                 }
-                _ => Request::Eip155(Eip155 {
+                _ => OpTransactionRequest::Eip155(Eip155 {
                     nonce,
                     gas_price,
                     gas_limit,
@@ -141,7 +158,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for Requ
                 max_fees_fn(data, block_spec, max_fee_per_gas, max_priority_fee_per_gas)?;
 
             if let Some(authorization_list) = authorization_list {
-                Request::Eip7702(Eip7702 {
+                OpTransactionRequest::Eip7702(Eip7702 {
                     chain_id,
                     nonce,
                     max_fee_per_gas,
@@ -154,7 +171,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for Requ
                     authorization_list,
                 })
             } else {
-                Request::Eip1559(Eip1559 {
+                OpTransactionRequest::Eip1559(Eip1559 {
                     chain_id,
                     nonce,
                     max_fee_per_gas,
@@ -172,7 +189,9 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<L1CallRequest, TimerT> for Requ
     }
 }
 
-impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for Request {
+impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
+    for OpTransactionRequest
+{
     type Context<'context> = TransactionContext<'context, OpChainSpec, TimerT>;
 
     type Error = ProviderErrorForChainSpec<OpChainSpec>;
@@ -180,7 +199,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
     fn from_rpc_type(
         value: TransactionRequest,
         context: Self::Context<'_>,
-    ) -> Result<Request, ProviderErrorForChainSpec<OpChainSpec>> {
+    ) -> Result<OpTransactionRequest, ProviderErrorForChainSpec<OpChainSpec>> {
         let TransactionContext { data } = context;
 
         validate_send_transaction_request(data, &value)?;
@@ -215,7 +234,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
             let (max_fee_per_gas, max_priority_fee_per_gas) =
                 calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-            Request::Eip7702(Eip7702 {
+            OpTransactionRequest::Eip7702(Eip7702 {
                 nonce,
                 max_fee_per_gas,
                 max_priority_fee_per_gas,
@@ -235,7 +254,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
             let (max_fee_per_gas, max_priority_fee_per_gas) =
                 calculate_eip1559_fee_parameters(data, max_fee_per_gas, max_priority_fee_per_gas)?;
 
-            Request::Eip1559(Eip1559 {
+            OpTransactionRequest::Eip1559(Eip1559 {
                 nonce,
                 max_fee_per_gas,
                 max_priority_fee_per_gas,
@@ -250,7 +269,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
                 access_list: access_list.unwrap_or_default(),
             })
         } else if let Some(access_list) = access_list {
-            Request::Eip2930(Eip2930 {
+            OpTransactionRequest::Eip2930(Eip2930 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,
@@ -264,7 +283,7 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT> for
                 access_list,
             })
         } else {
-            Request::Eip155(Eip155 {
+            OpTransactionRequest::Eip155(Eip155 {
                 nonce,
                 gas_price: gas_price.map_or_else(|| data.next_gas_price(), Ok)?,
                 gas_limit,

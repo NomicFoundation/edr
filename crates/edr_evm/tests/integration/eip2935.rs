@@ -3,15 +3,6 @@ use std::collections::BTreeMap;
 use edr_block_header::BlockConfig;
 use edr_blockchain_api::Blockchain as _;
 use edr_chain_l1::L1ChainSpec;
-use edr_evm::{
-    blockchain::LocalBlockchain,
-    eips::eip2935::{
-        add_history_storage_contract_to_state_diff, HISTORY_STORAGE_ADDRESS,
-        HISTORY_STORAGE_UNSUPPORTED_BYTECODE,
-    },
-    spec::{base_fee_params_for, GenesisBlockFactory as _},
-    GenesisBlockOptions,
-};
 use edr_primitives::Bytecode;
 use edr_state_api::StateDiff;
 use edr_utils::random::RandomHashGenerator;
@@ -84,12 +75,9 @@ fn local_blockchain_with_history() -> anyhow::Result<()> {
 mod remote {
     use std::sync::Arc;
 
-    use edr_evm::{
-        blockchain::{ForkedBlockchain, ForkedCreationError},
-        state::IrregularState,
-    };
     use edr_primitives::{bytes, Bytes, HashMap};
     use edr_rpc_eth::client::EthRpcClient;
+    use edr_state_api::irregular::IrregularState;
     use edr_test_utils::env::get_alchemy_url;
     use parking_lot::Mutex;
 

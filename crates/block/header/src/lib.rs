@@ -298,13 +298,7 @@ impl PartialHeader {
         } = block_config;
 
         let timestamp = overrides.timestamp.unwrap_or_default();
-        let number = overrides.number.unwrap_or({
-            if let Some(parent) = &parent {
-                parent.number + 1
-            } else {
-                0
-            }
-        });
+        let number = overridden_block_number(parent, &overrides);
 
         let parent_hash = overrides.parent_hash.unwrap_or_else(|| {
             if let Some(parent) = parent {
@@ -510,6 +504,21 @@ pub struct BlockConfig<'params, HardforkT> {
     pub hardfork: HardforkT,
     /// Associated minimum ethash difficulty
     pub min_ethash_difficulty: u64,
+}
+
+/// Determines the block number based on the provided parent header and
+/// (potential) overrides.
+pub fn overridden_block_number<HardforkT>(
+    parent_header: Option<&BlockHeader>,
+    overrides: &HeaderOverrides<HardforkT>,
+) -> u64 {
+    overrides.number.unwrap_or({
+        if let Some(parent) = parent_header {
+            parent.number + 1
+        } else {
+            0
+        }
+    })
 }
 
 /// Calculates the next base fee for a post-London block, given the parent's

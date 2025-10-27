@@ -282,10 +282,10 @@ impl ProviderChainSpec for GenericChainSpec {
 
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        base_fee_params: &BaseFeeParams<Self::Hardfork>,
         hardfork: Self::Hardfork,
+        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> u128 {
-        L1ChainSpec::next_base_fee_per_gas(header, base_fee_params, hardfork)
+        L1ChainSpec::next_base_fee_per_gas(header, hardfork, default_base_fee_params)
     }
 }
 

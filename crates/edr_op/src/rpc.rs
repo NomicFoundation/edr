@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// Transaction receipt
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BlockReceipt {
+pub struct OpRpcBlockReceipt {
     /// Hash of the block this transaction was included within.
     pub block_hash: B256,
     /// Number of the block this transaction was included within.

@@ -1703,8 +1703,8 @@ where
     fn calculate_next_block_base_fee(&self, header: &BlockHeader) -> u128 {
         ChainSpecT::next_base_fee_per_gas(
             header,
-            self.blockchain.base_fee_params(),
             self.hardfork(),
+            self.blockchain.base_fee_params(),
         )
     }
 }

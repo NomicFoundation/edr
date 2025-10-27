@@ -60,7 +60,7 @@ async fn block_with_deposit_transaction() -> anyhow::Result<()> {
     )));
     let hardfork_activation_overrides = HashMap::new();
 
-    let hardfork_activations = hardfork::chain_config(CHAIN_ID)
+    let hardfork_activations = hardfork::op_chain_config(CHAIN_ID)
         .map(|config| &config.hardfork_activations)
         .ok_or(anyhow!("Unsupported chain id"))?;
 
@@ -97,8 +97,11 @@ async fn deposit_transaction_and_receipt_regolith() -> anyhow::Result<()> {
         .await?
         .expect("Transaction must exist");
 
-    let transaction = transaction::Signed::try_from(transaction)?;
-    assert_eq!(transaction.transaction_type(), transaction::Type::Deposit);
+    let transaction = transaction::OpSignedTransaction::try_from(transaction)?;
+    assert_eq!(
+        transaction.transaction_type(),
+        transaction::OpTransactionType::Deposit
+    );
 
     let receipt = rpc_client
         .get_transaction_receipt(TRANSACTION_HASH)
@@ -107,7 +110,7 @@ async fn deposit_transaction_and_receipt_regolith() -> anyhow::Result<()> {
 
     assert_eq!(
         receipt.transaction_type,
-        Some(transaction::Type::Deposit.into())
+        Some(transaction::OpTransactionType::Deposit.into())
     );
     assert!(receipt.deposit_receipt_version.is_none());
 
@@ -136,8 +139,11 @@ async fn deposit_transaction_and_receipt_canyon() -> anyhow::Result<()> {
         .await?
         .expect("Transaction must exist");
 
-    let transaction = transaction::Signed::try_from(transaction)?;
-    assert_eq!(transaction.transaction_type(), transaction::Type::Deposit);
+    let transaction = transaction::OpSignedTransaction::try_from(transaction)?;
+    assert_eq!(
+        transaction.transaction_type(),
+        transaction::OpTransactionType::Deposit
+    );
 
     let receipt = rpc_client
         .get_transaction_receipt(TRANSACTION_HASH)
@@ -146,7 +152,7 @@ async fn deposit_transaction_and_receipt_canyon() -> anyhow::Result<()> {
 
     assert_eq!(
         receipt.transaction_type,
-        Some(transaction::Type::Deposit.into())
+        Some(transaction::OpTransactionType::Deposit.into())
     );
     assert_eq!(receipt.deposit_receipt_version, Some(1));
 
@@ -175,8 +181,11 @@ async fn deposit_transaction_and_receipt_ecotone() -> anyhow::Result<()> {
         .await?
         .expect("Transaction must exist");
 
-    let transaction = transaction::Signed::try_from(transaction)?;
-    assert_eq!(transaction.transaction_type(), transaction::Type::Deposit);
+    let transaction = transaction::OpSignedTransaction::try_from(transaction)?;
+    assert_eq!(
+        transaction.transaction_type(),
+        transaction::OpTransactionType::Deposit
+    );
 
     let receipt = rpc_client
         .get_transaction_receipt(TRANSACTION_HASH)
@@ -185,7 +194,7 @@ async fn deposit_transaction_and_receipt_ecotone() -> anyhow::Result<()> {
 
     assert_eq!(
         receipt.transaction_type,
-        Some(transaction::Type::Deposit.into())
+        Some(transaction::OpTransactionType::Deposit.into())
     );
     assert_eq!(receipt.deposit_receipt_version, Some(1));
 

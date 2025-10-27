@@ -13,7 +13,7 @@ pub use op_revm::{
 };
 
 /// An OP pooled transaction, used to communicate between node pools.
-pub enum Pooled {
+pub enum OpPooledTransaction {
     /// Legacy transaction before EIP-155
     PreEip155Legacy(pooled::Legacy),
     /// Legacy transaction after EIP-155
@@ -32,7 +32,7 @@ pub enum Pooled {
 
 /// An OP transaction request.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Request {
+pub enum OpTransactionRequest {
     /// A legacy transaction request
     Legacy(request::Legacy),
     /// An EIP-155 transaction request
@@ -49,7 +49,7 @@ pub enum Request {
 
 /// An OP signed transaction, used in blocks.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Signed {
+pub enum OpSignedTransaction {
     /// Legacy transaction before EIP-155
     PreEip155Legacy(signed::Legacy),
     /// Legacy transaction after EIP-155
@@ -69,7 +69,7 @@ pub enum Signed {
 /// The type of OP transaction.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Type {
+pub enum OpTransactionType {
     /// OP legacy transaction
     Legacy = signed::Legacy::TYPE,
     /// OP EIP-2930 transaction

@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
+use edr_chain_config::ChainConfig;
 use edr_eip1559::BaseFeeParams;
-use edr_evm::hardfork::ChainConfig;
 use edr_primitives::HashMap;
 pub use op_revm::name;
 
@@ -14,7 +14,8 @@ pub mod generated;
 /// OP chain configs
 pub mod op;
 
-fn configs() -> &'static HashMap<u64, ChainConfig<Hardfork>> {
+/// Returns the chain configurations for OP chains.
+pub fn op_chain_configs() -> &'static HashMap<u64, ChainConfig<Hardfork>> {
     static CONFIGS: LazyLock<HashMap<u64, ChainConfig<Hardfork>>> = LazyLock::new(|| {
         let mut configs = generated::chain_configs();
 
@@ -43,11 +44,11 @@ fn configs() -> &'static HashMap<u64, ChainConfig<Hardfork>> {
 
 /// Returns the corresponding configuration for the provided chain ID, if
 /// it is supported.
-pub fn chain_config(chain_id: u64) -> Option<&'static ChainConfig<Hardfork>> {
-    configs().get(&chain_id)
+pub fn op_chain_config(chain_id: u64) -> Option<&'static ChainConfig<Hardfork>> {
+    op_chain_configs().get(&chain_id)
 }
 
 /// Returns the default base fee params to fallback to
-pub fn default_base_fee_params() -> &'static BaseFeeParams<Hardfork> {
+pub fn op_default_base_fee_params() -> &'static BaseFeeParams<Hardfork> {
     &op::MAINNET_BASE_FEE_PARAMS
 }

@@ -4,9 +4,10 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_api::{EmptyBlock as _, GenesisBlockOptions};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
-use edr_chain_l1::L1ChainSpec;
+use edr_chain_l1::{receipt::builder::L1ExecutionReceiptBuilder, L1ChainSpec};
 use edr_chain_spec::ExecutableTransaction as _;
 use edr_evm::test_utils::dummy_eip155_transaction;
+use edr_evm_spec::result::SuccessReason;
 use edr_primitives::{Address, Bytes, HashSet, B256, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
@@ -40,7 +41,6 @@ async fn create_forked_dummy_blockchain(
         StateError,
     >,
 > {
-    use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState};
     use edr_primitives::HashMap;
     use edr_rpc_eth::client::EthRpcClient;
     use edr_test_utils::env::get_alchemy_url;
@@ -246,8 +246,7 @@ fn insert_dummy_block_with_transaction(
     let state_overrides = BTreeMap::new();
     let state = blockchain.state_at_block_number(header.number - 1, &state_overrides)?;
 
-    let receipt_builder =
-        receipt::L1ExecutionReceiptBuilder::new_receipt_builder(state, &transaction)?;
+    let receipt_builder = L1ExecutionReceiptBuilder::new_receipt_builder(state, &transaction)?;
 
     let execution_result = ExecutionResult::Success {
         reason: SuccessReason::Stop,

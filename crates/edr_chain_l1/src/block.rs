@@ -31,7 +31,7 @@ use edr_receipt_spec::ReceiptConstructor;
 use edr_state_api::{AccountModifierFn, DynState, StateDiff, StateError};
 use edr_trie::ordered_trie_root;
 
-/// A builder for constructing Ethereum L1 blocks.
+/// A builder for constructing Ethereum blocks.
 pub struct EthBlockBuilder<
     'builder,
     BlockReceiptT,

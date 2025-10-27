@@ -50,8 +50,8 @@ pub trait ProviderChainSpec: BlockChainSpec<
     /// Returns the `base_fee_per_gas` for the next block.
     fn next_base_fee_per_gas(
         header: &BlockHeader,
-        base_fee_params: &BaseFeeParams<Self::Hardfork>,
         hardfork: Self::Hardfork,
+        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> u128;
 }
 

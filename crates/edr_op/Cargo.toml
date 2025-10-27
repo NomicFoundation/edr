@@ -8,27 +8,34 @@ alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-serde = { workspace = true, features = ["std"] }
 edr_block_api.workspace = true
+edr_block_builder_api.workspace = true
 edr_block_header.workspace = true
+edr_block_local.workspace = true
+edr_block_remote.workspace = true
 edr_blockchain_api.workspace = true
+edr_chain_config.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
+edr_chain_spec_block.workspace = true
+edr_chain_spec_provider.workspace = true
 edr_database_components.workspace = true
 edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
-edr_eth = { workspace = true, features = ["serde", "std"] }
-edr_evm = { path = "../edr_evm" }
-edr_generic = { path = "../edr_generic" }
-edr_napi_core = { path = "../edr_napi_core" }
+edr_evm_spec.workspace = true
+edr_napi_core.workspace = true
 edr_primitives.workspace = true
-edr_provider = { path = "../edr_provider" }
+edr_provider.workspace = true
 edr_receipt.workspace = true
-edr_rpc_eth = { path = "../edr_rpc_eth" }
+edr_receipt_builder_api.workspace = true
+edr_receipt_spec.workspace = true
+edr_rpc_eth.workspace = true
 edr_rpc_spec.workspace = true
 edr_signer.workspace = true
-edr_solidity = { path = "../edr_solidity" }
+edr_solidity.workspace = true
 edr_solidity_tests.workspace = true
 edr_state_api.workspace = true
+edr_test_receipt.workspace = true
 edr_transaction.workspace = true
 edr_utils.workspace = true
 log = { version = "0.4.17", default-features = false }

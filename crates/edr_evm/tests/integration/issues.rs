@@ -4,14 +4,9 @@ use std::{str::FromStr, sync::Arc};
 
 use edr_chain_l1::L1ChainSpec;
 use edr_defaults::CACHE_DIR;
-use edr_evm::{
-    blockchain::ForkedBlockchain,
-    precompile::{self, Precompiles},
-    state::IrregularState,
-};
 use edr_primitives::{Address, HashMap, U256};
 use edr_rpc_eth::client::EthRpcClient;
-use edr_state_api::{AccountModifierFn, StateDebug};
+use edr_state_api::{irregular::IrregularState, AccountModifierFn, StateDebug};
 use edr_state_fork::ForkedState;
 use edr_test_utils::env::get_alchemy_url;
 use edr_utils::random::RandomHashGenerator;

@@ -127,7 +127,7 @@ mod tests {
         const EXPECTED: B256 =
             b256!("cca2f31992022e3a833959c505de021285a7c5339c8d1b8ad75100074e1c6aea");
 
-        let transaction = transaction::Signed::Deposit(Deposit {
+        let transaction = transaction::OpSignedTransaction::Deposit(Deposit {
             source_hash: b256!("8672083ef2a54fb901eab5c1366a77c1e2c421793467cf1ea7925f21282804bb"),
             from: address!("deaddeaddeaddeaddeaddeaddeaddeaddead0001"),
             to: TxKind::Call(address!("4200000000000000000000000000000000000015")),
