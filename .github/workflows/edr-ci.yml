@@ -32,36 +32,34 @@ jobs:
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
-      # ── macOS TLS fix for crates.io (libcurl) ───────────────────────────────
-      - name: Export macOS root CAs and point Cargo/curl to them
+      # macOS-only: export Apple root CAs and use them for this *one* fetch
+      - name: Cargo safety (macOS)
         if: runner.os == 'macOS'
+        shell: bash
         run: |
-          # Export Apple system roots (and system keychain if present) to PEM
-          security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain > "$HOME/cacert.pem"
-          security find-certificate -a -p /Library/Keychains/System.keychain >> "$HOME/cacert.pem" || true
+          set -euxo pipefail
+          mkdir -p "$HOME/.cargo"
+          # export Apple trust store -> PEM
+          security find-certificate -a -p /System/Library/Keychains/SystemRootCertificates.keychain > "$RUNNER_TEMP/cacert.pem"
+          security find-certificate -a -p /Library/Keychains/System.keychain >> "$RUNNER_TEMP/cacert.pem" || true
 
-          # Tell Cargo/libcurl where the CA bundle is
+          # force Cargo to use git CLI for git deps
           {
+            echo "[net]"
+            echo "git-fetch-with-cli = true"
             echo "[http]"
-            echo "cainfo = \"$HOME/cacert.pem\""
+            echo "cainfo = \"$RUNNER_TEMP/cacert.pem\""
           } >> "$HOME/.cargo/config.toml"
 
-          # Also set common envs used by curl/git just in case:
-          echo "CARGO_HTTP_CAINFO=$HOME/cacert.pem" >> $GITHUB_ENV
-          echo "CURL_CA_BUNDLE=$HOME/cacert.pem"     >> $GITHUB_ENV
-          echo "SSL_CERT_FILE=$HOME/cacert.pem"      >> $GITHUB_ENV
+          # quick TLS probe through the same CA bundle (helps debug)
+          SSL_CERT_FILE="$RUNNER_TEMP/cacert.pem" CURL_CA_BUNDLE="$RUNNER_TEMP/cacert.pem" curl -sSfI https://index.crates.io/config.json >/dev/null
 
-      # ── Make Cargo use the system git (fixes TLS for git deps) ─────────────
-      - name: Force Cargo to use git CLI
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p $HOME/.cargo
-          { echo "[net]"; echo "git-fetch-with-cli = true"; } >> $HOME/.cargo/config.toml
-
-      - name: Cargo safety
-        env:
-          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-        run: sfw cargo fetch
+          # now run fetch with env *inline* so sfw cannot drop them
+          SSL_CERT_FILE="$RUNNER_TEMP/cacert.pem" \
+          CURL_CA_BUNDLE="$RUNNER_TEMP/cacert.pem" \
+          CARGO_HTTP_CAINFO="$RUNNER_TEMP/cacert.pem" \
+          CARGO_NET_GIT_FETCH_WITH_CLI=true \
+            sfw cargo fetch
 
   check-edr:
     name: Check EDR
