@@ -32,7 +32,15 @@ jobs:
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Force Cargo to use git CLI (fix macOS TLS issues)
+        if: ${{ matrix.os == 'macos-15' }}
+        run: |
+          mkdir -p $HOME/.cargo
+          { echo "[net]"; echo "git-fetch-with-cli = true"; } >> $HOME/.cargo/config.toml
+
       - name: Cargo safety
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
         run: sfw cargo fetch
 
   check-edr:
