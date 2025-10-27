@@ -38,6 +38,7 @@ jobs:
           cat >> ~/.cargo/config.toml << 'EOF'
           [http]
           cainfo = "/etc/ssl/cert.pem"
+          check-revoke = false
 
           EOF
 
