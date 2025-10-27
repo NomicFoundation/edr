@@ -35,6 +35,15 @@ jobs:
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Fix MacOS certificates for SFW
+        if: ${{ matrix.os == 'macos-15' }}
+        run: |
+          cat >> ~/.cargo/config.toml << 'EOF'
+          [http]
+          cainfo = "/etc/ssl/cert.pem"
+
+          EOF
+
       - name: Cargo safety
         run: sfw cargo fetch
 

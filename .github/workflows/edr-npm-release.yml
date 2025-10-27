@@ -109,7 +109,7 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Download Cargo dependecies
+      - name: Fix MacOS certificates for SFW
         if: ${{ matrix.settings.host == 'macos-13' || matrix.settings.host == 'macos-14' }}
         run: |
           cat >> ~/.cargo/config.toml << 'EOF'
@@ -118,7 +118,8 @@ jobs:
 
           EOF
 
-          sfw cargo fetch
+      - name: Download Cargo dependecies
+        run: sfw cargo fetch
 
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
