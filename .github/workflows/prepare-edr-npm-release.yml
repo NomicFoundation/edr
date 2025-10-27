@@ -58,7 +58,6 @@ jobs:
     defaults:
       run:
         working-directory: ./crates/edr_napi
-
     steps:
       - uses: actions/checkout@v5
 
@@ -196,7 +195,7 @@ jobs:
           echo "Files defined in package.json: ${FILES[@]}"
           echo "Other files to include in tarball: ${EXTRA_FILES[@]}"
           echo "Creating bundle with necessary files for publishing"
-          tar -czvf $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
+          tar -czvfh $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
       - name: Upload packed tarball
@@ -233,6 +232,10 @@ jobs:
           echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
           echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
           test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
+      - name: Setup node and pnpm
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: 20
       - name: Validate that package has everything for publishing
         run: |
           # Check in every cross-platform package

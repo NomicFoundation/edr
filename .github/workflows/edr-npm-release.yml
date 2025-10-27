@@ -395,6 +395,8 @@ jobs:
     defaults:
       run:
         working-directory: ./crates/edr_napi
+    outputs:
+      filename: ${{ steps.pack.outputs.filename }}
     steps:
       - uses: actions/checkout@v5
       - name: Setup node
@@ -424,7 +426,7 @@ jobs:
           echo "Files defined in package.json: ${FILES[@]}"
           echo "Other files to include in tarball: ${EXTRA_FILES[@]}"
           echo "Creating bundle with necessary files for publishing"
-          tar -czvf $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
+          tar -czvfh $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
       - name: Upload packed tarball
