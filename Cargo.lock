@@ -1580,18 +1580,18 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.48"
+version = "4.5.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2134bb3ea021b78629caa971416385309e0131b351b25e01dc16fb54e1b5fae"
+checksum = "0c2cfd7bf8a6017ddaa4e32ffe7403d547790db06bd171c1c53926faab501623"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.48"
+version = "4.5.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2ba64afa3c0a6df7fa517765e31314e983f51dda798ffba27b988194fb65dc9"
+checksum = "0a4c05b9e80c5ccd3a7ef080ad7b6ba7d6fc00a985b8b157197075677c82c7a0"
 dependencies = [
  "anstyle",
  "clap_lex 0.7.5",
@@ -1856,7 +1856,7 @@ dependencies = [
  "anes",
  "cast",
  "ciborium",
- "clap 4.5.48",
+ "clap 4.5.50",
  "criterion-plot",
  "is-terminal",
  "itertools 0.10.5",
@@ -2356,6 +2356,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
+ "edr_rpc_spec",
  "edr_utils",
  "serde",
  "thiserror 1.0.69",
@@ -2511,7 +2512,6 @@ dependencies = [
  "edr_receipt",
  "edr_receipt_builder_api",
  "edr_receipt_spec",
- "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_runtime_spec",
  "edr_signer",
@@ -2875,23 +2875,27 @@ dependencies = [
  "derive-where",
  "derive_more 2.0.1",
  "edr_block_header",
+ "edr_blockchain_fork",
+ "edr_chain_config",
  "edr_chain_l1",
  "edr_chain_spec",
+ "edr_chain_spec_block",
  "edr_common",
  "edr_coverage",
  "edr_defaults",
  "edr_eip1559",
  "edr_evm",
+ "edr_evm_spec",
  "edr_generic",
  "edr_instrument",
  "edr_napi_core",
  "edr_op",
+ "edr_precompile",
  "edr_primitives",
  "edr_provider",
  "edr_receipt",
  "edr_rpc_client",
  "edr_rpc_eth",
- "edr_rpc_spec",
  "edr_scenarios",
  "edr_signer",
  "edr_solidity",
@@ -2954,7 +2958,6 @@ dependencies = [
 name = "edr_op"
 version = "0.3.8"
 dependencies = [
- "alloy-eips",
  "alloy-rlp",
  "alloy-serde",
  "anyhow",
@@ -2969,11 +2972,11 @@ dependencies = [
  "edr_chain_spec",
  "edr_chain_spec_block",
  "edr_chain_spec_provider",
- "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_eth",
  "edr_evm",
  "edr_evm_spec",
  "edr_napi_core",
@@ -2988,6 +2991,7 @@ dependencies = [
  "edr_solidity",
  "edr_solidity_tests",
  "edr_state_api",
+ "edr_test_block_replay",
  "edr_test_receipt",
  "edr_test_utils",
  "edr_transaction",
@@ -3109,7 +3113,7 @@ dependencies = [
  "edr_defaults",
  "edr_eth",
  "edr_primitives",
- "edr_rpc_spec",
+ "edr_rpc_eth",
  "edr_test_utils",
  "edr_transaction",
  "edr_trie",
@@ -3191,6 +3195,7 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_rpc_client",
+ "edr_rpc_spec",
  "edr_signer",
  "edr_state_api",
  "edr_test_utils",
@@ -3217,7 +3222,6 @@ version = "0.3.8"
 dependencies = [
  "edr_primitives",
  "edr_receipt",
- "edr_rpc_eth",
  "serde",
 ]
 
@@ -3482,6 +3486,63 @@ dependencies = [
  "rand 0.9.1",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "edr_tool_cli"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "cfg-if",
+ "clap 3.2.25",
+ "derive-where",
+ "difference",
+ "edr_block_api",
+ "edr_block_header",
+ "edr_chain_l1",
+ "edr_chain_spec_provider",
+ "edr_defaults",
+ "edr_generic",
+ "edr_napi_core",
+ "edr_op",
+ "edr_provider",
+ "edr_receipt",
+ "edr_rpc_eth",
+ "edr_rpc_spec",
+ "edr_scenarios",
+ "edr_solidity",
+ "edr_test_block_replay",
+ "flate2",
+ "indicatif",
+ "mimalloc",
+ "op-revm",
+ "parking_lot 0.12.3",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "toml 0.8.20",
+ "tracing",
+ "tracing-flame",
+ "tracing-subscriber 0.3.19",
+ "walkdir",
+]
+
+[[package]]
+name = "edr_tool_op_chain_config_generator"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "clap 3.2.25",
+ "git2",
+ "itertools 0.12.1",
+ "log",
+ "op-revm",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml 0.8.20",
 ]
 
 [[package]]
@@ -8225,16 +8286,6 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
-dependencies = [
- "indexmap 1.9.3",
- "serde",
-]
-
-[[package]]
-name = "toml"
 version = "0.8.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd87a5cdd6ffab733b2f74bc4fd7ee5fff6634124999ac278c35fc78c6120148"
@@ -8306,49 +8357,6 @@ name = "toml_writer"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fcc842091f2def52017664b53082ecbbeb5c7731092bad69d2c63050401dfd64"
-
-[[package]]
-name = "tools"
-version = "0.3.8"
-dependencies = [
- "anyhow",
- "cfg-if",
- "clap 3.2.25",
- "derive-where",
- "difference",
- "edr_block_api",
- "edr_block_header",
- "edr_chain_l1",
- "edr_chain_spec",
- "edr_defaults",
- "edr_evm",
- "edr_generic",
- "edr_napi_core",
- "edr_op",
- "edr_provider",
- "edr_receipt",
- "edr_rpc_eth",
- "edr_scenarios",
- "edr_solidity",
- "flate2",
- "git2",
- "indicatif",
- "itertools 0.12.1",
- "log",
- "mimalloc",
- "op-revm",
- "parking_lot 0.12.3",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "toml 0.5.11",
- "tracing",
- "tracing-flame",
- "tracing-subscriber 0.3.19",
- "walkdir",
-]
 
 [[package]]
 name = "tower"

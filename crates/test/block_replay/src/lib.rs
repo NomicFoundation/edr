@@ -14,18 +14,16 @@ use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader,
 use edr_block_remote::RemoteBlock;
 use edr_blockchain_api::{BlockchainMetadata as _, StateAtBlock as _};
 use edr_blockchain_fork::ForkedBlockchain;
-use edr_chain_spec::{
-    ChainSpec, EvmSpecId, ExecutableTransaction, HardforkChainSpec, TransactionValidation,
-};
+use edr_chain_spec::{ChainSpec, EvmSpecId, ExecutableTransaction, HardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
-use edr_chain_spec_provider::ProviderChainSpec;
+use edr_chain_spec_provider::SyncProviderChainSpec;
 use edr_eth::{block::miner_reward, PreEip1898BlockSpec};
 use edr_evm_spec::config::EvmConfig;
 use edr_primitives::{HashMap, B256};
 use edr_receipt::{log::FilterLog, AsExecutionReceipt, ExecutionReceipt as _, ReceiptTrait};
 use edr_receipt_spec::ReceiptChainSpec;
-use edr_rpc_eth::{client::EthRpcClient, RpcBlockChainSpec};
-use edr_rpc_spec::{RpcChainSpec, RpcEthBlock};
+use edr_rpc_eth::client::EthRpcClientForChainSpec;
+use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec, RpcEthBlock};
 use edr_state_api::irregular::IrregularState;
 use edr_utils::random::RandomHashGenerator;
 
@@ -77,25 +75,19 @@ struct ForkedStateAndBlockchain<
 /// Creates forked state at the previous block and returns the corresponding
 /// `ForkedStateAndBlockchain`
 async fn get_fork_state<
-    ChainSpecT: ProviderChainSpec<Hardfork: 'static + Debug, SignedTransaction: Debug>
-        + ProviderChainSpec<
-            Hardfork: Send + Sync,
-            RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
-                EthBlockData<ChainSpecT::SignedTransaction>,
-                Error: 'static,
-            >,
+    ChainSpecT: SyncProviderChainSpec<
+        RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
+            EthBlockData<ChainSpecT::SignedTransaction>,
+            Error: 'static,
         >,
+    >,
 >(
     runtime: tokio::runtime::Handle,
     url: String,
     block_number: u64,
 ) -> anyhow::Result<ForkedStateAndBlockchainForChainSpec<ChainSpecT>> {
     let rpc_client =
-        EthRpcClient::<ChainSpecT, ChainSpecT::RpcReceipt, ChainSpecT::RpcTransaction>::new(
-            &url,
-            edr_defaults::CACHE_DIR.into(),
-            None,
-        )?;
+        EthRpcClientForChainSpec::<ChainSpecT>::new(&url, edr_defaults::CACHE_DIR.into(), None)?;
     let chain_id = rpc_client.chain_id().await?;
 
     let rpc_client = Arc::new(rpc_client);
@@ -159,16 +151,13 @@ async fn get_fork_state<
 /// block.
 pub async fn run_full_block<
     ChainSpecT: 'static
-        + ProviderChainSpec<
+        + SyncProviderChainSpec<
             ExecutionReceipt<FilterLog>: Debug + PartialEq,
-            FetchReceiptError: Send + Sync,
-            Hardfork: 'static + Debug + Send + Sync,
             Receipt: AsExecutionReceipt<ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>>,
             RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
                 EthBlockData<ChainSpecT::SignedTransaction>,
                 Error: 'static,
             >,
-            SignedTransaction: Debug + TransactionValidation<ValidationError: Send + Sync>,
         >,
 >(
     runtime: tokio::runtime::Handle,
@@ -369,22 +358,14 @@ pub async fn run_full_block<
 /// the transactions included in the block use `run_full_block` instead.
 pub async fn assert_replay_header<
     ChainSpecT: 'static
-        + ProviderChainSpec<
+        + SyncProviderChainSpec<
             ExecutionReceipt<FilterLog>: Debug + PartialEq,
-            Hardfork: 'static + Debug + Send + Sync,
             Receipt: AsExecutionReceipt<ExecutionReceipt = ChainSpecT::ExecutionReceipt<FilterLog>>,
             RpcBlock<<ChainSpecT as RpcChainSpec>::RpcTransaction>: TryInto<
                 EthBlockData<ChainSpecT::SignedTransaction>,
                 Error: 'static,
             >,
-            SignedTransaction: Debug + TransactionValidation<ValidationError: Send + Sync>,
-        >, /*
-            * + SyncRuntimeSpec< BlockReceipt: AsExecutionReceipt< ExecutionReceipt =
-            *   ChainSpecT::ExecutionReceipt<FilterLog>, >, ExecutionReceipt<FilterLog>:
-            *   PartialEq, LocalBlock: BlockReceipts< Arc<ChainSpecT::BlockReceipt>, Error =
-            *   BlockchainErrorForChainSpec<ChainSpecT>, >, SignedTransaction:
-            *   TransactionValidation< ValidationError: Send + Sync, >,
-            * >, */
+        >,
 >(
     runtime: tokio::runtime::Handle,
     url: String,

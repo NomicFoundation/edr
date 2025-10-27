@@ -31,9 +31,8 @@ use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait};
 use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
-    RpcBlockChainSpec,
 };
-use edr_rpc_spec::{RpcEthBlock, RpcTransaction};
+use edr_rpc_spec::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
 use edr_state_api::{
     account::{Account, AccountStatus},
     irregular::IrregularState,

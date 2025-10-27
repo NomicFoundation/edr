@@ -5,7 +5,6 @@ use clap::{Parser, Subcommand};
 mod benchmark;
 mod compare_test_runs;
 mod execution_api;
-mod op_chain_config;
 mod remote_block;
 mod scenario;
 mod update;
@@ -66,19 +65,12 @@ enum Command {
         #[clap(long, short)]
         count: Option<usize>,
     },
-    OpChainConfig {
-        /// Checks if there are config changes to be included, but does not
-        /// apply them
-        #[clap(long, takes_value = false)]
-        check: bool,
-        /// Enables verbose mode
-        #[clap(short, long, takes_value = false)]
-        verbose: bool,
-    },
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let runtime = tokio::runtime::Handle::current();
+
     let args = Args::parse();
     match args.command {
         Command::CompareTestRuns {
@@ -96,10 +88,7 @@ async fn main() -> anyhow::Result<()> {
             chain_type,
             url,
             block_number,
-        } => remote_block::replay(chain_type, url, block_number).await,
+        } => remote_block::replay(runtime, chain_type, url, block_number).await,
         Command::Scenario { path, count } => scenario::execute(&path, count).await,
-        Command::OpChainConfig { check, verbose } => {
-            op_chain_config::import_op_chain_configs(check, verbose)
-        }
     }
 }

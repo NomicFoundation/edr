@@ -267,7 +267,7 @@ fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow
         {GENERATED_FILE_WARNING_MESSAGE}
 
         use edr_primitives::HashMap;
-        use edr_evm::hardfork::ChainConfig;
+        use edr_chain_config::ChainConfig;
         use crate::Hardfork;
 
         {module_imports}

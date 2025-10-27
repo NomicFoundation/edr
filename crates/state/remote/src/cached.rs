@@ -1,7 +1,6 @@
 use derive_where::derive_where;
 use edr_primitives::{hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
-use edr_rpc_eth::RpcBlockChainSpec;
-use edr_rpc_spec::RpcEthBlock;
+use edr_rpc_spec::{RpcBlockChainSpec, RpcEthBlock};
 use edr_state_api::{account::AccountInfo, AccountStorage, State, StateError, StateMut};
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -166,7 +165,7 @@ mod tests {
     use std::{str::FromStr, sync::Arc};
 
     use edr_chain_l1::L1ChainSpec;
-    use edr_rpc_spec::EthRpcClientForChainSpec;
+    use edr_rpc_eth::client::EthRpcClientForChainSpec;
     use edr_test_utils::env::get_alchemy_url;
     use tokio::runtime;
 

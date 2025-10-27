@@ -2,18 +2,16 @@ use core::fmt::Debug;
 
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError,
-    BuiltBlockAndState, PrecompileFn, WrapDatabaseRef,
+    BuiltBlockAndState, DatabaseComponents, PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{overridden_block_number, HeaderOverrides, PartialHeader};
 use edr_chain_l1::block::EthBlockBuilder;
 use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::BlockChainSpec;
-use edr_database_components::DatabaseComponents;
 use edr_eip1559::ConstantBaseFeeParams;
 use edr_evm_spec::{config::EvmConfig, DatabaseComponentError};
 use edr_primitives::{Address, Bytes, HashMap, KECCAK_NULL_RLP, U256};
 use edr_state_api::{DynState, StateError};
-use op_revm::L1BlockInfo;
 
 use crate::{
     block::LocalBlock,
@@ -37,7 +35,6 @@ pub struct OpBlockBuilder<'builder, BlockchainErrorT: Debug> {
         OpChainSpec,
         LocalBlock,
     >,
-    l1_block_info: L1BlockInfo,
 }
 
 impl<'builder, BlockchainErrorT: std::error::Error>
@@ -59,8 +56,8 @@ impl<'builder, BlockchainErrorT: std::error::Error>
         >,
         state: Box<dyn DynState>,
         evm_config: &EvmConfig,
-        inputs: BlockInputs,
-        overrides: HeaderOverrides<Hardfork>,
+        mut inputs: BlockInputs,
+        mut overrides: HeaderOverrides<Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
     ) -> Result<
         Self,
@@ -160,7 +157,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
             custom_precompiles,
         )?;
 
-        Ok(Self { eth, l1_block_info })
+        Ok(Self { eth })
     }
 
     fn header(&self) -> &PartialHeader {

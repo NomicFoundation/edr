@@ -25,8 +25,7 @@ use edr_evm_spec::{
 use edr_primitives::{Bytes, HashMap};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_receipt_spec::ReceiptChainSpec;
-use edr_rpc_eth::RpcBlockChainSpec;
-use edr_rpc_spec::RpcChainSpec;
+use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_state_api::StateDiff;
 use revm_context_interface::JournalTr as _;
 use serde::{de::DeserializeOwned, Serialize};

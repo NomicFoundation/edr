@@ -7,7 +7,7 @@ use edr_chain_spec_provider::{default_block_config, ProviderChainSpec};
 use edr_defaults::CACHE_DIR;
 use edr_generic::GenericChainSpec;
 use edr_provider::spec::ForkedBlockchainForChainSpec;
-use edr_rpc_spec::EthRpcClientForChainSpec;
+use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::irregular::IrregularState;
 use edr_test_utils::env::get_alchemy_url;
 use edr_utils::random::RandomHashGenerator;

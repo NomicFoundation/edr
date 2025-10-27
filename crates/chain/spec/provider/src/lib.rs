@@ -5,13 +5,15 @@ use edr_block_api::{EthBlockData, FetchBlockReceipts};
 use edr_block_header::{BlockConfig, BlockHeader};
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::TransactionValidation;
-use edr_chain_spec_block::BlockChainSpec;
+use edr_chain_spec_block::{BlockChainSpec, SyncBlockChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{HashMap, B256};
 use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_spec::{RpcChainSpec, RpcEthBlock, RpcTransaction, RpcTypeFrom};
 use edr_transaction::{TransactionAndBlock, TransactionType};
 
+/// Trait for specifying the types needed to implement a chain-specific JSON-RPC
+/// provider.
 pub trait ProviderChainSpec: BlockChainSpec<
         Block: 'static,
         Hardfork: 'static + Debug + PartialOrd,
@@ -54,6 +56,12 @@ pub trait ProviderChainSpec: BlockChainSpec<
         default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
     ) -> u128;
 }
+
+/// Trait for [`ProviderChainSpec`] that meets all requirements for synchronous
+/// operations.
+pub trait SyncProviderChainSpec: ProviderChainSpec + SyncBlockChainSpec {}
+
+impl<ChainSpecT: ProviderChainSpec + SyncBlockChainSpec> SyncProviderChainSpec for ChainSpecT {}
 
 /// Returns the default block configuration for the given chain specification.
 pub fn default_block_config<'params, ChainSpecT: ProviderChainSpec>(

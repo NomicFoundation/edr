@@ -10,7 +10,7 @@ use op_revm::{
     precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpHaltReason, OpSpecId, OpTransaction,
     OpTransactionError,
 };
-use revm_context::BlockEnv;
+use revm_context::{BlockEnv, JournalTr as _};
 
 /// Type implementing the [`EvmBuilderTrait`] for the OP EVM.
 pub struct OpEvmBuilder;

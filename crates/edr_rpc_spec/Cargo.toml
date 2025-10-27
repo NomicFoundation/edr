@@ -6,7 +6,6 @@ edition.workspace = true
 [dependencies]
 edr_primitives.workspace = true
 edr_receipt.workspace = true
-edr_rpc_eth.workspace = true
 serde.workspace = true
 
 [lints]

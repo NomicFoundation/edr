@@ -11,17 +11,23 @@ use edr_primitives::{Address, Bytecode, Bytes, B256, KECCAK_EMPTY, U256, U64};
 use edr_receipt::log::FilterLog;
 use edr_rpc_client::RpcClient;
 pub use edr_rpc_client::{header, HeaderMap, RpcClientError};
+use edr_rpc_spec::{GetBlockNumber, RpcBlockChainSpec, RpcChainSpec};
 use edr_state_api::account::AccountInfo;
 use futures::StreamExt;
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{
-    fork::ForkMetadata, request_methods::RequestMethod, GetBlockNumber, RpcBlockChainSpec,
-};
+use crate::{fork::ForkMetadata, request_methods::RequestMethod};
 
 // Constrain parallel requests to avoid rate limiting on transport level and
 // thundering herd during backoff.
 const MAX_PARALLEL_REQUESTS: usize = 20;
+
+/// Helper type for a chain-specific [`EthRpcClient`].
+pub type EthRpcClientForChainSpec<ChainSpecT> = EthRpcClient<
+    ChainSpecT,
+    <ChainSpecT as RpcChainSpec>::RpcReceipt,
+    <ChainSpecT as RpcChainSpec>::RpcTransaction,
+>;
 
 #[derive_where(Debug)]
 pub struct EthRpcClient<

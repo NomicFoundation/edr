@@ -30,7 +30,6 @@ edr_provider.workspace = true
 edr_receipt.workspace = true
 edr_receipt_builder_api.workspace = true
 edr_receipt_spec.workspace = true
-edr_rpc_eth = { path = "../edr_rpc_eth" }
 edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_solidity = { path = "../edr_solidity" }
@@ -45,7 +44,7 @@ anyhow = "1.0.89"
 edr_blockchain_api.workspace = true
 edr_defaults = { path = "../edr_defaults" }
 edr_provider = { path = "../edr_provider", features = ["test-utils"] }
-edr_rpc_eth = { path = "../edr_rpc_eth", features = ["test-utils"] }
+edr_rpc_eth.workspace = true
 edr_rpc_client = { path = "../edr_rpc_client" }
 edr_test_utils = { path = "../edr_test_utils" }
 edr_utils.workspace = true

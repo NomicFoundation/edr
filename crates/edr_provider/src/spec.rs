@@ -102,16 +102,11 @@ pub type LocalBlockchainForChainSpec<ChainSpecT> = LocalBlockchain<
 
 pub trait ProviderSpec<TimerT: Clone + TimeSinceEpoch>:
     ProviderChainSpec<
-        // Block: FetchBlockReceipts<Arc<Self::Receipt>, Error = BlockchainErrorForChainSpec<Self>>,
-        // LocalBlock: FetchBlockReceipts<
-        //     Arc<Self::Receipt>,
-        //     Error = BlockchainErrorForChainSpec<Self>,
-        // >,
-        RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
-        RpcCallRequest: MaybeSender,
-        RpcTransactionRequest: Sender,
-        SignedTransaction: IsSupported,
-    >
+    RpcBlock<B256>: From<BlockAndTotalDifficulty<Arc<Self::Block>, Self::SignedTransaction>>,
+    RpcCallRequest: MaybeSender,
+    RpcTransactionRequest: Sender,
+    SignedTransaction: IsSupported,
+>
 {
     type PooledTransaction: HardforkValidationData
         + Into<Self::SignedTransaction>

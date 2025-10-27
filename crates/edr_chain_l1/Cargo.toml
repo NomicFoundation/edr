@@ -25,7 +25,6 @@ edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_receipt_builder_api.workspace = true
 edr_receipt_spec.workspace = true
-edr_rpc_eth.workspace = true
 edr_rpc_spec.workspace = true
 edr_runtime_spec.workspace = true
 edr_signer.workspace = true

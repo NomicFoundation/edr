@@ -63,13 +63,13 @@ pub trait BlockChainSpec:
 pub trait SyncBlockChainSpec:
     BlockChainSpec<
     Block: Send,
-    FetchReceiptError: Send,
+    FetchReceiptError: Send + Sync,
     GenesisBlockCreationError: Send + Sync,
     HaltReason: Send,
     Hardfork: Send + Sync,
     LocalBlock: Send + Sync,
     Receipt: Send + Sync,
-    SignedTransaction: Send + Sync + TransactionValidation<ValidationError: Send>,
+    SignedTransaction: Send + Sync + TransactionValidation<ValidationError: Send + Sync>,
 >
 {
 }
@@ -77,13 +77,13 @@ pub trait SyncBlockChainSpec:
 impl<
         ChainSpecT: BlockChainSpec<
             Block: Send,
-            FetchReceiptError: Send,
+            FetchReceiptError: Send + Sync,
             GenesisBlockCreationError: Send + Sync,
             HaltReason: Send,
             Hardfork: Send + Sync,
             LocalBlock: Send + Sync,
             Receipt: Send + Sync,
-            SignedTransaction: Send + Sync + TransactionValidation<ValidationError: Send>,
+            SignedTransaction: Send + Sync + TransactionValidation<ValidationError: Send + Sync>,
         >,
     > SyncBlockChainSpec for ChainSpecT
 {

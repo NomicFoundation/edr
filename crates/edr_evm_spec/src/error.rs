@@ -35,20 +35,29 @@ pub enum TransactionError<DatabaseErrorT, TransactionValidationErrorT> {
     },
 }
 
-impl<ErrorT: DBErrorMarker + std::error::Error>
-    From<EVMError<ErrorT, EvmTransactionValidationError>>
-    for TransactionError<ErrorT, EvmTransactionValidationError>
+impl<DatabaseErrorT> From<EvmTransactionValidationError>
+    for TransactionError<DatabaseErrorT, EvmTransactionValidationError>
 {
-    fn from(value: EVMError<ErrorT, EvmTransactionValidationError>) -> Self {
+    fn from(value: EvmTransactionValidationError) -> Self {
         match value {
-            EVMError::Custom(error) => TransactionError::Custom(error),
-            EVMError::Database(error) => TransactionError::Database(error),
-            EVMError::Header(error) => TransactionError::InvalidHeader(error),
-            EVMError::Transaction(EvmTransactionValidationError::LackOfFundForMaxFee {
-                fee,
-                balance,
-            }) => TransactionError::LackOfFundForMaxFee { fee, balance },
-            EVMError::Transaction(error) => TransactionError::InvalidTransaction(error),
+            EvmTransactionValidationError::LackOfFundForMaxFee { fee, balance } => {
+                Self::LackOfFundForMaxFee { fee, balance }
+            }
+            other => Self::InvalidTransaction(other),
+        }
+    }
+}
+
+impl<DatabaseErrorT: DBErrorMarker + std::error::Error>
+    From<EVMError<DatabaseErrorT, EvmTransactionValidationError>>
+    for TransactionError<DatabaseErrorT, EvmTransactionValidationError>
+{
+    fn from(value: EVMError<DatabaseErrorT, EvmTransactionValidationError>) -> Self {
+        match value {
+            EVMError::Custom(error) => Self::Custom(error),
+            EVMError::Database(error) => Self::Database(error),
+            EVMError::Header(error) => Self::InvalidHeader(error),
+            EVMError::Transaction(error) => Self::from(error),
         }
     }
 }

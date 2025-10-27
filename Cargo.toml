@@ -54,7 +54,8 @@ members = [
     "crates/state/remote",
     "crates/test/block_replay",
     "crates/test/receipt",
-    "crates/tools",
+    "crates/tool/cli",
+    "crates/tool/op_chain_config_generator",
     "crates/trie",
     # Foundry
     "crates/foundry/cheatcodes",
@@ -170,7 +171,7 @@ edr_state_fork = { path = "crates/state/fork" }
 edr_state_persistent_trie = { path = "crates/state/persistent_trie" }
 edr_state_remote = { path = "crates/state/remote" }
 edr_test_receipt = { path = "crates/test/receipt" }
-edr_test_replay_block = { path = "crates/test/block_replay" }
+edr_test_block_replay = { path = "crates/test/block_replay" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 edr_transaction = { path = "crates/edr_transaction" }
 edr_trie = { path = "crates/trie" }
@@ -267,6 +268,7 @@ chrono = { version = "0.4", default-features = false, features = [
     "clock",
     "std",
 ] }
+clap = { version = "3.2.20", features = ["derive"] }
 color-eyre = "0.6"
 derive_more = { version = "2", default-features = false }
 derive-where = { version = "1.6.0", default-features = false }

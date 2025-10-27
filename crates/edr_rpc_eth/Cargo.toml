@@ -14,6 +14,7 @@ edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_receipt.workspace = true
 edr_rpc_client.workspace = true
+edr_rpc_spec.workspace = true
 edr_signer.workspace = true
 edr_state_api.workspace = true
 edr_transaction.workspace = true
@@ -40,7 +41,6 @@ tempfile = { version = "3.7.1", default-features = false }
 walkdir = { version = "2.3.3", default-features = false }
 
 [features]
-test-utils = []
 test-remote = []
 tracing = ["dep:tracing", "edr_rpc_client/tracing"]
 

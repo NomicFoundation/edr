@@ -5,7 +5,7 @@ use edr_transaction::TransactionType as _;
 
 use crate::{
     eip2718::TypedEnvelope,
-    receipt::{self, block::OpBlockReceipt, OpExecutionReceipt},
+    receipt::{self, block::OpBlockReceipt, execution::OpExecutionReceipt},
     rpc::OpRpcBlockReceipt,
     transaction, Hardfork,
 };
@@ -170,7 +170,7 @@ mod tests {
     use edr_test_receipt::impl_execution_receipt_serde_tests;
 
     use super::*;
-    use crate::{receipt::OpExecutionReceipt, Hardfork, OpChainSpec};
+    use crate::OpChainSpec;
 
     impl_execution_receipt_serde_tests! {
         OpChainSpec => {

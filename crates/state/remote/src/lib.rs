@@ -7,11 +7,8 @@ use std::sync::Arc;
 use derive_where::derive_where;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, Bytecode, B256, U256};
-use edr_rpc_eth::{
-    client::{EthRpcClient, RpcClientError},
-    RpcBlockChainSpec,
-};
-use edr_rpc_spec::RpcEthBlock;
+use edr_rpc_eth::client::{EthRpcClient, RpcClientError};
+use edr_rpc_spec::{RpcBlockChainSpec, RpcEthBlock};
 use edr_state_api::{account::AccountInfo, State, StateError};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime;
@@ -132,7 +129,7 @@ mod tests {
     use std::str::FromStr;
 
     use edr_chain_l1::L1ChainSpec;
-    use edr_rpc_spec::EthRpcClientForChainSpec;
+    use edr_rpc_eth::client::EthRpcClientForChainSpec;
     use tokio::runtime;
 
     use super::*;

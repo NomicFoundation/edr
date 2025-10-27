@@ -7,7 +7,6 @@ use std::{
 
 use anyhow::Context;
 use derive_where::derive_where;
-use edr_evm::blockchain::BlockchainErrorForChainSpec;
 use edr_generic::GenericChainSpec;
 use edr_provider::{
     time::CurrentTime, Logger, ProviderErrorForChainSpec, ProviderRequest, ProviderSpec,
@@ -270,8 +269,6 @@ struct DisabledLogger<ChainSpecT: ProviderSpec<CurrentTime>> {
 impl<ChainSpecT: ProviderSpec<CurrentTime>> Logger<ChainSpecT, CurrentTime>
     for DisabledLogger<ChainSpecT>
 {
-    type BlockchainError = BlockchainErrorForChainSpec<GenericChainSpec>;
-
     fn is_enabled(&self) -> bool {
         false
     }

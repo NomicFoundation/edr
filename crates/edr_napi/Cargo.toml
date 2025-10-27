@@ -26,9 +26,8 @@ edr_op = { path = "../edr_op", optional = true }
 edr_primitives.workspace = true
 edr_provider = { path = "../edr_provider" }
 edr_receipt.workspace = true
-edr_rpc_client = { path = "../edr_rpc_client" }
+edr_rpc_client.workspace = true
 edr_rpc_eth = { path = "../edr_rpc_eth" }
-edr_rpc_spec.workspace = true
 edr_scenarios = { workspace = true, optional = true }
 edr_state_api.workspace = true
 edr_signer.workspace = true
@@ -75,6 +74,11 @@ foundry-cheatcodes.workspace = true
 foundry-compilers.workspace = true
 edr_common.workspace = true
 tempfile = "3.10.1"
+edr_blockchain_fork.workspace = true
+edr_chain_spec_block.workspace = true
+edr_chain_config.workspace = true
+edr_precompile.workspace = true
+edr_evm_spec.workspace = true
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }

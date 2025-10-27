@@ -29,8 +29,7 @@ use edr_primitives::{Address, Bytes, HashMap, B256, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_receipt_spec::ReceiptChainSpec;
-use edr_rpc_eth::RpcBlockChainSpec;
-use edr_rpc_spec::RpcChainSpec;
+use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_state_api::StateDiff;
 
 use crate::{

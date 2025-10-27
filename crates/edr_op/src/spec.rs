@@ -1,26 +1,21 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use alloy_eips::eip7840::BlobParams;
 use alloy_rlp::RlpEncodable;
-use edr_block_api::{
-    sync::SyncBlock, FetchBlockReceipts, GenesisBlockFactory, GenesisBlockOptions,
-};
+use edr_block_api::{sync::SyncBlock, GenesisBlockFactory, GenesisBlockOptions};
 use edr_block_header::{
-    calculate_next_base_fee_per_gas, BlobGas, BlockConfig, BlockHeader, HeaderAndEvmSpec,
-    PartialHeader,
+    calculate_next_base_fee_per_gas, BlockConfig, BlockHeader, HeaderAndEvmSpec,
 };
-use edr_block_local::{EthLocalBlock, LocalBlockCreationError};
+use edr_block_local::LocalBlockCreationError;
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
 use edr_chain_spec::{
-    BlobExcessGasAndPrice, BlockEnvChainSpec, ChainSpec, ContextChainSpec, EvmHaltReason,
-    EvmSpecId, EvmTransactionValidationError, HardforkChainSpec, TransactionValidation,
+    BlockEnvChainSpec, ChainSpec, ContextChainSpec, EvmHaltReason, EvmTransactionValidationError,
+    HardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec;
-use edr_database_components::DatabaseComponentError;
 use edr_eip1559::BaseFeeParams;
 use edr_evm_spec::{
     handler::EthInstructions, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
@@ -31,16 +26,16 @@ use edr_napi_core::{
     napi,
     spec::{marshal_response_data, Response, SyncNapiSpec},
 };
-use edr_primitives::{HashMap, U256};
+use edr_primitives::HashMap;
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_receipt::ExecutionReceiptChainSpec;
 use edr_receipt_spec::ReceiptChainSpec;
-use edr_rpc_eth::{jsonrpc, RpcBlockChainSpec};
-use edr_rpc_spec::RpcChainSpec;
+use edr_rpc_eth::jsonrpc;
+use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_state_api::StateDiff;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
-use revm_context::{CfgEnv, Journal, JournalTr as _};
+use revm_context::{result::EVMError, CfgEnv, Journal, JournalTr as _};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -53,11 +48,30 @@ use crate::{
         execution::{OpExecutionReceipt, OpExecutionReceiptBuilder},
     },
     rpc,
-    transaction::{
-        self, pooled::OpPooledTransaction, request::OpTransactionRequest, InvalidTransaction,
-    },
-    BlockEnv, HaltReason, Hardfork,
+    transaction::{self, pooled::OpPooledTransaction, request::OpTransactionRequest},
+    HaltReason, Hardfork, InvalidTransaction,
 };
+
+fn cast_evm_error<DatabaseErrorT: Debug + std::error::Error>(
+    error: EVMError<DatabaseErrorT, InvalidTransaction>,
+) -> TransactionError<DatabaseErrorT, InvalidTransaction> {
+    match error {
+        EVMError::Custom(error) => TransactionError::Custom(error),
+        EVMError::Database(error) => TransactionError::Database(error),
+        EVMError::Header(error) => TransactionError::InvalidHeader(error),
+        EVMError::Transaction(error) => {
+            if let InvalidTransaction::Base(EvmTransactionValidationError::LackOfFundForMaxFee {
+                fee,
+                balance,
+            }) = error
+            {
+                TransactionError::LackOfFundForMaxFee { fee, balance }
+            } else {
+                TransactionError::InvalidTransaction(error)
+            }
+        }
+    }
+}
 
 /// Chain specification for the Ethereum JSON-RPC API.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, RlpEncodable)]
@@ -103,7 +117,7 @@ impl EvmChainSpec for OpChainSpec {
     >(
         block: BlockT,
         cfg: CfgEnv<Self::Hardfork>,
-        transaction: Self::SignedTransaction,
+        _transaction: Self::SignedTransaction,
         mut database: DatabaseT,
         precompile_provider: PrecompileProviderT,
     ) -> Result<
@@ -113,7 +127,8 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
-        let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)?;
+        let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
+            .map_err(TransactionError::Database)?;
 
         let context = Context {
             block,
@@ -135,7 +150,7 @@ impl EvmChainSpec for OpChainSpec {
             precompile_provider,
         ));
 
-        evm.replay().map_err(|error| TransactionError::from)
+        evm.replay().map_err(cast_evm_error)
     }
 
     fn dry_run_with_inspector<
@@ -160,7 +175,8 @@ impl EvmChainSpec for OpChainSpec {
             <Self::SignedTransaction as TransactionValidation>::ValidationError,
         >,
     > {
-        let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)?;
+        let chain = L1BlockInfo::try_fetch(&mut database, block.number(), cfg.spec)
+            .map_err(TransactionError::Database)?;
 
         let context = Context {
             block,
@@ -183,7 +199,7 @@ impl EvmChainSpec for OpChainSpec {
             precompile_provider,
         ));
 
-        evm.inspect_tx(transaction).map_err(TransactionError::from)
+        evm.inspect_tx(transaction).map_err(cast_evm_error)
     }
 }
 
@@ -334,6 +350,7 @@ impl<TimerT: Clone + TimeSinceEpoch> SyncNapiSpec<TimerT> for OpChainSpec {
 #[cfg(test)]
 mod tests {
 
+    use edr_block_header::BlobGas;
     use edr_chain_spec::{BlockEnvConstructor as _, BlockEnvTrait as _};
     use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 

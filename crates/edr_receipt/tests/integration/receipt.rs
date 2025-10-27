@@ -14,7 +14,7 @@ mod remote {
                         use edr_chain_l1::{receipt::L1BlockReceipt, L1ChainSpec, TypedEnvelope};
                         use edr_eth::PreEip1898BlockSpec;
                         use edr_receipt::{log::FilterLog};
-                        use edr_rpc_spec::EthRpcClientForChainSpec;
+                        use edr_rpc_eth::client::EthRpcClientForChainSpec;
                         use edr_test_utils::env::get_alchemy_url;
                         use edr_trie::ordered_trie_root;
 
@@ -67,7 +67,7 @@ mod remote {
                         use edr_chain_l1::{receipt::L1BlockReceipt, L1ChainSpec, TypedEnvelope};
                         use edr_primitives::B256;
                         use edr_receipt::{log::{ExecutionLog, FilterLog}, MapReceiptLogs as _};
-                        use edr_rpc_spec::EthRpcClientForChainSpec;
+                        use edr_rpc_eth::client::EthRpcClientForChainSpec;
                         use edr_test_utils::env::get_alchemy_url;
                         use tempfile::TempDir;
 

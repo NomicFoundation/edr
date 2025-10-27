@@ -3,8 +3,23 @@
 
 use edr_primitives::{B256, U256};
 use edr_receipt::ExecutionReceiptChainSpec;
-use edr_rpc_eth::{client::EthRpcClient, RpcBlockChainSpec};
 use serde::{de::DeserializeOwned, Serialize};
+
+/// Trait for retrieving a block's number.
+pub trait GetBlockNumber {
+    /// Retrieves the block number, if available. If the block is pending,
+    /// returns `None`.
+    fn number(&self) -> Option<u64>;
+}
+
+/// Trait for specifying Ethereum-based JSON-RPC block types for a chain
+/// type.
+pub trait RpcBlockChainSpec: Sized {
+    /// Type representing an RPC block
+    type RpcBlock<DataT>: GetBlockNumber + DeserializeOwned + Serialize
+    where
+        DataT: DeserializeOwned + Serialize;
+}
 
 /// Trait for specifying Ethereum-based JSON-RPC method types.
 pub trait RpcChainSpec: ExecutionReceiptChainSpec + RpcBlockChainSpec {
@@ -50,10 +65,3 @@ pub trait RpcTypeFrom<InputT> {
     /// Constructs an RPC type from the provided internal value.
     fn rpc_type_from(value: &InputT, hardfork: Self::Hardfork) -> Self;
 }
-
-/// Helper type for a chain-specific [`EthRpcClient`].
-pub type EthRpcClientForChainSpec<ChainSpecT> = EthRpcClient<
-    ChainSpecT,
-    <ChainSpecT as RpcChainSpec>::RpcReceipt,
-    <ChainSpecT as RpcChainSpec>::RpcTransaction,
->;
