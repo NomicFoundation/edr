@@ -32,20 +32,10 @@ jobs:
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Update CA certificates
-        if: ${{ matrix.os == 'macos-15' }}
-        run: |
-          brew install ca-certificates
-          brew link --force ca-certificates
-          echo "SSL_CERT_FILE=/usr/local/etc/openssl/cert.pem" >> $GITHUB_ENV
-          echo "CURL_CA_BUNDLE=/usr/local/etc/openssl/cert.pem" >> $GITHUB_ENV
-
       - name: Fix MacOS certificates for SFW
         if: ${{ matrix.os == 'macos-15' }}
         run: |
           cat >> ~/.cargo/config.toml << 'EOF'
-          [http]
-          cainfo = "/etc/ssl/cert.pem"
 
           [net]
           git-fetch-with-cli = true
