@@ -43,7 +43,7 @@ jobs:
           EOF
 
       - name: Cargo safety
-        run: sfw cargo fetch
+        run: cargo fetch
 
       - name: Upload SFW report
         if: always()
