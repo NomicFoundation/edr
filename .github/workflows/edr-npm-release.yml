@@ -119,6 +119,7 @@ jobs:
           EOF
 
       - name: Download Cargo dependecies
+        if: ${{ !matrix.settings.docker }}
         run: sfw cargo fetch
 
       - name: Build (non-docker)

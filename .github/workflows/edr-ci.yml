@@ -17,9 +17,6 @@ jobs:
   check-edr-safety:
     name: Check EDR dependencies safety (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    env:
-      SFW_DEBUG: true
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
