@@ -426,7 +426,7 @@ jobs:
           echo "Files defined in package.json: ${FILES[@]}"
           echo "Other files to include in tarball: ${EXTRA_FILES[@]}"
           echo "Creating bundle with necessary files for publishing"
-          tar -czvfh $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
+          tar --dereference -czvf $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
       - name: Upload packed tarball
