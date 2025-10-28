@@ -183,7 +183,7 @@ jobs:
     needs:
       - build
     permissions:
-      contents: read # TODO: is write necessary for building the package?
+      contents: read
     strategy:
       fail-fast: false
       matrix:
