@@ -7,7 +7,7 @@ mod macros;
 use core::fmt::Debug;
 use std::{collections::BTreeMap, sync::Arc};
 
-use edr_block_api::EmptyBlock as _;
+use edr_block_api::{sync::SyncBlock, BlockAndTotalDifficulty, EmptyBlock as _};
 use edr_block_header::{BlockConfig, HeaderOverrides, PartialHeader};
 use edr_block_local::EthLocalBlock;
 use edr_chain_l1::{receipt::builder::L1ExecutionReceiptBuilder, L1ChainSpec};
@@ -26,13 +26,13 @@ use edr_test_transaction::dummy_eip155_transaction;
 pub use paste;
 
 /// Helper type for a chain-specific [`BlockAndTotalDifficulty`].
-pub type BlockAndTotalDifficultyForChainSpec<ChainSpecT> = edr_block_api::BlockAndTotalDifficulty<
+pub type BlockAndTotalDifficultyForChainSpec<ChainSpecT> = BlockAndTotalDifficulty<
     Arc<<ChainSpecT as BlockChainSpec>::Block>,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;
 
 /// Helper type for a chain-specific [`SyncBlock`].
-pub type DynSyncBlock<ChainSpecT> = dyn edr_block_api::sync::SyncBlock<
+pub type DynSyncBlock<ChainSpecT> = dyn SyncBlock<
     Arc<<ChainSpecT as ReceiptChainSpec>::Receipt>,
     <ChainSpecT as ChainSpec>::SignedTransaction,
     Error = <ChainSpecT as BlockChainSpec>::FetchReceiptError,

@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug};
 
-use edr_block_api::{Block as _, GenesisBlockFactory};
+use edr_block_api::Block as _;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError, Blockchain,
     BuiltBlockAndState, PrecompileFn, WrapDatabaseRef,
@@ -21,12 +21,6 @@ use edr_state_api::{DynState, StateError};
 use serde::{Deserialize, Serialize};
 
 use crate::{mempool::OrderedTransaction, MemPool};
-
-/// Helper type for a chain-specific [`MineBlockResultAndState`].
-pub type MineBlockResultAndStateForChainSpec<ChainSpecT> = BuiltBlockAndState<
-    <ChainSpecT as ChainSpec>::HaltReason,
-    <ChainSpecT as GenesisBlockFactory>::LocalBlock,
->;
 
 /// The type of ordering to use when selecting blocks to mine.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

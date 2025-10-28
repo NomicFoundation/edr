@@ -77,8 +77,6 @@ pub trait BlockEnvForHardfork<HardforkT> {
     fn prevrandao_for_hardfork(&self, hardfork: HardforkT) -> Option<B256>;
 
     /// Excess blob gas and blob gasprice.
-    /// See also [`calc_excess_blob_gas`]
-    /// and [`calc_blob_gasprice`].
     ///
     /// Incorporated as part of the Cancun upgrade via [EIP-4844].
     ///
@@ -88,7 +86,7 @@ pub trait BlockEnvForHardfork<HardforkT> {
         hardfork: HardforkT,
     ) -> Option<BlobExcessGasAndPrice>;
 
-    /// See [EIP-4844] and [`calc_blob_gasprice`].
+    /// See [EIP-4844].
     ///
     /// Returns `None` if `Cancun` is not enabled.
     ///
