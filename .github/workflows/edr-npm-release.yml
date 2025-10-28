@@ -24,10 +24,6 @@ on:
   pull_request: null
   workflow_dispatch:
 
-concurrency:
-  group: publish-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
