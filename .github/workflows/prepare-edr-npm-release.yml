@@ -65,6 +65,7 @@ jobs:
 
       - name: Save HEAD commit sha
         id: save-commit
+        shell: bash
         run: |
           COMMIT_SHA=$(git rev-parse HEAD)
           echo "Current HEAD: $COMMIT_SHA"
