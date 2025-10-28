@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::{Bytes, U256};
+use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{
     fuzz::CounterExample,
     result::{SuiteResult, TestStatus},
@@ -16,7 +17,7 @@ async fn test_fuzz() {
         .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)|testSuccessChecker\(uint256\)|testSuccessChecker2\(int256\)|testSuccessChecker3\(uint32\)")
         .exclude_paths("invariant");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let suite_result = runner.test_collect(filter).await;
+    let suite_result = runner.test_collect(filter).await.suite_results;
 
     assert!(!suite_result.is_empty());
 
@@ -53,7 +54,7 @@ async fn test_successful_fuzz_cases() {
         .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)")
         .exclude_paths("invariant");
     let runner = TEST_DATA_DEFAULT.runner().await;
-    let suite_result = runner.test_collect(filter).await;
+    let suite_result = runner.test_collect(filter).await.suite_results;
 
     assert!(!suite_result.is_empty());
 
@@ -89,7 +90,7 @@ async fn test_fuzz_collection() {
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(6u32));
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let results = runner.test_collect(filter).await;
+    let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
@@ -138,6 +139,7 @@ async fn test_persist_fuzz_failure() {
             $runner
                 .clone()
                 .test_collect(filter.clone()).await
+                .suite_results
                 .get("default/fuzz/FuzzFailurePersist.t.sol:FuzzFailurePersistTest")
                 .unwrap()
                 .test_results
@@ -174,4 +176,56 @@ async fn test_persist_fuzz_failure() {
     };
     // empty file is used to load failure so new calldata is generated
     assert_ne!(initial_calldata, new_calldata);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_gas_report() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzCollection.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.invariant.depth = 100;
+    config.invariant.runs = 1000;
+    config.fuzz.runs = 1000;
+    config.fuzz.seed = Some(U256::from(6u32));
+    config.generate_gas_report = true;
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let test_result = runner.test_collect(filter).await.test_result;
+
+    assert!(test_result.gas_report.is_some());
+
+    let gas_report = test_result.gas_report.as_ref().unwrap();
+    let sample_contract_report = gas_report
+        .contracts
+        .get("default/fuzz/FuzzCollection.t.sol:SampleContract")
+        .unwrap();
+
+    assert_eq!(sample_contract_report.deployments.len(), 1);
+    let deployment = sample_contract_report.deployments.first().unwrap();
+
+    assert_eq!(deployment.gas, 224_987);
+    assert_eq!(deployment.size, 743);
+    assert_eq!(deployment.status, GasReportExecutionStatus::Success);
+
+    assert_eq!(sample_contract_report.functions.len(), 6);
+    assert!(sample_contract_report.functions.contains_key("counterX2()"));
+    assert!(sample_contract_report
+        .functions
+        .contains_key("compare(uint256)"));
+    assert!(sample_contract_report
+        .functions
+        .contains_key("breakTheInvariant(uint256)"));
+    assert!(sample_contract_report.functions.contains_key("counter()"));
+    assert!(sample_contract_report
+        .functions
+        .contains_key("found_needle()"));
+    assert!(sample_contract_report
+        .functions
+        .contains_key("incrementBy(uint256)"));
+
+    let increment_by_reports = sample_contract_report
+        .functions
+        .get("incrementBy(uint256)")
+        .unwrap();
+
+    assert!(!increment_by_reports.is_empty());
+    assert!(increment_by_reports.iter().all(|r| r.gas > 0));
 }

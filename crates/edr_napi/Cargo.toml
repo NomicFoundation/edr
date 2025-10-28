@@ -18,7 +18,7 @@ edr_chain_spec.workspace = true
 edr_coverage.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
-edr_runtime.workspace = true
+edr_gas_report.workspace = true
 edr_generic.workspace = true
 edr_instrument.workspace = true
 edr_napi_core.workspace = true
@@ -28,6 +28,7 @@ edr_provider.workspace = true
 edr_receipt.workspace = true
 edr_rpc_client.workspace = true
 edr_rpc_spec.workspace = true
+edr_runtime.workspace = true
 edr_scenarios = { workspace = true, optional = true }
 edr_state_api.workspace = true
 edr_signer.workspace = true

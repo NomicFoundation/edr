@@ -31,15 +31,15 @@ thiserror.workspace = true
 
 [dev-dependencies]
 anyhow = "1.0.89"
+edr_chain_l1.workspace = true
 edr_defaults.workspace = true
 edr_rpc_eth.workspace = true
+edr_runtime.workspace = true
 edr_test_utils.workspace = true
 lazy_static = "1.4.0"
 paste.workspace = true
 serde_json.workspace = true
 tokio = { version = "1.23.0", features = ["macros"] }
-edr_chain_l1.workspace = true
-edr_runtime.workspace = true
 
 [features]
 default = ["std"]

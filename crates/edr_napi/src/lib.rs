@@ -20,7 +20,7 @@ pub mod context;
 /// Types for decoding smart contract data.
 pub mod contract_decoder;
 mod debug_trace;
-pub mod gas_reports;
+pub mod gas_report;
 /// Types and functions related to code coverage instrumentation.
 pub mod instrument;
 /// Types for EVM execution logs.

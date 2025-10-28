@@ -34,6 +34,7 @@ edr_eth.workspace = true
 edr_runtime = { workspace = true, features = ["tracing"] }
 edr_evm.workspace = true
 edr_evm_spec.workspace = true
+edr_gas_report.workspace = true
 edr_precompile.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true

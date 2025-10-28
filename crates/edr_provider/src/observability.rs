@@ -12,13 +12,11 @@ use edr_evm_spec::{
     },
     ContextTrait, Inspector, JournalTrait,
 };
+use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_runtime::{journal::JournalExt, trace::TraceCollector};
 use edr_state_api::State;
 
-use crate::{
-    console_log::ConsoleLogCollector, gas_reports::SyncOnCollectedGasReportCallback, mock::Mocker,
-    SyncCallOverride,
-};
+use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
 
 /// Convenience type alias for [`ObservabilityConfig`].
 ///

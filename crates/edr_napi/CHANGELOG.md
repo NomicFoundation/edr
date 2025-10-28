@@ -1,5 +1,32 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.10
+
+### Patch Changes
+
+- 8c1f798: Fixed gas calculation for EIP-7702 refunds
+
+## 0.12.0-next.9
+
+### Minor Changes
+
+- 88a23dc: Fix prepublish step so we again publish the arch/os specific packages.
+
+## 0.12.0-next.8
+
+### Minor Changes
+
+- d0a3a41: Added the ability to collect gas reports for mining blocks and `eth_call`
+- c54a499: make all parameters of `eth_feeHistory` rpc call & provider method call required
+- d0a3a41: Added the ability to collect gas reports for Solidity tests
+
+### Patch Changes
+
+- a2d99ba: Fixed panic due to invalid GasPriceOracle bytecode for Isthmus OP hardfork
+- 23e8ad8: Added docs for `runSolidityTests` arguments.
+- 0047135: Update list of unsupported cheatcodes with cheatcodes up to Foundry 1.3.6
+- b355c15: Fixed panic when executing eth_call transaction with Isthmus OP hardfork
+
 ## 0.12.0-next.7
 
 ### Minor Changes

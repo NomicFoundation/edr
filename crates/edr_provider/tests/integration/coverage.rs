@@ -6,10 +6,11 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
+use edr_gas_report::GasReport;
 use edr_primitives::{bytes, Address, Bytes, HashSet, B256};
 use edr_provider::{
-    gas_reports::GasReport, test_utils::create_test_config, time::CurrentTime, MethodInvocation,
-    NoopLogger, Provider, ProviderRequest,
+    test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
+    ProviderRequest,
 };
 use edr_signer::public_key_to_address;
 use edr_solidity::contract_decoder::ContractDecoder;

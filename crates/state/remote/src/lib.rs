@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use derive_where::derive_where;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
-use edr_primitives::{Address, Bytecode, B256, U256};
+use edr_primitives::{Address, Bytecode, B256, KECCAK_EMPTY, U256};
 use edr_rpc_eth::client::{EthRpcClient, RpcClientError};
 use edr_rpc_spec::{RpcBlockChainSpec, RpcEthBlock};
 use edr_state_api::{account::AccountInfo, State, StateError};
@@ -94,14 +94,28 @@ impl<
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
     fn basic(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        Ok(Some(tokio::task::block_in_place(move || {
+        let account_info = tokio::task::block_in_place(move || {
             self.runtime
                 .block_on(
                     self.client
                         .get_account_info(address, Some(BlockSpec::Number(self.block_number))),
                 )
                 .map_err(StateError::Remote)
-        })?))
+        })?;
+
+        // If the account is empty, we must return `None` to signify non-existence.
+        // See <https://github.com/bluealloy/revm/pull/3097>
+        // Using bitwise AND to avoid short-circuiting
+        let account_info = if (account_info.code_hash == KECCAK_EMPTY)
+            & (account_info.nonce == 0)
+            & (account_info.balance == U256::ZERO)
+        {
+            None
+        } else {
+            Some(account_info)
+        };
+
+        Ok(account_info)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]

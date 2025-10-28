@@ -12,9 +12,9 @@ alloy-sol-types.workspace = true
 derive-where.workspace = true
 edr_chain_spec.workspace = true
 edr_eth.workspace = true
-edr_runtime.workspace = true
 edr_evm_spec.workspace = true
 edr_primitives.workspace = true
+edr_runtime.workspace = true
 foundry-compilers.workspace = true
 indexmap = { version = "2", features = ["serde"] }
 log = { version = "0.4.17", default-features = false }

@@ -736,6 +736,13 @@ export interface SolidityTestRunnerConfigArgs {
    * match the pattern will be executed and reported as a test result.
    */
   testPattern?: string
+  /**
+   * Controls whether to generate a gas report after running the tests.
+   * Enabling this also enables collection of all traces and EVM isolation
+   * mode.
+   * Defaults to false.
+   */
+  generateGasReport?: boolean
 }
 /** Fuzz testing configuration */
 export interface FuzzConfigArgs {
@@ -1136,6 +1143,11 @@ export interface DecodedTraceParameters {
    */
   arguments: Array<string>
 }
+/** The result of a Solidity test run. */
+export interface SolidityTestResult {
+  /** Gas report, if it was generated. */
+  readonly gasReport?: GasReport
+}
 /** Configuration for subscriptions. */
 export interface SubscriptionConfig {
   /** Callback to be called when a new event is received. */
@@ -1396,22 +1408,37 @@ export interface Withdrawal {
   amount: bigint
 }
 export declare class EdrContext {
-  /**Creates a new [`EdrContext`] instance. Should only be called once! */
+  /** Creates a new [`EdrContext`] instance. Should only be called once! */
   constructor()
-  /**Constructs a new provider with the provided configuration. */
+  /** Constructs a new provider with the provided configuration. */
   createProvider(chainType: string, providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder): Promise<Provider>
-  /**Registers a new provider factory for the provided chain type. */
+  /** Registers a new provider factory for the provided chain type. */
   registerProviderFactory(chainType: string, factory: ProviderFactory): Promise<void>
   registerSolidityTestRunnerFactory(chainType: string, factory: SolidityTestRunnerFactory): Promise<void>
   /**
-   *Executes Solidity tests.
+   * Executes Solidity tests
    *
-   *The function will return as soon as test execution is started.
-   *The progress callback will be called with the results of each test
-   *suite. It is up to the caller to track how many times the callback
-   *is called to know when all tests are done.
+   * The function will return a promise that resolves to a
+   * [`SolidityTestResult`].
+   *
+   * Arguments:
+   * - `chainType`: the same chain type that was passed to
+   *   `registerProviderFactory`.
+   * - `artifacts`: the project's compilation output artifacts. It's
+   *   important to include include all artifacts here, otherwise cheatcodes
+   *   that access artifacts and other functionality (e.g. auto-linking, gas
+   *   reports) can break.
+   * - `testSuites`: the test suite ids that specify which test suites to
+   *   execute. The test suite artifacts must be present in `artifacts`.
+   * - `configArgs`: solidity test runner configuration. See the struct docs
+   *   for details.
+   * - `tracingConfig`: the build infos used for stack trace generation.
+   *   These are lazily parsed and it's important that they're passed as
+   *   Uint8 arrays for performance.
+   * - `onTestSuiteCompletedCallback`: The progress callback will be called
+   *   with the results of each test suite as soon as it finished executing.
    */
-  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<void>
+  runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
 }
 export declare class ContractDecoder {
   /**Creates an empty instance. */

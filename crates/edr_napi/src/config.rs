@@ -7,8 +7,8 @@ use std::{
 
 use edr_coverage::reporter::SyncOnCollectedCoverageCallback;
 use edr_eip1559::{BaseFeeActivation, ConstantBaseFeeParams};
+use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_primitives::{Bytes, HashMap, HashSet};
-use edr_provider::gas_reports::SyncOnCollectedGasReportCallback;
 use edr_signer::{secret_key_from_str, SecretKey};
 use napi::{
     bindgen_prelude::{BigInt, Promise, Reference, Uint8Array},
@@ -21,7 +21,7 @@ use napi::{
 use napi_derive::napi;
 
 use crate::{
-    account::AccountOverride, block::BlobGas, cast::TryCast, gas_reports::GasReport,
+    account::AccountOverride, block::BlobGas, cast::TryCast, gas_report::GasReport,
     logger::LoggerConfig, precompile::Precompile, subscription::SubscriptionConfig,
 };
 

@@ -40,6 +40,7 @@ use edr_eth::{
     BlockSpec, BlockTag, Eip1898BlockSpec,
 };
 use edr_evm_spec::{config::EvmConfig, result::ExecutionResult, CfgEnv};
+use edr_gas_report::{GasReport, SyncOnCollectedGasReportCallback};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
@@ -86,7 +87,6 @@ use crate::{
         TransactionFailure, TransactionFailureWithTraces,
     },
     filter::{bloom_contains_log_filter, filter_logs, Filter, FilterData, LogFilter},
-    gas_reports::{GasReport, SyncOnCollectedGasReportCallback},
     logger::SyncLogger,
     mock::SyncCallOverride,
     observability::{EvmObserver, EvmObserverConfig, ObservabilityConfig},
@@ -4237,6 +4237,12 @@ mod tests {
             // precompile, introduced in Cancun
             mainnet_cancun2 => L1ChainSpec {
                 block_number: 19_562_047,
+                url: get_alchemy_url(),
+                header_overrides_constructor: l1_header_overrides,
+            },
+            // This block contains both valid and invalid EIP-7702 transactions, introduced in Prague
+            mainnet_prague => L1ChainSpec {
+                block_number: 23_376_625,
                 url: get_alchemy_url(),
                 header_overrides_constructor: l1_header_overrides,
             },

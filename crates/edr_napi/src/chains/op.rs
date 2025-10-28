@@ -5,7 +5,13 @@ use edr_napi_core::{
     provider::{SyncProvider, SyncProviderFactory},
     subscription::subscriber_callback_for_chain_spec,
 };
-use edr_op::{predeploys::GAS_PRICE_ORACLE_ADDRESS, OpChainSpec};
+use edr_op::{
+    predeploys::{
+        gas_price_oracle_code_ecotone, gas_price_oracle_code_fjord, gas_price_oracle_code_isthmus,
+        GAS_PRICE_ORACLE_ADDRESS,
+    },
+    OpChainSpec,
+};
 use edr_primitives::hex;
 use edr_provider::time::CurrentTime;
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -347,16 +353,11 @@ fn gas_price_oracle_override(hardfork: edr_op::Hardfork) -> AccountOverride {
 }
 
 fn gas_price_oracle_ecotone() -> AccountOverride {
-    let gas_price_oracle_code = hex::decode(include_str!(
-        "../../data/op/predeploys/gas_price_oracle/ecotone.txt"
-    ))
-    .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
-
     AccountOverride {
         address: Uint8Array::with_data_copied(GAS_PRICE_ORACLE_ADDRESS),
         balance: None,
         nonce: None,
-        code: Some(gas_price_oracle_code.into()),
+        code: Some(gas_price_oracle_code_ecotone().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
             // bool isEcotone = true
@@ -368,16 +369,11 @@ fn gas_price_oracle_ecotone() -> AccountOverride {
 }
 
 fn gas_price_oracle_fjord() -> AccountOverride {
-    let gas_price_oracle_code = hex::decode(include_str!(
-        "../../data/op/predeploys/gas_price_oracle/fjord.txt"
-    ))
-    .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
-
     AccountOverride {
         address: Uint8Array::with_data_copied(GAS_PRICE_ORACLE_ADDRESS),
         balance: None,
         nonce: None,
-        code: Some(gas_price_oracle_code.into()),
+        code: Some(gas_price_oracle_code_fjord().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
             // bool isEcotone = true
@@ -390,16 +386,11 @@ fn gas_price_oracle_fjord() -> AccountOverride {
 }
 
 fn gas_price_oracle_isthmus() -> AccountOverride {
-    let gas_price_oracle_code = hex::decode(include_str!(
-        "../../data/op/predeploys/gas_price_oracle/isthmus.txt"
-    ))
-    .expect("The bytecode for the GasPriceOracle predeploy should be a valid hex string");
-
     AccountOverride {
         address: Uint8Array::with_data_copied(GAS_PRICE_ORACLE_ADDRESS),
         balance: None,
         nonce: None,
-        code: Some(gas_price_oracle_code.into()),
+        code: Some(gas_price_oracle_code_isthmus().into()),
         storage: Some(vec![StorageSlot {
             index: BigInt::from(0u64),
             // bool isEcotone = true

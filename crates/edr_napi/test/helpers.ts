@@ -5,6 +5,7 @@ import {
   ContractData,
   EdrContext,
   Provider,
+  SolidityTestResult,
   SolidityTestRunnerConfigArgs,
   SuiteResult,
   TracingMessage,
@@ -150,9 +151,17 @@ export async function runAllSolidityTests(
   artifacts: Artifact[],
   testSuites: ArtifactId[],
   configArgs: SolidityTestRunnerConfigArgs
-): Promise<SuiteResult[]> {
+): Promise<[SolidityTestResult, SuiteResult[]]> {
   return new Promise((resolve, reject) => {
     const resultsFromCallback: SuiteResult[] = [];
+    let testResult: SolidityTestResult | undefined;
+    let isTestComplete = false;
+
+    const tryResolve = () => {
+      if (isTestComplete && resultsFromCallback.length === testSuites.length) {
+        resolve([testResult!, resultsFromCallback]);
+      }
+    };
 
     context
       .runSolidityTests(
@@ -163,11 +172,14 @@ export async function runAllSolidityTests(
         {}, // Empty tracing config
         (suiteResult: SuiteResult) => {
           resultsFromCallback.push(suiteResult);
-          if (resultsFromCallback.length === artifacts.length) {
-            resolve(resultsFromCallback);
-          }
+          tryResolve();
         }
       )
+      .then((result) => {
+        testResult = result;
+        isTestComplete = true;
+        tryResolve();
+      })
       .catch(reject);
   });
 }

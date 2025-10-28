@@ -410,6 +410,7 @@ jobs:
             if [ "${{ github.event_name }}" = "push" ]; then
               echo "Publishing pre-release"
               echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+              bash ../../scripts/prepublish.sh
               pnpm publish --no-git-checks --provenance --tag next --access public
             else
               echo "Trying to publish a pre-release from a branch that is not 'main' or 'prerelease'"
@@ -419,6 +420,7 @@ jobs:
             if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]; then
               echo "Publishing release"
               echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+              bash ../../scripts/prepublish.sh
               pnpm publish --no-git-checks --provenance --access public
             else
               echo "Trying to publish a release from a branch that is not 'main' or 'h2'"

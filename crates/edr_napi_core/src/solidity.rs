@@ -10,7 +10,7 @@ use edr_solidity_tests::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
-    multi_runner::{OnTestSuiteCompletedFn, SuiteResultAndArtifactId},
+    multi_runner::{OnTestSuiteCompletedFn, SolidityTestResult, SuiteResultAndArtifactId},
     MultiContractRunner, TestFilterConfig,
 };
 
@@ -22,7 +22,7 @@ pub trait SyncTestRunner: Send + Sync {
         runtime: tokio::runtime::Handle,
         test_filter: Arc<TestFilterConfig>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<String>>,
-    ) -> napi::Result<()>;
+    ) -> napi::Result<SolidityTestResult>;
 }
 
 impl<
@@ -59,8 +59,8 @@ impl<
         runtime: tokio::runtime::Handle,
         test_filter: Arc<TestFilterConfig>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<String>>,
-    ) -> napi::Result<()> {
-        self.test(
+    ) -> napi::Result<SolidityTestResult> {
+        let test_result = self.test(
             runtime,
             test_filter,
             Arc::new(
@@ -81,6 +81,6 @@ impl<
             ),
         );
 
-        Ok(())
+        Ok(test_result)
     }
 }

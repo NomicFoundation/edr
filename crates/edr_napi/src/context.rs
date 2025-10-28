@@ -26,7 +26,7 @@ use crate::{
         artifact::{Artifact, ArtifactId},
         config::SolidityTestRunnerConfigArgs,
         factory::SolidityTestRunnerFactory,
-        test_results::SuiteResult,
+        test_results::{SolidityTestResult, SuiteResult},
         LinkingOutput,
     },
     subscription::SubscriptionConfig,
@@ -39,7 +39,7 @@ pub struct EdrContext {
 
 #[napi]
 impl EdrContext {
-    #[doc = "Creates a new [`EdrContext`] instance. Should only be called once!"]
+    /// Creates a new [`EdrContext`] instance. Should only be called once!
     #[napi(catch_unwind, constructor)]
     pub fn new() -> napi::Result<Self> {
         let context = Context::new()?;
@@ -49,7 +49,7 @@ impl EdrContext {
         })
     }
 
-    #[doc = "Constructs a new provider with the provided configuration."]
+    /// Constructs a new provider with the provided configuration.
     #[napi(catch_unwind, ts_return_type = "Promise<Provider>")]
     pub fn create_provider(
         &self,
@@ -130,7 +130,7 @@ impl EdrContext {
         Ok(promise)
     }
 
-    #[doc = "Registers a new provider factory for the provided chain type."]
+    /// Registers a new provider factory for the provided chain type.
     #[napi(catch_unwind)]
     pub async fn register_provider_factory(
         &self,
@@ -153,14 +153,29 @@ impl EdrContext {
         Ok(())
     }
 
-    #[doc = "Executes Solidity tests."]
-    #[doc = ""]
-    #[doc = "The function will return as soon as test execution is started."]
-    #[doc = "The progress callback will be called with the results of each test"]
-    #[doc = "suite. It is up to the caller to track how many times the callback"]
-    #[doc = "is called to know when all tests are done."]
+    /// Executes Solidity tests
+    ///
+    /// The function will return a promise that resolves to a
+    /// [`SolidityTestResult`].
+    ///
+    /// Arguments:
+    /// - `chainType`: the same chain type that was passed to
+    ///   `registerProviderFactory`.
+    /// - `artifacts`: the project's compilation output artifacts. It's
+    ///   important to include include all artifacts here, otherwise cheatcodes
+    ///   that access artifacts and other functionality (e.g. auto-linking, gas
+    ///   reports) can break.
+    /// - `testSuites`: the test suite ids that specify which test suites to
+    ///   execute. The test suite artifacts must be present in `artifacts`.
+    /// - `configArgs`: solidity test runner configuration. See the struct docs
+    ///   for details.
+    /// - `tracingConfig`: the build infos used for stack trace generation.
+    ///   These are lazily parsed and it's important that they're passed as
+    ///   Uint8 arrays for performance.
+    /// - `onTestSuiteCompletedCallback`: The progress callback will be called
+    ///   with the results of each test suite as soon as it finished executing.
     #[allow(clippy::too_many_arguments)]
-    #[napi(catch_unwind, ts_return_type = "Promise<void>")]
+    #[napi(catch_unwind, ts_return_type = "Promise<SolidityTestResult>")]
     pub fn run_solidity_tests(
         &self,
         env: Env,
@@ -291,7 +306,7 @@ impl EdrContext {
                 .expect("Failed to join test runner factory thread"));
 
             let runtime_for_runner = runtime.clone();
-            let () = try_or_reject_deferred!(runtime
+            let test_result = try_or_reject_deferred!(runtime
                 .clone()
                 .spawn_blocking(move || {
                     test_runner.run_tests(
@@ -323,7 +338,7 @@ impl EdrContext {
                 .await
                 .expect("Failed to join test runner thread"));
 
-            deferred.resolve(move |_env| Ok(()));
+            deferred.resolve(move |_env| Ok(SolidityTestResult::from(test_result)));
         });
 
         Ok(promise)

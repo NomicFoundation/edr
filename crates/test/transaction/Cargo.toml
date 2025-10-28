@@ -6,8 +6,8 @@ edition.workspace = true
 [dependencies]
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
-edr_runtime.workspace = true
 edr_primitives.workspace = true
+edr_runtime.workspace = true
 edr_transaction.workspace = true
 
 [lints]

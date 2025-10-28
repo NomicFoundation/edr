@@ -2749,6 +2749,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_gas_report"
+version = "0.3.8"
+dependencies = [
+ "comfy-table",
+ "derive_more 2.0.1",
+ "dyn-clone",
+ "edr_chain_spec",
+ "edr_common",
+ "edr_evm",
+ "edr_evm_spec",
+ "edr_primitives",
+ "edr_receipt",
+ "edr_solidity",
+ "edr_state_api",
+ "edr_transaction",
+ "serde",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "edr_generic"
 version = "0.3.8"
 dependencies = [
@@ -2843,6 +2863,7 @@ dependencies = [
  "edr_defaults",
  "edr_eip1559",
  "edr_evm_spec",
+ "edr_gas_report",
  "edr_generic",
  "edr_instrument",
  "edr_napi_core",
@@ -3022,6 +3043,7 @@ dependencies = [
  "edr_eth",
  "edr_evm",
  "edr_evm_spec",
+ "edr_gas_report",
  "edr_precompile",
  "edr_primitives",
  "edr_receipt",
@@ -3348,6 +3370,7 @@ dependencies = [
  "edr_common",
  "edr_coverage",
  "edr_defaults",
+ "edr_gas_report",
  "edr_primitives",
  "edr_runtime",
  "edr_solidity",
