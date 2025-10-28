@@ -149,9 +149,9 @@ async fn custom_base_fee_params() -> anyhow::Result<()> {
                 false,
             ),
         ))?;
-        serde_json::from_value::<edr_chain_l1::rpc::Block<<OpChainSpec as RpcChainSpec>::RpcTransaction>>(
-            response.result,
-        )?
+        serde_json::from_value::<
+            edr_chain_l1::rpc::Block<<OpChainSpec as RpcChainSpec>::RpcTransaction>,
+        >(response.result)?
     };
     let block_base_fee_params = edr_op::block::decode_base_params(&last_block.extra_data);
 

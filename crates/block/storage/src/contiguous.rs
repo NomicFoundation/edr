@@ -108,8 +108,9 @@ impl<BlockReceiptT, BlockT: Block<SignedTransactionT>, HardforkT, SignedTransact
                 .block_header()
                 .number;
 
-            let local_block_number = usize::try_from(block.block_header().number - first_block_number)
-                .expect("No blocks with a number larger than usize::MAX are inserted");
+            let local_block_number =
+                usize::try_from(block.block_header().number - first_block_number)
+                    .expect("No blocks with a number larger than usize::MAX are inserted");
 
             // SAFETY: A total difficulty is inserted for each block
             unsafe { self.total_difficulties.get_unchecked(local_block_number) }

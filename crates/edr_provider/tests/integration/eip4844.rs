@@ -10,9 +10,9 @@ use edr_chain_l1::{
     },
     L1ChainSpec,
 };
+use edr_chain_spec::ExecutableTransaction as _;
 use edr_defaults::SECRET_KEYS;
 use edr_eth::{Blob, PreEip1898BlockSpec};
-use edr_chain_spec::ExecutableTransaction as _;
 use edr_primitives::{Address, Bytes, B256, U256};
 use edr_provider::{
     test_utils::{create_test_config, deploy_contract, one_ether},
