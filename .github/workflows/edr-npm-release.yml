@@ -401,6 +401,8 @@ jobs:
       - test-linux-x64-musl-binding
       - test-linux-aarch64-gnu-binding
       - test-linux-aarch64-musl-binding
+    # Only run workflow if the commit message is a release commit.
+    if: ${{ needs.check_commit.outputs.match == 'true' }}
     defaults:
       run:
         working-directory: ./crates/edr_napi
@@ -519,8 +521,6 @@ jobs:
     name: Publish
     environment: edr-release
     runs-on: ubuntu-24.04
-    # Only run workflow if the commit message is a release commit.
-    if: ${{ needs.check_commit.outputs.match == 'true' }}
     permissions:
       id-token: write # Needed for npm Trusted Publishing (OIDC)
     needs: [prepare, review]
