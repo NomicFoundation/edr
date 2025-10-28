@@ -33,7 +33,7 @@ jobs:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -69,12 +69,21 @@ jobs:
             target: aarch64-unknown-linux-musl
             docker: node:20-alpine3.20
             flavor: musl
+    outputs:
+      build_commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
     defaults:
       run:
         working-directory: ./crates/edr_napi
-
     steps:
       - uses: actions/checkout@v5
+
+      - name: Save HEAD commit sha
+        id: save-commit
+        shell: bash
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Current HEAD: $COMMIT_SHA"
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
 
       - name: Check number of targets
         shell: bash
@@ -383,7 +392,7 @@ jobs:
     name: Prepare release bundle
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
     needs:
       - build
       - check_commit
@@ -416,24 +425,32 @@ jobs:
         run: ../../scripts/prepublish.sh
       - name: Move artifacts
         run: pnpm artifacts
-      - name: Create pack bundle
+      - name: Create bundle with pnpm root & napi files
         # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
         id: pack
         run: |
           FILENAME="${{ env.APP_NAME }}_bundle.tar.gz"
-          EXTRA_FILES=("./npm/" "LICENSE" "README.md" "package.json")
+          NAPI_EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml")
           readarray -t FILES < <(cat package.json | jq -r .files[] ) 
-          echo "Files defined in package.json: ${FILES[@]}"
-          echo "Other files to include in tarball: ${EXTRA_FILES[@]}"
+          ALL_FILES=("${FILES[@]}" "${NAPI_EXTRA_FILES[@]}")
+          NAPI_FILES=()
+          for file in "${ALL_FILES[@]}"; do
+            NAPI_FILES+=("crates/edr_napi/${file}")
+          done
+          cd ../.. # cd to root dir
           echo "Creating bundle with necessary files for publishing"
-          tar --dereference -czvf $FILENAME ${FILES[@]} ${EXTRA_FILES[@]}
+          ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
+          ALL_FILES=("${ROOT_FILES[@]}" "${NAPI_FILES[@]}")
+          echo "files to include in tar: ${ALL_FILES[@]}"
+          # Using --dereference since LICENSE file are symlinks
+          tar --dereference -czvf $FILENAME "${ALL_FILES[@]}"
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
       - name: Upload packed tarball
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.pack.outputs.filename }}
-          path: ./crates/edr_napi/${{ steps.pack.outputs.filename }}
+          path: ./${{ steps.pack.outputs.filename }}
           retention-days: 2
           overwrite: true
           if-no-files-found: error
@@ -442,8 +459,9 @@ jobs:
     name: Review release
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
     needs:
+      - build
       - prepare
     steps:
       - name: Download packed tarball
@@ -459,7 +477,7 @@ jobs:
         shell: bash
         run: |
           # get number of artifacts with unique names
-          NUMBER_OF_ARTIFACTS=$(ls -1q npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+          NUMBER_OF_ARTIFACTS=$(ls -1q crates/edr_napi/npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
           echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
           echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
           test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
@@ -471,8 +489,9 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-      - name: Validate that package has everything for publishing
+      - name: Validate that packages have everything for publishing
         run: |
+          cd crates/edr_napi
           # Check in every cross-platform package
           for platform in ./npm/* ; do
             cd $platform
@@ -481,6 +500,20 @@ jobs:
           done
           # And in root edr package
           pnpm publish --dry-run
+      - name: Checkout repository for comparison
+        uses: actions/checkout@v4
+        with:
+          path: remote-repository
+          ref: ${{ needs.build.outputs.commit_sha }}
+      - name: Validate there were no modifications to `package.json` when building
+        run: |
+          git diff --color=always --exit-code --no-index remote-repository/package.json ./package.json
+      - name: Validate there were no modifications to `Cargo.toml` when building
+        run: |
+          git diff --color=always --exit-code --no-index remote-repository/Cargo.toml ./Cargo.toml
+      - name: Validate there were no modifications to `Cargo.lock` when building
+        run: |
+          git diff --color=always --exit-code --no-index remote-repository/Cargo.lock ./Cargo.lock
 
   publish:
     name: Publish
@@ -489,7 +522,6 @@ jobs:
     # Only run workflow if the commit message is a release commit.
     if: ${{ needs.check_commit.outputs.match == 'true' }}
     permissions:
-      actions: read # To download the tarball to publish
       id-token: write # Needed for npm Trusted Publishing (OIDC)
     needs: [prepare, review]
     steps:
@@ -506,6 +538,14 @@ jobs:
           then
             if [ "${{ github.event_name }}" = "push" ]; then
               echo "Publishing pre-release"
+              cd crates/edr_napi
+              # Publish every cross-platform package
+              for platform in ./crates/edr_napi/npm/* ; do
+                cd $platform
+                pnpm publish --no-git-checks --tag next --access public
+                cd -
+              done
+              # Publish root edr package
               pnpm publish --no-git-checks --tag next --access public
             else
               echo "Trying to publish a pre-release from a branch that is not 'main' or 'prerelease'"
@@ -514,6 +554,14 @@ jobs:
           then
             if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]; then
               echo "Publishing release"
+              cd crates/edr_napi
+              # Publish every cross-platform package
+              for platform in ./crates/edr_napi/npm/* ; do
+                cd $platform
+                pnpm publish --no-git-checks --access public
+                cd -
+              done
+              # Publish root edr package
               pnpm publish --no-git-checks --access public
             else
               echo "Trying to publish a release from a branch that is not 'main' or 'h2'"

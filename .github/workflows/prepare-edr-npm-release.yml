@@ -6,7 +6,7 @@ permissions: {}
 on:
   push:
     branches:
-      - fix/release-workflow 
+      - fix/release-workflow
   pull_request: null
   workflow_dispatch:
 
@@ -190,10 +190,10 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           path: ./crates/edr_napi/artifacts
-      - name: Run prepublish to update all `package.json` files 
+      - name: Run prepublish to update all `package.json` files
         # we NEED to to this before pnpm artifacts, if not prepublish will try to publish
         run: ../../scripts/prepublish.sh
-      - name: Move artifacts 
+      - name: Move artifacts
         run: pnpm artifacts
       - name: Create bundle with pnpm root & napi files
         # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
@@ -212,6 +212,7 @@ jobs:
           ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
           ALL_FILES=("${ROOT_FILES[@]}" "${NAPI_FILES[@]}")
           echo "files to include in tar: ${ALL_FILES[@]}"
+          # Using --dereference since LICENSE file are symlinks
           tar --dereference -czvf $FILENAME "${ALL_FILES[@]}"
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
