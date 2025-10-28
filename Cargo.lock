@@ -2421,7 +2421,10 @@ dependencies = [
  "edr_rpc_spec",
  "edr_state_api",
  "edr_state_fork",
+ "edr_test_blockchain",
+ "edr_test_transaction",
  "edr_test_utils",
+ "edr_transaction",
  "edr_utils",
  "log",
  "parking_lot 0.12.3",
@@ -2453,8 +2456,12 @@ dependencies = [
  "edr_receipt",
  "edr_state_api",
  "edr_state_persistent_trie",
+ "edr_test_blockchain",
+ "edr_test_transaction",
  "edr_utils",
+ "serial_test",
  "thiserror 1.0.69",
+ "tokio",
  "tracing",
 ]
 
@@ -2733,6 +2740,7 @@ dependencies = [
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_block",
+ "edr_chain_spec_provider",
  "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
@@ -3493,6 +3501,8 @@ dependencies = [
  "edr_receipt_spec",
  "edr_state_api",
  "edr_test_transaction",
+ "paste",
+ "serial_test",
 ]
 
 [[package]]

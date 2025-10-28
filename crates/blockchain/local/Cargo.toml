@@ -26,6 +26,10 @@ edr_chain_l1.workspace = true
 edr_chain_spec_provider.workspace = true
 edr_defaults.workspace = true
 edr_provider.workspace = true
+edr_test_blockchain.workspace = true
+edr_test_transaction.workspace = true
+serial_test = "2.0.0"
+tokio.workspace = true
 
 [features]
 tracing = ["dep:tracing"]

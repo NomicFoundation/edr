@@ -1,6 +1,10 @@
 //! Test utilities for blockchain-related tests.
 #![warn(missing_docs)]
 
+#[macro_use]
+mod macros;
+
+use core::fmt::Debug;
 use std::{collections::BTreeMap, sync::Arc};
 
 use edr_block_api::EmptyBlock as _;
@@ -12,12 +16,27 @@ use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec as _;
 use edr_evm_spec::result::{ExecutionResult, Output, SuccessReason};
 use edr_primitives::{Address, Bytes, B256, U256};
-use edr_provider::spec::SyncBlockchainForChainSpec;
+use edr_provider::spec::BlockchainForChainSpec;
 use edr_receipt::{log::ExecutionLog, TransactionReceipt};
 use edr_receipt_builder_api::ExecutionReceiptBuilder as _;
 use edr_receipt_spec::ReceiptChainSpec;
 use edr_state_api::StateDiff;
 use edr_test_transaction::dummy_eip155_transaction;
+// Re-export types that are used by the macros.
+pub use paste;
+
+/// Helper type for a chain-specific [`BlockAndTotalDifficulty`].
+pub type BlockAndTotalDifficultyForChainSpec<ChainSpecT> = edr_block_api::BlockAndTotalDifficulty<
+    Arc<<ChainSpecT as BlockChainSpec>::Block>,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+>;
+
+/// Helper type for a chain-specific [`SyncBlock`].
+pub type DynSyncBlock<ChainSpecT> = dyn edr_block_api::sync::SyncBlock<
+    Arc<<ChainSpecT as ReceiptChainSpec>::Receipt>,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+    Error = <ChainSpecT as BlockChainSpec>::FetchReceiptError,
+>;
 
 /// Helper type for a chain-specific [`EthLocalBlock`].
 pub type EthLocalBlockForChainSpec<ChainSpecT> = EthLocalBlock<
@@ -28,8 +47,8 @@ pub type EthLocalBlockForChainSpec<ChainSpecT> = EthLocalBlock<
 >;
 
 /// Creates a dummy block for the provided blockchain.
-pub fn create_dummy_block(
-    blockchain: &dyn SyncBlockchainForChainSpec<L1ChainSpec>,
+pub fn create_dummy_block<BlockchainErrorT: Debug>(
+    blockchain: &dyn BlockchainForChainSpec<L1ChainSpec, BlockchainErrorT>,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     let block_number = blockchain.last_block_number() + 1;
 
@@ -38,8 +57,8 @@ pub fn create_dummy_block(
 
 /// Creates a dummy block with the specified block number for the provided
 /// blockchain.
-pub fn create_dummy_block_with_number(
-    blockchain: &dyn SyncBlockchainForChainSpec<L1ChainSpec>,
+pub fn create_dummy_block_with_number<BlockchainErrorT: Debug>(
+    blockchain: &dyn BlockchainForChainSpec<L1ChainSpec, BlockchainErrorT>,
     number: u64,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
     let parent_hash = *blockchain
@@ -52,8 +71,8 @@ pub fn create_dummy_block_with_number(
 
 /// Creates a dummy block with the specified block number and difficulty for the
 /// provided blockchain.
-pub fn create_dummy_block_with_difficulty(
-    blockchain: &dyn SyncBlockchainForChainSpec<L1ChainSpec>,
+pub fn create_dummy_block_with_difficulty<BlockchainErrorT: Debug>(
+    blockchain: &dyn BlockchainForChainSpec<L1ChainSpec, BlockchainErrorT>,
     number: u64,
     difficulty: u64,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
@@ -85,8 +104,8 @@ pub fn create_dummy_block_with_difficulty(
 
 /// Creates a dummy block with the specified block number and parent hash for
 /// the provided blockchain.
-pub fn create_dummy_block_with_hash(
-    blockchain: &dyn SyncBlockchainForChainSpec<L1ChainSpec>,
+pub fn create_dummy_block_with_hash<BlockchainErrorT>(
+    blockchain: &dyn BlockchainForChainSpec<L1ChainSpec, BlockchainErrorT>,
     number: u64,
     parent_hash: B256,
 ) -> EthLocalBlockForChainSpec<L1ChainSpec> {
@@ -131,8 +150,10 @@ pub struct DummyBlockAndTransaction {
 }
 
 /// Returns the transaction's hash.
-pub fn insert_dummy_block_with_transaction(
-    blockchain: &mut dyn SyncBlockchainForChainSpec<L1ChainSpec>,
+pub fn insert_dummy_block_with_transaction<
+    BlockchainErrorT: 'static + Send + Sync + std::error::Error,
+>(
+    blockchain: &mut dyn BlockchainForChainSpec<L1ChainSpec, BlockchainErrorT>,
 ) -> anyhow::Result<DummyBlockAndTransaction> {
     const GAS_USED: u64 = 100;
 

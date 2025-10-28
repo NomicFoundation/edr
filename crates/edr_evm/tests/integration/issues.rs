@@ -3,10 +3,11 @@
 use std::{str::FromStr, sync::Arc};
 
 use edr_chain_l1::L1ChainSpec;
+use edr_chain_spec_provider::{default_block_config, ProviderChainSpec as _};
 use edr_defaults::CACHE_DIR;
-use edr_primitives::{Address, HashMap, U256};
+use edr_primitives::{Address, U256};
 use edr_provider::spec::ForkedBlockchainForChainSpec;
-use edr_rpc_eth::client::EthRpcClient;
+use edr_rpc_eth::client::EthRpcClientForChainSpec;
 use edr_state_api::{irregular::IrregularState, AccountModifierFn, StateDebug};
 use edr_state_fork::ForkedState;
 use edr_test_utils::env::get_alchemy_url;
@@ -21,7 +22,7 @@ async fn issue_336_set_balance_after_forking() -> anyhow::Result<()> {
 
     let contract_address = Address::from_str(TEST_CONTRACT_ADDRESS).unwrap();
 
-    let rpc_client = EthRpcClient::<L1ChainSpec>::new(
+    let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
         &get_alchemy_url().replace("mainnet", "sepolia"),
         CACHE_DIR.into(),
         None,
@@ -53,20 +54,21 @@ async fn issue_hh_4974_forking_avalanche_c_chain() -> anyhow::Result<()> {
     const FORK_BLOCK_NUMBER: u64 = 12_508_443;
 
     let url = "https://coston-api.flare.network/ext/bc/C/rpc";
-    let rpc_client = EthRpcClient::<L1ChainSpec>::new(url, CACHE_DIR.into(), None)?;
+    let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(url, CACHE_DIR.into(), None)?;
     let mut irregular_state = IrregularState::default();
     let state_root_generator = Arc::new(Mutex::new(RandomHashGenerator::with_seed("test")));
-    let hardfork_activation_overrides = HashMap::new();
+
+    let block_config = default_block_config::<L1ChainSpec>(edr_chain_l1::Hardfork::default());
 
     let _blockchain = ForkedBlockchainForChainSpec::new(
+        block_config,
         runtime::Handle::current(),
-        None,
-        edr_chain_l1::Hardfork::default(),
         Arc::new(rpc_client),
-        Some(FORK_BLOCK_NUMBER),
         &mut irregular_state,
         state_root_generator,
-        &hardfork_activation_overrides,
+        L1ChainSpec::chain_configs(),
+        Some(FORK_BLOCK_NUMBER),
+        None,
     )
     .await?;
 

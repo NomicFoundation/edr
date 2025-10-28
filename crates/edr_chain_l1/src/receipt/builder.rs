@@ -12,7 +12,7 @@ use edr_transaction::TransactionType as _;
 
 use crate::{HaltReason, Hardfork, L1SignedTransaction, TypedEnvelope};
 
-/// Builder for execution receipts.
+/// Builder for Ethereum L1 execution receipts.
 pub struct L1ExecutionReceiptBuilder;
 
 impl ExecutionReceiptBuilder<HaltReason, Hardfork, L1SignedTransaction>

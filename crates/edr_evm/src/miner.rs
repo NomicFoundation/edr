@@ -493,11 +493,10 @@ fn priority_comparator<SignedTransactionT: ExecutableTransaction>(
 mod tests {
     use edr_primitives::U256;
     use edr_state_api::account::AccountInfo;
+    use edr_test_transaction::{dummy_eip1559_transaction, dummy_eip155_transaction_with_price};
 
     use super::*;
-    use crate::test_utils::{
-        dummy_eip1559_transaction, dummy_eip155_transaction_with_price, MemPoolTestFixture,
-    };
+    use crate::test_utils::MemPoolTestFixture;
 
     #[test]
     fn fifo_ordering() -> anyhow::Result<()> {

@@ -25,11 +25,19 @@ use crate::{
 };
 
 /// Helper trait for a chain-specific [`Blockchain`].
-pub trait BlockchainForChainSpec<ChainSpecT: BlockChainSpec>:
+pub trait BlockchainForChainSpec<
+    // As this generic type always needs to be specified, placing it first makes the function
+    // easier to use; e.g.
+    // ```
+    // BlockchainForChainSpec::<MyChainSpec, _,>
+    // ```
+    ChainSpecT: BlockChainSpec,
+    BlockchainErrorT,
+>:
     Blockchain<
     <ChainSpecT as ReceiptChainSpec>::Receipt,
     <ChainSpecT as BlockChainSpec>::Block,
-    DynBlockchainError,
+    BlockchainErrorT,
     <ChainSpecT as HardforkChainSpec>::Hardfork,
     <ChainSpecT as GenesisBlockFactory>::LocalBlock,
     <ChainSpecT as ChainSpec>::SignedTransaction,
@@ -38,16 +46,17 @@ pub trait BlockchainForChainSpec<ChainSpecT: BlockChainSpec>:
 }
 
 impl<
+        BlockchainErrorT,
         BlockchainT: Blockchain<
             <ChainSpecT as ReceiptChainSpec>::Receipt,
             <ChainSpecT as BlockChainSpec>::Block,
-            DynBlockchainError,
+            BlockchainErrorT,
             <ChainSpecT as HardforkChainSpec>::Hardfork,
             <ChainSpecT as GenesisBlockFactory>::LocalBlock,
             <ChainSpecT as ChainSpec>::SignedTransaction,
         >,
         ChainSpecT: BlockChainSpec,
-    > BlockchainForChainSpec<ChainSpecT> for BlockchainT
+    > BlockchainForChainSpec<ChainSpecT, BlockchainErrorT> for BlockchainT
 {
 }
 

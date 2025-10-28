@@ -131,7 +131,7 @@ pub enum LocalBlockchainError {
     BlockInsertion(#[from] edr_block_storage::InsertBlockError),
     /// An error that occurs when trying to insert an invalid local block.
     #[error(transparent)]
-    BlockValidity(#[from] BlockValidityError),
+    InvalidNextBlock(#[from] BlockValidityError),
     /// Block number does not exist in blockchain
     #[error("Unknown block number")]
     UnknownBlockNumber,
