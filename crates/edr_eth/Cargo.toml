@@ -39,7 +39,7 @@ paste.workspace = true
 serde_json.workspace = true
 tokio = { version = "1.23.0", features = ["macros"] }
 edr_chain_l1.workspace = true
-edr_evm.workspace = true
+edr_runtime.workspace = true
 
 [features]
 default = ["std"]

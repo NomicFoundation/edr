@@ -4,9 +4,9 @@ use edr_block_api::Block;
 use edr_blockchain_api::r#dyn::DynBlockchainError;
 use edr_chain_spec::{ExecutableTransaction as _, TransactionValidation};
 use edr_eth::PreEip1898BlockSpec;
-use edr_evm::transaction;
 use edr_primitives::{Bytes, B256, U256};
 use edr_rpc_spec::RpcTypeFrom as _;
+use edr_runtime::transaction;
 use edr_transaction::{
     request::TransactionRequestAndSender, BlockDataForTransaction, IsEip155, IsEip4844,
     TransactionAndBlock, TransactionType, INVALID_TX_TYPE_ERROR_MESSAGE,

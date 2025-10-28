@@ -21,7 +21,7 @@ members = [
     "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
-    "crates/edr_evm",
+    "crates/edr_runtime",
     "crates/edr_evm_spec",
     "crates/edr_instrument",
     "crates/edr_macros",
@@ -147,7 +147,7 @@ edr_eip2930 = { path = "crates/eips/2930" }
 edr_eip4844 = { path = "crates/eips/4844" }
 edr_eip7702 = { path = "crates/eips/7702" }
 edr_eth = { path = "crates/edr_eth" }
-edr_evm = { path = "crates/edr_evm" }
+edr_runtime = { path = "crates/edr_runtime" }
 edr_evm2 = { path = "crates/evm" }
 edr_evm_spec = { path = "crates/edr_evm_spec" }
 edr_instrument = { path = "crates/edr_instrument" }

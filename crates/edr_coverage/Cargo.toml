@@ -9,7 +9,7 @@ derive_more = { workspace = true, features = ["debug"] }
 dyn-clone.workspace = true
 edr_block_header.workspace = true
 edr_defaults.workspace = true
-edr_evm.workspace = true
+edr_runtime.workspace = true
 edr_evm_spec.workspace = true
 edr_primitives.workspace = true
 edr_transaction.workspace = true

@@ -5,9 +5,9 @@ use edr_block_api::Block;
 use edr_block_builder_api::BuiltBlockAndState;
 use edr_chain_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait};
 use edr_chain_spec_block::BlockChainSpec;
-use edr_evm::trace::Trace;
 use edr_evm_spec::result::ExecutionResult;
 use edr_primitives::{Bytes, B256};
+use edr_runtime::trace::Trace;
 use edr_state_api::{DynState, StateDiff};
 
 /// The result of mining a block, including the state, in debug mode. This

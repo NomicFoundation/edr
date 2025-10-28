@@ -238,8 +238,8 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
 #[cfg(test)]
 mod tests {
     use edr_eth::BlockSpec;
-    use edr_evm::overrides::StateOverrides;
     use edr_primitives::Address;
+    use edr_runtime::overrides::StateOverrides;
 
     use super::*;
     use crate::test_utils::{pending_base_fee, ProviderTestFixture};

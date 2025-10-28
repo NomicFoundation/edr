@@ -6,11 +6,6 @@ use edr_chain_spec::{
     ChainSpec, EvmSpecId, ExecutableTransaction as _, HaltReasonTrait, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
-use edr_evm::{
-    inspector::DualInspector,
-    journal::JournalExt,
-    trace::{Trace, TraceCollector},
-};
 use edr_evm2::{dry_run_with_inspector, run};
 use edr_evm_spec::{
     interpreter::{
@@ -24,6 +19,11 @@ use edr_evm_spec::{
 use edr_primitives::{
     bytecode::opcode::{self, OpCode},
     hex, Address, Bytes, B256, U256,
+};
+use edr_runtime::{
+    inspector::DualInspector,
+    journal::JournalExt,
+    trace::{Trace, TraceCollector},
 };
 use edr_state_api::{DynState, StateError};
 

@@ -39,18 +39,18 @@ use edr_eth::{
     reward_percentile::RewardPercentile,
     BlockSpec, BlockTag, Eip1898BlockSpec,
 };
-use edr_evm::{
+use edr_evm_spec::{config::EvmConfig, result::ExecutionResult, CfgEnv};
+use edr_precompile::PrecompileFn;
+use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
+use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
+use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
+use edr_runtime::{
     inspector::DualInspector,
     mempool, mine_block, mine_block_with_single_transaction,
     overrides::{StateOverrides, StateRefOverrider},
     trace::Trace,
     transaction, MemPool, OrderedTransaction,
 };
-use edr_evm_spec::{config::EvmConfig, result::ExecutionResult, CfgEnv};
-use edr_precompile::PrecompileFn;
-use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
-use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
-use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
 use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
 };
@@ -3044,8 +3044,8 @@ fn get_max_cached_states_from_env<
 mod tests {
     use anyhow::Context;
     use edr_chain_l1::L1ChainSpec;
-    use edr_evm::MineOrdering;
     use edr_primitives::hex;
+    use edr_runtime::MineOrdering;
     use serde_json::json;
 
     use super::*;

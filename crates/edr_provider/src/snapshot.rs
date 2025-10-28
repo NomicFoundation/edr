@@ -1,8 +1,8 @@
 use std::time::Instant;
 
 use edr_chain_spec::ExecutableTransaction;
-use edr_evm::MemPool;
 use edr_primitives::Address;
+use edr_runtime::MemPool;
 use edr_state_api::irregular::IrregularState;
 use edr_utils::random::RandomHashGenerator;
 use rpds::HashTrieMapSync;

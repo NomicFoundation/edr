@@ -339,7 +339,7 @@ impl From<MemPoolConfig> for edr_provider::MemPoolConfig {
     }
 }
 
-impl From<MineOrdering> for edr_evm::MineOrdering {
+impl From<MineOrdering> for edr_runtime::MineOrdering {
     fn from(value: MineOrdering) -> Self {
         match value {
             MineOrdering::Fifo => Self::Fifo,

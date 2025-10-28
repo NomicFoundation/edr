@@ -18,7 +18,7 @@ edr_chain_spec.workspace = true
 edr_coverage.workspace = true
 edr_defaults.workspace = true
 edr_eip1559.workspace = true
-edr_evm.workspace = true
+edr_runtime.workspace = true
 edr_generic.workspace = true
 edr_instrument.workspace = true
 edr_napi_core.workspace = true
@@ -98,7 +98,7 @@ napi-build = "2.0.1"
 [features]
 op = ["dep:edr_op"]
 scenarios = ["dep:edr_scenarios", "dep:rand"]
-tracing = ["edr_evm/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
+tracing = ["edr_runtime/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
 test-mock = ["edr_provider/test-utils"]
 
 [lints]

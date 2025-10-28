@@ -410,7 +410,7 @@ pub async fn assert_replay_header<
 /// ```no_run
 /// use edr_block_header::{BlockHeader, HeaderOverrides};
 /// use edr_chain_l1::L1ChainSpec;
-/// use edr_evm::impl_full_block_tests;
+/// use edr_runtime::impl_full_block_tests;
 /// use edr_test_utils::env::get_alchemy_url;
 ///
 /// fn timestamp_overrides<HardforkT: Default>(replay_header: &BlockHeader) -> HeaderOverrides<HardforkT> {

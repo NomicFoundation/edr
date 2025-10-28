@@ -1,7 +1,7 @@
 use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
-use edr_evm::overrides::StateOverrides;
 use edr_primitives::B256;
+use edr_runtime::overrides::StateOverrides;
 use serde::{Deserialize, Deserializer};
 
 use crate::{

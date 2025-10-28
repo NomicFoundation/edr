@@ -5,7 +5,6 @@ use ansi_term::{Color, Style};
 use derive_where::derive_where;
 use edr_block_api::Block as _;
 use edr_chain_spec::ExecutableTransaction;
-use edr_evm::trace::{AfterMessage, Trace, TraceMessage};
 use edr_evm_spec::result::{ExecutionResult, Output};
 use edr_precompile::{PrecompileSpecId, Precompiles};
 use edr_primitives::{Bytecode, Bytes, B256, U256};
@@ -13,6 +12,7 @@ use edr_provider::{
     time::TimeSinceEpoch, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
     EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
+use edr_runtime::trace::{AfterMessage, Trace, TraceMessage};
 use edr_solidity::contract_decoder::{ContractAndFunctionName, ContractDecoder};
 use itertools::izip;
 

@@ -11,8 +11,8 @@ use crate::transaction::{self, SignedTransactionWithFallbackToPostEip155};
 // in an external crate, even though `TransactionAndBlock` is generic over
 // a type that we introduced.
 // This originally works as the impl for `L1ChainSpec` lives already in the
-// defining crate of `edr_evm::TransactionAndBlock`, which probably shouldn't
-// as far as defining spec externally is concerned.
+// defining crate of `edr_runtime::TransactionAndBlock`, which probably
+// shouldn't as far as defining spec externally is concerned.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct GenericRpcTransactionWithSignature(L1RpcTransactionWithSignature);
 

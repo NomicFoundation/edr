@@ -1,5 +1,5 @@
 [package]
-name = "edr_evm"
+name = "edr_runtime"
 version.workspace = true
 edition.workspace = true
 
