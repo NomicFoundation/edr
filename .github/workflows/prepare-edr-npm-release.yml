@@ -19,7 +19,7 @@ jobs:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -168,7 +168,7 @@ jobs:
     name: Prepare release bundle
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
     needs:
       - build
     defaults:
@@ -228,7 +228,7 @@ jobs:
     name: Review release
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
     needs:
       - build
       - prepare
