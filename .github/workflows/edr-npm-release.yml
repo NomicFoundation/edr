@@ -72,6 +72,9 @@ jobs:
         working-directory: ./crates/edr_napi
     steps:
       - uses: actions/checkout@v5
+      - uses: socketdev/action@v1
+        with:
+          mode: firewall
 
       - name: Save HEAD commit sha
         id: save-commit
@@ -115,7 +118,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ !matrix.settings.docker }}
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
 
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
@@ -139,7 +142,8 @@ jobs:
 
             npm i -g pnpm@10.17.1 --ignore-scripts
             pnpm -v
-            pnpm install --frozen-lockfile --prefer-offline
+            npm i -g sfw
+            sfw pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
 
       - name: Build in docker (musl)
