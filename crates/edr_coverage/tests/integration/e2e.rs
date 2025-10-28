@@ -7,7 +7,7 @@ use edr_blockchain_local::LocalBlockchain;
 use edr_chain_l1::{L1ChainSpec, L1_BASE_FEE_PARAMS, L1_MIN_ETHASH_DIFFICULTY};
 use edr_chain_spec::{ChainSpec, HardforkChainSpec};
 use edr_coverage::CoverageHitCollector;
-use edr_evm2::{dry_run_with_inspector, run};
+use edr_evm::{dry_run_with_inspector, run};
 use edr_evm_spec::{
     config::EvmConfig,
     result::{ExecutionResult, Output},

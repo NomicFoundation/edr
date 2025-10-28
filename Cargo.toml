@@ -147,8 +147,7 @@ edr_eip2930 = { path = "crates/eips/2930" }
 edr_eip4844 = { path = "crates/eips/4844" }
 edr_eip7702 = { path = "crates/eips/7702" }
 edr_eth = { path = "crates/edr_eth" }
-edr_runtime = { path = "crates/edr_runtime" }
-edr_evm2 = { path = "crates/evm" }
+edr_evm = { path = "crates/evm" }
 edr_evm_spec = { path = "crates/edr_evm_spec" }
 edr_instrument = { path = "crates/edr_instrument" }
 edr_generic = { path = "crates/edr_generic" }
@@ -164,6 +163,7 @@ edr_receipt_spec = { path = "crates/edr_receipt_spec" }
 edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
 edr_rpc_spec = { path = "crates/edr_rpc_spec" }
+edr_runtime = { path = "crates/edr_runtime" }
 edr_runtime_spec = { path = "crates/runtime/spec" }
 edr_scenarios = { path = "crates/edr_scenarios" }
 edr_signer = { path = "crates/edr_signer" }

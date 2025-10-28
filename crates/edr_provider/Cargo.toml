@@ -32,7 +32,7 @@ edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_eth.workspace = true
 edr_runtime = { workspace = true, features = ["tracing"] }
-edr_evm2.workspace = true
+edr_evm.workspace = true
 edr_evm_spec.workspace = true
 edr_precompile.workspace = true
 edr_primitives.workspace = true

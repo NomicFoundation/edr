@@ -6,7 +6,7 @@ use edr_chain_spec::{
     ChainSpec, EvmSpecId, ExecutableTransaction as _, HaltReasonTrait, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
-use edr_evm2::{dry_run_with_inspector, run};
+use edr_evm::{dry_run_with_inspector, run};
 use edr_evm_spec::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, InputsTr as _,

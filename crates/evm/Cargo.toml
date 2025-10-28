@@ -1,5 +1,5 @@
 [package]
-name = "edr_evm2"
+name = "edr_evm"
 version.workspace = true
 edition.workspace = true
 

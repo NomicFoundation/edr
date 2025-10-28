@@ -2523,7 +2523,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
- "edr_evm2",
+ "edr_evm",
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt",
@@ -2619,7 +2619,7 @@ dependencies = [
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_defaults",
- "edr_evm2",
+ "edr_evm",
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt_spec",
@@ -2720,7 +2720,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "edr_evm2"
+name = "edr_evm"
 version = "0.3.8"
 dependencies = [
  "edr_blockchain_api",
@@ -3020,7 +3020,7 @@ dependencies = [
  "edr_eip2930",
  "edr_eip7702",
  "edr_eth",
- "edr_evm2",
+ "edr_evm",
  "edr_evm_spec",
  "edr_precompile",
  "edr_primitives",

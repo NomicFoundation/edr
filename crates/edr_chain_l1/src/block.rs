@@ -17,7 +17,7 @@ use edr_chain_spec::{
     TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
-use edr_evm2::{dry_run, dry_run_with_inspector};
+use edr_evm::{dry_run, dry_run_with_inspector};
 use edr_evm_spec::{
     config::EvmConfig, ContextForChainSpec, DatabaseComponentError, EvmChainSpec,
     ExecutionResultAndState, Inspector, TransactionError,
