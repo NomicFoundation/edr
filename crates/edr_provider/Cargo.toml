@@ -78,6 +78,7 @@ tracing = { version = "0.1.37", features = [
 [dev-dependencies]
 alloy-eips.workspace = true
 anyhow = "1.0.89"
+edr_op.workspace = true
 edr_runtime = { workspace = true, features = ["test-utils"] }
 edr_test_block_replay.workspace = true
 edr_test_utils.workspace = true
