@@ -8,7 +8,7 @@ use edr_napi_core::{
 use edr_op::{
     predeploys::{
         gas_price_oracle_code_ecotone, gas_price_oracle_code_fjord, gas_price_oracle_code_isthmus,
-        GAS_PRICE_ORACLE_ADDRESS,
+        GAS_PRICE_ORACLE_ADDRESS, L1_BLOCK_PREDEPLOY_ADDRESS,
     },
     OpChainSpec,
 };
@@ -146,7 +146,7 @@ pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
     let l1_block_code = hex::decode(include_str!("../../data/op/predeploys/l1_block.txt"))
         .expect("The bytecode for the L1Block predeploy should be a valid hex string");
     let l1_block = AccountOverride {
-        address: hex!("4200000000000000000000000000000000000015").into(),
+        address: Uint8Array::with_data_copied(L1_BLOCK_PREDEPLOY_ADDRESS),
         balance: Some(BigInt::from(0u64)),
         nonce: Some(BigInt::from(0u64)),
         code: Some(l1_block_code.into()),
@@ -207,6 +207,11 @@ pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
                 index: BigInt::from(7u64),
                 // uint256 blobBaseFee = 10 gwei
                 value: BigInt::from(0x00000002540be400_u64),
+            },
+            StorageSlot {
+                // Operator fee parameters
+                index: BigInt::from(8u64),
+                value: BigInt::from(0u64),
             },
         ]),
     };
