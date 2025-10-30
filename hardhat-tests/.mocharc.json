@@ -1,6 +1,9 @@
 {
   "require": "ts-node/register",
   "file": "./test/setup.ts",
+  "node-option": [
+    "no-experimental-strip-types"
+  ],
   "exclude": [
     "test/fixture-projects/**/*.ts",
     "test/fixture-projects/**/*.js",
