@@ -91,10 +91,9 @@ pub struct ChainConfig<HardforkT> {
 }
 
 impl<HardforkT: Clone> ChainConfig<HardforkT> {
-    /// Applies the provided override to the current instance.
+    /// Applies the provided override to the current instance, while keeping the
+    /// name the same.
     pub fn apply_override(&mut self, override_config: &ChainOverride<HardforkT>) {
-        self.name = override_config.name.clone();
-
         if let Some(hardfork_activations) = &override_config.hardfork_activation_overrides {
             self.hardfork_activations = hardfork_activations.clone();
         }
