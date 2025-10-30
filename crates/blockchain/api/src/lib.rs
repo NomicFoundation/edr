@@ -39,10 +39,7 @@ pub trait BlockchainMetadata<HardforkT> {
     /// Retrieves the chain ID of the block at the provided number.
     /// The chain ID can be different in fork mode pre- and post-fork block
     /// number.
-    fn chain_id_at_block_number(&self, _block_number: u64) -> Result<u64, Self::Error> {
-        // Chain id only depends on the block number in fork mode
-        Ok(self.chain_id())
-    }
+    fn chain_id_at_block_number(&self, _block_number: u64) -> Result<u64, Self::Error>;
 
     /// Retrieves the hardfork specification of the block at the provided
     /// number.

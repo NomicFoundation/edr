@@ -164,6 +164,12 @@ impl<
         self.inner.chain_id()
     }
 
+    fn chain_id_at_block_number(&self, block_number: u64) -> Result<u64, Self::Error> {
+        self.inner
+            .chain_id_at_block_number(block_number)
+            .map_err(DynBlockchainError::new)
+    }
+
     fn spec_at_block_number(&self, block_number: u64) -> Result<HardforkT, Self::Error> {
         self.inner
             .spec_at_block_number(block_number)
