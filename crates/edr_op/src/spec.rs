@@ -48,7 +48,9 @@ use crate::{
         execution::{OpExecutionReceipt, OpExecutionReceiptBuilder},
     },
     rpc,
-    transaction::{self, pooled::OpPooledTransaction, request::OpTransactionRequest},
+    transaction::{
+        pooled::OpPooledTransaction, request::OpTransactionRequest, signed::OpSignedTransaction,
+    },
     HaltReason, Hardfork, InvalidTransaction,
 };
 
@@ -97,7 +99,7 @@ impl BlockEnvChainSpec for OpChainSpec {
 
 impl ChainSpec for OpChainSpec {
     type HaltReason = HaltReason;
-    type SignedTransaction = transaction::OpSignedTransaction;
+    type SignedTransaction = OpSignedTransaction;
 }
 
 impl ContextChainSpec for OpChainSpec {
@@ -117,7 +119,7 @@ impl EvmChainSpec for OpChainSpec {
     >(
         block: BlockT,
         cfg: CfgEnv<Self::Hardfork>,
-        _transaction: Self::SignedTransaction,
+        transaction: Self::SignedTransaction,
         mut database: DatabaseT,
         precompile_provider: PrecompileProviderT,
     ) -> Result<
@@ -132,11 +134,7 @@ impl EvmChainSpec for OpChainSpec {
 
         let context = Context {
             block,
-            // We need to pass a transaction here to properly initialize the context.
-            // This default transaction is immediately overridden by the actual transaction passed
-            // to `InspectEvm::inspect_tx`, so its values do not affect the inspection
-            // process.
-            tx: Self::SignedTransaction::default(),
+            tx: transaction,
             journaled_state: Journal::new(database),
             cfg,
             chain,

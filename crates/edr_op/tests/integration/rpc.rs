@@ -9,7 +9,11 @@ use edr_chain_spec_block::RemoteBlockForChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_defaults::CACHE_DIR;
 use edr_eth::PreEip1898BlockSpec;
-use edr_op::{hardfork, transaction, OpChainSpec};
+use edr_op::{
+    hardfork,
+    transaction::{signed::OpSignedTransaction, OpTransactionType},
+    OpChainSpec,
+};
 use edr_primitives::{b256, B256};
 use edr_provider::spec::ForkedBlockchainForChainSpec;
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
@@ -111,11 +115,8 @@ async fn deposit_transaction_and_receipt_regolith() -> anyhow::Result<()> {
         .await?
         .expect("Transaction must exist");
 
-    let transaction = transaction::OpSignedTransaction::try_from(transaction)?;
-    assert_eq!(
-        transaction.transaction_type(),
-        transaction::OpTransactionType::Deposit
-    );
+    let transaction = OpSignedTransaction::try_from(transaction)?;
+    assert_eq!(transaction.transaction_type(), OpTransactionType::Deposit);
 
     let receipt = rpc_client
         .get_transaction_receipt(TRANSACTION_HASH)
@@ -124,7 +125,7 @@ async fn deposit_transaction_and_receipt_regolith() -> anyhow::Result<()> {
 
     assert_eq!(
         receipt.transaction_type,
-        Some(transaction::OpTransactionType::Deposit.into())
+        Some(OpTransactionType::Deposit.into())
     );
     assert!(receipt.deposit_receipt_version.is_none());
 
@@ -153,11 +154,8 @@ async fn deposit_transaction_and_receipt_canyon() -> anyhow::Result<()> {
         .await?
         .expect("Transaction must exist");
 
-    let transaction = transaction::OpSignedTransaction::try_from(transaction)?;
-    assert_eq!(
-        transaction.transaction_type(),
-        transaction::OpTransactionType::Deposit
-    );
+    let transaction = OpSignedTransaction::try_from(transaction)?;
+    assert_eq!(transaction.transaction_type(), OpTransactionType::Deposit);
 
     let receipt = rpc_client
         .get_transaction_receipt(TRANSACTION_HASH)
@@ -166,7 +164,7 @@ async fn deposit_transaction_and_receipt_canyon() -> anyhow::Result<()> {
 
     assert_eq!(
         receipt.transaction_type,
-        Some(transaction::OpTransactionType::Deposit.into())
+        Some(OpTransactionType::Deposit.into())
     );
     assert_eq!(receipt.deposit_receipt_version, Some(1));
 
@@ -195,11 +193,8 @@ async fn deposit_transaction_and_receipt_ecotone() -> anyhow::Result<()> {
         .await?
         .expect("Transaction must exist");
 
-    let transaction = transaction::OpSignedTransaction::try_from(transaction)?;
-    assert_eq!(
-        transaction.transaction_type(),
-        transaction::OpTransactionType::Deposit
-    );
+    let transaction = OpSignedTransaction::try_from(transaction)?;
+    assert_eq!(transaction.transaction_type(), OpTransactionType::Deposit);
 
     let receipt = rpc_client
         .get_transaction_receipt(TRANSACTION_HASH)
@@ -208,7 +203,7 @@ async fn deposit_transaction_and_receipt_ecotone() -> anyhow::Result<()> {
 
     assert_eq!(
         receipt.transaction_type,
-        Some(transaction::OpTransactionType::Deposit.into())
+        Some(OpTransactionType::Deposit.into())
     );
     assert_eq!(receipt.deposit_receipt_version, Some(1));
 

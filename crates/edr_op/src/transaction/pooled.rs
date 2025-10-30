@@ -6,7 +6,7 @@ use edr_transaction::{
     pooled::eip4844::Blob, signed::PreOrPostEip155, IsEip155, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 
-use super::OpSignedTransaction;
+use crate::transaction::signed::OpSignedTransaction;
 
 /// An OP deposit pooled transaction.
 pub type Deposit = super::signed::Deposit;

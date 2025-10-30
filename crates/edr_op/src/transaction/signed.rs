@@ -4,7 +4,7 @@ mod deposit;
 
 use std::sync::OnceLock;
 
-use alloy_rlp::{Buf, RlpDecodable, RlpEncodable};
+use alloy_rlp::Buf;
 use edr_chain_spec::{ExecutableTransaction, TransactionValidation};
 use edr_primitives::{Address, Bytes, B256, U256};
 use edr_signer::{FakeableSignature, Signature};
@@ -14,46 +14,26 @@ use edr_transaction::{
     TransactionMut, TransactionType, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 
-use super::OpSignedTransaction;
+pub use self::deposit::Deposit;
 use crate::transaction::{InvalidTransaction, OpTxTrait};
 
-/// Deposit transaction.
-///
-/// For details, see <https://specs.optimism.io/protocol/deposits.html#the-deposited-transaction-type>.
-#[derive(Clone, Debug, Eq, serde::Deserialize, RlpDecodable, RlpEncodable)]
-#[serde(rename_all = "camelCase")]
-pub struct Deposit {
-    // The order of these fields determines encoding order.
-    /// Hash that uniquely identifies the origin of the deposit.
-    pub source_hash: B256,
-    /// The address of the sender account.
-    pub from: Address,
-    /// The address of the recipient account, or the null (zero-length) address
-    /// if the deposit transaction is a contract creation.
-    pub to: TxKind,
-    /// The ETH value to mint on L2.
-    #[serde(with = "alloy_serde::quantity")]
-    pub mint: u128,
-    ///  The ETH value to send to the recipient account.
-    pub value: U256,
-    /// The gas limit for the L2 transaction.
-    #[serde(rename = "gas", with = "alloy_serde::quantity")]
-    pub gas_limit: u64,
-    /// Field indicating if this transaction is exempt from the L2 gas limit.
-    pub is_system_tx: bool,
-    #[serde(alias = "input")]
-    /// The calldata
-    pub data: Bytes,
-    /// Cached transaction hash
-    #[rlp(default)]
-    #[rlp(skip)]
-    #[serde(skip)]
-    pub hash: OnceLock<B256>,
-    /// Cached RLP-encoding
-    #[rlp(default)]
-    #[rlp(skip)]
-    #[serde(skip)]
-    pub rlp_encoding: OnceLock<Bytes>,
+/// An OP signed transaction, used in blocks.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OpSignedTransaction {
+    /// Legacy transaction before EIP-155
+    PreEip155Legacy(Legacy),
+    /// Legacy transaction after EIP-155
+    PostEip155Legacy(Eip155),
+    /// EIP-2930 transaction
+    Eip2930(Eip2930),
+    /// EIP-1559 transaction
+    Eip1559(Eip1559),
+    /// EIP-4844 transaction
+    Eip4844(Eip4844),
+    /// EIP-7702 transaction
+    Eip7702(Eip7702),
+    /// OP deposit transaction
+    Deposit(Deposit),
 }
 
 impl alloy_rlp::Decodable for OpSignedTransaction {

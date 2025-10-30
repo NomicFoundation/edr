@@ -12,8 +12,7 @@ use edr_signer::{FakeSign, SecretKey, Sign, SignatureError};
 pub use edr_transaction::request::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::TxKind;
 
-use super::OpSignedTransaction;
-use crate::OpChainSpec;
+use crate::{transaction::signed::OpSignedTransaction, OpChainSpec};
 
 /// An OP transaction request.
 #[derive(Debug, Clone, Eq, PartialEq)]

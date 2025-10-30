@@ -13,7 +13,7 @@ use op_revm::transaction::OpTxTr as _;
 
 use crate::{
     eip2718::TypedEnvelope, receipt::execution::OpExecutionReceipt,
-    transaction::OpSignedTransaction, Hardfork, OpChainSpec,
+    transaction::signed::OpSignedTransaction, Hardfork, OpChainSpec,
 };
 
 /// An OP block receipt.

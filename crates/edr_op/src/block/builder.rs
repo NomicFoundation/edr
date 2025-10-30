@@ -19,7 +19,7 @@ use crate::{
     predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
     receipt::{block::OpBlockReceipt, execution::OpExecutionReceiptBuilder},
     spec::op_base_fee_params_for_block,
-    transaction::OpSignedTransaction,
+    transaction::signed::OpSignedTransaction,
     HaltReason, Hardfork, OpChainSpec,
 };
 

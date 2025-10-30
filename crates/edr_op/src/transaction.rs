@@ -12,25 +12,6 @@ pub use op_revm::{
     OpTransactionError as InvalidTransaction,
 };
 
-/// An OP signed transaction, used in blocks.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum OpSignedTransaction {
-    /// Legacy transaction before EIP-155
-    PreEip155Legacy(signed::Legacy),
-    /// Legacy transaction after EIP-155
-    PostEip155Legacy(signed::Eip155),
-    /// EIP-2930 transaction
-    Eip2930(signed::Eip2930),
-    /// EIP-1559 transaction
-    Eip1559(signed::Eip1559),
-    /// EIP-4844 transaction
-    Eip4844(signed::Eip4844),
-    /// EIP-7702 transaction
-    Eip7702(signed::Eip7702),
-    /// OP deposit transaction
-    Deposit(signed::Deposit),
-}
-
 /// The type of OP transaction.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

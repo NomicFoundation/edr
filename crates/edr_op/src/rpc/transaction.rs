@@ -11,7 +11,7 @@ use edr_transaction::{
 
 use super::Transaction;
 use crate::{
-    transaction::{self, OpSignedTransaction, OpTxTrait as _},
+    transaction::{self, signed::OpSignedTransaction, OpTransactionType, OpTxTrait as _},
     Hardfork,
 };
 
@@ -69,14 +69,15 @@ pub enum ConversionError {
     SourceHash,
 }
 
-impl TryFrom<Transaction> for transaction::OpSignedTransaction {
+impl TryFrom<Transaction> for OpSignedTransaction {
     type Error = ConversionError;
 
     fn try_from(value: Transaction) -> Result<Self, Self::Error> {
-        let transaction_type = match value.l1.transaction_type.map_or(
-            Ok(transaction::OpTransactionType::Legacy),
-            transaction::OpTransactionType::try_from,
-        ) {
+        let transaction_type = match value
+            .l1
+            .transaction_type
+            .map_or(Ok(OpTransactionType::Legacy), OpTransactionType::try_from)
+        {
             Ok(r#type) => r#type,
             Err(r#type) => {
                 log::warn!(
@@ -85,12 +86,12 @@ impl TryFrom<Transaction> for transaction::OpSignedTransaction {
 
                 // As the transaction type is not 0 or `None`, this will always result in a
                 // post-EIP 155 legacy transaction.
-                transaction::OpTransactionType::Legacy
+                OpTransactionType::Legacy
             }
         };
 
         let transaction = match transaction_type {
-            transaction::OpTransactionType::Deposit => Self::Deposit(value.try_into()?),
+            OpTransactionType::Deposit => Self::Deposit(value.try_into()?),
             transaction_type => {
                 let r = value.r.ok_or(ConversionError::SignatureR)?;
                 let s = value.s.ok_or(ConversionError::SignatureS)?;
@@ -100,26 +101,26 @@ impl TryFrom<Transaction> for transaction::OpSignedTransaction {
                     L1RpcTransactionWithSignature::new(value.l1, r, s, v, value.y_parity);
 
                 match transaction_type {
-                    transaction::OpTransactionType::Legacy => {
+                    OpTransactionType::Legacy => {
                         if transaction_with_signature.is_legacy() {
                             Self::PreEip155Legacy(transaction_with_signature.into())
                         } else {
                             Self::PostEip155Legacy(transaction_with_signature.into())
                         }
                     }
-                    transaction::OpTransactionType::Eip2930 => {
+                    OpTransactionType::Eip2930 => {
                         Self::Eip2930(transaction_with_signature.try_into()?)
                     }
-                    transaction::OpTransactionType::Eip1559 => {
+                    OpTransactionType::Eip1559 => {
                         Self::Eip1559(transaction_with_signature.try_into()?)
                     }
-                    transaction::OpTransactionType::Eip4844 => {
+                    OpTransactionType::Eip4844 => {
                         Self::Eip4844(transaction_with_signature.try_into()?)
                     }
-                    transaction::OpTransactionType::Eip7702 => {
+                    OpTransactionType::Eip7702 => {
                         Self::Eip7702(transaction_with_signature.try_into()?)
                     }
-                    transaction::OpTransactionType::Deposit => unreachable!("already handled"),
+                    OpTransactionType::Deposit => unreachable!("already handled"),
                 }
             }
         };
@@ -158,12 +159,11 @@ impl<BlockT: Block<OpSignedTransaction>>
 
         let signature = value.transaction.maybe_signature();
 
-        let is_system_tx =
-            if l1.transaction_type == Some(transaction::OpTransactionType::Deposit.into()) {
-                Some(value.transaction.is_system_transaction())
-            } else {
-                None
-            };
+        let is_system_tx = if l1.transaction_type == Some(OpTransactionType::Deposit.into()) {
+            Some(value.transaction.is_system_transaction())
+        } else {
+            None
+        };
 
         Self {
             l1,

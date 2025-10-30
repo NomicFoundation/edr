@@ -16,7 +16,11 @@ use edr_transaction::{Transaction as _, TransactionType as _};
 
 pub use self::deposit::Deposit;
 use self::deposit::Eip658OrDeposit;
-use crate::{eip2718::TypedEnvelope, transaction, HaltReason, Hardfork};
+use crate::{
+    eip2718::TypedEnvelope,
+    transaction::{signed::OpSignedTransaction, OpTransactionType},
+    HaltReason, Hardfork,
+};
 
 /// OP execution receipt.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -95,14 +99,14 @@ pub struct OpExecutionReceiptBuilder {
     deposit_nonce: u64,
 }
 
-impl ExecutionReceiptBuilder<HaltReason, Hardfork, transaction::OpSignedTransaction>
+impl ExecutionReceiptBuilder<HaltReason, Hardfork, OpSignedTransaction>
     for OpExecutionReceiptBuilder
 {
     type Receipt = TypedEnvelope<OpExecutionReceipt<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
         pre_execution_state: StateT,
-        transaction: &transaction::OpSignedTransaction,
+        transaction: &OpSignedTransaction,
     ) -> Result<Self, StateT::Error> {
         let deposit_nonce = pre_execution_state
             .basic(transaction.caller())?
@@ -114,14 +118,14 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, transaction::OpSignedTransact
     fn build_receipt(
         self,
         header: &PartialHeader,
-        transaction: &transaction::OpSignedTransaction,
+        transaction: &OpSignedTransaction,
         result: &ExecutionResult<HaltReason>,
         hardfork: Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = logs_to_bloom(&logs);
 
-        let receipt = if transaction.transaction_type() == transaction::OpTransactionType::Deposit {
+        let receipt = if transaction.transaction_type() == OpTransactionType::Deposit {
             OpExecutionReceipt::Deposit(Deposit {
                 status: result.is_success(),
                 cumulative_gas_used: header.gas_used,
