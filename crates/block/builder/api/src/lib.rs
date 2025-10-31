@@ -50,8 +50,9 @@ pub struct BlockInputs {
 impl BlockInputs {
     // TODO: https://github.com/NomicFoundation/edr/issues/990
     // Add support for specifying withdrawals
-    /// Constructs default block inputs for the provided hardfork.
-    pub fn new<HardforkT: Into<EvmSpecId>>(hardfork: HardforkT) -> Self {
+    /// Constructs empty block inputs for the provided hardfork; i.e. no
+    /// withdrawals nor ommers.
+    pub fn empty<HardforkT: Into<EvmSpecId>>(hardfork: HardforkT) -> Self {
         let withdrawals = if hardfork.into() >= EvmSpecId::SHANGHAI {
             Some(Vec::new())
         } else {

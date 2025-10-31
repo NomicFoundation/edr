@@ -189,7 +189,10 @@ pub async fn run_full_block<
         &prior_blockchain,
         state,
         &evm_config,
-        BlockInputs::new(hardfork),
+        BlockInputs {
+            ommers: Vec::new(),
+            withdrawals: expected_block.withdrawals().map(<[Withdrawal]>::to_vec),
+        },
         header_overrides_constructor(replay_header),
         &custom_precompiles,
     )?;

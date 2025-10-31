@@ -129,7 +129,7 @@ where
         >,
     >,
 {
-    let block_inputs = BlockInputs::new(blockchain.hardfork());
+    let block_inputs = BlockInputs::empty(blockchain.hardfork());
     let mut block_builder = ChainSpecT::BlockBuilder::new_block_builder(
         blockchain,
         state,
@@ -426,7 +426,7 @@ where
         blockchain,
         state,
         evm_config,
-        BlockInputs::new(hardfork),
+        BlockInputs::empty(hardfork),
         overrides,
         custom_precompiles,
     )?;
