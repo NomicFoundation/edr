@@ -11,7 +11,7 @@ The EDR provider benchmarks consist of JSON-RPC request captured during test run
 ### Run
 
 ```shell
-pnpm install
+pnpm install --frozen-lockfile
 
 pnpm providerBenchmark --benchmark-output provider-report.json
 ```
@@ -38,7 +38,7 @@ The benchmark collects measurements from running all the selected test suites an
 #### Run
 
 ```shell
-pnpm install
+pnpm install --frozen-lockfile
 
 # Mainnet Alchemy RPC URL
 export ALCHEMY_URL = "..."
@@ -59,7 +59,7 @@ For this reason, we've settled on comparing individual test execution times (as 
 #### Run
 
 ```shell
-pnpm install
+pnpm install --frozen-lockfile
 # Optional: install CLI CSV viewer
 cargo install xan --locked
 
@@ -93,7 +93,7 @@ The `pnpm compareForge` script will check out the supported repos to `./repos` a
 # E.g. to edit the patch file for `prb-math`
 
 # Make sure dependencies are up to date
-pnpm install
+pnpm install --frozen-lockfile
 
 # This will check out the repos to `./repos` and apply the patches
 pnpm compareForge --csv-output out.csv --count 1 --forge-path ~/.foundry/versions/stable/forge --repo prb-math
