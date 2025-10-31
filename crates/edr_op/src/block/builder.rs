@@ -11,9 +11,9 @@ use edr_evm::{
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionErrorForChainSpec,
     EthBlockBuilder, MineBlockResultAndState,
 };
-use edr_primitives::{Address, Bytes, HashMap, KECCAK_NULL_RLP, U256};
+use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_state_api::SyncState;
-use op_revm::{L1BlockInfo, OpHaltReason};
+use op_revm::{L1BlockInfo, OpHaltReason, OpSpecId};
 
 use crate::{
     block::LocalBlock,
@@ -61,22 +61,14 @@ where
             inputs.withdrawals = Some(Vec::new());
         }
 
-        if cfg.spec >= Hardfork::ISTHMUS {
-            let withdrawals_root = overrides
-                .withdrawals_root
-                .map_or_else(
-                    || {
-                        let storage_root =
-                            state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?;
+        overrides.withdrawals_root = overrides
+            .withdrawals_root
+            .map_or_else(
+                || define_op_withdrawals_root(cfg.spec, &state),
+                |value| Ok(Some(value)),
+            )
+            .map_err(BlockBuilderCreationError::State)?;
 
-                        Ok(storage_root.unwrap_or(KECCAK_NULL_RLP))
-                    },
-                    Ok,
-                )
-                .map_err(BlockBuilderCreationError::State)?;
-
-            overrides.withdrawals_root = Some(withdrawals_root);
-        }
         if cfg.spec >= Hardfork::HOLOCENE {
             // For post-Holocene blocks, store the encoded base fee parameters to be used in
             // the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
@@ -197,6 +189,26 @@ where
     }
 }
 
+/// Prior to isthmus activation: the L2 block header's withdrawalsRoot field
+/// must be:
+///    - nil if Canyon has not been activated.
+///    - `keccak256(rlp(empty_string_code))` if Canyon has been activated.
+///
+/// After Isthmus activation, the withdrawalsRoot field be the
+/// `L2ToL1MessagePasser` account storage root
+fn define_op_withdrawals_root<StateErrorT>(
+    hardfork: OpSpecId,
+    state: &dyn SyncState<StateErrorT>,
+) -> Result<Option<B256>, StateErrorT> {
+    if hardfork < OpSpecId::CANYON {
+        Ok(None)
+    } else if hardfork < OpSpecId::ISTHMUS {
+        Ok(Some(KECCAK_NULL_RLP))
+    } else {
+        let storage_root = state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?;
+        Ok(storage_root)
+    }
+}
 /// Decodes the base fee params from Bytes considering op-stack extra-param spec
 pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
     let version = *extra_data
@@ -223,5 +235,41 @@ pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
         _ => panic!(
             "Unsupported base fee params version: {version}. Expected {DYNAMIC_BASE_FEE_PARAM_VERSION}."
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use edr_block_header::BlockConfig;
+    use edr_blockchain_api::Blockchain as _;
+    use edr_evm::{blockchain::LocalBlockchain, spec::GenesisBlockFactory, GenesisBlockOptions};
+    use edr_state_api::{StateDiff, SyncState};
+    use op_revm::OpSpecId;
+
+    use crate::{block::builder::define_op_withdrawals_root, hardfork::op, OpChainSpec};
+
+    fn create_local_blockchain(hardfork: OpSpecId) -> anyhow::Result<LocalBlockchain<OpChainSpec>> {
+        let genesis_block = OpChainSpec::genesis_block(
+            StateDiff::default(),
+            BlockConfig {
+                hardfork,
+                base_fee_params: &op::MAINNET_BASE_FEE_PARAMS,
+            },
+            GenesisBlockOptions::default(),
+        )?;
+
+       Ok(LocalBlockchain::<OpChainSpec>::new(genesis_block, StateDiff::default(), 1234, hardfork)?)
+    }
+
+    #[test]
+    fn should_return_none_if_before_canyon() -> anyhow::Result<()> {
+        let hardfork = OpSpecId::BEDROCK;
+        let blockchain = create_local_blockchain(hardfork)?;
+        let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
+        let response = define_op_withdrawals_root(hardfork, &state)?;
+        assert_eq!(None, response);
+        Ok(())
     }
 }

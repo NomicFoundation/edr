@@ -1,5 +1,9 @@
 use edr_primitives::{address, hex, Address};
 
+/// The address of the `L1Block` predeploy.
+pub const L1_BLOCK_PREDEPLOY_ADDRESS: Address =
+    address!("4200000000000000000000000000000000000015");
+
 /// The address of the `GasPriceOracle` predeploy.
 pub const GAS_PRICE_ORACLE_ADDRESS: Address =
     address!("0x420000000000000000000000000000000000000f");
