@@ -30,7 +30,7 @@ edr_solidity_tests.workspace = true
 edr_state_api.workspace = true
 edr_transaction.workspace = true
 log = { version = "0.4.17", default-features = false }
-op-alloy-rpc-types = { version = "0.17.2", default-features = false }
+op-alloy-rpc-types = { version = "0.19.0", default-features = false }
 op-revm.workspace = true
 revm-context.workspace = true
 revm-context-interface.workspace = true
