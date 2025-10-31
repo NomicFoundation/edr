@@ -36,8 +36,7 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "src/",
-    "dist/src/"
+    "src/"
   ],
   "license": "MIT",
   "main": "index.js",
