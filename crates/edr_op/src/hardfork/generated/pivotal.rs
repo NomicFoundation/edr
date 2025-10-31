@@ -1,12 +1,12 @@
 // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
 // Any changes made to this file will be overwritten the next time it is
 // generated. To make changes, update the generator script instead in
-// `tools/src/op_chain_config.rs`.
+// `crates/tool/op_chain_config_generator/src/op_chain_config.rs`.
 //
-// source: https://github.com/ethereum-optimism/superchain-registry/tree/64dd80477fc855a4931b129cd1e2ba1c18da61c7/superchain/configs
+// source: https://github.com/ethereum-optimism/superchain-registry/tree/0cc526c0acdfffac5b1966bf7465406e41f33b00/superchain/configs
 
+use edr_chain_config::{ChainConfig, ForkCondition, HardforkActivation, HardforkActivations};
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_evm::hardfork::{self, Activations, ChainConfig, ForkCondition};
 use op_revm::OpSpecId;
 
 /// `Pivotal Sepolia` chain id
@@ -26,20 +26,20 @@ pub(super) fn sepolia_config() -> ChainConfig<OpSpecId> {
                 ConstantBaseFeeParams::new(250, 6),
             ),
         ])),
-        hardfork_activations: Activations::new(vec![
-            hardfork::Activation {
+        hardfork_activations: HardforkActivations::new(vec![
+            HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
                 hardfork: OpSpecId::BEDROCK,
             },
-            hardfork::Activation {
+            HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
                 hardfork: OpSpecId::REGOLITH,
             },
-            hardfork::Activation {
+            HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
                 hardfork: OpSpecId::CANYON,
             },
-            hardfork::Activation {
+            HardforkActivation {
                 condition: ForkCondition::Timestamp(0),
                 hardfork: OpSpecId::ECOTONE,
             },

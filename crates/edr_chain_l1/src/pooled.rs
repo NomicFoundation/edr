@@ -1,12 +1,13 @@
 //! Types for L1 Ethereum transaction gossip (aka pooled transactions)
 
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
+use edr_primitives::{Address, Bytes, B256, U256};
 pub use edr_transaction::pooled::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::{
     pooled::eip4844::{Blob, Bytes48},
     signed::PreOrPostEip155,
     utils::enveloped,
-    Address, Bytes, IsEip155, TxKind, B256, INVALID_TX_TYPE_ERROR_MESSAGE, U256,
+    IsEip155, TxKind, INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 
 use crate::L1SignedTransaction;

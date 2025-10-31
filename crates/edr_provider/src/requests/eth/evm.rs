@@ -1,7 +1,7 @@
 use std::num::NonZeroU64;
 
 use edr_block_header::HeaderOverrides;
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::TransactionValidation;
 use edr_primitives::U64;
 
 use crate::{
@@ -28,11 +28,7 @@ pub fn handle_increase_time_request<
 pub fn handle_mine_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(

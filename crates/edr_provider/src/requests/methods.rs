@@ -7,7 +7,7 @@ use edr_eth::{
 };
 use edr_primitives::{Address, Bytes, B256, U128, U256, U64};
 use edr_rpc_eth::StateOverrideOptions;
-use edr_rpc_spec::RpcSpec;
+use edr_rpc_spec::RpcChainSpec;
 use serde::{Deserialize, Serialize};
 
 use super::serde::{RpcAddress, Timestamp};
@@ -29,7 +29,7 @@ mod optional_block_spec {
 #[derive(Deserialize, Serialize)]
 #[derive_where(Clone, Debug, PartialEq; ChainSpecT::RpcCallRequest, ChainSpecT::RpcTransactionRequest)]
 #[serde(bound = "", tag = "method", content = "params")]
-pub enum MethodInvocation<ChainSpecT: RpcSpec> {
+pub enum MethodInvocation<ChainSpecT: RpcChainSpec> {
     /// `eth_accounts`
     #[serde(rename = "eth_accounts", with = "edr_eth::serde::empty_params")]
     Accounts(()),
@@ -375,7 +375,7 @@ pub enum MethodInvocation<ChainSpecT: RpcSpec> {
     StopImpersonatingAccount(RpcAddress),
 }
 
-impl<ChainSpecT: RpcSpec> MethodInvocation<ChainSpecT> {
+impl<ChainSpecT: RpcChainSpec> MethodInvocation<ChainSpecT> {
     /// Retrieves the instance's method name.
     pub fn method_name(&self) -> &'static str {
         match self {

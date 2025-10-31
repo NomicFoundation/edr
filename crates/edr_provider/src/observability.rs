@@ -1,21 +1,19 @@
 use core::fmt::Debug;
 use std::sync::Arc;
 
-use edr_blockchain_api::BlockHash;
+use edr_block_builder_api::WrapDatabaseRef;
+use edr_blockchain_api::BlockHashByNumber;
+use edr_chain_spec::HaltReasonTrait;
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
 use edr_database_components::DatabaseComponents;
-use edr_evm::{
-    inspector::Inspector,
+use edr_evm_spec::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, Interpreter,
     },
-    journal::{JournalExt, JournalTrait},
-    spec::ContextTrait,
-    state::WrapDatabaseRef,
-    trace::TraceCollector,
+    ContextTrait, Inspector, JournalTrait,
 };
-use edr_evm_spec::HaltReasonTrait;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
+use edr_runtime::{journal::JournalExt, trace::TraceCollector};
 use edr_state_api::State;
 
 use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
@@ -98,7 +96,7 @@ impl<HaltReasonT: HaltReasonTrait> EvmObserver<HaltReasonT> {
 }
 
 impl<
-        BlockchainT: BlockHash<Error: std::error::Error>,
+        BlockchainT: BlockHashByNumber<Error: std::error::Error>,
         ContextT: ContextTrait<
             Journal: JournalExt
                          + JournalTrait<

@@ -1,4 +1,4 @@
-use edr_evm_spec::EvmHaltReason;
+use edr_chain_spec::EvmHaltReason;
 use edr_napi_core::spec::SolidityTraceData;
 use edr_solidity::contract_decoder::NestedTraceDecoder as _;
 use napi::Either;

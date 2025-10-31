@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use edr_evm::blockchain::BlockchainErrorForChainSpec;
-use edr_evm_spec::{ChainHardfork, EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::{HardforkChainSpec, TransactionValidation};
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use parking_lot::Mutex;
@@ -83,11 +82,7 @@ impl<ChainSpecT: SyncProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>
 impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + PartialEq,
-            >,
+            SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
         >,
         TimerT: Clone + TimeSinceEpoch,
     > Provider<ChainSpecT, TimerT>
@@ -95,17 +90,11 @@ impl<
     /// Constructs a new instance.
     pub fn new(
         runtime: runtime::Handle,
-        logger: Box<
-            dyn SyncLogger<
-                ChainSpecT,
-                TimerT,
-                BlockchainError = BlockchainErrorForChainSpec<ChainSpecT>,
-            >,
-        >,
+        logger: Box<dyn SyncLogger<ChainSpecT, TimerT>>,
         subscriber_callback: Box<
             dyn SyncSubscriberCallback<ChainSpecT::Block, ChainSpecT::SignedTransaction>,
         >,
-        config: ProviderConfig<<ChainSpecT as ChainHardfork>::Hardfork>,
+        config: ProviderConfig<<ChainSpecT as HardforkChainSpec>::Hardfork>,
         contract_decoder: Arc<ContractDecoder>,
         timer: TimerT,
     ) -> Result<Self, CreationErrorForChainSpec<ChainSpecT>> {
@@ -155,14 +144,11 @@ impl<
 impl<
         ChainSpecT: SyncProviderSpec<
             TimerT,
-            BlockEnv: Clone + Default,
             PooledTransaction: IsEip155,
             SignedTransaction: Default
                                    + TransactionMut
                                    + TransactionType<Type: IsEip4844>
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + PartialEq,
-            >,
+                                   + TransactionValidation<ValidationError: PartialEq>,
         >,
         TimerT: Clone + TimeSinceEpoch,
     > Provider<ChainSpecT, TimerT>

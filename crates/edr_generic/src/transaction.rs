@@ -1,4 +1,4 @@
 mod request;
 mod signed;
-pub use request::Request;
-pub use signed::{SignedWithFallbackToPostEip155, Type};
+pub use request::GenericTransactionRequest;
+pub use signed::{SignedTransactionWithFallbackToPostEip155, Type};

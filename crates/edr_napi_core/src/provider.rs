@@ -3,7 +3,7 @@ mod factory;
 
 use std::{str::FromStr as _, sync::Arc};
 
-use edr_evm_spec::EvmHaltReason;
+use edr_chain_spec::EvmHaltReason;
 use edr_provider::{time::TimeSinceEpoch, InvalidRequestReason, SyncCallOverride};
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;

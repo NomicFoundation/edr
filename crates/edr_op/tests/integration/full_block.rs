@@ -1,8 +1,8 @@
 #![cfg(feature = "test-remote")]
 
-use edr_evm::impl_full_block_tests;
 use edr_op::{test_utils::isthmus_header_overrides, OpChainSpec};
 use edr_provider::test_utils::header_overrides;
+use edr_test_block_replay::impl_full_block_tests;
 
 impl_full_block_tests! {
     mainnet_regolith => OpChainSpec {

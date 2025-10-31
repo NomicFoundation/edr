@@ -16,7 +16,7 @@ use ::serde::{
     Deserialize, Deserializer, Serialize,
 };
 use derive_where::derive_where;
-use edr_rpc_spec::RpcSpec;
+use edr_rpc_spec::RpcChainSpec;
 
 pub use crate::requests::{
     methods::{IntervalConfig, MethodInvocation},
@@ -27,14 +27,14 @@ pub use crate::requests::{
 #[derive(Serialize)]
 #[derive_where(Clone, Debug; ChainSpecT::RpcCallRequest, ChainSpecT::RpcTransactionRequest)]
 #[serde(bound = "")]
-pub enum ProviderRequest<ChainSpecT: RpcSpec> {
+pub enum ProviderRequest<ChainSpecT: RpcChainSpec> {
     /// A single JSON-RPC request
     Single(Box<MethodInvocation<ChainSpecT>>),
     /// A batch of requests
     Batch(Vec<MethodInvocation<ChainSpecT>>),
 }
 
-impl<ChainSpecT: RpcSpec> ProviderRequest<ChainSpecT> {
+impl<ChainSpecT: RpcChainSpec> ProviderRequest<ChainSpecT> {
     /// Constructs a new instance from a single [`MethodInvocation`].
     pub fn with_single(method: MethodInvocation<ChainSpecT>) -> Self {
         Self::Single(Box::new(method))
@@ -44,17 +44,17 @@ impl<ChainSpecT: RpcSpec> ProviderRequest<ChainSpecT> {
 // Custom deserializer for `ProviderRequest` instead of using
 // `#[serde(untagged)]` as the latter hides custom error messages which are
 // important to propagate to users.
-impl<'de, ChainSpecT: RpcSpec> Deserialize<'de> for ProviderRequest<ChainSpecT> {
+impl<'de, ChainSpecT: RpcChainSpec> Deserialize<'de> for ProviderRequest<ChainSpecT> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         #[derive_where(Default)]
-        struct SingleOrBatchRequestVisitor<ChainSpecT: RpcSpec> {
+        struct SingleOrBatchRequestVisitor<ChainSpecT: RpcChainSpec> {
             phantom: PhantomData<ChainSpecT>,
         }
 
-        impl<'de, ChainSpecT: RpcSpec> Visitor<'de> for SingleOrBatchRequestVisitor<ChainSpecT> {
+        impl<'de, ChainSpecT: RpcChainSpec> Visitor<'de> for SingleOrBatchRequestVisitor<ChainSpecT> {
             type Value = ProviderRequest<ChainSpecT>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

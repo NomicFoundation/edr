@@ -1,67 +1,89 @@
-use edr_block_header::{HeaderOverrides, PartialHeader};
-use edr_database_components::DatabaseComponents;
-use edr_eip1559::ConstantBaseFeeParams;
-use edr_evm::{
-    blockchain::SyncBlockchainForChainSpec,
-    config::CfgEnv,
-    inspector::Inspector,
-    precompile::PrecompileFn,
-    spec::{base_fee_params_for, ContextForChainSpec},
-    state::WrapDatabaseRef,
-    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionErrorForChainSpec,
-    EthBlockBuilder, MineBlockResultAndState,
+use core::fmt::Debug;
+
+use edr_block_builder_api::{
+    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError,
+    BuiltBlockAndState, DatabaseComponents, PrecompileFn, WrapDatabaseRef,
 };
+use edr_block_header::{overridden_block_number, HeaderOverrides, PartialHeader};
+use edr_chain_l1::block::EthBlockBuilder;
+use edr_chain_spec::TransactionValidation;
+use edr_chain_spec_block::BlockChainSpec;
+use edr_eip1559::ConstantBaseFeeParams;
+use edr_evm_spec::{config::EvmConfig, DatabaseComponentError};
 use edr_primitives::{Address, Bytes, HashMap, KECCAK_NULL_RLP, U256};
-use edr_state_api::SyncState;
-use op_revm::{L1BlockInfo, OpHaltReason};
+use edr_state_api::{DynState, StateError};
 
 use crate::{
     block::LocalBlock,
     eip1559::{encode_dynamic_base_fee_params, DYNAMIC_BASE_FEE_PARAM_VERSION},
     predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
-    receipt::BlockReceiptFactory,
-    spec::op_base_fee_params_overrides,
-    transaction, Hardfork, OpChainSpec,
+    receipt::{block::OpBlockReceipt, execution::OpExecutionReceiptBuilder},
+    spec::op_base_fee_params_for_block,
+    transaction::signed::OpSignedTransaction,
+    HaltReason, Hardfork, OpChainSpec,
 };
 
 /// Block builder for OP.
-pub struct Builder<'builder, BlockchainErrorT, StateErrorT> {
-    eth: EthBlockBuilder<'builder, BlockchainErrorT, OpChainSpec, StateErrorT>,
-    l1_block_info: L1BlockInfo,
+pub struct OpBlockBuilder<'builder, BlockchainErrorT: Debug> {
+    eth: EthBlockBuilder<
+        'builder,
+        OpBlockReceipt,
+        <OpChainSpec as BlockChainSpec>::Block,
+        BlockchainErrorT,
+        OpChainSpec,
+        OpExecutionReceiptBuilder,
+        OpChainSpec,
+        LocalBlock,
+    >,
 }
 
-impl<'builder, BlockchainErrorT, StateErrorT> BlockBuilder<'builder, OpChainSpec>
-    for Builder<'builder, BlockchainErrorT, StateErrorT>
-where
-    BlockchainErrorT: Send + std::error::Error,
-    StateErrorT: Send + std::error::Error,
+impl<'builder, BlockchainErrorT: std::error::Error>
+    BlockBuilder<'builder, OpChainSpec, OpBlockReceipt, <OpChainSpec as BlockChainSpec>::Block>
+    for OpBlockBuilder<'builder, BlockchainErrorT>
 {
     type BlockchainError = BlockchainErrorT;
-    type StateError = StateErrorT;
+
+    type LocalBlock = LocalBlock;
 
     fn new_block_builder(
-        blockchain: &'builder dyn SyncBlockchainForChainSpec<
+        blockchain: &'builder dyn edr_blockchain_api::Blockchain<
+            OpBlockReceipt,
+            <OpChainSpec as BlockChainSpec>::Block,
             Self::BlockchainError,
-            OpChainSpec,
-            Self::StateError,
+            Hardfork,
+            Self::LocalBlock,
+            OpSignedTransaction,
         >,
-        state: Box<dyn SyncState<Self::StateError>>,
-        cfg: CfgEnv<Hardfork>,
+        state: Box<dyn DynState>,
+        evm_config: &EvmConfig,
         mut inputs: BlockInputs,
         mut overrides: HeaderOverrides<Hardfork>,
         custom_precompiles: &'builder HashMap<Address, PrecompileFn>,
-    ) -> Result<Self, BlockBuilderCreationError<Self::BlockchainError, Hardfork, Self::StateError>>
-    {
+    ) -> Result<
+        Self,
+        BlockBuilderCreationError<
+            DatabaseComponentError<Self::BlockchainError, StateError>,
+            Hardfork,
+        >,
+    > {
+        let hardfork = blockchain.hardfork();
+
+        let parent_block = blockchain.last_block().map_err(|error| {
+            BlockBuilderCreationError::Database(DatabaseComponentError::Blockchain(error))
+        })?;
+
+        let parent_header = parent_block.block_header();
+
         // TODO: https://github.com/NomicFoundation/edr/issues/990
         // Replace this once we can detect chain-specific block inputs in the provider
         // and avoid passing them as input.
-        if cfg.spec >= Hardfork::CANYON {
+        if hardfork >= Hardfork::CANYON {
             // `EthBlockBuilder` expects `inputs.withdrawals.is_some()` despite OP not
             // supporting withdrawals.
             inputs.withdrawals = Some(Vec::new());
         }
 
-        if cfg.spec >= Hardfork::ISTHMUS {
+        if hardfork >= Hardfork::ISTHMUS {
             let withdrawals_root = overrides
                 .withdrawals_root
                 .map_or_else(
@@ -73,75 +95,69 @@ where
                     },
                     Ok,
                 )
-                .map_err(BlockBuilderCreationError::State)?;
+                .map_err(|error| {
+                    BlockBuilderCreationError::Database(DatabaseComponentError::State(error))
+                })?;
 
             overrides.withdrawals_root = Some(withdrawals_root);
         }
-        if cfg.spec >= Hardfork::HOLOCENE {
+        if hardfork >= Hardfork::HOLOCENE {
             // For post-Holocene blocks, store the encoded base fee parameters to be used in
             // the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
             overrides.extra_data = Some(overrides.extra_data.unwrap_or_else(|| {
-                let chain_base_fee_params =
-                    overrides.base_fee_params.clone().unwrap_or_else(|| {
-                        base_fee_params_for::<OpChainSpec>(blockchain.chain_id()).clone()
-                    });
+                let chain_base_fee_params = overrides
+                    .base_fee_params
+                    .as_ref()
+                    .unwrap_or_else(|| blockchain.base_fee_params())
+                    .clone();
 
                 let current_block_number = blockchain.last_block_number() + 1;
                 let next_block_number = current_block_number + 1;
 
                 let extra_data_base_fee_params = chain_base_fee_params
-                    .at_condition(cfg.spec, next_block_number)
+                    .at_condition(hardfork, next_block_number)
                     .expect("Chain spec must have base fee params for post-London hardforks");
                 encode_dynamic_base_fee_params(extra_data_base_fee_params)
             }));
 
-            overrides.base_fee_params = {
+            overrides.base_fee_params = if let Some(base_fee_params) = overrides.base_fee_params {
+                Some(base_fee_params)
+            } else {
                 let parent_block_number = blockchain.last_block_number();
                 let parent_hardfork = blockchain
                     .spec_at_block_number(parent_block_number)
-                    .map_err(BlockBuilderCreationError::Blockchain)?;
-                let parent_block = blockchain
-                    .last_block()
-                    .map_err(BlockBuilderCreationError::Blockchain)?;
+                    .map_err(|error| {
+                        BlockBuilderCreationError::Database(DatabaseComponentError::Blockchain(
+                            error,
+                        ))
+                    })?;
 
-                op_base_fee_params_overrides(
-                    parent_block.header(),
-                    parent_hardfork,
-                    overrides.base_fee_params,
-                )
-            }
+                op_base_fee_params_for_block(parent_header, parent_hardfork)
+            };
         }
 
+        let l1_block_info = {
+            let l2_block_number = overridden_block_number(Some(parent_header), &overrides);
+            let mut db = WrapDatabaseRef(DatabaseComponents {
+                blockchain,
+                state: state.as_ref(),
+            });
+
+            op_revm::L1BlockInfo::try_fetch(&mut db, U256::from(l2_block_number), hardfork)
+                .map_err(BlockBuilderCreationError::Database)?
+        };
+
         let eth = EthBlockBuilder::new(
+            l1_block_info,
             blockchain,
             state,
-            cfg,
+            evm_config,
             inputs,
             overrides,
             custom_precompiles,
         )?;
 
-        let l1_block_info = {
-            let mut db = WrapDatabaseRef(DatabaseComponents {
-                blockchain: eth.blockchain(),
-                state: eth.state(),
-            });
-
-            let l2_block_number = eth.header().number;
-            op_revm::L1BlockInfo::try_fetch(
-                &mut db,
-                U256::from(l2_block_number),
-                eth.config().spec,
-            )?
-        };
-
-        Ok(Self { eth, l1_block_info })
-    }
-
-    fn block_receipt_factory(&self) -> BlockReceiptFactory {
-        BlockReceiptFactory {
-            l1_block_info: self.l1_block_info.clone(),
-        }
+        Ok(Self { eth })
     }
 
     fn header(&self) -> &PartialHeader {
@@ -150,34 +166,47 @@ where
 
     fn add_transaction(
         &mut self,
-        transaction: transaction::Signed,
+        transaction: OpSignedTransaction,
     ) -> Result<
         (),
-        BlockTransactionErrorForChainSpec<Self::BlockchainError, OpChainSpec, Self::StateError>,
+        BlockTransactionError<
+            DatabaseComponentError<Self::BlockchainError, StateError>,
+            <OpSignedTransaction as TransactionValidation>::ValidationError,
+        >,
     > {
         self.eth.add_transaction(transaction)
     }
 
     fn add_transaction_with_inspector<InspectorT>(
         &mut self,
-        transaction: transaction::Signed,
+        transaction: OpSignedTransaction,
         inspector: &mut InspectorT,
     ) -> Result<
         (),
-        BlockTransactionErrorForChainSpec<Self::BlockchainError, OpChainSpec, Self::StateError>,
+        BlockTransactionError<
+            DatabaseComponentError<Self::BlockchainError, StateError>,
+            <OpSignedTransaction as TransactionValidation>::ValidationError,
+        >,
     >
     where
-        InspectorT: for<'inspector> Inspector<
-            ContextForChainSpec<
+        InspectorT: for<'inspector> edr_evm_spec::Inspector<
+            edr_evm_spec::ContextForChainSpec<
                 OpChainSpec,
+                <OpChainSpec as edr_chain_spec::BlockEnvChainSpec>::BlockEnv<
+                    'inspector,
+                    PartialHeader,
+                >,
                 WrapDatabaseRef<
                     DatabaseComponents<
-                        &'inspector dyn SyncBlockchainForChainSpec<
+                        &'inspector dyn edr_blockchain_api::Blockchain<
+                            OpBlockReceipt,
+                            <OpChainSpec as BlockChainSpec>::Block,
                             Self::BlockchainError,
-                            OpChainSpec,
-                            Self::StateError,
+                            Hardfork,
+                            Self::LocalBlock,
+                            OpSignedTransaction,
                         >,
-                        &'inspector dyn SyncState<Self::StateError>,
+                        &'inspector dyn DynState,
                     >,
                 >,
             >,
@@ -187,13 +216,11 @@ where
             .add_transaction_with_inspector(transaction, inspector)
     }
 
-    fn finalize(
+    fn finalize_block(
         self,
         rewards: Vec<(Address, u128)>,
-    ) -> Result<MineBlockResultAndState<OpHaltReason, LocalBlock, Self::StateError>, Self::StateError>
-    {
-        let receipt_factory = self.block_receipt_factory();
-        self.eth.finalize(&receipt_factory, rewards)
+    ) -> Result<BuiltBlockAndState<HaltReason, Self::LocalBlock>, StateError> {
+        self.eth.finalize(rewards)
     }
 }
 

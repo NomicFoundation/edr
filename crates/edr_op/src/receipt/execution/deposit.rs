@@ -2,7 +2,30 @@ use alloy_rlp::{RlpDecodable, RlpEncodable};
 use edr_primitives::Bloom;
 use edr_receipt::MapReceiptLogs;
 
-use super::{Deposit, Execution};
+use super::OpExecutionReceipt;
+
+/// Receipt for an OP deposit transaction with deposit nonce (since
+/// Regolith) and optionally deposit receipt version (since Canyon).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Deposit<LogT> {
+    /// Status
+    pub status: bool,
+    /// Cumulative gas used in block after this transaction was executed
+    pub cumulative_gas_used: u64,
+    /// Bloom filter of the logs generated within this transaction
+    pub logs_bloom: Bloom,
+    /// Logs generated within this transaction
+    pub logs: Vec<LogT>,
+    /// The nonce used during execution.
+    pub deposit_nonce: u64,
+    /// The deposit receipt version.
+    ///
+    /// The deposit receipt version was introduced in Canyon to indicate an
+    /// update to how receipt hashes should be computed when set. The state
+    /// transition process ensures this is only set for post-Canyon deposit
+    /// transactions.
+    pub deposit_receipt_version: Option<u8>,
+}
 
 #[derive(RlpDecodable)]
 #[rlp(trailing)]
@@ -15,10 +38,10 @@ pub(super) struct Eip658OrDeposit<LogT> {
     deposit_receipt_version: Option<u8>,
 }
 
-impl<LogT> From<Eip658OrDeposit<LogT>> for Execution<LogT> {
+impl<LogT> From<Eip658OrDeposit<LogT>> for OpExecutionReceipt<LogT> {
     fn from(value: Eip658OrDeposit<LogT>) -> Self {
         if let Some(deposit_nonce) = value.deposit_nonce {
-            Execution::Deposit(Deposit {
+            OpExecutionReceipt::Deposit(Deposit {
                 status: value.status,
                 cumulative_gas_used: value.cumulative_gas_used,
                 logs_bloom: value.logs_bloom,
@@ -27,7 +50,7 @@ impl<LogT> From<Eip658OrDeposit<LogT>> for Execution<LogT> {
                 deposit_receipt_version: value.deposit_receipt_version,
             })
         } else {
-            Execution::Eip658(super::Eip658 {
+            OpExecutionReceipt::Eip658(super::Eip658 {
                 status: value.status,
                 cumulative_gas_used: value.cumulative_gas_used,
                 logs_bloom: value.logs_bloom,

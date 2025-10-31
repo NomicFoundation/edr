@@ -1,6 +1,6 @@
 use edr_chain_l1::rpc::{call::L1CallRequest, TransactionRequest};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_eth::{Blob, BlockSpec, BlockTag, PreEip1898BlockSpec};
-use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{Address, Bytes, B256, MAX_INITCODE_SIZE};
 
 use crate::{

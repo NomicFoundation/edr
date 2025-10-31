@@ -9,7 +9,7 @@ use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use chrono::{DateTime, Utc};
 use edr_block_header::BlobGas;
-use edr_evm::hardfork::ChainOverride;
+use edr_chain_config::ChainOverride;
 use edr_napi_core::provider::Config as ProviderConfig;
 use edr_primitives::{hash_map::HashMap, Address, ChainId, B256};
 use edr_provider::{AccountOverride, ForkConfig, MiningConfig};

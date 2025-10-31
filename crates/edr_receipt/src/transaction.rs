@@ -1,5 +1,5 @@
 use alloy_rlp::BufMut;
-use edr_evm_spec::{EvmSpecId, ExecutableTransaction, HaltReasonTrait};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction, HaltReasonTrait};
 use edr_transaction::TransactionType;
 
 use super::{AsExecutionReceipt, ExecutionReceipt, MapReceiptLogs};

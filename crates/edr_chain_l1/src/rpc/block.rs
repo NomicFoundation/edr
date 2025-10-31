@@ -3,9 +3,10 @@
 use std::fmt::Debug;
 
 use alloy_eips::eip4895::Withdrawal;
-use edr_block_api::{Block, BlockAndTotalDifficulty};
+use edr_block_api::{Block, BlockAndTotalDifficulty, EthBlockData};
 use edr_block_header::{BlobGas, BlockHeader};
-use edr_evm_spec::ExecutableTransaction;
+use edr_block_remote::RpcBlockConversionError;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 use edr_rpc_spec::{GetBlockNumber, RpcEthBlock};
 use serde::{Deserialize, Serialize};
@@ -51,7 +52,9 @@ pub struct L1RpcBlock<TransactionT> {
     pub uncles: Vec<B256>,
     /// Array of transaction objects, or 32 Bytes transaction hashes depending
     /// on the last given parameter
-    #[serde(default)]
+    // Using `default = "Vec::default"` as `#[serde(default)]` imposes the trait bound
+    // `TransactionT: Default`.
+    #[serde(default = "Vec::default")]
     pub transactions: Vec<TransactionT>,
     /// the length of the RLP encoding of this block in bytes
     #[serde(with = "alloy_serde::quantity")]
@@ -134,7 +137,7 @@ where
             .map(|tx| *tx.transaction_hash())
             .collect();
 
-        let header = value.block.header();
+        let header = value.block.block_header();
         L1RpcBlock {
             hash: Some(*value.block.block_hash()),
             parent_hash: header.parent_hash,
@@ -187,10 +190,10 @@ pub enum MissingFieldError {
     Number,
 }
 
-impl<TransactionT> TryFrom<&L1RpcBlock<TransactionT>> for BlockHeader {
+impl<RpcTransactionT> TryFrom<&L1RpcBlock<RpcTransactionT>> for BlockHeader {
     type Error = MissingFieldError;
 
-    fn try_from(value: &L1RpcBlock<TransactionT>) -> Result<Self, Self::Error> {
+    fn try_from(value: &L1RpcBlock<RpcTransactionT>) -> Result<Self, Self::Error> {
         let header = BlockHeader {
             parent_hash: value.parent_hash,
             ommers_hash: value.sha3_uncles,
@@ -220,5 +223,61 @@ impl<TransactionT> TryFrom<&L1RpcBlock<TransactionT>> for BlockHeader {
         };
 
         Ok(header)
+    }
+}
+
+impl<RpcTransactionT, SignedTransactionT: TryFrom<RpcTransactionT>>
+    TryFrom<L1RpcBlock<RpcTransactionT>> for EthBlockData<SignedTransactionT>
+{
+    type Error = RpcBlockConversionError<SignedTransactionT::Error>;
+
+    fn try_from(value: L1RpcBlock<RpcTransactionT>) -> Result<Self, Self::Error> {
+        let header = BlockHeader {
+            parent_hash: value.parent_hash,
+            ommers_hash: value.sha3_uncles,
+            beneficiary: value.miner.ok_or(RpcBlockConversionError::MissingMiner)?,
+            state_root: value.state_root,
+            transactions_root: value.transactions_root,
+            receipts_root: value.receipts_root,
+            logs_bloom: value.logs_bloom,
+            difficulty: value.difficulty,
+            number: value.number.ok_or(RpcBlockConversionError::MissingNumber)?,
+            gas_limit: value.gas_limit,
+            gas_used: value.gas_used,
+            timestamp: value.timestamp,
+            extra_data: value.extra_data,
+            // TODO don't accept remote blocks with missing mix hash,
+            // see https://github.com/NomicFoundation/edr/issues/518
+            mix_hash: value.mix_hash.unwrap_or_default(),
+            nonce: value.nonce.ok_or(RpcBlockConversionError::MissingNonce)?,
+            base_fee_per_gas: value.base_fee_per_gas,
+            withdrawals_root: value.withdrawals_root,
+            blob_gas: value.blob_gas_used.and_then(|gas_used| {
+                value.excess_blob_gas.map(|excess_gas| BlobGas {
+                    gas_used,
+                    excess_gas,
+                })
+            }),
+            parent_beacon_block_root: value.parent_beacon_block_root,
+            requests_hash: value.requests_hash,
+        };
+
+        let transactions = value
+            .transactions
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<SignedTransactionT>, _>>()
+            .map_err(RpcBlockConversionError::TransactionConversionError)?;
+
+        let hash = value.hash.ok_or(RpcBlockConversionError::MissingHash)?;
+
+        Ok(Self {
+            header,
+            transactions,
+            ommer_hashes: value.uncles,
+            withdrawals: value.withdrawals,
+            hash,
+            rlp_size: value.size,
+        })
     }
 }

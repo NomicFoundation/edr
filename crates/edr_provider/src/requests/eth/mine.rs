@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use tokio::{runtime, sync::Mutex};
 
 use crate::{
@@ -9,14 +8,7 @@ use crate::{
 };
 
 pub fn handle_set_interval_mining<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: Default>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: Arc<Mutex<ProviderData<ChainSpecT, TimerT>>>,

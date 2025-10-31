@@ -1,4 +1,4 @@
-use edr_evm::precompile::{self, PrecompileFn, PrecompileWithAddress};
+use edr_precompile::{PrecompileFn, PrecompileWithAddress};
 use edr_primitives::Address;
 use napi::bindgen_prelude::Uint8Array;
 use napi_derive::napi;
@@ -46,5 +46,5 @@ impl Precompile {
 /// secp256r1 precompile.
 #[napi(catch_unwind)]
 pub fn precompile_p256_verify() -> Precompile {
-    Precompile::from(precompile::secp256r1::P256VERIFY)
+    Precompile::from(edr_precompile::secp256r1::P256VERIFY)
 }

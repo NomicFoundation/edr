@@ -4,11 +4,15 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-edr_eip1559.workspace = true
-edr_eip2930.workspace = true
-edr_eip7702.workspace = true
-revm-context-interface.workspace = true
-revm-primitives.workspace = true
+edr_chain_spec.workspace = true
+edr_database_components.workspace = true
+edr_primitives.workspace = true
+edr_state_api.workspace = true
+revm-context = { workspace = true, features = ["optional_balance_check", "optional_block_gas_limit", "optional_eip3607"] }
+revm-handler.workspace = true
+revm-inspector.workspace = true
+revm-interpreter.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

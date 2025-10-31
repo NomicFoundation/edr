@@ -167,7 +167,7 @@ fn validate_filter_criteria<
                         .ok_or(ProviderError::InvalidArgument(
                             "blockHash cannot be found".to_string(),
                         ))?;
-                Some(block.header().number)
+                Some(block.block_header().number)
             }
         };
 
@@ -185,7 +185,7 @@ fn validate_filter_criteria<
             ProviderError::InvalidArgument("blockHash cannot be found".to_string())
         })?;
 
-        let block_number = block.header().number;
+        let block_number = block.block_header().number;
 
         (block_number, Some(block_number))
     } else {

@@ -3,7 +3,7 @@ use std::fmt::Display;
 use comfy_table::{presets::ASCII_MARKDOWN, Attribute, Cell, Color, Table};
 use derive_more::Debug;
 use dyn_clone::DynClone;
-use edr_evm_spec::HaltReasonTrait;
+use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::{
     hash_map::{self, HashMap},
     Address, Bytecode, Bytes,

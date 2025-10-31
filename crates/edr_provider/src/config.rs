@@ -1,9 +1,11 @@
 use std::{num::NonZeroU64, path::PathBuf, time::SystemTime};
 
 use edr_block_header::BlobGas;
+use edr_chain_config::ChainOverride;
 use edr_eip1559::BaseFeeParams;
-use edr_evm::{hardfork::ChainOverride, precompile::PrecompileFn, MineOrdering};
+use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, Bytecode, ChainId, HashMap, B256, U256};
+use edr_runtime::MineOrdering;
 use edr_state_api::EvmStorage;
 use rand::Rng;
 use serde::{Deserialize, Serialize};

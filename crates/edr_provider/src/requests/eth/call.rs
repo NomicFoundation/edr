@@ -1,8 +1,8 @@
+use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
-use edr_evm::{state::StateOverrides, trace::Trace, transaction};
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
+use edr_runtime::{overrides::StateOverrides, trace::Trace, transaction};
 use edr_signer::FakeSign as _;
 
 use crate::{
@@ -16,12 +16,7 @@ use crate::{
 pub fn handle_call_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Clone
-                               + Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Clone + Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -69,11 +64,7 @@ pub(crate) fn resolve_block_spec_for_call_request(block_spec: Option<BlockSpec>)
 pub(crate) fn resolve_call_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(

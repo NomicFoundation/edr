@@ -1,15 +1,19 @@
-use edr_receipt::{
-    AsExecutionReceipt as _, BlockReceipt, ExecutionReceipt as _, TransactionReceipt,
-};
+use edr_chain_l1::receipt::L1BlockReceipt;
+use edr_receipt::{AsExecutionReceipt as _, ExecutionReceipt as _, TransactionReceipt};
 use edr_rpc_spec::RpcTypeFrom;
 use edr_transaction::TransactionType as _;
 
-use crate::{eip2718::TypedEnvelope, receipt, rpc, transaction, Hardfork};
+use crate::{
+    eip2718::TypedEnvelope,
+    receipt::{self, block::OpBlockReceipt, execution::OpExecutionReceipt},
+    rpc::OpRpcBlockReceipt,
+    transaction, Hardfork,
+};
 
-impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
+impl RpcTypeFrom<OpBlockReceipt> for OpRpcBlockReceipt {
     type Hardfork = Hardfork;
 
-    fn rpc_type_from(value: &receipt::Block, _hardfork: Self::Hardfork) -> Self {
+    fn rpc_type_from(value: &OpBlockReceipt, _hardfork: Self::Hardfork) -> Self {
         let transaction_type = u8::from(value.eth.inner.transaction_type());
 
         Self {
@@ -27,17 +31,17 @@ impl RpcTypeFrom<receipt::Block> for rpc::BlockReceipt {
             logs_bloom: *value.eth.inner.logs_bloom(),
             state_root: None,
             status: match value.as_execution_receipt().data() {
-                receipt::Execution::Eip658(receipt) => Some(receipt.status),
-                receipt::Execution::Deposit(receipt) => Some(receipt.status),
+                OpExecutionReceipt::Eip658(receipt) => Some(receipt.status),
+                OpExecutionReceipt::Deposit(receipt) => Some(receipt.status),
             },
             effective_gas_price: value.eth.inner.effective_gas_price,
             deposit_nonce: match value.as_execution_receipt().data() {
-                receipt::Execution::Eip658(_) => None,
-                receipt::Execution::Deposit(receipt) => Some(receipt.deposit_nonce),
+                OpExecutionReceipt::Eip658(_) => None,
+                OpExecutionReceipt::Deposit(receipt) => Some(receipt.deposit_nonce),
             },
             deposit_receipt_version: match value.as_execution_receipt().data() {
-                receipt::Execution::Eip658(_) => None,
-                receipt::Execution::Deposit(receipt) => receipt.deposit_receipt_version,
+                OpExecutionReceipt::Eip658(_) => None,
+                OpExecutionReceipt::Deposit(receipt) => receipt.deposit_receipt_version,
             },
             l1_block_info: value.l1_block_info.unwrap_or_default(),
             authorization_list: None,
@@ -73,17 +77,20 @@ pub enum ConversionError {
     UnknownType(u8),
 }
 
-impl TryFrom<rpc::BlockReceipt> for receipt::Block {
+impl TryFrom<OpRpcBlockReceipt> for OpBlockReceipt {
     type Error = ConversionError;
 
-    fn try_from(value: rpc::BlockReceipt) -> Result<Self, Self::Error> {
+    fn try_from(value: OpRpcBlockReceipt) -> Result<Self, Self::Error> {
         let transaction_type = value
             .transaction_type
-            .map_or(Ok(transaction::Type::Legacy), transaction::Type::try_from)
+            .map_or(
+                Ok(transaction::OpTransactionType::Legacy),
+                transaction::OpTransactionType::try_from,
+            )
             .map_err(ConversionError::UnknownType)?;
 
         let (execution, l1_block_info) = match transaction_type {
-            transaction::Type::Legacy => {
+            transaction::OpTransactionType::Legacy => {
                 let execution = if let Some(status) = value.status {
                     receipt::execution::Eip658 {
                         status,
@@ -106,11 +113,11 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
                 (execution, None)
             }
-            transaction::Type::Eip1559
-            | transaction::Type::Eip2930
-            | transaction::Type::Eip4844
-            | transaction::Type::Eip7702 => {
-                let execution = receipt::Execution::Eip658(receipt::execution::Eip658 {
+            transaction::OpTransactionType::Eip1559
+            | transaction::OpTransactionType::Eip2930
+            | transaction::OpTransactionType::Eip4844
+            | transaction::OpTransactionType::Eip7702 => {
+                let execution = OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
                     status: value.status.ok_or(ConversionError::MissingStatus)?,
                     cumulative_gas_used: value.cumulative_gas_used,
                     logs_bloom: value.logs_bloom,
@@ -119,8 +126,8 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
                 (execution, Some(value.l1_block_info))
             }
-            transaction::Type::Deposit => {
-                let execution = receipt::Execution::Deposit(receipt::execution::Deposit {
+            transaction::OpTransactionType::Deposit => {
+                let execution = OpExecutionReceipt::Deposit(receipt::execution::Deposit {
                     status: value.status.ok_or(ConversionError::MissingStatus)?,
                     cumulative_gas_used: value.cumulative_gas_used,
                     logs_bloom: value.logs_bloom,
@@ -137,7 +144,7 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
         let enveloped = TypedEnvelope::new(execution, transaction_type);
 
-        let eth = BlockReceipt {
+        let eth = L1BlockReceipt {
             block_hash: value.block_hash,
             block_number: value.block_number,
             inner: TransactionReceipt {
@@ -158,25 +165,16 @@ impl TryFrom<rpc::BlockReceipt> for receipt::Block {
 
 #[cfg(test)]
 mod tests {
-    use edr_primitives::{Bloom, Bytes, U256};
+    use edr_primitives::{Address, Bloom, Bytes, B256};
     use edr_receipt::log::ExecutionLog;
-    use edr_rpc_spec::impl_execution_receipt_serde_tests;
-    use receipt::BlockReceiptFactory;
+    use edr_test_receipt::impl_execution_receipt_serde_tests;
 
     use super::*;
-    use crate::{Hardfork, L1BlockInfo, OpChainSpec};
+    use crate::OpChainSpec;
 
     impl_execution_receipt_serde_tests! {
-        OpChainSpec, BlockReceiptFactory {
-            l1_block_info: L1BlockInfo {
-                l1_base_fee: U256::from(1234),
-                l1_fee_overhead: None,
-                l1_base_fee_scalar: U256::from(5678),
-                l1_blob_base_fee: None,
-                l1_blob_base_fee_scalar: None,
-            }.into(),
-        } => {
-            eip658_legacy, Hardfork::FJORD => TypedEnvelope::Legacy(receipt::Execution::Eip658(receipt::execution::Eip658 {
+        OpChainSpec => {
+            eip658_legacy, Hardfork::FJORD => TypedEnvelope::Legacy(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -185,7 +183,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip2930, Hardfork::FJORD => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip2930, Hardfork::FJORD => TypedEnvelope::Eip2930(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -194,7 +192,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip1559, Hardfork::FJORD => TypedEnvelope::Eip2930(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip1559, Hardfork::FJORD => TypedEnvelope::Eip2930(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -203,7 +201,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            eip658_eip4844, Hardfork::FJORD => TypedEnvelope::Eip4844(receipt::Execution::Eip658(receipt::execution::Eip658 {
+            eip658_eip4844, Hardfork::FJORD => TypedEnvelope::Eip4844(OpExecutionReceipt::Eip658(receipt::execution::Eip658 {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),
@@ -212,7 +210,7 @@ mod tests {
                     ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
                 ],
             })),
-            deposit, Hardfork::FJORD => TypedEnvelope::Deposit(receipt::Execution::Deposit(receipt::execution::Deposit {
+            deposit, Hardfork::FJORD => TypedEnvelope::Deposit(OpExecutionReceipt::Deposit(receipt::execution::Deposit {
                 status: true,
                 cumulative_gas_used: 0xffff,
                 logs_bloom: Bloom::random(),

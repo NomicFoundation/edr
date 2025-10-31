@@ -1,4 +1,4 @@
-use edr_evm_spec::{EthHeaderConstants, EvmSpecId};
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::{KECCAK_RLP_EMPTY_ARRAY, U256};
 
 use crate::BlockHeader;
@@ -24,11 +24,12 @@ fn bomb_delay(spec_id: EvmSpecId) -> u64 {
 }
 
 /// Calculates the mining difficulty of a block.
-pub fn calculate_ethash_canonical_difficulty<ChainSpecT: EthHeaderConstants>(
+pub fn calculate_ethash_canonical_difficulty(
     spec_id: EvmSpecId,
     parent: &BlockHeader,
     block_number: u64,
     block_timestamp: u64,
+    min_ethash_difficulty: u64,
 ) -> U256 {
     // TODO: Create a custom config that prevents usage of older hardforks
     assert!(
@@ -64,5 +65,5 @@ pub fn calculate_ethash_canonical_difficulty<ChainSpecT: EthHeaderConstants>(
         difficulty += U256::from(2u64).pow(U256::from(exp));
     }
 
-    difficulty.max(U256::from(ChainSpecT::MIN_ETHASH_DIFFICULTY))
+    difficulty.max(U256::from(min_ethash_difficulty))
 }

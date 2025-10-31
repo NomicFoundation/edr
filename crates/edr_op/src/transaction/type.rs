@@ -1,16 +1,17 @@
 use std::str::FromStr;
 
-use edr_transaction::{IsEip4844, ParseError, U8};
+use edr_primitives::U8;
+use edr_transaction::{IsEip4844, ParseError};
 
-use super::{signed, Type};
+use super::{signed, OpTransactionType};
 
-impl From<Type> for u8 {
-    fn from(t: Type) -> u8 {
+impl From<OpTransactionType> for u8 {
+    fn from(t: OpTransactionType) -> u8 {
         t as u8
     }
 }
 
-impl FromStr for Type {
+impl FromStr for OpTransactionType {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -19,7 +20,7 @@ impl FromStr for Type {
             if prefix == "0x" {
                 let value = U8::from_str_radix(rest, 16)?;
 
-                Type::try_from(value.to::<u8>()).map_err(ParseError::UnknownType)
+                OpTransactionType::try_from(value.to::<u8>()).map_err(ParseError::UnknownType)
             } else {
                 Err(ParseError::InvalidRadix)
             }
@@ -29,13 +30,13 @@ impl FromStr for Type {
     }
 }
 
-impl IsEip4844 for Type {
+impl IsEip4844 for OpTransactionType {
     fn is_eip4844(&self) -> bool {
-        *self == Type::Eip4844
+        *self == OpTransactionType::Eip4844
     }
 }
 
-impl TryFrom<u8> for Type {
+impl TryFrom<u8> for OpTransactionType {
     type Error = u8;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
@@ -51,17 +52,17 @@ impl TryFrom<u8> for Type {
     }
 }
 
-impl<'deserializer> serde::Deserialize<'deserializer> for Type {
-    fn deserialize<D>(deserializer: D) -> Result<Type, D::Error>
+impl<'deserializer> serde::Deserialize<'deserializer> for OpTransactionType {
+    fn deserialize<D>(deserializer: D) -> Result<OpTransactionType, D::Error>
     where
         D: serde::Deserializer<'deserializer>,
     {
         let value = U8::deserialize(deserializer)?;
-        Type::try_from(value.to::<u8>()).map_err(serde::de::Error::custom)
+        OpTransactionType::try_from(value.to::<u8>()).map_err(serde::de::Error::custom)
     }
 }
 
-impl serde::Serialize for Type {
+impl serde::Serialize for OpTransactionType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -72,32 +73,32 @@ impl serde::Serialize for Type {
 
 #[cfg(test)]
 mod tests {
-    use crate::transaction::Type;
+    use crate::transaction::OpTransactionType;
 
-    fn assert_conversion(expected_conversion: Type) {
+    fn assert_conversion(expected_conversion: OpTransactionType) {
         let value: u8 = expected_conversion.into();
-        assert_eq!(Type::try_from(value), Ok(expected_conversion));
+        assert_eq!(OpTransactionType::try_from(value), Ok(expected_conversion));
     }
 
     #[test]
     fn test_transaction_type_conversion() {
         let possible_values = [
-            Type::Deposit,
-            Type::Eip1559,
-            Type::Eip2930,
-            Type::Eip4844,
-            Type::Eip7702,
-            Type::Legacy,
+            OpTransactionType::Deposit,
+            OpTransactionType::Eip1559,
+            OpTransactionType::Eip2930,
+            OpTransactionType::Eip4844,
+            OpTransactionType::Eip7702,
+            OpTransactionType::Legacy,
         ];
         for transaction_type in possible_values {
             // using match to ensure we are covering all variants
             match transaction_type {
-                Type::Eip1559 => assert_conversion(Type::Eip1559),
-                Type::Eip2930 => assert_conversion(Type::Eip2930),
-                Type::Eip4844 => assert_conversion(Type::Eip4844),
-                Type::Eip7702 => assert_conversion(Type::Eip7702),
-                Type::Deposit => assert_conversion(Type::Deposit),
-                Type::Legacy => assert_conversion(Type::Legacy),
+                OpTransactionType::Eip1559 => assert_conversion(OpTransactionType::Eip1559),
+                OpTransactionType::Eip2930 => assert_conversion(OpTransactionType::Eip2930),
+                OpTransactionType::Eip4844 => assert_conversion(OpTransactionType::Eip4844),
+                OpTransactionType::Eip7702 => assert_conversion(OpTransactionType::Eip7702),
+                OpTransactionType::Deposit => assert_conversion(OpTransactionType::Deposit),
+                OpTransactionType::Legacy => assert_conversion(OpTransactionType::Legacy),
             }
         }
     }

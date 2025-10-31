@@ -280,28 +280,28 @@ impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
                                         let condition = match condition {
                                             Either::A(HardforkActivationByBlockNumber {
                                                 block_number,
-                                            }) => edr_evm::hardfork::ForkCondition::Block(
+                                            }) => edr_chain_config::ForkCondition::Block(
                                                 block_number.try_cast()?,
                                             ),
                                             Either::B(HardforkActivationByTimestamp {
                                                 timestamp,
-                                            }) => edr_evm::hardfork::ForkCondition::Timestamp(
+                                            }) => edr_chain_config::ForkCondition::Timestamp(
                                                 timestamp.try_cast()?,
                                             ),
                                         };
 
-                                        Ok(edr_evm::hardfork::Activation {
+                                        Ok(edr_chain_config::HardforkActivation {
                                             condition,
                                             hardfork,
                                         })
                                     },
                                 )
                                 .collect::<napi::Result<Vec<_>>>()
-                                .map(edr_evm::hardfork::Activations::new)
+                                .map(edr_chain_config::HardforkActivations::new)
                                     })
                                     .transpose()?;
 
-                            let chain_config = edr_evm::hardfork::ChainOverride {
+                            let chain_config = edr_chain_config::ChainOverride {
                                 name,
                                 hardfork_activation_overrides,
                             };
@@ -339,7 +339,7 @@ impl From<MemPoolConfig> for edr_provider::MemPoolConfig {
     }
 }
 
-impl From<MineOrdering> for edr_evm::MineOrdering {
+impl From<MineOrdering> for edr_runtime::MineOrdering {
     fn from(value: MineOrdering) -> Self {
         match value {
             MineOrdering::Fifo => Self::Fifo,

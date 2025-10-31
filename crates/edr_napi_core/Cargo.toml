@@ -8,17 +8,20 @@ ansi_term = { version = "0.12.1", default-features = false }
 derive-where.workspace = true
 edr_block_api.workspace = true
 edr_block_header.workspace = true
+edr_chain_config.workspace = true
 edr_chain_l1.workspace = true
+edr_chain_spec.workspace = true
 edr_eip1559.workspace = true
 edr_eth.workspace = true
-edr_evm = { path = "../edr_evm" }
 edr_evm_spec.workspace = true
-edr_generic = { path = "../edr_generic" }
+edr_generic.workspace = true
+edr_precompile.workspace = true
 edr_primitives.workspace = true
-edr_provider = { path = "../edr_provider" }
-edr_rpc_client = { path = "../edr_rpc_client" }
+edr_provider.workspace = true
+edr_rpc_client.workspace = true
+edr_runtime.workspace = true
 edr_signer.workspace = true
-edr_solidity = { path = "../edr_solidity" }
+edr_solidity.workspace = true
 edr_solidity_tests.workspace = true
 edr_transaction.workspace = true
 itertools = { version = "0.12.0", default-features = false }

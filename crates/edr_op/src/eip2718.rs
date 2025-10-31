@@ -24,14 +24,14 @@ pub enum TypedEnvelope<DataT> {
 
 impl<DataT> TypedEnvelope<DataT> {
     /// Constructs a typed envelope around the given data.
-    pub fn new(data: DataT, transaction_type: transaction::Type) -> Self {
+    pub fn new(data: DataT, transaction_type: transaction::OpTransactionType) -> Self {
         match transaction_type {
-            transaction::Type::Legacy => Self::Legacy(data),
-            transaction::Type::Eip2930 => Self::Eip2930(data),
-            transaction::Type::Eip1559 => Self::Eip1559(data),
-            transaction::Type::Eip4844 => Self::Eip4844(data),
-            transaction::Type::Eip7702 => Self::Eip7702(data),
-            transaction::Type::Deposit => Self::Deposit(data),
+            transaction::OpTransactionType::Legacy => Self::Legacy(data),
+            transaction::OpTransactionType::Eip2930 => Self::Eip2930(data),
+            transaction::OpTransactionType::Eip1559 => Self::Eip1559(data),
+            transaction::OpTransactionType::Eip4844 => Self::Eip4844(data),
+            transaction::OpTransactionType::Eip7702 => Self::Eip7702(data),
+            transaction::OpTransactionType::Deposit => Self::Deposit(data),
         }
     }
 
@@ -64,16 +64,16 @@ impl<DataT> TypedEnvelope<DataT> {
 }
 
 impl<DataT> TransactionType for TypedEnvelope<DataT> {
-    type Type = transaction::Type;
+    type Type = transaction::OpTransactionType;
 
     fn transaction_type(&self) -> Self::Type {
         match self {
-            TypedEnvelope::Legacy(_) => transaction::Type::Legacy,
-            TypedEnvelope::Eip2930(_) => transaction::Type::Eip2930,
-            TypedEnvelope::Eip1559(_) => transaction::Type::Eip1559,
-            TypedEnvelope::Eip4844(_) => transaction::Type::Eip4844,
-            TypedEnvelope::Eip7702(_) => transaction::Type::Eip7702,
-            TypedEnvelope::Deposit(_) => transaction::Type::Deposit,
+            TypedEnvelope::Legacy(_) => transaction::OpTransactionType::Legacy,
+            TypedEnvelope::Eip2930(_) => transaction::OpTransactionType::Eip2930,
+            TypedEnvelope::Eip1559(_) => transaction::OpTransactionType::Eip1559,
+            TypedEnvelope::Eip4844(_) => transaction::OpTransactionType::Eip4844,
+            TypedEnvelope::Eip7702(_) => transaction::OpTransactionType::Eip7702,
+            TypedEnvelope::Deposit(_) => transaction::OpTransactionType::Deposit,
         }
     }
 }
@@ -89,12 +89,12 @@ where
 
         let first = *buf.first().ok_or(alloy_rlp::Error::InputTooShort)?;
         let transaction_type = if is_list(first) {
-            transaction::Type::Legacy
+            transaction::OpTransactionType::Legacy
         } else {
             // Consume the first byte
             buf.advance(1);
 
-            crate::transaction::Type::try_from(first)
+            crate::transaction::OpTransactionType::try_from(first)
                 .map_err(|_error| alloy_rlp::Error::Custom("unknown receipt type"))?
         };
 

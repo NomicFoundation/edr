@@ -7,8 +7,12 @@ use edr_napi_core::solidity::{
 use edr_primitives::Bytes;
 use edr_solidity::artifacts::ArtifactId;
 use edr_solidity_tests::{
-    contracts::ContractsByArtifact, decode::RevertDecoder, evm_context::L1EvmBuilder,
-    multi_runner::TestContract, MultiContractRunner,
+    contracts::ContractsByArtifact,
+    decode::RevertDecoder,
+    evm_context::L1EvmBuilder,
+    multi_runner::TestContract,
+    revm::context::{BlockEnv, TxEnv},
+    MultiContractRunner,
 };
 use napi::tokio;
 use napi_derive::napi;
@@ -33,14 +37,14 @@ impl SyncTestRunnerFactory for L1TestRunnerFactory {
         let runner = tokio::task::block_in_place(|| {
             runtime
                 .block_on(MultiContractRunner::<
-                    edr_chain_l1::BlockEnv,
+                    BlockEnv,
                     (),
                     L1EvmBuilder,
                     edr_chain_l1::HaltReason,
                     edr_chain_l1::Hardfork,
                     _,
                     edr_chain_l1::InvalidTransaction,
-                    edr_chain_l1::TxEnv,
+                    TxEnv,
                 >::new(
                     config.try_into()?,
                     contracts,

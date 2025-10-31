@@ -1,236 +1,175 @@
 use std::sync::Arc;
 
 use alloy_eips::eip7840::BlobParams;
-use edr_block_header::{BlobGas, BlockConfig, BlockHeader, PartialHeader};
-use edr_chain_l1::L1ChainSpec;
-use edr_database_components::DatabaseComponentError;
-use edr_eip1559::BaseFeeParams;
-use edr_evm::{
-    config::CfgEnv,
-    evm::{Context, EthFrame, Evm, LocalContext},
-    inspector::Inspector,
-    interpreter::{EthInstructions, EthInterpreter, InterpreterResult},
-    journal::{Journal, JournalTrait as _},
-    precompile::{EthPrecompiles, PrecompileProvider},
-    spec::{
-        BlockEnvConstructor, ContextForChainSpec, ExecutionReceiptTypeConstructorForChainSpec,
-        GenesisBlockFactory, RuntimeSpec, EXTRA_DATA,
-    },
-    state::Database,
-    transaction::{TransactionError, TransactionErrorForChainSpec},
-    BlockReceipts, EthBlockBuilder, EthBlockReceiptFactory, EthLocalBlock,
-    EthLocalBlockForChainSpec, RemoteBlock, SyncBlock,
+use edr_block_api::{sync::SyncBlock, GenesisBlockFactory, GenesisBlockOptions};
+use edr_block_header::{BlockConfig, BlockHeader, HeaderAndEvmSpec};
+use edr_block_local::EthLocalBlock;
+use edr_block_remote::FetchRemoteReceiptError;
+use edr_chain_config::ChainConfig;
+use edr_chain_l1::{
+    block::EthBlockBuilder,
+    receipt::L1BlockReceipt,
+    rpc::{call::L1CallRequest, transaction::L1RpcTransactionRequest},
+    L1ChainSpec, L1_GENESIS_BLOCK_EXTRA_DATA,
 };
-use edr_evm_spec::{
-    BlobExcessGasAndPrice, ChainHardfork, ChainSpec, EthHeaderConstants, EvmSpecId,
+use edr_chain_spec::{
+    BlobExcessGasAndPrice, BlockEnvChainSpec, BlockEnvConstructor, BlockEnvForHardfork,
+    BlockEnvTrait, ChainSpec, ContextChainSpec, EvmSpecId, HardforkChainSpec,
     TransactionValidation,
 };
-use edr_primitives::{Bytes, U256};
+use edr_chain_spec_block::BlockChainSpec;
+use edr_chain_spec_provider::ProviderChainSpec;
+use edr_eip1559::BaseFeeParams;
+use edr_evm_spec::{
+    handler::EthInstructions, CfgEnv, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
+    ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, InterpreterResult,
+    Journal, JournalTrait as _, LocalContext, PrecompileProvider, TransactionError,
+};
+use edr_primitives::{Address, Bytes, HashMap, B256, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
-use edr_receipt::{log::FilterLog, BlockReceipt};
+use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
+use edr_receipt_spec::ReceiptChainSpec;
+use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_state_api::StateDiff;
 
-use crate::GenericChainSpec;
+use crate::{
+    eip2718::TypedEnvelope,
+    receipt::GenericExecutionReceiptBuilder,
+    rpc::{
+        block::GenericRpcBlock, receipt::GenericRpcTransactionReceipt,
+        transaction::GenericRpcTransactionWithSignature,
+    },
+    GenericChainSpec,
+};
 
-impl ChainHardfork for GenericChainSpec {
-    type Hardfork = edr_chain_l1::Hardfork;
+pub struct HeaderAndEvmSpecWithFallback<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> {
+    inner: HeaderAndEvmSpec<'header, BlockHeaderT, EvmSpecId>,
 }
 
-impl ChainSpec for GenericChainSpec {
-    type BlockEnv = edr_chain_l1::BlockEnv;
-    type Context = ();
-    type HaltReason = edr_chain_l1::HaltReason;
-    type SignedTransaction = crate::transaction::SignedWithFallbackToPostEip155;
+impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>>
+    BlockEnvConstructor<EvmSpecId, &'header BlockHeaderT>
+    for HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
+{
+    fn new_block_env(header: &'header BlockHeaderT, hardfork: EvmSpecId) -> Self {
+        Self {
+            inner: HeaderAndEvmSpec::new_block_env(header, hardfork),
+        }
+    }
 }
 
-fn blob_excess_gas_and_price(
-    blob_gas: &Option<BlobGas>,
-    hardfork: edr_chain_l1::Hardfork,
-) -> Option<BlobExcessGasAndPrice> {
-    let blob_params = if hardfork >= EvmSpecId::PRAGUE {
-        BlobParams::prague()
-    } else {
-        BlobParams::cancun()
-    };
-    let update_fraction = blob_params
-        .update_fraction
-        .try_into()
-        .expect("blob update fraction is too large");
+impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
+    for HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
+{
+    fn number(&self) -> U256 {
+        self.inner.number()
+    }
 
-    blob_gas
-        .as_ref()
-        .map(|BlobGas { excess_gas, .. }| BlobExcessGasAndPrice::new(*excess_gas, update_fraction))
-        .or_else(|| {
+    fn beneficiary(&self) -> Address {
+        self.inner.beneficiary()
+    }
+
+    fn timestamp(&self) -> U256 {
+        self.inner.timestamp()
+    }
+
+    fn gas_limit(&self) -> u64 {
+        self.inner.gas_limit()
+    }
+
+    fn basefee(&self) -> u64 {
+        self.inner.basefee()
+    }
+
+    fn difficulty(&self) -> U256 {
+        self.inner.difficulty()
+    }
+
+    fn prevrandao(&self) -> Option<B256> {
+        self.inner.prevrandao()
+    }
+
+    fn blob_excess_gas_and_price(&self) -> Option<BlobExcessGasAndPrice> {
+        self.inner.blob_excess_gas_and_price().or_else(|| {
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
-            if hardfork >= edr_chain_l1::Hardfork::CANCUN {
+            if self.inner.hardfork >= edr_chain_l1::Hardfork::CANCUN {
+                let blob_params = if self.inner.hardfork >= EvmSpecId::PRAGUE {
+                    BlobParams::prague()
+                } else {
+                    BlobParams::cancun()
+                };
+
+                let update_fraction = blob_params
+                    .update_fraction
+                    .try_into()
+                    .expect("blob update fraction is too large");
+
                 Some(BlobExcessGasAndPrice::new(0u64, update_fraction))
             } else {
                 None
             }
         })
-}
-
-impl BlockEnvConstructor<BlockHeader> for GenericChainSpec {
-    fn new_block_env(header: &BlockHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
-        edr_chain_l1::BlockEnv {
-            number: U256::from(header.number),
-            beneficiary: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee_per_gas.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= EvmSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: blob_excess_gas_and_price(&header.blob_gas, hardfork),
-        }
     }
 }
 
-impl BlockEnvConstructor<PartialHeader> for GenericChainSpec {
-    fn new_block_env(header: &PartialHeader, hardfork: EvmSpecId) -> Self::BlockEnv {
-        edr_chain_l1::BlockEnv {
-            number: U256::from(header.number),
-            beneficiary: header.beneficiary,
-            timestamp: U256::from(header.timestamp),
-            difficulty: header.difficulty,
-            basefee: header.base_fee.map_or(0u64, |base_fee| {
-                base_fee.try_into().expect("base fee is too large")
-            }),
-            gas_limit: header.gas_limit,
-            prevrandao: if hardfork >= EvmSpecId::MERGE {
-                Some(header.mix_hash)
-            } else {
-                None
-            },
-            blob_excess_gas_and_price: blob_excess_gas_and_price(&header.blob_gas, hardfork),
-        }
-    }
-}
+impl BlockChainSpec for GenericChainSpec {
+    type Block =
+        dyn SyncBlock<Arc<Self::Receipt>, Self::SignedTransaction, Error = Self::FetchReceiptError>;
 
-impl EthHeaderConstants for GenericChainSpec {
-    const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
-}
-
-impl GenesisBlockFactory for GenericChainSpec {
-    type CreationError = <L1ChainSpec as GenesisBlockFactory>::CreationError;
-
-    type LocalBlock = <Self as RuntimeSpec>::LocalBlock;
-
-    fn genesis_block(
-        genesis_diff: StateDiff,
-        block_config: BlockConfig<'_, Self::Hardfork>,
-        mut options: edr_evm::GenesisBlockOptions<Self::Hardfork>,
-    ) -> Result<Self::LocalBlock, Self::CreationError> {
-        // If no option is provided, use the default extra data for L1 Ethereum.
-        options.extra_data = Some(
-            options
-                .extra_data
-                .unwrap_or(Bytes::copy_from_slice(EXTRA_DATA)),
-        );
-
-        EthLocalBlockForChainSpec::<Self>::with_genesis_state::<Self>(
-            genesis_diff,
-            block_config,
-            options,
-        )
-    }
-}
-
-impl RuntimeSpec for GenericChainSpec {
-    type Block = dyn SyncBlock<
-        Arc<Self::BlockReceipt>,
-        Self::SignedTransaction,
-        Error = <Self::LocalBlock as BlockReceipts<Arc<Self::BlockReceipt>>>::Error,
-    >;
-
-    type BlockBuilder<
+    type BlockBuilder<'builder, BlockchainErrorT: 'builder + std::error::Error> = EthBlockBuilder<
         'builder,
-        BlockchainErrorT: 'builder + std::error::Error + Send,
-        StateErrorT: 'builder + std::error::Error + Send,
-    > = EthBlockBuilder<'builder, BlockchainErrorT, Self, StateErrorT>;
-
-    type BlockReceipt = BlockReceipt<Self::ExecutionReceipt<FilterLog>>;
-
-    type BlockReceiptFactory = EthBlockReceiptFactory<Self::ExecutionReceipt<FilterLog>>;
-
-    type Evm<
+        Self::Receipt,
+        Self::Block,
         BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
-        StateErrorT,
-    > = Evm<
-        ContextForChainSpec<Self, DatabaseT>,
-        InspectorT,
-        EthInstructions<EthInterpreter, ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT,
-        EthFrame<EthInterpreter>,
+        Self,
+        Self::ExecutionReceiptBuilder,
+        Self,
+        Self::LocalBlock,
     >;
 
-    type LocalBlock = EthLocalBlock<
-        Self::RpcBlockConversionError,
-        Self::BlockReceipt,
-        ExecutionReceiptTypeConstructorForChainSpec<Self>,
-        Self::Hardfork,
-        Self::RpcReceiptConversionError,
-        Self::SignedTransaction,
-    >;
+    type FetchReceiptError =
+        FetchRemoteReceiptError<<Self::Receipt as TryFrom<Self::RpcReceipt>>::Error>;
+}
 
-    type PrecompileProvider<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        StateErrorT,
-    > = EthPrecompiles;
+impl BlockEnvChainSpec for GenericChainSpec {
+    type BlockEnv<'header, BlockHeaderT>
+        = HeaderAndEvmSpecWithFallback<'header, BlockHeaderT>
+    where
+        BlockHeaderT: 'header + BlockEnvForHardfork<Self::Hardfork>;
+}
 
-    type ReceiptBuilder = crate::receipt::execution::Builder;
-    type RpcBlockConversionError = crate::rpc::block::ConversionError<Self>;
-    type RpcReceiptConversionError = crate::rpc::receipt::ConversionError;
-    type RpcTransactionConversionError = crate::rpc::transaction::ConversionError;
+impl ChainSpec for GenericChainSpec {
+    type HaltReason = edr_chain_l1::HaltReason;
+    type SignedTransaction = crate::transaction::SignedTransactionWithFallbackToPostEip155;
+}
 
-    fn cast_local_block(local_block: Arc<Self::LocalBlock>) -> Arc<Self::Block> {
-        local_block
-    }
+impl ContextChainSpec for GenericChainSpec {
+    type Context = ();
+}
 
-    fn cast_remote_block(remote_block: Arc<RemoteBlock<Self>>) -> Arc<Self::Block> {
-        remote_block
-    }
+impl EvmChainSpec for GenericChainSpec {
+    type PrecompileProvider<BlockT: BlockEnvTrait, DatabaseT: Database> =
+        <L1ChainSpec as EvmChainSpec>::PrecompileProvider<BlockT, DatabaseT>;
 
-    fn cast_transaction_error<BlockchainErrorT, StateErrorT>(
-        error: <Self::SignedTransaction as TransactionValidation>::ValidationError,
-    ) -> TransactionErrorForChainSpec<BlockchainErrorT, Self, StateErrorT> {
-        // Can't use L1ChainSpec impl here as the TransactionError is generic
-        // over the specific chain spec rather than just the validation error.
-        // Instead, we copy the impl here.
-        match error {
-            edr_chain_l1::InvalidTransaction::LackOfFundForMaxFee { fee, balance } => {
-                TransactionError::LackOfFundForMaxFee { fee, balance }
-            }
-            remainder => TransactionError::InvalidTransaction(remainder),
-        }
-    }
-
-    fn evm_with_inspector<
-        BlockchainErrorT,
-        DatabaseT: Database<Error = DatabaseComponentError<BlockchainErrorT, StateErrorT>>,
-        InspectorT: Inspector<ContextForChainSpec<Self, DatabaseT>>,
-        PrecompileProviderT: PrecompileProvider<ContextForChainSpec<Self, DatabaseT>, Output = InterpreterResult>,
-        StateErrorT,
+    fn dry_run<
+        BlockT: BlockEnvTrait,
+        DatabaseT: Database,
+        PrecompileProviderT: PrecompileProvider<
+            ContextForChainSpec<Self, BlockT, DatabaseT>,
+            Output = InterpreterResult,
+        >,
     >(
-        block: Self::BlockEnv,
+        block: BlockT,
         cfg: CfgEnv<Self::Hardfork>,
         transaction: Self::SignedTransaction,
         database: DatabaseT,
-        inspector: InspectorT,
         precompile_provider: PrecompileProviderT,
     ) -> Result<
-        Self::Evm<BlockchainErrorT, DatabaseT, InspectorT, PrecompileProviderT, StateErrorT>,
-        DatabaseT::Error,
+        ExecutionResultAndState<Self::HaltReason>,
+        TransactionError<
+            DatabaseT::Error,
+            <Self::SignedTransaction as TransactionValidation>::ValidationError,
+        >,
     > {
         let context = Context {
             block,
@@ -242,37 +181,136 @@ impl RuntimeSpec for GenericChainSpec {
             error: Ok(()),
         };
 
-        Ok(Evm::new_with_inspector(
+        let mut evm = Evm::new(context, EthInstructions::default(), precompile_provider);
+
+        evm.replay().map_err(TransactionError::from)
+    }
+
+    fn dry_run_with_inspector<
+        BlockT: BlockEnvTrait,
+        DatabaseT: Database,
+        InspectorT: Inspector<ContextForChainSpec<Self, BlockT, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<
+            ContextForChainSpec<Self, BlockT, DatabaseT>,
+            Output = InterpreterResult,
+        >,
+    >(
+        block: BlockT,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        database: DatabaseT,
+        precompile_provider: PrecompileProviderT,
+        inspector: InspectorT,
+    ) -> Result<
+        ExecutionResultAndState<Self::HaltReason>,
+        TransactionError<
+            DatabaseT::Error,
+            <Self::SignedTransaction as TransactionValidation>::ValidationError,
+        >,
+    > {
+        let context = Context {
+            block,
+            // We need to pass a transaction here to properly initialize the context.
+            // This default transaction is immediately overridden by the actual transaction passed
+            // to `InspectEvm::inspect_tx`, so its values do not affect the inspection
+            // process.
+            tx: Self::SignedTransaction::default(),
+            cfg,
+            journaled_state: Journal::new(database),
+            chain: (),
+            local: LocalContext::default(),
+            error: Ok(()),
+        };
+
+        let mut evm = Evm::new_with_inspector(
             context,
             inspector,
             EthInstructions::default(),
             precompile_provider,
-        ))
-    }
+        );
 
-    fn chain_config(
-        chain_id: u64,
-    ) -> Option<&'static edr_evm::hardfork::ChainConfig<Self::Hardfork>> {
-        L1ChainSpec::chain_config(chain_id)
+        evm.inspect_tx(transaction).map_err(TransactionError::from)
     }
+}
 
-    fn next_base_fee_per_gas(
-        header: &BlockHeader,
-        chain_id: u64,
-        hardfork: Self::Hardfork,
-        base_fee_params_overrides: Option<&BaseFeeParams<Self::Hardfork>>,
-    ) -> u128 {
-        L1ChainSpec::next_base_fee_per_gas(header, chain_id, hardfork, base_fee_params_overrides)
+impl ExecutionReceiptChainSpec for GenericChainSpec {
+    type ExecutionReceipt<LogT> = TypedEnvelope<edr_receipt::Execution<LogT>>;
+}
+
+impl GenesisBlockFactory for GenericChainSpec {
+    type GenesisBlockCreationError =
+        <L1ChainSpec as GenesisBlockFactory>::GenesisBlockCreationError;
+
+    type LocalBlock = EthLocalBlock<
+        <Self as ReceiptChainSpec>::Receipt,
+        <Self as BlockChainSpec>::FetchReceiptError,
+        Self::Hardfork,
+        <Self as ChainSpec>::SignedTransaction,
+    >;
+
+    fn genesis_block(
+        genesis_diff: StateDiff,
+        block_config: BlockConfig<'_, Self::Hardfork>,
+        mut options: GenesisBlockOptions<Self::Hardfork>,
+    ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
+        // If no option is provided, use the default extra data for L1 Ethereum.
+        options.extra_data = Some(
+            options
+                .extra_data
+                .unwrap_or(Bytes::copy_from_slice(L1_GENESIS_BLOCK_EXTRA_DATA)),
+        );
+
+        EthLocalBlock::with_genesis_state(genesis_diff, block_config, options)
+    }
+}
+
+impl HardforkChainSpec for GenericChainSpec {
+    type Hardfork = edr_chain_l1::Hardfork;
+}
+
+impl ProviderChainSpec for GenericChainSpec {
+    const MIN_ETHASH_DIFFICULTY: u64 = L1ChainSpec::MIN_ETHASH_DIFFICULTY;
+
+    fn chain_configs() -> &'static HashMap<u64, ChainConfig<Self::Hardfork>> {
+        L1ChainSpec::chain_configs()
     }
 
     fn default_base_fee_params() -> &'static BaseFeeParams<Self::Hardfork> {
         L1ChainSpec::default_base_fee_params()
     }
+
+    fn next_base_fee_per_gas(
+        header: &BlockHeader,
+        hardfork: Self::Hardfork,
+        default_base_fee_params: &BaseFeeParams<Self::Hardfork>,
+    ) -> u128 {
+        L1ChainSpec::next_base_fee_per_gas(header, hardfork, default_base_fee_params)
+    }
+}
+
+impl ReceiptChainSpec for GenericChainSpec {
+    type ExecutionReceiptBuilder = GenericExecutionReceiptBuilder;
+
+    type Receipt = L1BlockReceipt<<Self as ExecutionReceiptChainSpec>::ExecutionReceipt<FilterLog>>;
+}
+
+impl RpcBlockChainSpec for GenericChainSpec {
+    type RpcBlock<DataT>
+        = GenericRpcBlock<DataT>
+    where
+        DataT: serde::de::DeserializeOwned + serde::Serialize;
+}
+
+impl RpcChainSpec for GenericChainSpec {
+    type RpcCallRequest = L1CallRequest;
+    type RpcReceipt = GenericRpcTransactionReceipt;
+    type RpcTransaction = GenericRpcTransactionWithSignature;
+    type RpcTransactionRequest = L1RpcTransactionRequest;
 }
 
 impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
     type PooledTransaction = edr_chain_l1::L1PooledTransaction;
-    type TransactionRequest = crate::transaction::Request;
+    type TransactionRequest = crate::transaction::GenericTransactionRequest;
 
     fn cast_halt_reason(reason: Self::HaltReason) -> TransactionFailureReason<Self::HaltReason> {
         <L1ChainSpec as ProviderSpec<TimerT>>::cast_halt_reason(reason)
@@ -281,7 +319,7 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
 
 #[cfg(test)]
 mod tests {
-    use edr_evm::spec::BlockEnvConstructor as _;
+    use edr_block_header::BlobGas;
     use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
     use super::*;
@@ -317,9 +355,10 @@ mod tests {
         let header = build_block_header(None); // No blob gas information
         let spec_id = edr_chain_l1::Hardfork::CANCUN;
 
-        let block = GenericChainSpec::new_block_env(&header, spec_id);
+        let block =
+            <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, spec_id);
         assert_eq!(
-            block.blob_excess_gas_and_price,
+            block.blob_excess_gas_and_price(),
             Some(BlobExcessGasAndPrice::new(
                 0u64,
                 BlobParams::cancun()
@@ -335,9 +374,10 @@ mod tests {
         let header = build_block_header(None); // No blob gas information
         let spec_id = edr_chain_l1::Hardfork::PRAGUE;
 
-        let block = GenericChainSpec::new_block_env(&header, spec_id);
+        let block =
+            <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, spec_id);
         assert_eq!(
-            block.blob_excess_gas_and_price,
+            block.blob_excess_gas_and_price(),
             Some(BlobExcessGasAndPrice::new(
                 0u64,
                 BlobParams::prague()
@@ -352,8 +392,11 @@ mod tests {
     fn generic_block_constructor_should_not_default_excess_blob_gas_before_cancun() {
         let header = build_block_header(None); // No blob gas information
 
-        let block = GenericChainSpec::new_block_env(&header, edr_chain_l1::Hardfork::SHANGHAI);
-        assert_eq!(block.blob_excess_gas_and_price, None);
+        let block = <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(
+            &header,
+            edr_chain_l1::Hardfork::SHANGHAI,
+        );
+        assert_eq!(block.blob_excess_gas_and_price(), None);
     }
 
     #[test]
@@ -366,10 +409,11 @@ mod tests {
         let header = build_block_header(Some(blob_gas)); // blob gas present
         let spec_id = edr_chain_l1::Hardfork::CANCUN;
 
-        let block = GenericChainSpec::new_block_env(&header, spec_id);
+        let block =
+            <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, spec_id);
 
         let blob_excess_gas = block
-            .blob_excess_gas_and_price
+            .blob_excess_gas_and_price()
             .expect("Blob excess gas should be set");
         assert_eq!(blob_excess_gas.excess_blob_gas, excess_gas);
     }

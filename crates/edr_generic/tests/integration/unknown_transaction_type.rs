@@ -2,13 +2,15 @@
 
 use std::sync::Arc;
 
-use edr_blockchain_api::Blockchain as _;
+use edr_blockchain_api::GetBlockchainBlock as _;
+use edr_chain_spec_provider::{default_block_config, ProviderChainSpec};
 use edr_defaults::CACHE_DIR;
-use edr_evm::{blockchain::ForkedBlockchain, state::IrregularState, RandomHashGenerator};
 use edr_generic::GenericChainSpec;
-use edr_primitives::HashMap;
-use edr_rpc_eth::client::EthRpcClient;
+use edr_provider::spec::ForkedBlockchainForChainSpec;
+use edr_rpc_eth::client::EthRpcClientForChainSpec;
+use edr_state_api::irregular::IrregularState;
 use edr_test_utils::env::get_alchemy_url;
+use edr_utils::random::RandomHashGenerator;
 use parking_lot::Mutex;
 use tokio::runtime;
 
@@ -20,20 +22,22 @@ async fn unknown_transaction_types() -> anyhow::Result<()> {
     // transaction types (e.g. found in OP), as we want to fallback to
     // legacy transactions for the for the generic (aka fallback) chain spec.
     let url = get_alchemy_url().replace("eth-", "opt-");
-    let rpc_client = EthRpcClient::<GenericChainSpec>::new(&url, CACHE_DIR.into(), None)?;
+    let rpc_client =
+        EthRpcClientForChainSpec::<GenericChainSpec>::new(&url, CACHE_DIR.into(), None)?;
     let mut irregular_state = IrregularState::default();
     let state_root_generator = Arc::new(Mutex::new(RandomHashGenerator::with_seed("test")));
-    let hardfork_activation_overrides = HashMap::new();
 
-    let blockchain = ForkedBlockchain::new(
+    let block_config = default_block_config::<GenericChainSpec>(edr_chain_l1::Hardfork::default());
+
+    let blockchain = ForkedBlockchainForChainSpec::<GenericChainSpec>::new(
+        block_config,
         runtime::Handle::current(),
-        None,
-        edr_chain_l1::Hardfork::default(),
         Arc::new(rpc_client),
-        None,
         &mut irregular_state,
         state_root_generator,
-        &hardfork_activation_overrides,
+        GenericChainSpec::chain_configs(),
+        None,
+        None,
     )
     .await?;
 

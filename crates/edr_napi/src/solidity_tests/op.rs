@@ -4,11 +4,14 @@ use edr_napi_core::solidity::{
     config::{TestRunnerConfig, TracingConfigWithBuffers},
     SyncTestRunner, SyncTestRunnerFactory,
 };
-use edr_op::solidity_tests::OpEvmBuilder;
+use edr_op::{solidity_tests::OpEvmBuilder, transaction::OpTxEnv};
 use edr_primitives::Bytes;
 use edr_solidity::artifacts::ArtifactId;
 use edr_solidity_tests::{
-    contracts::ContractsByArtifact, decode::RevertDecoder, multi_runner::TestContract,
+    contracts::ContractsByArtifact,
+    decode::RevertDecoder,
+    multi_runner::TestContract,
+    revm::context::{BlockEnv, TxEnv},
     MultiContractRunner,
 };
 use napi::tokio;
@@ -34,14 +37,14 @@ impl SyncTestRunnerFactory for OpTestRunnerFactory {
         let runner = tokio::task::block_in_place(|| {
             runtime
                 .block_on(MultiContractRunner::<
-                    edr_op::BlockEnv,
+                    BlockEnv,
                     _,
                     OpEvmBuilder,
                     edr_op::HaltReason,
                     edr_op::Hardfork,
                     _,
-                    edr_op::transaction::InvalidTransaction,
-                    edr_op::transaction::OpTxEnv<edr_chain_l1::TxEnv>,
+                    edr_op::InvalidTransaction,
+                    OpTxEnv<TxEnv>,
                 >::new(
                     config.try_into()?,
                     contracts,

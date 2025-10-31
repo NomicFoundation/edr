@@ -1,9 +1,9 @@
 #![cfg(feature = "test-remote")]
 
 use edr_block_header::{BlockHeader, PartialHeader};
-use edr_evm::test_utils::assert_replay_header;
 use edr_op::OpChainSpec;
 use edr_provider::test_utils::header_overrides;
+use edr_test_block_replay::assert_replay_header;
 
 use crate::integration::{base, op};
 
@@ -17,8 +17,11 @@ macro_rules! impl_test_dynamic_base_fee_params{
                     #[serial_test::serial]
                     #[tokio::test(flavor = "multi_thread")]
                     async fn [<test_dynamic_base_fee_ $net _ $block_number>]() -> anyhow::Result<()> {
+                        let runtime = tokio::runtime::Handle::current();
                         let url = $url;
+
                         assert_base_fee_activation(
+                            runtime,
                             url,
                             $block_number,
                         )
@@ -30,20 +33,33 @@ macro_rules! impl_test_dynamic_base_fee_params{
     };
 }
 
-async fn assert_base_fee_activation(url: String, block_number: u64) -> anyhow::Result<()> {
+async fn assert_base_fee_activation(
+    runtime: tokio::runtime::Handle,
+    url: String,
+    block_number: u64,
+) -> anyhow::Result<()> {
     let block_validation = |remote_header: &BlockHeader, local_header: &PartialHeader| {
         assert_eq!(remote_header.extra_data, local_header.extra_data);
         assert_eq!(remote_header.base_fee_per_gas, local_header.base_fee);
         Ok(())
     };
     assert_replay_header::<OpChainSpec>(
+        runtime.clone(),
         url.clone(),
         block_number - 1,
         header_overrides,
         block_validation,
     )
     .await?;
-    assert_replay_header::<OpChainSpec>(url, block_number, header_overrides, block_validation).await
+
+    assert_replay_header::<OpChainSpec>(
+        runtime,
+        url,
+        block_number,
+        header_overrides,
+        block_validation,
+    )
+    .await
 }
 
 impl_test_dynamic_base_fee_params! {

@@ -1,51 +1,105 @@
-//! Ethereum Virtual Machine (EVM) specification types
+pub mod config;
+mod error;
+pub mod handler;
+pub mod interpreter;
+pub mod result;
 
-mod transaction;
-
-use core::fmt::Debug;
-
-pub use revm_context_interface::{
-    block::BlobExcessGasAndPrice,
-    result::{HaltReasonTr as HaltReasonTrait, OutOfGasError},
-    Block, Transaction,
+use edr_chain_spec::{
+    ChainSpec, ContextChainSpec, EvmTransactionValidationError, HardforkChainSpec,
+    TransactionValidation,
 };
+pub use edr_database_components::DatabaseComponentError;
+pub use revm_context::{
+    Block as BlockEnvTrait, CfgEnv, Context, ContextTr as ContextTrait, Database, Evm, Journal,
+    JournalEntry, JournalTr as JournalTrait, LocalContext,
+};
+pub use revm_handler::{ExecuteEvm, PrecompileProvider};
+use revm_inspector::NoOpInspector;
+pub use revm_inspector::{InspectEvm, Inspector};
 
-pub use self::transaction::{ExecutableTransaction, TransactionValidation};
+pub use self::error::{TransactionError, TransactionErrorForChainSpec};
+pub use crate::{interpreter::InterpreterResult, result::ExecutionResultAndState};
 
-/// Halt reason type for the EVM.
-pub type EvmHaltReason = revm_context_interface::result::HaltReason;
+/// Helper type for a chain-specific [`Context`].
+pub type ContextForChainSpec<ChainSpecT, BlockEnvT, DatabaseT> = Context<
+    BlockEnvT,
+    <ChainSpecT as ChainSpec>::SignedTransaction,
+    CfgEnv<<ChainSpecT as HardforkChainSpec>::Hardfork>,
+    DatabaseT,
+    Journal<DatabaseT>,
+    <ChainSpecT as ContextChainSpec>::Context,
+>;
 
-/// Error type for Ethereum header validation.
-pub type EvmHeaderValidationError = revm_context_interface::result::InvalidHeader;
+/// Trait for specifying the types for running a transaction in a chain's
+/// associated EVM.
+pub trait EvmChainSpec:
+    ChainSpec<
+        SignedTransaction: TransactionValidation<
+            ValidationError: From<EvmTransactionValidationError>,
+        >,
+    > + ContextChainSpec
+    + HardforkChainSpec
+{
+    /// Type representing a precompile provider.
+    type PrecompileProvider<BlockT: BlockEnvTrait, DatabaseT: Database>: Default
+        + PrecompileProvider<ContextForChainSpec<Self, BlockT, DatabaseT>, Output = InterpreterResult>;
 
-/// The identifier type for a specification used by the EVM.
-pub type EvmSpecId = revm_primitives::hardfork::SpecId;
+    /// Runs a transaction inside the chain's EVM without committing the
+    /// changes.
+    #[allow(clippy::type_complexity)]
+    fn dry_run<
+        BlockT: BlockEnvTrait,
+        DatabaseT: Database,
+        PrecompileProviderT: PrecompileProvider<
+            ContextForChainSpec<Self, BlockT, DatabaseT>,
+            Output = InterpreterResult,
+        >,
+    >(
+        block: BlockT,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        database: DatabaseT,
+        precompile_provider: PrecompileProviderT,
+    ) -> Result<
+        ExecutionResultAndState<Self::HaltReason>,
+        TransactionError<
+            DatabaseT::Error,
+            <Self::SignedTransaction as TransactionValidation>::ValidationError,
+        >,
+    > {
+        Self::dry_run_with_inspector(
+            block,
+            cfg,
+            transaction,
+            database,
+            precompile_provider,
+            NoOpInspector,
+        )
+    }
 
-/// Error type for Ethereum transaction validation.
-pub type EvmTransactionValidationError = revm_context_interface::result::InvalidTransaction;
-
-/// Trait for specifying the hardfork type of a chain.
-pub trait ChainHardfork {
-    /// The chain's hardfork type.
-    type Hardfork: Copy + Default + Into<EvmSpecId>;
-}
-
-/// Trait for chain specifications.
-pub trait ChainSpec {
-    /// The chain's block type.
-    type BlockEnv: Block;
-    /// The chain's type for contextual information.
-    type Context: Debug;
-    /// The chain's halt reason type.
-    type HaltReason: HaltReasonTrait + 'static;
-    /// The chain's signed transaction type.
-    type SignedTransaction: ExecutableTransaction
-        + revm_context_interface::Transaction
-        + TransactionValidation;
-}
-
-/// Constants for constructing Ethereum headers.
-pub trait EthHeaderConstants: ChainHardfork<Hardfork: 'static + PartialOrd> {
-    /// The minimum difficulty for the Ethash proof-of-work algorithm.
-    const MIN_ETHASH_DIFFICULTY: u64;
+    /// Runs a transaction inside the chain's EVM without committing the
+    /// changes, while an inspector is observing the execution.
+    #[allow(clippy::type_complexity)]
+    fn dry_run_with_inspector<
+        BlockT: BlockEnvTrait,
+        DatabaseT: Database,
+        InspectorT: Inspector<ContextForChainSpec<Self, BlockT, DatabaseT>>,
+        PrecompileProviderT: PrecompileProvider<
+            ContextForChainSpec<Self, BlockT, DatabaseT>,
+            Output = InterpreterResult,
+        >,
+    >(
+        block: BlockT,
+        cfg: CfgEnv<Self::Hardfork>,
+        transaction: Self::SignedTransaction,
+        database: DatabaseT,
+        precompile_provider: PrecompileProviderT,
+        inspector: InspectorT,
+    ) -> Result<
+        ExecutionResultAndState<Self::HaltReason>,
+        TransactionError<
+            DatabaseT::Error,
+            <Self::SignedTransaction as TransactionValidation>::ValidationError,
+        >,
+    >;
 }

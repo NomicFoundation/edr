@@ -7,9 +7,9 @@
 
 use std::sync::Arc;
 
-use edr_evm::trace::BeforeMessage;
-use edr_evm_spec::EvmHaltReason;
+use edr_chain_spec::EvmHaltReason;
 use edr_primitives::bytecode::opcode::OpCode;
+use edr_runtime::trace::BeforeMessage;
 use napi::bindgen_prelude::{BigInt, Either3, Uint8Array};
 use napi_derive::napi;
 
@@ -123,7 +123,7 @@ pub struct TracingStep {
 }
 
 impl TracingStep {
-    pub fn new(step: &edr_evm::trace::Step) -> Self {
+    pub fn new(step: &edr_runtime::trace::Step) -> Self {
         let stack = step.stack.full().map_or_else(
             || {
                 step.stack
@@ -162,11 +162,11 @@ pub struct TracingMessageResult {
 #[napi]
 #[derive(Clone)]
 pub struct RawTrace {
-    inner: Arc<edr_evm::trace::Trace<EvmHaltReason>>,
+    inner: Arc<edr_runtime::trace::Trace<EvmHaltReason>>,
 }
 
-impl From<Arc<edr_evm::trace::Trace<EvmHaltReason>>> for RawTrace {
-    fn from(value: Arc<edr_evm::trace::Trace<EvmHaltReason>>) -> Self {
+impl From<Arc<edr_runtime::trace::Trace<EvmHaltReason>>> for RawTrace {
+    fn from(value: Arc<edr_runtime::trace::Trace<EvmHaltReason>>) -> Self {
         Self { inner: value }
     }
 }
@@ -179,13 +179,15 @@ impl RawTrace {
             .messages
             .iter()
             .map(|message| match message {
-                edr_evm::trace::TraceMessage::Before(message) => {
+                edr_runtime::trace::TraceMessage::Before(message) => {
                     Either3::A(TracingMessage::from(message))
                 }
-                edr_evm::trace::TraceMessage::Step(step) => Either3::B(TracingStep::new(step)),
-                edr_evm::trace::TraceMessage::After(message) => Either3::C(TracingMessageResult {
-                    execution_result: ExecutionResult::from(message),
-                }),
+                edr_runtime::trace::TraceMessage::Step(step) => Either3::B(TracingStep::new(step)),
+                edr_runtime::trace::TraceMessage::After(message) => {
+                    Either3::C(TracingMessageResult {
+                        execution_result: ExecutionResult::from(message),
+                    })
+                }
             })
             .collect()
     }

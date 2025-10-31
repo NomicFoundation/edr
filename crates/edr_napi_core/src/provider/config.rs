@@ -2,12 +2,10 @@ use core::num::NonZeroU64;
 use std::{str::FromStr, time::SystemTime};
 
 use edr_block_header::BlobGas;
+use edr_chain_config::{ChainOverride, HardforkActivation, HardforkActivations};
+use edr_chain_spec::EvmSpecId;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
-use edr_evm::{
-    hardfork::{self, ChainOverride},
-    precompile::PrecompileFn,
-};
-use edr_evm_spec::EvmSpecId;
+use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, ChainId, HashMap, UnknownHardfork, B256};
 use edr_provider::{config, observability::ObservabilityConfig, AccountOverride, ForkConfig};
 use edr_signer::SecretKey;
@@ -57,7 +55,7 @@ impl<HardforkT> TryFrom<Config> for edr_provider::ProviderConfig<HardforkT>
 where
     HardforkT: FromStr<Err = UnknownHardfork>
         + Default
-        + Into<edr_evm_spec::EvmSpecId>
+        + Into<edr_chain_spec::EvmSpecId>
         + Clone
         + PartialOrd,
 {
@@ -100,20 +98,20 @@ where
                                     .into_inner()
                                     .into_iter()
                                     .map(
-                                        |hardfork::Activation {
+                                        |HardforkActivation {
                                              condition,
                                              hardfork,
                                          }| {
                                             let hardfork = parse_hardfork(hardfork)?;
 
-                                            Ok(hardfork::Activation {
+                                            Ok(HardforkActivation {
                                                 condition,
                                                 hardfork,
                                             })
                                         },
                                     )
                                     .collect::<napi::Result<_>>()
-                                    .map(hardfork::Activations::new)
+                                    .map(HardforkActivations::new)
                             })
                             .transpose()?;
 

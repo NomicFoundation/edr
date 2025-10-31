@@ -1,10 +1,12 @@
+use derive_where::derive_where;
 use edr_eip1559::BaseFeeParams;
 
 use super::BlobGas;
 use crate::{Address, Bytes, B256, B64, U256};
 
 /// Data of a block header
-#[derive(Debug, Default)]
+#[derive(Debug)]
+#[derive_where(Default)]
 pub struct HeaderOverrides<HardforkT> {
     /// The parent block's hash
     pub parent_hash: Option<B256>,

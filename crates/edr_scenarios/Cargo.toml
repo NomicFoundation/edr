@@ -8,9 +8,10 @@ alloy-serde = { workspace = true, features = ["std"] }
 anyhow = { workspace = true, features = ["std"] }
 chrono = { version = "0.4.41", default-features = false, features = ["serde"] }
 edr_block_header.workspace = true
+edr_chain_config.workspace = true
 edr_defaults.workspace = true
 edr_eth.workspace = true
-edr_evm = { workspace = true, features = ["tracing"] }
+edr_runtime = { workspace = true, features = ["tracing"] }
 edr_napi_core.workspace = true
 edr_primitives.workspace = true
 edr_provider = { workspace = true, features = ["test-utils"] }

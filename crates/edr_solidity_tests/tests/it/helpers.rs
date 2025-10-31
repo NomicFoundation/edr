@@ -10,7 +10,7 @@ mod solidity_test_filter;
 use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf};
 
 use alloy_primitives::{Bytes, U256};
-use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
     artifacts::ArtifactId,
     linker::{LinkOutput, Linker},
@@ -18,7 +18,7 @@ use edr_solidity::{
 use edr_solidity_tests::{
     fuzz::FuzzDictionaryConfig,
     multi_runner::{TestContract, TestContracts},
-    revm::context::TxEnv,
+    revm::context::{BlockEnv, TxEnv},
     CollectStackTraces, IncludeTraces, MultiContractRunner, SolidityTestRunnerConfig,
 };
 use edr_test_utils::{
@@ -296,7 +296,7 @@ impl From<TestFuzzDictionaryConfig> for FuzzDictionaryConfig {
 
 /// Type alias for [`ForgeTestData`] targetting L1.
 pub type L1ForgeTestData = ForgeTestData<
-    edr_chain_l1::BlockEnv,
+    BlockEnv,
     (),
     L1EvmBuilder,
     edr_chain_l1::HaltReason,

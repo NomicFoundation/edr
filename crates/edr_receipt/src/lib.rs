@@ -8,9 +8,7 @@
 
 #![allow(missing_docs)]
 
-mod block;
 pub mod execution;
-mod factory;
 pub mod log;
 mod transaction;
 
@@ -18,7 +16,7 @@ use auto_impl::auto_impl;
 use edr_primitives::{Address, Bloom, B256};
 pub use revm_context_interface::result::{ExecutionResult, Output};
 
-pub use self::{block::BlockReceipt, factory::ReceiptFactory, transaction::TransactionReceipt};
+pub use self::transaction::TransactionReceipt;
 
 /// Log generated after execution of a transaction.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
@@ -47,6 +45,13 @@ pub trait AsExecutionReceipt {
 
     /// Returns a reference to the inner execution receipt.
     fn as_execution_receipt(&self) -> &Self::ExecutionReceipt;
+}
+
+/// Trait for specifying Ethereum-based execution receipt types for a chain
+/// type.
+pub trait ExecutionReceiptChainSpec {
+    /// Type representing an execution receipt.
+    type ExecutionReceipt<LogT>: ExecutionReceipt<Log = LogT>;
 }
 
 /// Trait for a receipt that's generated after execution of a transaction.
