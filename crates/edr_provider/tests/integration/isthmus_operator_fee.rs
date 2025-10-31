@@ -136,12 +136,12 @@ async fn receipts_does_not_include_operator_fee_params_if_absent() -> anyhow::Re
 fn get_transaction_receipt(
     provider: &Provider<OpChainSpec>,
     transaction_hash: B256,
-) -> anyhow::Result<edr_op::rpc::BlockReceipt> {
+) -> anyhow::Result<edr_op::rpc::OpRpcBlockReceipt> {
     let result = provider.handle_request(ProviderRequest::with_single(
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
-    let receipt: edr_op::rpc::BlockReceipt = serde_json::from_value(result.result)?;
+    let receipt: edr_op::rpc::OpRpcBlockReceipt = serde_json::from_value(result.result)?;
     Ok(receipt)
 }
 

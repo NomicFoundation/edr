@@ -10,7 +10,7 @@ use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::BlockChainSpec;
 use edr_eip1559::ConstantBaseFeeParams;
 use edr_evm_spec::{config::EvmConfig, DatabaseComponentError};
-use edr_primitives::{Address, Bytes, HashMap, KECCAK_NULL_RLP, U256};
+use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_state_api::{DynState, StateError};
 
 use crate::{
@@ -83,24 +83,15 @@ impl<'builder, BlockchainErrorT: std::error::Error>
             inputs.withdrawals = Some(Vec::new());
         }
 
-        if hardfork >= Hardfork::ISTHMUS {
-            let withdrawals_root = overrides
-                .withdrawals_root
-                .map_or_else(
-                    || {
-                        let storage_root =
-                            state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?;
-
-                        Ok(storage_root.unwrap_or(KECCAK_NULL_RLP))
-                    },
-                    Ok,
-                )
-                .map_err(|error| {
+        overrides.withdrawals_root = overrides.withdrawals_root.map_or_else(
+            || {
+                define_op_withdrawals_root(hardfork, &state).map_err(|error| {
                     BlockBuilderCreationError::Database(DatabaseComponentError::State(error))
-                })?;
+                })
+            },
+            |value| Ok(Some(value)),
+        )?;
 
-            overrides.withdrawals_root = Some(withdrawals_root);
-        }
         if hardfork >= Hardfork::HOLOCENE {
             // For post-Holocene blocks, store the encoded base fee parameters to be used in
             // the next block as `extraData`. See: <https://specs.optimism.io/protocol/holocene/exec-engine.html>
@@ -224,6 +215,26 @@ impl<'builder, BlockchainErrorT: std::error::Error>
     }
 }
 
+/// Prior to isthmus activation: the L2 block header's withdrawalsRoot field
+/// must be:
+///    - nil if Canyon has not been activated.
+///    - `keccak256(rlp(empty_string_code))` if Canyon has been activated.
+///
+/// After Isthmus activation, the withdrawalsRoot field be the
+/// `L2ToL1MessagePasser` account storage root
+fn define_op_withdrawals_root(
+    hardfork: Hardfork,
+    state: &dyn DynState,
+) -> Result<Option<B256>, StateError> {
+    if hardfork < Hardfork::CANYON {
+        Ok(None)
+    } else if hardfork < Hardfork::ISTHMUS {
+        Ok(Some(KECCAK_NULL_RLP))
+    } else {
+        let storage_root = state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?;
+        Ok(storage_root)
+    }
+}
 /// Decodes the base fee params from Bytes considering op-stack extra-param spec
 pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
     let version = *extra_data
@@ -250,5 +261,79 @@ pub fn decode_base_params(extra_data: &Bytes) -> ConstantBaseFeeParams {
         _ => panic!(
             "Unsupported base fee params version: {version}. Expected {DYNAMIC_BASE_FEE_PARAM_VERSION}."
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use edr_block_api::{GenesisBlockFactory, GenesisBlockOptions};
+    use edr_block_header::BlockConfig;
+    use edr_blockchain_api::StateAtBlock as _;
+    use edr_chain_spec_provider::ProviderChainSpec;
+    use edr_provider::spec::LocalBlockchainForChainSpec;
+    // use edr_evm::{blockchain::LocalBlockchain, spec::GenesisBlockFactory,
+    // GenesisBlockOptions};
+    use edr_state_api::StateDiff;
+
+    use super::*;
+    use crate::{block::builder::define_op_withdrawals_root, hardfork::op, OpChainSpec};
+
+    fn create_local_blockchain(
+        hardfork: Hardfork,
+    ) -> anyhow::Result<LocalBlockchainForChainSpec<OpChainSpec>> {
+        let block_config = BlockConfig {
+            hardfork,
+            base_fee_params: &op::MAINNET_BASE_FEE_PARAMS,
+            min_ethash_difficulty: OpChainSpec::MIN_ETHASH_DIFFICULTY,
+        };
+        let genesis_block = OpChainSpec::genesis_block(
+            StateDiff::default(),
+            block_config.clone(),
+            GenesisBlockOptions {
+                mix_hash: Some(B256::ZERO),
+                ..GenesisBlockOptions::default()
+            },
+        )?;
+
+        Ok(LocalBlockchainForChainSpec::<OpChainSpec>::new(
+            genesis_block,
+            StateDiff::default(),
+            1234,
+            block_config,
+        )?)
+    }
+
+    #[test]
+    fn should_return_none_if_before_canyon() -> anyhow::Result<()> {
+        let hardfork = Hardfork::BEDROCK;
+        let blockchain = create_local_blockchain(hardfork)?;
+        let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
+        let response = define_op_withdrawals_root(hardfork, &state)?;
+        assert_eq!(response, None);
+        Ok(())
+    }
+    #[test]
+    fn should_return_keccak_zero_if_canyon() -> anyhow::Result<()> {
+        let hardfork = Hardfork::CANYON;
+        let blockchain = create_local_blockchain(hardfork)?;
+        let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
+        let response = define_op_withdrawals_root(hardfork, &state)?;
+        assert_eq!(response, Some(KECCAK_NULL_RLP));
+        Ok(())
+    }
+
+    #[test]
+    fn should_return_l2l1passer_storage_root_if_isthmus() -> anyhow::Result<()> {
+        let hardfork = Hardfork::ISTHMUS;
+        let blockchain = create_local_blockchain(hardfork)?;
+        let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
+        let response = define_op_withdrawals_root(hardfork, &state)?;
+        assert_eq!(
+            response,
+            state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?
+        );
+        Ok(())
     }
 }
