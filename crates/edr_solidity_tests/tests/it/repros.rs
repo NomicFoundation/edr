@@ -460,3 +460,8 @@ test_repro!(8639; |config| {
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(100));
 });
+
+// https://github.com/foundry-rs/foundry/issues/8971
+test_repro!(8971; |config| {
+  config.evm_opts.isolate = true;
+});
