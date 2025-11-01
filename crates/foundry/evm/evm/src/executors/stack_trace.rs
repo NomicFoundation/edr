@@ -1,5 +1,5 @@
 use std::{borrow::Cow, collections::HashMap};
-
+use std::collections::HashSet;
 use alloy_primitives::{Address, Bytes, U160};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
@@ -25,7 +25,7 @@ use revm::{
 };
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
 
-use crate::executors::EvmError;
+use crate::executors::{EvmError, ExecutorBuilderError};
 
 /// Stack trace generation error during re-execution.
 #[derive(Clone, Debug, thiserror::Error)]
@@ -40,6 +40,8 @@ pub enum StackTraceError<HaltReasonT> {
     InvalidRootNode,
     #[error(transparent)]
     Tracer(#[from] SolidityTracerError<HaltReasonT>),
+    #[error(transparent)]
+    ExecutorBuilder(#[from] ExecutorBuilderError),
 }
 
 impl<HaltReasonT> StackTraceError<HaltReasonT> {
@@ -58,6 +60,7 @@ impl<HaltReasonT> StackTraceError<HaltReasonT> {
             StackTraceError::Tracer(err) => {
                 StackTraceError::Tracer(err.map_halt_reason(conversion_fn))
             }
+            StackTraceError::ExecutorBuilder(err) => StackTraceError::ExecutorBuilder(err),
         }
     }
 }
@@ -300,7 +303,7 @@ pub enum StackTraceResult<HaltReasonT> {
         /// without a second argument means implicitly fork from “latest”).
         /// Example signature: `function createSelectFork(string calldata
         /// urlOrAlias) external returns (uint256 forkId);`.
-        impure_cheatcodes: Vec<Cow<'static, str>>,
+        impure_cheatcodes: HashSet<Cow<'static, str>>,
     },
 }
 

@@ -171,6 +171,44 @@ unsafe fn count_different_bytes(a: &[u8], b: &[u8]) -> usize {
     sum
 }
 
+/// Returns contract name for a given contract identifier.
+///
+/// Artifact/Contract identifier can take the following form:
+/// `<artifact file name>:<contract name>`, the `artifact file name` is the name of the json file of
+/// the contract's artifact and the contract name is the name of the solidity contract, like
+/// `SafeTransferLibTest.json:SafeTransferLibTest`
+///
+/// This returns the `contract name` part
+///
+/// # Example
+///
+/// ```
+/// use crate::contracts::*;
+/// assert_eq!(
+///     "SafeTransferLibTest",
+///     get_contract_name("SafeTransferLibTest.json:SafeTransferLibTest")
+/// );
+/// ```
+pub fn get_contract_name(id: &str) -> &str {
+    id.rsplit(':').next().unwrap_or(id)
+}
+
+/// This returns the `file name` part, See [`get_contract_name`]
+///
+/// # Example
+///
+/// ```
+/// use crate::contracts::*;
+/// assert_eq!(
+///     "SafeTransferLibTest.json",
+///     get_file_name("SafeTransferLibTest.json:SafeTransferLibTest")
+/// );
+/// ```
+pub fn get_file_name(id: &str) -> &str {
+    id.split(':').next().unwrap_or(id)
+}
+
+
 /// Helper function to convert `CompactContractBytecode` ~>
 /// `ContractBytecodeSome`
 pub fn compact_to_contract(contract: CompactContractBytecode) -> Result<ContractBytecodeSome> {

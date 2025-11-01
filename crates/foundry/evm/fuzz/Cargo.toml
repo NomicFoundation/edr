@@ -25,6 +25,7 @@ revm = { workspace = true, features = [
     "arbitrary",
 ] }
 
+ciborium.workspace = true
 eyre = "0.6"
 itertools.workspace = true
 parking_lot.workspace = true

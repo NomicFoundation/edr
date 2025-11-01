@@ -1,14 +1,12 @@
+use super::{CoverageItemKind, ItemAnchor, SourceLocation};
+use crate::analysis::SourceAnalysis;
 use alloy_primitives::map::rustc_hash::FxHashSet;
 use eyre::ensure;
 use foundry_compilers::artifacts::sourcemap::{SourceElement, SourceMap};
 use foundry_evm_core::ic::IcPcMap;
 use revm::bytecode::opcode;
 
-use super::{CoverageItemKind, ItemAnchor, SourceLocation};
-use crate::analysis::SourceAnalysis;
-
-/// Attempts to find anchors for the given items using the given source map and
-/// bytecode.
+/// Attempts to find anchors for the given items using the given source map and bytecode.
 pub fn find_anchors(
     bytecode: &[u8],
     source_map: &SourceMap,
@@ -18,26 +16,24 @@ pub fn find_anchors(
     let mut seen_sources = FxHashSet::default();
     source_map
         .iter()
-        .filter_map(SourceElement::index)
+        .filter_map(|element| element.index())
         .filter(|&source| seen_sources.insert(source))
         .flat_map(|source| analysis.items_for_source_enumerated(source))
         .filter_map(|(item_id, item)| {
             match item.kind {
-                CoverageItemKind::Branch {
-                    path_id,
-                    is_first_opcode: false,
-                    ..
-                } => find_anchor_branch(bytecode, source_map, item_id, &item.loc).map(|anchors| {
-                    match path_id {
-                        0 => anchors.0,
-                        1 => anchors.1,
-                        _ => panic!("too many path IDs for branch"),
-                    }
-                }),
+                CoverageItemKind::Branch { path_id, is_first_opcode: false, .. } => {
+                    find_anchor_branch(bytecode, source_map, item_id, &item.loc).map(|anchors| {
+                        match path_id {
+                            0 => anchors.0,
+                            1 => anchors.1,
+                            _ => panic!("too many path IDs for branch"),
+                        }
+                    })
+                }
                 _ => find_anchor_simple(source_map, ic_pc_map, item_id, &item.loc),
             }
-            .inspect_err(|err| warn!(%item, %err, "could not find anchor"))
-            .ok()
+                .inspect_err(|err| warn!(%item, %err, "could not find anchor"))
+                .ok()
         })
         .collect()
 }
@@ -49,12 +45,10 @@ pub fn find_anchor_simple(
     item_id: u32,
     loc: &SourceLocation,
 ) -> eyre::Result<ItemAnchor> {
-    let instruction = source_map
-        .iter()
-        .position(|element| is_in_source_range(element, loc))
-        .ok_or_else(|| {
-            eyre::eyre!("Could not find anchor: No matching instruction in range {loc}")
-        })?;
+    let instruction =
+        source_map.iter().position(|element| is_in_source_range(element, loc)).ok_or_else(
+            || eyre::eyre!("Could not find anchor: No matching instruction in range {loc}"),
+        )?;
 
     Ok(ItemAnchor {
         instruction: ic_pc_map.get(instruction as u32).ok_or_else(|| {
@@ -67,8 +61,7 @@ pub fn find_anchor_simple(
 /// Finds the anchor corresponding to a branch item.
 ///
 /// This finds the relevant anchors for a branch coverage item. These anchors
-/// are found using the bytecode of the contract in the range of the branching
-/// node.
+/// are found using the bytecode of the contract in the range of the branching node.
 ///
 /// For `IfStatement` nodes, the template is generally:
 /// ```text
@@ -90,9 +83,9 @@ pub fn find_anchor_simple(
 /// <true branch>
 /// ```
 ///
-/// This function will look for the last JUMPI instruction, backtrack to find
-/// the program counter of the first branch, and return an item for that program
-/// counter, and the program counter immediately after the JUMPI instruction.
+/// This function will look for the last JUMPI instruction, backtrack to find the program
+/// counter of the first branch, and return an item for that program counter, and the
+/// program counter immediately after the JUMPI instruction.
 pub fn find_anchor_branch(
     bytecode: &[u8],
     source_map: &SourceMap,
@@ -105,8 +98,8 @@ pub fn find_anchor_branch(
     while pc < bytecode.len() {
         let op = bytecode[pc];
 
-        // We found a push, so we do some PC -> IC translation accounting, but we also
-        // check if this push is coupled with the JUMPI we are interested in.
+        // We found a push, so we do some PC -> IC translation accounting, but we also check if
+        // this push is coupled with the JUMPI we are interested in.
 
         // Check if Opcode is PUSH
         if (opcode::PUSH1..=opcode::PUSH32).contains(&op) {
@@ -123,8 +116,8 @@ pub fn find_anchor_branch(
             pc += push_size;
             cumulative_push_size += push_size;
 
-            // Check if we are in the source range we are interested in, and if the next
-            // opcode is a JUMPI
+            // Check if we are in the source range we are interested in, and if the next opcode
+            // is a JUMPI
             if is_in_source_range(element, loc) && bytecode[pc + 1] == opcode::JUMPI {
                 // We do not support program counters bigger than usize. This is also an
                 // assumption in REVM, so this is just a sanity check.
@@ -143,10 +136,7 @@ pub fn find_anchor_branch(
                         // The first branch is the opcode directly after JUMPI
                         instruction: (pc + 2) as u32,
                     },
-                    ItemAnchor {
-                        item_id,
-                        instruction: pc_jump,
-                    },
+                    ItemAnchor { item_id, instruction: pc_jump },
                 ));
             }
         }
@@ -164,8 +154,7 @@ fn is_in_source_range(element: &SourceElement, location: &SourceLocation) -> boo
         return false;
     }
 
-    // Needed because some source ranges in the source map mark the entire
-    // contract...
+    // Needed because some source ranges in the source map mark the entire contract...
     let is_within_start = element.offset() >= location.bytes.start;
     if !is_within_start {
         return false;

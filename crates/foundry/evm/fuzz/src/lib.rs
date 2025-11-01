@@ -4,27 +4,22 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-// TODO https://github.com/NomicFoundation/edr/issues/1076
-#![allow(clippy::indexing_slicing)]
 
 #[macro_use]
 extern crate tracing;
 
-// Used internally
-use std::{fmt, sync::Arc};
-
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_primitives::{
-    map::{AddressHashMap, HashMap},
     Address, Bytes, Log,
+    map::{AddressHashMap, HashMap},
 };
 use edr_common::calc;
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
-use indexmap as _;
 use itertools::Itertools;
 pub use proptest::test_runner::{Config as PropFuzzConfig, Reason};
 use serde::{Deserialize, Serialize};
+use std::{fmt, sync::Arc};
 
 mod error;
 pub use error::FuzzError;
@@ -40,12 +35,11 @@ mod inspector;
 pub use inspector::Fuzzer;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 pub enum CounterExample {
     /// Call used as a counter example for fuzz tests.
     Single(BaseCounterExample),
-    /// Original sequence size and sequence of calls used as a counter example
-    /// for invariant tests.
+    /// Original sequence size and sequence of calls used as a counter example for invariant tests.
     Sequence(usize, Vec<BaseCounterExample>),
 }
 
@@ -79,8 +73,7 @@ pub struct BaseCounterExample {
 }
 
 impl BaseCounterExample {
-    /// Creates counter example representing a step from invariant call
-    /// sequence.
+    /// Creates counter example representing a step from invariant call sequence.
     pub fn from_invariant_call(
         sender: Address,
         addr: Address,
@@ -91,31 +84,26 @@ impl BaseCounterExample {
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
         if let Some((name, abi)) = &contracts.get(&addr)
-            && let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4]) {
-                // skip the function selector when decoding
-                if let Ok(args) = func.abi_decode_input(&bytes[4..]) {
-                    return Self {
-                        sender: Some(sender),
-                        addr: Some(addr),
-                        calldata: bytes.clone(),
-                        contract_name: Some(name.clone()),
-                        func_name: Some(func.name.clone()),
-                        signature: Some(func.signature()),
-                        args: Some(
-                            edr_common::fmt::format_tokens(&args)
-                                .format(", ")
-                                .to_string(),
-                        ),
-                        raw_args: Some(
-                            edr_common::fmt::format_tokens_raw(&args)
-                                .format(", ")
-                                .to_string(),
-                        ),
-                        traces,
-                        show_solidity,
-                        indeterminism_reasons,
-                    };
-                }
+            && let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4])
+        {
+            // skip the function selector when decoding
+            if let Ok(args) = func.abi_decode_input(&bytes[4..]) {
+                return Self {
+                    sender: Some(sender),
+                    addr: Some(addr),
+                    calldata: bytes.clone(),
+                    contract_name: Some(name.clone()),
+                    func_name: Some(func.name.clone()),
+                    signature: Some(func.signature()),
+                    args: Some(edr_common::fmt::format_tokens(&args).format(", ").to_string()),
+                    raw_args: Some(
+                        edr_common::fmt::format_tokens_raw(&args).format(", ").to_string(),
+                    ),
+                    traces,
+                    show_solidity,
+                    indeterminism_reasons,
+                };
+            }
         }
 
         Self {
@@ -136,7 +124,7 @@ impl BaseCounterExample {
     /// Creates counter example for a fuzz test failure.
     pub fn from_fuzz_call(
         bytes: Bytes,
-        args: Vec<DynSolValue>,
+        args: &[DynSolValue],
         traces: Option<SparsedTraceArena>,
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
@@ -147,16 +135,8 @@ impl BaseCounterExample {
             contract_name: None,
             func_name: None,
             signature: None,
-            args: Some(
-                edr_common::fmt::format_tokens(&args)
-                    .format(", ")
-                    .to_string(),
-            ),
-            raw_args: Some(
-                edr_common::fmt::format_tokens_raw(&args)
-                    .format(", ")
-                    .to_string(),
-            ),
+            args: Some(edr_common::fmt::format_tokens(args).format(", ").to_string()),
+            raw_args: Some(edr_common::fmt::format_tokens_raw(args).format(", ").to_string()),
             traces,
             show_solidity: false,
             indeterminism_reasons,
@@ -168,21 +148,14 @@ impl fmt::Display for BaseCounterExample {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display counterexample as solidity.
         if self.show_solidity
-            && let (Some(sender), Some(contract), Some(address), Some(func_name), Some(args)) = (
-                &self.sender,
-                &self.contract_name,
-                &self.addr,
-                &self.func_name,
-                &self.raw_args,
-            )
+            && let (Some(sender), Some(contract), Some(address), Some(func_name), Some(args)) =
+            (&self.sender, &self.contract_name, &self.addr, &self.func_name, &self.raw_args)
         {
             writeln!(f, "\t\tvm.prank({sender});")?;
             write!(
                 f,
                 "\t\t{}({}).{}({});",
-                contract
-                    .split_once(':')
-                    .map_or(contract.as_str(), |(_, contract)| contract),
+                contract.split_once(':').map_or(contract.as_str(), |(_, contract)| contract),
                 address,
                 func_name,
                 args
@@ -193,21 +166,21 @@ impl fmt::Display for BaseCounterExample {
 
         // Regular counterexample display.
         if let Some(sender) = self.sender {
-            write!(f, "\t\tsender={sender} addr=")?;
+            write!(f, "\t\tsender={sender} addr=")?
         }
 
         if let Some(name) = &self.contract_name {
-            write!(f, "[{name}]")?;
+            write!(f, "[{name}]")?
         }
 
         if let Some(addr) = &self.addr {
-            write!(f, "{addr} ")?;
+            write!(f, "{addr} ")?
         }
 
         if let Some(sig) = &self.signature {
-            write!(f, "calldata={sig}")?;
+            write!(f, "calldata={sig}")?
         } else {
-            write!(f, "calldata={}", &self.calldata)?;
+            write!(f, "calldata={}", &self.calldata)?
         }
 
         if let Some(args) = &self.args {
@@ -223,26 +196,24 @@ impl fmt::Display for BaseCounterExample {
 pub struct FuzzTestResult {
     /// we keep this for the debugger
     pub first_case: FuzzCase,
-    /// Gas usage (`gas_used`, `call_stipend`) per cases
+    /// Gas usage (gas_used, call_stipend) per cases
     pub gas_by_case: Vec<(u64, u64)>,
-    /// Whether the test case was successful. This means that the transaction
-    /// executed properly, or that there was a revert and that the test was
-    /// expected to fail (prefixed with `testFail`)
+    /// Whether the test case was successful. This means that the transaction executed
+    /// properly, or that there was a revert and that the test was expected to fail
+    /// (prefixed with `testFail`)
     pub success: bool,
-    /// Whether the test case was skipped. `reason` will contain the skip
-    /// reason, if any.
+    /// Whether the test case was skipped. `reason` will contain the skip reason, if any.
     pub skipped: bool,
 
-    /// If there was a revert, this field will be populated. Note that the test
-    /// can still be successful (i.e self.success == true) when it's
-    /// expected to fail.
+    /// If there was a revert, this field will be populated. Note that the test can
+    /// still be successful (i.e self.success == true) when it's expected to fail.
     pub reason: Option<String>,
 
     /// Minimal reproduction test case for failing fuzz tests
     pub counterexample: Option<CounterExample>,
 
-    /// Any captured & parsed as strings logs along the test's execution which
-    /// should be printed to the user.
+    /// Any captured & parsed as strings logs along the test's execution which should
+    /// be printed to the user.
     pub logs: Vec<Log>,
 
     /// Labeled addresses
@@ -250,17 +221,16 @@ pub struct FuzzTestResult {
 
     /// Exemplary traces for a fuzz run of the test function
     ///
-    /// **Note** We only store a single trace of a successful fuzz call,
-    /// otherwise we would get `num(fuzz_cases)` traces, one for each run,
-    /// which is neither helpful nor performant.
+    /// **Note** We only store a single trace of a successful fuzz call, otherwise we would get
+    /// `num(fuzz_cases)` traces, one for each run, which is neither helpful nor performant.
     pub traces: Option<SparsedTraceArena>,
 
     /// Additional traces used for gas report construction.
     /// Those traces should not be displayed.
     pub gas_report_traces: Vec<CallTraceArena>,
 
-    /// Raw coverage info
-    pub coverage: Option<HitMaps>,
+    /// Raw line coverage info
+    pub line_coverage: Option<HitMaps>,
 
     /// Deprecated cheatcodes mapped to their replacements.
     pub deprecated_cheatcodes: std::collections::HashMap<&'static str, Option<&'static str>>,
@@ -284,13 +254,7 @@ impl FuzzTestResult {
     fn gas_values(&self, with_stipend: bool) -> Vec<u64> {
         self.gas_by_case
             .iter()
-            .map(|gas| {
-                if with_stipend {
-                    gas.0
-                } else {
-                    gas.0.saturating_sub(gas.1)
-                }
-            })
+            .map(|gas| if with_stipend { gas.0 } else { gas.0.saturating_sub(gas.1) })
             .collect()
     }
 }
@@ -330,7 +294,7 @@ impl FuzzedCases {
         self.cases
     }
 
-    /// Get the last [`FuzzCase`]
+    /// Get the last [FuzzCase]
     #[inline]
     pub fn last(&self) -> Option<&FuzzCase> {
         self.cases.last()
@@ -356,13 +320,7 @@ impl FuzzedCases {
     fn gas_values(&self, with_stipend: bool) -> Vec<u64> {
         self.cases
             .iter()
-            .map(|c| {
-                if with_stipend {
-                    c.gas
-                } else {
-                    c.gas.saturating_sub(c.stipend)
-                }
-            })
+            .map(|c| if with_stipend { c.gas } else { c.gas.saturating_sub(c.stipend) })
             .collect()
     }
 
@@ -382,13 +340,7 @@ impl FuzzedCases {
     #[inline]
     pub fn highest_gas(&self, with_stipend: bool) -> u64 {
         self.highest()
-            .map(|c| {
-                if with_stipend {
-                    c.gas
-                } else {
-                    c.gas - c.stipend
-                }
-            })
+            .map(|c| if with_stipend { c.gas } else { c.gas - c.stipend })
             .unwrap_or_default()
     }
 
@@ -401,8 +353,8 @@ impl FuzzedCases {
 
 /// Fixtures to be used for fuzz tests.
 ///
-/// The key represents name of the fuzzed parameter, value holds possible fuzzed
-/// values. For example, for a fixture function declared as
+/// The key represents name of the fuzzed parameter, value holds possible fuzzed values.
+/// For example, for a fixture function declared as
 /// `function fixture_sender() external returns (address[] memory senders)`
 /// the fuzz fixtures will contain `sender` key with `senders` array as value
 #[derive(Clone, Default, Debug)]
@@ -412,17 +364,13 @@ pub struct FuzzFixtures {
 
 impl FuzzFixtures {
     pub fn new(fixtures: HashMap<String, DynSolValue>) -> Self {
-        Self {
-            inner: Arc::new(fixtures),
-        }
+        Self { inner: Arc::new(fixtures) }
     }
 
     /// Returns configured fixtures for `param_name` fuzzed parameter.
     pub fn param_fixtures(&self, param_name: &str) -> Option<&[DynSolValue]> {
         if let Some(param_fixtures) = self.inner.get(&normalize_fixture(param_name)) {
-            param_fixtures
-                .as_fixed_array()
-                .or_else(|| param_fixtures.as_array())
+            param_fixtures.as_fixed_array().or_else(|| param_fixtures.as_array())
         } else {
             None
         }
@@ -430,8 +378,7 @@ impl FuzzFixtures {
 }
 
 /// Extracts fixture name from a function name.
-/// For example: fixtures defined in `fixture_Owner` function will be applied
-/// for `owner` parameter.
+/// For example: fixtures defined in `fixture_Owner` function will be applied for `owner` parameter.
 pub fn fixture_name(function_name: String) -> String {
     normalize_fixture(function_name.strip_prefix("fixture").unwrap())
 }

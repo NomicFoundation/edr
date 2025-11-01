@@ -15,7 +15,6 @@ use napi::{
     Either,
 };
 use napi_derive::napi;
-
 use crate::{
     cast::TryCast,
     gas_report::GasReport,
@@ -264,7 +263,7 @@ impl TestResult {
                 }),
             decoded_logs: test_result.decoded_logs,
             kind: match test_result.kind {
-                edr_solidity_tests::result::TestKind::Standard(gas_consumed) => {
+                edr_solidity_tests::result::TestKind::Unit {gas: gas_consumed } => {
                     Either3::A(StandardTestKind {
                         consumed_gas: BigInt::from(gas_consumed),
                     })
@@ -282,12 +281,20 @@ impl TestResult {
                 edr_solidity_tests::result::TestKind::Invariant {
                     runs,
                     calls,
-                    reverts,
+                    reverts, metrics, failed_corpus_replays,
                 } => Either3::C(InvariantTestKind {
                     // usize as u64 is always safe
                     runs: BigInt::from(runs as u64),
                     calls: BigInt::from(calls as u64),
                     reverts: BigInt::from(reverts as u64),
+                    metrics: metrics.into_iter().map(|(name, metric)| {
+                        (name, InvariantMetrics {
+                            calls: BigInt::from(metric.calls as u64),
+                            reverts: BigInt::from(metric.reverts as u64),
+                            discards: BigInt::from(metric.discards as u64),
+                        })
+                    }).collect(),
+                    failed_corpus_replays: BigInt::from(failed_corpus_replays as u64),
                 }),
             },
             duration_ns: BigInt::from(test_result.duration.as_nanos()),
@@ -397,6 +404,27 @@ pub struct InvariantTestKind {
     /// See [`edr_solidity_tests::result::TestKind::Invariant`]
     #[napi(readonly)]
     pub reverts: BigInt,
+    /// See [`edr_solidity_tests::result::TestKind::Invariant`]
+    #[napi(readonly)]
+    pub metrics: std::collections::HashMap<String, InvariantMetrics>,
+    /// See [`edr_solidity_tests::result::TestKind::Invariant`]
+    #[napi(readonly)]
+    pub failed_corpus_replays: BigInt,
+}
+
+/// See [`edr_solidity_tests::result::InvariantMetrics`]
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct InvariantMetrics {
+    // Count of fuzzed selector calls.
+    #[napi(readonly)]
+    pub calls: BigInt,
+    // Count of fuzzed selector reverts.
+    #[napi(readonly)]
+    pub reverts: BigInt,
+    // Count of fuzzed selector discards (through assume cheatcodes).
+    #[napi(readonly)]
+    pub discards: BigInt,
 }
 
 /// Original sequence size and sequence of calls used as a counter example

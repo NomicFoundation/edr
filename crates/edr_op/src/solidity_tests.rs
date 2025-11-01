@@ -13,8 +13,10 @@ use op_revm::{
     precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpHaltReason, OpSpecId, OpTransaction,
     OpTransactionError,
 };
+use edr_chain_l1::BlockEnv;
 
 /// Type implementing the [`EvmBuilderTrait`] for the OP EVM.
+#[derive(Debug, Clone)]
 pub struct OpEvmBuilder;
 
 impl
@@ -88,6 +90,10 @@ impl
         let mut journaled_state = Journal::<DatabaseT, JournalEntry>::new(db);
         journaled_state.set_spec_id(env.cfg.spec.into());
 
+        Self::evm_with_journal_and_inspector(journaled_state, env, inspector)
+    }
+
+    fn evm_with_journal_and_inspector<DatabaseT: Database, InspectorT: Inspector<EthInstructionsContext<BlockEnv, OpTransaction<TxEnv>, OpSpecId, DatabaseT, L1BlockInfo>, EthInterpreter>>(journaled_state: Journal<DatabaseT>, env: EvmEnvWithChainContext<BlockEnv, OpTransaction<TxEnv>, OpSpecId, L1BlockInfo>, inspector: InspectorT) -> Self::Evm<DatabaseT, InspectorT> {
         let context = evm::Context {
             tx: env.tx,
             block: env.block,

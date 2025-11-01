@@ -452,6 +452,11 @@ export interface LoggerConfig {
   printLineCallback: (message: string, replace: boolean) => void
 }
 /**
+ *Creates a provider with a mock timer.
+ *For testing purposes.
+ */
+export declare function createProviderWithMockTimer(providerConfig: ProviderConfig, loggerConfig: LoggerConfig, subscriptionConfig: SubscriptionConfig, contractDecoder: ContractDecoder, time: MockTime): Promise<Provider>
+/**
  * [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md#specification)
  * secp256r1 precompile.
  */
@@ -586,8 +591,6 @@ export interface SolidityTestRunnerConfigArgs {
   projectRoot: string
   /** Configures the permissions of cheat codes that access the file system. */
   fsPermissions?: Array<PathPermission>
-  /** Whether to support the `testFail` prefix. Defaults to false. */
-  testFail?: boolean
   /** Address labels for traces. Defaults to none. */
   labels?: Array<AddressLabel>
   /**
@@ -1034,6 +1037,16 @@ export interface InvariantTestKind {
   readonly calls: bigint
   /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
   readonly reverts: bigint
+  /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
+  readonly metrics: Record<string, InvariantMetrics>
+  /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
+  readonly failedCorpusReplays: bigint
+}
+/** See [`edr_solidity_tests::result::InvariantMetrics`] */
+export interface InvariantMetrics {
+  readonly calls: bigint
+  readonly reverts: bigint
+  readonly discards: bigint
 }
 /**
  * Original sequence size and sequence of calls used as a counter example
@@ -1439,12 +1452,23 @@ export declare class EdrContext {
    *   with the results of each test suite as soon as it finished executing.
    */
   runSolidityTests(chainType: string, artifacts: Array<Artifact>, testSuites: Array<ArtifactId>, configArgs: SolidityTestRunnerConfigArgs, tracingConfig: TracingConfigWithBuffers, onTestSuiteCompletedCallback: (result: SuiteResult) => void): Promise<SolidityTestResult>
+  /**
+   *Creates a mock provider, which always returns the given response.
+   *For testing purposes.
+   */
+  createMockProvider(mockedResponse: any): Provider
 }
 export declare class ContractDecoder {
   /**Creates an empty instance. */
   constructor()
   /**Creates a new instance with the provided configuration. */
   static withContracts(config: TracingConfigWithBuffers): ContractDecoder
+}
+export declare class MockTime {
+  /**Creates a new instance of `MockTime` with the current time. */
+  static now(): MockTime
+  /**Adds the specified number of seconds to the current time. */
+  addSeconds(seconds: bigint): void
 }
 export declare class Precompile {
   /** Returns the address of the precompile. */

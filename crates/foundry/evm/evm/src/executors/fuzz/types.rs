@@ -78,9 +78,6 @@ pub struct CounterExampleData<
         HardforkT,
         TransactionErrorT,
     >,
-    /// If re-executing the counter example is not guaranteed to yield the same
-    /// results, this field contains the reason why.
-    pub indeterminism_reasons: Option<IndeterminismReasons>,
 }
 
 /// Outcome of a single fuzz

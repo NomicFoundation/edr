@@ -14,7 +14,7 @@ use revm::{
     },
     Database, Inspector, Journal,
 };
-
+use revm::context::ContextTr;
 use crate::inspectors::error_ext::ErrorExt;
 
 /// An inspector that collects logs during execution.
@@ -28,17 +28,26 @@ pub struct LogCollector {
 }
 
 impl LogCollector {
-    fn hardhat_log(&mut self, input: Vec<u8>) -> (Option<InstructionResult>, Bytes) {
-        // Decode the call
-        let decoded = match console::hh::Console::ConsoleCalls::abi_decode(&input) {
-            Ok(inner) => inner,
-            Err(err) => return (Some(InstructionResult::Revert), err.abi_encode_revert()),
-        };
+    #[cold]
+    fn do_hardhat_log<CTX>(&mut self, context: &mut CTX, inputs: &CallInputs) -> Option<CallOutcome>
+    where
+        CTX: ContextTr,
+    {
+        if let Err(err) = self.hardhat_log(&inputs.input.bytes(context)) {
+            let result = InstructionResult::Revert;
+            let output = err.abi_encode_revert();
+            return Some(CallOutcome {
+                result: InterpreterResult { result, output, gas: Gas::new(inputs.gas_limit) },
+                memory_offset: inputs.return_memory_offset.clone(),
+            });
+        }
+        None
+    }
 
-        // Convert the decoded call to a DS `log(string)` event
-        self.logs.push(convert_hh_log_to_event(decoded));
-
-        (None, Bytes::new())
+    fn hardhat_log(&mut self, data: &[u8]) -> alloy_sol_types::Result<()> {
+        let decoded = console::hh::ConsoleCalls::abi_decode(data)?;
+        self.logs.push(hh_to_ds(&decoded));
+        Ok(())
     }
 }
 
@@ -83,27 +92,16 @@ impl<
         inputs: &mut CallInputs,
     ) -> Option<CallOutcome> {
         if inputs.target_address == HARDHAT_CONSOLE_ADDRESS {
-            let (res, out) = self.hardhat_log(inputs.input.bytes(context).to_vec());
-            if let Some(res) = res {
-                return Some(CallOutcome {
-                    result: InterpreterResult {
-                        result: res,
-                        output: out,
-                        gas: Gas::new(inputs.gas_limit),
-                    },
-                    memory_offset: inputs.return_memory_offset.clone(),
-                });
-            }
+            return self.do_hardhat_log(context, inputs);
         }
-
         None
     }
 }
 
-/// Converts a Hardhat `console.log` call to a `DSTest` `log(string)` event.
-fn convert_hh_log_to_event(call: console::hh::Console::ConsoleCalls) -> Log {
+/// Converts a Hardhat `console.log` call to a DSTest `log(string)` event.
+fn hh_to_ds(call: &console::hh::ConsoleCalls) -> Log {
     // Convert the parameters of the call to their string representation using `ConsoleFmt`.
-    let msg = call.fmt(FormatSpec::default());
+    let msg = call.fmt(Default::default());
     new_console_log(&msg)
 }
 

@@ -24,7 +24,7 @@ use foundry_evm_fuzz::{
 use foundry_evm_traces::SparsedTraceArena;
 use proptest::test_runner::{TestCaseError, TestError, TestRunner};
 use revm::context::result::{HaltReason, HaltReasonTr};
-
+use foundry_evm_core::constants::CHEATCODE_ADDRESS;
 use crate::executors::{Executor, FuzzTestTimer};
 
 mod types;
@@ -157,6 +157,11 @@ impl<
             )
         }
     }
+
+    /// Whether tracing is on and if it records EVM step level data.
+    pub fn tracer_records_steps(&self) -> bool {
+        self.executor.tracer_records_steps()
+    }
 }
 
 impl<
@@ -190,7 +195,6 @@ impl<
         fuzz_fixtures: &FuzzFixtures,
         deployed_libs: &[Address],
         address: Address,
-        should_fail: bool,
         rd: &RevertDecoder,
     ) -> FuzzTestResult {
         // Stores the fuzz test execution data.
@@ -208,14 +212,13 @@ impl<
         // Start timer for this fuzz test.
         let timer = FuzzTestTimer::new(self.config.timeout);
 
-        tracing::debug!(func=?func.name, should_fail, "fuzzing");
         let run_result = self.runner.clone().run(&strategy, |calldata| {
             // Check if the timeout has been reached.
             if timer.is_timed_out() {
                 return Err(TestCaseError::fail(TEST_TIMEOUT));
             }
 
-            let fuzz_res = self.single_fuzz(address, should_fail, calldata)?;
+            let fuzz_res = self.single_fuzz(address, calldata)?;
 
             match fuzz_res {
                 FuzzOutcome::Case(case) => {
@@ -266,7 +269,6 @@ impl<
         let CounterExampleData {
             calldata,
             call,
-            indeterminism_reasons,
         } = fuzz_result.counterexample;
 
         let mut traces = fuzz_result.traces;
@@ -284,11 +286,11 @@ impl<
             reason: None,
             counterexample: None,
             logs: fuzz_result.logs,
-            deprecated_cheatcodes: fuzz_result.deprecated_cheatcodes,
             labeled_addresses: call.labels,
             traces: last_run_traces,
             gas_report_traces: traces.into_iter().map(|a| a.arena).collect(),
-            coverage: fuzz_result.coverage,
+            line_coverage: fuzz_result.coverage,
+            deprecated_cheatcodes: fuzz_result.deprecated_cheatcodes,
         };
 
         match run_result {
@@ -322,9 +324,9 @@ impl<
                     result.counterexample =
                         Some(CounterExample::Single(BaseCounterExample::from_fuzz_call(
                             calldata,
-                            args,
+                            &args,
                             call.traces,
-                            indeterminism_reasons,
+                            call.indeterminism_reasons,
                         )));
                 }
             }
@@ -348,7 +350,6 @@ impl<
     pub fn single_fuzz(
         &self,
         address: Address,
-        should_fail: bool,
         calldata: alloy_primitives::Bytes,
     ) -> Result<
         FuzzOutcome<
@@ -362,7 +363,7 @@ impl<
         >,
         TestCaseError,
     > {
-        let (mut call, cow_backend) = self
+        let mut call = self
             .executor
             .call_raw(self.sender, address, calldata.clone(), U256::ZERO)
             .map_err(|e| TestCaseError::fail(e.to_string()))?;
@@ -377,9 +378,18 @@ impl<
             .as_ref()
             .map_or_else(Default::default, |cheatcodes| cheatcodes.deprecated.clone().into_iter().collect());
 
-        let success = self
-            .executor
-            .is_raw_call_mut_success(address, &mut call, should_fail);
+        // Consider call success if test should not fail on reverts and reverter is not the
+        // cheatcode or test address.
+        let success = if !self.config.fail_on_revert
+            && call
+            .reverter
+            .is_some_and(|reverter| reverter != address && reverter != CHEATCODE_ADDRESS)
+        {
+            true
+        } else {
+            self.executor.is_raw_call_mut_success(address, &mut call, false)
+        };
+
         if success {
             Ok(FuzzOutcome::Case(CaseOutcome {
                 case: FuzzCase {
@@ -388,7 +398,7 @@ impl<
                     stipend: call.stipend,
                 },
                 traces: call.traces,
-                coverage: call.coverage,
+                coverage: call.line_coverage,
                 logs: call.logs,
                 deprecated_cheatcodes,
             }))
@@ -398,7 +408,6 @@ impl<
                 counterexample: CounterExampleData {
                     calldata,
                     call,
-                    indeterminism_reasons: cow_backend.backend.indeterminism_reasons(),
                 },
             }))
         }

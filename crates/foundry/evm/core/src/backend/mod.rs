@@ -303,32 +303,6 @@ pub trait CheatcodeBackend<
     where
         Self: Sized;
 
-    /// Executes a given TransactionRequest, commits the new state to the DB
-    fn transact_from_tx<InspectorT>(
-        &mut self,
-        transaction: &alloy_rpc_types::TransactionRequest,
-        inspector: &mut InspectorT,
-        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<()>
-    where
-        InspectorT: CheatcodeInspectorTr<
-            BlockT,
-            TxT,
-            HardforkT,
-            Backend<
-                BlockT,
-                TxT,
-                EvmBuilderT,
-                HaltReasonT,
-                HardforkT,
-                TransactionErrorT,
-                ChainContextT,
-            >,
-            ChainContextT,
-        >,
-        Self: Sized;
-
     /// Returns the `ForkId` that's currently used in the database, if fork mode is on
     fn active_fork_id(&self) -> Option<LocalForkId>;
 
@@ -882,8 +856,8 @@ impl<
     }
 
     /// The impure cheatcode signatures that were executed.
-    pub fn impure_cheatcodes(&self) -> Vec<Cow<'static, str>> {
-        self.inner.impure_cheatcodes.iter().copied().map(Cow::Borrowed).collect()
+    pub fn impure_cheatcodes(&self) -> HashSet<Cow<'static, str>> {
+        self.inner.impure_cheatcodes.clone()
     }
 
     /// Check that the global fork this backend was launched is using the
@@ -1660,34 +1634,6 @@ impl<
         )
     }
 
-    fn transact_from_tx<InspectorT>(
-        &mut self,
-        _transaction: &alloy_rpc_types::TransactionRequest,
-        _inspector: &mut InspectorT,
-        _env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
-        _journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<()>
-    where
-        InspectorT: CheatcodeInspectorTr<
-            BlockT,
-            TxT,
-            HardforkT,
-            Backend<
-                BlockT,
-                TxT,
-                EvmBuilderT,
-                HaltReasonT,
-                HardforkT,
-                TransactionErrorT,
-                ChainContextT,
-            >,
-            ChainContextT,
-        >,
-    {
-        // TODO: Implement transact_from_tx
-        todo!("transact_from_tx not implemented yet")
-    }
-
     fn active_fork_id(&self) -> Option<LocalForkId> {
         self.active_fork_ids.map(|(id, _)| id)
     }
@@ -1853,7 +1799,7 @@ impl<
     #[inline(always)]
     fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool) {
         if !is_pure {
-            self.inner.impure_cheatcodes.insert(cheatcode_name);
+            self.inner.impure_cheatcodes.insert(Cow::Borrowed(cheatcode_name));
         }
     }
 
@@ -2001,8 +1947,18 @@ pub struct IndeterminismReasons {
     /// (uint256 forkId);`.
     ///
     /// The cheatcode signatures are `'static` when created from Rust, but we
-    /// need owned  deserializaton, so we wrap it in a `Cow`.
-    pub impure_cheatcodes: Vec<Cow<'static, str>>,
+    /// need owned deserialization, so we wrap it in a `Cow`.
+    /// Using `Cow` for owned deserialization.
+    pub impure_cheatcodes: HashSet<Cow<'static, str>>,
+}
+
+impl IndeterminismReasons {
+    pub fn merge(&mut self, other: Option<IndeterminismReasons>) {
+        if let Some(other) = other {
+            self.global_fork_latest = self.global_fork_latest || other.global_fork_latest;
+            self.impure_cheatcodes = self.impure_cheatcodes.union(&other.impure_cheatcodes).cloned().collect();
+        }
+    }
 }
 
 /// Represents a fork
@@ -2085,7 +2041,7 @@ pub struct BackendInner<BlockT, TxT, HardforkT> {
     pub cheatcode_access_accounts: HashSet<Address>,
     /// The set of executed cheatcodes that are impure. The values are the
     /// Solidity method declarations of the cheatcodes.
-    pub impure_cheatcodes: HashSet<&'static str>,
+    pub impure_cheatcodes: HashSet<Cow<'static, str>>,
 }
 
 // === impl BackendInner ===

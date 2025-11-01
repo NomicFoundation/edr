@@ -79,7 +79,7 @@ impl<
                     });
                 },
             ),
-        );
+        ).map_err(|err| napi::Error::from_reason(err.to_string()))?;
 
         Ok(test_result)
     }
