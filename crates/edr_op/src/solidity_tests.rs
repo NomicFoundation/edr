@@ -2,7 +2,7 @@ use edr_evm::{
     evm::{self, Evm},
     inspector::Inspector,
     interpreter::{EthInstructions, EthInterpreter},
-    journal::{Journal, JournalEntry, JournalTrait as _},
+    journal::Journal,
     state::Database,
 };
 use edr_solidity_tests::{
@@ -63,7 +63,7 @@ impl
 
     type PrecompileProvider<DatabaseT: Database> = OpPrecompiles;
 
-    fn evm_with_inspector<
+    fn evm_with_journal_and_inspector<
         DatabaseT: Database,
         InspectorT: Inspector<
             EthInstructionsContext<
@@ -76,7 +76,7 @@ impl
             EthInterpreter,
         >,
     >(
-        db: DatabaseT,
+        journal: Journal<DatabaseT>,
         env: EvmEnvWithChainContext<
             edr_chain_l1::BlockEnv,
             OpTransaction<TxEnv>,
@@ -85,14 +85,11 @@ impl
         >,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
-        let mut journaled_state = Journal::<DatabaseT, JournalEntry>::new(db);
-        journaled_state.set_spec_id(env.cfg.spec.into());
-
         let context = evm::Context {
             tx: env.tx,
             block: env.block,
             cfg: env.cfg,
-            journaled_state,
+            journaled_state: journal,
             chain: env.chain_context,
             local: LocalContext::default(),
             error: Ok(()),
