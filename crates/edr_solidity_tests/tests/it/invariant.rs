@@ -1005,8 +1005,8 @@ async fn test_invariant_gas_report() {
 
     let deployment_report = invariant_breaker_report.deployments.first().unwrap();
 
-    assert_eq!(deployment_report.gas, 159_061);
-    assert_eq!(deployment_report.size, 434);
+    assert_eq!(deployment_report.gas, 159057);
+    assert_eq!(deployment_report.size, 433);
     assert_eq!(deployment_report.status, GasReportExecutionStatus::Success);
 
     assert_eq!(invariant_breaker_report.functions.len(), 3);

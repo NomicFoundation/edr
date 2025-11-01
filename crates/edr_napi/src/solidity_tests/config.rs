@@ -36,8 +36,6 @@ pub struct SolidityTestRunnerConfigArgs {
     pub project_root: String,
     /// Configures the permissions of cheat codes that access the file system.
     pub fs_permissions: Option<Vec<PathPermission>>,
-    /// Whether to support the `testFail` prefix. Defaults to false.
-    pub test_fail: Option<bool>,
     /// Address labels for traces. Defaults to none.
     pub labels: Option<Vec<AddressLabel>>,
     /// Whether to enable isolation of calls. In isolation mode all top-level
@@ -173,7 +171,6 @@ impl SolidityTestRunnerConfigArgs {
         let SolidityTestRunnerConfigArgs {
             project_root,
             fs_permissions,
-            test_fail,
             labels,
             isolate,
             ffi,
@@ -283,7 +280,6 @@ impl SolidityTestRunnerConfigArgs {
         let config = edr_napi_core::solidity::config::TestRunnerConfig {
             project_root: project_root.into(),
             include_traces: include_traces.unwrap_or_default().into(),
-            test_fail: test_fail.unwrap_or_default(),
             isolate,
             ffi,
             sender: sender.map(TryCast::try_cast).transpose()?,
@@ -371,7 +367,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
         } = value;
 
         let failure_persist_dir = failure_persist_dir.map(PathBuf::from);
-        let failure_persist_file = failure_persist_file.unwrap_or("failures".to_string());
+        let failure_persist_file = failure_persist_file.unwrap_or_else(|| "failures".to_string());
         let seed = seed
             .map(|s| {
                 s.parse().map_err(|_err| {

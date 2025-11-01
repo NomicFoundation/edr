@@ -24,7 +24,7 @@ thiserror.workspace = true
 tokio = { version = "1.21.2", default-features = false, features = ["fs", "macros", "sync"] }
 tracing = { version = "0.1.37", default-features = false, features = ["attributes", "std"], optional = true }
 url = { version = "2.4.1", default-features = false }
-uuid = { version = "1.4.1", default-features = false, features = ["std", "v4"] }
+uuid.workspace = true
 
 [dev-dependencies]
 edr_test_utils.workspace = true

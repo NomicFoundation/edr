@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-pragma solidity 0.8.18;
+pragma solidity ^0.8.18;
 
 import "ds-test/test.sol";
 import "cheats/Vm.sol";
@@ -12,8 +12,9 @@ contract SkipTest is DSTest {
         revert("Should not reach this revert");
     }
 
-    function testFailNotSkip() public {
+    function testRevertIfNotSkip() public {
         vm.skip(false);
+        vm._expectInternalRevert();
         revert("This test should fail");
     }
 
@@ -22,8 +23,9 @@ contract SkipTest is DSTest {
         revert("Should not reach revert");
     }
 
-    function testFailFuzzSkip(uint256 x) public {
+    function testRevertIfFuzzSkip(uint256 x) public {
         vm.skip(false);
+        vm._expectInternalRevert();
         revert("This test should fail");
     }
 

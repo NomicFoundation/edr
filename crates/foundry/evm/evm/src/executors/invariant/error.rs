@@ -1,4 +1,6 @@
+use std::fmt::Formatter;
 use alloy_primitives::{Address, Bytes};
+use eyre::Report;
 use foundry_evm_core::{
     decode::RevertDecoder,
     evm_context::{
@@ -12,7 +14,7 @@ use foundry_evm_fuzz::{
 };
 use proptest::test_runner::TestError;
 use revm::context::result::HaltReasonTr;
-
+use foundry_evm_core::backend::IndeterminismReasons;
 use super::{BasicTxDetails, InvariantContract};
 use crate::executors::RawCallResult;
 
@@ -37,14 +39,50 @@ impl InvariantFailures {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum InvariantFuzzError {
     Revert(FailedInvariantCaseData),
     BrokenInvariant(FailedInvariantCaseData),
     MaxAssumeRejects(u32),
+    Abi(#[from] alloy_dyn_abi::Error),
+    Other(String),
 }
 
 impl InvariantFuzzError {
+}
+
+impl From<eyre::Report> for InvariantFuzzError {
+    fn from(value: Report) -> Self {
+        Self::Other(value.to_string())
+    }
+}
+
+impl std::fmt::Display for InvariantFuzzError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(revert_reason) = self.revert_reason() {
+            write!(f, "{}", revert_reason)
+        } else {
+            match self {
+                InvariantFuzzError::Revert(_) => write!(f, "reverted due to unknown reason"),
+                InvariantFuzzError::BrokenInvariant(_) => write!(f, "broken invariant"),
+                InvariantFuzzError::MaxAssumeRejects(_) => write!(f, "maximum rejections reached"),
+                InvariantFuzzError::Other(error_message) => write!(f, "{}", error_message),
+                InvariantFuzzError::Abi(error) => write!(f, "{}", error),
+            }
+        }
+    }
+}
+
+impl InvariantFuzzError {
+    pub fn indetereminism_reasons(&self) -> Option<IndeterminismReasons> {
+        match self {
+            Self::BrokenInvariant(case_data) | Self::Revert(case_data) => {
+                case_data.indeterminism_reasons.clone()
+            }
+            Self::Abi(_) | Self::Other(_) | Self::MaxAssumeRejects(_)=> None,
+        }
+    }
+
     pub fn revert_reason(&self) -> Option<String> {
         match self {
             Self::BrokenInvariant(case_data) | Self::Revert(case_data) => {
@@ -53,6 +91,7 @@ impl InvariantFuzzError {
             Self::MaxAssumeRejects(allowed) => Some(format!(
                 "`vm.assume` rejected too many inputs ({allowed} allowed)"
             )),
+            Self::Abi(_) | Self::Other(_) => None,
         }
     }
 }
@@ -75,6 +114,8 @@ pub struct FailedInvariantCaseData {
     pub shrink_run_limit: u32,
     /// Fail on revert, used to check sequence when shrinking.
     pub fail_on_revert: bool,
+    /// Indeterminism from cheatcodes if any.
+    pub indeterminism_reasons: Option<IndeterminismReasons>
 }
 
 impl FailedInvariantCaseData {
@@ -123,6 +164,7 @@ impl FailedInvariantCaseData {
             inner_sequence: inner_sequence.to_vec(),
             shrink_run_limit: invariant_config.shrink_run_limit,
             fail_on_revert: invariant_config.fail_on_revert,
+            indeterminism_reasons: call_result.indeterminism_reasons,
         }
     }
 }

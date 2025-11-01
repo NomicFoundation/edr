@@ -123,8 +123,8 @@ impl ForgeTestProfile {
             fuzz: TestFuzzConfig::default().into(),
             invariant: TestInvariantConfig::default().into(),
             coverage: false,
-            test_fail: true,
-            solidity_fuzz_fixtures: true,
+            enable_fuzz_fixtures: true,
+            enable_table_tests: true,
             local_predeploys: Vec::default(),
             on_collected_coverage_fn: None,
             generate_gas_report: false,
@@ -163,6 +163,7 @@ impl ForgeTestProfile {
 #[derive(Debug, Clone)]
 pub struct TestFuzzConfig {
     pub runs: u32,
+    pub fail_on_revert: bool,
     pub max_test_rejects: u32,
     pub seed: Option<U256>,
     pub dictionary: TestFuzzDictionaryConfig,
@@ -175,6 +176,7 @@ impl Default for TestFuzzConfig {
     fn default() -> Self {
         TestFuzzConfig {
             runs: 256,
+            fail_on_revert: false,
             max_test_rejects: 65536,
             seed: None,
             dictionary: TestFuzzDictionaryConfig::default(),
@@ -189,6 +191,7 @@ impl From<TestFuzzConfig> for FuzzConfig {
     fn from(value: TestFuzzConfig) -> Self {
         FuzzConfig {
             runs: value.runs,
+            fail_on_revert: value.fail_on_revert,
             max_test_rejects: value.max_test_rejects,
             seed: value.seed,
             dictionary: value.dictionary.into(),
@@ -214,7 +217,12 @@ pub struct TestInvariantConfig {
     pub shrink_run_limit: u32,
     pub max_assume_rejects: u32,
     pub gas_report_samples: u32,
+    pub corpus_dir: Option<PathBuf>,
+    pub corpus_gzip: bool,
+    pub corpus_min_mutations: usize,
+    pub corpus_min_size: usize,
     pub failure_persist_dir: Option<PathBuf>,
+    pub show_edge_coverage: bool,
 }
 
 impl Default for TestInvariantConfig {
@@ -234,7 +242,12 @@ impl Default for TestInvariantConfig {
             shrink_run_limit: 2_u32.pow(18u32),
             max_assume_rejects: 65536,
             gas_report_samples: 256,
+            corpus_dir: None,
+            corpus_gzip: false,
+            corpus_min_mutations: 0,
+            corpus_min_size: 0,
             failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
+            show_edge_coverage: false,
         }
     }
 }
@@ -250,10 +263,15 @@ impl From<TestInvariantConfig> for InvariantConfig {
             shrink_run_limit: value.shrink_run_limit,
             max_assume_rejects: value.max_assume_rejects,
             gas_report_samples: value.gas_report_samples,
+            corpus_dir: value.corpus_dir,
+            corpus_gzip: value.corpus_gzip,
+            corpus_min_mutations: value.corpus_min_mutations,
+            corpus_min_size: value.corpus_min_size,
             failure_persist_dir: value.failure_persist_dir,
             show_metrics: false,
             timeout: None,
             show_solidity: false,
+            show_edge_coverage: value.show_edge_coverage,
         }
     }
 }

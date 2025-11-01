@@ -1,7 +1,7 @@
 //! EVM inspectors.
 
 pub use foundry_cheatcodes::{self as cheatcodes, Cheatcodes, CheatsConfig};
-pub use foundry_evm_coverage::CoverageCollector;
+pub use foundry_evm_coverage::LineCoverageCollector;
 pub use foundry_evm_fuzz::Fuzzer;
 pub use foundry_evm_traces::{
     StackSnapshotType, TracingInspector, TracingInspectorConfig, TracingMode,
@@ -15,4 +15,7 @@ pub use logs::LogCollector;
 
 mod stack;
 
-pub use stack::{InspectorData, InspectorStack, InspectorStackBuilder};
+pub use stack::{InspectorData, InspectorStack, InspectorStackRefMut, InspectorStackBuilder};
+
+mod revert_diagnostic;
+pub use revert_diagnostic::RevertDiagnostic;

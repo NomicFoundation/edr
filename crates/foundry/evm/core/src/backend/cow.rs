@@ -2,8 +2,7 @@
 
 use std::{borrow::Cow, collections::BTreeMap};
 
-use super::{BackendError, CheatcodeInspectorTr, JournaledState};
-use alloy_rpc_types::TransactionRequest;
+use super::{BackendError, CheatcodeInspectorTr, IndeterminismReasons, JournaledState};
 use crate::{
     backend::{
         diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId,
@@ -93,7 +92,7 @@ impl<
     >
 {
     /// Creates a new `CowBackend` with the given `Backend`.
-    pub fn new(
+    pub fn new_borrowed(
         backend: &'a Backend<
             BlockT,
             TxT,
@@ -118,8 +117,8 @@ impl<
     pub fn inspect<'b, InspectorT>(
         &'b mut self,
         env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        inspector: &mut InspectorT,
         chain_context: ChainContextT,
+        inspector: &mut InspectorT,
     ) -> eyre::Result<ResultAndState<HaltReasonT>>
     where
         InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'b mut Self, ChainContextT>,
@@ -190,6 +189,12 @@ impl<
             return Some(self.backend.to_mut());
         }
         None
+    }
+
+    /// If re-executing the counter example is not guaranteed to yield the same
+    /// results, the `Some` result contains the reason why.
+    pub fn indeterminism_reasons(&self) -> Option<IndeterminismReasons> {
+        self.backend.indeterminism_reasons()
     }
 }
 
@@ -329,38 +334,6 @@ impl<
         )
     }
 
-    fn transact_from_tx<InspectorT>(
-        &mut self,
-        transaction: &TransactionRequest,
-        inspector: &mut InspectorT,
-        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<()>
-    where
-        InspectorT: CheatcodeInspectorTr<
-            BlockT,
-            TxT,
-            HardforkT,
-            Backend<
-                BlockT,
-                TxT,
-                EvmBuilderT,
-                HaltReasonT,
-                HardforkT,
-                TransactionErrorT,
-                ChainContextT,
-            >,
-            ChainContextT,
-        >,
-    {
-        self.backend_mut(env.clone().into()).transact_from_tx(
-            transaction,
-            inspector,
-            env,
-            journaled_state,
-        )
-    }
-
     fn active_fork_id(&self) -> Option<LocalForkId> {
         self.backend.active_fork_id()
     }
@@ -433,7 +406,7 @@ impl<
     fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool) {
         // Only convert to mutable if we need to update.
         if !is_pure && !self.backend.inner.impure_cheatcodes.contains(cheatcode_name) {
-            self.backend.to_mut().inner.impure_cheatcodes.insert(cheatcode_name);
+            self.backend.to_mut().inner.impure_cheatcodes.insert(Cow::Borrowed(cheatcode_name));
         }
     }
 

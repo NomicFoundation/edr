@@ -8,7 +8,7 @@ contract MultipleSetup is DSTest {
 
     function setup() public {}
 
-    function testFailShouldBeMarkedAsFailedBecauseOfSetup() public {
+    function testShouldBeMarkedAsFailedBecauseOfSetup() public {
         assert(true);
     }
 }

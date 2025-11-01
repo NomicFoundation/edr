@@ -1,5 +1,4 @@
-use std::sync::Arc;
-
+use super::{BasicTxDetails, CallDetails};
 use alloy_primitives::Address;
 use parking_lot::{Mutex, RwLock};
 use proptest::{
@@ -7,12 +6,10 @@ use proptest::{
     strategy::{SBoxedStrategy, Strategy, ValueTree},
     test_runner::TestRunner,
 };
+use std::sync::Arc;
 
-use super::{BasicTxDetails, CallDetails};
-
-/// Given a `TestRunner` and a strategy, it generates calls. Used inside the
-/// Fuzzer inspector to override external calls to test for potential reentrancy
-/// vulnerabilities..
+/// Given a TestRunner and a strategy, it generates calls. Used inside the Fuzzer inspector to
+/// override external calls to test for potential reentrancy vulnerabilities..
 #[derive(Clone, Debug)]
 pub struct RandomCallGenerator {
     /// Address of the test contract.
@@ -25,8 +22,8 @@ pub struct RandomCallGenerator {
     pub target_reference: Arc<RwLock<Address>>,
     /// Flag to know if a call has been overridden. Don't allow nesting for now.
     pub used: bool,
-    /// If set to `true`, consumes the next call from `last_sequence`, otherwise
-    /// queries it from the strategy.
+    /// If set to `true`, consumes the next call from `last_sequence`, otherwise queries it from
+    /// the strategy.
     pub replay: bool,
     /// Saves the sequence of generated calls that can be replayed later on.
     pub last_sequence: Arc<RwLock<Vec<Option<BasicTxDetails>>>>,
@@ -50,8 +47,8 @@ impl RandomCallGenerator {
         }
     }
 
-    /// All `self.next()` calls will now pop `self.last_sequence`. Used to
-    /// replay an invariant failure.
+    /// All `self.next()` calls will now pop `self.last_sequence`. Used to replay an invariant
+    /// failure.
     pub fn set_replay(&mut self, status: bool) {
         self.replay = status;
         if status {
@@ -60,8 +57,7 @@ impl RandomCallGenerator {
         }
     }
 
-    /// Gets the next call. Random if replay is not set. Otherwise, it pops from
-    /// `last_sequence`.
+    /// Gets the next call. Random if replay is not set. Otherwise, it pops from `last_sequence`.
     pub fn next(
         &mut self,
         original_caller: Address,
@@ -84,10 +80,7 @@ impl RandomCallGenerator {
                 .new_tree(&mut self.runner.lock())
                 .unwrap()
                 .current()
-                .map(|call_details| BasicTxDetails {
-                    sender,
-                    call_details,
-                });
+                .map(|call_details| BasicTxDetails { sender, call_details });
 
             self.last_sequence.write().push(choice.clone());
             choice

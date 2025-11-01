@@ -11,7 +11,7 @@ contract FailingSetupTest is DSTest {
         require(false, "setup failed predictably");
     }
 
-    function testFailShouldBeMarkedAsFailedBecauseOfSetup() public {
+    function testShouldBeMarkedAsFailedBecauseOfSetup() public {
         emit log("setup did not fail");
     }
 }
