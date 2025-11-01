@@ -26,7 +26,7 @@ describe("Unit tests", () => {
 
     assertStackTraces(
       stackTraces.get("testThatFails()"),
-      "revert: 1 is not equal to 2",
+      "1 is not equal to 2",
       [{ contract: "SuccessAndFailureTest", function: "testThatFails" }]
     );
 
@@ -96,28 +96,11 @@ describe("Unit tests", () => {
     });
   });
 
-  describe("TestFail", function () {
-    it("TestFail on", async function () {
-      const { totalTests, failedTests } = await testContext.runTestsWithStats(
-        "TestFailTest",
-        {
-          testFail: true,
-        }
-      );
-
-      // Reverting test starting with `testFail` should be reported as success if `testFail` is on
-      assert.equal(failedTests, 0);
-      assert.equal(totalTests, 1);
-    });
-
-    it("TestFail off", async function () {
-      const { totalTests, failedTests } =
-        await testContext.runTestsWithStats("TestFailTest");
-
-      // Reverting test starting with `testFail` should be reported as failure if `testFail` is off
-      assert.equal(failedTests, 1);
-      assert.equal(totalTests, 1);
-    });
+  it("TestFail", async function () {
+    const { totalTests, failedTests, stackTraces } = await testContext.runTestsWithStats("TestFailTest",);
+    assert.equal(totalTests, 1);
+    assert.equal(failedTests, 1);
+    assert.ok(stackTraces.get("testFailRevert()")?.reason?.includes("`testFail*` has been removed"))
   });
 
   it("EnvVarTest", async function () {
@@ -203,7 +186,7 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("FailingDeployTest");
 
-    assertStackTraces(stackTraces.get("setUp()"), "revert: Deployment failed", [
+    assertStackTraces(stackTraces.get("constructor()"), "Deployment failed", [
       { contract: "FailingDeployTest", function: "constructor" },
     ]);
 

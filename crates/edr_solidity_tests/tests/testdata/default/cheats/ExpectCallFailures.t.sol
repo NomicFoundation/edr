@@ -65,7 +65,7 @@ contract ExpectCallFailureTest is DSTest {
         target.hello();
     }
 
-    function testFailExpectMultipleCallsWithDataAdditive() public {
+    function testShouldFailExpectMultipleCallsWithDataAdditive() public {
         Contract target = new Contract();
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector, 1, 2));
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector, 1, 2));
@@ -74,13 +74,13 @@ contract ExpectCallFailureTest is DSTest {
         this.exposed_callTargetNTimes(target, 1, 2, 2);
     }
 
-    function testFailExpectCallWithData() public {
+    function testShouldFailExpectCallWithData() public {
         Contract target = new Contract();
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector, 1, 2), 1);
         this.exposed_callTargetNTimes(target, 3, 3, 1);
     }
 
-    function testFailExpectInnerCall() public {
+    function testShouldFailExpectInnerCall() public {
         Contract inner = new Contract();
         NestedContract target = new NestedContract(inner);
 
@@ -89,19 +89,19 @@ contract ExpectCallFailureTest is DSTest {
         this.exposed_failExpectInnerCall(target);
     }
 
-    function testFailExpectSelectorCall() public {
+    function testShouldFailExpectSelectorCall() public {
         Contract target = new Contract();
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector));
     }
 
-    function testFailExpectCallWithMoreParameters() public {
+    function testShouldFailExpectCallWithMoreParameters() public {
         Contract target = new Contract();
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector, 3, 3, 3));
         target.add(3, 3);
         this.exposed_callTargetNTimes(target, 3, 3, 1);
     }
 
-    function testFailExpectCallValue() public {
+    function testShouldFailExpectCallValue() public {
         Contract target = new Contract();
         vm.expectCall(address(target), 1, abi.encodeWithSelector(target.pay.selector, 2));
     }
@@ -110,14 +110,14 @@ contract ExpectCallFailureTest is DSTest {
         target.addHardGasLimit();
     }
 
-    function testFailExpectCallWithNoValueAndWrongGas() public {
+    function testShouldFailExpectCallWithNoValueAndWrongGas() public {
         Contract inner = new Contract();
         NestedContract target = new NestedContract(inner);
         vm.expectCall(address(inner), 0, 25_000, abi.encodeWithSelector(inner.add.selector, 1, 1));
         this.exposed_addHardGasLimit(target);
     }
 
-    function testFailExpectCallWithNoValueAndWrongMinGas() public {
+    function testShouldFailExpectCallWithNoValueAndWrongMinGas() public {
         Contract inner = new Contract();
         NestedContract target = new NestedContract(inner);
         vm.expectCallMinGas(address(inner), 0, 50_001, abi.encodeWithSelector(inner.add.selector, 1, 1));
@@ -125,7 +125,7 @@ contract ExpectCallFailureTest is DSTest {
     }
 
     /// Ensure that you cannot use expectCall with an expectRevert.
-    function testFailExpectCallWithRevertDisallowed() public {
+    function testShouldFailExpectCallWithRevertDisallowed() public {
         Contract target = new Contract();
         vm.expectRevert();
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector));
@@ -136,13 +136,13 @@ contract ExpectCallFailureTest is DSTest {
 contract ExpectCallCountFailureTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
-    function testFailExpectCallCountWithWrongCount() public {
+    function testShouldFailExpectCallCountWithWrongCount() public {
         Contract target = new Contract();
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector, 1, 2), 2);
         target.add(1, 2);
     }
 
-    function testFailExpectCountInnerCall() public {
+    function testShouldFailExpectCountInnerCall() public {
         Contract inner = new Contract();
         NestedContract target = new NestedContract(inner);
 
@@ -156,7 +156,7 @@ contract ExpectCallCountFailureTest is DSTest {
         target.pay{value: value}(amount);
     }
 
-    function testFailExpectCallCountValue() public {
+    function testShouldFailExpectCallCountValue() public {
         Contract target = new Contract();
         vm.expectCall(address(target), 1, abi.encodeWithSelector(target.pay.selector, 2), 1);
         this.exposed_pay{value: 2}(target, 2, 2);
@@ -168,14 +168,14 @@ contract ExpectCallCountFailureTest is DSTest {
         }
     }
 
-    function testFailExpectCallCountWithNoValueAndWrongGas() public {
+    function testShouldFailExpectCallCountWithNoValueAndWrongGas() public {
         Contract inner = new Contract();
         NestedContract target = new NestedContract(inner);
         vm.expectCall(address(inner), 0, 25_000, abi.encodeWithSelector(inner.add.selector, 1, 1), 2);
         this.exposed_addHardGasLimit(target, 2);
     }
 
-    function testFailExpectCallCountWithNoValueAndWrongMinGas() public {
+    function testShouldFailExpectCallCountWithNoValueAndWrongMinGas() public {
         Contract inner = new Contract();
         NestedContract target = new NestedContract(inner);
         vm.expectCallMinGas(address(inner), 0, 50_001, abi.encodeWithSelector(inner.add.selector, 1, 1), 1);
@@ -192,7 +192,7 @@ contract ExpectCallMixedFailureTest is DSTest {
         }
     }
 
-    function testFailOverrideNoCountWithCount() public {
+    function testShouldFailOverrideNoCountWithCount() public {
         Contract target = new Contract();
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector, 1, 2));
         // You should not be able to overwrite a expectCall that had no count with some count.
@@ -200,7 +200,7 @@ contract ExpectCallMixedFailureTest is DSTest {
         this.exposed_callTargetNTimes(target, 1, 2, 2);
     }
 
-    function testFailOverrideCountWithCount() public {
+    function testShouldFailOverrideCountWithCount() public {
         Contract target = new Contract();
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector, 1, 2), 2);
         // You should not be able to overwrite a expectCall that had a count with some count.
@@ -209,7 +209,7 @@ contract ExpectCallMixedFailureTest is DSTest {
         target.add(1, 2);
     }
 
-    function testFailOverrideCountWithNoCount() public {
+    function testShouldFailOverrideCountWithNoCount() public {
         Contract target = new Contract();
         vm.expectCall(address(target), abi.encodeWithSelector(target.add.selector, 1, 2), 2);
         // You should not be able to overwrite a expectCall that had a count with no count.

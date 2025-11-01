@@ -1,45 +1,40 @@
 //! A revm database that forks off a remote client
 
-use std::sync::Arc;
-
-use alloy_primitives::{Address, B256, U256};
-use alloy_rpc_types::BlockId;
-use foundry_fork_db::{BlockchainDb, DatabaseError, SharedBackend};
-use parking_lot::Mutex;
-use revm::{
-    bytecode::Bytecode,
-    database::{CacheDB, DatabaseRef},
-    primitives::HashMap as Map,
-    state::{Account, AccountInfo},
-    Database, DatabaseCommit,
-};
-
 use crate::{
     backend::{RevertStateSnapshotAction, StateSnapshot},
     state_snapshot::StateSnapshots,
 };
+use alloy_primitives::{Address, B256, U256, map::HashMap};
+use alloy_rpc_types::BlockId;
+use foundry_fork_db::{BlockchainDb, DatabaseError, SharedBackend};
+use parking_lot::Mutex;
+use revm::{
+    Database, DatabaseCommit,
+    bytecode::Bytecode,
+    database::{CacheDB, DatabaseRef},
+    state::{Account, AccountInfo},
+};
+use std::sync::Arc;
 
-/// a [`revm::Database`] that's forked off another client
+/// a [revm::Database] that's forked off another client
 ///
-/// The `backend` is used to retrieve (missing) data, which is then fetched from
-/// the remote endpoint. The inner in-memory database holds this storage and
-/// will be used for write operations. This database uses the `backend` for read
-/// and the `db` for write operations. But note the `backend` will also write
-/// (missing) data to the `db` in the background
+/// The `backend` is used to retrieve (missing) data, which is then fetched from the remote
+/// endpoint. The inner in-memory database holds this storage and will be used for write operations.
+/// This database uses the `backend` for read and the `db` for write operations. But note the
+/// `backend` will also write (missing) data to the `db` in the background
 #[derive(Clone, Debug)]
 pub struct ForkedDatabase {
     /// Responsible for fetching missing data.
     ///
     /// This is responsible for getting data.
     backend: SharedBackend,
-    /// Cached Database layer, ensures that changes are not written to the
-    /// database that exclusively stores the state of the remote client.
+    /// Cached Database layer, ensures that changes are not written to the database that
+    /// exclusively stores the state of the remote client.
     ///
     /// This separates Read/Write operations
-    ///   - reads from the `SharedBackend as DatabaseRef` writes to the internal
-    ///     cache storage
+    ///   - reads from the `SharedBackend as DatabaseRef` writes to the internal cache storage.
     cache_db: CacheDB<SharedBackend>,
-    /// Contains all the data already fetched
+    /// Contains all the data already fetched.
     ///
     /// This exclusively stores the _unchanged_ remote client state.
     db: BlockchainDb,
@@ -54,7 +49,7 @@ impl ForkedDatabase {
             cache_db: CacheDB::new(backend.clone()),
             backend,
             db,
-            state_snapshots: Arc::new(Mutex::new(StateSnapshots::default())),
+            state_snapshots: Arc::new(Mutex::new(Default::default())),
         }
     }
 
@@ -70,16 +65,13 @@ impl ForkedDatabase {
         &self.state_snapshots
     }
 
-    /// Reset the fork to a fresh forked state, and optionally update the fork
-    /// config
+    /// Reset the fork to a fresh forked state, and optionally update the fork config
     pub fn reset(
         &mut self,
         _url: Option<String>,
         block_number: impl Into<BlockId>,
     ) -> Result<(), String> {
-        self.backend
-            .set_pinned_block(block_number)
-            .map_err(|err| err.to_string())?;
+        self.backend.set_pinned_block(block_number).map_err(|err| err.to_string())?;
 
         // TODO need to find a way to update generic provider via url
 
@@ -93,7 +85,7 @@ impl ForkedDatabase {
 
     /// Flushes the cache to disk if configured
     pub fn flush_cache(&self) {
-        self.db.cache().flush();
+        self.db.cache().flush()
     }
 
     /// Returns the database that holds the remote state
@@ -108,10 +100,7 @@ impl ForkedDatabase {
             storage: db.storage.read().clone(),
             block_hashes: db.block_hashes.read().clone(),
         };
-        ForkDbStateSnapshot {
-            local: self.cache_db.clone(),
-            state_snapshot,
-        }
+        ForkDbStateSnapshot { local: self.cache_db.clone(), state_snapshot }
     }
 
     pub fn insert_state_snapshot(&self) -> U256 {
@@ -122,24 +111,16 @@ impl ForkedDatabase {
         id
     }
 
-    /// Removes the snapshot from the tracked snapshot and sets it as the
-    /// current state
+    /// Removes the snapshot from the tracked snapshot and sets it as the current state
     pub fn revert_state_snapshot(&mut self, id: U256, action: RevertStateSnapshotAction) -> bool {
         let state_snapshot = { self.state_snapshots().lock().remove_at(id) };
         if let Some(state_snapshot) = state_snapshot {
             if action.is_keep() {
-                self.state_snapshots()
-                    .lock()
-                    .insert_at(state_snapshot.clone(), id);
+                self.state_snapshots().lock().insert_at(state_snapshot.clone(), id);
             }
             let ForkDbStateSnapshot {
                 local,
-                state_snapshot:
-                    StateSnapshot {
-                        accounts,
-                        storage,
-                        block_hashes,
-                    },
+                state_snapshot: StateSnapshot { accounts, storage, block_hashes },
             } = state_snapshot;
             let db = self.inner().db();
             {
@@ -173,9 +154,9 @@ impl Database for ForkedDatabase {
     type Error = DatabaseError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        // Note: this will always return Some, since the `SharedBackend` will always
-        // load the account, this differs from `<CacheDB as Database>::basic`,
-        // See also [MemDb::ensure_loaded](crate::backend::MemDb::ensure_loaded)
+        // Note: this will always return Some, since the `SharedBackend` will always load the
+        // account, this differs from `<CacheDB as Database>::basic`, See also
+        // [MemDb::ensure_loaded](crate::backend::MemDb::ensure_loaded)
         Database::basic(&mut self.cache_db, address)
     }
 
@@ -213,8 +194,8 @@ impl DatabaseRef for ForkedDatabase {
 }
 
 impl DatabaseCommit for ForkedDatabase {
-    fn commit(&mut self, changes: Map<Address, Account>) {
-        self.database_mut().commit(changes);
+    fn commit(&mut self, changes: HashMap<Address, Account>) {
+        self.database_mut().commit(changes)
     }
 }
 
@@ -227,8 +208,6 @@ pub struct ForkDbStateSnapshot {
     pub state_snapshot: StateSnapshot,
 }
 
-// === impl DbSnapshot ===
-
 impl ForkDbStateSnapshot {
     fn get_storage(&self, address: Address, index: U256) -> Option<U256> {
         self.local
@@ -240,22 +219,23 @@ impl ForkDbStateSnapshot {
     }
 }
 
-// This `DatabaseRef` implementation works similar to `CacheDB` which
-// prioritizes modified elements, and uses another db as fallback
+// This `DatabaseRef` implementation works similar to `CacheDB` which prioritizes modified elements,
+// and uses another db as fallback
 // We prioritize stored changed accounts/storage
 impl DatabaseRef for ForkDbStateSnapshot {
     type Error = DatabaseError;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        if let Some(account) = self.local.cache.accounts.get(&address) {
-            Ok(Some(account.info.clone()))
-        } else {
-            let mut acc = self.state_snapshot.accounts.get(&address).cloned();
+        match self.local.cache.accounts.get(&address) {
+            Some(account) => Ok(Some(account.info.clone())),
+            None => {
+                let mut acc = self.state_snapshot.accounts.get(&address).cloned();
 
-            if acc.is_none() {
-                acc = self.local.basic_ref(address)?;
+                if acc.is_none() {
+                    acc = self.local.basic_ref(address)?;
+                }
+                Ok(acc)
             }
-            Ok(acc)
         }
     }
 
@@ -280,12 +260,7 @@ impl DatabaseRef for ForkDbStateSnapshot {
     }
 
     fn block_hash_ref(&self, number: u64) -> Result<B256, Self::Error> {
-        match self
-            .state_snapshot
-            .block_hashes
-            .get(&U256::from(number))
-            .copied()
-        {
+        match self.state_snapshot.block_hashes.get(&U256::from(number)).copied() {
             None => self.local.block_hash_ref(number),
             Some(block_hash) => Ok(block_hash),
         }
@@ -294,18 +269,17 @@ impl DatabaseRef for ForkDbStateSnapshot {
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-    use revm::context::BlockEnv;
-
     use super::*;
     use crate::{backend::BlockchainDbMeta, fork::provider::get_http_provider};
 
-    /// Demonstrates that `Database::basic` for `ForkedDatabase` will always
-    /// return the `AccountInfo`
+    /// Demonstrates that `Database::basic` for `ForkedDatabase` will always return the
+    /// `AccountInfo`
     #[tokio::test(flavor = "multi_thread")]
     async fn fork_db_insert_basic_default() {
         let rpc = edr_test_utils::env::get_alchemy_url();
         let provider = get_http_provider(rpc.clone());
-        let meta = BlockchainDbMeta::new(BlockEnv::default(), rpc);
+        let meta = BlockchainDbMeta::new(Default::default(), rpc);
+
         let db = BlockchainDb::new(meta, None);
 
         let backend = SharedBackend::spawn_backend(Arc::new(provider), db.clone(), None).await;

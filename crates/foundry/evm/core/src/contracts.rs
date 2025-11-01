@@ -28,20 +28,15 @@ impl ContractsByArtifact {
         let map = artifacts
             .into_iter()
             .filter_map(|(id, artifact)| {
-                let CompactContractBytecode {
-                    abi,
-                    bytecode,
-                    deployed_bytecode,
-                } = artifact.into_contract_bytecode();
+                let CompactContractBytecode { abi, bytecode, deployed_bytecode } =
+                    artifact.into_contract_bytecode();
                 Some((
                     id,
                     ContractData {
                         abi: abi?,
                         bytecode: bytecode.and_then(CompactBytecode::into_bytes),
                         deployed_bytecode: deployed_bytecode.and_then(|deployed_bytecode| {
-                            deployed_bytecode
-                                .bytecode
-                                .and_then(CompactBytecode::into_bytes)
+                            deployed_bytecode.bytecode.and_then(CompactBytecode::into_bytes)
                         }),
                     },
                 ))
@@ -176,15 +171,50 @@ unsafe fn count_different_bytes(a: &[u8], b: &[u8]) -> usize {
     sum
 }
 
+/// Returns contract name for a given contract identifier.
+///
+/// Artifact/Contract identifier can take the following form:
+/// `<artifact file name>:<contract name>`, the `artifact file name` is the name of the json file of
+/// the contract's artifact and the contract name is the name of the solidity contract, like
+/// `SafeTransferLibTest.json:SafeTransferLibTest`
+///
+/// This returns the `contract name` part
+///
+/// # Example
+///
+/// ```
+/// use crate::foundry_evm_core::contracts::*;
+/// assert_eq!(
+///     "SafeTransferLibTest",
+///     get_contract_name("SafeTransferLibTest.json:SafeTransferLibTest")
+/// );
+/// ```
+pub fn get_contract_name(id: &str) -> &str {
+    id.rsplit(':').next().unwrap_or(id)
+}
+
+/// This returns the `file name` part, See [`get_contract_name`]
+///
+/// # Example
+///
+/// ```
+/// use crate::foundry_evm_core::contracts::*;
+/// assert_eq!(
+///     "SafeTransferLibTest.json",
+///     get_file_name("SafeTransferLibTest.json:SafeTransferLibTest")
+/// );
+/// ```
+pub fn get_file_name(id: &str) -> &str {
+    id.split(':').next().unwrap_or(id)
+}
+
+
 /// Helper function to convert `CompactContractBytecode` ~>
 /// `ContractBytecodeSome`
 pub fn compact_to_contract(contract: CompactContractBytecode) -> Result<ContractBytecodeSome> {
     Ok(ContractBytecodeSome {
         abi: contract.abi.ok_or_else(|| eyre::eyre!("No contract abi"))?,
-        bytecode: contract
-            .bytecode
-            .ok_or_else(|| eyre::eyre!("No contract bytecode"))?
-            .into(),
+        bytecode: contract.bytecode.ok_or_else(|| eyre::eyre!("No contract bytecode"))?.into(),
         deployed_bytecode: contract
             .deployed_bytecode
             .ok_or_else(|| eyre::eyre!("No contract deployed bytecode"))?

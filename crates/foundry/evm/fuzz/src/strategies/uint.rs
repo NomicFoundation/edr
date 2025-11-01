@@ -1,10 +1,10 @@
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::U256;
 use proptest::{
+    prelude::Rng,
     strategy::{NewTree, Strategy, ValueTree},
     test_runner::TestRunner,
 };
-use rand::Rng;
 
 /// Value tree for unsigned ints (up to uint256).
 pub struct UintValueTree {
@@ -22,15 +22,9 @@ impl UintValueTree {
     /// Create a new tree
     /// # Arguments
     /// * `start` - Starting value for the tree
-    /// * `fixed` - If `true` the tree would only contain one element and won't
-    ///   be simplified.
+    /// * `fixed` - If `true` the tree would only contain one element and won't be simplified.
     fn new(start: U256, fixed: bool) -> Self {
-        Self {
-            lo: U256::ZERO,
-            curr: start,
-            hi: start,
-            fixed,
-        }
+        Self { lo: U256::ZERO, curr: start, hi: start, fixed }
     }
 
     fn reposition(&mut self) -> bool {
@@ -72,22 +66,19 @@ impl ValueTree for UintValueTree {
 }
 
 /// Value tree for unsigned ints (up to uint256).
-/// The strategy combines 3 different strategies, each assigned a specific
-/// weight:
-/// 1. Generate purely random value in a range. This will first choose bit size
-///    uniformly (up `bits` param). Then generate a value for this bit size.
-/// 2. Generate a random value around the edges (+/- 3 around 0 and max possible
-///    value)
+/// The strategy combines 3 different strategies, each assigned a specific weight:
+/// 1. Generate purely random value in a range. This will first choose bit size uniformly (up `bits`
+///    param). Then generate a value for this bit size.
+/// 2. Generate a random value around the edges (+/- 3 around 0 and max possible value)
 /// 3. Generate a value from a predefined fixtures set
 ///
 /// To define uint fixtures:
-/// - return an array of possible values for a parameter named `amount` declare
-///   a function `function fixture_amount() public returns (uint32[] memory)`.
-/// - use `amount` named parameter in fuzzed test in order to include fixtures
-///   in fuzzed values `function testFuzz_uint32(uint32 amount)`.
+/// - return an array of possible values for a parameter named `amount` declare a function `function
+///   fixture_amount() public returns (uint32[] memory)`.
+/// - use `amount` named parameter in fuzzed test in order to include fixtures in fuzzed values
+///   `function testFuzz_uint32(uint32 amount)`.
 ///
-/// If fixture is not a valid uint type then error is raised and random value
-/// generated.
+/// If fixture is not a valid uint type then error is raised and random value generated.
 #[derive(Debug)]
 pub struct UintStrategy {
     /// Bit size of uint (e.g. 256)
@@ -106,8 +97,7 @@ impl UintStrategy {
     /// Create a new strategy.
     /// #Arguments
     /// * `bits` - Size of uint in bits
-    /// * `fixtures` - A set of fixed values to be generated (according to
-    ///   fixtures weight)
+    /// * `fixtures` - A set of fixed values to be generated (according to fixtures weight)
     pub fn new(bits: usize, fixtures: Option<&[DynSolValue]>) -> Self {
         Self {
             bits,
@@ -121,13 +111,9 @@ impl UintStrategy {
     fn generate_edge_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
         let rng = runner.rng();
         // Choose if we want values around 0 or max
-        let is_min = rng.random_bool(0.5);
+        let is_min = rng.random::<bool>();
         let offset = U256::from(rng.random_range(0..4));
-        let start = if is_min {
-            offset
-        } else {
-            self.type_max().saturating_sub(offset)
-        };
+        let start = if is_min { offset } else { self.type_max().saturating_sub(offset) };
         Ok(UintValueTree::new(start, false))
     }
 
@@ -146,11 +132,7 @@ impl UintStrategy {
         }
 
         // If fixture is not a valid type, raise error and generate random value.
-        error!(
-            "{:?} is not a valid {} fixture",
-            fixture,
-            DynSolType::Uint(self.bits)
-        );
+        error!("{:?} is not a valid {} fixture", fixture, DynSolType::Uint(self.bits));
         self.generate_random_tree(runner)
     }
 
@@ -187,11 +169,7 @@ impl UintStrategy {
     }
 
     fn type_max(&self) -> U256 {
-        if self.bits < 256 {
-            (U256::from(1) << self.bits) - U256::from(1)
-        } else {
-            U256::MAX
-        }
+        if self.bits < 256 { (U256::from(1) << self.bits) - U256::from(1) } else { U256::MAX }
     }
 }
 
@@ -212,10 +190,9 @@ impl Strategy for UintStrategy {
 
 #[cfg(test)]
 mod tests {
+    use crate::strategies::uint::UintValueTree;
     use alloy_primitives::U256;
     use proptest::strategy::ValueTree;
-
-    use crate::strategies::uint::UintValueTree;
 
     #[test]
     fn test_uint_tree_complicate_max() {

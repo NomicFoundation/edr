@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use alloy_primitives::{Bytes, Log};
 use derive_where::derive_where;
 use foundry_evm_core::{
-    backend::IndeterminismReasons,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
@@ -78,9 +77,6 @@ pub struct CounterExampleData<
         HardforkT,
         TransactionErrorT,
     >,
-    /// If re-executing the counter example is not guaranteed to yield the same
-    /// results, this field contains the reason why.
-    pub indeterminism_reasons: Option<IndeterminismReasons>,
 }
 
 /// Outcome of a single fuzz

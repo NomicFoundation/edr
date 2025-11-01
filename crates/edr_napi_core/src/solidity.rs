@@ -60,26 +60,28 @@ impl<
         test_filter: Arc<TestFilterConfig>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<String>>,
     ) -> napi::Result<SolidityTestResult> {
-        let test_result = self.test(
-            runtime,
-            test_filter,
-            Arc::new(
-                move |SuiteResultAndArtifactId {
-                          artifact_id,
-                          result,
-                      }| {
-                    let result = result.map_halt_reason(|halt_reason: HaltReasonT| {
-                        serde_json::to_string(&halt_reason)
-                            .expect("Failed to serialize halt reason")
-                    });
+        let test_result = self
+            .test(
+                runtime,
+                test_filter,
+                Arc::new(
+                    move |SuiteResultAndArtifactId {
+                              artifact_id,
+                              result,
+                          }| {
+                        let result = result.map_halt_reason(|halt_reason: HaltReasonT| {
+                            serde_json::to_string(&halt_reason)
+                                .expect("Failed to serialize halt reason")
+                        });
 
-                    on_test_suite_completed_fn(SuiteResultAndArtifactId {
-                        artifact_id,
-                        result,
-                    });
-                },
-            ),
-        );
+                        on_test_suite_completed_fn(SuiteResultAndArtifactId {
+                            artifact_id,
+                            result,
+                        });
+                    },
+                ),
+            )
+            .map_err(|err| napi::Error::from_reason(err.to_string()))?;
 
         Ok(test_result)
     }

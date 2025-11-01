@@ -1,10 +1,10 @@
 use alloy_dyn_abi::{DynSolType, DynSolValue};
-use alloy_primitives::{Sign, I256, U256};
+use alloy_primitives::{I256, Sign, U256};
 use proptest::{
+    prelude::Rng,
     strategy::{NewTree, Strategy, ValueTree},
     test_runner::TestRunner,
 };
-use rand::Rng;
 
 /// Value tree for signed ints (up to int256).
 pub struct IntValueTree {
@@ -22,15 +22,9 @@ impl IntValueTree {
     /// Create a new tree
     /// # Arguments
     /// * `start` - Starting value for the tree
-    /// * `fixed` - If `true` the tree would only contain one element and won't
-    ///   be simplified.
+    /// * `fixed` - If `true` the tree would only contain one element and won't be simplified.
     fn new(start: I256, fixed: bool) -> Self {
-        Self {
-            lo: I256::ZERO,
-            curr: start,
-            hi: start,
-            fixed,
-        }
+        Self { lo: I256::ZERO, curr: start, hi: start, fixed }
     }
 
     fn reposition(&mut self) -> bool {
@@ -74,12 +68,7 @@ impl ValueTree for IntValueTree {
         }
 
         self.lo = if self.curr != I256::MIN && self.curr != I256::MAX {
-            self.curr
-                + if self.hi.is_negative() {
-                    I256::MINUS_ONE
-                } else {
-                    I256::ONE
-                }
+            self.curr + if self.hi.is_negative() { I256::MINUS_ONE } else { I256::ONE }
         } else {
             self.curr
         };
@@ -89,22 +78,19 @@ impl ValueTree for IntValueTree {
 }
 
 /// Value tree for signed ints (up to int256).
-/// The strategy combines 3 different strategies, each assigned a specific
-/// weight:
-/// 1. Generate purely random value in a range. This will first choose bit size
-///    uniformly (up `bits` param). Then generate a value for this bit size.
-/// 2. Generate a random value around the edges (+/- 3 around min, 0 and max
-///    possible value)
+/// The strategy combines 3 different strategies, each assigned a specific weight:
+/// 1. Generate purely random value in a range. This will first choose bit size uniformly (up `bits`
+///    param). Then generate a value for this bit size.
+/// 2. Generate a random value around the edges (+/- 3 around min, 0 and max possible value)
 /// 3. Generate a value from a predefined fixtures set
 ///
 /// To define int fixtures:
-/// - return an array of possible values for a parameter named `amount` declare
-///   a function `function fixture_amount() public returns (int32[] memory)`.
-/// - use `amount` named parameter in fuzzed test in order to include fixtures
-///   in fuzzed values `function testFuzz_int32(int32 amount)`.
+/// - return an array of possible values for a parameter named `amount` declare a function `function
+///   fixture_amount() public returns (int32[] memory)`.
+/// - use `amount` named parameter in fuzzed test in order to include fixtures in fuzzed values
+///   `function testFuzz_int32(int32 amount)`.
 ///
-/// If fixture is not a valid int type then error is raised and random value
-/// generated.
+/// If fixture is not a valid int type then error is raised and random value generated.
 #[derive(Debug)]
 pub struct IntStrategy {
     /// Bit size of int (e.g. 256)
@@ -123,8 +109,7 @@ impl IntStrategy {
     /// Create a new strategy.
     /// #Arguments
     /// * `bits` - Size of uint in bits
-    /// * `fixtures` - A set of fixed values to be generated (according to
-    ///   fixtures weight)
+    /// * `fixtures` - A set of fixed values to be generated (according to fixtures weight)
     pub fn new(bits: usize, fixtures: Option<&[DynSolValue]>) -> Self {
         Self {
             bits,
@@ -169,11 +154,7 @@ impl IntStrategy {
         }
 
         // If fixture is not a valid type, raise error and generate random value.
-        error!(
-            "{:?} is not a valid {} fixture",
-            fixture,
-            DynSolType::Int(self.bits)
-        );
+        error!("{:?} is not a valid {} fixture", fixture, DynSolType::Int(self.bits));
         self.generate_random_tree(runner)
     }
 
@@ -211,11 +192,7 @@ impl IntStrategy {
 
         // we have a small bias here, i.e. intN::min will never be generated
         // but it's ok since it's generated in `fn generate_edge_tree(...)`
-        let sign = if rng.random_bool(0.5) {
-            Sign::Positive
-        } else {
-            Sign::Negative
-        };
+        let sign = if rng.random::<bool>() { Sign::Positive } else { Sign::Negative };
         let (start, _) = I256::overflowing_from_sign_and_abs(sign, U256::from_limbs(inner));
 
         Ok(IntValueTree::new(start, false))
@@ -240,10 +217,9 @@ impl Strategy for IntStrategy {
 
 #[cfg(test)]
 mod tests {
+    use crate::strategies::int::IntValueTree;
     use alloy_primitives::I256;
     use proptest::strategy::ValueTree;
-
-    use crate::strategies::int::IntValueTree;
 
     #[test]
     fn test_int_tree_complicate_should_not_overflow() {

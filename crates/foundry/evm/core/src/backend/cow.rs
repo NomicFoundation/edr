@@ -2,22 +2,7 @@
 
 use std::{borrow::Cow, collections::BTreeMap};
 
-use alloy_genesis::GenesisAccount;
-use alloy_primitives::{Address, B256, U256};
-use derive_where::derive_where;
-use eyre::WrapErr;
-use foundry_fork_db::DatabaseError;
-use revm::{
-    bytecode::Bytecode,
-    context::{result::HaltReasonTr, Cfg, JournalInner},
-    context_interface::result::ResultAndState,
-    database::DatabaseRef,
-    primitives::HashMap as Map,
-    state::{Account, AccountInfo},
-    Database, DatabaseCommit, InspectEvm, JournalEntry,
-};
-
-use super::{BackendError, CheatcodeInspectorTr};
+use super::{BackendError, CheatcodeInspectorTr, IndeterminismReasons, JournaledState};
 use crate::{
     backend::{
         diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId,
@@ -29,28 +14,41 @@ use crate::{
     },
     fork::{CreateFork, ForkId},
 };
+use alloy_genesis::GenesisAccount;
+use alloy_primitives::{Address, B256, U256};
+use derive_where::derive_where;
+use eyre::WrapErr;
+use foundry_fork_db::DatabaseError;
+use revm::{
+    Database, DatabaseCommit,
+    bytecode::Bytecode,
+    context::{result::HaltReasonTr, Cfg, JournalInner},
+    context_interface::result::ResultAndState,
+    database::DatabaseRef,
+    primitives::HashMap as Map,
+    state::{Account, AccountInfo},
+    InspectEvm, JournalEntry,
+};
 
-/// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions
-/// are called.
+/// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions are called.
 ///
-/// Any changes made during its existence that affect the caching layer of the
-/// underlying Database will result in a clone of the initial Database.
-/// Therefore, this backend type is basically a clone-on-write `Backend`, where
-/// cloning is only necessary if cheatcodes will modify the `Backend`
+/// Any changes made during its existence that affect the caching layer of the underlying Database
+/// will result in a clone of the initial Database. Therefore, this backend type is basically
+/// a clone-on-write `Backend`, where cloning is only necessary if cheatcodes will modify the
+/// `Backend`
 ///
-/// Entire purpose of this type is for fuzzing. A test function fuzzer will
-/// repeatedly execute the function via immutable raw (no state changes) calls.
+/// Entire purpose of this type is for fuzzing. A test function fuzzer will repeatedly execute the
+/// function via immutable raw (no state changes) calls.
 ///
-/// **N.B.**: we're assuming cheatcodes that alter the state (like multi fork
-/// swapping) are niche. If they executed, it will require a clone of the
-/// initial input database. This way we can support these cheatcodes cheaply
-/// without adding overhead for tests that don't make use of them. Alternatively
-/// each test case would require its own `Backend` clone, which would add
-/// significant overhead for large fuzz sets even if the Database is not big
-/// after setup.
+/// **N.B.**: we're assuming cheatcodes that alter the state (like multi fork swapping) are niche.
+/// If they executed, it will require a clone of the initial input database.
+/// This way we can support these cheatcodes cheaply without adding overhead for tests that
+/// don't make use of them. Alternatively each test case would require its own `Backend` clone,
+/// which would add significant overhead for large fuzz sets even if the Database is not big after
+/// setup.
 #[derive_where(Clone, Debug; BlockT, HardforkT, TxT)]
 pub struct CowBackend<
-    'cow,
+    'a,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -61,20 +59,19 @@ pub struct CowBackend<
 > {
     /// The underlying `Backend`.
     ///
-    /// No calls on the `CowBackend` will ever persistently modify the
-    /// `backend`'s state.
+    /// No calls on the `CowBackend` will ever persistently modify the `backend`'s state.
     pub backend: Cow<
-        'cow,
+        'a,
         Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
     >,
     /// Keeps track of whether the backed is already initialized
     is_initialized: bool,
-    /// The [`SpecId`] of the current backend.
+    /// The [SpecId] of the current backend.
     spec_id: HardforkT,
 }
 
 impl<
-        'cow,
+        'a,
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -84,7 +81,7 @@ impl<
         ChainContextT: ChainContextTr,
     >
     CowBackend<
-        'cow,
+        'a,
         BlockT,
         TxT,
         EvmBuilderT,
@@ -95,8 +92,8 @@ impl<
     >
 {
     /// Creates a new `CowBackend` with the given `Backend`.
-    pub fn new(
-        backend: &'cow Backend<
+    pub fn new_borrowed(
+        backend: &'a Backend<
             BlockT,
             TxT,
             EvmBuilderT,
@@ -113,22 +110,21 @@ impl<
         }
     }
 
-    /// Executes the configured transaction of the `env` without committing
-    /// state changes
+    /// Executes the configured transaction of the `env` without committing state changes
     ///
-    /// Note: in case there are any cheatcodes executed that modify the
-    /// environment, this will update the given `env` with the new values.
+    /// Note: in case there are any cheatcodes executed that modify the environment, this will
+    /// update the given `env` with the new values.
     pub fn inspect<'b, InspectorT>(
         &'b mut self,
         env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        inspector: InspectorT,
         chain_context: ChainContextT,
+        inspector: &mut InspectorT,
     ) -> eyre::Result<ResultAndState<HaltReasonT>>
     where
         InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'b mut Self, ChainContextT>,
     {
-        // this is a new call to inspect with a new env, so even if we've cloned the
-        // backend already, we reset the initialized state
+        // this is a new call to inspect with a new env, so even if we've cloned the backend
+        // already, we reset the initialized state
         self.is_initialized = false;
         self.spec_id = env.cfg.spec();
         let mut env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
@@ -144,16 +140,14 @@ impl<
 
     /// Returns whether there was a state snapshot failure in the backend.
     ///
-    /// This is bubbled up from the underlying Copy-On-Write backend when a
-    /// revert occurs.
+    /// This is bubbled up from the underlying Copy-On-Write backend when a revert occurs.
     pub fn has_state_snapshot_failure(&self) -> bool {
         self.backend.has_state_snapshot_failure()
     }
 
     /// Returns a mutable instance of the Backend.
     ///
-    /// If this is the first time this is called, the backed is cloned and
-    /// initialized.
+    /// If this is the first time this is called, the backed is cloned and initialized.
     fn backend_mut(
         &mut self,
         mut env: EvmEnv<BlockT, TxT, HardforkT>,
@@ -171,7 +165,6 @@ impl<
 
             env.cfg.spec = self.spec_id;
             backend.initialize(&env);
-
             self.is_initialized = true;
             return backend;
         }
@@ -196,6 +189,12 @@ impl<
             return Some(self.backend.to_mut());
         }
         None
+    }
+
+    /// If re-executing the counter example is not guaranteed to yield the same
+    /// results, the `Some` result contains the reason why.
+    pub fn indeterminism_reasons(&self) -> Option<IndeterminismReasons> {
+        self.backend.indeterminism_reasons()
     }
 }
 
@@ -230,11 +229,10 @@ impl<
 {
     fn snapshot_state(
         &mut self,
-        journaled_state: &JournalInner<JournalEntry>,
+        journaled_state: &JournaledState,
         env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> U256 {
-        self.backend_mut(env.clone())
-            .snapshot_state(journaled_state, env)
+        self.backend_mut(env.clone()).snapshot_state(journaled_state, env)
     }
 
     fn revert_state<'b>(
@@ -242,13 +240,12 @@ impl<
         id: U256,
         action: RevertStateSnapshotAction,
         context: &'b mut EvmContext<'b, BlockT, TxT, HardforkT, ChainContextT>,
-    ) -> Option<JournalInner<JournalEntry>> {
-        self.backend_mut(context.to_owned_env())
-            .revert_state(id, action, context)
+    ) -> Option<JournaledState> {
+        self.backend_mut(context.to_owned_env()).revert_state(id, action, context)
     }
 
     fn delete_state_snapshot(&mut self, id: U256) -> bool {
-        // delete snapshot requires a previous snapshot to be initialized
+        // delete state snapshot requires a previous snapshot to be initialized
         if let Some(backend) = self.initialized_backend_mut() {
             return backend.delete_state_snapshot(id);
         }
@@ -257,7 +254,7 @@ impl<
 
     fn delete_state_snapshots(&mut self) {
         if let Some(backend) = self.initialized_backend_mut() {
-            backend.delete_state_snapshots();
+            backend.delete_state_snapshots()
         }
     }
 
@@ -274,9 +271,7 @@ impl<
         transaction: B256,
         chain_context: &mut ChainContextT,
     ) -> eyre::Result<LocalForkId> {
-        self.backend
-            .to_mut()
-            .create_fork_at_transaction(fork, transaction, chain_context)
+        self.backend.to_mut().create_fork_at_transaction(fork, transaction, chain_context)
     }
 
     fn select_fork(
@@ -284,8 +279,7 @@ impl<
         id: LocalForkId,
         context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
-        self.backend_mut(context.to_owned_env())
-            .select_fork(id, context)
+        self.backend_mut(context.to_owned_env()).select_fork(id, context)
     }
 
     fn roll_fork(
@@ -294,8 +288,7 @@ impl<
         block_number: u64,
         context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
-        self.backend_mut(context.to_owned_env())
-            .roll_fork(id, block_number, context)
+        self.backend_mut(context.to_owned_env()).roll_fork(id, block_number, context)
     }
 
     fn roll_fork_to_transaction<'a, 'b, 'c>(
@@ -307,20 +300,14 @@ impl<
     where
         'a: 'c,
     {
-        self.backend_mut(context.to_owned_env())
-            .roll_fork_to_transaction(id, transaction, context)
+        self.backend_mut(context.to_owned_env()).roll_fork_to_transaction(id, transaction, context)
     }
 
-    fn transact<InspectorT>(
+    fn transact(
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        inspector: &mut InspectorT,
-        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<()>
-    where
-        InspectorT: CheatcodeInspectorTr<
+        inspector: &mut dyn CheatcodeInspectorTr<
             BlockT,
             TxT,
             HardforkT,
@@ -335,7 +322,9 @@ impl<
             >,
             ChainContextT,
         >,
-    {
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()> {
         self.backend_mut(env.clone().into()).transact(
             id,
             transaction,
@@ -364,7 +353,7 @@ impl<
     fn diagnose_revert(
         &self,
         callee: Address,
-        journaled_state: &JournalInner<JournalEntry>,
+        journaled_state: &JournaledState,
     ) -> Option<RevertDiagnostic> {
         self.backend.diagnose_revert(callee, journaled_state)
     }
@@ -372,10 +361,22 @@ impl<
     fn load_allocs(
         &mut self,
         allocs: &BTreeMap<Address, GenesisAccount>,
-        journaled_state: &mut JournalInner<JournalEntry>,
+        journaled_state: &mut JournaledState,
     ) -> Result<(), BackendError> {
-        self.backend_mut(EvmEnv::default())
-            .load_allocs(allocs, journaled_state)
+        self.backend_mut(EvmEnv::default()).load_allocs(allocs, journaled_state)
+    }
+
+    fn clone_account(
+        &mut self,
+        source: &GenesisAccount,
+        target: &Address,
+        journaled_state: &mut JournaledState,
+    ) -> Result<(), BackendError> {
+        self.backend_mut(EvmEnv::default()).clone_account(
+            source,
+            target,
+            journaled_state,
+        )
     }
 
     fn is_persistent(&self, acc: &Address) -> bool {
@@ -404,19 +405,13 @@ impl<
 
     fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool) {
         // Only convert to mutable if we need to update.
-        if !is_pure
-            && !self
-                .backend
-                .inner
-                .impure_cheatcodes
-                .contains(cheatcode_name)
-        {
-            self.backend
-                .to_mut()
-                .inner
-                .impure_cheatcodes
-                .insert(cheatcode_name);
+        if !is_pure && !self.backend.inner.impure_cheatcodes.contains(cheatcode_name) {
+            self.backend.to_mut().inner.impure_cheatcodes.insert(Cow::Borrowed(cheatcode_name));
         }
+    }
+
+    fn set_blockhash(&mut self, block_number: U256, block_hash: B256) {
+        self.backend.to_mut().set_blockhash(block_number, block_hash);
     }
 }
 
@@ -519,6 +514,6 @@ impl<
     >
 {
     fn commit(&mut self, changes: Map<Address, Account>) {
-        self.backend.to_mut().commit(changes);
+        self.backend.to_mut().commit(changes)
     }
 }

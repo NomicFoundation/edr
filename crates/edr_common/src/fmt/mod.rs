@@ -1,7 +1,6 @@
 //! Helpers for formatting Ethereum types.
 
 use alloy_primitives::{Sign, I256, U256};
-use edr_common::calc::to_exp_notation;
 use yansi::Paint;
 
 mod console;
@@ -10,7 +9,9 @@ pub use console::{console_format, ConsoleFmt, FormatSpec};
 mod dynamic;
 pub use dynamic::{format_token, format_token_raw, format_tokens, format_tokens_raw, parse_tokens};
 
-mod transactions;
+mod exp;
+pub use exp::to_exp_notation;
+
 mod ui;
 
 pub use ui::{get_pretty_block_attr, get_pretty_tx_attr, UIfmt};
@@ -23,7 +24,7 @@ pub use ui::{get_pretty_block_attr, get_pretty_tx_attr, UIfmt};
 ///
 /// ```
 /// use alloy_primitives::U256;
-/// use foundry_evm_core::abi::fmt::format_uint_exp as f;
+/// use edr_common::fmt::format_uint_exp as f;
 ///
 /// # yansi::disable();
 /// assert_eq!(f(U256::from(0)), "0");
@@ -49,7 +50,7 @@ pub fn format_uint_exp(num: U256) -> String {
 ///
 /// ```
 /// use alloy_primitives::I256;
-/// use foundry_evm_core::abi::fmt::format_int_exp as f;
+/// use edr_common::fmt::format_int_exp as f;
 ///
 /// # yansi::disable();
 /// assert_eq!(f(I256::try_from(0).unwrap()), "0");

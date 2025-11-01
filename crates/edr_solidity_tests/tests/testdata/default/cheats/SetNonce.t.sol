@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-pragma solidity 0.8.18;
+pragma solidity ^0.8.18;
 
 import "ds-test/test.sol";
 import "cheats/Vm.sol";
@@ -26,9 +26,12 @@ contract SetNonceTest is DSTest {
         foo.f();
     }
 
-    function testFailInvalidNonce() public {
+    function testRevertIfInvalidNonce() public {
         vm.setNonce(address(foo), 10);
         // set lower nonce should fail
+        vm._expectCheatcodeRevert(
+            bytes("vm.setNonce: new nonce (5) must be strictly equal to or higher than the account's current nonce (10)")
+        );
         vm.setNonce(address(foo), 5);
     }
 }
