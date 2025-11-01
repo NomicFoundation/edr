@@ -24,6 +24,7 @@ derive-where.workspace = true
 dunce.workspace = true
 eyre.workspace = true
 futures = "0.3"
+itertools.workspace = true
 num_cpus = "1.16.0"
 proptest.workspace = true
 rayon = "1"

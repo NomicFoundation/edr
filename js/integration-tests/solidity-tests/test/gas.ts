@@ -39,6 +39,8 @@ describe("Gas tests", () => {
         runs: BigInt(5),
         calls: BigInt(100),
         reverts: BigInt(0),
+        metrics: {},
+        failedCorpusReplays: BigInt(0)
       },
     },
   ];

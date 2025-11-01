@@ -29,6 +29,7 @@ parking_lot.workspace = true
 proptest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+uuid.workspace = true
 thiserror = "1"
 tracing = "0.1"
 tokio = "1.43.0"

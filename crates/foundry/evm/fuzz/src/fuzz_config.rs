@@ -1,12 +1,18 @@
+use std::collections::HashSet;
 use std::path::PathBuf;
-
+use std::sync::{OnceLock, RwLock};
 use alloy_primitives::U256;
+use proptest::test_runner::{FailurePersistence, FileFailurePersistence};
+
+static FAILURE_PATHS: OnceLock<RwLock<HashSet<&'static str>>> = OnceLock::new();
 
 /// Contains for fuzz testing
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FuzzConfig {
     /// The number of test cases that must execute for each property test
     pub runs: u32,
+    /// Fails the fuzzed test if a revert occurs.
+    pub fail_on_revert: bool,
     /// The maximum number of test case rejections allowed by proptest, to be
     /// encountered during usage of `vm.assume` cheatcode. This will be used
     /// to set the `max_global_rejects` value in proptest test runner config.
@@ -33,12 +39,13 @@ impl Default for FuzzConfig {
     fn default() -> Self {
         FuzzConfig {
             runs: 256,
+            fail_on_revert: true,
             max_test_rejects: 65536,
             seed: None,
             dictionary: FuzzDictionaryConfig::default(),
             gas_report_samples: 0,
             failure_persist_dir: None,
-            failure_persist_file: "failures".into(),
+            failure_persist_file: "failures".to_string(),
             show_logs: false,
             timeout: None,
         }
@@ -52,6 +59,43 @@ impl FuzzConfig {
         FuzzConfig {
             failure_persist_dir: Some(cache_dir),
             ..FuzzConfig::default()
+        }
+    }
+
+    /// Returns file failure persistance for the fuzzer.
+    pub fn file_failure_persistence(&self) -> Option<Box<dyn FailurePersistence>> {
+        if let Some(failure_persist_dir) = self.failure_persist_dir.as_ref() {
+            let failure_persist_path = failure_persist_dir
+                .join(&self.failure_persist_file)
+                .into_os_string()
+                .into_string()
+                .expect("path should be valid UTF-8");
+
+            // HACK: We need to leak the path as
+            // `proptest::test_runner::FileFailurePersistence` requires a
+            // `&'static str`. We mitigate this by making sure that one particular path
+            // is only leaked once.
+            let failure_paths = FAILURE_PATHS.get_or_init(RwLock::default);
+            // Need to be in a block to ensure that the read lock is dropped before we try
+            // to insert.
+            {
+                let failure_paths_guard = failure_paths.read().expect("lock is not poisoned");
+                if let Some(static_path) = failure_paths_guard.get(&*failure_persist_path) {
+                    return Some(Box::new(FileFailurePersistence::Direct(static_path)))
+                }
+            }
+            // Write block
+            {
+                let mut failure_paths_guard = failure_paths.write().expect("lock is not poisoned");
+                failure_paths_guard.insert(failure_persist_path.clone().leak());
+                let static_path = failure_paths_guard
+                    .get(&*failure_persist_path)
+                    .expect("must exist since we just inserted it");
+
+                Some(Box::new(FileFailurePersistence::Direct(static_path)))
+            }
+        } else {
+            None
         }
     }
 }
