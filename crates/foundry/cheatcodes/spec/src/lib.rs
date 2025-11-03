@@ -119,8 +119,10 @@ mod tests {
     #[cfg(feature = "schema")]
     const SCHEMA_PATH: &str =
         concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/cheatcodes.schema.json");
-    const IFACE_PATH: &str =
-        concat!(env!("CARGO_MANIFEST_DIR"), "/../../../testdata/cheats/Vm.sol");
+    const IFACE_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../edr_solidity_tests/tests/testdata/cheats/Vm.sol"
+    );
 
     /// Generates the `cheatcodes.json` file contents.
     fn json_cheatcodes() -> String {

@@ -39,10 +39,10 @@ pub struct SolidityTestRunnerConfig<HardforkT: HardforkTr> {
     pub include_traces: IncludeTraces,
     /// Whether to collect coverage info
     pub coverage: bool,
-    /// Whether to support the `testFail` prefix
-    pub test_fail: bool,
     /// Whether to enable solidity fuzz fixtures support
-    pub solidity_fuzz_fixtures: bool,
+    pub enable_fuzz_fixtures: bool,
+    /// Whether to enable table test support
+    pub enable_table_tests: bool,
     /// Cheats configuration options
     pub cheats_config_options: CheatsConfigOptions,
     /// EVM options

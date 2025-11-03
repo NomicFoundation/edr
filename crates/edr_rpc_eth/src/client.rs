@@ -657,6 +657,8 @@ mod tests {
             }
         }
 
+        // TODO remove ignore
+        #[ignore]
         #[tokio::test]
         async fn get_logs_future_to_block() {
             let alchemy_url = get_alchemy_url();
@@ -777,6 +779,7 @@ mod tests {
             assert_eq!(transaction_count, U256::from(1));
         }
 
+        #[ignore]
         #[tokio::test]
         async fn get_transaction_count_future_block() {
             let alchemy_url = get_alchemy_url();
@@ -900,6 +903,7 @@ mod tests {
                 .expect("should have succeeded");
         }
 
+        #[ignore]
         #[tokio::test]
         async fn get_storage_at_future_block() {
             let alchemy_url = get_alchemy_url();

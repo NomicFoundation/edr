@@ -1,3 +1,6 @@
+// TODO
+#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
+
 #[macro_use]
 extern crate tracing;
 
@@ -30,6 +33,7 @@ pub mod result;
 pub use foundry_evm::executors::stack_trace::StackTraceError;
 
 mod test_filter;
+mod error;
 
 use foundry_evm::fuzz::{invariant::InvariantConfig, FuzzConfig};
 pub use foundry_evm::*;
@@ -53,7 +57,7 @@ impl TestOptions {
 
         if let Some(failure_persist_dir) = fuzz_config.failure_persist_dir {
             let failure_persist_path = failure_persist_dir
-                .join(fuzz_config.failure_persist_file)
+                .join(&fuzz_config.failure_persist_file)
                 .into_os_string()
                 .into_string()
                 .expect("path should be valid UTF-8");

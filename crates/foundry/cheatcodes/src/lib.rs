@@ -28,7 +28,7 @@ use foundry_evm_core::{
     evm_context::{EvmBuilderTrait, TransactionErrorTrait},
 };
 pub use fs_permissions::{FsAccessKind, FsAccessPermission, FsPermissions, PathPermission};
-pub use inspector::{Cheatcodes};
+pub use inspector::{Cheatcodes, CheatcodesExecutor};
 use revm::{
     context::{result::HaltReasonTr, CfgEnv},
     Journal,
@@ -73,7 +73,6 @@ pub use cache::{CachedChains, CachedEndpoints, StorageCachingConfig};
 use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr};
 pub use test::expect::ExpectedCallTracker;
 pub use Vm::ExecutionContext;
-use crate::inspector::CheatcodesExecutor;
 
 /// Cheatcode implementation.
 pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode {

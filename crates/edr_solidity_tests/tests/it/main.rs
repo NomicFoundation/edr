@@ -1,3 +1,4 @@
+#[macro_use]
 pub mod helpers;
 
 mod cheats;
