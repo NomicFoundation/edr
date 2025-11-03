@@ -118,7 +118,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ !matrix.settings.docker }}
-        run: sfw pnpm install --frozen-lockfile --prefer-offline
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Verify pnpm structure after sfw install
         if: ${{ !matrix.settings.docker }}
