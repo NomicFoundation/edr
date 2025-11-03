@@ -21,11 +21,6 @@ pub trait TestFunctionExt {
         self.test_function_kind().is_any_test()
     }
 
-    /// Returns `true` if this function is a test that should fail.
-    fn is_any_test_fail(&self) -> bool {
-        self.test_function_kind().is_any_test_fail()
-    }
-
     /// Returns `true` if this function is a unit test.
     fn is_unit_test(&self) -> bool {
         matches!(self.test_function_kind(), TestFunctionKind::UnitTest { .. })

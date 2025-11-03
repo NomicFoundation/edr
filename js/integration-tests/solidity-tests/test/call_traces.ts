@@ -162,7 +162,10 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const child = trace[0].children[0];
     assert.equal(child.kind, CallKind.Call);
-    assert.deepEqual(child.inputs, new Uint8Array([0xde, 0xad, 0xbe, 0xef]));
+    assert.deepEqual(child.inputs, {
+      arguments: ["0xdeadbeef"],
+      name: "fallback"
+    });
   });
 
   it("undecoded outputs", async function () {
@@ -344,7 +347,7 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.equal(emptyCall3.kind, CallKind.Call);
     assert.equal(emptyCall3.success, true);
     assert.equal(emptyCall3.contract, undefined);
-    assert.deepEqual(emptyCall3.inputs, { name: "fallback", arguments: [] });
+    assert.deepEqual(emptyCall3.inputs, new Uint8Array(0));
   });
 
   it("fuzzing test should have single trace", async function () {
@@ -389,7 +392,7 @@ describe("Call traces - IncludeTraces.Failing", () => {
   });
 
   it("should capture traces for failing tests", async function () {
-    const trace = testCallTraces.get("testFailingTest()");
+    const trace = testCallTraces.get("testIntentionallyFailingTest()");
     assert.equal(trace?.length, 1);
     assert.equal(trace[0].success, false);
   });

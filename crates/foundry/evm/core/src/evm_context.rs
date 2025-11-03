@@ -76,7 +76,7 @@ pub trait EvmBuilderTrait<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
->
+>: std::fmt::Debug + Clone
 {
     /// Type of the EVM being built.
     type Evm<
@@ -131,12 +131,13 @@ pub trait EvmBuilderTrait<
             EthInterpreter,
         >,
     >(
-        journal: Journal<DatabaseT>,
+        journaled_state: Journal<DatabaseT>,
         env: EvmEnvWithChainContext<BlockT, TransactionT, HardforkT, ChainContextT>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT>;
 }
 
+#[derive(Debug, Clone)]
 pub struct L1EvmBuilder;
 
 impl
@@ -165,19 +166,26 @@ impl
 
     type PrecompileProvider<DatabaseT: Database> = EthPrecompiles;
 
-    fn evm_with_journal_and_inspector<
+    fn evm_with_inspector<
         DatabaseT: Database,
         InspectorT: Inspector<EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>, EthInterpreter>,
     >(
-        journal: Journal<DatabaseT>,
+        db: DatabaseT,
         env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
+        let mut journaled_state = Journal::<_, JournalEntry>::new(db);
+        journaled_state.set_spec_id(env.cfg.spec);
+
+        Self::evm_with_journal_and_inspector(journaled_state, env, inspector)
+    }
+
+    fn evm_with_journal_and_inspector<DatabaseT: Database, InspectorT: Inspector<EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>, EthInterpreter>>(journaled_state: Journal<DatabaseT>, env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>, inspector: InspectorT) -> Self::Evm<DatabaseT, InspectorT> {
         let context = revm::Context {
             tx: env.tx,
             block: env.block,
             cfg: env.cfg,
-            journaled_state: journal,
+            journaled_state,
             chain: env.chain_context,
             local: LocalContext::default(),
             error: Ok(()),
@@ -289,12 +297,12 @@ impl<T> TransactionEnvTr for T where
 }
 
 pub trait TransactionErrorTrait:
-    'static + From<InvalidTransaction> + std::error::Error + Send + Sync
+    'static + Clone + From<InvalidTransaction> + std::error::Error + Send + Sync
 {
 }
 
 impl<TransactionErrorT> TransactionErrorTrait for TransactionErrorT where
-    TransactionErrorT: 'static + From<InvalidTransaction> + std::error::Error + Send + Sync
+    TransactionErrorT: 'static + Clone + From<InvalidTransaction> + std::error::Error + Send + Sync
 {
 }
 

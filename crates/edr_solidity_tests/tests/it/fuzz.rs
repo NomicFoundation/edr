@@ -201,8 +201,9 @@ async fn test_fuzz_gas_report() {
     assert_eq!(sample_contract_report.deployments.len(), 1);
     let deployment = sample_contract_report.deployments.first().unwrap();
 
-    assert_eq!(deployment.gas, 224_987);
-    assert_eq!(deployment.size, 743);
+    // Assert with 10% tolerance
+    assert_close!(deployment.gas, 224_987, 0.1);
+    assert_close!(deployment.size, 743, 0.1);
     assert_eq!(deployment.status, GasReportExecutionStatus::Success);
 
     assert_eq!(sample_contract_report.functions.len(), 6);

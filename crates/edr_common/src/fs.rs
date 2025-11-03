@@ -7,6 +7,10 @@ use std::{
     io::{BufWriter, Write},
     path::{Component, Path, PathBuf},
 };
+use std::io::BufReader;
+use flate2::Compression;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
 
 /// The [`fs`](self) result type.
 pub type Result<T> = std::result::Result<T, FsPathError>;
@@ -49,6 +53,15 @@ pub fn read_json_file<T: DeserializeOwned>(path: &Path) -> Result<T> {
     serde_json::from_str(&s).map_err(|source| FsPathError::ReadJson { source, path: path.into() })
 }
 
+/// Reads and decodes the json gzip file, then deserialize it into the provided type.
+pub fn read_json_gzip_file<T: DeserializeOwned>(path: &Path) -> Result<T> {
+    let file = open(path)?;
+    let reader = BufReader::new(file);
+    let decoder = GzDecoder::new(reader);
+    serde_json::from_reader(decoder)
+        .map_err(|source| FsPathError::ReadJson { source, path: path.into() })
+}
+
 /// Writes the object as a JSON object.
 pub fn write_json_file<T: Serialize>(path: &Path, obj: &T) -> Result<()> {
     let file = create_file(path)?;
@@ -56,6 +69,20 @@ pub fn write_json_file<T: Serialize>(path: &Path, obj: &T) -> Result<()> {
     serde_json::to_writer(&mut writer, obj)
         .map_err(|source| FsPathError::WriteJson { source, path: path.into() })?;
     writer.flush().map_err(|e| FsPathError::write(e, path))
+}
+
+/// Writes the object as a gzip compressed file.
+pub fn write_json_gzip_file<T: Serialize>(path: &Path, obj: &T) -> Result<()> {
+    let file = create_file(path)?;
+    let writer = BufWriter::new(file);
+    let mut encoder = GzEncoder::new(writer, Compression::default());
+    serde_json::to_writer(&mut encoder, obj)
+        .map_err(|source| FsPathError::WriteJson { source, path: path.into() })?;
+    encoder
+        .finish()
+        .map_err(serde_json::Error::io)
+        .map_err(|source| FsPathError::WriteJson { source, path: path.into() })?;
+    Ok(())
 }
 
 /// Wrapper for `std::fs::write`

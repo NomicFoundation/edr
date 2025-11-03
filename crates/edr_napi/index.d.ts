@@ -586,8 +586,6 @@ export interface SolidityTestRunnerConfigArgs {
   projectRoot: string
   /** Configures the permissions of cheat codes that access the file system. */
   fsPermissions?: Array<PathPermission>
-  /** Whether to support the `testFail` prefix. Defaults to false. */
-  testFail?: boolean
   /** Address labels for traces. Defaults to none. */
   labels?: Array<AddressLabel>
   /**
@@ -1003,7 +1001,7 @@ export enum TestStatus {
   /**Test skipped */
   Skipped = 'Skipped'
 }
-/** See [`edr_solidity_tests::result::TestKind::Standard`] */
+/** See [`edr_solidity_tests::result::TestKind::Unit`] */
 export interface StandardTestKind {
   /** The gas consumed by the test. */
   readonly consumedGas: bigint
@@ -1034,6 +1032,16 @@ export interface InvariantTestKind {
   readonly calls: bigint
   /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
   readonly reverts: bigint
+  /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
+  readonly metrics: Record<string, InvariantMetrics>
+  /** See [`edr_solidity_tests::result::TestKind::Invariant`] */
+  readonly failedCorpusReplays: bigint
+}
+/** See [`edr_solidity_tests::result::InvariantMetrics`] */
+export interface InvariantMetrics {
+  readonly calls: bigint
+  readonly reverts: bigint
+  readonly discards: bigint
 }
 /**
  * Original sequence size and sequence of calls used as a counter example
