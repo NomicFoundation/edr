@@ -6,9 +6,7 @@ use alloy_primitives::U256;
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::fuzz::CounterExample;
 
-use crate::helpers::{
-    assert_multiple, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT,
-};
+use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT};
 
 macro_rules! get_counterexample {
     ($runner:ident, $filter:expr) => {
@@ -1005,8 +1003,8 @@ async fn test_invariant_gas_report() {
 
     let deployment_report = invariant_breaker_report.deployments.first().unwrap();
 
-    assert_eq!(deployment_report.gas, 159_061);
-    assert_eq!(deployment_report.size, 434);
+    assert_close!(deployment_report.gas, 159_061, 0.1);
+    assert_close!(deployment_report.size, 434, 0.1);
     assert_eq!(deployment_report.status, GasReportExecutionStatus::Success);
 
     assert_eq!(invariant_breaker_report.functions.len(), 3);

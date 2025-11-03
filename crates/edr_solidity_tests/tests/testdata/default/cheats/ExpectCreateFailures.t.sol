@@ -20,42 +20,42 @@ contract OtherContract {
 contract ExpectCreateFailureTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
     bytes contractBytecode =
-        vm.getDeployedCode("ExpectCreateFailures.t.sol:Contract");
+    vm.getDeployedCode("ExpectCreateFailures.t.sol:Contract");
 
-    function testFailExpectCreate() public {
+    function testShouldFailExpectCreate() public {
         vm.expectCreate(contractBytecode, address(this));
     }
 
-    function testFailExpectCreate2() public {
+    function testShouldFailExpectCreate2() public {
         vm.expectCreate2(contractBytecode, address(this));
     }
 
-    function testFailExpectCreateWrongBytecode() public {
+    function testShouldFailExpectCreateWrongBytecode() public {
         vm.expectCreate(contractBytecode, address(this));
         new OtherContract();
     }
 
-    function testFailExpectCreate2WrongBytecode() public {
+    function testShouldFailExpectCreate2WrongBytecode() public {
         vm.expectCreate2(contractBytecode, address(this));
         new OtherContract{salt: "foobar"}();
     }
 
-    function testFailExpectCreateWrongDeployer() public {
+    function testShouldFailExpectCreateWrongDeployer() public {
         vm.expectCreate(contractBytecode, address(0));
         new Contract();
     }
 
-    function testFailExpectCreate2WrongDeployer() public {
+    function testShouldFailExpectCreate2WrongDeployer() public {
         vm.expectCreate2(contractBytecode, address(0));
         new Contract();
     }
 
-    function testFailExpectCreateWrongScheme() public {
+    function testShouldFailExpectCreateWrongScheme() public {
         vm.expectCreate(contractBytecode, address(this));
         new Contract{salt: "foobar"}();
     }
 
-    function testFailExpectCreate2WrongScheme() public {
+    function testShouldFailExpectCreate2WrongScheme() public {
         vm.expectCreate2(contractBytecode, address(this));
         new Contract();
     }

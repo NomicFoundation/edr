@@ -1,10 +1,10 @@
 //! Regression tests for previous issues.
 
-use alloy_dyn_abi::{DynSolValue, EventExt};
+use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt};
 use alloy_json_abi::Event;
 #[cfg(feature = "test-remote")]
 use alloy_primitives::address;
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{b256, Address, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
@@ -205,26 +205,25 @@ remote_test_repro!(
 
 // https://github.com/foundry-rs/foundry/issues/3347
 test_repro!(3347, false, None, |res| {
-    let mut res = res
-        .remove("default/repros/Issue3347.t.sol:Issue3347Test")
-        .unwrap();
+    let mut res = res.remove("default/repros/Issue3347.t.sol:Issue3347Test").unwrap();
     let test = res.test_results.remove("test()").unwrap();
     assert_eq!(test.logs.len(), 1);
     let event = Event::parse("event log2(uint256, uint256)").unwrap();
     let decoded = event.decode_log(&test.logs[0].data).unwrap();
-    assert!(decoded.indexed.is_empty());
     assert_eq!(
-        decoded.body,
-        vec![
-            DynSolValue::Uint(U256::from(1), 256),
-            DynSolValue::Uint(U256::from(2), 256)
-        ]
+        decoded,
+        DecodedEvent {
+            selector: Some(b256!(
+                "0x78b9a1f3b55d6797ab2c4537e83ee04ff0c65a1ca1bb39d79a62e0a78d5a8a57"
+            )),
+            indexed: vec![],
+            body: vec![
+                DynSolValue::Uint(U256::from(1), 256),
+                DynSolValue::Uint(U256::from(2), 256)
+            ]
+        }
     );
 });
-
-// https://github.com/foundry-rs/foundry/issues/3437
-// 1.0 related
-// test_repro!(3437);
 
 // https://github.com/foundry-rs/foundry/issues/3596
 test_repro!(3596, true, None);
@@ -251,10 +250,6 @@ remote_test_repro!(3703);
 // https://github.com/foundry-rs/foundry/issues/3708
 test_repro!(3708);
 
-// https://github.com/foundry-rs/foundry/issues/3723
-// 1.0 related
-// test_repro!(3723);
-
 // https://github.com/foundry-rs/foundry/issues/3753
 test_repro!(3753);
 
@@ -273,7 +268,7 @@ test_repro!(4523, false, None, |res| {
     let test = res.test_results.remove("test_GasMeter()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 53097 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(44590)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 44590 }));
 
     let test = res.test_results.remove("test_GasLeft()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
@@ -293,10 +288,6 @@ test_repro!(4630);
 // https://github.com/foundry-rs/foundry/issues/4640
 remote_test_repro!(4640);
 
-// https://github.com/foundry-rs/foundry/issues/4832
-// 1.0 related
-// test_repro!(4832);
-
 // https://github.com/foundry-rs/foundry/issues/5038
 test_repro!(5038);
 
@@ -309,22 +300,22 @@ test_repro!(5491, false, None, |res| {
     let test = res.test_results.remove("testWeirdGas1()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 3148 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(2962)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 2962 }));
 
     let test = res.test_results.remove("testWeirdGas2()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 3213 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(3070)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 3070 }));
 
     let test = res.test_results.remove("testNormalGas()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 3148 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(3124)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 3124 }));
 
     let test = res.test_results.remove("testWithAssembly()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 3029 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(3006)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 3006 }));
 });
 
 // https://github.com/foundry-rs/foundry/issues/5564

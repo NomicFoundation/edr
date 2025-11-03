@@ -8,16 +8,36 @@ use crate::helpers::{
 
 /// Executes all cheat code tests but not fork cheat codes or tests that require
 /// isolation mode
-async fn test_cheats_local(test_data: &L1ForgeTestData) {
-    let mut filter = SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}*"))
-        .exclude_paths("Fork")
-        .exclude_contracts("Isolated|Sleep");
+async fn test_cheats_local(test_data: &L1ForgeTestData, should_fail: bool) {
+    let path_pattern = format!(".*cheats{RE_PATH_SEPARATOR}*");
+    let exclude_paths = "Fork";
+    let exclude_contracts = "Isolated|Sleep";
+    let should_fail_pattern = "testShouldFail";
+    let windows_exclude_patterns = ["Ffi", "File", "Line", "Root"];
+
+    let filter = if should_fail {
+        SolidityTestFilter::new(should_fail_pattern, ".*", &path_pattern)
+            .exclude_paths(exclude_paths)
+            .exclude_contracts(exclude_contracts)
+    } else {
+        SolidityTestFilter::new(".*", ".*", &path_pattern)
+            .exclude_paths(exclude_paths)
+            .exclude_contracts(exclude_contracts)
+    };
+
+    let mut exclude_test_patterns = Vec::default();
+
+    if !should_fail {
+        exclude_test_patterns.push(should_fail_pattern);
+    }
 
     // Exclude FFI tests on Windows because no `echo`, and file tests that expect
     // certain file paths
     if cfg!(windows) {
-        filter = filter.exclude_tests("(Ffi|File|Line|Root)");
+        exclude_test_patterns.extend_from_slice(&windows_exclude_patterns);
     }
+
+    let filter = filter.exclude_tests(&format!("({})", exclude_test_patterns.join("|")));
 
     let runner = test_data
         .runner_with_fs_permissions(
@@ -26,7 +46,7 @@ async fn test_cheats_local(test_data: &L1ForgeTestData) {
         )
         .await;
 
-    TestConfig::with_filter(runner, filter).run().await;
+    TestConfig::with_filter(runner, filter).set_should_fail(should_fail).run().await;
 }
 
 /// Executes subset of all cheat code tests in isolation mode
@@ -46,7 +66,12 @@ async fn test_cheats_local_isolated(test_data: &L1ForgeTestData) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_default() {
-    test_cheats_local(&TEST_DATA_DEFAULT).await;
+    test_cheats_local(&TEST_DATA_DEFAULT, false).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_cheats_local_should_fail() {
+    test_cheats_local(&TEST_DATA_DEFAULT, true).await;
 }
 
 // Need custom fuzz config to speed it up
@@ -68,10 +93,20 @@ async fn test_cheats_local_default_isolated() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_multi_version() {
-    test_cheats_local(&TEST_DATA_MULTI_VERSION).await;
+    test_cheats_local(&TEST_DATA_MULTI_VERSION, false).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_cheats_local_multi_version_should_fail() {
+    test_cheats_local(&TEST_DATA_MULTI_VERSION, true).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_cancun() {
-    test_cheats_local(&TEST_DATA_CANCUN).await;
+    test_cheats_local(&TEST_DATA_CANCUN, false).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_cheats_local_cancun_should_fail() {
+    test_cheats_local(&TEST_DATA_CANCUN, true).await;
 }

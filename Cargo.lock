@@ -310,7 +310,7 @@ dependencies = [
  "proptest-derive",
  "rand 0.9.1",
  "ruint",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "serde",
  "sha3",
  "tiny-keccak",
@@ -2667,6 +2667,7 @@ dependencies = [
  "dunce",
  "edr_macros",
  "eyre",
+ "flate2",
  "serde",
  "serde_json",
  "similar-asserts",
@@ -3224,7 +3225,7 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
- "uuid 1.16.0",
+ "uuid 1.18.1",
  "walkdir",
 ]
 
@@ -3432,6 +3433,7 @@ dependencies = [
  "humantime-serde",
  "itertools 0.12.1",
  "log",
+ "num-traits",
  "num_cpus",
  "once_cell",
  "paste",
@@ -4166,6 +4168,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+ "uuid 1.18.1",
 ]
 
 [[package]]
@@ -4242,13 +4245,13 @@ dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
  "alloy-primitives",
+ "ciborium",
  "edr_common",
  "edr_solidity",
  "eyre",
  "foundry-evm-core",
  "foundry-evm-coverage",
  "foundry-evm-traces",
- "indexmap 2.9.0",
  "itertools 0.12.1",
  "parking_lot 0.12.3",
  "proptest",
@@ -4267,22 +4270,20 @@ dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
  "alloy-sol-types",
- "const-hex",
  "edr_common",
  "edr_defaults",
  "edr_solidity",
  "eyre",
  "foundry-evm-core",
  "itertools 0.12.1",
- "once_cell",
  "reqwest 0.12.15",
  "revm-inspectors",
- "rustc-hash 1.1.0",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]
@@ -6455,7 +6456,7 @@ dependencies = [
  "pin-project-lite",
  "quinn-proto",
  "quinn-udp",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "rustls",
  "socket2",
  "thiserror 2.0.12",
@@ -6474,7 +6475,7 @@ dependencies = [
  "getrandom 0.3.2",
  "rand 0.9.1",
  "ring",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "rustls",
  "rustls-pki-types",
  "slab",
@@ -7152,12 +7153,6 @@ name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
-
-[[package]]
-name = "rustc-hash"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hash"
@@ -7865,7 +7860,7 @@ dependencies = [
  "indexmap 2.9.0",
  "parking_lot 0.12.3",
  "rayon",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "smallvec",
 ]
 
@@ -8788,11 +8783,14 @@ dependencies = [
 
 [[package]]
 name = "uuid"
-version = "1.16.0"
+version = "1.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "458f7a779bf54acc9f347480ac654f68407d3aab21269a6e3c9f922acd9e2da9"
+checksum = "2f87b8aa10b915a06587d0dec516c282ff295b475d94abf425d62b57710070a2"
 dependencies = [
  "getrandom 0.3.2",
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]

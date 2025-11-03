@@ -48,7 +48,7 @@ async fn test_core() {
             ),
             (
                 "default/core/Reverting.t.sol:RevertingTest",
-                vec![("testFailRevert()", true, None, None, None)],
+                vec![("testRevert()", true, None, None, None)],
             ),
             (
                 "default/core/SetupConsistency.t.sol:SetupConsistencyCheck",
@@ -59,7 +59,7 @@ async fn test_core() {
             ),
             (
                 "default/core/DSStyle.t.sol:DSStyleTest",
-                vec![("testFailingAssertions()", true, None, None, None)],
+                vec![("testDSTestFailingAssertions()", false, None, None, None)],
             ),
             (
                 "default/core/ContractEnvironment.t.sol:ContractEnvironmentTest",
@@ -173,14 +173,14 @@ async fn test_logs() {
                         None,
                     ),
                     (
-                        "testFailWithRequire()",
+                        "testRevertIfWithRequire()",
                         true,
                         None,
                         Some(vec!["0".into(), "1".into(), "5".into()]),
                         None,
                     ),
                     (
-                        "testFailWithRevert()",
+                        "testRevertIfWithRevert()",
                         true,
                         None,
                         Some(vec!["0".into(), "1".into(), "4".into(), "100".into()]),
@@ -769,31 +769,6 @@ async fn test_trace() {
             );
         }
     }
-}
-
-/// Test that the test method will fail if the `testFail` prefix is used and
-/// `test_fail` is set to false.
-#[tokio::test(flavor = "multi_thread")]
-async fn test_fail_test() {
-    let filter = SolidityTestFilter::new(".*", "Reverting", "default/core/Reverting.t.sol");
-    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.test_fail = false;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
-    let results = runner.test_collect(filter).await.suite_results;
-
-    assert_multiple(
-        &results,
-        BTreeMap::from([(
-            "default/core/Reverting.t.sol:RevertingTest",
-            vec![(
-                "testFailRevert()",
-                /* should succeed */ false,
-                /* revert message */ Some("should revert here".into()),
-                None,
-                None,
-            )],
-        )]),
-    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

@@ -91,8 +91,6 @@ pub struct TestRunnerConfig {
     /// The absolute path to the project root directory.
     /// Relative paths in cheat codes are resolved against this path.
     pub project_root: PathBuf,
-    /// Whether to support the `testFail` prefix.
-    pub test_fail: bool,
     /// Whether to enable isolation of calls. In isolation mode all top-level
     /// calls are executed as a separate transaction in a separate EVM
     /// context, enabling more precise gas accounting and transaction state
@@ -184,7 +182,6 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
     fn try_from(value: TestRunnerConfig) -> Result<Self, Self::Error> {
         let TestRunnerConfig {
             project_root,
-            test_fail,
             isolate,
             ffi,
             sender,
@@ -286,7 +283,6 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             project_root,
             collect_stack_traces,
             include_traces,
-            test_fail,
             // TODO
             coverage: false,
             cheats_config_options,
@@ -296,7 +292,8 @@ impl<HardforkT: HardforkTr> TryFrom<TestRunnerConfig> for SolidityTestRunnerConf
             invariant,
             on_collected_coverage_fn,
             // Solidity fuzz fixtures are not supported by the JS backend
-            solidity_fuzz_fixtures: false,
+            enable_fuzz_fixtures: false,
+            enable_table_tests: false,
             generate_gas_report,
         })
     }

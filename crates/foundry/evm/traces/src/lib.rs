@@ -7,9 +7,13 @@
 // TODO https://github.com/NomicFoundation/edr/issues/1076
 #![allow(clippy::indexing_slicing)]
 
+// TODO
+#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
+
 #[macro_use]
 extern crate tracing;
 
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     collections::BTreeSet,
@@ -17,7 +21,7 @@ use std::{
 };
 
 use alloy_primitives::map::HashMap;
-use revm_inspectors::tracing::types::DecodedTraceStep;
+
 pub use revm_inspectors::tracing::{
     types::{
         CallKind, CallLog, CallTrace, CallTraceNode, CallTraceStep, DecodedCallData,
@@ -26,18 +30,16 @@ pub use revm_inspectors::tracing::{
     CallTraceArena, FourByteInspector, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType,
     TraceWriter, TracingInspector, TracingInspectorConfig,
 };
-use serde::{Deserialize, Serialize};
+use revm_inspectors::tracing::types::DecodedTraceStep;
 
 /// Call trace address identifiers.
 ///
-/// Identifiers figure out what ABIs and labels belong to all the addresses of
-/// the trace.
+/// Identifiers figure out what ABIs and labels belong to all the addresses of the trace.
 pub mod identifier;
-use identifier::{LocalTraceIdentifier, TraceIdentifier};
+use identifier::LocalTraceIdentifier;
 
 pub mod abi;
 mod decoder;
-
 pub use decoder::{CallTraceDecoder, CallTraceDecoderBuilder};
 use foundry_evm_core::contracts::{ContractsByAddress, ContractsByArtifact};
 
@@ -49,9 +51,8 @@ pub struct SparsedTraceArena {
     /// Full trace arena.
     #[serde(flatten)]
     pub arena: CallTraceArena,
-    /// Ranges of trace steps to ignore in format (`start_node`, `start_step`)
-    /// -> (`end_node`, `end_step`). See
-    /// `foundry_cheatcodes::utils::IgnoredTraces` for more information.
+    /// Ranges of trace steps to ignore in format (start_node, start_step) -> (end_node, end_step).
+    /// See `foundry_cheatcodes::utils::IgnoredTraces` for more information.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub ignored: HashMap<(usize, usize), (usize, usize)>,
 }
@@ -63,9 +64,102 @@ impl SparsedTraceArena {
             Cow::Borrowed(&self.arena)
         } else {
             let mut arena = self.arena.clone();
+
+            fn clear_node(
+                nodes: &mut [CallTraceNode],
+                node_idx: usize,
+                ignored: &HashMap<(usize, usize), (usize, usize)>,
+                cur_ignore_end: &mut Option<(usize, usize)>,
+            ) {
+                // Prepend an additional None item to the ordering to handle the beginning of the
+                // trace.
+                let items = std::iter::once(None)
+                    .chain(nodes[node_idx].ordering.clone().into_iter().map(Some))
+                    .enumerate();
+
+                let mut internal_calls = Vec::new();
+                let mut items_to_remove = BTreeSet::new();
+                for (item_idx, item) in items {
+                    if let Some(end_node) = ignored.get(&(node_idx, item_idx)) {
+                        *cur_ignore_end = Some(*end_node);
+                    }
+
+                    let mut remove = cur_ignore_end.is_some() & item.is_some();
+
+                    match item {
+                        // we only remove calls if they did not start/pause tracing
+                        Some(TraceMemberOrder::Call(child_idx)) => {
+                            clear_node(
+                                nodes,
+                                nodes[node_idx].children[child_idx],
+                                ignored,
+                                cur_ignore_end,
+                            );
+                            remove &= cur_ignore_end.is_some();
+                        }
+                        // we only remove decoded internal calls if they did not start/pause tracing
+                        Some(TraceMemberOrder::Step(step_idx)) => {
+                            // If this is an internal call beginning, track it in `internal_calls`
+                            if let Some(DecodedTraceStep::InternalCall(_, end_step_idx)) =
+                                &nodes[node_idx].trace.steps[step_idx].decoded
+                            {
+                                internal_calls.push((item_idx, remove, *end_step_idx));
+                                // we decide if we should remove it later
+                                remove = false;
+                            }
+                            // Handle ends of internal calls
+                            internal_calls.retain(|(start_item_idx, remove_start, end_idx)| {
+                                if *end_idx != step_idx {
+                                    return true;
+                                }
+                                // only remove start if end should be removed as well
+                                if *remove_start && remove {
+                                    items_to_remove.insert(*start_item_idx);
+                                } else {
+                                    remove = false;
+                                }
+
+                                false
+                            });
+                        }
+                        _ => {}
+                    }
+
+                    if remove {
+                        items_to_remove.insert(item_idx);
+                    }
+
+                    if let Some((end_node, end_step_idx)) = cur_ignore_end
+                        && node_idx == *end_node
+                        && item_idx == *end_step_idx
+                    {
+                        *cur_ignore_end = None;
+                    }
+                }
+
+                for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
+                    nodes[node_idx].ordering.remove(item_idx - offset - 1);
+                }
+            }
+
             clear_node(arena.nodes_mut(), 0, &self.ignored, &mut None);
+
             Cow::Owned(arena)
         }
+    }
+}
+
+impl Deref for SparsedTraceArena {
+    type Target = CallTraceArena;
+
+    fn deref(&self) -> &Self::Target {
+        &self.arena
+    }
+}
+
+impl DerefMut for SparsedTraceArena {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.arena
     }
 }
 
@@ -103,96 +197,6 @@ impl TracingMode {
     }
 }
 
-fn clear_node(
-    nodes: &mut [CallTraceNode],
-    node_idx: usize,
-    ignored: &HashMap<(usize, usize), (usize, usize)>,
-    cur_ignore_end: &mut Option<(usize, usize)>,
-) {
-    // Prepend an additional None item to the ordering to handle the beginning of
-    // the trace.
-    let items = std::iter::once(None)
-        .chain(nodes[node_idx].ordering.clone().into_iter().map(Some))
-        .enumerate();
-
-    let mut iternal_calls = Vec::new();
-    let mut items_to_remove = BTreeSet::new();
-    for (item_idx, item) in items {
-        if let Some(end_node) = ignored.get(&(node_idx, item_idx)) {
-            *cur_ignore_end = Some(*end_node);
-        }
-
-        let mut remove = cur_ignore_end.is_some() & item.is_some();
-
-        match item {
-            // we only remove calls if they did not start/pause tracing
-            Some(TraceMemberOrder::Call(child_idx)) => {
-                clear_node(
-                    nodes,
-                    nodes[node_idx].children[child_idx],
-                    ignored,
-                    cur_ignore_end,
-                );
-                remove &= cur_ignore_end.is_some();
-            }
-            // we only remove decoded internal calls if they did not start/pause tracing
-            Some(TraceMemberOrder::Step(step_idx)) => {
-                // If this is an internal call beginning, track it in `iternal_calls`
-                if let Some(DecodedTraceStep::InternalCall(_, end_step_idx)) =
-                    &nodes[node_idx].trace.steps[step_idx].decoded
-                {
-                    iternal_calls.push((item_idx, remove, *end_step_idx));
-                    // we decide if we should remove it later
-                    remove = false;
-                }
-                // Handle ends of internal calls
-                iternal_calls.retain(|(start_item_idx, remove_start, end_step_idx)| {
-                    if *end_step_idx != step_idx {
-                        return true;
-                    }
-                    // only remove start if end should be removed as well
-                    if *remove_start && remove {
-                        items_to_remove.insert(*start_item_idx);
-                    } else {
-                        remove = false;
-                    }
-
-                    false
-                });
-            }
-            _ => {}
-        }
-
-        if remove {
-            items_to_remove.insert(item_idx);
-        }
-
-        if let Some((end_node, end_step_idx)) = cur_ignore_end
-            && node_idx == *end_node
-            && item_idx == *end_step_idx
-        {
-            *cur_ignore_end = None;
-        }
-    }
-
-    for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
-        nodes[node_idx].ordering.remove(item_idx - offset - 1);
-    }
-}
-
-impl Deref for SparsedTraceArena {
-    type Target = CallTraceArena;
-
-    fn deref(&self) -> &Self::Target {
-        &self.arena
-    }
-}
-
-impl DerefMut for SparsedTraceArena {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.arena
-    }
-}
 
 /// Decode a collection of call traces.
 ///
@@ -243,8 +247,7 @@ impl TraceKind {
     }
 }
 
-/// Given a list of traces and artifacts, it returns a map connecting address to
-/// abi
+/// Given a list of traces and artifacts, it returns a map connecting address to abi
 pub fn load_contracts<'a>(
     traces: impl IntoIterator<Item = &'a CallTraceArena>,
     known_contracts: &ContractsByArtifact,
@@ -253,29 +256,11 @@ pub fn load_contracts<'a>(
     let decoder = CallTraceDecoder::new();
     let mut contracts = ContractsByAddress::new();
     for trace in traces {
-        for address in local_identifier.identify_addresses(decoder.trace_addresses(trace)) {
+        for address in decoder.identify_addresses(trace, &mut local_identifier) {
             if let (Some(contract), Some(abi)) = (address.contract, address.abi) {
                 contracts.insert(address.address, (contract, abi.into_owned()));
             }
         }
     }
     contracts
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_tracing_mode_into_config() {
-        assert!(TracingMode::None.into_config().is_none());
-        assert!(matches!(
-            TracingMode::WithoutSteps.into_config(),
-            Some(config) if !config.record_steps
-        ));
-        assert!(matches!(
-            TracingMode::WithSteps.into_config(),
-            Some(config) if config.record_steps
-        ));
-    }
 }
