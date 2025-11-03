@@ -3,5 +3,5 @@
 set -euo pipefail
 
 # NAPI build must be done before the TypeScript compilation
-pnpm exec napi build --platform --no-const-enum "$@"
+napi build --platform --no-const-enum "$@"
 tsc
