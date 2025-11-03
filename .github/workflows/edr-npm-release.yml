@@ -120,6 +120,17 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Debug - Check napi installation
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          echo "=== Checking napi files ==="
+          Get-ChildItem -Path "node_modules\.bin\napi*" -ErrorAction SilentlyContinue
+          echo "`n=== Checking @napi-rs/cli ==="
+          Get-ChildItem -Path "node_modules\@napi-rs\cli" -Recurse -Filter "napi*" -ErrorAction SilentlyContinue
+          echo "`n=== Testing pnpm exec ==="
+          pnpm exec napi --version
+
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
         run: ${{ matrix.settings.build }}
