@@ -42,7 +42,7 @@ jobs:
             target: aarch64-apple-darwin
             build: pnpm run build --strip
 
-          - host: windows-2022
+          - host: windows-2025
             target: x86_64-pc-windows-msvc
             build: pnpm run build --strip
 
@@ -118,7 +118,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ !matrix.settings.docker }}
-        run: sfw pnpm install --prefer-offline
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
 
       - name: Verify pnpm structure after sfw install
         if: ${{ !matrix.settings.docker }}
