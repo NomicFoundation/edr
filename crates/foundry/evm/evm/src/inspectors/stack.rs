@@ -709,11 +709,15 @@ impl<
             journaled_state.set_spec_id(env_with_chain.cfg.spec.into());
 
             journaled_state.state = {
-                let mut state = journaled_state.state.clone();
+                let mut state = context.journaled_state.state.clone();
 
                 for (addr, acc_mut) in &mut state {
                     // mark all accounts cold, besides preloaded addresses
-                    if !journaled_state.warm_preloaded_addresses.contains(addr) {
+                    if !context
+                        .journaled_state
+                        .warm_preloaded_addresses
+                        .contains(addr)
+                    {
                         acc_mut.mark_cold();
                     }
 
