@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.11
+
+### Patch Changes
+
+- f67363e: Added latest dynamic base fee parameters to Base Mainnet chain config
+
 ## 0.12.0-next.10
 
 ### Patch Changes
