@@ -120,18 +120,6 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Create napi stub (Windows Socket workaround)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        working-directory: ./crates/edr_napi
-        run: |
-          $napiPath = "node_modules\.bin"
-          New-Item -ItemType Directory -Force -Path $napiPath
-          @"
-          @echo off
-          node "%~dp0..\@napi-rs\cli\scripts\index.js" %*
-          "@ | Out-File -FilePath "$napiPath\napi.cmd" -Encoding ASCII
-
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
         run: ${{ matrix.settings.build }}
