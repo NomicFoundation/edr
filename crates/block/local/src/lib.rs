@@ -172,7 +172,7 @@ impl<
         options: GenesisBlockOptions<HardforkT>,
     ) -> Result<Self, LocalBlockCreationError> {
         let mut genesis_state = PersistentStateTrie::default();
-        genesis_state.commit(genesis_diff.clone().into());
+        genesis_state.commit(genesis_diff.into());
 
         let evm_spec_id = block_config.hardfork.clone().into();
         if evm_spec_id >= EvmSpecId::MERGE && options.mix_hash.is_none() {

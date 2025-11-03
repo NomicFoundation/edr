@@ -48,7 +48,6 @@ members = [
     "crates/precompile",
     "crates/primitives",
     "crates/receipt/builder/api",
-    "crates/runtime/spec",
     "crates/state/api",
     "crates/state/fork",
     "crates/state/persistent_trie",
@@ -166,7 +165,6 @@ edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
 edr_rpc_spec = { path = "crates/edr_rpc_spec" }
 edr_runtime = { path = "crates/edr_runtime" }
-edr_runtime_spec = { path = "crates/runtime/spec" }
 edr_scenarios = { path = "crates/edr_scenarios" }
 edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }

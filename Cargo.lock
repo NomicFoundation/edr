@@ -2531,7 +2531,6 @@ dependencies = [
  "edr_receipt_spec",
  "edr_rpc_spec",
  "edr_runtime",
- "edr_runtime_spec",
  "edr_signer",
  "edr_state_api",
  "edr_test_receipt",
@@ -3266,29 +3265,6 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "edr_runtime_spec"
-version = "0.3.8"
-dependencies = [
- "alloy-rlp",
- "edr_block_api",
- "edr_block_builder_api",
- "edr_block_header",
- "edr_block_remote",
- "edr_chain_config",
- "edr_chain_spec",
- "edr_database_components",
- "edr_eip1559",
- "edr_evm_spec",
- "edr_primitives",
- "edr_receipt",
- "edr_receipt_spec",
- "edr_rpc_eth",
- "edr_rpc_spec",
- "edr_state_api",
- "edr_transaction",
 ]
 
 [[package]]

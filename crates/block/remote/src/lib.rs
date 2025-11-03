@@ -28,7 +28,7 @@ pub enum RpcBlockConversionError<TransactionConversionErrorT> {
     #[error("Missing nonce")]
     MissingNonce,
     /// Missing number
-    #[error("Missing numbeer")]
+    #[error("Missing number")]
     MissingNumber,
     /// Transaction conversion error
     #[error(transparent)]
