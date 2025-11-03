@@ -120,6 +120,34 @@ jobs:
         if: ${{ !matrix.settings.docker }}
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Verify pnpm structure after sfw install
+        if: ${{ !matrix.settings.docker }}
+        shell: bash
+        run: |
+          echo "=== Current directory ==="
+          pwd
+
+          echo -e "\n=== Checking for node_modules ==="
+          ls -la | grep node_modules || echo "No node_modules in current dir"
+
+          echo -e "\n=== Checking workspace root node_modules ==="
+          ls -la ../../node_modules/.pnpm/@napi-rs* 2>/dev/null || echo "No @napi-rs in root"
+
+          echo -e "\n=== Checking local node_modules ==="
+          ls -la node_modules/.pnpm/@napi-rs* 2>/dev/null || echo "No @napi-rs in local"
+
+          echo -e "\n=== Finding all @napi-rs/cli installations ==="
+          find ../.. -name "@napi-rs+cli@*" -type d 2>/dev/null || echo "Not found"
+
+          echo -e "\n=== Checking pnpm root ==="
+          pnpm root
+
+          echo -e "\n=== Verifying @napi-rs/cli is installed ==="
+          pnpm list @napi-rs/cli
+
+          echo -e "\n=== Looking for napi CLI entry point ==="
+          find node_modules -name "index.js" -path "*/@napi-rs/cli/scripts/*" 2>/dev/null || echo "CLI script not found"
+
       - name: Build (non-docker)
         if: ${{ !matrix.settings.docker }}
         run: ${{ matrix.settings.build }}
