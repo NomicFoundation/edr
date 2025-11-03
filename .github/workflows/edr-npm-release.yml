@@ -371,18 +371,25 @@ jobs:
 
       - name: Check if commit message is a release commit
         id: check_commit
-        # Must match commit check in publish step
         run: |
-          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+";
+          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
           then
-            echo "Check commit: matches"
-            echo "match=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Check commit: no match"
-            echo "match=false" >> "$GITHUB_OUTPUT"
+            if [ "${{ github.event_name }}" = "push" ]
+            then
+              echo "pre-release commit: tag=next"
+              echo "tag=next" >> "$GITHUB_OUTPUT"
+            fi
+          elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
+          then
+            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]
+            then
+              echo "release commit: tag=latest"
+              echo "tag=latest" >> "$GITHUB_OUTPUT"
+            fi
           fi
+
     outputs:
-      match: ${{ steps.check_commit.outputs.match }}
+      tag: ${{ steps.check_commit.outputs.tag }}
 
   prepare:
     name: Prepare release bundle
@@ -517,8 +524,8 @@ jobs:
     permissions:
       id-token: write # Needed for npm Trusted Publishing (OIDC)
     needs: [check_commit, prepare, review]
-    # Only run workflow if the commit message is a release commit.
-    if: ${{ needs.check_commit.outputs.match == 'true' }}
+    # Only run workflow if there is a tag defined
+    if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
       - name: Download packed tarball
         uses: actions/download-artifact@v4
@@ -529,38 +536,22 @@ jobs:
         run: tar -xvzf ${{ needs.prepare.outputs.filename }}
       - name: Publish
         run: |
-          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
+          if [ "${{ needs.check_commit.outputs.tag}}" = "next" ]
           then
-            if [ "${{ github.event_name }}" = "push" ]; then
-              echo "Publishing pre-release"
-              cd crates/edr_napi
-              # Publish every cross-platform package
-              for platform in ./crates/edr_napi/npm/* ; do
-                cd $platform
-                pnpm publish --no-git-checks --tag next --access public
-                cd -
-              done
-              # Publish root edr package
-              pnpm publish --no-git-checks --tag next --access public
-            else
-              echo "Trying to publish a pre-release from a branch that is not 'main' or 'prerelease'"
-            fi
-          elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
+            echo "Publishing pre-release"
+          elif [ "${{ needs.check_commit.outputs.tag}}" = "latest" ]
           then
-            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]; then
-              echo "Publishing release"
-              cd crates/edr_napi
-              # Publish every cross-platform package
-              for platform in ./crates/edr_napi/npm/* ; do
-                cd $platform
-                pnpm publish --no-git-checks --access public
-                cd -
-              done
-              # Publish root edr package
-              pnpm publish --no-git-checks --access public
-            else
-              echo "Trying to publish a release from a branch that is not 'main' or 'h2'"
-            fi
+            echo "Publishing release"
           else
-            echo "Not a release, skipping publish"
+            echo "Unrecognized tag ${{ needs.check_commit.outputs.tag}}. Skipping publish"
+            exit 1
           fi
+
+          # Publish every cross-platform package
+          for platform in ./crates/edr_napi/npm/* ; do
+            cd $platform
+            pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
+            cd -
+          done
+          # Publish root edr package
+          pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
