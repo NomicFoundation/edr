@@ -519,13 +519,33 @@ jobs:
         run: |
           git diff --color=always --exit-code --no-index remote-repository/Cargo.lock ./Cargo.lock
 
+  notify-deploy:
+    name: Notify pre-deploy to Slack
+    runs-on: ubuntu-24.04
+    # needs: [check_commit, prepare, review]
+    # Only run workflow if the commit message is a release commit.
+    # if: ${{ needs.check_commit.outputs.match == 'true' }}
+    steps:
+      - name: Notify pre-deploy
+        uses: slackapi/slack-github-action@70cd7be8e40a46e8b0eced40b0de447bdb42f68e # v1.26.0
+        with:
+          payload: |
+            {
+              "text": "TESTTESTTEST: 🚀 Starting deployment to edr-release",
+              "workflow_name": "${{ github.workflow }}",
+              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
+
+
   publish:
     name: Publish
     environment: edr-release
     runs-on: ubuntu-24.04
     permissions:
       id-token: write # Needed for npm Trusted Publishing (OIDC)
-    needs: [check_commit, prepare, review]
+    needs: [check_commit, notify-deploy, prepare, review]
     # Only run workflow if there is a tag defined
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
