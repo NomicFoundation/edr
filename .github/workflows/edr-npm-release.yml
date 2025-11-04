@@ -522,38 +522,17 @@ jobs:
   notify-deploy:
     name: Notify pre-deploy to Slack
     runs-on: ubuntu-24.04
-    # needs: [check_commit, prepare, review]
+    needs: [check_commit, prepare, review]
     # Only run workflow if the commit message is a release commit.
-    # if: ${{ needs.check_commit.outputs.match == 'true' }}
+    if: ${{ needs.check_commit.outputs.match == 'true' }}
     steps:
       - name: Notify pre-deploy
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
-          # payload: |
-          #   {
-          #     "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`",
-          #     "blocks": [
-          #       {
-          #         "type": "section",
-          #         "text": {
-          #           "type": "mrkdwn",
-          #           "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`"
-          #         }
-          #       },
-          #       {
-          #         "type": "section",
-          #         "text": {
-          #           "type": "mrkdwn",
-          #           "text": "*Commit:* <${{ github.event.head_commit.url || github.event.pull_request.html_url }}|View commit>\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open workflow run>"
-          #         }
-          #       }
-          #     ]
-          #   }
           payload: |
             {
-              "username": "EDR Deploy (Review)",
               "text": "Workflow: *${{ github.workflow }}*\n 📝 Deployment review requested for `edr-release`",
               "blocks": [
                 {
@@ -583,6 +562,31 @@ jobs:
     # Only run workflow if there is a tag defined
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
+      - name: Notify deployment to Slack
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Commit:* <${{ github.event.head_commit.url || github.event.pull_request.html_url }}|View commit>\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open workflow run>"
+                  }
+                }
+              ]
+            }
       - name: Setup node to be able to update npm
         uses: actions/setup-node@v5
         with:
