@@ -553,6 +553,7 @@ jobs:
           #   }
           payload: |
             {
+              "username": "EDR Deploy (Review)",
               "text": "Workflow: *${{ github.workflow }}*\n 📝 Deployment review requested for `edr-release`",
               "blocks": [
                 {
