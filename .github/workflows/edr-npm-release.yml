@@ -533,13 +533,13 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "*${{ github.workflow }}*: ✅ Deployment review approved; 🚀 Starting deployment to `edr-release`",
+              "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*${{ github.workflow }}*: ✅ Deployment review approved; 🚀 Starting deployment to `edr-release`"
+                    "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`"
                   }
                 },
                 {
