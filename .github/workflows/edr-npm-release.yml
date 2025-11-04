@@ -525,7 +525,6 @@ jobs:
     # needs: [check_commit, prepare, review]
     # Only run workflow if the commit message is a release commit.
     # if: ${{ needs.check_commit.outputs.match == 'true' }}
-    # text: "*GitHub Action build result*: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
     steps:
       - name: Notify pre-deploy
         uses: slackapi/slack-github-action@v2.1.1
@@ -533,12 +532,23 @@ jobs:
           webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-            text: "Workflow: *${{ github.workflow }}*: 🚀 Starting deployment to `edr-release`"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Commit*: ${{ github.event.head_commit.url || github.event.pull_request.html_url }}"
+            {
+              "text": "Workflow: *${{ github.workflow }}*: 🚀 Starting deployment to `edr-release`",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Commit*: <${{ github.event.head_commit.url || github.event.pull_request.html_url || format('{0}/{1}/commit/{2}', github.server_url, github.repository, github.sha) }}|${{ github.ref_name }} @ ${{ github.sha }}>"
+                  },
+                  "accessory": {
+                    "type": "button",
+                    "text": { "type": "plain_text", "text": "Open run", "emoji": true },
+                    "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }
+              ]
+            }
 
   publish:
     name: Publish
