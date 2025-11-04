@@ -531,9 +531,25 @@ jobs:
         with:
           payload: |
             {
-              "text": "TESTTESTTEST: 🚀 Starting deployment to edr-release",
-              "workflow_name": "${{ github.workflow }}",
-              "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "TESTTESTTEST: *${{ github.workflow }}*: 🚀 Starting deployment to `edr-release`"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "Open run" },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
             }
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
