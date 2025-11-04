@@ -193,7 +193,8 @@ jobs:
               echo "tag=latest" >> "$GITHUB_OUTPUT"
             fi
           else
-            echo "tag=testing" >> "$GITHUB_OUTPUT"
+            echo "setting NEXT tag for testing purposes"
+            echo "tag=next" >> "$GITHUB_OUTPUT"
           fi
 
     outputs:
