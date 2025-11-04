@@ -1,0 +1,358 @@
+name: (Sandbox) EDR NPM release - no publish
+env:
+  APP_NAME: edr
+  NUMBER_OF_TARGETS: 7
+permissions: {}
+on:
+  push:
+    branches:
+      - fix/release-workflow
+  pull_request: null
+  workflow_dispatch:
+
+concurrency:
+  group: sandbox-publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: stable - ${{ matrix.settings.target }} - node@20
+    runs-on: ${{ matrix.settings.host }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - host: macos-13
+            target: x86_64-apple-darwin
+            build: pnpm run build --strip
+
+          - host: macos-14
+            target: aarch64-apple-darwin
+            build: pnpm run build --strip
+
+          - host: windows-2022
+            target: x86_64-pc-windows-msvc
+            build: pnpm run build --strip
+
+          - host: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            docker: node:20-bullseye-slim
+            flavor: gnu
+
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            docker: node:20-bullseye-slim
+            flavor: gnu
+
+          - host: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            docker: node:20-alpine3.20
+            flavor: musl
+
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            docker: node:20-alpine3.20
+            flavor: musl
+    outputs:
+      commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
+    defaults:
+      run:
+        working-directory: ./crates/edr_napi
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Save HEAD commit sha
+        id: save-commit
+        shell: bash
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Current HEAD: $COMMIT_SHA"
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Check number of targets
+        shell: bash
+        run: |
+          echo "Number of build jobs: ${{ strategy.job-total }}"
+          echo "Expected number of build jobs: $NUMBER_OF_TARGETS"
+          test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        if: ${{ !matrix.settings.docker }}
+        with:
+          toolchain: stable
+          targets: ${{ matrix.settings.target }}
+          components: rust-src
+
+      - name: Setup node and pnpm
+        if: ${{ !matrix.settings.docker }}
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: 20
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            .cargo-cache
+            target/
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+
+      - name: Install dependencies
+        if: ${{ !matrix.settings.docker }}
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build (non-docker)
+        if: ${{ !matrix.settings.docker }}
+        run: ${{ matrix.settings.build }}
+        shell: bash
+
+      - name: Build in docker (gnu)
+        uses: addnab/docker-run-action@v3
+        if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: |
+            set -e
+
+            # Install Rust toolchain
+            apt-get update
+            apt-get install -y curl ca-certificates build-essential pkg-config
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            export PATH="/root/.cargo/bin:$PATH"
+
+            npm i -g pnpm@10.17.1 --ignore-scripts
+            pnpm -v
+            pnpm install --frozen-lockfile --prefer-offline
+            pnpm run build --strip
+
+      - name: Build in docker (musl)
+        uses: addnab/docker-run-action@v3
+        if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
+        with:
+          image: ${{ matrix.settings.docker }}
+          options: "--user 0:0 -v ${{ github.workspace }}/.cargo-cache/git/db:/usr/local/cargo/git/db -v ${{ github.workspace }}/.cargo/registry/cache:/usr/local/cargo/registry/cache -v ${{ github.workspace }}/.cargo/registry/index:/usr/local/cargo/registry/index -v ${{ github.workspace }}:/build -w /build/crates/edr_napi"
+          run: |
+            set -e
+
+            # Install Rust toolchain
+            apk add --no-cache build-base python3 make git pkgconfig openssl openssl-dev ca-certificates curl bash perl cmake
+            # Conditional symlink only for ARM builds
+            if [ "${{ matrix.settings.target }}" = "aarch64-unknown-linux-musl" ]; then
+              ln -sf /usr/bin/gcc /usr/bin/aarch64-linux-musl-gcc
+            fi
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            export PATH="/root/.cargo/bin:$PATH"
+
+            npm i -g pnpm@10.17.1 --ignore-scripts
+            pnpm -v
+            pnpm install --frozen-lockfile --prefer-offline
+            pnpm run build --strip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          # The upload artifact action doesn't respect the working directory setting. Unclear if this is a bug or not
+          # https://github.com/actions/upload-artifact/issues/294
+          path: ./crates/edr_napi/${{ env.APP_NAME }}.*.node
+          if-no-files-found: error
+ 
+  check_commit:
+    name: Check commit
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    # if: github.event_name != 'pull_request' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Check if commit message is a release commit
+        id: check_commit
+        run: |
+          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
+          then
+            if [ "${{ github.event_name }}" = "push" ]
+            then
+              echo "pre-release commit: tag=next"
+              echo "tag=next" >> "$GITHUB_OUTPUT"
+            fi
+          elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
+          then
+            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]
+            then
+              echo "release commit: tag=latest"
+              echo "tag=latest" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "tag=testing" >> "$GITHUB_OUTPUT"
+          fi
+
+    outputs:
+      tag: ${{ steps.check_commit.outputs.tag }}
+
+  prepare:
+    name: Prepare release bundle
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    needs:
+      - build
+    defaults:
+      run:
+        working-directory: ./crates/edr_napi
+    outputs:
+      filename: ${{ steps.pack.outputs.filename }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup node
+        uses: ./.github/actions/setup-node
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Install sponge # needed for prepublish script
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y moreutils
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: ./crates/edr_napi/artifacts
+      - name: Run prepublish to update all `package.json` files
+        # we NEED to to this before pnpm artifacts, if not prepublish will try to publish
+        run: ../../scripts/prepublish.sh
+      - name: Move artifacts
+        run: pnpm artifacts
+      - name: Create bundle with pnpm root & napi files
+        # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
+        id: pack
+        run: |
+          FILENAME="${{ env.APP_NAME }}_bundle.tar.gz"
+          NAPI_EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml")
+          readarray -t FILES < <(cat package.json | jq -r .files[] ) 
+          ALL_FILES=("${FILES[@]}" "${NAPI_EXTRA_FILES[@]}")
+          NAPI_FILES=()
+          for file in "${ALL_FILES[@]}"; do
+            NAPI_FILES+=("crates/edr_napi/${file}")
+          done
+          cd ../.. # cd to root dir
+          echo "Creating bundle with necessary files for publishing"
+          ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
+          ALL_FILES=("${ROOT_FILES[@]}" "${NAPI_FILES[@]}")
+          echo "files to include in tar: ${ALL_FILES[@]}"
+          # Using --dereference since LICENSE file are symlinks
+          tar --dereference -czvf $FILENAME "${ALL_FILES[@]}"
+          echo "FILENAME=$FILENAME"
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+      - name: Upload packed tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.filename }}
+          path: ./${{ steps.pack.outputs.filename }}
+          retention-days: 2
+          overwrite: true
+          if-no-files-found: error
+
+  review:
+    name: Review release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    needs:
+      - build
+      - prepare
+    steps:
+      - name: Download packed tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.filename }}
+          path: .
+      - name: Decompress tarball
+        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
+      - name: Inspect contents
+        run: tree .
+      - name: Check number of artifacts
+        shell: bash
+        run: |
+          # get number of artifacts with unique names
+          NUMBER_OF_ARTIFACTS=$(ls -1q crates/edr_napi/npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+          echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
+          echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
+          test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup node
+        uses: actions/setup-node@v5
+        id: setup-node
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Validate that packages have everything for publishing
+        run: |
+          cd crates/edr_napi
+          # Check in every cross-platform package
+          for platform in ./npm/* ; do
+            cd $platform
+            pnpm publish --dry-run
+            cd -
+          done
+          # And in root edr package
+          pnpm publish --dry-run
+      - name: Checkout repository for comparison
+        uses: actions/checkout@v4
+        with:
+          path: remote-repository
+          ref: ${{ needs.build.outputs.commit_sha }}
+      - name: Validate there were no modifications to `package.json` when building
+        run: |
+          git diff --color=always --exit-code --no-index remote-repository/package.json ./package.json
+      - name: Validate there were no modifications to `Cargo.toml` when building
+        run: |
+          git diff --color=always --exit-code --no-index remote-repository/Cargo.toml ./Cargo.toml
+      - name: Validate there were no modifications to `Cargo.lock` when building
+        run: |
+          git diff --color=always --exit-code --no-index remote-repository/Cargo.lock ./Cargo.lock
+
+  publish:
+    name: Publish
+    environment: edr-release
+    runs-on: ubuntu-24.04
+    needs: [check_commit, prepare, review]
+    # Only run workflow if there is a tag defined
+    if: ${{ needs.check_commit.outputs.tag != '' }}
+    steps:
+      - name: Download packed tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.filename }}
+          path: .
+      - name: Decompress tarball
+        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
+      - name: Publish
+        run: |
+          if [ "${{ needs.check_commit.outputs.tag}}" = "next" ]
+          then
+            echo "Publishing pre-release"
+          elif [ "${{ needs.check_commit.outputs.tag}}" = "latest" ]
+          then
+            echo "Publishing release"
+          else
+            echo "Unrecognized tag ${{ needs.check_commit.outputs.tag}}. Skipping publish"
+            exit 1
+          fi
+
+          # Publish every cross-platform package
+          for platform in ./crates/edr_napi/npm/* ; do
+            cd $platform
+            echo "command to run: pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public"
+            cd -
+          done
+          # Publish root edr package
+          echo "command to run: --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public"
