@@ -66,7 +66,7 @@ jobs:
             docker: node:20-alpine3.20
             flavor: musl
     outputs:
-      build_commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
+      commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
     defaults:
       run:
         working-directory: ./crates/edr_napi
