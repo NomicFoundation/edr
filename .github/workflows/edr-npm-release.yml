@@ -529,11 +529,24 @@ jobs:
       - name: Notify pre-deploy
         uses: slackapi/slack-github-action@70cd7be8e40a46e8b0eced40b0de447bdb42f68e # v1.26.0
         with:
-          payload: >-
-            {"blocks":[
-              {"type":"section","text":{"type":"mrkdwn","text":"*${{ github.workflow }}*: TESTTESTTEST: 🚀 Starting deployment to `edr-release`"}},
-              {"type":"actions","elements":[{"type":"button","text":{"type":"plain_text","text":"Open run"},"url":"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}]}
-            ]}
+        # text: "*GitHub Action build result*: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+          payload: |            
+            text: "*${{ github.workflow }}*: TESTTESTTEST: 🚀 Starting deployment to `edr-release`"
+            blocks:
+              - type: "section"
+                text:
+                  type: "actions"
+                  text: "Deployment to GitHub Action build result: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+                accessory: {
+                  type: "button",
+                  action_id: "visit_workflow_url",
+                  text: {
+                    type: "plain_text",
+                    text: "Open run",
+                    "emoji": true
+                  },
+                  url: `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+                }
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
 
