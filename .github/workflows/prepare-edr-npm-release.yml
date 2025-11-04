@@ -192,9 +192,6 @@ jobs:
               echo "release commit: tag=latest"
               echo "tag=latest" >> "$GITHUB_OUTPUT"
             fi
-          else
-            echo "setting NEXT tag for testing purposes"
-            echo "tag=next" >> "$GITHUB_OUTPUT"
           fi
 
     outputs:
@@ -360,4 +357,4 @@ jobs:
             cd -
           done
           # Publish root edr package
-          echo "command to run: --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public"
+          echo "command to run: pnpm --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public"
