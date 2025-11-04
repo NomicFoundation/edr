@@ -532,22 +532,18 @@ jobs:
         with:
           payload: |
             {
-              "text": "*${{ github.workflow }}*: 🚀 Starting deployment to `edr-release`",
+              "text": "Workflow: *${{ github.workflow }}*: 🚀 Starting deployment to `edr-release`",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Commit*: ${{ github.event.pull_request.head.ref }}"
+                    "text": "*Commit*: ${{ github.event.head_commit.url || github.event.pull_request.html_url }}"
                   },
                   "accessory": {
                     "type": "button",
                     "action_id": "visit_workflow_url",
-                    "text": {
-                      "type": "plain_text",
-                      "text": "Open run",
-                      "emoji": true
-                    },
+                    "text": { "type": "plain_text", "text": "Open run", "emoji": true },
                     "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
                   }
                 }
