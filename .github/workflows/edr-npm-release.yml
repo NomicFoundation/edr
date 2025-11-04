@@ -372,6 +372,7 @@ jobs:
       - name: Check if commit message is a release commit
         id: check_commit
         run: |
+          # matches with pre-release commits: edr release name but ends with - and some postfix like beta
           if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
           then
             if [ "${{ github.event_name }}" = "push" ]
@@ -379,6 +380,7 @@ jobs:
               echo "pre-release commit: tag=next"
               echo "tag=next" >> "$GITHUB_OUTPUT"
             fi
+          # matches with release commit
           elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
           then
             if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]
@@ -527,6 +529,12 @@ jobs:
     # Only run workflow if there is a tag defined
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
+      - name: Setup node to be able to update npm
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Update npm to make sure it supports Trusted Publishing
+        run:  npm install -g npm@v11.6.2
       - name: Download packed tarball
         uses: actions/download-artifact@v4
         with:
