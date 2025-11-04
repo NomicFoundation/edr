@@ -213,10 +213,12 @@ impl GenesisBlockFactory for OpChainSpec {
     fn genesis_block(
         genesis_diff: StateDiff,
         block_config: BlockConfig<'_, Self::Hardfork>,
-        mut options: GenesisBlockOptions<Self::Hardfork>,
+         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
-        let config_base_fee_params = options.base_fee_params.as_ref();
+        let genesis_state = PersistentStateTrie::from(genesis_diff);
+
         if block_config.hardfork >= Hardfork::HOLOCENE {
+            let config_base_fee_params = options.base_fee_params.as_ref();
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
             let extra_data = options.extra_data.unwrap_or_else(|| {
@@ -231,6 +233,10 @@ impl GenesisBlockFactory for OpChainSpec {
             options.extra_data = Some(extra_data);
         }
 
+        if block_config.hardfork >= Hardfork::ISTHMUS {
+            options.withdrawals_root =
+                genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?;
+        };
         LocalBlock::with_genesis_state(genesis_diff, block_config, options)
     }
 }

@@ -1,7 +1,7 @@
 use edr_primitives::{Address, Bytecode, HashMap, B256, KECCAK_EMPTY, U256};
 use edr_state_api::{
     account::{Account, AccountInfo},
-    AccountModifierFn, State, StateCommit, StateDebug, StateError,
+    AccountModifierFn, State, StateCommit, StateDebug, StateDiff, StateError,
 };
 
 pub use self::state::PersistentAccountAndStorageTrie;
@@ -19,6 +19,14 @@ mod storage;
 pub struct PersistentStateTrie {
     accounts_and_storage: PersistentAccountAndStorageTrie,
     contracts: SharedMap<B256, Bytecode>,
+}
+
+impl From<StateDiff> for PersistentStateTrie {
+    fn from(value: StateDiff) -> Self {
+        let mut genesis_state = PersistentStateTrie::default();
+        genesis_state.commit(value.into());
+        genesis_state
+    }
 }
 
 impl PersistentStateTrie {

@@ -31,6 +31,7 @@ use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_state_api::StateDiff;
+use edr_state_persistent_trie::PersistentStateTrie;
 
 use crate::{
     eip2718::TypedEnvelope,

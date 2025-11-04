@@ -34,6 +34,7 @@ edr_runtime.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_state_api.workspace = true
+edr_state_persistent_trie.workspace = true
 edr_transaction.workspace = true
 log = { version = "0.4.17", default-features = false }
 serde = { workspace = true, features = ["derive"] }
