@@ -553,20 +553,20 @@ jobs:
           #   }
           payload: |
             {
-              "text": "Workflow: *${{ github.workflow }}*\n Deployment review requested for `edr-release`",
+              "text": "Workflow: *${{ github.workflow }}*\n 📝 Deployment review requested for `edr-release`",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Workflow: *${{ github.workflow }}*\n Deployment review requested for `edr-release`"
+                    "text": "Workflow: *${{ github.workflow }}*\n 📝 Deployment review requested for `edr-release`"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*PR:* <${{ github.event.pull_request.html_url || github.event.head_commit.url}}|View PR>\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open workflow run>"
+                    "text": "*Commit:* <${{ github.event.head_commit.url || github.event.pull_request.html_url }}|View commit>\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open workflow run>"
                   }
                 }
               ]
