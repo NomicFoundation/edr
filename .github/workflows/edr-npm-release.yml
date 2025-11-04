@@ -533,12 +533,12 @@ jobs:
           webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-              text: "Workflow: *${{ github.workflow }}*: 🚀 Starting deployment to `edr-release`",
-              blocks:
-                - type: "section"
-                  text:
-                    type: "mrkdwn"
-                    text: "*Commit*: ${{ github.event.head_commit.url || github.event.pull_request.html_url }}"
+            text: "Workflow: *${{ github.workflow }}*: 🚀 Starting deployment to `edr-release`",
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Commit*: ${{ github.event.head_commit.url || github.event.pull_request.html_url }}"
 
   publish:
     name: Publish
