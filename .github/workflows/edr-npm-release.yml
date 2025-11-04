@@ -531,29 +531,12 @@ jobs:
         uses: slackapi/slack-github-action@70cd7be8e40a46e8b0eced40b0de447bdb42f68e # v1.26.0
         with:
           payload: |
-            {
               text: "Workflow: *${{ github.workflow }}*: 🚀 Starting deployment to `edr-release`",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Commit*: `${{ github.sha }}`"
-                  },
-                  "accessory": {
-                    "type": "button",
-                    "text": {
-                      "type": "plain_text",
-                      "text": "Inspect",
-                      "emoji": true
-                    },
-                    "value": "actions",
-                    "url": "https://github.com/${{ github.payload.repository.full_name }}/actions/runs/${{ github.runId }}",
-                    "action_id": "run"
-                  }
-                }
-              ]
-            }
+              blocks:
+                - type: "section"
+                  text:
+                    type: "mrkdwn"
+                    text: "*Commit*: ${{ github.event.head_commit.url || github.event.pull_request.html_url }}"
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
 
