@@ -1,15 +1,13 @@
 use std::sync::Arc;
 
 use edr_chain_l1::L1ChainSpec;
-use edr_evm::trace::Trace;
-use edr_evm_spec::{
-    EvmHaltReason, EvmTransactionValidationError, HaltReasonTrait, TransactionValidation,
-};
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait, TransactionValidation};
 use edr_generic::GenericChainSpec;
 use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
+use edr_runtime::trace::Trace;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use napi::{Either, Status};
@@ -52,14 +50,11 @@ pub struct SolidityTraceData<HaltReasonT: HaltReasonTrait> {
 pub trait SyncNapiSpec<TimerT: Clone + TimeSinceEpoch>:
     SyncProviderSpec<
     TimerT,
-    BlockEnv: Clone + Default,
     PooledTransaction: IsEip155,
     SignedTransaction: Default
                            + TransactionMut
                            + TransactionType<Type: IsEip4844>
-                           + TransactionValidation<
-        ValidationError: From<EvmTransactionValidationError> + PartialEq,
-    >,
+                           + TransactionValidation<ValidationError: PartialEq>,
 >
 {
     /// The string type identifier of the chain.

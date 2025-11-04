@@ -1,13 +1,14 @@
 //! Types for database components that implement the revm `Database` trait.
 #![warn(missing_docs)]
 
-use edr_blockchain_api::BlockHash;
+use edr_blockchain_api::BlockHashByNumber;
 use edr_primitives::{Address, Bytecode, HashMap, B256, U256};
 use edr_state_api::{
     account::{Account, AccountInfo},
     State, StateCommit,
 };
 use revm_database_interface::{DBErrorMarker, DatabaseRef};
+pub use revm_database_interface::{Database, WrapDatabaseRef};
 
 /// Wrapper type around a blockchain and state to implement the `Database`
 /// trait.
@@ -36,7 +37,7 @@ impl<BlockchainErrorT, StateErrorT> DBErrorMarker
 
 impl<BlockchainT, StateT> DatabaseRef for DatabaseComponents<BlockchainT, StateT>
 where
-    BlockchainT: BlockHash<Error: std::error::Error>,
+    BlockchainT: BlockHashByNumber<Error: std::error::Error>,
     StateT: State<Error: std::error::Error>,
 {
     type Error = DatabaseComponentError<BlockchainT::Error, StateT::Error>;
@@ -64,7 +65,7 @@ where
     }
 }
 
-impl<BlockchainT: BlockHash, StateT: StateCommit> StateCommit
+impl<BlockchainT: BlockHashByNumber, StateT: StateCommit> StateCommit
     for DatabaseComponents<BlockchainT, StateT>
 {
     fn commit(&mut self, changes: HashMap<Address, Account>) {

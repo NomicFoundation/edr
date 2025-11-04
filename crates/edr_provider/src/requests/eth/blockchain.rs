@@ -1,5 +1,5 @@
+use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{Address, U256, U64};
 
 use crate::{
@@ -28,11 +28,7 @@ pub fn handle_chain_id_request<
 pub fn handle_get_transaction_count_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(

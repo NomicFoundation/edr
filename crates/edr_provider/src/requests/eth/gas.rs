@@ -1,8 +1,8 @@
 use edr_block_api::Block as _;
+use edr_chain_spec::{EvmSpecId, TransactionValidation};
 use edr_eth::{fee_history::FeeHistoryResult, reward_percentile::RewardPercentile, BlockSpec};
-use edr_evm::{state::StateOverrides, transaction};
-use edr_evm_spec::{EvmSpecId, EvmTransactionValidationError, TransactionValidation};
 use edr_primitives::{U256, U64};
+use edr_runtime::{overrides::StateOverrides, transaction};
 use edr_signer::FakeSign as _;
 use edr_transaction::TransactionMut;
 
@@ -18,12 +18,9 @@ use crate::{
 pub fn handle_estimate_gas<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
         SignedTransaction: Default
                                + TransactionMut
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+                               + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -58,11 +55,7 @@ pub fn handle_estimate_gas<
 pub fn handle_fee_history<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -123,11 +116,7 @@ The reward percentiles should be in non-decreasing order, but the percentile num
 fn resolve_estimate_gas_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -160,7 +149,8 @@ fn resolve_estimate_gas_request<
             let max_fee_per_gas = max_fee_per_gas.map_or_else(
                 || -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
                     let base_fee = if let Some(block) = data.block_by_block_spec(block_spec)? {
-                        max_priority_fee_per_gas + block.header().base_fee_per_gas.unwrap_or(0)
+                        max_priority_fee_per_gas
+                            + block.block_header().base_fee_per_gas.unwrap_or(0)
                     } else {
                         // Pending block
                         let base_fee = data
@@ -190,8 +180,8 @@ fn resolve_estimate_gas_request<
 #[cfg(test)]
 mod tests {
     use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
+    use edr_chain_spec::ExecutableTransaction as _;
     use edr_eth::BlockTag;
-    use edr_evm_spec::ExecutableTransaction as _;
 
     use super::*;
     use crate::test_utils::{pending_base_fee, ProviderTestFixture};
@@ -272,7 +262,7 @@ mod tests {
         fixture.provider_data.send_transaction(transaction)?;
 
         let last_block = fixture.provider_data.last_block()?;
-        assert_eq!(last_block.header().number, 1);
+        assert_eq!(last_block.block_header().number, 1);
 
         let max_priority_fee_per_gas = 1u128;
         let request = L1CallRequest {
@@ -292,7 +282,7 @@ mod tests {
         assert_eq!(
             Some(*resolved.gas_price()),
             last_block
-                .header()
+                .block_header()
                 .base_fee_per_gas
                 .map(|base_fee| base_fee + max_priority_fee_per_gas)
         );

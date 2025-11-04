@@ -1,7 +1,7 @@
 #![cfg(feature = "test-remote")]
 use std::str::FromStr as _;
 
-use edr_evm::hardfork::{self, ChainOverride};
+use edr_chain_config::{ChainOverride, HardforkActivations};
 use edr_generic::GenericChainSpec;
 use edr_primitives::B256;
 use edr_provider::{MethodInvocation, Provider, ProviderError, ProviderRequest};
@@ -19,7 +19,7 @@ fn get_provider() -> anyhow::Result<Provider<GenericChainSpec>> {
 
     let chain_override = ChainOverride {
         name: "Base Sepolia".to_owned(),
-        hardfork_activation_overrides: Some(hardfork::Activations::with_spec_id(
+        hardfork_activation_overrides: Some(HardforkActivations::with_spec_id(
             edr_chain_l1::Hardfork::CANCUN,
         )),
     };

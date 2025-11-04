@@ -8,26 +8,36 @@ use derive_where::derive_where;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, Bytecode, B256, KECCAK_EMPTY, U256};
 use edr_rpc_eth::client::{EthRpcClient, RpcClientError};
-use edr_rpc_spec::{RpcEthBlock, RpcSpec};
+use edr_rpc_spec::{RpcBlockChainSpec, RpcEthBlock};
 use edr_state_api::{account::AccountInfo, State, StateError};
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime;
 
 pub use self::cached::CachedRemoteState;
 
 /// A state backed by a remote Ethereum node
 #[derive_where(Debug)]
-pub struct RemoteState<RpcSpecT: RpcSpec> {
-    client: Arc<EthRpcClient<RpcSpecT>>,
+pub struct RemoteState<
+    RpcBlockChainSpecT: RpcBlockChainSpec,
+    RpcReceiptT: DeserializeOwned + Serialize,
+    RpcTransactionT: DeserializeOwned + Serialize,
+> {
+    client: Arc<EthRpcClient<RpcBlockChainSpecT, RpcReceiptT, RpcTransactionT>>,
     runtime: runtime::Handle,
     block_number: u64,
 }
 
-impl<RpcSpecT: RpcSpec> RemoteState<RpcSpecT> {
+impl<
+        RpcBlockT: RpcBlockChainSpec,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     /// Construct a new instance using an RPC client for a remote Ethereum node
     /// and a block number from which data will be pulled.
     pub fn new(
         runtime: runtime::Handle,
-        client: Arc<EthRpcClient<RpcSpecT>>,
+        client: Arc<EthRpcClient<RpcBlockT, RpcReceiptT, RpcTransactionT>>,
         block_number: u64,
     ) -> Self {
         Self {
@@ -42,6 +52,18 @@ impl<RpcSpecT: RpcSpec> RemoteState<RpcSpecT> {
         self.block_number
     }
 
+    /// Sets the block number used for calls to the remote Ethereum node.
+    pub fn set_block_number(&mut self, block_number: u64) {
+        self.block_number = block_number;
+    }
+}
+
+impl<
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     /// Whether the current state is cacheable based on the block number.
     pub fn is_cacheable(&self) -> Result<bool, StateError> {
         Ok(tokio::task::block_in_place(move || {
@@ -50,13 +72,6 @@ impl<RpcSpecT: RpcSpec> RemoteState<RpcSpecT> {
         })?)
     }
 
-    /// Sets the block number used for calls to the remote Ethereum node.
-    pub fn set_block_number(&mut self, block_number: u64) {
-        self.block_number = block_number;
-    }
-}
-
-impl<RpcSpecT: RpcSpec<RpcBlock<B256>: RpcEthBlock>> RemoteState<RpcSpecT> {
     /// Retrieve the state root of the given block, if it exists.
     pub fn state_root(&self, block_number: u64) -> Result<Option<B256>, RpcClientError> {
         Ok(tokio::task::block_in_place(move || {
@@ -69,7 +84,12 @@ impl<RpcSpecT: RpcSpec<RpcBlock<B256>: RpcEthBlock>> RemoteState<RpcSpecT> {
     }
 }
 
-impl<RpcSpecT: RpcSpec> State for RemoteState<RpcSpecT> {
+impl<
+        RpcBlockT: RpcBlockChainSpec<RpcBlock<B256>: RpcEthBlock>,
+        RpcReceiptT: DeserializeOwned + Serialize,
+        RpcTransactionT: DeserializeOwned + Serialize,
+    > State for RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>
+{
     type Error = StateError;
 
     #[cfg_attr(feature = "tracing", tracing::instrument(level = "trace", skip(self)))]
@@ -123,6 +143,7 @@ mod tests {
     use std::str::FromStr;
 
     use edr_chain_l1::L1ChainSpec;
+    use edr_rpc_eth::client::EthRpcClientForChainSpec;
     use tokio::runtime;
 
     use super::*;
@@ -136,9 +157,12 @@ mod tests {
             .into_string()
             .expect("couldn't convert OsString into a String");
 
-        let rpc_client =
-            EthRpcClient::<L1ChainSpec>::new(&alchemy_url, tempdir.path().to_path_buf(), None)
-                .expect("url ok");
+        let rpc_client = EthRpcClientForChainSpec::<L1ChainSpec>::new(
+            &alchemy_url,
+            tempdir.path().to_path_buf(),
+            None,
+        )
+        .expect("url ok");
 
         let dai_address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f")
             .expect("failed to parse address");

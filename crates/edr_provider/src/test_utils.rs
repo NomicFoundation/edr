@@ -5,10 +5,10 @@ use anyhow::anyhow;
 use edr_block_api::Block as _;
 use edr_block_header::{BlobGas, BlockHeader, HeaderOverrides};
 use edr_chain_l1::{
-    rpc::{receipt::L1BlockReceipt, TransactionRequest},
+    rpc::{receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
+use edr_chain_spec::TransactionValidation;
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U160, U256};
 use edr_signer::{public_key_to_address, secret_key_from_str, SignatureWithYParity};
 use edr_solidity::contract_decoder::ContractDecoder;
@@ -42,7 +42,7 @@ pub fn create_test_config<HardforkT: Default>() -> ProviderConfig<HardforkT> {
 /// Default header overrides for replaying L1 blocks before The Merge
 pub fn l1_header_overrides_before_merge(
     replay_header: &BlockHeader,
-) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
         nonce: Some(replay_header.nonce),
         ..l1_header_overrides(replay_header)
@@ -52,7 +52,7 @@ pub fn l1_header_overrides_before_merge(
 /// Default header overrides for replaying L1 blocks.
 pub fn l1_header_overrides(
     replay_header: &BlockHeader,
-) -> HeaderOverrides<edr_evm_spec::EvmSpecId> {
+) -> HeaderOverrides<edr_chain_spec::EvmSpecId> {
     HeaderOverrides {
         // Extra_data field in L1 has arbitrary additional data
         extra_data: Some(replay_header.extra_data.clone()),
@@ -142,11 +142,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
 pub fn pending_base_fee<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -154,7 +150,7 @@ pub fn pending_base_fee<
 ) -> Result<u128, ProviderErrorForChainSpec<ChainSpecT>> {
     let block = data.mine_pending_block()?.block;
 
-    let base_fee = block.header().base_fee_per_gas.unwrap_or(1);
+    let base_fee = block.block_header().base_fee_per_gas.unwrap_or(1);
 
     Ok(base_fee)
 }
@@ -185,7 +181,7 @@ where
         MethodInvocation::GetTransactionReceipt(transaction_hash),
     ))?;
 
-    let receipt: L1BlockReceipt = serde_json::from_value(result.result)?;
+    let receipt: L1RpcTransactionReceipt = serde_json::from_value(result.result)?;
     let contract_address = receipt.contract_address.expect("Call must create contract");
 
     Ok(contract_address)

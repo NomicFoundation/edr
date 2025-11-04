@@ -1,0 +1,37 @@
+[package]
+name = "edr_blockchain_remote"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-rwlock = { version = "1.3.0", default-features = false }
+derive-where.workspace = true
+edr_block_api.workspace = true
+edr_block_remote.workspace = true
+edr_block_storage.workspace = true
+edr_chain_spec.workspace = true
+edr_chain_spec_block.workspace = true
+edr_defaults.workspace = true
+edr_eth.workspace = true
+edr_primitives.workspace = true
+edr_receipt.workspace = true
+edr_rpc_eth.workspace = true
+edr_rpc_spec.workspace = true
+serde.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing = { workspace = true, optional = true }
+
+[dev-dependencies]
+edr_chain_l1.workspace = true
+edr_test_utils.workspace = true
+edr_receipt_spec.workspace = true
+edr_rpc_spec.workspace = true
+
+[features]
+test-remote = []
+tracing = ["dep:tracing", "edr_rpc_eth/tracing"]
+
+[lints]
+workspace = true

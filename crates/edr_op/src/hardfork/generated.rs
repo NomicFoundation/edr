@@ -1,9 +1,11 @@
 // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
 // Any changes made to this file will be overwritten the next time it is
 // generated. To make changes, update the generator script instead in
-// `tools/src/op_chain_config.rs`.
+// `crates/tool/op_chain_config_generator/src/op_chain_config.rs`.
 
-use edr_evm::hardfork::ChainConfig;
+//! Auto-generated configs for OP stack chains
+
+use edr_chain_config::ChainConfig;
 use edr_primitives::HashMap;
 
 use crate::Hardfork;

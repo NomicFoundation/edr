@@ -7,7 +7,7 @@ This is achieved through the usage of multiple traits, some of which are supertr
 - Primitives: `edr_eth::ChainSpec`
 - Header builder: `edr_eth::EthHeaderConstants`
 - RPC client: `edr_rpc_eth::RpcSpec`
-- EVM runtime: `edr_evm::RuntimeSpec`
+- EVM runtime: `edr_runtime::RuntimeSpec`
 - EVM provider: `edr_provider::ProviderSpec`
 - EDR N-API bindings: `edr_napi::SyncNapiSpec`
 

@@ -35,9 +35,6 @@ pub use self::spec::OpChainSpec;
 /// OP Stack chain type
 pub const CHAIN_TYPE: &str = "op";
 
-/// OP Stack block environment.
-pub type BlockEnv = revm_context::BlockEnv;
-
 /// OP Stack halt reason.
 pub type HaltReason = op_revm::OpHaltReason;
 
@@ -48,7 +45,7 @@ pub type Hardfork = op_revm::OpSpecId;
 pub type InvalidHeader = revm_context_interface::result::InvalidHeader;
 
 /// OP Stack invalid transaction error.
-pub type InvalidTransaction = revm_context_interface::result::InvalidTransaction;
+pub type InvalidTransaction = op_revm::OpTransactionError;
 
 /// Helper type for constructing an [`op_revm::L1BlockInfo`].
 ///

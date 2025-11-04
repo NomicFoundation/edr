@@ -1,6 +1,5 @@
 use std::{marker::PhantomData, sync::Arc};
 
-use edr_evm_spec::{EvmTransactionValidationError, TransactionValidation};
 use tokio::{
     runtime,
     sync::{oneshot, Mutex},
@@ -28,14 +27,7 @@ struct Inner<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch> {
 }
 
 impl<
-        ChainSpecT: SyncProviderSpec<
-            TimerT,
-            BlockEnv: Default,
-            SignedTransaction: Default
-                                   + TransactionValidation<
-                ValidationError: From<EvmTransactionValidationError> + PartialEq,
-            >,
-        >,
+        ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: Default>,
         TimerT: Clone + TimeSinceEpoch,
     > IntervalMiner<ChainSpecT, TimerT>
 {
@@ -61,14 +53,7 @@ impl<
 
 #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
 async fn interval_mining_loop<
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
-    >,
+    ChainSpecT: SyncProviderSpec<TimerT, SignedTransaction: Default>,
     TimerT: Clone + TimeSinceEpoch,
 >(
     config: IntervalConfig,

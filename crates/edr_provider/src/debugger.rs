@@ -1,5 +1,5 @@
 use edr_eth::spec::HaltReasonTrait;
-use edr_evm::trace::TraceCollector;
+use edr_runtime::trace::TraceCollector;
 
 use crate::{console_log::ConsoleLogCollector, mock::Mocker};
 

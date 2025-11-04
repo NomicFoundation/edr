@@ -2,15 +2,26 @@
 members = [
     # EDR
     "crates/block/api",
+    "crates/block/builder/api",
     "crates/block/header",
+    "crates/block/local",
+    "crates/block/remote",
+    "crates/block/storage",
     "crates/blockchain/api",
+    "crates/blockchain/fork",
+    "crates/blockchain/local",
+    "crates/blockchain/remote",
+    "crates/chain/config",
+    "crates/chain/spec/block",
+    "crates/chain/spec/provider",
     "crates/database/components",
     "crates/edr_chain_l1",
+    "crates/edr_chain_spec",
     "crates/edr_common",
     "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
-    "crates/edr_evm",
+    "crates/edr_runtime",
     "crates/edr_evm_spec",
     "crates/edr_gas_report",
     "crates/edr_instrument",
@@ -19,6 +30,7 @@ members = [
     "crates/edr_op",
     "crates/edr_provider",
     "crates/edr_receipt",
+    "crates/edr_receipt_spec",
     "crates/edr_rpc_client",
     "crates/edr_rpc_eth",
     "crates/edr_rpc_spec",
@@ -32,11 +44,20 @@ members = [
     "crates/eips/2930",
     "crates/eips/4844",
     "crates/eips/7702",
+    "crates/evm",
+    "crates/precompile",
     "crates/primitives",
+    "crates/receipt/builder/api",
     "crates/state/api",
+    "crates/state/fork",
     "crates/state/persistent_trie",
     "crates/state/remote",
-    "crates/tools",
+    "crates/test/block_replay",
+    "crates/test/blockchain",
+    "crates/test/receipt",
+    "crates/test/transaction",
+    "crates/tool/cli",
+    "crates/tool/op_chain_config_generator",
     "crates/trie",
     # Foundry
     "crates/foundry/cheatcodes",
@@ -103,9 +124,20 @@ scrypt.opt-level = 3
 
 [workspace.dependencies]
 edr_block_api = { path = "crates/block/api" }
+edr_block_builder_api = { path = "crates/block/builder/api" }
 edr_block_header = { path = "crates/block/header" }
+edr_block_local = { path = "crates/block/local" }
+edr_block_remote = { path = "crates/block/remote" }
+edr_block_storage = { path = "crates/block/storage" }
 edr_blockchain_api = { path = "crates/blockchain/api" }
+edr_blockchain_fork = { path = "crates/blockchain/fork" }
+edr_blockchain_local = { path = "crates/blockchain/local" }
+edr_blockchain_remote = { path = "crates/blockchain/remote" }
+edr_chain_config = { path = "crates/chain/config" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
+edr_chain_spec = { path = "crates/edr_chain_spec" }
+edr_chain_spec_block = { path = "crates/chain/spec/block" }
+edr_chain_spec_provider = { path = "crates/chain/spec/provider" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
 edr_database_components = { path = "crates/database/components" }
@@ -115,26 +147,36 @@ edr_eip2930 = { path = "crates/eips/2930" }
 edr_eip4844 = { path = "crates/eips/4844" }
 edr_eip7702 = { path = "crates/eips/7702" }
 edr_eth = { path = "crates/edr_eth" }
-edr_evm = { path = "crates/edr_evm" }
+edr_evm = { path = "crates/evm" }
 edr_evm_spec = { path = "crates/edr_evm_spec" }
 edr_gas_report = { path = "crates/edr_gas_report" }
 edr_generic = { path = "crates/edr_generic" }
+edr_instrument = { path = "crates/edr_instrument" }
 edr_macros = { path = "crates/edr_macros" }
 edr_napi_core = { path = "crates/edr_napi_core" }
 edr_op = { path = "crates/edr_op" }
 edr_primitives = { path = "crates/primitives" }
+edr_precompile = { path = "crates/precompile" }
 edr_provider = { path = "crates/edr_provider" }
 edr_receipt = { path = "crates/edr_receipt" }
+edr_receipt_builder_api = { path = "crates/receipt/builder/api" }
+edr_receipt_spec = { path = "crates/edr_receipt_spec" }
 edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
 edr_rpc_spec = { path = "crates/edr_rpc_spec" }
+edr_runtime = { path = "crates/edr_runtime" }
 edr_scenarios = { path = "crates/edr_scenarios" }
 edr_signer = { path = "crates/edr_signer" }
 edr_solidity = { path = "crates/edr_solidity" }
 edr_solidity_tests = { path = "crates/edr_solidity_tests" }
 edr_state_api = { path = "crates/state/api" }
+edr_state_fork = { path = "crates/state/fork" }
 edr_state_persistent_trie = { path = "crates/state/persistent_trie" }
 edr_state_remote = { path = "crates/state/remote" }
+edr_test_receipt = { path = "crates/test/receipt" }
+edr_test_block_replay = { path = "crates/test/block_replay" }
+edr_test_blockchain = { path = "crates/test/blockchain" }
+edr_test_transaction = { path = "crates/test/transaction" }
 edr_test_utils = { path = "crates/edr_test_utils" }
 edr_transaction = { path = "crates/edr_transaction" }
 edr_trie = { path = "crates/trie" }
@@ -181,6 +223,7 @@ revm-context = { version = "8.0.4", default-features = false }
 revm-context-interface = { version = "9.0.0", default-features = false }
 revm-database-interface = { version = "7.0.2", default-features = false }
 revm-handler = { version = "8.1.0", default-features = false }
+revm-inspector = { version = "8.1.0", default-features = false }
 revm-interpreter = { version = "24.0.0", default-features = false }
 revm-precompile = { version = "25.0.0", default-features = false, features = [
     "blst",
@@ -258,6 +301,7 @@ chrono = { version = "0.4", default-features = false, features = [
     "clock",
     "std",
 ] }
+clap = { version = "3.2.20", features = ["derive"] }
 color-eyre = "0.6"
 derive_more = { version = "2", default-features = false }
 derive-where = { version = "1.6.0", default-features = false }
