@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- abf7434: Fixes unexpected test failure when running in isolate/gas stats mode
+- abf7434: Fixed unexpected test failure when running in isolate/gas stats mode
 
 ## 0.12.0-next.12
 
