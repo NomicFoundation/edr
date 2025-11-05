@@ -1,4 +1,5 @@
 //! Forge tests for cheatcodes.
+use alloy_primitives::U256;
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 
 use crate::helpers::{
@@ -11,7 +12,7 @@ use crate::helpers::{
 async fn test_cheats_local(test_data: &L1ForgeTestData, should_fail: bool) {
     let path_pattern = format!(".*cheats{RE_PATH_SEPARATOR}*");
     let exclude_paths = "Fork";
-    let exclude_contracts = "Isolated|Sleep";
+    let exclude_contracts = "Isolated|Sleep|WithSeed";
     let should_fail_pattern = "testShouldFail";
     let windows_exclude_patterns = ["Ffi", "File", "Line", "Root"];
 
@@ -42,7 +43,7 @@ async fn test_cheats_local(test_data: &L1ForgeTestData, should_fail: bool) {
     let runner = test_data
         .runner_with_fs_permissions(
             FsPermissions::new(vec![PathPermission::read_write_directory("./fixtures")]),
-            test_data.config_with_mock_rpc(),
+            test_data.config_with_remote_rpc(),
         )
         .await;
 
@@ -59,6 +60,21 @@ async fn test_cheats_local_isolated(test_data: &L1ForgeTestData) {
 
     let mut config = test_data.config_with_mock_rpc();
     config.evm_opts.isolate = true;
+    let runner = test_data.runner_with_config(config).await;
+
+    TestConfig::with_filter(runner, filter).run().await;
+}
+
+/// Executes subset of all cheat code tests using a specific seed.
+async fn test_cheats_local_with_seed(test_data: &L1ForgeTestData) {
+    let filter = SolidityTestFilter::new(
+        ".*",
+        ".*(WithSeed)",
+        &format!(".*cheats{RE_PATH_SEPARATOR}*"),
+    );
+
+    let mut config = test_data.config_with_mock_rpc();
+    config.fuzz.seed = Some(U256::from(100));
     let runner = test_data.runner_with_config(config).await;
 
     TestConfig::with_filter(runner, filter).run().await;
@@ -89,6 +105,11 @@ async fn test_cheats_sleep_test() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_default_isolated() {
     test_cheats_local_isolated(&TEST_DATA_DEFAULT).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_cheats_local_default_with_seed() {
+    test_cheats_local_with_seed(&TEST_DATA_DEFAULT).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]

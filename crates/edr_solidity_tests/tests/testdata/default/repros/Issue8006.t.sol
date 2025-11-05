@@ -18,7 +18,8 @@ contract Mock {
 contract Issue8006Test is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
     IERC20 dai;
-    bytes32 transaction = 0xb23f389b26eb6f95c08e275ec2c360ab3990169492ff0d3e7b7233a3f81d299f;
+    bytes32 transaction =
+        0xb23f389b26eb6f95c08e275ec2c360ab3990169492ff0d3e7b7233a3f81d299f;
 
     function setUp() public {
         vm.createSelectFork("mainnet", 21134541);
