@@ -587,6 +587,13 @@ jobs:
                 }
               ]
             }
+      - name: Download packed tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.filename }}
+          path: .
+      - name: Decompress tarball
+        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
       - name: Setup node
@@ -597,13 +604,6 @@ jobs:
           cache: pnpm
       - name: Update npm to make sure it supports Trusted Publishing
         run: npm install -g npm@v11.6.2
-      - name: Download packed tarball
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.prepare.outputs.filename }}
-          path: .
-      - name: Decompress tarball
-        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
       - name: Publish
         run: |
           if [ "${{ needs.check_commit.outputs.tag}}" = "next" ]
