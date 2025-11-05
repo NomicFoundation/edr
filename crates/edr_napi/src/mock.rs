@@ -2,7 +2,7 @@ pub mod time;
 
 use std::sync::Arc;
 
-use edr_evm_spec::EvmHaltReason;
+use edr_chain_spec::EvmHaltReason;
 use edr_napi_core::provider::SyncProvider;
 use edr_rpc_client::jsonrpc;
 use edr_solidity::contract_decoder::ContractDecoder;

@@ -6,7 +6,7 @@ mod send_data_to_eoa;
 use std::sync::Arc;
 
 use edr_chain_l1::{
-    rpc::{call::L1CallRequest, receipt::L1BlockReceipt, TransactionRequest},
+    rpc::{call::L1CallRequest, receipt::L1RpcTransactionReceipt, TransactionRequest},
     L1ChainSpec,
 };
 use edr_primitives::{B256, U64};
@@ -51,7 +51,7 @@ fn gas_used(provider: &Provider<L1ChainSpec>, transaction_hash: B256) -> u64 {
         ))
         .expect("eth_getTransactionReceipt should succeed");
 
-    let receipt: Option<L1BlockReceipt> =
+    let receipt: Option<L1RpcTransactionReceipt> =
         serde_json::from_value(response.result).expect("response should be Receipt");
 
     let receipt = receipt.expect("receipt should exist");

@@ -1,4 +1,4 @@
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::EvmSpecId;
 
 /// Retrieves the miner reward for the provided hardfork.
 pub fn miner_reward(spec_id: EvmSpecId) -> Option<u128> {

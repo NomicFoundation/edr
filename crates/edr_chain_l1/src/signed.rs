@@ -3,13 +3,14 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{Buf as _, BufMut};
-use edr_evm_spec::{ExecutableTransaction, TransactionValidation};
+use edr_chain_spec::{ExecutableTransaction, TransactionValidation};
+use edr_primitives::{Address, Bytes, B256, U256};
 use edr_signer::{FakeableSignature, Signature};
 pub use edr_transaction::signed::{Eip155, Eip1559, Eip2930, Eip4844, Eip7702, Legacy};
 use edr_transaction::{
-    impl_revm_transaction_trait, signed::PreOrPostEip155, Address, Bytes, IsEip155, IsEip4844,
-    IsLegacy, IsSupported, SignedTransaction, TransactionMut, TransactionType, TxKind, B256,
-    INVALID_TX_TYPE_ERROR_MESSAGE, U256,
+    impl_revm_transaction_trait, signed::PreOrPostEip155, IsEip155, IsEip4844, IsLegacy,
+    IsSupported, SignedTransaction, TransactionMut, TransactionType, TxKind,
+    INVALID_TX_TYPE_ERROR_MESSAGE,
 };
 
 use crate::InvalidTransaction;

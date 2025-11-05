@@ -8,8 +8,5 @@ edr_primitives.workspace = true
 edr_receipt.workspace = true
 serde.workspace = true
 
-[features]
-test-utils = []
-
 [lints]
 workspace = true

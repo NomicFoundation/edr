@@ -6,22 +6,23 @@ use core::fmt::Debug;
 use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
+use edr_block_api::GenesisBlockFactory;
+use edr_blockchain_api::r#dyn::DynBlockchainError;
+use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
+use edr_blockchain_local::InvalidGenesisBlock;
+use edr_chain_spec::{
+    ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec, OutOfGasError, TransactionValidation,
+};
+use edr_chain_spec_block::BlockChainSpec;
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
-use edr_evm::{
-    blockchain::{BlockchainError, ForkedCreationError, InvalidGenesisBlock},
-    result::ExecutionResult,
-    spec::{GenesisBlockFactory, RuntimeSpec},
-    state::AccountOverrideConversionError,
-    trace::Trace,
-    transaction::{self, TransactionError},
-    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
-};
-use edr_evm_spec::{
-    ChainHardfork, ChainSpec, EvmSpecId, HaltReasonTrait, OutOfGasError, TransactionValidation,
-};
+use edr_evm_spec::{result::ExecutionResult, DatabaseComponentError, TransactionError};
 use edr_gas_report::GasReportCreationError;
 use edr_primitives::{hex, Address, Bytes, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
+use edr_runtime::{
+    overrides::AccountOverrideConversionError, trace::Trace, transaction,
+    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
+};
 use edr_signer::SignatureError;
 use edr_solidity::contract_decoder::ContractDecoderError;
 use edr_state_api::StateError;
@@ -34,22 +35,15 @@ use crate::{
 
 /// Helper type for a chain-specific [`CreationError`].
 pub type CreationErrorForChainSpec<ChainSpecT> = CreationError<
-    <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
-    <ChainSpecT as GenesisBlockFactory>::CreationError,
-    <ChainSpecT as ChainHardfork>::Hardfork,
-    <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
+    <ChainSpecT as GenesisBlockFactory>::GenesisBlockCreationError,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
 >;
 
 #[derive(Debug, thiserror::Error)]
-pub enum CreationError<
-    BlockConversionErrorT,
-    GenesisBlockCreationErrorT,
-    HardforkT: Debug,
-    ReceiptConversionError,
-> {
+pub enum CreationError<GenesisBlockCreationErrorT, HardforkT> {
     /// A blockchain error
     #[error(transparent)]
-    Blockchain(BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionError>),
+    Blockchain(#[from] DynBlockchainError),
     /// A contract decoder error
     #[error(transparent)]
     ContractDecoder(#[from] ContractDecoderError),
@@ -78,21 +72,19 @@ pub enum CreationError<
 
 /// Helper type for a chain-specific [`ProviderError`].
 pub type ProviderErrorForChainSpec<ChainSpecT> = ProviderError<
-    <ChainSpecT as RuntimeSpec>::RpcBlockConversionError,
-    <ChainSpecT as GenesisBlockFactory>::CreationError,
+    <ChainSpecT as BlockChainSpec>::FetchReceiptError,
+    <ChainSpecT as GenesisBlockFactory>::GenesisBlockCreationError,
     <ChainSpecT as ChainSpec>::HaltReason,
-    <ChainSpecT as ChainHardfork>::Hardfork,
-    <ChainSpecT as RuntimeSpec>::RpcReceiptConversionError,
+    <ChainSpecT as HardforkChainSpec>::Hardfork,
     <<ChainSpecT as ChainSpec>::SignedTransaction as TransactionValidation>::ValidationError,
 >;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError<
-    BlockConversionErrorT,
+    FetchReceiptErrorT,
     GenesisBlockCreationErrorT,
     HaltReasonT: HaltReasonTrait,
     HardforkT: Debug,
-    ReceiptConversionErrorT,
     TransactionValidationErrorT,
 > {
     /// Account override conversion error.
@@ -136,26 +128,11 @@ pub enum ProviderError<
     BlobMemPoolUnsupported,
     /// Blockchain error
     #[error(transparent)]
-    Blockchain(#[from] BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>),
+    Blockchain(#[from] DynBlockchainError),
     #[error(transparent)]
-    Creation(
-        #[from]
-        CreationError<
-            BlockConversionErrorT,
-            GenesisBlockCreationErrorT,
-            HardforkT,
-            ReceiptConversionErrorT,
-        >,
-    ),
+    Creation(#[from] CreationError<GenesisBlockCreationErrorT, HardforkT>),
     #[error(transparent)]
-    DebugTrace(
-        #[from]
-        DebugTraceError<
-            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
-            StateError,
-            TransactionValidationErrorT,
-        >,
-    ),
+    DebugTrace(#[from] DebugTraceError<TransactionValidationErrorT>),
     #[error(
         "An EIP-4844 (shard blob) call request was received, but Hardhat only supports them via `eth_sendRawTransaction`. See https://github.com/NomicFoundation/hardhat/issues/5182"
     )]
@@ -175,6 +152,9 @@ pub enum ProviderError<
     /// A transaction error occurred while estimating gas.
     #[error(transparent)]
     EstimateGasTransactionFailure(#[from] Box<EstimateGasFailure<HaltReasonT>>),
+    /// Failed to fetch transaction receipt
+    #[error(transparent)]
+    FetchReceipt(FetchReceiptErrorT),
     #[error("{0}")]
     InvalidArgument(String),
     /// Block number or hash doesn't exist in blockchain
@@ -238,23 +218,12 @@ pub enum ProviderError<
     #[error(transparent)]
     MineBlock(
         #[from]
-        MineBlockError<
-            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
-            HardforkT,
-            StateError,
-            TransactionValidationErrorT,
-        >,
+        MineBlockError<DynBlockchainError, HardforkT, StateError, TransactionValidationErrorT>,
     ),
     /// An error occurred while mining a block with a single transaction.
     #[error(transparent)]
     MineTransaction(
-        #[from]
-        MineTransactionError<
-            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
-            HardforkT,
-            StateError,
-            TransactionValidationErrorT,
-        >,
+        #[from] MineTransactionError<DynBlockchainError, HardforkT, TransactionValidationErrorT>,
     ),
     /// An error occurred while invoking a `SyncOnCollectedCoverageCallback`.
     #[error(transparent)]
@@ -273,8 +242,7 @@ pub enum ProviderError<
     RunTransaction(
         #[from]
         TransactionError<
-            BlockchainError<BlockConversionErrorT, HardforkT, ReceiptConversionErrorT>,
-            StateError,
+            DatabaseComponentError<DynBlockchainError, StateError>,
             TransactionValidationErrorT,
         >,
     ),
@@ -392,19 +360,17 @@ pub enum ProviderError<
 }
 
 impl<
-        BlockConversionErrorT,
+        FetchReceiptErrorT,
         GenesisBlockCreationErrorT,
         HaltReasonT: HaltReasonTrait,
         HardforkT: Debug,
-        ReceiptConversionErrorT,
         TransactionValidationErrorT,
     >
     ProviderError<
-        BlockConversionErrorT,
+        FetchReceiptErrorT,
         GenesisBlockCreationErrorT,
         HaltReasonT,
         HardforkT,
-        ReceiptConversionErrorT,
         TransactionValidationErrorT,
     >
 {
@@ -421,19 +387,17 @@ impl<
 }
 
 impl<
-        BlockConversionErrorT: std::error::Error,
+        FetchReceiptErrorT,
         GenesisBlockCreationErrorT: std::error::Error,
         HaltReasonT: HaltReasonTrait,
         HardforkT: Debug,
-        ReceiptConversionErrorT: std::error::Error,
         TransactionValidationErrorT: std::error::Error,
     > From<GasReportCreationError>
     for ProviderError<
-        BlockConversionErrorT,
+        FetchReceiptErrorT,
         GenesisBlockCreationErrorT,
         HaltReasonT,
         HardforkT,
-        ReceiptConversionErrorT,
         TransactionValidationErrorT,
     >
 {
@@ -445,31 +409,28 @@ impl<
 }
 
 impl<
-        BlockConversionErrorT: std::error::Error,
+        FetchReceiptErrorT: std::error::Error,
         GenesisBlockCreationErrorT: std::error::Error,
         HaltReasonT: HaltReasonTrait + Serialize,
         HardforkT: Debug,
-        ReceiptConversionErrorT: std::error::Error,
         TransactionValidationErrorT: std::error::Error,
     >
     From<
         ProviderError<
-            BlockConversionErrorT,
+            FetchReceiptErrorT,
             GenesisBlockCreationErrorT,
             HaltReasonT,
             HardforkT,
-            ReceiptConversionErrorT,
             TransactionValidationErrorT,
         >,
     > for jsonrpc::Error
 {
     fn from(
         value: ProviderError<
-            BlockConversionErrorT,
+            FetchReceiptErrorT,
             GenesisBlockCreationErrorT,
             HaltReasonT,
             HardforkT,
-            ReceiptConversionErrorT,
             TransactionValidationErrorT,
         >,
     ) -> Self {
@@ -497,6 +458,7 @@ impl<
             ProviderError::Eip7702TransactionWithoutAuthorizations => INVALID_INPUT,
             ProviderError::Eip712Error(_) => INVALID_INPUT,
             ProviderError::EstimateGasTransactionFailure(_) => INVALID_INPUT,
+            ProviderError::FetchReceipt(_) => INTERNAL_ERROR,
             ProviderError::InvalidArgument(_) => INVALID_PARAMS,
             ProviderError::InvalidBlockNumberOrHash { .. } => INVALID_INPUT,
             ProviderError::InvalidBlockTag { .. } => INVALID_PARAMS,

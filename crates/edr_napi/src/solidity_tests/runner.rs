@@ -1,6 +1,6 @@
 use std::sync::{Mutex, OnceLock};
 
-use edr_evm_spec::HaltReasonTrait;
+use edr_chain_spec::HaltReasonTrait;
 use edr_napi_core::solidity::config::TracingConfigWithBuffers;
 use edr_solidity::{
     artifacts::BuildInfoConfigWithBuffers,

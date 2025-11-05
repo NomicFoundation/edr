@@ -1,6 +1,6 @@
 {
   "name": "@nomicfoundation/edr",
-  "version": "0.12.0-next.10",
+  "version": "0.12.0-next.12",
   "devDependencies": {
     "@napi-rs/cli": "^2.18.4",
     "@nomicfoundation/ethereumjs-util": "^9.0.4",
@@ -36,8 +36,7 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "src/",
-    "dist/src/"
+    "src/"
   ],
   "license": "MIT",
   "main": "index.js",

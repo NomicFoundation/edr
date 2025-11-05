@@ -1,7 +1,6 @@
-use edr_evm::{
-    inspector::Inspector,
+use edr_evm_spec::{
     interpreter::{CallInputs, CallOutcome, EthInterpreter},
-    spec::ContextTrait,
+    ContextTrait, Inspector,
 };
 use edr_primitives::{address, Address, Bytes};
 

@@ -2,7 +2,7 @@
 
 use std::{fmt::Debug, sync::Arc};
 
-use edr_evm_spec::HaltReasonTrait;
+use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::Bytes;
 use parking_lot::RwLock;
 

@@ -2,18 +2,21 @@ use core::fmt::Debug;
 use std::{marker::PhantomData, sync::Arc};
 
 use edr_block_api::Block;
-use edr_evm::{result::ExecutionResult, spec::RuntimeSpec, trace::Trace, MineBlockResultAndState};
-use edr_evm_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait};
+use edr_block_builder_api::BuiltBlockAndState;
+use edr_chain_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait};
+use edr_chain_spec_block::BlockChainSpec;
+use edr_evm_spec::result::ExecutionResult;
 use edr_primitives::{Bytes, B256};
-use edr_state_api::{StateDiff, SyncState};
+use edr_runtime::trace::Trace;
+use edr_state_api::{DynState, StateDiff};
 
 /// The result of mining a block, including the state, in debug mode. This
 /// result needs to be inserted into the blockchain to be persistent.
-pub struct DebugMineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT> {
+pub struct DebugMineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlockT> {
     /// Mined block
     pub block: LocalBlockT,
     /// State after mining the block
-    pub state: Box<dyn SyncState<StateErrorT>>,
+    pub state: Box<dyn DynState>,
     /// State diff applied by block
     pub state_diff: StateDiff,
     /// Transaction results
@@ -24,13 +27,13 @@ pub struct DebugMineBlockResultAndState<HaltReasonT: HaltReasonTrait, LocalBlock
     pub console_log_inputs: Vec<Bytes>,
 }
 
-impl<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT>
-    DebugMineBlockResultAndState<HaltReasonT, LocalBlockT, StateErrorT>
+impl<HaltReasonT: HaltReasonTrait, LocalBlockT>
+    DebugMineBlockResultAndState<HaltReasonT, LocalBlockT>
 {
     /// Constructs a new instance from a [`MineBlockResultAndState`],
     /// transaction traces, and decoded console log messages.
     pub fn new(
-        result: MineBlockResultAndState<HaltReasonT, LocalBlockT, StateErrorT>,
+        result: BuiltBlockAndState<HaltReasonT, LocalBlockT>,
         transaction_traces: Vec<Trace<HaltReasonT>>,
         console_log_decoded_messages: Vec<Bytes>,
     ) -> Self {
@@ -47,7 +50,7 @@ impl<HaltReasonT: HaltReasonTrait, LocalBlockT, StateErrorT>
 
 /// Helper type for a chain-specific [`DebugMineBlockResult`].
 pub type DebugMineBlockResultForChainSpec<ChainSpecT> = DebugMineBlockResult<
-    Arc<<ChainSpecT as RuntimeSpec>::Block>,
+    Arc<<ChainSpecT as BlockChainSpec>::Block>,
     <ChainSpecT as ChainSpec>::HaltReason,
     <ChainSpecT as ChainSpec>::SignedTransaction,
 >;

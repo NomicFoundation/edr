@@ -10,6 +10,7 @@ edr_primitives.workspace = true
 edr_rpc_eth.workspace = true
 edr_rpc_spec.workspace = true
 edr_state_api.workspace = true
+serde.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 tracing = { workspace = true, features = ["attributes", "std"], optional = true }
 

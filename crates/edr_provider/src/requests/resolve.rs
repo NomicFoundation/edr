@@ -2,7 +2,7 @@ use edr_chain_l1::{
     rpc::{call::L1CallRequest, TransactionRequest},
     L1ChainSpec,
 };
-use edr_evm_spec::EvmSpecId;
+use edr_chain_spec::EvmSpecId;
 use edr_primitives::{Bytes, U256};
 use edr_transaction::TxKind;
 
@@ -238,8 +238,8 @@ impl<TimerT: Clone + TimeSinceEpoch> FromRpcType<TransactionRequest, TimerT>
 #[cfg(test)]
 mod tests {
     use edr_eth::BlockSpec;
-    use edr_evm::state::StateOverrides;
     use edr_primitives::Address;
+    use edr_runtime::overrides::StateOverrides;
 
     use super::*;
     use crate::test_utils::{pending_base_fee, ProviderTestFixture};

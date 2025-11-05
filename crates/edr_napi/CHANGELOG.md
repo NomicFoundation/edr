@@ -1,5 +1,17 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.12
+
+### Patch Changes
+
+- 29cf155: EDR internal refactor + CI improvements
+
+## 0.12.0-next.11
+
+### Patch Changes
+
+- f67363e: Added latest dynamic base fee parameters to Base Mainnet chain config
+
 ## 0.12.0-next.10
 
 ### Patch Changes
