@@ -12,7 +12,7 @@ use edr_solidity_tests::{
 };
 use foundry_evm::traces::TraceKind;
 
-use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
+use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT, TEST_DATA_PARIS};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_core() {
@@ -91,6 +91,10 @@ async fn test_core() {
                     None,
                     None,
                 )],
+            ),
+            (
+                "default/core/BadSigAfterInvariant.t.sol:BadSigAfterInvariant",
+                vec![("testShouldPassWithWarning()", true, None, None, None)],
             ),
             (
                 "default/core/ExecutionContext.t.sol:ExecutionContextTest",
@@ -769,6 +773,29 @@ async fn test_trace() {
             );
         }
     }
+}
+
+/// Test `beforeTest` functionality and `selfdestruct`.
+/// See <https://github.com/foundry-rs/foundry/issues/1543>
+#[tokio::test(flavor = "multi_thread")]
+async fn test_before_setup_with_selfdestruct() {
+    let filter = SolidityTestFilter::new(".*", ".*BeforeTestSelfDestructTest", ".*");
+    let runner = TEST_DATA_PARIS.runner().await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "paris/core/BeforeTest.t.sol:BeforeTestSelfDestructTest",
+            vec![
+                ("testKill()", true, None, None, None),
+                ("testA()", true, None, None, None),
+                ("testSimpleA()", true, None, None, None),
+                ("testB()", true, None, None, None),
+                ("testC(uint256)", true, None, None, None),
+            ],
+        )]),
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

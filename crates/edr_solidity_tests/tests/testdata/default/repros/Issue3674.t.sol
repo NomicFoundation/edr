@@ -9,7 +9,7 @@ contract Issue3674Test is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
     function testNonceCreateSelect() public {
-        vm.createSelectFork("rpcAliasSepolia");
+        vm.createSelectFork("sepolia");
 
         vm.createSelectFork("https://api.avax-test.network/ext/bc/C/rpc");
         assert(vm.getNonce(msg.sender) > 0x17);

@@ -21,7 +21,7 @@ contract Issue8006Test is DSTest {
     bytes32 transaction = 0xb23f389b26eb6f95c08e275ec2c360ab3990169492ff0d3e7b7233a3f81d299f;
 
     function setUp() public {
-        vm.createSelectFork("rpcAliasMainnet", 21134541);
+        vm.createSelectFork("mainnet", 21134541);
         dai = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     }
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-pragma solidity 0.8.18;
+pragma solidity ^0.8.18;
 
 import "ds-test/test.sol";
 import "cheats/Vm.sol";
@@ -114,7 +114,12 @@ contract ForkTest is DSTest {
 
     // ensures forks change chain ids automatically
     function testCanAutoUpdateChainId() public {
-        vm.createSelectFork("https://polygon-pokt.nodies.app"); // Polygon mainnet RPC URL
-        assertEq(block.chainid, 137);
+        vm.createSelectFork("sepolia");
+        assertEq(block.chainid, 11155111);
+    }
+
+    // ensures forks storage is cached at block
+    function testStorageCaching() public {
+        vm.createSelectFork("mainnet", 19800000);
     }
 }
