@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.13
+
+### Patch Changes
+
+- abf7434: Fixed unexpected test failure when running in isolate/gas stats mode
+
 ## 0.12.0-next.12
 
 ### Patch Changes
