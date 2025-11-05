@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use foundry_fork_db::DatabaseError;
 use op_revm::{OpEvm, OpTransaction};
@@ -543,6 +545,71 @@ where
     };
 
     (&mut context.journaled_state.database, evm_context)
+}
+
+/// Split the database from EVM execution context so that a mutable method can
+/// be called on the database with arguments from the execution context, while
+/// avoiding compiler recursion issues.
+pub fn split_context_deref_mut<
+    BlockT,
+    TxT,
+    EvmBuilderT,
+    HaltReasonT,
+    HardforkT,
+    TransactionErrorT,
+    DatabaseT,
+    ChainContextT,
+>(
+    context: &mut revm::context::Context<
+        BlockT,
+        TxT,
+        CfgEnv<HardforkT>,
+        DatabaseT,
+        Journal<DatabaseT>,
+        ChainContextT,
+    >,
+) -> (
+    &mut DatabaseT::Target,
+    EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
+)
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT:
+        EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        > + DerefMut<
+            Target: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            >,
+        >,
+{
+    let evm_context = EvmContext {
+        block: &mut context.block,
+        tx: &mut context.tx,
+        cfg: &mut context.cfg,
+        journaled_state: &mut context.journaled_state.inner,
+        chain_context: &mut context.chain,
+    };
+
+    (context.journaled_state.database.deref_mut(), evm_context)
 }
 
 pub struct EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT> {
