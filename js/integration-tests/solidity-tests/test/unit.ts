@@ -84,7 +84,7 @@ describe("Unit tests", () => {
       );
 
       assert.equal(failedTests, 0);
-      assert.equal(totalTests, 1);
+      assert.equal(totalTests, 2);
     });
 
     it("IsolateMode off", async function () {
@@ -92,7 +92,7 @@ describe("Unit tests", () => {
         await testContext.runTestsWithStats("IsolateTest");
 
       assert.equal(failedTests, 1);
-      assert.equal(totalTests, 1);
+      assert.equal(totalTests, 2);
     });
   });
 

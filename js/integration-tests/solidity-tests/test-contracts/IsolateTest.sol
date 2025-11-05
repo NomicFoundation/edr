@@ -21,11 +21,22 @@ contract TransientStorageStore {
     }
 }
 
+contract Counter {
+    uint256 public number;
+
+    function incBy(uint by) public {
+        require(by > 0, "incBy: increment should be positive");
+        number += by;
+    }
+}
+
 contract IsolateTest is Test {
     TransientStorageStore transientStorageStore;
+    Counter counter;
 
     function setUp() public {
         transientStorageStore = new TransientStorageStore();
+        counter = new Counter();
     }
 
     function testIsolateTest() public {
@@ -36,5 +47,10 @@ contract IsolateTest is Test {
         uint256 val = transientStorageStore.tload(1);
 
         assertEq(val, 0, "test wasn't called with isolate mode enabld");
+    }
+
+    function testExpectRevert() public {
+        vm.expectRevert();
+        counter.incBy(0);
     }
 }
