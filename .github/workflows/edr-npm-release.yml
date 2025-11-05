@@ -34,7 +34,7 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-13
+          - host: macos-15-intel
             target: x86_64-apple-darwin
             build: pnpm run build --strip
 
@@ -184,7 +184,7 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-13
+          - host: macos-15-intel
             target: x86_64-apple-darwin
           - host: macos-14
             target: aarch64-apple-darwin
@@ -519,16 +519,74 @@ jobs:
         run: |
           git diff --color=always --exit-code --no-index remote-repository/Cargo.lock ./Cargo.lock
 
+  notify-deploy:
+    name: Notify pre-deploy to Slack
+    runs-on: ubuntu-24.04
+    needs: [check_commit, prepare, review]
+    # Only run workflow if there is a tag defined
+    if: ${{ needs.check_commit.outputs.tag != '' }}
+    steps:
+      - name: Notify pre-deploy
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Workflow: *${{ github.workflow }}*\n 📝 Deployment review requested for `edr-release`",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Workflow: *${{ github.workflow }}*\n 📝 Deployment review requested for `edr-release`"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Commit:* <${{ github.event.head_commit.url || github.event.pull_request.html_url }}|View commit>\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open workflow run>"
+                  }
+                }
+              ]
+            }
+
   publish:
     name: Publish
     environment: edr-release
     runs-on: ubuntu-24.04
     permissions:
       id-token: write # Needed for npm Trusted Publishing (OIDC)
-    needs: [check_commit, prepare, review]
+    needs: [check_commit, notify-deploy, prepare, review]
     # Only run workflow if there is a tag defined
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
+      - name: Notify deployment to Slack
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Commit:* <${{ github.event.head_commit.url || github.event.pull_request.html_url }}|View commit>\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open workflow run>"
+                  }
+                }
+              ]
+            }
       - name: Setup node to be able to update npm
         uses: actions/setup-node@v5
         with:
