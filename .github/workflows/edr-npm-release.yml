@@ -66,7 +66,7 @@ jobs:
             docker: node:20-alpine3.20
             flavor: musl
     outputs:
-      build_commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
+      commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
     defaults:
       run:
         working-directory: ./crates/edr_napi
@@ -371,18 +371,27 @@ jobs:
 
       - name: Check if commit message is a release commit
         id: check_commit
-        # Must match commit check in publish step
         run: |
-          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+";
+          # matches with pre-release commits: edr release name but ends with - and some postfix like beta
+          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
           then
-            echo "Check commit: matches"
-            echo "match=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Check commit: no match"
-            echo "match=false" >> "$GITHUB_OUTPUT"
+            if [ "${{ github.event_name }}" = "push" ]
+            then
+              echo "pre-release commit: tag=next"
+              echo "tag=next" >> "$GITHUB_OUTPUT"
+            fi
+          # matches with release commit
+          elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
+          then
+            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]
+            then
+              echo "release commit: tag=latest"
+              echo "tag=latest" >> "$GITHUB_OUTPUT"
+            fi
           fi
+
     outputs:
-      match: ${{ steps.check_commit.outputs.match }}
+      tag: ${{ steps.check_commit.outputs.tag }}
 
   prepare:
     name: Prepare release bundle
@@ -391,14 +400,11 @@ jobs:
       contents: read
     needs:
       - build
-      - check_commit
       - test-macOS-windows-binding
       - test-linux-x64-gnu-binding
       - test-linux-x64-musl-binding
       - test-linux-aarch64-gnu-binding
       - test-linux-aarch64-musl-binding
-    # Only run workflow if the commit message is a release commit.
-    if: ${{ needs.check_commit.outputs.match == 'true' }}
     defaults:
       run:
         working-directory: ./crates/edr_napi
@@ -519,8 +525,16 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       id-token: write # Needed for npm Trusted Publishing (OIDC)
-    needs: [prepare, review]
+    needs: [check_commit, prepare, review]
+    # Only run workflow if there is a tag defined
+    if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
+      - name: Setup node to be able to update npm
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Update npm to make sure it supports Trusted Publishing
+        run: npm install -g npm@v11.6.2
       - name: Download packed tarball
         uses: actions/download-artifact@v4
         with:
@@ -530,38 +544,22 @@ jobs:
         run: tar -xvzf ${{ needs.prepare.outputs.filename }}
       - name: Publish
         run: |
-          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
+          if [ "${{ needs.check_commit.outputs.tag}}" = "next" ]
           then
-            if [ "${{ github.event_name }}" = "push" ]; then
-              echo "Publishing pre-release"
-              cd crates/edr_napi
-              # Publish every cross-platform package
-              for platform in ./crates/edr_napi/npm/* ; do
-                cd $platform
-                pnpm publish --no-git-checks --tag next --access public
-                cd -
-              done
-              # Publish root edr package
-              pnpm publish --no-git-checks --tag next --access public
-            else
-              echo "Trying to publish a pre-release from a branch that is not 'main' or 'prerelease'"
-            fi
-          elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
+            echo "Publishing pre-release"
+          elif [ "${{ needs.check_commit.outputs.tag}}" = "latest" ]
           then
-            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]; then
-              echo "Publishing release"
-              cd crates/edr_napi
-              # Publish every cross-platform package
-              for platform in ./crates/edr_napi/npm/* ; do
-                cd $platform
-                pnpm publish --no-git-checks --access public
-                cd -
-              done
-              # Publish root edr package
-              pnpm publish --no-git-checks --access public
-            else
-              echo "Trying to publish a release from a branch that is not 'main' or 'h2'"
-            fi
+            echo "Publishing release"
           else
-            echo "Not a release, skipping publish"
+            echo "Unrecognized tag ${{ needs.check_commit.outputs.tag}}. Skipping publish"
+            exit 1
           fi
+
+          # Publish every cross-platform package
+          for platform in ./crates/edr_napi/npm/* ; do
+            cd $platform
+            pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
+            cd -
+          done
+          # Publish root edr package
+          pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
