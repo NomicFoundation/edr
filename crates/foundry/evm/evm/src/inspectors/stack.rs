@@ -9,7 +9,7 @@ use eyre::eyre;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
     evm_context::{
-        split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr,
+        split_context_deref_mut, BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr,
         IntoEvmContext as _, TransactionEnvTr, TransactionErrorTrait,
     },
 };
@@ -21,7 +21,7 @@ use revm::{context::{
 }, context_interface::{result::Output, JournalTr}, interpreter::{
     interpreter::EthInterpreter, CallInputs, CallOutcome, CallScheme, CreateInputs,
     CreateOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
-}, DatabaseCommit, ExecuteEvm, Inspector, Journal, JournalEntry};
+}, DatabaseCommit, Inspector, InspectEvm as _, Journal, JournalEntry};
 use revm::context::CreateScheme;
 use revm::state::{Account, AccountStatus};
 use revm_inspectors::edge_cov::EdgeCovInspector;
@@ -652,6 +652,18 @@ impl<
             HardforkT,
             TransactionErrorT,
             ChainContextT> + DatabaseCommit
+            + DerefMut<
+                Target: CheatcodeBackend<
+                    BlockT,
+                    TxT,
+                    EvmBuilderT,
+                    HaltReasonT,
+                    HardforkT,
+                    TransactionErrorT,
+                    ChainContextT,
+                > + DatabaseCommit
+                            + Sized,
+            >
     >(
         &mut self,
         ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
@@ -683,7 +695,7 @@ impl<
         self.in_inner_context = true;
 
         let res = self.with_stack(|inspector| {
-            let (db, context) = split_context(ecx);
+            let (db, context) = split_context_deref_mut(ecx);
 
             let state = {
                 let mut state = context.journaled_state.state.clone();
@@ -713,7 +725,7 @@ impl<
             let env_with_chain = context.to_owned_env_with_chain_context();
             let mut evm = EvmBuilderT::evm_with_journal_and_inspector(journaled_state, env_with_chain, inspector);
 
-            let res = evm.transact(context.tx.clone());
+            let res = evm.inspect_tx(context.tx.clone());
 
             // need to reset the env in case it was modified via cheatcodes during execution
             let evm_context = evm.into_evm_context();
@@ -938,7 +950,19 @@ impl<
         HardforkT,
         TransactionErrorT,
         ChainContextT,
-    > + DatabaseCommit,
+    > + DatabaseCommit
+    + DerefMut<
+        Target: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        > + DatabaseCommit
+                    + Sized,
+    >,
 > Inspector<
     EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>
 > for InspectorStackRefMut<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
@@ -1181,7 +1205,19 @@ impl<
         HardforkT,
         TransactionErrorT,
         ChainContextT,
-    > + DatabaseCommit,
+    > + DatabaseCommit
+    + DerefMut<
+        Target: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        > + DatabaseCommit
+                    + Sized,
+    >,
 > Inspector<EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>> for InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
     fn step(
         &mut self,
