@@ -551,7 +551,7 @@ jobs:
                 }
               ]
             }
-            
+
   publish:
     name: Publish
     environment: edr-release
