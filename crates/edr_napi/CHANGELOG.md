@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.12
+
+### Patch Changes
+
+- 29cf155: EDR internal refactor + CI improvements
+
 ## 0.12.0-next.11
 
 ### Patch Changes
