@@ -34,7 +34,7 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-15-intel
+          - host: macos-13
             target: x86_64-apple-darwin
             build: pnpm run build --strip
 
@@ -184,7 +184,7 @@ jobs:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-15-intel
+          - host: macos-13
             target: x86_64-apple-darwin
           - host: macos-14
             target: aarch64-apple-darwin
@@ -523,8 +523,8 @@ jobs:
     name: Notify pre-deploy to Slack
     runs-on: ubuntu-24.04
     needs: [check_commit, prepare, review]
-    # Only run workflow if the commit message is a release commit.
-    if: ${{ needs.check_commit.outputs.match == 'true' }}
+    # Only run workflow if there is a tag defined
+    if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
       - name: Notify pre-deploy
         uses: slackapi/slack-github-action@v2.1.1
@@ -551,7 +551,7 @@ jobs:
                 }
               ]
             }
-
+            
   publish:
     name: Publish
     environment: edr-release
