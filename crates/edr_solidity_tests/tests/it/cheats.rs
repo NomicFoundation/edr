@@ -74,7 +74,7 @@ async fn test_cheats_local_with_seed(test_data: &L1ForgeTestData) {
     );
 
     let mut config = test_data.config_with_mock_rpc();
-    config.fuzz.seed = Some(U256::from(100));
+    config.cheats_config_options.seed = Some(U256::from(100));
     let runner = test_data.runner_with_config(config).await;
 
     TestConfig::with_filter(runner, filter).run().await;

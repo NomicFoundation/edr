@@ -185,7 +185,7 @@ impl<
             coverage,
             mut evm_opts,
             project_root,
-            mut cheats_config_options,
+            cheats_config_options,
             fuzz,
             invariant,
             enable_fuzz_fixtures,
@@ -210,7 +210,6 @@ impl<
             // Enable EVM isolation for more accurate gas measurements
             evm_opts.isolate = true;
         }
-        cheats_config_options.seed = fuzz.seed;
 
         Ok(Self {
             project_root,
