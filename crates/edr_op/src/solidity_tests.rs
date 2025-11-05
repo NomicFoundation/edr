@@ -1,6 +1,6 @@
 use edr_evm_spec::{
     handler::EthInstructions, interpreter::EthInterpreter, Context, Database, Evm, Inspector,
-    Journal, JournalEntry,
+    Journal,
 };
 use edr_solidity_tests::{
     evm_context::{EthInstructionsContext, EvmBuilderTrait, EvmEnvWithChainContext},
@@ -10,7 +10,7 @@ use op_revm::{
     precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpHaltReason, OpSpecId, OpTransaction,
     OpTransactionError,
 };
-use revm_context::{BlockEnv, JournalTr as _};
+use revm_context::BlockEnv;
 
 /// Type implementing the [`EvmBuilderTrait`] for the OP EVM.
 pub struct OpEvmBuilder;
@@ -55,7 +55,7 @@ impl
 
     type PrecompileProvider<DatabaseT: Database> = OpPrecompiles;
 
-    fn evm_with_inspector<
+    fn evm_with_journal_and_inspector<
         DatabaseT: Database,
         InspectorT: Inspector<
             EthInstructionsContext<
@@ -68,18 +68,15 @@ impl
             EthInterpreter,
         >,
     >(
-        db: DatabaseT,
+        journal: Journal<DatabaseT>,
         env: EvmEnvWithChainContext<BlockEnv, OpTransaction<TxEnv>, OpSpecId, L1BlockInfo>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
-        let mut journaled_state = Journal::<DatabaseT, JournalEntry>::new(db);
-        journaled_state.set_spec_id(env.cfg.spec.into());
-
         let context = Context {
             tx: env.tx,
             block: env.block,
             cfg: env.cfg,
-            journaled_state,
+            journaled_state: journal,
             chain: env.chain_context,
             local: LocalContext::default(),
             error: Ok(()),
