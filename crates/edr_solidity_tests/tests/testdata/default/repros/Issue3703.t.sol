@@ -10,7 +10,7 @@ contract Issue3703Test is DSTest {
 
     function setUp() public {
         uint256 fork = vm.createSelectFork(
-            "rpcAliasPolygon",
+            "polygon",
             bytes32(0xbed0c8c1b9ff8bf0452979d170c52893bb8954f18a904aa5bcbd0f709be050b9)
         );
     }

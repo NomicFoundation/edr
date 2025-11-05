@@ -26,7 +26,7 @@ contract InvariantRollForkBlockTest is DSTest {
     RollForkHandler forkHandler;
 
     function setUp() public {
-        vm.createSelectFork("rpcAliasMainnet", 19812632);
+        vm.createSelectFork("mainnet", 19812632);
         forkHandler = new RollForkHandler();
     }
 
@@ -40,7 +40,7 @@ contract InvariantRollForkStateTest is DSTest {
     RollForkHandler forkHandler;
 
     function setUp() public {
-        vm.createSelectFork("rpcAliasMainnet", 19812632);
+        vm.createSelectFork("mainnet", 19812632);
         forkHandler = new RollForkHandler();
     }
 

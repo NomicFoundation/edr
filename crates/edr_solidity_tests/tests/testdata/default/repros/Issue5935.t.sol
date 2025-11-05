@@ -18,9 +18,9 @@ contract Issue5935Test is DSTest {
 
     function testFork() public {
         uint256 forkId1 =
-            vm.createFork("rpcAliasMainnet", 18234083);
+            vm.createFork("mainnet", 18234083);
         uint256 forkId2 =
-            vm.createFork("rpcAliasMainnet", 18234083);
+            vm.createFork("mainnet", 18234083);
         vm.selectFork(forkId1);
         SimpleStorage myContract = new SimpleStorage();
         myContract.set(42);

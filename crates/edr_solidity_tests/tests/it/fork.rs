@@ -5,7 +5,7 @@ mod remote {
     use edr_solidity_tests::result::SuiteResult;
     use foundry_cheatcodes::{FsPermissions, PathPermission};
 
-    use crate::helpers::{SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_DEFAULT};
+    use crate::helpers::{SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_DEFAULT, TEST_DATA_PARIS};
 
     /// Executes reverting fork test
     #[tokio::test(flavor = "multi_thread")]
@@ -35,14 +35,14 @@ mod remote {
     /// Executes all non-reverting fork cheatcodes
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cheats_fork() {
-        let runner = TEST_DATA_DEFAULT
+        let runner = TEST_DATA_PARIS
             .runner_with_fs_permissions(
                 FsPermissions::new(vec![PathPermission::read_directory("./fixtures")]),
-                TEST_DATA_DEFAULT.config_with_remote_rpc(),
+                TEST_DATA_PARIS.config_with_remote_rpc(),
             )
             .await;
         let filter = SolidityTestFilter::new(
-            "testBlockNumbersMismatch()",
+            ".*",
             ".*",
             &format!(".*cheats{RE_PATH_SEPARATOR}Fork"),
         )

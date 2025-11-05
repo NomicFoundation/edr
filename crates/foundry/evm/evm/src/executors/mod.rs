@@ -509,7 +509,7 @@ impl<
         }
 
         // Persist the changed environment.
-        self.inspector_mut().set_env(result.env.clone());
+        self.inspector_mut().set_env(&result.env);
     }
 
     /// Returns `true` if a test can be considered successful.

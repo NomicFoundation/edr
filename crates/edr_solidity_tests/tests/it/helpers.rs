@@ -8,7 +8,7 @@ mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
 use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf};
-
+use std::sync::{Mutex};
 use alloy_primitives::{Bytes, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
@@ -102,7 +102,7 @@ macro_rules! assert_close {
 /// test runs.
 pub enum ForgeTestProfile {
     Default,
-    Cancun,
+    Paris,
     MultiVersion,
 }
 
@@ -110,16 +110,16 @@ impl fmt::Display for ForgeTestProfile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ForgeTestProfile::Default => write!(f, "default"),
-            ForgeTestProfile::Cancun => write!(f, "cancun"),
+            ForgeTestProfile::Paris => write!(f, "paris"),
             ForgeTestProfile::MultiVersion => write!(f, "multi-version"),
         }
     }
 }
 
 impl ForgeTestProfile {
-    /// Returns true if the profile is Cancun.
-    fn is_cancun(&self) -> bool {
-        matches!(self, Self::Cancun)
+    /// Returns true if the profile is Paris.
+    fn is_paris(&self) -> bool {
+        matches!(self, Self::Paris)
     }
 
     fn project(&self) -> Project {
@@ -149,6 +149,8 @@ impl ForgeTestProfile {
 
     fn runner_config<HardforkT: HardforkTr>(
         hardfork: HardforkT,
+        fuzz_failure_dir: PathBuf,
+        invariant_failure_dir: PathBuf,
     ) -> SolidityTestRunnerConfig<HardforkT> {
         SolidityTestRunnerConfig {
             collect_stack_traces: CollectStackTraces::OnFailure,
@@ -159,8 +161,8 @@ impl ForgeTestProfile {
                 execution_context: ExecutionContextConfig::Test,
                 ..CheatsConfigOptions::default()
             },
-            fuzz: TestFuzzConfig::default().into(),
-            invariant: TestInvariantConfig::default().into(),
+            fuzz: TestFuzzConfig::new(fuzz_failure_dir).into(),
+            invariant: TestInvariantConfig::new(invariant_failure_dir).into(),
             coverage: false,
             enable_fuzz_fixtures: true,
             enable_table_tests: true,
@@ -188,8 +190,8 @@ impl ForgeTestProfile {
             "fork/Fork.t.sol:DssExecLib:0xfD88CeE74f7D78697775aBDAE53f9Da1559728E4".to_string(),
         ];
 
-        if self.is_cancun() {
-            config.evm_version = EvmVersion::Cancun;
+        if self.is_paris() {
+            config.evm_version = EvmVersion::Paris;
         }
 
         config
@@ -211,6 +213,15 @@ pub struct TestFuzzConfig {
     pub failure_persist_file: String,
 }
 
+impl TestFuzzConfig {
+    pub fn new(failure_dir: PathBuf) -> Self {
+        Self {
+            failure_persist_dir: Some(failure_dir),
+            ..Self::default()
+        }
+    }
+}
+
 impl Default for TestFuzzConfig {
     fn default() -> Self {
         TestFuzzConfig {
@@ -220,7 +231,7 @@ impl Default for TestFuzzConfig {
             seed: None,
             dictionary: TestFuzzDictionaryConfig::default(),
             gas_report_samples: 256,
-            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
+            failure_persist_dir: None,
             failure_persist_file: "testfailure".into(),
         }
     }
@@ -264,6 +275,15 @@ pub struct TestInvariantConfig {
     pub show_edge_coverage: bool,
 }
 
+impl TestInvariantConfig {
+    pub fn new(failure_dir: PathBuf) -> Self {
+        Self {
+            failure_persist_dir: Some(failure_dir),
+            ..Self::default()
+        }
+    }
+}
+
 impl Default for TestInvariantConfig {
     fn default() -> Self {
         TestInvariantConfig {
@@ -285,7 +305,7 @@ impl Default for TestInvariantConfig {
             corpus_gzip: false,
             corpus_min_mutations: 0,
             corpus_min_size: 0,
-            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
+            failure_persist_dir: None,
             show_edge_coverage: false,
         }
     }
@@ -377,6 +397,8 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
+    fuzz_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
+    invariant_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     hardfork: HardforkT,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<
@@ -507,6 +529,8 @@ impl<
             known_contracts,
             libs_to_deploy,
             revert_decoder,
+            fuzz_failure_dirs: Mutex::default(),
+            invariant_failure_dirs: Mutex::default(),
             hardfork,
             _phantom: PhantomData,
         })
@@ -516,7 +540,7 @@ impl<
     pub fn config_with_mock_rpc(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
         // Construct a new one to create new failure persistance directory for each test
-        let mut config = ForgeTestProfile::runner_config(self.hardfork);
+        let mut config = ForgeTestProfile::runner_config(self.hardfork, self.new_fuzz_failure_dir(), self.new_invariant_failure_dir());
         config.cheats_config_options.rpc_endpoints = mock_rpc_endpoints();
 
         config
@@ -527,7 +551,7 @@ impl<
     pub fn config_with_remote_rpc(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
         // Construct a new one to create new failure persistance directory for each test
-        let mut config = ForgeTestProfile::runner_config(self.hardfork);
+        let mut config = ForgeTestProfile::runner_config(self.hardfork, self.new_fuzz_failure_dir(), self.new_invariant_failure_dir());
         config.cheats_config_options.rpc_endpoints = remote_rpc_endpoints();
         //`**/edr-cache` is cached in CI
         config.cheats_config_options.rpc_cache_path =
@@ -568,6 +592,9 @@ impl<
     > {
         // no prompt testing
         config.cheats_config_options.prompt_timeout = 0;
+
+        config.fuzz.failure_persist_dir = Some(self.new_fuzz_failure_dir());
+        config.invariant.failure_persist_dir = Some(self.new_invariant_failure_dir());
 
         self.build_runner(config).await
     }
@@ -723,6 +750,24 @@ impl<
         .await
         .expect("Config should be ok")
     }
+
+    /// Returns a new fuzz failure dir that will be cleaned up after this struct is dropped.
+    fn new_fuzz_failure_dir(&self) -> PathBuf {
+        let mut fuzz_failure_dirs = self.fuzz_failure_dirs.lock().expect("lock is not poisoned");
+        let dir = tempfile::TempDir::new().expect("created tempdir");
+        let path = dir.path().to_path_buf();
+        fuzz_failure_dirs.push(dir);
+        path
+    }
+
+    /// Returns a new invariant failure dir that will be cleaned up after this struct is dropped.
+    fn new_invariant_failure_dir(&self) -> PathBuf {
+        let mut invariant_failure_dirs = self.invariant_failure_dirs.lock().expect("lock is not poisoned");
+        let dir = tempfile::TempDir::new().expect("created tempdir");
+        let path = dir.path().to_path_buf();
+        invariant_failure_dirs.push(dir);
+        path
+    }
 }
 
 fn get_compiled(project: &Project) -> ProjectCompileOutput {
@@ -752,13 +797,13 @@ fn get_compiled(project: &Project) -> ProjectCompileOutput {
 
 /// Default data for the tests group.
 pub static TEST_DATA_DEFAULT: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Default, edr_chain_l1::Hardfork::CANCUN)
+    ForgeTestData::new(ForgeTestProfile::Default, edr_chain_l1::Hardfork::PRAGUE)
         .expect("linking ok")
 });
 
-/// Data for tests requiring Cancun support on Solc and EVM level.
-pub static TEST_DATA_CANCUN: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Cancun, edr_chain_l1::Hardfork::CANCUN)
+/// Data for tests requiring Paris support on Solc and EVM level.
+pub static TEST_DATA_PARIS: Lazy<L1ForgeTestData> = Lazy::new(|| {
+    ForgeTestData::new(ForgeTestProfile::Paris, edr_chain_l1::Hardfork::MERGE)
         .expect("linking ok")
 });
 
@@ -766,7 +811,7 @@ pub static TEST_DATA_CANCUN: Lazy<L1ForgeTestData> = Lazy::new(|| {
 pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
     ForgeTestData::new(
         ForgeTestProfile::MultiVersion,
-        edr_chain_l1::Hardfork::CANCUN,
+        edr_chain_l1::Hardfork::PRAGUE,
     )
     .expect("linking ok")
 });
@@ -781,23 +826,23 @@ fn mock_rpc_endpoints() -> RpcEndpoints {
 fn remote_rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
         (
-            "rpcAliasMainnet",
+            "mainnet",
             RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Ethereum)),
         ),
         (
-            "rpcAliasSepolia",
+            "sepolia",
             RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Sepolia)),
         ),
         (
-            "rpcAliasOptimism",
+            "optimism",
             RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Optimism)),
         ),
         (
-            "rpcAliasPolygon",
+            "polygon",
             RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Polygon)),
         ),
         (
-            "rpcAliasArbitrum",
+            "arbitrum",
             RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Arbitrum)),
         ),
     ])

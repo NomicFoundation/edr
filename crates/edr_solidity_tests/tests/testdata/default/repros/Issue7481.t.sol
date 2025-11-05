@@ -11,7 +11,7 @@ contract Issue7481Test is DSTest {
 
     function testRevertTransact() public {
         vm._expectInternalRevert();
-        vm.createSelectFork("rpcAliasMainnet", 19514903);
+        vm.createSelectFork("mainnet", 19514903);
 
         // Transfer some funds to sender of tx being transacted to ensure that it appears in journaled state
         payable(address(0x5C60cD7a3D50877Bfebd484750FBeb245D936dAD)).call{value: 1}("");

@@ -2,7 +2,7 @@
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 
 use crate::helpers::{
-    L1ForgeTestData, SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_CANCUN,
+    L1ForgeTestData, SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_PARIS,
     TEST_DATA_DEFAULT, TEST_DATA_MULTI_VERSION,
 };
 
@@ -102,11 +102,11 @@ async fn test_cheats_local_multi_version_should_fail() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_cheats_local_cancun() {
-    test_cheats_local(&TEST_DATA_CANCUN, false).await;
+async fn test_cheats_local_paris() {
+    test_cheats_local(&TEST_DATA_PARIS, false).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_cheats_local_cancun_should_fail() {
-    test_cheats_local(&TEST_DATA_CANCUN, true).await;
+async fn test_cheats_local_paris_should_fail() {
+    test_cheats_local(&TEST_DATA_PARIS, true).await;
 }
