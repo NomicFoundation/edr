@@ -1216,13 +1216,9 @@ impl<'a,
         let runner = self.fuzz_runner();
         let fuzz_config = self.cr.fuzz_config.clone();
 
-        // Check that executor is borrowed to avoid cloning it twice.
-        debug_assert!(matches!(self.executor, Cow::Borrowed(_)));
-        let executor = self.executor.clone().into_owned();
-
         // Run fuzz test.
         let fuzzed_executor =
-            FuzzedExecutor::new(executor, runner, self.cr.sender, fuzz_config);
+            FuzzedExecutor::new(self.executor.into_owned(), runner, self.cr.sender, fuzz_config);
         let result = fuzzed_executor.fuzz(
             func,
             &self.setup.fuzz_fixtures,
@@ -1244,7 +1240,8 @@ impl<'a,
                 {
                     indeterminism_reasons.into()
                 } else {
-                    self.re_run_fuzz_counterexample_for_stack_traces(
+                    re_run_fuzz_counterexample_for_stack_traces(
+                        self.cr,
                         self.setup.address,
                         counter_example,
                         self.setup.has_setup_method,
@@ -1372,46 +1369,66 @@ impl<'a,
             .expect("traces are not empty")
     }
 
-    /// Re-run the deployment, setup and test execution with expensive EVM step
-    /// tracing to generate a stack trace for a fuzz counterexample.
-    fn re_run_fuzz_counterexample_for_stack_traces(
-        &self,
-        address: Address,
-        counter_example: &BaseCounterExample,
-        needs_setup: bool,
-    ) -> Result<Vec<StackTraceEntry>, StackTraceError<HaltReasonT>> {
-        let mut executor = self.cr.executor_builder.clone().build()?;
+}
 
-        // We only need light-weight tracing for setup to be able to match contract
-        // codes to contact addresses.
-        executor.inspector_mut().tracing(TracingMode::WithoutSteps);
-        let setup = self.cr.setup(&mut executor, needs_setup);
-        if let Some(reason) = setup.reason {
-            // If this function was called, the setup succeeded during test execution, so
-            // this is an unexpected failure.
-            return Err(StackTraceError::FailingSetup(reason));
-        }
+/// Re-run the deployment, setup and test execution with expensive EVM step
+/// tracing to generate a stack trace for a fuzz counterexample.
+/// This is a standalone function to allow partially moving in the parent.
+fn re_run_fuzz_counterexample_for_stack_traces<
+    BlockT: BlockEnvTr,
+    ChainContextT: 'static + ChainContextTr,
+    EvmBuilderT: 'static
+    + EvmBuilderTrait<
+    BlockT,
+    ChainContextT,
+    HaltReasonT,
+    HardforkT,
+    TransactionErrorT,
+    TxT,
+    >,
+    HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason>,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    TxT: TransactionEnvTr,
+    NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+>
+(
+    contract_runner: &ContractRunner<'_, BlockT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, TxT, NestedTraceDecoderT>,
+    address: Address,
+    counter_example: &BaseCounterExample,
+    needs_setup: bool,
+) -> Result<Vec<StackTraceEntry>, StackTraceError<HaltReasonT>> {
+    let mut executor = contract_runner.executor_builder.clone().build()?;
 
-        // Collect EVM step traces that are needed for stack trace generation.
-        executor.inspector_mut().tracing(TracingMode::WithSteps);
-
-        // Run counterexample test
-        let call = executor
-            .call_raw(
-                self.cr.sender,
-                address,
-                counter_example.calldata.clone(),
-                U256::ZERO,
-            )
-            .map_err(|err| StackTraceError::Evm(err.to_string()))?;
-
-        let mut traces = setup.traces;
-        traces.push((TraceKind::Execution, call.traces.expect("tracing is on")));
-
-        get_stack_trace(&*self.cr.contract_decoder, &traces)
-            .transpose()
-            .expect("traces are not empty")
+    // We only need light-weight tracing for setup to be able to match contract
+    // codes to contact addresses.
+    executor.inspector_mut().tracing(TracingMode::WithoutSteps);
+    let setup = contract_runner.setup(&mut executor, needs_setup);
+    if let Some(reason) = setup.reason {
+        // If this function was called, the setup succeeded during test execution, so
+        // this is an unexpected failure.
+        return Err(StackTraceError::FailingSetup(reason));
     }
+
+    // Collect EVM step traces that are needed for stack trace generation.
+    executor.inspector_mut().tracing(TracingMode::WithSteps);
+
+    // Run counterexample test
+    let call = executor
+        .call_raw(
+            contract_runner.sender,
+            address,
+            counter_example.calldata.clone(),
+            U256::ZERO,
+        )
+        .map_err(|err| StackTraceError::Evm(err.to_string()))?;
+
+    let mut traces = setup.traces;
+    traces.push((TraceKind::Execution, call.traces.expect("tracing is on")));
+
+    get_stack_trace(&*contract_runner.contract_decoder, &traces)
+        .transpose()
+        .expect("traces are not empty")
 }
 
 fn fuzzer_with_cases(

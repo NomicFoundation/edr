@@ -377,8 +377,8 @@ impl<
 
     /// Set variables from an environment for the relevant inspectors.
     #[inline]
-    pub fn set_env(&mut self, env: EvmEnv<BlockT, TxT, HardforkT>) {
-        self.set_block(env.block.into());
+    pub fn set_env(&mut self, env: &EvmEnv<BlockT, TxT, HardforkT>) {
+        self.set_block(env.block.clone().into());
         self.set_gas_price(env.tx.gas_price());
     }
 
@@ -386,7 +386,7 @@ impl<
     #[inline]
     pub fn set_block(&mut self, block: BlockEnv) {
         if let Some(cheatcodes) = &mut self.cheatcodes {
-            cheatcodes.block = Some(block.clone());
+            cheatcodes.block = Some(block);
         }
     }
 
