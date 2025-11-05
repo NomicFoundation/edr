@@ -491,7 +491,7 @@ jobs:
         uses: actions/setup-node@v5
         id: setup-node
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - name: Validate that packages have everything for publishing
         run: |
@@ -587,10 +587,14 @@ jobs:
                 }
               ]
             }
-      - name: Setup node to be able to update npm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup node
         uses: actions/setup-node@v5
+        id: setup-node
         with:
-          node-version: 24
+          node-version: 22
+          cache: pnpm
       - name: Update npm to make sure it supports Trusted Publishing
         run: npm install -g npm@v11.6.2
       - name: Download packed tarball
