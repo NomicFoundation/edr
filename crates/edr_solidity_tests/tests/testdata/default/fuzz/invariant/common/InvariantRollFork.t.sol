@@ -16,7 +16,8 @@ contract RollForkHandler is DSTest {
     function work() external {
         console.log("roll fork");
         vm.rollFork(block.number + 1);
-        totalSupply = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F).totalSupply();
+        totalSupply = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F)
+            .totalSupply();
         console.log("work totalSupply", totalSupply);
     }
 }
@@ -48,7 +49,10 @@ contract InvariantRollForkStateTest is DSTest {
         console.log("this address", address(this));
         console.log("fork handler address", address(forkHandler));
         console.log("pre totalSupply", forkHandler.totalSupply());
-        require(forkHandler.totalSupply() < 3254378807384273078310283461, "wrong supply");
+        require(
+            forkHandler.totalSupply() < 3254378807384273078310283461,
+            "wrong supply"
+        );
         console.log("post totalSupply", forkHandler.totalSupply());
     }
 }

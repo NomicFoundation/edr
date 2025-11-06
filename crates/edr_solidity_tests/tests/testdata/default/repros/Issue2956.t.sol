@@ -12,7 +12,10 @@ contract Issue2956Test is DSTest {
 
     function setUp() public {
         fork1 = vm.createFork("sepolia", 5565573);
-        fork2 = vm.createFork("https://api.avax-test.network/ext/bc/C/rpc", 12880747);
+        fork2 = vm.createFork(
+            "https://api.avax-test.network/ext/bc/C/rpc",
+            12880747
+        );
     }
 
     function testForkNonce() public {
