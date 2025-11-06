@@ -619,7 +619,7 @@ jobs:
 
           # We need to publish the contests of crates/edr_napi only
           cd ./crates/edr_napi
-          
+
           # First publish every cross-platform package
           for platform in ./npm/* ; do
             cd $platform
