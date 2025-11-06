@@ -83,14 +83,9 @@ impl<'builder, BlockchainErrorT: std::error::Error>
             inputs.withdrawals = Some(Vec::new());
         }
 
-        overrides.withdrawals_root = overrides.withdrawals_root.map_or_else(
-            || {
-                define_op_withdrawals_root(hardfork, &state).map_err(|error| {
-                    BlockBuilderCreationError::Database(DatabaseComponentError::State(error))
-                })
-            },
-            |value| Ok(Some(value)),
-        )?;
+        overrides.withdrawals_root = overrides
+            .withdrawals_root
+            .or_else(|| define_op_withdrawals_root(hardfork, &state));
 
         if hardfork >= Hardfork::HOLOCENE {
             // For post-Holocene blocks, store the encoded base fee parameters to be used in
@@ -222,17 +217,13 @@ impl<'builder, BlockchainErrorT: std::error::Error>
 ///
 /// After Isthmus activation, the withdrawalsRoot field be the
 /// `L2ToL1MessagePasser` account storage root
-fn define_op_withdrawals_root(
-    hardfork: Hardfork,
-    state: &dyn DynState,
-) -> Result<Option<B256>, StateError> {
+fn define_op_withdrawals_root(hardfork: Hardfork, state: &dyn DynState) -> Option<B256> {
     if hardfork < Hardfork::CANYON {
-        Ok(None)
+        None
     } else if hardfork < Hardfork::ISTHMUS {
-        Ok(Some(KECCAK_NULL_RLP))
+        Some(KECCAK_NULL_RLP)
     } else {
-        let storage_root = state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?;
-        Ok(storage_root)
+        state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)
     }
 }
 /// Decodes the base fee params from Bytes considering op-stack extra-param spec
@@ -310,7 +301,7 @@ mod tests {
         let hardfork = Hardfork::BEDROCK;
         let blockchain = create_local_blockchain(hardfork)?;
         let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
-        let response = define_op_withdrawals_root(hardfork, &state)?;
+        let response = define_op_withdrawals_root(hardfork, &state);
         assert_eq!(response, None);
         Ok(())
     }
@@ -319,7 +310,7 @@ mod tests {
         let hardfork = Hardfork::CANYON;
         let blockchain = create_local_blockchain(hardfork)?;
         let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
-        let response = define_op_withdrawals_root(hardfork, &state)?;
+        let response = define_op_withdrawals_root(hardfork, &state);
         assert_eq!(response, Some(KECCAK_NULL_RLP));
         Ok(())
     }
@@ -329,10 +320,10 @@ mod tests {
         let hardfork = Hardfork::ISTHMUS;
         let blockchain = create_local_blockchain(hardfork)?;
         let state = blockchain.state_at_block_number(0, &BTreeMap::new())?;
-        let response = define_op_withdrawals_root(hardfork, &state)?;
+        let response = define_op_withdrawals_root(hardfork, &state);
         assert_eq!(
             response,
-            state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?
+            state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)
         );
         Ok(())
     }

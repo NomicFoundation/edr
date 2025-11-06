@@ -31,7 +31,6 @@ use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
 use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_state_api::StateDiff;
-use edr_state_persistent_trie::PersistentStateTrie;
 
 use crate::{
     eip2718::TypedEnvelope,
@@ -261,7 +260,7 @@ impl GenesisBlockFactory for GenericChainSpec {
                 .unwrap_or(Bytes::copy_from_slice(L1_GENESIS_BLOCK_EXTRA_DATA)),
         );
 
-        EthLocalBlock::with_genesis_state(genesis_diff, block_config, options)
+        EthLocalBlock::with_genesis_state(genesis_diff.into(), block_config, options)
     }
 }
 

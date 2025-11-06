@@ -2805,7 +2805,6 @@ dependencies = [
  "edr_signer",
  "edr_solidity",
  "edr_state_api",
- "edr_state_persistent_trie",
  "edr_test_utils",
  "edr_transaction",
  "edr_utils",

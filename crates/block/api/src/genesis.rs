@@ -21,6 +21,8 @@ pub struct GenesisBlockOptions<HardforkT> {
     pub base_fee_params: Option<BaseFeeParams<HardforkT>>,
     /// The block's blob gas (for post-Cancun blockchains)
     pub blob_gas: Option<BlobGas>,
+    /// The block's withdrawals root
+    pub withdrawals_root: Option<B256>,
 }
 
 impl<HardforkT> From<GenesisBlockOptions<HardforkT>> for HeaderOverrides<HardforkT> {
@@ -33,6 +35,7 @@ impl<HardforkT> From<GenesisBlockOptions<HardforkT>> for HeaderOverrides<Hardfor
             base_fee,
             base_fee_params,
             blob_gas,
+            withdrawals_root,
         } = value;
 
         Self {
@@ -43,6 +46,7 @@ impl<HardforkT> From<GenesisBlockOptions<HardforkT>> for HeaderOverrides<Hardfor
             base_fee,
             base_fee_params,
             blob_gas,
+            withdrawals_root,
             ..HeaderOverrides::default()
         }
     }

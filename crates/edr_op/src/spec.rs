@@ -33,7 +33,8 @@ use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_eth::jsonrpc;
 use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_state_api::StateDiff;
+use edr_state_api::{StateDebug as _, StateDiff};
+use edr_state_persistent_trie::PersistentStateTrie;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
 use revm_context::{result::EVMError, CfgEnv, Journal, JournalTr as _};
 use serde::{de::DeserializeOwned, Serialize};
@@ -43,6 +44,7 @@ use crate::{
     eip1559::encode_dynamic_base_fee_params,
     eip2718::TypedEnvelope,
     hardfork::{op_chain_configs, op_default_base_fee_params},
+    predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
     receipt::{
         block::OpBlockReceipt,
         execution::{OpExecutionReceipt, OpExecutionReceiptBuilder},
@@ -213,7 +215,7 @@ impl GenesisBlockFactory for OpChainSpec {
     fn genesis_block(
         genesis_diff: StateDiff,
         block_config: BlockConfig<'_, Self::Hardfork>,
-         mut options: GenesisBlockOptions<Self::Hardfork>,
+        mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
         let genesis_state = PersistentStateTrie::from(genesis_diff);
 
@@ -235,9 +237,9 @@ impl GenesisBlockFactory for OpChainSpec {
 
         if block_config.hardfork >= Hardfork::ISTHMUS {
             options.withdrawals_root =
-                genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS)?;
+                genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS);
         };
-        LocalBlock::with_genesis_state(genesis_diff, block_config, options)
+        LocalBlock::with_genesis_state(genesis_state, block_config, options)
     }
 }
 

@@ -17,7 +17,8 @@ use edr_receipt::{
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     ExecutionReceiptChainSpec, MapReceiptLogs, ReceiptTrait, TransactionReceipt,
 };
-use edr_state_api::{StateDebug as _, StateError};
+use edr_receipt_spec::ReceiptConstructor;
+use edr_state_api::StateDebug as _;
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_transaction::TransactionAndReceipt;
 use edr_trie::ordered_trie_root;
@@ -169,7 +170,7 @@ impl<
         genesis_state: PersistentStateTrie,
         block_config: BlockConfig<'_, HardforkT>,
         options: GenesisBlockOptions<HardforkT>,
-   ) -> Result<Self, LocalBlockCreationError> {
+    ) -> Result<Self, LocalBlockCreationError> {
         let evm_spec_id = block_config.hardfork.clone().into();
         if evm_spec_id >= EvmSpecId::MERGE && options.mix_hash.is_none() {
             return Err(LocalBlockCreationError::MissingPrevrandao);

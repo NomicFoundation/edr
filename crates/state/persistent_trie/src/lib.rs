@@ -205,8 +205,8 @@ impl StateCommit for PersistentStateTrie {
 impl StateDebug for PersistentStateTrie {
     type Error = StateError;
 
-    fn account_storage_root(&self, address: &Address) -> Result<Option<B256>, Self::Error> {
-        Ok(self.accounts_and_storage.storage_root(address))
+    fn account_storage_root(&self, address: &Address) -> Option<B256> {
+        self.accounts_and_storage.storage_root(address)
     }
 
     fn insert_account(

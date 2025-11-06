@@ -162,9 +162,9 @@ impl<
 {
     type Error = StateError;
 
-    fn account_storage_root(&self, _address: &Address) -> Result<Option<B256>, Self::Error> {
+    fn account_storage_root(&self, _address: &Address) -> Option<B256> {
         // HACK: Hardhat ignores the storage root, so we set it to the default value
-        Ok(Some(KECCAK_NULL_RLP))
+        Some(KECCAK_NULL_RLP)
     }
 
     fn insert_account(
