@@ -4,24 +4,7 @@
 
 ### Patch Changes
 
-- d5885a2: CI changes - this changeset is only needed for triggering CI properly. Can be removed later on
-
-## 0.12.0-next.13
-
-### Patch Changes
-
 - abf7434: Fixed unexpected test failure when running in isolate/gas stats mode
-
-## 0.12.0-next.12
-
-### Patch Changes
-
-- 29cf155: EDR internal refactor + CI improvements
-
-## 0.12.0-next.11
-
-### Patch Changes
-
 - f67363e: Added latest dynamic base fee parameters to Base Mainnet chain config
 
 ## 0.12.0-next.10
