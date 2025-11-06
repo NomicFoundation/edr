@@ -443,7 +443,7 @@ jobs:
           done
           cd ../.. # cd to root dir
           echo "Creating bundle with necessary files for publishing"
-          ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
+          ROOT_FILES=("Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
           ALL_FILES=("${ROOT_FILES[@]}" "${NAPI_FILES[@]}")
           echo "files to include in tar: ${ALL_FILES[@]}"
           # Using --dereference since LICENSE file are symlinks
@@ -620,8 +620,8 @@ jobs:
           # Publish every cross-platform package
           for platform in ./crates/edr_napi/npm/* ; do
             cd $platform
-            pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
+            pnpm publish --no-git-checks --provenance --tag ${{ needs.check_commit.outputs.tag}} --access public
             cd -
           done
           # Publish root edr package
-          pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
+          pnpm publish --no-git-checks --provenance --tag ${{ needs.check_commit.outputs.tag}} --access public
