@@ -167,7 +167,7 @@ test_repro!(2898);
 remote_test_repro!(2956);
 
 // https://github.com/foundry-rs/foundry/issues/2984
-test_repro!(2984);
+remote_test_repro!(2984);
 
 // https://github.com/foundry-rs/foundry/issues/3055
 test_repro!(3055, true);
@@ -248,7 +248,7 @@ test_repro!(3685);
 remote_test_repro!(3703);
 
 // https://github.com/foundry-rs/foundry/issues/3708
-test_repro!(3708);
+remote_test_repro!(3708);
 
 // https://github.com/foundry-rs/foundry/issues/3753
 test_repro!(3753);
@@ -449,11 +449,54 @@ remote_test_repro!(6759);
 // https://github.com/foundry-rs/foundry/issues/6966
 test_repro!(6966);
 
+// https://github.com/foundry-rs/foundry/issues/7457
+test_repro!(7457; |config| {
+    config.cheats_config_options.allow_internal_expect_revert = true;
+});
+
 // https://github.com/foundry-rs/foundry/issues/7481
 test_repro!(7481);
 
 // https://github.com/foundry-rs/foundry/issues/8006
 remote_test_repro!(8006);
+
+// https://github.com/foundry-rs/foundry/issues/8004
+remote_test_repro!(8004);
+
+// https://github.com/foundry-rs/foundry/issues/2851
+test_repro!(2851, false, None, |res| {
+    let mut res = res.remove("default/repros/Issue2851.t.sol:Issue2851Test").unwrap();
+    let test = res.test_results.remove("invariantNotZero()").unwrap();
+    assert_eq!(test.status, TestStatus::Failure);
+});
+
+// https://github.com/foundry-rs/foundry/issues/8277
+test_repro!(8277);
+
+// https://github.com/foundry-rs/foundry/issues/8287
+remote_test_repro!(8287);
+
+// https://github.com/foundry-rs/foundry/issues/8168
+remote_test_repro!(8168);
+
+// https://github.com/foundry-rs/foundry/issues/8383
+test_repro!(8383, false, None, |res| {
+    let mut res = res.remove("default/repros/Issue8383.t.sol:Issue8383Test").unwrap();
+    let test = res.test_results.remove("testP256VerifyOutOfBounds()").unwrap();
+    assert_eq!(test.status, TestStatus::Success);
+    match test.kind {
+        TestKind::Unit { gas } => assert_eq!(gas, 3103),
+        _ => panic!("not a unit test kind"),
+    }
+});
+
+// https://github.com/foundry-rs/foundry/issues/6643
+test_repro!(6643);
+
+// https://github.com/foundry-rs/foundry/issues/8971
+test_repro!(8971; |config| {
+  config.evm_opts.isolate = true;
+});
 
 // https://github.com/foundry-rs/foundry/issues/8639
 test_repro!(8639; |config| {
@@ -461,7 +504,28 @@ test_repro!(8639; |config| {
     config.fuzz.seed = Some(U256::from(100));
 });
 
-// https://github.com/foundry-rs/foundry/issues/8971
-test_repro!(8971; |config| {
-  config.evm_opts.isolate = true;
+// https://github.com/foundry-rs/foundry/issues/8566
+test_repro!(8566);
+
+// https://github.com/foundry-rs/foundry/issues/9643
+test_repro!(9643);
+
+// https://github.com/foundry-rs/foundry/issues/7238
+test_repro!(7238; |config| {
+    config.cheats_config_options.allow_internal_expect_revert = true;
 });
+
+// https://github.com/foundry-rs/foundry/issues/10302
+remote_test_repro!(10302);
+
+// https://github.com/foundry-rs/foundry/issues/10527
+test_repro!(10527);
+
+// https://github.com/foundry-rs/foundry/issues/10552
+remote_test_repro!(10552);
+
+// https://github.com/foundry-rs/foundry/issues/10586
+test_repro!(10586);
+
+// https://github.com/foundry-rs/foundry/issues/10957
+remote_test_repro!(10957);
