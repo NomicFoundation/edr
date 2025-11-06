@@ -5,7 +5,8 @@ import "ds-test/test.sol";
 import "cheats/Vm.sol";
 
 contract ForkTest is DSTest {
-    address constant WETH_TOKEN_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant WETH_TOKEN_ADDR =
+        0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     Vm constant vm = Vm(HEVM_ADDRESS);
     uint256 forkA;
 

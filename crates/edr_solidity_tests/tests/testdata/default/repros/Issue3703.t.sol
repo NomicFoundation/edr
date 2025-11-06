@@ -11,14 +11,20 @@ contract Issue3703Test is DSTest {
     function setUp() public {
         uint256 fork = vm.createSelectFork(
             "polygon",
-            bytes32(0xbed0c8c1b9ff8bf0452979d170c52893bb8954f18a904aa5bcbd0f709be050b9)
+            bytes32(
+                0xbed0c8c1b9ff8bf0452979d170c52893bb8954f18a904aa5bcbd0f709be050b9
+            )
         );
     }
 
-    function poolState(address poolAddr, uint256 expectedSqrtPriceX96, uint256 expectedLiquidity) private {
+    function poolState(
+        address poolAddr,
+        uint256 expectedSqrtPriceX96,
+        uint256 expectedLiquidity
+    ) private {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddr);
 
-        (uint256 actualSqrtPriceX96,,,,,,) = pool.slot0();
+        (uint256 actualSqrtPriceX96, , , , , , ) = pool.slot0();
         uint256 actualLiquidity = pool.liquidity();
 
         assertEq(expectedSqrtPriceX96, actualSqrtPriceX96);
@@ -26,7 +32,11 @@ contract Issue3703Test is DSTest {
     }
 
     function testStatePool1() public {
-        poolState(0x847b64f9d3A95e977D157866447a5C0A5dFa0Ee5, 1076133273204200901840477866344, 1221531661829);
+        poolState(
+            0x847b64f9d3A95e977D157866447a5C0A5dFa0Ee5,
+            1076133273204200901840477866344,
+            1221531661829
+        );
     }
 }
 

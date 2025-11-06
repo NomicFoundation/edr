@@ -31,7 +31,8 @@ contract Issue4586Test is DSTest {
 }
 
 contract InvariantHandler {
-    address constant HEVM_ADDRESS = address(bytes20(uint160(uint256(keccak256("hevm cheat code")))));
+    address constant HEVM_ADDRESS =
+        address(bytes20(uint160(uint256(keccak256("hevm cheat code")))));
     Vm constant vm = Vm(HEVM_ADDRESS);
 
     uint256 public calledRollFork;

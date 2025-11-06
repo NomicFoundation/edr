@@ -53,7 +53,10 @@ contract ParseTomlTest is DSTest {
     }
 
     function test_H160ButNotaddress() public {
-        string memory data = abi.decode(vm.parseToml(toml, ".H160NotAddress"), (string));
+        string memory data = abi.decode(
+            vm.parseToml(toml, ".H160NotAddress"),
+            (string)
+        );
         assertEq("0000000000000000000000000000000000001337", data);
     }
 
@@ -124,7 +127,10 @@ contract ParseTomlTest is DSTest {
         uint256 number = vm.parseTomlUint(toml, ".uintNumber");
         assertEq(number, 9223372036854775807); // TOML is limited to 64-bit integers
         number = vm.parseTomlUint(toml, ".uintString");
-        assertEq(number, 115792089237316195423570985008687907853269984665640564039457584007913129639935);
+        assertEq(
+            number,
+            115792089237316195423570985008687907853269984665640564039457584007913129639935
+        );
         number = vm.parseTomlUint(toml, ".uintHex");
         assertEq(number, 1231232);
         uint256[] memory numbers = vm.parseTomlUintArray(toml, ".uintArray");
@@ -164,25 +170,28 @@ contract ParseTomlTest is DSTest {
         bytes memory bytes_ = vm.parseTomlBytes(toml, ".bytesString");
         assertEq(bytes_, hex"01");
 
-        bytes[] memory bytesArray = vm.parseTomlBytesArray(toml, ".bytesStringArray");
+        bytes[] memory bytesArray = vm.parseTomlBytesArray(
+            toml,
+            ".bytesStringArray"
+        );
         assertEq(bytesArray[0], hex"01");
         assertEq(bytesArray[1], hex"02");
     }
 
-    struct Nested {
+    struct NestedStruct {
         uint256 number;
         string str;
     }
 
     function test_nestedObject() public {
         bytes memory data = vm.parseToml(toml, ".nestedObject");
-        Nested memory nested = abi.decode(data, (Nested));
+        NestedStruct memory nested = abi.decode(data, (NestedStruct));
         assertEq(nested.number, 9223372036854775807); // TOML is limited to 64-bit integers
         assertEq(nested.str, "NEST");
     }
 
-    function test_advancedJsonPath() public {
-        bytes memory data = vm.parseToml(toml, ".advancedJsonPath[*].id");
+    function test_advancedTomlPath() public {
+        bytes memory data = vm.parseToml(toml, ".advancedTomlPath[*].id");
         uint256[] memory numbers = abi.decode(data, (uint256[]));
         assertEq(numbers[0], 1);
         assertEq(numbers[1], 2);
@@ -200,8 +209,8 @@ contract ParseTomlTest is DSTest {
     }
 
     function test_parseTomlKeys() public {
-        string memory tomlString =
-            "some_key_to_value = \"some_value\"\n some_key_to_array = [1, 2, 3]\n [some_key_to_object]\n key1 = \"value1\"\n key2 = 2";
+        string
+            memory tomlString = 'some_key_to_value = "some_value"\n some_key_to_array = [1, 2, 3]\n [some_key_to_object]\n key1 = "value1"\n key2 = 2';
 
         string[] memory keys = vm.parseTomlKeys(tomlString, "$");
         string[] memory expected = new string[](3);
@@ -216,13 +225,19 @@ contract ParseTomlTest is DSTest {
         expected[1] = "key2";
         assertEq(abi.encode(keys), abi.encode(expected));
 
-        vm._expectCheatcodeRevert("JSON value at \".some_key_to_array\" is not an object");
+        vm._expectCheatcodeRevert(
+            'JSON value at ".some_key_to_array" is not an object'
+        );
         vm.parseTomlKeys(tomlString, ".some_key_to_array");
 
-        vm._expectCheatcodeRevert("JSON value at \".some_key_to_value\" is not an object");
+        vm._expectCheatcodeRevert(
+            'JSON value at ".some_key_to_value" is not an object'
+        );
         vm.parseTomlKeys(tomlString, ".some_key_to_value");
 
-        vm._expectCheatcodeRevert("key \".*\" must return exactly one JSON object");
+        vm._expectCheatcodeRevert(
+            'key ".*" must return exactly one JSON object'
+        );
         vm.parseTomlKeys(tomlString, ".*");
     }
 }
@@ -238,18 +253,18 @@ contract WriteTomlTest is DSTest {
         json2 = "example2";
     }
 
-    struct simpleJson {
+    struct simpleStruct {
         uint256 a;
         string b;
     }
 
-    struct notSimpleJson {
+    struct nestedStruct {
         uint256 a;
         string b;
-        simpleJson c;
+        simpleStruct c;
     }
 
-    function test_serializeNotSimpleToml() public {
+    function test_serializeNestedStructToml() public {
         string memory json3 = "json3";
         string memory path = "fixtures/Toml/write_complex_test.toml";
         vm.serializeUint(json3, "a", uint256(123));
@@ -259,14 +274,16 @@ contract WriteTomlTest is DSTest {
         vm.writeToml(finalJson, path);
         string memory toml = vm.readFile(path);
         bytes memory data = vm.parseToml(toml);
-        notSimpleJson memory decodedData = abi.decode(data, (notSimpleJson));
+        nestedStruct memory decodedData = abi.decode(data, (nestedStruct));
+        console.log(decodedData.a);
+        assertEq(decodedData.a, 123);
     }
 
     function test_retrieveEntireToml() public {
         string memory path = "fixtures/Toml/write_complex_test.toml";
         string memory toml = vm.readFile(path);
         bytes memory data = vm.parseToml(toml, ".");
-        notSimpleJson memory decodedData = abi.decode(data, (notSimpleJson));
+        nestedStruct memory decodedData = abi.decode(data, (nestedStruct));
         console.log(decodedData.a);
         assertEq(decodedData.a, 123);
     }
@@ -294,7 +311,7 @@ contract WriteTomlTest is DSTest {
 
         string memory toml = vm.readFile(path);
         bytes memory data = vm.parseToml(toml);
-        simpleJson memory decodedData = abi.decode(data, (simpleJson));
+        simpleStruct memory decodedData = abi.decode(data, (simpleStruct));
         assertEq(decodedData.a, 123);
         assertEq(decodedData.b, "test");
 
@@ -303,7 +320,7 @@ contract WriteTomlTest is DSTest {
         // read again
         toml = vm.readFile(path);
         data = vm.parseToml(toml, ".b");
-        decodedData = abi.decode(data, (simpleJson));
+        decodedData = abi.decode(data, (simpleStruct));
         assertEq(decodedData.a, 123);
         assertEq(decodedData.b, "test");
 
