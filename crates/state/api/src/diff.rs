@@ -23,7 +23,7 @@ impl StateDiff {
             })
             .or_insert(Account {
                 info: account_info,
-                storage: HashMap::new(),
+                storage: HashMap::default(),
                 status: AccountStatus::Touched,
                 transaction_id: 0,
             });

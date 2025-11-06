@@ -107,8 +107,8 @@ impl SparsedTraceArena {
                                 .steps
                                 .get(step_idx)
                                 .expect("step_idx should be within steps bounds");
-                            if let Some(DecodedTraceStep::InternalCall(_, end_step_idx)) =
-                                &step.decoded
+                            if let Some(decoded) = &step.decoded
+                                && let DecodedTraceStep::InternalCall(_, end_step_idx) = &**decoded
                             {
                                 internal_calls.push((item_idx, remove, *end_step_idx));
                                 // we decide if we should remove it later

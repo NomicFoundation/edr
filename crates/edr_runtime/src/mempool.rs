@@ -209,7 +209,7 @@ impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
         Self {
             block_gas_limit,
             pending_transactions: IndexMap::new(),
-            hash_to_transaction: HashMap::new(),
+            hash_to_transaction: HashMap::default(),
             future_transactions: IndexMap::new(),
             next_order_id: 0,
         }

@@ -18,13 +18,12 @@ use std::{
 };
 
 use alloy_primitives::{
-    map::{B256HashMap, HashMap},
+    map::{B256HashMap, DefaultHashBuilder, HashMap},
     Bytes,
 };
 use analysis::SourceAnalysis;
 use eyre::Result;
 use foundry_compilers::artifacts::sourcemap::SourceMap;
-use hashbrown as _;
 use semver::Version;
 
 pub mod analysis;
@@ -232,10 +231,7 @@ impl HitMap {
     pub fn new(bytecode: Bytes) -> Self {
         Self {
             bytecode,
-            hits: HashMap::with_capacity_and_hasher(
-                1024,
-                alloy_primitives::map::foldhash::fast::RandomState::default(),
-            ),
+            hits: HashMap::with_capacity_and_hasher(1024, DefaultHashBuilder::default()),
         }
     }
 
@@ -261,6 +257,12 @@ impl HitMap {
     #[inline]
     pub fn hits(&mut self, pc: u32, hits: u32) {
         *self.hits.entry(pc).or_default() += hits;
+    }
+
+    /// Reserve space for additional hits.
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        self.hits.reserve(additional);
     }
 
     /// Merge another hitmap into this, assuming the bytecode is consistent

@@ -311,7 +311,7 @@ mod tests {
     use super::*;
 
     fn precompiled_contracts() -> HashMap<Address, AccountInfo> {
-        let mut accounts = HashMap::new();
+        let mut accounts = HashMap::default();
 
         // Mimic precompiles activation
         for idx in 1..=8 {
@@ -352,7 +352,7 @@ mod tests {
 
     #[test]
     fn with_accounts_empty() {
-        let accounts = HashMap::new();
+        let accounts = HashMap::default();
         let state = PersistentAccountAndStorageTrie::with_accounts(&accounts);
 
         assert_eq!(state.state_root(), KECCAK_NULL_RLP);

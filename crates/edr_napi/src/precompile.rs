@@ -1,4 +1,4 @@
-use edr_precompile::{PrecompileFn, PrecompileWithAddress};
+use edr_precompile::PrecompileFn;
 use edr_primitives::Address;
 use napi::bindgen_prelude::Uint8Array;
 use napi_derive::napi;
@@ -24,11 +24,11 @@ impl Precompile {
     }
 }
 
-impl From<PrecompileWithAddress> for Precompile {
-    fn from(value: PrecompileWithAddress) -> Self {
+impl From<edr_precompile::Precompile> for Precompile {
+    fn from(value: edr_precompile::Precompile) -> Self {
         Self {
-            address: value.0,
-            precompile_fn: value.1,
+            address: *value.address(),
+            precompile_fn: value.into_precompile(),
         }
     }
 }

@@ -295,11 +295,11 @@ fn write_generated_module_file(generated_chains: Vec<ChainConfigSpec>) -> anyhow
 
         pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {{
 
-            HashMap::from([
+            [
 
                 {config_tuples}
             
-            ])
+            ].into_iter().collect()
         }}
         "
     )?;

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use edr_chain_l1::{rpc::call::L1CallRequest, L1ChainSpec};
 use edr_precompile::secp256r1;
-use edr_primitives::{bytes, Bytes, HashMap};
+use edr_primitives::{bytes, Bytes};
 use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
@@ -52,10 +52,12 @@ async fn rip7212_disabled() -> anyhow::Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn rip7212_enabled() -> anyhow::Result<()> {
     let mut config = create_test_config();
-    config.precompile_overrides = HashMap::from([(
+    config.precompile_overrides = [(
         *secp256r1::P256VERIFY.address(),
         *secp256r1::P256VERIFY.precompile(),
-    )]);
+    )]
+    .into_iter()
+    .collect();
 
     let logger = Box::new(NoopLogger::<L1ChainSpec>::default());
     let subscriber = Box::new(|_event| {});

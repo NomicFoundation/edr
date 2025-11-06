@@ -212,7 +212,7 @@ pub(crate) fn l1_chain_configs() -> &'static HashMap<u64, ChainConfig<Hardfork>>
     static CONFIGS: OnceLock<HashMap<u64, ChainConfig<Hardfork>>> = OnceLock::new();
 
     CONFIGS.get_or_init(|| {
-        let mut hardforks = HashMap::new();
+        let mut hardforks = HashMap::default();
         hardforks.insert(L1_MAINNET_CHAIN_ID, mainnet_config().clone());
         hardforks.insert(HOLESKY_CHAIN_ID, holesky_config().clone());
         hardforks.insert(HOODI_CHAIN_ID, hoodi_config().clone());

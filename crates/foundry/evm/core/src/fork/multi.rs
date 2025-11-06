@@ -28,7 +28,7 @@ use futures::{
 use super::CreateFork;
 use crate::{
     evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
-    fork::provider::{ProviderBuilder, RetryProvider},
+    fork::provider::ProviderBuilder,
 };
 
 /// The _unique_ identifier for a specific fork, this could be the name of the
@@ -233,7 +233,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     }
 }
 
-type Handler = BackendHandler<Arc<RetryProvider>>;
+type Handler = BackendHandler;
 
 type CreateFuture<BlockT, TxT, HardforkT> = Pin<
     Box<

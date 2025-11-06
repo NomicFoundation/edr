@@ -580,10 +580,19 @@ impl CallTrace {
     /// Instantiates a `CallTrace` with the details from a node and the supplied
     /// children.
     fn new(node: &traces::CallTraceNode, children: Vec<Either<CallTrace, LogTrace>>) -> Self {
-        let contract = node.trace.decoded.label.clone();
+        let contract = node
+            .trace
+            .decoded
+            .as_ref()
+            .and_then(|decoded| decoded.label.clone());
         let address = node.trace.address.to_checksum(None);
 
-        let inputs = match &node.trace.decoded.call_data {
+        let inputs = match &node
+            .trace
+            .decoded
+            .as_ref()
+            .and_then(|decoded| decoded.call_data.as_ref())
+        {
             Some(traces::DecodedCallData { signature, args }) => {
                 let name = signature
                     .split('(')
@@ -596,7 +605,12 @@ impl CallTrace {
             None => Either::B(node.trace.data.as_ref().into()),
         };
 
-        let outputs = match &node.trace.decoded.return_data {
+        let outputs = match node
+            .trace
+            .decoded
+            .as_ref()
+            .and_then(|decoded| decoded.return_data.as_ref())
+        {
             Some(outputs) => Either::A(outputs.clone()),
             None => {
                 if node.kind().is_any_create() && node.trace.success {
@@ -713,7 +727,10 @@ impl CallTrace {
 
 impl From<&traces::CallLog> for LogTrace {
     fn from(log: &traces::CallLog) -> Self {
-        let decoded_log = log.decoded.name.clone().zip(log.decoded.params.as_ref());
+        let decoded_log = log
+            .decoded
+            .as_ref()
+            .and_then(|decoded| decoded.name.clone().zip(decoded.params.as_ref()));
 
         let parameters = decoded_log.map_or_else(
             || {

@@ -96,7 +96,7 @@ pub mod xterio_eth;
 pub mod zora;
 
 pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
-    HashMap::from([
+    [
         (arena_z::MAINNET_CHAIN_ID, arena_z::mainnet_config()),
         (arena_z::SEPOLIA_CHAIN_ID, arena_z::sepolia_config()),
         (automata::MAINNET_CHAIN_ID, automata::mainnet_config()),
@@ -177,5 +177,7 @@ pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
         (xterio_eth::MAINNET_CHAIN_ID, xterio_eth::mainnet_config()),
         (zora::MAINNET_CHAIN_ID, zora::mainnet_config()),
         (zora::SEPOLIA_CHAIN_ID, zora::sepolia_config()),
-    ])
+    ]
+    .into_iter()
+    .collect()
 }

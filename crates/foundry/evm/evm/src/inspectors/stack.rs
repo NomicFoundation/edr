@@ -862,11 +862,7 @@ impl<
 
                 for (addr, acc_mut) in &mut state {
                     // mark all accounts cold, besides preloaded addresses
-                    if !context
-                        .journaled_state
-                        .warm_preloaded_addresses
-                        .contains(addr)
-                    {
+                    if context.journaled_state.warm_addresses.is_cold(addr) {
                         acc_mut.mark_cold();
                     }
 
@@ -1340,6 +1336,7 @@ impl<
                         .and_then(|selector| mocks.get(selector))
                 }) {
                     call.bytecode_address = *target;
+                    call.known_bytecode = None;
                 }
             }
 
@@ -1370,7 +1367,7 @@ impl<
                 CallScheme::StaticCall => {
                     let JournaledState {
                         state,
-                        warm_preloaded_addresses,
+                        warm_addresses,
                         ..
                     } = &mut ecx.journaled_state.inner;
                     for (addr, acc_mut) in state {
@@ -1381,7 +1378,7 @@ impl<
                             continue;
                         }
 
-                        if !warm_preloaded_addresses.contains(addr) {
+                        if warm_addresses.is_cold(addr) {
                             acc_mut.mark_cold();
                         }
 

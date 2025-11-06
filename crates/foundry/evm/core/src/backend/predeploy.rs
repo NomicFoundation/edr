@@ -1,6 +1,5 @@
 use alloy_primitives::Address;
 use revm::{
-    primitives::hash_map::HashMap,
     state::{Account, AccountInfo, AccountStatus, EvmStorage},
     DatabaseCommit,
 };
@@ -33,7 +32,7 @@ pub(super) fn insert_predeploys(
             };
             (predeploy.address, account)
         })
-        .collect::<HashMap<_, _>>();
+        .collect();
 
     db.commit(changes);
 }

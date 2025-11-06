@@ -29,7 +29,7 @@ async fn sepolia_call_with_remote_chain_id() -> anyhow::Result<()> {
     let mut config = create_test_config_with_fork(Some(ForkConfig {
         block_number: None,
         cache_dir: edr_defaults::CACHE_DIR.into(),
-        chain_overrides: HashMap::new(),
+        chain_overrides: HashMap::default(),
         http_headers: None,
         url: op::sepolia_url(),
     }));
