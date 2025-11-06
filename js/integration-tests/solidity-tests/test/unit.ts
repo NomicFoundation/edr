@@ -76,7 +76,7 @@ describe("Unit tests", () => {
 
   describe("IsolateMode", function () {
     it("IsolateMode on", async function () {
-      const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      const { totalTests, failedTests, stackTraces } = await testContext.runTestsWithStats(
         "IsolateTest",
         {
           isolate: true,
