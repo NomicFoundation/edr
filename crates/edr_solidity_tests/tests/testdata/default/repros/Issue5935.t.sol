@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity ^0.8.18;
 
 import "ds-test/test.sol";
 import "cheats/Vm.sol";
@@ -12,7 +12,6 @@ contract SimpleStorage {
     }
 }
 
-/// @dev start anvil --port 35353
 contract Issue5935Test is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 

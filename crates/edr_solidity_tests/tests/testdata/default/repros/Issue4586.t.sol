@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-pragma solidity 0.8.18;
+pragma solidity ^0.8.18;
 
 import "ds-test/test.sol";
 import "cheats/Vm.sol";
@@ -31,8 +31,7 @@ contract Issue4586Test is DSTest {
 }
 
 contract InvariantHandler {
-    address constant HEVM_ADDRESS =
-        address(bytes20(uint160(uint256(keccak256("hevm cheat code")))));
+    address constant HEVM_ADDRESS = address(bytes20(uint160(uint256(keccak256("hevm cheat code")))));
     Vm constant vm = Vm(HEVM_ADDRESS);
 
     uint256 public calledRollFork;

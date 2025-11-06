@@ -848,5 +848,9 @@ fn remote_rpc_endpoints() -> RpcEndpoints {
             "arbitrum",
             RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Arbitrum)),
         ),
+        (
+            "avaxTestnet",
+            RpcEndpointUrl::new("https://api.avax-test.network/ext/bc/C/rpc")
+        ),
     ])
 }
