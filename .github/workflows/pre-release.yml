@@ -19,10 +19,14 @@ jobs:
           # This makes Actions fetch all Git history so that Changesets can generate changelogs with the correct commits
           fetch-depth: 0
 
+      - uses: socketdev/action@v1
+        with:
+          mode: firewall
+
       - uses: ./.github/actions/setup-node
 
       - name: Install Dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
 
       - name: Get version from package.json
         id: get-version
