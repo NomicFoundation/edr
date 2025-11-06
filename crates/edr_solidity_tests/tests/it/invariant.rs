@@ -1022,3 +1022,126 @@ async fn test_invariant_gas_report() {
         .iter()
         .all(|r| r.gas > 0 && r.status == GasReportExecutionStatus::Success));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_metrics() {
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantMetrics.t.sol");
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_invariant_config(TestInvariantConfig {
+            runs: 10,
+            show_metrics: true,
+            ..TestInvariantConfig::default()
+        })
+        .await;
+
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let test_results = results
+        .get("default/fuzz/invariant/common/InvariantMetrics.t.sol:CounterTest")
+        .unwrap()
+        .test_results
+        .get("invariant_counter()")
+        .unwrap();
+
+    let metrics = match &test_results.kind {
+        edr_solidity_tests::result::TestKind::Invariant { metrics, .. } => metrics,
+        _ => panic!("Expected Invariant test kind"),
+    };
+
+    assert!(metrics.contains_key(
+        "default/fuzz/invariant/common/InvariantMetrics.t.sol:CounterHandler.doSomething"
+    ));
+    assert!(metrics.contains_key(
+        "default/fuzz/invariant/common/InvariantMetrics.t.sol:CounterHandler.doAnotherThing"
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_timeout() {
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTimeout.t.sol");
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_invariant_config(TestInvariantConfig {
+            runs: 10000,
+            depth: 20000,
+            timeout: Some(1),
+            ..TestInvariantConfig::default()
+        })
+        .await;
+
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let test_results = results
+        .get("default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest")
+        .unwrap()
+        .test_results
+        .get("invariant_counter_timeout()")
+        .unwrap();
+
+    let (runs, calls, reverts) = match &test_results.kind {
+        edr_solidity_tests::result::TestKind::Invariant {
+            runs,
+            calls,
+            reverts,
+            ..
+        } => (*runs, *calls, *reverts),
+        _ => panic!("Expected Invariant test kind"),
+    };
+
+    // Test timeouts and cancels remaining runs
+    assert_eq!(runs, 0);
+    assert_eq!(calls, 0);
+    assert_eq!(reverts, 0);
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest",
+            vec![(
+                "invariant_counter_timeout()",
+                true,
+                None,
+                None,
+                None,
+            )],
+        )]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_selectors_weight() {
+    let filter = SolidityTestFilter::new(
+        ".*",
+        ".*",
+        ".*fuzz/invariant/common/InvariantSelectorsWeight.t.sol",
+    );
+
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_invariant_config_and_seed(
+            U256::from(119u32),
+            TestInvariantConfig {
+                runs: 1,
+                depth: 10,
+                ..TestInvariantConfig::default()
+            },
+            TEST_DATA_DEFAULT.config_with_mock_rpc(),
+        )
+        .await;
+
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantSelectorsWeight.t.sol:InvariantSelectorsWeightTest",
+            vec![(
+                "invariant_selectors_weight()",
+                true,
+                None,
+                None,
+                None,
+            )],
+        )]),
+    );
+}
