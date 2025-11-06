@@ -1,5 +1,11 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.14
+
+### Patch Changes
+
+- d5885a2: CI changes - this changeset is only needed for triggering CI properly. Can be removed later on
+
 ## 0.12.0-next.13
 
 ### Patch Changes
