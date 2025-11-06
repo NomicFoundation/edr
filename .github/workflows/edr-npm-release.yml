@@ -617,11 +617,14 @@ jobs:
             exit 1
           fi
 
-          # Publish every cross-platform package
-          for platform in ./crates/edr_napi/npm/* ; do
+          # We need to publish the contests of crates/edr_napi only
+          cd ./crates/edr_napi
+          
+          # First publish every cross-platform package
+          for platform in ./npm/* ; do
             cd $platform
             pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
             cd -
           done
-          # Publish root edr package
+          # Finally Publish edr napi root package (because it depends on the cross-platform ones)
           pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
