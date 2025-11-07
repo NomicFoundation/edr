@@ -207,8 +207,6 @@ async fn test_assume_no_revert() {
         .get("default/cheats/AssumeNoRevert2.t.sol:AssumeNoRevertTest")
         .unwrap();
 
-    println!("{suite_result:#?}");
-
     let test_result = suite_result.test_results.get("test_assume_no_revert_pass(uint256)").unwrap();
     assert_eq!(test_result.status, TestStatus::Success);
 
@@ -224,5 +222,58 @@ async fn test_assume_no_revert() {
     let test_result = suite_result.test_results.get("test_assume_no_revert_fail_in_3rd_call(uint256)").unwrap();
     assert_eq!(test_result.status, TestStatus::Failure);
     assert_eq!(test_result.reason, Some("CheckError()".into()));
+    assert!(test_result.counterexample.is_some());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_assume_no_revert_with_data() {
+    let filter = SolidityTestFilter::new(".*", "AssumeNoRevertWithDataTest", ".*cheats/");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.seed = Some(U256::from(100));
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite_result = suite_results
+        .get("default/cheats/AssumeNoRevertWithData.t.sol:AssumeNoRevertWithDataTest")
+        .unwrap();
+
+    let test_result = suite_result.test_results.get("testAssumeThenExpectCountZeroFails(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("call reverted with 'FOUNDRY::ASSUME' when it was expected not to revert".into()));
+    assert!(test_result.counterexample.is_some());
+
+    let test_result = suite_result.test_results.get("testAssumeWithReverter_fails(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("MyRevert()".into()));
+    assert!(test_result.counterexample.is_some());
+
+    let test_result = suite_result.test_results.get("testAssume_wrongData_fails(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("RevertWithData(2)".into()));
+    assert!(test_result.counterexample.is_some());
+
+    let test_result = suite_result.test_results.get("testAssume_wrongSelector_fails(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("MyRevert()".into()));
+    assert!(test_result.counterexample.is_some());
+
+    let test_result = suite_result.test_results.get("testExpectCountZeroThenAssumeFails(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("call reverted with 'FOUNDRY::ASSUME' when it was expected not to revert".into()));
+    assert!(test_result.counterexample.is_some());
+
+    let test_result = suite_result.test_results.get("testMultipleAssumesClearAfterCall_fails(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("MyRevert()".into()));
+    assert!(test_result.counterexample.is_some());
+
+    let test_result = suite_result.test_results.get("testMultipleAssumes_OneWrong_fails(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("RevertWithData(3)".into()));
+    assert!(test_result.counterexample.is_some());
+
+    let test_result = suite_result.test_results.get("testMultipleAssumes_ThrowOnGenericNoRevert_AfterSpecific_fails(bytes4)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("vm.assumeNoRevert: you must make another external call prior to calling assumeNoRevert again".into()));
     assert!(test_result.counterexample.is_some());
 }
