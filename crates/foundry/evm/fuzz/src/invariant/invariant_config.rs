@@ -38,8 +38,6 @@ pub struct InvariantConfig {
     pub show_metrics: bool,
     /// Optional timeout (in seconds) for each invariant test.
     pub timeout: Option<u32>,
-    /// Display counterexample as solidity calls.
-    pub show_solidity: bool,
     /// Whether to collect and display edge coverage metrics.
     pub show_edge_coverage: bool,
 }
@@ -65,7 +63,6 @@ impl Default for InvariantConfig {
             failure_persist_dir: None,
             show_metrics: true,
             timeout: None,
-            show_solidity: false,
             show_edge_coverage: false,
         }
     }

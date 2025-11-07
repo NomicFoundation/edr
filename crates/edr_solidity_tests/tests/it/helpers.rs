@@ -333,7 +333,6 @@ impl From<TestInvariantConfig> for InvariantConfig {
             failure_persist_dir: value.failure_persist_dir,
             show_metrics: value.show_metrics,
             timeout: value.timeout,
-            show_solidity: false,
             show_edge_coverage: value.show_edge_coverage,
         }
     }

@@ -991,7 +991,6 @@ impl<'a,
         let failure_file = failure_dir
             .as_ref()
             .map(|failure_dir| failure_dir.join(&invariant_contract.invariant_function.name));
-        let show_solidity = invariant_config.show_solidity;
 
         // Try to replay recorded failure if any.
         if let Some(failure_file) = failure_file.as_ref() && let Some(mut call_sequence) =
@@ -1001,7 +1000,6 @@ impl<'a,
             let txes = call_sequence
                 .iter_mut()
                 .map(|seq| {
-                    seq.show_solidity = show_solidity;
                     BasicTxDetails {
                         sender: seq.sender.unwrap_or_default(),
                         call_details: CallDetails {
@@ -1037,7 +1035,6 @@ impl<'a,
                     contract_decoder: Some(&*self.cr.contract_decoder),
                     revert_decoder: self.cr.revert_decoder,
                     fail_on_revert: self.cr.invariant_config.fail_on_revert,
-                    show_solidity,
                 }).map_or(None, |result| result.stack_trace_result);
                 self.result.invariant_replay_fail(
                     replayed_entirely,
@@ -1105,7 +1102,6 @@ impl<'a,
                             generate_stack_trace: true,
                             contract_decoder: Some(&*self.cr.contract_decoder),
                             revert_decoder: self.cr.revert_decoder,
-                            show_solidity,
                         }
                     ) {
                         Ok(ReplayResult { counterexample_sequence, stack_trace_result, revert_reason }) => {
@@ -1174,7 +1170,6 @@ impl<'a,
                         contract_decoder: Some(&*self.cr.contract_decoder),
                         revert_decoder: self.cr.revert_decoder,
                         fail_on_revert: self.cr.invariant_config.fail_on_revert,
-                        show_solidity,
                     }
                 ) {
                     error!(%err, "Failed to replay last invariant run");
