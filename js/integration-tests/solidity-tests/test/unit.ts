@@ -168,6 +168,22 @@ describe("Unit tests", () => {
     assertImpureCheatcode(stackTrace, "createSelectFork");
   });
 
+  it("LibraryMultifork", async function (t) {
+    if (testContext.rpcUrl === undefined) {
+      return t.skip();
+    }
+
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("LibraryMultiForkTest", {
+        rpcEndpoints: {
+          alchemyMainnet: testContext.rpcUrl!,
+        },
+      });
+
+    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 1);
+  });
+
   it("FailingSetup", async function () {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("FailingSetupTest");

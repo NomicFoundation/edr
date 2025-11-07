@@ -3,12 +3,13 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::{Bytes, U256};
+use itertools::Itertools;
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{
     fuzz::CounterExample,
     result::{SuiteResult, TestStatus},
 };
-
+use edr_solidity_tests::result::TestKind;
 use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_DATA_DEFAULT};
 
 #[tokio::test(flavor = "multi_thread")]
@@ -42,6 +43,8 @@ async fn test_fuzz() {
                 "testPositive(uint256)"
                 | "testPositive(int256)"
                 | "testSuccessfulFuzz(uint128,uint128)"
+                | "testArray(uint64[2])"
+                | "testArrayPreBytecodeHash(uint64[2])"
                 | "testToStringFuzz(bytes32)" => assert_eq!(
                     result.status,
                     TestStatus::Success,
@@ -244,6 +247,20 @@ async fn test_fuzz_gas_report() {
 
     assert!(!increment_by_reports.is_empty());
     assert!(increment_by_reports.iter().all(|r| r.gas > 0));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_should_not_shrink_fuzz_failure() {
+    let filter = SolidityTestFilter::new(".*", "FuzzFailureShrinkTest", ".*fuzz/");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 256;
+    config.fuzz.seed = Some(U256::from(100));
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_result = suite_results.get("default/fuzz/FuzzFailureShrink.t.sol:FuzzFailureShrinkTest").unwrap();
+    let test_result = suite_result.test_results.get("testAddOne(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert!(matches!(test_result.kind, TestKind::Fuzz {runs: 84, ..}));
 }
 
 #[tokio::test(flavor = "multi_thread")]
