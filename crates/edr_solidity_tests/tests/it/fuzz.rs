@@ -3,7 +3,6 @@
 use std::collections::BTreeMap;
 
 use alloy_primitives::{Bytes, U256};
-use itertools::Itertools;
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{
     fuzz::CounterExample,
