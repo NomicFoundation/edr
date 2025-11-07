@@ -9,3 +9,4 @@ mod fuzz;
 mod invariant;
 mod repros;
 mod spec;
+mod table;
