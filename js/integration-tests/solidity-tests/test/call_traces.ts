@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { before, describe, it } from "node:test";
+import test, { before, describe, it } from "node:test";
 import { TestContext } from "./testContext.js";
 import {
   IncludeTraces,
@@ -427,5 +427,28 @@ describe("Call traces - CallTracesSetup", () => {
       name: "testAfterSetup",
       arguments: [],
     });
+  });
+});
+
+describe("Pause and Resume Tracing", () => {
+  let testCallTraces: Map<string, CallTrace[]>;
+
+  before(async () => {
+    const testContext = await TestContext.setup();
+    const runResult = await testContext.runTestsWithStats("PauseTracingTest", {
+      includeTraces: IncludeTraces.All,
+      isolate: true,
+    });
+    testCallTraces = runResult.callTraces;
+  });
+
+  it("should have fewer traces", async function () {
+    const setUpTrace = testCallTraces.get("test()")![0];
+    // Not pausing tracing would still result in 3 traces here
+    assert.equal(setUpTrace.children.length, 2);
+
+    const testTrace = testCallTraces.get("test()")![1];
+    // Not pausing tracing would result in 3 traces here
+    assert.equal(testTrace.children.length, 2);
   });
 });
