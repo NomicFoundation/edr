@@ -256,6 +256,17 @@ test_repro!(3753);
 // https://github.com/foundry-rs/foundry/issues/3792
 test_repro!(3792);
 
+// https://github.com/foundry-rs/foundry/issues/4370
+test_repro!(4370, false, None, |res| {
+    let mut res = res
+        .remove("default/repros/Issue4370.t.sol:Issue4370Test")
+        .unwrap();
+
+    let test = res.test_results.remove("test_negativeGas()").unwrap();
+    assert!(matches!(test.status, TestStatus::Success));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 96 }));
+});
+
 // https://github.com/foundry-rs/foundry/issues/4402
 test_repro!(4402);
 
@@ -506,6 +517,20 @@ test_repro!(8639; |config| {
 
 // https://github.com/foundry-rs/foundry/issues/8566
 test_repro!(8566);
+
+// https://github.com/foundry-rs/foundry/issues/8705
+test_repro!(8705, false, None, |res| {
+    let mut res = res
+        .remove("default/repros/Issue8705.t.sol:Issue8705Test")
+        .unwrap();
+    let test = res.test_results.remove("test_decode()").unwrap();
+    assert_eq!(test.status, TestStatus::Failure);
+    assert_eq!(test.reason, Some("Error != expected error: NumberNotEven(1) != RandomError()".to_string()));
+
+    let test = res.test_results.remove("test_decode_with_args()").unwrap();
+    assert_eq!(test.status, TestStatus::Failure);
+    assert_eq!(test.reason, Some("Error != expected error: NumberNotEven(1) != NumberNotEven(2)".to_string()));
+});
 
 // https://github.com/foundry-rs/foundry/issues/9643
 test_repro!(9643);
