@@ -38,6 +38,30 @@ pub fn gas_price_oracle_code_isthmus() -> Vec<u8> {
     ))
     .expect("The bytecode for the GasPriceOracle predeploy in the Isthmus hardfork should be a valid hex string")
 }
+/// Returns the bytecode for the `L1Block` predeploy, introduced during
+/// the Isthmus hardfork.
+pub fn l1_block_code_isthmus() -> Vec<u8> {
+    hex::decode(include_str!(
+        "../data/predeploys/l1_block/isthmus.txt"
+    ))
+    .expect("The bytecode for the L1Block predeploy in the Isthmus hardfork should be a valid hex string")
+}
+/// Returns the bytecode for the `L1Block` predeploy, introduced during
+/// the Ecotone hardfork.
+pub fn l1_block_code_ecotone() -> Vec<u8> {
+    hex::decode(include_str!(
+        "../data/predeploys/l1_block/ecotone.txt"
+    ))
+    .expect("The bytecode for the L1Block predeploy in the Ecotone hardfork should be a valid hex string")
+}
+/// Returns the bytecode for the `L1Block` predeploy, introduced during
+/// the Bedrock hardfork.
+pub fn l1_block_code_bedrock() -> Vec<u8> {
+    hex::decode(include_str!(
+        "../data/predeploys/l1_block/bedrock.txt"
+    ))
+    .expect("The bytecode for the L1Block predeploy in the Bedrock hardfork should be a valid hex string")
+}
 
 #[cfg(test)]
 mod tests {
@@ -49,5 +73,13 @@ mod tests {
         let _ecotone_override = gas_price_oracle_code_ecotone();
         let _fjord_override = gas_price_oracle_code_fjord();
         let _isthmus_override = gas_price_oracle_code_isthmus();
+    }
+
+    #[test]
+    fn test_l1_block_code() {
+        // Ensure bytecode can be constructed without panics.
+        let _bedrock_code = l1_block_code_bedrock();
+        let _ecotone_code = l1_block_code_ecotone();
+        let _isthmus_code = l1_block_code_isthmus();
     }
 }

@@ -8,6 +8,7 @@ use edr_napi_core::{
 use edr_op::{
     predeploys::{
         gas_price_oracle_code_ecotone, gas_price_oracle_code_fjord, gas_price_oracle_code_isthmus,
+        l1_block_code_bedrock, l1_block_code_ecotone, l1_block_code_isthmus,
         GAS_PRICE_ORACLE_ADDRESS, L1_BLOCK_PREDEPLOY_ADDRESS,
     },
     OpChainSpec,
@@ -143,13 +144,12 @@ pub const OP_CHAIN_TYPE: &str = edr_op::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
 pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
-    let l1_block_code = hex::decode(include_str!("../../data/op/predeploys/l1_block.txt"))
-        .expect("The bytecode for the L1Block predeploy should be a valid hex string");
+    let l1_block_code = l1_block_code(hardfork.into());
     let l1_block = AccountOverride {
         address: Uint8Array::with_data_copied(L1_BLOCK_PREDEPLOY_ADDRESS),
         balance: Some(BigInt::from(0u64)),
         nonce: Some(BigInt::from(0u64)),
-        code: Some(l1_block_code.into()),
+        code: Some(l1_block_code),
         storage: Some(vec![
             StorageSlot {
                 index: BigInt::from(0u64),
@@ -410,6 +410,16 @@ fn gas_price_oracle_isthmus() -> AccountOverride {
                 0x0000000000000000000000000000000000000000000000000000000000010101u64,
             ),
         }]),
+    }
+}
+
+fn l1_block_code(hardfork: edr_op::Hardfork) -> Uint8Array {
+    if hardfork >= edr_op::Hardfork::ISTHMUS {
+        l1_block_code_isthmus().into()
+    } else if hardfork >= edr_op::Hardfork::ECOTONE {
+        l1_block_code_ecotone().into()
+    } else {
+        l1_block_code_bedrock().into()
     }
 }
 
