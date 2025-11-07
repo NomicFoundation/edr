@@ -10,5 +10,8 @@ edr_state_api.workspace = true
 revm-database-interface.workspace = true
 thiserror.workspace = true
 
+[features]
+tracing = ["edr_blockchain_api/tracing"]
+
 [lints]
 workspace = true

@@ -25,7 +25,7 @@ tempfile.workspace = true
 
 [features]
 test-remote = []
-tracing = ["dep:tracing"]
+tracing = ["dep:tracing", "edr_state_persistent_trie/tracing", "edr_state_remote/tracing"]
 
 [lints]
 workspace = true

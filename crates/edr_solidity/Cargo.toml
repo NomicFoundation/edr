@@ -29,6 +29,9 @@ itertools = "0.10.5"
 [dev-dependencies]
 criterion = "0.5"
 
+[features]
+tracing = ["edr_evm_spec/tracing", "edr_runtime/tracing"]
+
 [[bench]]
 name = "contracts_identifier"
 harness = false

@@ -14,7 +14,7 @@ edr_state_api.workspace = true
 tracing = { workspace = true, optional = true }
 
 [features]
-tracing = ["dep:tracing"]
+tracing = ["dep:tracing", "edr_blockchain_api/tracing", "edr_database_components/tracing", "edr_evm_spec/tracing"]
 
 [lints]
 workspace = true

@@ -14,5 +14,8 @@ edr_receipt.workspace = true
 edr_state_api.workspace = true
 thiserror.workspace = true
 
+[features]
+tracing = ["edr_block_storage/tracing"]
+
 [lints]
 workspace = true

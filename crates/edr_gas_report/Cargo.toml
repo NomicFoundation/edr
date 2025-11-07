@@ -20,5 +20,8 @@ serde.workspace = true
 
 comfy-table = "7"
 
+[features]
+tracing = ["edr_evm/tracing", "edr_evm_spec/tracing", "edr_solidity/tracing"]
+
 [lints]
 workspace = true

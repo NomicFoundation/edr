@@ -31,7 +31,13 @@ tracing = { workspace = true, optional = true }
 
 [features]
 test-remote = []
-tracing = ["dep:tracing"]
+tracing = [
+    "dep:tracing",
+    "edr_block_storage/tracing",
+    "edr_blockchain_api/tracing",
+    "edr_blockchain_remote/tracing",
+    "edr_state_fork/tracing"
+]
 
 [lints]
 workspace = true

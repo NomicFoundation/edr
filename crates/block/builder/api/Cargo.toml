@@ -14,5 +14,8 @@ edr_state_api.workspace = true
 revm-precompile.workspace = true
 thiserror.workspace = true
 
+[features]
+tracing = ["edr_blockchain_api/tracing", "edr_database_components/tracing", "edr_evm_spec/tracing"]
+
 [lints]
 workspace = true

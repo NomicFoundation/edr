@@ -32,7 +32,16 @@ thiserror.workspace = true
 tokio.workspace = true
 
 [features]
-tracing = ["edr_provider/tracing"]
+tracing = [
+    "edr_chain_l1/tracing",
+    "edr_evm_spec/tracing",
+    "edr_generic/tracing",
+    "edr_provider/tracing",
+    "edr_rpc_client/tracing",
+    "edr_runtime/tracing",
+    "edr_solidity/tracing",
+    "edr_solidity_tests/tracing"
+]
 
 [lints]
 workspace = true
