@@ -226,7 +226,7 @@ impl Default for TestFuzzConfig {
     fn default() -> Self {
         TestFuzzConfig {
             runs: 256,
-            fail_on_revert: false,
+            fail_on_revert: true,
             max_test_rejects: 65536,
             seed: None,
             dictionary: TestFuzzDictionaryConfig::default(),
