@@ -22,6 +22,7 @@ contract CounterWithRevert {
     function dummy() public pure {}
 }
 
+// `test_assume_no_revert` in `crates/forge/tests/cli/test_cmd.rs`
 contract AssumeNoRevertTest is DSTest {
     Vm vm = Vm(HEVM_ADDRESS);
 

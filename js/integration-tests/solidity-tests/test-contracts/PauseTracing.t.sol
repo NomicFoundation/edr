@@ -20,6 +20,8 @@ contract TraceGenerator is Test {
         }
     }
 }
+
+// `pause_tracing` in `crates/forge/tests/cli/test_cmd.rs`
 contract PauseTracingTest is Test {
     event DummyEvent(uint256 i);
     function setUp() public {
