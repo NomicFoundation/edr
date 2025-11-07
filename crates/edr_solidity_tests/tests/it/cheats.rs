@@ -239,43 +239,21 @@ async fn test_assume_no_revert_with_data() {
         .get("default/cheats/AssumeNoRevertWithData.t.sol:AssumeNoRevertWithDataTest")
         .unwrap();
 
-    let test_result = suite_result.test_results.get("testAssumeThenExpectCountZeroFails(uint256)").unwrap();
-    assert_eq!(test_result.status, TestStatus::Failure);
-    assert_eq!(test_result.reason, Some("call reverted with 'FOUNDRY::ASSUME' when it was expected not to revert".into()));
-    assert!(test_result.counterexample.is_some());
+    let test_cases = [
+        ("testAssumeThenExpectCountZeroFails(uint256)", "call reverted with 'FOUNDRY::ASSUME' when it was expected not to revert"),
+        ("testAssumeWithReverter_fails(uint256)", "MyRevert()"),
+        ("testAssume_wrongData_fails(uint256)", "RevertWithData(2)"),
+        ("testAssume_wrongSelector_fails(uint256)", "MyRevert()"),
+        ("testExpectCountZeroThenAssumeFails(uint256)", "call reverted with 'FOUNDRY::ASSUME' when it was expected not to revert"),
+        ("testMultipleAssumesClearAfterCall_fails(uint256)", "MyRevert()"),
+        ("testMultipleAssumes_OneWrong_fails(uint256)", "RevertWithData(3)"),
+        ("testMultipleAssumes_ThrowOnGenericNoRevert_AfterSpecific_fails(bytes4)", "vm.assumeNoRevert: you must make another external call prior to calling assumeNoRevert again"),
+    ];
 
-    let test_result = suite_result.test_results.get("testAssumeWithReverter_fails(uint256)").unwrap();
-    assert_eq!(test_result.status, TestStatus::Failure);
-    assert_eq!(test_result.reason, Some("MyRevert()".into()));
-    assert!(test_result.counterexample.is_some());
-
-    let test_result = suite_result.test_results.get("testAssume_wrongData_fails(uint256)").unwrap();
-    assert_eq!(test_result.status, TestStatus::Failure);
-    assert_eq!(test_result.reason, Some("RevertWithData(2)".into()));
-    assert!(test_result.counterexample.is_some());
-
-    let test_result = suite_result.test_results.get("testAssume_wrongSelector_fails(uint256)").unwrap();
-    assert_eq!(test_result.status, TestStatus::Failure);
-    assert_eq!(test_result.reason, Some("MyRevert()".into()));
-    assert!(test_result.counterexample.is_some());
-
-    let test_result = suite_result.test_results.get("testExpectCountZeroThenAssumeFails(uint256)").unwrap();
-    assert_eq!(test_result.status, TestStatus::Failure);
-    assert_eq!(test_result.reason, Some("call reverted with 'FOUNDRY::ASSUME' when it was expected not to revert".into()));
-    assert!(test_result.counterexample.is_some());
-
-    let test_result = suite_result.test_results.get("testMultipleAssumesClearAfterCall_fails(uint256)").unwrap();
-    assert_eq!(test_result.status, TestStatus::Failure);
-    assert_eq!(test_result.reason, Some("MyRevert()".into()));
-    assert!(test_result.counterexample.is_some());
-
-    let test_result = suite_result.test_results.get("testMultipleAssumes_OneWrong_fails(uint256)").unwrap();
-    assert_eq!(test_result.status, TestStatus::Failure);
-    assert_eq!(test_result.reason, Some("RevertWithData(3)".into()));
-    assert!(test_result.counterexample.is_some());
-
-    let test_result = suite_result.test_results.get("testMultipleAssumes_ThrowOnGenericNoRevert_AfterSpecific_fails(bytes4)").unwrap();
-    assert_eq!(test_result.status, TestStatus::Failure);
-    assert_eq!(test_result.reason, Some("vm.assumeNoRevert: you must make another external call prior to calling assumeNoRevert again".into()));
-    assert!(test_result.counterexample.is_some());
+    for (test_name, reason) in test_cases {
+        let test_result = suite_result.test_results.get(test_name).unwrap();
+        assert_eq!(test_result.status, TestStatus::Failure);
+        assert_eq!(test_result.reason, Some(reason.into()));
+        assert!(test_result.counterexample.is_some());
+    }
 }
