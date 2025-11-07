@@ -444,7 +444,7 @@ describe("Pause and Resume Tracing", () => {
 
   it("should have fewer traces", async function () {
     const setUpTrace = testCallTraces.get("test()")![0];
-    // Not pausing tracing would still result in 3 traces here
+    // Not pausing tracing would result in 3 traces here
     assert.equal(setUpTrace.children.length, 2);
 
     const testTrace = testCallTraces.get("test()")![1];
