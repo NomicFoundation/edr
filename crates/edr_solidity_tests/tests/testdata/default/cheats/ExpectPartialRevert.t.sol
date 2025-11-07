@@ -10,6 +10,8 @@ contract Counter {
         revert WrongNumber(0);
     }
 }
+
+// `test_expect_partial_revert` in `crates/forge/tests/cli/test_cmd.rs`
 contract ExpectPartialRevertTest is DSTest {
     Vm vm = Vm(HEVM_ADDRESS);
     function testExpectPartialRevertWithSelector() public {

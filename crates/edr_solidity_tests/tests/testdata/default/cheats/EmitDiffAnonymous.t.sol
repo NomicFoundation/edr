@@ -12,6 +12,7 @@ contract Target {
     }
 }
 
+// `emit_diff_anonymous` in `crates/forge/tests/cli/failure_assertions.rs`
 contract EmitDiffAnonymousTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
     Target target;

@@ -9,6 +9,8 @@ contract B {
         return 100;
     }
 }
+
+// `gas_metering_reset` in `crates/forge/tests/cli/test_cmd.rs`
 contract GasMeteringResetTest is DSTest {
     Vm vm = Vm(HEVM_ADDRESS);
     B b;

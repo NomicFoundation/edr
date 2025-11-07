@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import "ds-test/test.sol";
 import "cheats/Vm.sol";
 
+// `mem_safety_test_should_fail` in `crates/forge/tests/cli/failure_assertions.rs`
 contract MemSafetyFailureTest is DSTest {
     Vm constant vm = Vm(address(HEVM_ADDRESS));
 
