@@ -184,6 +184,23 @@ describe("Unit tests", () => {
     assert.equal(totalTests, 1);
   });
 
+  it("ForkStateSetup", async function (t) {
+    if (testContext.rpcUrl === undefined) {
+      return t.skip();
+    }
+
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("ForkStateSetupTest", {
+        rpcEndpoints: {
+          mainnet: testContext.rpcUrl!,
+          base: testContext.rpcUrl!.replace("eth-mainnet", "base-mainnet"),
+        },
+      });
+
+    assert.equal(totalTests, 2);
+    assert.equal(failedTests, 0);
+  });
+
   it("FailingSetup", async function () {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("FailingSetupTest");
