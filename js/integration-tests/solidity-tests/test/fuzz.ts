@@ -255,4 +255,93 @@ describe("Fuzz and invariant testing", function () {
     const stackTrace = result.stackTraces.get("invariant()");
     assertImpureCheatcode(stackTrace, "unixTime");
   });
+
+  // Test that changing the source for a test invalidates persisted failures.
+  it("InvariantSourceChange", async function () {
+    const failureDir = testContext.invariantFailuresPersistDir;
+
+    await fs.rm(failureDir, {
+      recursive: true,
+      force: true,
+    });
+
+    const invariantConfig = {
+      runs: 256,
+      depth: 15,
+      failOnRevert: true,
+    };
+
+    const originalArtifacts = testContext.artifacts.filter((artifact) => {
+      return artifact.id.source.endsWith("InvariantSourceChange.t.sol")
+    });
+    const originalTestArtifact = originalArtifacts.find((artifact) => {
+      return artifact.id.name === "InvariantSourceChangeTest"
+    })
+    const originalHandlerArtifact = originalArtifacts.find((artifact) => {
+      return artifact.id.name === "AssumeHandler"
+    })
+    assert.equal(originalArtifacts.length, 2);
+
+    const [, originalResults] = await runAllSolidityTests(
+      testContext.edrContext,
+      L1_CHAIN_TYPE,
+      originalArtifacts,
+      [originalTestArtifact!.id],
+      testContext.tracingConfig,
+      {
+        ...testContext.defaultConfig(),
+        invariant: {
+          ...invariantConfig,
+          failurePersistDir: failureDir,
+        },
+        fuzz: {
+          seed: "100",
+        },
+      }
+    );
+    assert.equal(originalResults.length, 1);
+    assert.ok(originalResults[0].id.source.endsWith("InvariantSourceChange.t.sol"));
+    assert.equal(originalResults[0].testResults.length, 1);
+    assert.equal(originalResults[0].testResults[0].name, "invariant_assume()");
+    assert.equal(originalResults[0].testResults[0].status, "Failure");
+    assert.equal(originalResults[0].testResults[0].reason, "Invariant failure");
+
+
+    const changedArtifacts = testContext.artifacts.filter((artifact) => {
+      return artifact.id.source.endsWith("InvariantSourceChangeTwo.t.sol")
+    });
+    const changedTestArtifact = changedArtifacts.find((artifact) => {
+      return artifact.id.name === "InvariantSourceChangeTest"
+    })
+    const changedHandlerArtifact = changedArtifacts.find((artifact) => {
+      return artifact.id.name === "AssumeHandler"
+    })
+    originalTestArtifact!.contract = changedTestArtifact!.contract;
+    originalHandlerArtifact!.contract = changedHandlerArtifact!.contract;
+
+    const [, changedResults] = await runAllSolidityTests(
+      testContext.edrContext,
+      L1_CHAIN_TYPE,
+      originalArtifacts,
+      [originalTestArtifact!.id],
+      testContext.tracingConfig,
+      {
+        ...testContext.defaultConfig(),
+        invariant: {
+          ...invariantConfig,
+          failurePersistDir: failureDir,
+          maxAssumeRejects: 10
+        },
+        fuzz: {
+          seed: "100",
+        },
+      }
+    );
+    assert.equal(changedResults.length, 1);
+    assert.ok(changedResults[0].id.source.endsWith("InvariantSourceChange.t.sol"));
+    assert.equal(changedResults[0].testResults.length, 1);
+    assert.equal(changedResults[0].testResults[0].name, "invariant_assume()");
+    assert.equal(changedResults[0].testResults[0].status, "Failure");
+    assert.equal(changedResults[0].testResults[0].reason, "`vm.assume` rejected too many inputs (10 allowed)");
+  });
 });

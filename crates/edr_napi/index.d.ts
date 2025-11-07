@@ -836,6 +836,12 @@ export interface InvariantConfigArgs {
    * Defaults to 5000.
    */
   shrinkRunLimit?: number
+  /**
+   * The maximum number of rejects via `vm.assume` which can be encountered
+   * during a single invariant run.
+   * Defaults to 65536.
+   */
+  maxAssumeRejects?: number
 }
 /** Settings to configure caching of remote RPC endpoints. */
 export interface StorageCachingConfig {
