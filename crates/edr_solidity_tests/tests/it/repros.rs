@@ -529,3 +529,16 @@ test_repro!(10586);
 
 // https://github.com/foundry-rs/foundry/issues/10957
 remote_test_repro!(10957);
+
+// https://github.com/foundry-rs/foundry/issues/9526
+test_repro!(9526);
+
+// https://github.com/foundry-rs/foundry/issues/10012
+test_repro!(10012, true);
+
+// https://github.com/foundry-rs/foundry/issues/5521
+test_repro!(5521, false, None, |res| {
+    let mut res = res.remove("default/repros/Issue5521.t.sol:Issue5521Test").unwrap();
+    let test = res.test_results.remove("test_stackPrank()").unwrap();
+    assert_eq!(test.status, TestStatus::Success);
+});
