@@ -1,62 +1,55 @@
+//! Types for OP execution receipts.
+
 mod deposit;
 
 use edr_block_header::PartialHeader;
-use edr_evm::{receipt::ExecutionReceiptBuilder, result::ExecutionResult};
+use edr_evm_spec::result::ExecutionResult;
 use edr_primitives::Bloom;
 pub use edr_receipt::execution::{Eip658, Legacy};
 use edr_receipt::{
     log::{logs_to_bloom, ExecutionLog},
     ExecutionReceipt, MapReceiptLogs, RootOrStatus,
 };
+use edr_receipt_builder_api::ExecutionReceiptBuilder;
 use edr_state_api::State;
 use edr_transaction::{Transaction as _, TransactionType as _};
 
+pub use self::deposit::Deposit;
 use self::deposit::Eip658OrDeposit;
-use super::Execution;
-use crate::{eip2718::TypedEnvelope, transaction, HaltReason, Hardfork};
+use crate::{
+    eip2718::TypedEnvelope,
+    transaction::{signed::OpSignedTransaction, OpTransactionType},
+    HaltReason, Hardfork,
+};
 
-/// Receipt for an OP deposit transaction with deposit nonce (since
-/// Regolith) and optionally deposit receipt version (since Canyon).
+/// OP execution receipt.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Deposit<LogT> {
-    /// Status
-    pub status: bool,
-    /// Cumulative gas used in block after this transaction was executed
-    pub cumulative_gas_used: u64,
-    /// Bloom filter of the logs generated within this transaction
-    pub logs_bloom: Bloom,
-    /// Logs generated within this transaction
-    pub logs: Vec<LogT>,
-    /// The nonce used during execution.
-    pub deposit_nonce: u64,
-    /// The deposit receipt version.
-    ///
-    /// The deposit receipt version was introduced in Canyon to indicate an
-    /// update to how receipt hashes should be computed when set. The state
-    /// transition process ensures this is only set for post-Canyon deposit
-    /// transactions.
-    pub deposit_receipt_version: Option<u8>,
+pub enum OpExecutionReceipt<LogT> {
+    /// EIP-658 receipt.
+    Eip658(edr_receipt::execution::Eip658<LogT>),
+    /// OP deposit receipt (post-Regolith).
+    Deposit(Deposit<LogT>),
 }
 
-impl<LogT> From<Legacy<LogT>> for Execution<LogT> {
+impl<LogT> From<Legacy<LogT>> for OpExecutionReceipt<LogT> {
     fn from(value: Legacy<LogT>) -> Self {
-        Execution::Eip658(value.into())
+        OpExecutionReceipt::Eip658(value.into())
     }
 }
 
-impl<LogT> From<Eip658<LogT>> for Execution<LogT> {
+impl<LogT> From<Eip658<LogT>> for OpExecutionReceipt<LogT> {
     fn from(value: Eip658<LogT>) -> Self {
-        Execution::Eip658(value)
+        OpExecutionReceipt::Eip658(value)
     }
 }
 
-impl<LogT> From<Deposit<LogT>> for Execution<LogT> {
+impl<LogT> From<Deposit<LogT>> for OpExecutionReceipt<LogT> {
     fn from(value: Deposit<LogT>) -> Self {
-        Execution::Deposit(value)
+        OpExecutionReceipt::Deposit(value)
     }
 }
 
-impl<LogT> alloy_rlp::Decodable for Execution<LogT>
+impl<LogT> alloy_rlp::Decodable for OpExecutionReceipt<LogT>
 where
     LogT: alloy_rlp::Decodable,
 {
@@ -82,36 +75,38 @@ where
     }
 }
 
-impl<LogT> alloy_rlp::Encodable for Execution<LogT>
+impl<LogT> alloy_rlp::Encodable for OpExecutionReceipt<LogT>
 where
     LogT: alloy_rlp::Encodable,
 {
     fn encode(&self, out: &mut dyn alloy_rlp::BufMut) {
         match self {
-            Execution::Eip658(receipt) => receipt.encode(out),
-            Execution::Deposit(receipt) => receipt.encode(out),
+            OpExecutionReceipt::Eip658(receipt) => receipt.encode(out),
+            OpExecutionReceipt::Deposit(receipt) => receipt.encode(out),
         }
     }
 
     fn length(&self) -> usize {
         match self {
-            Execution::Eip658(receipt) => receipt.length(),
-            Execution::Deposit(receipt) => receipt.length(),
+            OpExecutionReceipt::Eip658(receipt) => receipt.length(),
+            OpExecutionReceipt::Deposit(receipt) => receipt.length(),
         }
     }
 }
 
 /// OP execution receipt builder.
-pub struct Builder {
+pub struct OpExecutionReceiptBuilder {
     deposit_nonce: u64,
 }
 
-impl ExecutionReceiptBuilder<HaltReason, Hardfork, transaction::Signed> for Builder {
-    type Receipt = TypedEnvelope<Execution<ExecutionLog>>;
+impl ExecutionReceiptBuilder<HaltReason, Hardfork, OpSignedTransaction>
+    for OpExecutionReceiptBuilder
+{
+    type Receipt = TypedEnvelope<OpExecutionReceipt<ExecutionLog>>;
 
     fn new_receipt_builder<StateT: State>(
         pre_execution_state: StateT,
-        transaction: &transaction::Signed,
+        transaction: &OpSignedTransaction,
     ) -> Result<Self, StateT::Error> {
         let deposit_nonce = pre_execution_state
             .basic(transaction.caller())?
@@ -123,15 +118,15 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, transaction::Signed> for Buil
     fn build_receipt(
         self,
         header: &PartialHeader,
-        transaction: &transaction::Signed,
+        transaction: &OpSignedTransaction,
         result: &ExecutionResult<HaltReason>,
         hardfork: Hardfork,
     ) -> Self::Receipt {
         let logs = result.logs().to_vec();
         let logs_bloom = logs_to_bloom(&logs);
 
-        let receipt = if transaction.transaction_type() == transaction::Type::Deposit {
-            Execution::Deposit(Deposit {
+        let receipt = if transaction.transaction_type() == OpTransactionType::Deposit {
+            OpExecutionReceipt::Deposit(Deposit {
                 status: result.is_success(),
                 cumulative_gas_used: header.gas_used,
                 logs_bloom,
@@ -144,7 +139,7 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, transaction::Signed> for Buil
                 },
             })
         } else {
-            Execution::Eip658(Eip658 {
+            OpExecutionReceipt::Eip658(Eip658 {
                 status: result.is_success(),
                 cumulative_gas_used: header.gas_used,
                 logs_bloom,
@@ -156,43 +151,49 @@ impl ExecutionReceiptBuilder<HaltReason, Hardfork, transaction::Signed> for Buil
     }
 }
 
-impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, Execution<NewLogT>> for Execution<LogT> {
-    fn map_logs(self, map_fn: impl FnMut(LogT) -> NewLogT) -> Execution<NewLogT> {
+impl<LogT, NewLogT> MapReceiptLogs<LogT, NewLogT, OpExecutionReceipt<NewLogT>>
+    for OpExecutionReceipt<LogT>
+{
+    fn map_logs(self, map_fn: impl FnMut(LogT) -> NewLogT) -> OpExecutionReceipt<NewLogT> {
         match self {
-            Execution::Eip658(receipt) => Execution::Eip658(receipt.map_logs(map_fn)),
-            Execution::Deposit(receipt) => Execution::Deposit(receipt.map_logs(map_fn)),
+            OpExecutionReceipt::Eip658(receipt) => {
+                OpExecutionReceipt::Eip658(receipt.map_logs(map_fn))
+            }
+            OpExecutionReceipt::Deposit(receipt) => {
+                OpExecutionReceipt::Deposit(receipt.map_logs(map_fn))
+            }
         }
     }
 }
 
-impl<LogT> ExecutionReceipt for Execution<LogT> {
+impl<LogT> ExecutionReceipt for OpExecutionReceipt<LogT> {
     type Log = LogT;
 
     fn cumulative_gas_used(&self) -> u64 {
         match self {
-            Execution::Eip658(receipt) => receipt.cumulative_gas_used,
-            Execution::Deposit(receipt) => receipt.cumulative_gas_used,
+            OpExecutionReceipt::Eip658(receipt) => receipt.cumulative_gas_used,
+            OpExecutionReceipt::Deposit(receipt) => receipt.cumulative_gas_used,
         }
     }
 
     fn logs_bloom(&self) -> &Bloom {
         match self {
-            Execution::Eip658(receipt) => &receipt.logs_bloom,
-            Execution::Deposit(receipt) => &receipt.logs_bloom,
+            OpExecutionReceipt::Eip658(receipt) => &receipt.logs_bloom,
+            OpExecutionReceipt::Deposit(receipt) => &receipt.logs_bloom,
         }
     }
 
     fn transaction_logs(&self) -> &[LogT] {
         match self {
-            Execution::Eip658(receipt) => &receipt.logs,
-            Execution::Deposit(receipt) => &receipt.logs,
+            OpExecutionReceipt::Eip658(receipt) => &receipt.logs,
+            OpExecutionReceipt::Deposit(receipt) => &receipt.logs,
         }
     }
 
     fn root_or_status(&self) -> RootOrStatus<'_> {
         match self {
-            Execution::Eip658(receipt) => RootOrStatus::Status(receipt.status),
-            Execution::Deposit(receipt) => RootOrStatus::Status(receipt.status),
+            OpExecutionReceipt::Eip658(receipt) => RootOrStatus::Status(receipt.status),
+            OpExecutionReceipt::Deposit(receipt) => RootOrStatus::Status(receipt.status),
         }
     }
 }
@@ -216,7 +217,7 @@ mod tests {
                         let receipt = $receipt;
 
                         let encoded = alloy_rlp::encode(&receipt);
-                        let decoded = TypedEnvelope::<Execution::<ExecutionLog>>::decode(&mut encoded.as_slice())?;
+                        let decoded = TypedEnvelope::<OpExecutionReceipt::<ExecutionLog>>::decode(&mut encoded.as_slice())?;
                         assert_eq!(decoded, receipt);
 
                         Ok(())
@@ -227,7 +228,7 @@ mod tests {
     }
 
     impl_execution_receipt_tests! {
-        eip658_legacy => TypedEnvelope::Legacy(Execution::Eip658(Eip658 {
+        eip658_legacy => TypedEnvelope::Legacy(OpExecutionReceipt::Eip658(Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -236,7 +237,7 @@ mod tests {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        eip658_eip2930 => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
+        eip658_eip2930 => TypedEnvelope::Eip2930(OpExecutionReceipt::Eip658(Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -245,7 +246,7 @@ mod tests {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        eip658_eip1559 => TypedEnvelope::Eip2930(Execution::Eip658(Eip658 {
+        eip658_eip1559 => TypedEnvelope::Eip2930(OpExecutionReceipt::Eip658(Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -254,7 +255,7 @@ mod tests {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        eip658_eip4844 => TypedEnvelope::Eip4844(Execution::Eip658(Eip658 {
+        eip658_eip4844 => TypedEnvelope::Eip4844(OpExecutionReceipt::Eip658(Eip658 {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),
@@ -263,7 +264,7 @@ mod tests {
                 ExecutionLog::new_unchecked(Address::random(), Vec::new(), Bytes::from_static(b"test"))
             ],
         })),
-        deposit => TypedEnvelope::Deposit(Execution::Deposit(Deposit {
+        deposit => TypedEnvelope::Deposit(OpExecutionReceipt::Deposit(Deposit {
             status: true,
             cumulative_gas_used: 0xffff,
             logs_bloom: Bloom::random(),

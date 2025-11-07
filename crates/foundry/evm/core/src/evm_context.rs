@@ -117,6 +117,23 @@ pub trait EvmBuilderTrait<
         db: DatabaseT,
         env: EvmEnvWithChainContext<BlockT, TransactionT, HardforkT, ChainContextT>,
         inspector: InspectorT,
+    ) -> Self::Evm<DatabaseT, InspectorT> {
+        let mut journal = Journal::new(db);
+        journal.set_spec_id(env.cfg.spec.into());
+
+        Self::evm_with_journal_and_inspector(journal, env, inspector)
+    }
+
+    fn evm_with_journal_and_inspector<
+        DatabaseT: Database,
+        InspectorT: Inspector<
+            EthInstructionsContext<BlockT, TransactionT, HardforkT, DatabaseT, ChainContextT>,
+            EthInterpreter,
+        >,
+    >(
+        journal: Journal<DatabaseT>,
+        env: EvmEnvWithChainContext<BlockT, TransactionT, HardforkT, ChainContextT>,
+        inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT>;
 }
 
@@ -148,22 +165,19 @@ impl
 
     type PrecompileProvider<DatabaseT: Database> = EthPrecompiles;
 
-    fn evm_with_inspector<
+    fn evm_with_journal_and_inspector<
         DatabaseT: Database,
         InspectorT: Inspector<EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>, EthInterpreter>,
     >(
-        db: DatabaseT,
+        journal: Journal<DatabaseT>,
         env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
-        let mut journaled_state = Journal::<_, JournalEntry>::new(db);
-        journaled_state.set_spec_id(env.cfg.spec);
-
         let context = revm::Context {
             tx: env.tx,
             block: env.block,
             cfg: env.cfg,
-            journaled_state,
+            journaled_state: journal,
             chain: env.chain_context,
             local: LocalContext::default(),
             error: Ok(()),

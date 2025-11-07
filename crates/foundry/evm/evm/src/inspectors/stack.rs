@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
+use alloy_primitives::{
+    map::{AddressHashMap, HashMap},
+    Address, Bytes, Log, TxKind, U256,
+};
 use derive_where::derive_where;
 use edr_coverage::CodeCoverageReporter;
 use eyre::eyre;
 use foundry_evm_core::{
-    backend::{update_state, CheatcodeBackend},
+    backend::CheatcodeBackend,
     evm_context::{
         split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr,
         IntoEvmContext as _, TransactionEnvTr, TransactionErrorTrait,
@@ -23,6 +26,7 @@ use revm::{
         interpreter::EthInterpreter, CallInputs, CallOutcome, CallScheme, CreateInputs,
         CreateOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
+    state::{Account, AccountStatus},
     DatabaseCommit, ExecuteEvm, Inspector, Journal,
 };
 
@@ -208,55 +212,22 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
 /// resorting to dynamic dispatch.
 #[macro_export]
 macro_rules! call_inspectors {
-    ([$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr $(,)?) => {{$(
-        if let Some($id) = $inspector {
-            $call
-        }
-    )+}}
-}
-
-/// Same as [`call_inspectors`] macro, but with depth adjustment for isolated
-/// execution.
-macro_rules! call_inspectors_adjust_depth {
-    (#[no_ret] [$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr, $self:ident, $data:ident $(,)?) => {
-        if $self.in_inner_context {
-            $data.journaled_state.inner.depth += 1;
-            $(
-                if let Some($id) = $inspector {
-                    $call
-                }
-            )+
-            $data.journaled_state.inner.depth -= 1;
-        } else {
-            $(
-                if let Some($id) = $inspector {
-                    $call
-                }
-            )+
-        }
+    ([$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $body:expr $(,)?) => {
+        $(
+            if let Some($id) = $inspector {
+                $body;
+            }
+        )+
     };
-    ([$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $call:expr, $self:ident, $data:ident $(,)?) => {
-        if $self.in_inner_context {
-            $data.journaled_state.inner.depth += 1;
-            $(
-                if let Some($id) = $inspector {
-                    if let Some(result) = $call {
-                        $data.journaled_state.inner.depth -= 1;
-                        return result;
-                    }
+    (#[ret] [$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $body:expr $(,)?) => {{
+        $(
+            if let Some($id) = $inspector {
+                if let Some(result) = $body {
+                    return result;
                 }
-            )+
-            $data.journaled_state.inner.depth -= 1;
-        } else {
-            $(
-                if let Some($id) = $inspector {
-                    if let Some(result) = $call {
-                        return result;
-                    }
-                }
-            )+
-        }
-    };
+            }
+        )+
+    }};
 }
 
 /// The collected results of [`InspectorStack`].
@@ -343,6 +314,7 @@ pub struct InspectorStack<
     /// Flag marking if we are in the inner EVM context.
     pub in_inner_context: bool,
     pub inner_context_data: Option<InnerContextData>,
+    pub top_frame_journal: HashMap<Address, Account>,
 }
 
 impl<
@@ -533,8 +505,9 @@ impl<
         outcome: &mut CallOutcome,
     ) -> CallOutcome {
         let result = outcome.result.result;
-        call_inspectors_adjust_depth!(
-            [&mut self.fuzzer, &mut self.tracer, &mut self.cheatcodes,],
+        call_inspectors!(
+            #[ret]
+            [&mut self.fuzzer, &mut self.tracer, &mut self.cheatcodes],
             |inspector| {
                 let previous_outcome = outcome.clone();
                 inspector.call_end(ecx, inputs, outcome);
@@ -546,8 +519,49 @@ impl<
                         && outcome.output() != previous_outcome.output());
                 different.then_some(outcome.clone())
             },
-            self,
-            ecx
+        );
+
+        outcome.clone()
+    }
+
+    fn do_create_end<
+        DatabaseT: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            > + DatabaseCommit,
+    >(
+        &mut self,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+        call: &CreateInputs,
+        outcome: &mut CreateOutcome,
+    ) -> CreateOutcome {
+        let result = outcome.result.result;
+        call_inspectors!(
+            #[ret]
+            [&mut self.tracer, &mut self.cheatcodes],
+            |inspector| {
+                let previous_outcome = outcome.clone();
+                inspector.create_end(ecx, call, outcome);
+
+                // If the inspector returns a different status or a revert with a non-empty
+                // message, we assume it wants to tell us something
+                let different = outcome.result.result != result
+                    || (outcome.result.result == InstructionResult::Revert
+                        && outcome.output() != previous_outcome.output());
+                different.then_some(outcome.clone())
+            },
         );
 
         outcome.clone()
@@ -640,10 +654,6 @@ impl<
         gas_limit: u64,
         value: U256,
     ) -> (InterpreterResult, Option<Address>) {
-        ecx.journaled_state
-            .database
-            .commit(ecx.journaled_state.state.clone());
-
         let nonce = ecx
             .journaled_state
             .load_account(caller)
@@ -694,7 +704,42 @@ impl<
         let res = {
             let env_with_chain = context.to_owned_env_with_chain_context();
             let tx = env_with_chain.tx.clone();
-            let mut evm = EvmBuilderT::evm_with_inspector(&mut *db, env_with_chain, &mut *self);
+
+            let mut journaled_state = Journal::new(db);
+            journaled_state.set_spec_id(env_with_chain.cfg.spec.into());
+
+            journaled_state.state = {
+                let mut state = context.journaled_state.state.clone();
+
+                for (addr, acc_mut) in &mut state {
+                    // mark all accounts cold, besides preloaded addresses
+                    if !context
+                        .journaled_state
+                        .warm_preloaded_addresses
+                        .contains(addr)
+                    {
+                        acc_mut.mark_cold();
+                    }
+
+                    // mark all slots cold
+                    for slot_mut in acc_mut.storage.values_mut() {
+                        slot_mut.is_cold = true;
+                        slot_mut.original_value = slot_mut.present_value;
+                    }
+                }
+
+                state
+            };
+
+            // set depth to 1 to make sure traces are collected correctly
+            journaled_state.depth = 1;
+
+            let mut evm = EvmBuilderT::evm_with_journal_and_inspector(
+                journaled_state,
+                env_with_chain,
+                &mut *self,
+            );
+
             let res = evm.transact(tx);
 
             // need to reset the env in case it was modified via cheatcodes during execution
@@ -713,7 +758,7 @@ impl<
 
         let mut gas = Gas::new(gas_limit);
 
-        let Ok(mut res) = res else {
+        let Ok(res) = res else {
             // Should we match, encode and propagate error as a revert reason?
             let result = InterpreterResult {
                 result: InstructionResult::Revert,
@@ -723,36 +768,28 @@ impl<
             return (result, None);
         };
 
-        // Commit changes after transaction
-        (*db).commit(res.state.clone());
-
-        // Update both states with new DB data after commit.
-        if let Err(e) = update_state(&mut context.journaled_state.state, &mut *db, None) {
-            let res = InterpreterResult {
-                result: InstructionResult::Revert,
-                output: Bytes::from(e.to_string().into_bytes()),
-                gas,
-            };
-            return (res, None);
-        }
-        if let Err(e) = update_state(&mut res.state, &mut *db, None) {
-            let res = InterpreterResult {
-                result: InstructionResult::Revert,
-                output: Bytes::from(e.to_string().into_bytes()),
-                gas,
-            };
-            return (res, None);
-        }
-
-        // Merge transaction journal into the active journal.
-        for (addr, acc) in res.state {
-            if let Some(acc_mut) = ecx.journaled_state.state.get_mut(&addr) {
-                acc_mut.status |= acc.status;
-                for (key, val) in acc.storage {
-                    acc_mut.storage.entry(key).or_insert(val);
-                }
-            } else {
+        for (addr, mut acc) in res.state {
+            let Some(acc_mut) = ecx.journaled_state.state.get_mut(&addr) else {
                 ecx.journaled_state.state.insert(addr, acc);
+                continue;
+            };
+
+            // make sure accounts that were warmed earlier do not become cold
+            if acc.status.contains(AccountStatus::Cold)
+                && !acc_mut.status.contains(AccountStatus::Cold)
+            {
+                acc.status -= AccountStatus::Cold;
+            }
+            acc_mut.info = acc.info;
+            acc_mut.status |= acc.status;
+
+            for (key, val) in acc.storage {
+                let Some(slot_mut) = acc_mut.storage.get_mut(&key) else {
+                    acc_mut.storage.insert(key, val);
+                    continue;
+                };
+                slot_mut.present_value = val.present_value;
+                slot_mut.is_cold &= val.is_cold;
             }
         }
 
@@ -793,6 +830,76 @@ impl<
             },
             address,
         )
+    }
+
+    /// Invoked at the beginning of a new top-level (0 depth) frame.
+    fn top_level_frame_start<
+        DatabaseT: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            > + DatabaseCommit,
+    >(
+        &mut self,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
+        if self.enable_isolation {
+            // If we're in isolation mode, we need to keep track of the state at the
+            // beginning of the frame to be able to roll back on revert
+            self.top_frame_journal = ecx.journaled_state.state.clone();
+        }
+    }
+
+    /// Invoked at the end of root frame.
+    fn top_level_frame_end<
+        DatabaseT: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            > + DatabaseCommit,
+    >(
+        &mut self,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+        result: InstructionResult,
+    ) {
+        if !result.is_revert() {
+            return;
+        }
+        // Encountered a revert, since cheatcodes may have altered the evm state in such
+        // a way that violates some constraints, e.g. `deal`, we need to
+        // manually roll back on revert before revm reverts the state itself
+        if let Some(cheats) = self.cheatcodes.as_mut() {
+            cheats.on_revert(ecx);
+        }
+
+        // If we're in isolation mode, we need to rollback to state before the root
+        // frame was created We can't rely on revm's journal because it doesn't
+        // account for changes made by isolated calls
+        if self.enable_isolation {
+            ecx.journaled_state.state = std::mem::take(&mut self.top_frame_journal);
+        }
     }
 }
 
@@ -845,12 +952,9 @@ impl<
             ChainContextT,
         >,
     ) {
-        call_inspectors_adjust_depth!(
-            #[no_ret]
+        call_inspectors!(
             [&mut self.coverage, &mut self.tracer, &mut self.cheatcodes],
             |inspector| inspector.initialize_interp(interpreter, ecx),
-            self,
-            ecx
         );
     }
 
@@ -866,8 +970,7 @@ impl<
             ChainContextT,
         >,
     ) {
-        call_inspectors_adjust_depth!(
-            #[no_ret]
+        call_inspectors!(
             [
                 &mut self.fuzzer,
                 &mut self.tracer,
@@ -875,8 +978,6 @@ impl<
                 &mut self.cheatcodes
             ],
             |inspector| inspector.step(interpreter, ecx),
-            self,
-            ecx
         );
     }
 
@@ -892,13 +993,9 @@ impl<
             ChainContextT,
         >,
     ) {
-        call_inspectors_adjust_depth!(
-            #[no_ret]
-            [&mut self.tracer, &mut self.cheatcodes],
-            |inspector| inspector.step_end(interpreter, ecx),
-            self,
-            ecx
-        );
+        call_inspectors!([&mut self.tracer, &mut self.cheatcodes], |inspector| {
+            inspector.step_end(interpreter, ecx);
+        },);
     }
 
     fn log(
@@ -914,16 +1011,13 @@ impl<
         >,
         log: Log,
     ) {
-        call_inspectors_adjust_depth!(
-            #[no_ret]
+        call_inspectors!(
             [
                 &mut self.tracer,
                 &mut self.log_collector,
                 &mut self.cheatcodes
             ],
             |inspector| inspector.log(interpreter, ecx, log.clone()),
-            self,
-            ecx
         );
     }
 
@@ -939,9 +1033,13 @@ impl<
         >,
         call: &mut CallInputs,
     ) -> Option<CallOutcome> {
-        if self.in_inner_context && ecx.journaled_state.depth == 0 {
+        if self.in_inner_context && ecx.journaled_state.depth == 1 {
             self.adjust_evm_data_for_inner_context(ecx);
             return None;
+        }
+
+        if ecx.journaled_state.depth == 0 {
+            self.top_level_frame_start(ecx);
         }
 
         let code_coverage_collector = self
@@ -949,7 +1047,8 @@ impl<
             .as_mut()
             .map(|reporter| &mut reporter.collector);
 
-        call_inspectors_adjust_depth!(
+        call_inspectors!(
+            #[ret]
             [
                 &mut self.fuzzer,
                 &mut self.tracer,
@@ -964,8 +1063,6 @@ impl<
                 }
                 out
             },
-            self,
-            ecx
         );
 
         if self.enable_isolation
@@ -1004,20 +1101,16 @@ impl<
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        // Inner context calls with depth 0 are being dispatched as top-level calls with
-        // depth 1. Avoid processing twice.
-        if self.in_inner_context && ecx.journaled_state.depth == 0 {
+        // We are processing inner context outputs in the outer context, so need to
+        // avoid processing twice.
+        if self.in_inner_context && ecx.journaled_state.depth == 1 {
             return;
         }
 
-        let outcome = self.do_call_end(ecx, inputs, outcome);
-        if outcome.result.is_revert() {
-            // Encountered a revert, since cheatcodes may have altered the evm state in such
-            // a way that violates some constraints, e.g. `deal`, we need to
-            // manually roll back on revert before revm reverts the state itself
-            if let Some(cheats) = self.cheatcodes.as_mut() {
-                cheats.on_revert(ecx);
-            }
+        self.do_call_end(ecx, inputs, outcome);
+
+        if ecx.journaled_state.depth == 0 {
+            self.top_level_frame_end(ecx, outcome.result.result);
         }
     }
 
@@ -1033,16 +1126,19 @@ impl<
         >,
         create: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
-        if self.in_inner_context && ecx.journaled_state.depth == 0 {
+        if self.in_inner_context && ecx.journaled_state.depth == 1 {
             self.adjust_evm_data_for_inner_context(ecx);
             return None;
         }
 
-        call_inspectors_adjust_depth!(
+        if ecx.journaled_state.depth == 0 {
+            self.top_level_frame_start(ecx);
+        }
+
+        call_inspectors!(
+            #[ret]
             [&mut self.tracer, &mut self.coverage, &mut self.cheatcodes],
             |inspector| inspector.create(ecx, create).map(Some),
-            self,
-            ecx
         );
 
         if self.enable_isolation && !self.in_inner_context && ecx.journaled_state.depth == 1 {
@@ -1073,21 +1169,17 @@ impl<
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        // Inner context calls with depth 0 are being dispatched as top-level calls with
-        // depth 1. Avoid processing twice.
-        if self.in_inner_context && ecx.journaled_state.depth == 0 {
+        // We are processing inner context outputs in the outer context, so need to
+        // avoid processing twice.
+        if self.in_inner_context && ecx.journaled_state.depth == 1 {
             return;
         }
 
-        call_inspectors_adjust_depth!(
-            #[no_ret]
-            [&mut self.tracer, &mut self.cheatcodes],
-            |inspector| {
-                inspector.create_end(ecx, call, outcome);
-            },
-            self,
-            ecx
-        );
+        self.do_create_end(ecx, call, outcome);
+
+        if ecx.journaled_state.depth == 0 {
+            self.top_level_frame_end(ecx, outcome.result.result);
+        }
     }
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {

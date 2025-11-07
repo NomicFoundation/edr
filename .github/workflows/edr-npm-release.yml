@@ -3,9 +3,7 @@ env:
   DEBUG: napi:*
   APP_NAME: edr
   NUMBER_OF_TARGETS: 7
-permissions:
-  contents: write
-  id-token: write
+permissions: {}
 on:
   push:
     # pre-releases will be triggered in any of these branches
@@ -30,11 +28,13 @@ jobs:
   build:
     name: stable - ${{ matrix.settings.target }} - node@20
     runs-on: ${{ matrix.settings.host }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-13
+          - host: macos-15-intel
             target: x86_64-apple-darwin
             build: pnpm run build --strip
 
@@ -65,12 +65,21 @@ jobs:
             target: aarch64-unknown-linux-musl
             docker: node:20-alpine3.20
             flavor: musl
+    outputs:
+      commit_sha: ${{ steps.save-commit.outputs.commit_sha}}
     defaults:
       run:
         working-directory: ./crates/edr_napi
-
     steps:
       - uses: actions/checkout@v5
+
+      - name: Save HEAD commit sha
+        id: save-commit
+        shell: bash
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Current HEAD: $COMMIT_SHA"
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
 
       - name: Check number of targets
         shell: bash
@@ -169,11 +178,13 @@ jobs:
     name: Test bindings on ${{ matrix.settings.target }} - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         settings:
-          - host: macos-13
+          - host: macos-15-intel
             target: x86_64-apple-darwin
           - host: macos-14
             target: aarch64-apple-darwin
@@ -204,11 +215,12 @@ jobs:
         shell: bash
       - name: Test bindings
         run: pnpm testNoBuild
-
   test-linux-x64-gnu-binding:
     name: Test bindings on Linux-x64-gnu - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -240,6 +252,8 @@ jobs:
     name: Test bindings on x86_64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -269,6 +283,8 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-gnu - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -307,6 +323,8 @@ jobs:
     name: Test bindings on aarch64-unknown-linux-musl - node@${{ matrix.node }}
     needs:
       - build
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -339,9 +357,12 @@ jobs:
             wget -qO- 'https://unpkg.com/@pnpm/self-installer' | node
             set -e
             pnpm testNoBuild
+
   check_commit:
     name: Check commit
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     if: github.event_name != 'pull_request' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
       - uses: actions/checkout@v5
@@ -350,82 +371,260 @@ jobs:
 
       - name: Check if commit message is a release commit
         id: check_commit
-        # Must match commit check in publish step
         run: |
-          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+";
+          # matches with pre-release commits: edr release name but ends with - and some postfix like beta
+          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
           then
-            echo "Check commit: matches"
-            echo "match=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Check commit: no match"
-            echo "match=false" >> "$GITHUB_OUTPUT"
+            if [ "${{ github.event_name }}" = "push" ]
+            then
+              echo "pre-release commit: tag=next"
+              echo "tag=next" >> "$GITHUB_OUTPUT"
+            fi
+          # matches with release commit
+          elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
+          then
+            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]
+            then
+              echo "release commit: tag=latest"
+              echo "tag=latest" >> "$GITHUB_OUTPUT"
+            fi
           fi
+
     outputs:
-      match: ${{ steps.check_commit.outputs.match }}
-  publish:
-    name: Publish
-    environment: edr-release
+      tag: ${{ steps.check_commit.outputs.tag }}
+
+  prepare:
+    name: Prepare release bundle
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     needs:
-      - check_commit
+      - build
       - test-macOS-windows-binding
       - test-linux-x64-gnu-binding
       - test-linux-x64-musl-binding
       - test-linux-aarch64-gnu-binding
       - test-linux-aarch64-musl-binding
-    # Only run workflow if the commit message is a release commit.
-    if: ${{ needs.check_commit.outputs.match == 'true' }}
     defaults:
       run:
         working-directory: ./crates/edr_napi
+    outputs:
+      filename: ${{ steps.pack.outputs.filename }}
     steps:
       - uses: actions/checkout@v5
       - name: Setup node
         uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
+      - name: Install sponge # needed for prepublish script
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y moreutils
       - name: Download all artifacts
         uses: actions/download-artifact@v5
         with:
           path: ./crates/edr_napi/artifacts
+      - name: Run prepublish to update all `package.json` files
+        # we NEED to to this before pnpm artifacts, if not prepublish will try to publish
+        run: ../../scripts/prepublish.sh
+      - name: Move artifacts
+        run: pnpm artifacts
+      - name: Create bundle with pnpm root & napi files
+        # create custom tar.gz because pnpm pack only packs root package and we need the platform-specific ones as well
+        id: pack
+        run: |
+          FILENAME="${{ env.APP_NAME }}_bundle.tar.gz"
+          NAPI_EXTRA_FILES=("npm/" "LICENSE" "README.md" "package.json" "Cargo.toml")
+          readarray -t FILES < <(cat package.json | jq -r .files[] ) 
+          ALL_FILES=("${FILES[@]}" "${NAPI_EXTRA_FILES[@]}")
+          NAPI_FILES=()
+          for file in "${ALL_FILES[@]}"; do
+            NAPI_FILES+=("crates/edr_napi/${file}")
+          done
+          cd ../.. # cd to root dir
+          echo "Creating bundle with necessary files for publishing"
+          ROOT_FILES=("package.json" "Cargo.lock" "Cargo.toml" "pnpm-lock.yaml" "pnpm-workspace.yaml")
+          ALL_FILES=("${ROOT_FILES[@]}" "${NAPI_FILES[@]}")
+          echo "files to include in tar: ${ALL_FILES[@]}"
+          # Using --dereference since LICENSE file are symlinks
+          tar --dereference -czvf $FILENAME "${ALL_FILES[@]}"
+          echo "FILENAME=$FILENAME"
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+      - name: Upload packed tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.filename }}
+          path: ./${{ steps.pack.outputs.filename }}
+          retention-days: 2
+          overwrite: true
+          if-no-files-found: error
+
+  review:
+    name: Review release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    needs:
+      - build
+      - prepare
+    steps:
+      - name: Download packed tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.filename }}
+          path: .
+      - name: Decompress tarball
+        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
+      - name: Inspect contents
+        run: tree .
       - name: Check number of artifacts
         shell: bash
         run: |
-          tree artifacts
           # get number of artifacts with unique names
-          NUMBER_OF_ARTIFACTS=$(ls -1q artifacts/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
+          NUMBER_OF_ARTIFACTS=$(ls -1q crates/edr_napi/npm/*/*.node | xargs -n 1 basename | sort | uniq | wc -l)
           echo "Number of unique artifacts: $NUMBER_OF_ARTIFACTS"
           echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
           test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
-      - name: Install sponge
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup node
+        uses: actions/setup-node@v5
+        id: setup-node
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Validate that packages have everything for publishing
         run: |
-          sudo apt-get update
-          sudo apt-get install -y moreutils
-      - name: Move artifacts
-        run: pnpm artifacts
+          cd crates/edr_napi
+          # Check in every cross-platform package
+          for platform in ./npm/* ; do
+            cd $platform
+            pnpm publish --dry-run
+            cd -
+          done
+          # And in root edr package
+          pnpm publish --dry-run
+      - name: Checkout repository for comparison
+        uses: actions/checkout@v4
+        with:
+          path: remote-repository
+          ref: ${{ needs.build.outputs.commit_sha }}
+      - name: Validate there were no modifications to `package.json` when building
+        run: |
+          git diff --color=always --exit-code --no-index remote-repository/package.json ./package.json
+      - name: Validate there were no modifications to `Cargo.toml` when building
+        run: |
+          git diff --color=always --exit-code --no-index remote-repository/Cargo.toml ./Cargo.toml
+      - name: Validate there were no modifications to `Cargo.lock` when building
+        run: |
+          git diff --color=always --exit-code --no-index remote-repository/Cargo.lock ./Cargo.lock
+
+  notify-deploy:
+    name: Notify pre-deploy to Slack
+    runs-on: ubuntu-24.04
+    needs: [check_commit, prepare, review]
+    # Only run workflow if there is a tag defined
+    if: ${{ needs.check_commit.outputs.tag != '' }}
+    steps:
+      - name: Notify pre-deploy
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Workflow: *${{ github.workflow }}*\n 📝 Deployment review requested for `edr-release`",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Workflow: *${{ github.workflow }}*\n 📝 Deployment review requested for `edr-release`"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Commit:* <${{ github.event.head_commit.url || github.event.pull_request.html_url }}|View commit>\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open workflow run>"
+                  }
+                }
+              ]
+            }
+
+  publish:
+    name: Publish
+    environment: edr-release
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write # Needed for npm Trusted Publishing (OIDC)
+    needs: [check_commit, notify-deploy, prepare, review]
+    # Only run workflow if there is a tag defined
+    if: ${{ needs.check_commit.outputs.tag != '' }}
+    steps:
+      - name: Notify deployment to Slack
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Workflow: *${{ github.workflow }}*\n ✅ Deployment review approved \n 🚀 Starting deployment to `edr-release`"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Commit:* <${{ github.event.head_commit.url || github.event.pull_request.html_url }}|View commit>\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Open workflow run>"
+                  }
+                }
+              ]
+            }
+      - name: Download packed tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.filename }}
+          path: .
+      - name: Decompress tarball
+        run: tar -xvzf ${{ needs.prepare.outputs.filename }}
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup node
+        uses: actions/setup-node@v5
+        id: setup-node
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Update npm to make sure it supports Trusted Publishing
+        run: npm install -g npm@v11.6.2
       - name: Publish
         run: |
-          if git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+-";
+          if [ "${{ needs.check_commit.outputs.tag}}" = "next" ]
           then
-            if [ "${{ github.event_name }}" = "push" ]; then
-              echo "Publishing pre-release"
-              echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-              pnpm publish --no-git-checks --provenance --tag next --access public
-            else
-              echo "Trying to publish a pre-release from a branch that is not 'main' or 'prerelease'"
-            fi
-          elif git log -1 --pretty=%B | grep "^edr-[0-9]\+\.[0-9]\+\.[0-9]\+\s*";
+            echo "Publishing pre-release"
+          elif [ "${{ needs.check_commit.outputs.tag}}" = "latest" ]
           then
-            if [ "$GITHUB_REF" == "refs/heads/main" -o "$GITHUB_REF" == "refs/heads/hh2" ]; then
-              echo "Publishing release"
-              echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
-              pnpm publish --no-git-checks --provenance --access public
-            else
-              echo "Trying to publish a release from a branch that is not 'main' or 'h2'"
-            fi
+            echo "Publishing release"
           else
-            echo "Not a release, skipping publish"
+            echo "Unrecognized tag ${{ needs.check_commit.outputs.tag}}. Skipping publish"
+            exit 1
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.IGNORED_ORG_NPM_TOKEN }}
+
+          # We need to publish the contests of crates/edr_napi only
+          cd ./crates/edr_napi
+
+          # First publish every cross-platform package
+          for platform in ./npm/* ; do
+            cd $platform
+            pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public
+            cd -
+          done
+          # Finally Publish edr napi root package (because it depends on the cross-platform ones)
+          pnpm publish --no-git-checks --tag ${{ needs.check_commit.outputs.tag}} --access public

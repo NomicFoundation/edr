@@ -1,6 +1,6 @@
 //! Exit code of the EVM.
 
-use edr_evm_spec::{EvmHaltReason, HaltReasonTrait, OutOfGasError};
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait, OutOfGasError};
 
 /// Represents the exit code of the EVM.
 #[derive(Clone, Debug)]

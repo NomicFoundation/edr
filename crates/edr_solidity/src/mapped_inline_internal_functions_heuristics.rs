@@ -16,7 +16,7 @@
 //! occur, we now start from complete stack traces and adjust them if we can
 //! provide more meaningful errors.
 
-use edr_evm_spec::HaltReasonTrait;
+use edr_chain_spec::HaltReasonTrait;
 use edr_primitives::bytecode::opcode::OpCode;
 use semver::Version;
 

@@ -6,8 +6,8 @@ use alloy_json_abi::JsonAbi;
 use alloy_primitives::Bytes;
 use derive_more::Debug;
 use derive_where::derive_where;
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
-use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{artifacts::ArtifactId, contract_decoder::SyncNestedTraceDecoder};
 use eyre::Result;
 use foundry_evm::{
@@ -182,7 +182,7 @@ impl<
             test_fail,
             mut evm_opts,
             project_root,
-            cheats_config_options,
+            mut cheats_config_options,
             fuzz,
             invariant,
             solidity_fuzz_fixtures,
@@ -207,6 +207,12 @@ impl<
             include_traces = IncludeTraces::All;
             // Enable EVM isolation for more accurate gas measurements
             evm_opts.isolate = true;
+        }
+
+        // HACK: When EVM isolation is enabled, we need to allow internal expectRevert
+        // calls because we have a bug in isolation mode.
+        if evm_opts.isolate {
+            cheats_config_options.allow_internal_expect_revert = true;
         }
 
         Ok(Self {

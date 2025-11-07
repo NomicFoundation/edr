@@ -1,9 +1,6 @@
-use edr_evm::{
-    evm::{self, Evm},
-    inspector::Inspector,
-    interpreter::{EthInstructions, EthInterpreter},
-    journal::{Journal, JournalEntry, JournalTrait as _},
-    state::Database,
+use edr_evm_spec::{
+    handler::EthInstructions, interpreter::EthInterpreter, Context, Database, Evm, Inspector,
+    Journal,
 };
 use edr_solidity_tests::{
     evm_context::{EthInstructionsContext, EvmBuilderTrait, EvmEnvWithChainContext},
@@ -13,13 +10,14 @@ use op_revm::{
     precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpHaltReason, OpSpecId, OpTransaction,
     OpTransactionError,
 };
+use revm_context::BlockEnv;
 
 /// Type implementing the [`EvmBuilderTrait`] for the OP EVM.
 pub struct OpEvmBuilder;
 
 impl
     EvmBuilderTrait<
-        edr_chain_l1::BlockEnv,
+        BlockEnv,
         L1BlockInfo,
         OpHaltReason,
         OpSpecId,
@@ -31,7 +29,7 @@ impl
         DatabaseT: Database,
         InspectorT: Inspector<
             EthInstructionsContext<
-                edr_chain_l1::BlockEnv,
+                BlockEnv,
                 OpTransaction<TxEnv>,
                 OpSpecId,
                 DatabaseT,
@@ -40,18 +38,12 @@ impl
             EthInterpreter,
         >,
     > = OpEvm<
-        EthInstructionsContext<
-            edr_chain_l1::BlockEnv,
-            OpTransaction<TxEnv>,
-            OpSpecId,
-            DatabaseT,
-            L1BlockInfo,
-        >,
+        EthInstructionsContext<BlockEnv, OpTransaction<TxEnv>, OpSpecId, DatabaseT, L1BlockInfo>,
         InspectorT,
         EthInstructions<
             EthInterpreter,
             EthInstructionsContext<
-                edr_chain_l1::BlockEnv,
+                BlockEnv,
                 OpTransaction<TxEnv>,
                 OpSpecId,
                 DatabaseT,
@@ -63,11 +55,11 @@ impl
 
     type PrecompileProvider<DatabaseT: Database> = OpPrecompiles;
 
-    fn evm_with_inspector<
+    fn evm_with_journal_and_inspector<
         DatabaseT: Database,
         InspectorT: Inspector<
             EthInstructionsContext<
-                edr_chain_l1::BlockEnv,
+                BlockEnv,
                 OpTransaction<TxEnv>,
                 OpSpecId,
                 DatabaseT,
@@ -76,23 +68,15 @@ impl
             EthInterpreter,
         >,
     >(
-        db: DatabaseT,
-        env: EvmEnvWithChainContext<
-            edr_chain_l1::BlockEnv,
-            OpTransaction<TxEnv>,
-            OpSpecId,
-            L1BlockInfo,
-        >,
+        journal: Journal<DatabaseT>,
+        env: EvmEnvWithChainContext<BlockEnv, OpTransaction<TxEnv>, OpSpecId, L1BlockInfo>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
-        let mut journaled_state = Journal::<DatabaseT, JournalEntry>::new(db);
-        journaled_state.set_spec_id(env.cfg.spec.into());
-
-        let context = evm::Context {
+        let context = Context {
             tx: env.tx,
             block: env.block,
             cfg: env.cfg,
-            journaled_state,
+            journaled_state: journal,
             chain: env.chain_context,
             local: LocalContext::default(),
             error: Ok(()),

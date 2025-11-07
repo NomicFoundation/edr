@@ -2,12 +2,11 @@ use core::fmt::Debug;
 use std::sync::Arc;
 
 use dyn_clone::DynClone;
-use edr_evm::{
-    inspector::Inspector,
+use edr_evm_spec::{
     interpreter::{
         CallInputs, CallOutcome, EthInterpreter, Gas, InstructionResult, InterpreterResult,
     },
-    spec::ContextTrait,
+    ContextTrait, Inspector,
 };
 use edr_primitives::{Address, Bytes};
 

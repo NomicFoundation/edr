@@ -5,10 +5,10 @@ use alloy_json_abi::Event;
 #[cfg(feature = "test-remote")]
 use alloy_primitives::address;
 use alloy_primitives::{Address, U256};
-use edr_evm_spec::{EvmHaltReason, HaltReasonTrait};
+use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
-    revm::context::TxEnv,
+    revm::context::{BlockEnv, TxEnv},
     IncludeTraces, SolidityTestRunnerConfig,
 };
 use foundry_cheatcodes::{FsPermissions, PathPermission};
@@ -137,7 +137,7 @@ async fn repro_config(
     test_data: &L1ForgeTestData,
     rpc_config: bool,
 ) -> TestConfig<
-    edr_chain_l1::BlockEnv,
+    BlockEnv,
     (),
     L1EvmBuilder,
     edr_chain_l1::HaltReason,
@@ -468,4 +468,9 @@ remote_test_repro!(8006);
 test_repro!(8639; |config| {
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(100));
+});
+
+// https://github.com/foundry-rs/foundry/issues/8971
+test_repro!(8971; |config| {
+  config.evm_opts.isolate = true;
 });

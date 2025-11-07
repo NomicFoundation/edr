@@ -7,6 +7,6 @@ pub mod transaction;
 
 pub type Block<TransactionT> = self::block::L1RpcBlock<TransactionT>;
 
-pub type BlockReceipt = self::receipt::L1BlockReceipt;
+pub type BlockReceipt = self::receipt::L1RpcTransactionReceipt;
 
 pub type TransactionRequest = self::transaction::L1RpcTransactionRequest;

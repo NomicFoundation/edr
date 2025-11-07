@@ -1,62 +1,45 @@
 use core::cmp;
-use std::sync::Arc;
 
-use edr_block_api::Block as _;
+use edr_block_api::{Block as _, FetchBlockReceipts};
 use edr_block_header::BlockHeader;
+use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
+use edr_chain_spec::{ExecutableTransaction as _, HaltReasonTrait};
+use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eth::reward_percentile::RewardPercentile;
-use edr_evm::{
-    blockchain::{BlockchainErrorForChainSpec, SyncBlockchainForChainSpec},
-    config::CfgEnv,
-    precompile::PrecompileFn,
-    result::ExecutionResult,
-    spec::SyncRuntimeSpec,
-    trace::TraceCollector,
-    BlockReceipts,
-};
-use edr_evm_spec::{
-    EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
-};
+use edr_evm_spec::{result::ExecutionResult, CfgEnv};
+use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
-use edr_state_api::{StateError, SyncState};
+use edr_runtime::trace::TraceCollector;
+use edr_state_api::DynState;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
 
-use crate::{data::call, error::ProviderErrorForChainSpec, time::TimeSinceEpoch, SyncProviderSpec};
+use crate::{data::call, error::ProviderErrorForChainSpec, ProviderError};
 
-pub(super) struct CheckGasLimitArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain: &'a dyn SyncBlockchainForChainSpec<
-        BlockchainErrorForChainSpec<ChainSpecT>,
-        ChainSpecT,
-        StateError,
-    >,
+pub(super) struct CheckGasLimitArgs<'a, HaltReasonT: HaltReasonTrait, HardforkT, SignedTransactionT>
+{
+    pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
     pub header: &'a BlockHeader,
-    pub state: &'a dyn SyncState<StateError>,
-    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
-    pub transaction: ChainSpecT::SignedTransaction,
+    pub state: &'a dyn DynState,
+    pub cfg_env: CfgEnv<HardforkT>,
+    pub transaction: SignedTransactionT,
     pub gas_limit: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
+    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
 }
 
 /// Test if the transaction successfully executes with the given gas limit.
 /// Returns true on success and return false if the transaction runs out of gas
 /// or funds or reverts. Returns an error for any other halt reason.
-pub(super) fn check_gas_limit<ChainSpecT, TimerT>(
-    args: CheckGasLimitArgs<'_, ChainSpecT>,
-) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>>
-where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
+pub(super) fn check_gas_limit<ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>>(
+    args: CheckGasLimitArgs<
+        '_,
+        ChainSpecT::HaltReason,
+        ChainSpecT::Hardfork,
+        ChainSpecT::SignedTransaction,
     >,
-    TimerT: Clone + TimeSinceEpoch,
-{
+) -> Result<bool, ProviderErrorForChainSpec<ChainSpecT>> {
     let CheckGasLimitArgs {
         blockchain,
         header,
@@ -70,7 +53,7 @@ where
 
     transaction.set_gas_limit(gas_limit);
 
-    let result = call::run_call::<_, ChainSpecT, _, _, TimerT>(
+    let result = call::run_call::<ChainSpecT, _, _, _>(
         blockchain,
         header,
         state,
@@ -83,40 +66,36 @@ where
     Ok(matches!(result, ExecutionResult::Success { .. }))
 }
 
-pub(super) struct BinarySearchEstimationArgs<'a, ChainSpecT: SyncRuntimeSpec> {
-    pub blockchain: &'a dyn SyncBlockchainForChainSpec<
-        BlockchainErrorForChainSpec<ChainSpecT>,
-        ChainSpecT,
-        StateError,
-    >,
+pub(super) struct BinarySearchEstimationArgs<
+    'a,
+    HaltReasonT: HaltReasonTrait,
+    HardforkT,
+    SignedTransactionT,
+> {
+    pub blockchain: &'a dyn BlockHashByNumber<Error = DynBlockchainError>,
     pub header: &'a BlockHeader,
-    pub state: &'a dyn SyncState<StateError>,
-    pub cfg_env: CfgEnv<ChainSpecT::Hardfork>,
-    pub transaction: ChainSpecT::SignedTransaction,
+    pub state: &'a dyn DynState,
+    pub cfg_env: CfgEnv<HardforkT>,
+    pub transaction: SignedTransactionT,
     pub lower_bound: u64,
     pub upper_bound: u64,
     pub custom_precompiles: &'a HashMap<Address, PrecompileFn>,
-    pub trace_collector: &'a mut TraceCollector<ChainSpecT::HaltReason>,
+    pub trace_collector: &'a mut TraceCollector<HaltReasonT>,
 }
 
 /// Search for a tight upper bound on the gas limit that will allow the
 /// transaction to execute. Matches Hardhat logic, except it's iterative, not
 /// recursive.
-pub(super) fn binary_search_estimation<ChainSpecT, TimerT>(
-    args: BinarySearchEstimationArgs<'_, ChainSpecT>,
-) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>>
-where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionMut
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError>,
-        >,
+pub(super) fn binary_search_estimation<
+    ChainSpecT: ProviderChainSpec<SignedTransaction: TransactionMut>,
+>(
+    args: BinarySearchEstimationArgs<
+        '_,
+        ChainSpecT::HaltReason,
+        ChainSpecT::Hardfork,
+        ChainSpecT::SignedTransaction,
     >,
-    TimerT: Clone + TimeSinceEpoch,
-{
+) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
     const MAX_ITERATIONS: usize = 20;
 
     let BinarySearchEstimationArgs {
@@ -142,7 +121,7 @@ where
             mid = cmp::min(mid, initial_mid);
         }
 
-        let success = check_gas_limit(CheckGasLimitArgs {
+        let success = check_gas_limit::<ChainSpecT>(CheckGasLimitArgs {
             blockchain,
             header,
             state,
@@ -184,28 +163,19 @@ fn min_difference(lower_bound: u64) -> u64 {
 }
 
 /// Compute miner rewards for percentiles.
-pub(super) fn compute_rewards<ChainSpecT, TimerT>(
+pub(super) fn compute_rewards<ChainSpecT: ProviderChainSpec>(
     block: &ChainSpecT::Block,
     reward_percentiles: &[RewardPercentile],
-) -> Result<Vec<U256>, ProviderErrorForChainSpec<ChainSpecT>>
-where
-    ChainSpecT: SyncProviderSpec<
-        TimerT,
-        Block: BlockReceipts<
-            Arc<ChainSpecT::BlockReceipt>,
-            Error = BlockchainErrorForChainSpec<ChainSpecT>,
-        >,
-    >,
-    TimerT: Clone + TimeSinceEpoch,
-{
+) -> Result<Vec<U256>, ProviderErrorForChainSpec<ChainSpecT>> {
     if block.transactions().is_empty() {
         return Ok(reward_percentiles.iter().map(|_| U256::ZERO).collect());
     }
 
-    let base_fee_per_gas = block.header().base_fee_per_gas.unwrap_or_default();
+    let base_fee_per_gas = block.block_header().base_fee_per_gas.unwrap_or_default();
 
     let gas_used_and_effective_reward = block
-        .fetch_transaction_receipts()?
+        .fetch_transaction_receipts()
+        .map_err(ProviderError::FetchReceipt)?
         .iter()
         .enumerate()
         .map(|(i, receipt)| {
@@ -231,7 +201,7 @@ where
         .collect::<Vec<(_, _)>>();
 
     // Ethereum block gas limit is 30 million, so it's safe to cast to f64.
-    let gas_limit = block.header().gas_limit as f64;
+    let gas_limit = block.block_header().gas_limit as f64;
 
     Ok(reward_percentiles
         .iter()

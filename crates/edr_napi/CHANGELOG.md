@@ -1,5 +1,24 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.14
+
+### Patch Changes
+
+- abf7434: Fixed unexpected test failure when running in isolate/gas stats mode
+- f67363e: Added latest dynamic base fee parameters to Base Mainnet chain config
+
+## 0.12.0-next.10
+
+### Patch Changes
+
+- 8c1f798: Fixed gas calculation for EIP-7702 refunds
+
+## 0.12.0-next.9
+
+### Minor Changes
+
+- 88a23dc: Fix prepublish step so we again publish the arch/os specific packages.
+
 ## 0.12.0-next.8
 
 ### Minor Changes

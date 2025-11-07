@@ -3,16 +3,21 @@ mod request;
 
 use std::{ops::Deref, sync::OnceLock};
 
+use edr_block_api::Block;
 use edr_block_header::BlockHeader;
-use edr_evm_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
 use edr_primitives::{Address, Bytes, B256, U256};
+use edr_rpc_spec::{RpcTransaction, RpcTypeFrom};
 use edr_signer::{
     FakeableSignature, SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
 };
-use edr_transaction::{IsEip4844, IsLegacy, TransactionType, TxKind};
+use edr_transaction::{
+    BlockDataForTransaction, IsEip4844, IsLegacy, SignedTransaction as _, TransactionAndBlock,
+    TransactionType, TxKind,
+};
 
 pub use self::request::L1RpcTransactionRequest;
-use crate::{L1SignedTransaction, L1TransactionType};
+use crate::{Hardfork, L1SignedTransaction, L1TransactionType};
 
 pub type Request = L1RpcTransactionRequest;
 
@@ -205,14 +210,6 @@ pub struct L1RpcTransactionWithSignature {
     pub s: U256,
 }
 
-impl Deref for L1RpcTransactionWithSignature {
-    type Target = L1RpcTransaction;
-
-    fn deref(&self) -> &Self::Target {
-        &self.transaction
-    }
-}
-
 impl L1RpcTransactionWithSignature {
     /// Creates a new instance from an RPC transaction and signature.
     pub fn new(
@@ -240,6 +237,14 @@ impl L1RpcTransactionWithSignature {
     /// Returns whether the transaction is a legacy transaction.
     pub fn is_legacy(&self) -> bool {
         matches!(self.transaction_type, None | Some(0)) && matches!(self.v, 27 | 28)
+    }
+}
+
+impl Deref for L1RpcTransactionWithSignature {
+    type Target = L1RpcTransaction;
+
+    fn deref(&self) -> &Self::Target {
+        &self.transaction
     }
 }
 
@@ -305,8 +310,54 @@ impl From<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip155 {
     }
 }
 
+impl RpcTransaction for L1RpcTransactionWithSignature {
+    fn block_hash(&self) -> Option<&B256> {
+        self.block_hash.as_ref()
+    }
+}
+
+impl<BlockT: Block<L1SignedTransaction>>
+    RpcTypeFrom<TransactionAndBlock<BlockT, L1SignedTransaction>>
+    for L1RpcTransactionWithSignature
+{
+    type Hardfork = Hardfork;
+
+    fn rpc_type_from(
+        value: &TransactionAndBlock<BlockT, L1SignedTransaction>,
+        hardfork: Self::Hardfork,
+    ) -> Self {
+        let (header, transaction_index) = value
+            .block_data
+            .as_ref()
+            .map(
+                |BlockDataForTransaction {
+                     block,
+                     transaction_index,
+                 }| (block.block_header(), *transaction_index),
+            )
+            .unzip();
+
+        let transaction = L1RpcTransaction::new(
+            &value.transaction,
+            header,
+            transaction_index,
+            value.is_pending,
+            hardfork,
+        );
+        let signature = value.transaction.signature();
+
+        L1RpcTransactionWithSignature::new(
+            transaction,
+            signature.r(),
+            signature.s(),
+            signature.v(),
+            signature.y_parity(),
+        )
+    }
+}
+
 impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip2930 {
-    type Error = ConversionError;
+    type Error = RpcTransactionConversionError;
 
     fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction = Self {
@@ -322,7 +373,9 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip2930
                     value.from,
                 )
             },
-            chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+            chain_id: value
+                .chain_id
+                .ok_or(RpcTransactionConversionError::ChainId)?,
             nonce: value.nonce,
             gas_price: value.gas_price,
             gas_limit: value.gas.to(),
@@ -336,7 +389,7 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip2930
             access_list: value
                 .transaction
                 .access_list
-                .ok_or(ConversionError::AccessList)?
+                .ok_or(RpcTransactionConversionError::AccessList)?
                 .into(),
             hash: OnceLock::from(value.transaction.hash),
             rlp_encoding: OnceLock::new(),
@@ -347,7 +400,7 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip2930
 }
 
 impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip1559 {
-    type Error = ConversionError;
+    type Error = RpcTransactionConversionError;
 
     fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction = Self {
@@ -363,12 +416,16 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip1559
                     value.from,
                 )
             },
-            chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+            chain_id: value
+                .chain_id
+                .ok_or(RpcTransactionConversionError::ChainId)?,
             nonce: value.nonce,
             max_priority_fee_per_gas: value
                 .max_priority_fee_per_gas
-                .ok_or(ConversionError::MaxPriorityFeePerGas)?,
-            max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+                .ok_or(RpcTransactionConversionError::MaxPriorityFeePerGas)?,
+            max_fee_per_gas: value
+                .max_fee_per_gas
+                .ok_or(RpcTransactionConversionError::MaxFeePerGas)?,
             gas_limit: value.gas.to(),
             kind: if let Some(to) = value.to {
                 TxKind::Call(to)
@@ -380,7 +437,7 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip1559
             access_list: value
                 .transaction
                 .access_list
-                .ok_or(ConversionError::AccessList)?
+                .ok_or(RpcTransactionConversionError::AccessList)?
                 .into(),
             hash: OnceLock::from(value.transaction.hash),
             rlp_encoding: OnceLock::new(),
@@ -391,7 +448,7 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip1559
 }
 
 impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip4844 {
-    type Error = ConversionError;
+    type Error = RpcTransactionConversionError;
 
     fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction = Self {
@@ -407,28 +464,34 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip4844
                     value.from,
                 )
             },
-            chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+            chain_id: value
+                .chain_id
+                .ok_or(RpcTransactionConversionError::ChainId)?,
             nonce: value.nonce,
             max_priority_fee_per_gas: value
                 .max_priority_fee_per_gas
-                .ok_or(ConversionError::MaxPriorityFeePerGas)?,
-            max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+                .ok_or(RpcTransactionConversionError::MaxPriorityFeePerGas)?,
+            max_fee_per_gas: value
+                .max_fee_per_gas
+                .ok_or(RpcTransactionConversionError::MaxFeePerGas)?,
             max_fee_per_blob_gas: value
                 .max_fee_per_blob_gas
-                .ok_or(ConversionError::MaxFeePerBlobGas)?,
+                .ok_or(RpcTransactionConversionError::MaxFeePerBlobGas)?,
             gas_limit: value.gas.to(),
-            to: value.to.ok_or(ConversionError::ReceiverAddress)?,
+            to: value
+                .to
+                .ok_or(RpcTransactionConversionError::ReceiverAddress)?,
             value: value.value,
             input: value.transaction.input,
             access_list: value
                 .transaction
                 .access_list
-                .ok_or(ConversionError::AccessList)?
+                .ok_or(RpcTransactionConversionError::AccessList)?
                 .into(),
             blob_hashes: value
                 .transaction
                 .blob_versioned_hashes
-                .ok_or(ConversionError::BlobHashes)?,
+                .ok_or(RpcTransactionConversionError::BlobHashes)?,
             hash: OnceLock::from(value.transaction.hash),
             rlp_encoding: OnceLock::new(),
         };
@@ -438,7 +501,7 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip4844
 }
 
 impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip7702 {
-    type Error = ConversionError;
+    type Error = RpcTransactionConversionError;
 
     fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction = Self {
@@ -454,25 +517,31 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip7702
                     value.from,
                 )
             },
-            chain_id: value.chain_id.ok_or(ConversionError::ChainId)?,
+            chain_id: value
+                .chain_id
+                .ok_or(RpcTransactionConversionError::ChainId)?,
             nonce: value.nonce,
             max_priority_fee_per_gas: value
                 .max_priority_fee_per_gas
-                .ok_or(ConversionError::MaxPriorityFeePerGas)?,
-            max_fee_per_gas: value.max_fee_per_gas.ok_or(ConversionError::MaxFeePerGas)?,
+                .ok_or(RpcTransactionConversionError::MaxPriorityFeePerGas)?,
+            max_fee_per_gas: value
+                .max_fee_per_gas
+                .ok_or(RpcTransactionConversionError::MaxFeePerGas)?,
             gas_limit: value.gas.to(),
-            to: value.to.ok_or(ConversionError::ReceiverAddress)?,
+            to: value
+                .to
+                .ok_or(RpcTransactionConversionError::ReceiverAddress)?,
             value: value.value,
             input: value.transaction.input,
             access_list: value
                 .transaction
                 .access_list
-                .ok_or(ConversionError::AccessList)?
+                .ok_or(RpcTransactionConversionError::AccessList)?
                 .into(),
             authorization_list: value
                 .transaction
                 .authorization_list
-                .ok_or(ConversionError::AuthorizationList)?,
+                .ok_or(RpcTransactionConversionError::AuthorizationList)?,
             hash: OnceLock::from(value.transaction.hash),
             rlp_encoding: OnceLock::new(),
         };
@@ -482,7 +551,7 @@ impl TryFrom<L1RpcTransactionWithSignature> for edr_transaction::signed::Eip7702
 }
 
 impl TryFrom<L1RpcTransactionWithSignature> for L1SignedTransaction {
-    type Error = ConversionError;
+    type Error = RpcTransactionConversionError;
 
     fn try_from(value: L1RpcTransactionWithSignature) -> Result<Self, Self::Error> {
         let transaction_type = match value
@@ -521,7 +590,7 @@ impl TryFrom<L1RpcTransactionWithSignature> for L1SignedTransaction {
 
 /// Error that occurs when trying to convert the JSON-RPC `Transaction` type.
 #[derive(Debug, thiserror::Error)]
-pub enum ConversionError {
+pub enum RpcTransactionConversionError {
     /// Missing access list
     #[error("Missing access list")]
     AccessList,

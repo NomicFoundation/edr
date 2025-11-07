@@ -1,7 +1,7 @@
 [alias]
-gen-execution-api       = "run --locked --bin tools -- gen-execution-api"
-scenario                = "run --locked --release --bin tools -- scenario"
-scenario-with-tracing   = "run --locked --release --features tracing --bin tools -- scenario"
-replay-block            = "run --locked --release --bin tools -- replay-block"
+gen-execution-api       = "run --locked --bin edr_tool_cli -- gen-execution-api"
+scenario                = "run --locked --release --bin edr_tool_cli -- scenario"
+scenario-with-tracing   = "run --locked --release --features tracing --bin edr_tool_cli -- scenario"
+replay-block            = "run --locked --release --bin edr_tool_cli -- replay-block"
 generate-cheats-interface = "test -p foundry-cheatcodes-spec --features schema --locked tests::"
-op-chain-config         = "run --locked --release --bin tools -- op-chain-config"
+op-chain-config         = "run --locked --release --bin edr_tool_op_chain_config_generator"

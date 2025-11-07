@@ -14,18 +14,26 @@ mod test_utils;
 /// Utility functions
 pub mod utils;
 
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
+pub use edr_primitives as primitives;
+use edr_primitives::{B256, U256};
 use edr_signer::Signature;
 pub use revm_context_interface::Transaction;
 pub use revm_primitives::{
-    alloy_primitives::{TxKind, U8},
-    ruint::{
-        aliases::U256, BaseConvertError as RuintBaseConvertError, ParseError as RuintParseError,
-    },
-    Address, Bytes, B256,
+    alloy_primitives::TxKind,
+    ruint::{BaseConvertError as RuintBaseConvertError, ParseError as RuintParseError},
 };
 
 pub const INVALID_TX_TYPE_ERROR_MESSAGE: &str = "invalid tx type";
+
+/// Block metadata for a transaction.
+#[derive(Clone, Debug)]
+pub struct BlockDataForTransaction<BlockT> {
+    /// The block in which the transaction is found.
+    pub block: BlockT,
+    /// The index of the transaction in the block.
+    pub transaction_index: u64,
+}
 
 /// Trait for computing the hash of a transaction.
 pub trait ComputeTransactionHash {
@@ -47,64 +55,64 @@ macro_rules! impl_revm_transaction_trait {
                 $crate::TransactionType::transaction_type(self).into()
             }
 
-            fn caller(&self) -> $crate::Address {
-                edr_evm_spec::ExecutableTransaction::caller(self).clone()
+            fn caller(&self) -> $crate::primitives::Address {
+                edr_chain_spec::ExecutableTransaction::caller(self).clone()
             }
             fn gas_limit(&self) -> u64 {
-                edr_evm_spec::ExecutableTransaction::gas_limit(self)
+                edr_chain_spec::ExecutableTransaction::gas_limit(self)
             }
 
-            fn value(&self) -> $crate::U256 {
-                edr_evm_spec::ExecutableTransaction::value(self).clone()
+            fn value(&self) -> $crate::primitives::U256 {
+                edr_chain_spec::ExecutableTransaction::value(self).clone()
             }
 
-            fn input(&self) -> &$crate::Bytes {
-                edr_evm_spec::ExecutableTransaction::data(self)
+            fn input(&self) -> &$crate::primitives::Bytes {
+                edr_chain_spec::ExecutableTransaction::data(self)
             }
 
             fn nonce(&self) -> u64 {
-                edr_evm_spec::ExecutableTransaction::nonce(self)
+                edr_chain_spec::ExecutableTransaction::nonce(self)
             }
 
             fn kind(&self) -> $crate::TxKind {
-                edr_evm_spec::ExecutableTransaction::kind(self)
+                edr_chain_spec::ExecutableTransaction::kind(self)
             }
 
             fn chain_id(&self) -> Option<u64> {
-                edr_evm_spec::ExecutableTransaction::chain_id(self)
+                edr_chain_spec::ExecutableTransaction::chain_id(self)
             }
 
             fn gas_price(&self) -> u128 {
-                edr_evm_spec::ExecutableTransaction::gas_price(self).clone()
+                edr_chain_spec::ExecutableTransaction::gas_price(self).clone()
             }
 
             fn access_list(&self) -> Option<impl Iterator<Item = Self::AccessListItem<'_>>> {
-                edr_evm_spec::ExecutableTransaction::access_list(self).map(|list| list.iter())
+                edr_chain_spec::ExecutableTransaction::access_list(self).map(|list| list.iter())
             }
 
-            fn blob_versioned_hashes(&self) -> &[$crate::B256] {
-                edr_evm_spec::ExecutableTransaction::blob_hashes(self)
+            fn blob_versioned_hashes(&self) -> &[$crate::primitives::B256] {
+                edr_chain_spec::ExecutableTransaction::blob_hashes(self)
             }
 
             fn max_fee_per_blob_gas(&self) -> u128 {
-                edr_evm_spec::ExecutableTransaction::max_fee_per_blob_gas(self)
+                edr_chain_spec::ExecutableTransaction::max_fee_per_blob_gas(self)
                     .cloned()
                     .unwrap_or(0u128)
             }
 
             fn authorization_list_len(&self) -> usize {
-                edr_evm_spec::ExecutableTransaction::authorization_list(self)
+                edr_chain_spec::ExecutableTransaction::authorization_list(self)
                     .map_or(0, |list| list.len())
             }
 
             fn authorization_list(&self) -> impl Iterator<Item = Self::Authorization<'_>> {
-                edr_evm_spec::ExecutableTransaction::authorization_list(self)
+                edr_chain_spec::ExecutableTransaction::authorization_list(self)
                     .unwrap_or(&[])
                     .iter()
             }
 
             fn max_priority_fee_per_gas(&self) -> Option<u128> {
-                edr_evm_spec::ExecutableTransaction::max_priority_fee_per_gas(self).cloned()
+                edr_chain_spec::ExecutableTransaction::max_priority_fee_per_gas(self).cloned()
             }
         }
     };
@@ -126,6 +134,25 @@ impl<TransactionT: SignedTransaction> MaybeSignedTransaction for TransactionT {
     fn maybe_signature(&self) -> Option<&dyn Signature> {
         Some(self.signature())
     }
+}
+
+/// The result returned by requesting a transaction.
+#[derive(Clone, Debug)]
+pub struct TransactionAndBlock<BlockT, SignedTransactionT> {
+    /// The transaction.
+    pub transaction: SignedTransactionT,
+    /// Block data in which the transaction is found if it has been mined.
+    pub block_data: Option<BlockDataForTransaction<BlockT>>,
+    /// Whether the transaction is pending
+    pub is_pending: bool,
+}
+
+/// Wrapper struct for a transaction and its receipt.
+pub struct TransactionAndReceipt<'transaction, SignedTransactionT, TransactionReceipT> {
+    /// The transaction
+    pub transaction: &'transaction SignedTransactionT,
+    /// The transaction's receipt
+    pub receipt: &'transaction TransactionReceipT,
 }
 
 /// Trait for mutable transactions.

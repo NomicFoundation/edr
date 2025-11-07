@@ -4,30 +4,31 @@ use std::sync::Arc;
 use edr_block_api::Block as _;
 use edr_block_header::Withdrawal;
 use edr_chain_l1::rpc::block::L1RpcBlock;
+use edr_chain_spec::{ExecutableTransaction as _, TransactionValidation};
+use edr_chain_spec_block::BlockChainSpec;
+use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
-use edr_evm::{
-    block::transaction::{BlockDataForTransaction, TransactionAndBlock},
-    spec::RuntimeSpec,
-};
-use edr_evm_spec::{
-    EvmTransactionValidationError, ExecutableTransaction as _, TransactionValidation,
-};
 use edr_primitives::{B256, U256, U64};
 use edr_rpc_spec::RpcTypeFrom as _;
+use edr_transaction::{BlockDataForTransaction, TransactionAndBlock};
+use edr_utils::CastArcFrom;
 
 use crate::{
     data::ProviderData, error::ProviderErrorForChainSpec,
     requests::validation::validate_post_merge_block_tags, spec::SyncProviderSpec,
-    time::TimeSinceEpoch, ProviderError, ProviderSpec,
+    time::TimeSinceEpoch, ProviderError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 #[serde(untagged)]
-pub enum HashOrTransaction<ChainSpecT: RuntimeSpec> {
+pub enum HashOrTransaction<RpcTransactionT> {
     Hash(B256),
-    Transaction(ChainSpecT::RpcTransaction),
+    Transaction(RpcTransactionT),
 }
 
+// The result type can not be meaningfully simplified further without reducing
+// readability.
+#[allow(clippy::type_complexity)]
 pub fn handle_get_block_by_hash_request<
     ChainSpecT: SyncProviderSpec<TimerT>,
     TimerT: Clone + TimeSinceEpoch,
@@ -35,13 +36,15 @@ pub fn handle_get_block_by_hash_request<
     data: &ProviderData<ChainSpecT, TimerT>,
     block_hash: B256,
     transaction_detail_flag: bool,
-) -> Result<Option<L1RpcBlock<HashOrTransaction<ChainSpecT>>>, ProviderErrorForChainSpec<ChainSpecT>>
-{
+) -> Result<
+    Option<L1RpcBlock<HashOrTransaction<ChainSpecT::RpcTransaction>>>,
+    ProviderErrorForChainSpec<ChainSpecT>,
+> {
     data.block_by_hash(&block_hash)?
         .map(|block| {
             let total_difficulty = data.total_difficulty_by_hash(block.block_hash())?;
             let pending = false;
-            block_to_rpc_output(
+            block_to_rpc_output::<ChainSpecT>(
                 data.hardfork(),
                 block,
                 pending,
@@ -52,22 +55,23 @@ pub fn handle_get_block_by_hash_request<
         .transpose()
 }
 
+// The result type can not be meaningfully simplified further without reducing
+// readability.
+#[allow(clippy::type_complexity)]
 pub fn handle_get_block_by_number_request<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
     data: &mut ProviderData<ChainSpecT, TimerT>,
     block_spec: PreEip1898BlockSpec,
     transaction_detail_flag: bool,
-) -> Result<Option<L1RpcBlock<HashOrTransaction<ChainSpecT>>>, ProviderErrorForChainSpec<ChainSpecT>>
-{
+) -> Result<
+    Option<L1RpcBlock<HashOrTransaction<ChainSpecT::RpcTransaction>>>,
+    ProviderErrorForChainSpec<ChainSpecT>,
+> {
     block_by_number(data, &block_spec.into())?
         .map(
             |BlockByNumberResult {
@@ -75,7 +79,7 @@ pub fn handle_get_block_by_number_request<
                  pending,
                  total_difficulty,
              }| {
-                block_to_rpc_output(
+                block_to_rpc_output::<ChainSpecT>(
                     data.hardfork(),
                     block,
                     pending,
@@ -102,11 +106,7 @@ pub fn handle_get_block_transaction_count_by_hash_request<
 pub fn handle_get_block_transaction_count_by_block_number<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -119,7 +119,7 @@ pub fn handle_get_block_transaction_count_by_block_number<
 
 /// Helper type for a chain-specific [`BlockByNumberResult`].
 type BlockByNumberResultForChainSpec<ChainSpecT> =
-    BlockByNumberResult<Arc<<ChainSpecT as RuntimeSpec>::Block>>;
+    BlockByNumberResult<Arc<<ChainSpecT as BlockChainSpec>::Block>>;
 
 /// The result returned by requesting a block by number.
 #[derive(Clone, Debug)]
@@ -135,11 +135,7 @@ struct BlockByNumberResult<BlockT> {
 fn block_by_number<
     ChainSpecT: SyncProviderSpec<
         TimerT,
-        BlockEnv: Default,
-        SignedTransaction: Default
-                               + TransactionValidation<
-            ValidationError: From<EvmTransactionValidationError> + PartialEq,
-        >,
+        SignedTransaction: Default + TransactionValidation<ValidationError: PartialEq>,
     >,
     TimerT: Clone + TimeSinceEpoch,
 >(
@@ -169,10 +165,11 @@ fn block_by_number<
             let previous_total_difficulty = data
                 .total_difficulty_by_hash(last_block.block_hash())?
                 .expect("last block has total difficulty");
-            let total_difficulty = previous_total_difficulty + pending_block.header().difficulty;
+            let total_difficulty =
+                previous_total_difficulty + pending_block.block_header().difficulty;
 
             Ok(Some(BlockByNumberResult {
-                block: ChainSpecT::cast_local_block(pending_block),
+                block: CastArcFrom::cast_arc_from(pending_block),
                 pending: true,
                 total_difficulty: Some(total_difficulty),
             }))
@@ -182,45 +179,49 @@ fn block_by_number<
     }
 }
 
-fn block_to_rpc_output<ChainSpecT: ProviderSpec<TimerT>, TimerT: Clone + TimeSinceEpoch>(
+fn block_to_rpc_output<ChainSpecT: ProviderChainSpec>(
     hardfork: ChainSpecT::Hardfork,
     block: Arc<ChainSpecT::Block>,
     is_pending: bool,
     total_difficulty: Option<U256>,
     transaction_detail_flag: bool,
-) -> Result<L1RpcBlock<HashOrTransaction<ChainSpecT>>, ProviderErrorForChainSpec<ChainSpecT>> {
-    let header = block.header();
+) -> Result<
+    L1RpcBlock<HashOrTransaction<ChainSpecT::RpcTransaction>>,
+    ProviderErrorForChainSpec<ChainSpecT>,
+> {
+    let header = block.block_header();
 
-    let transactions: Vec<HashOrTransaction<ChainSpecT>> = if transaction_detail_flag {
-        block
-            .transactions()
-            .iter()
-            .enumerate()
-            .map(|(i, tx)| TransactionAndBlock {
-                transaction: tx.clone(),
-                block_data: Some(BlockDataForTransaction {
-                    block: block.clone(),
-                    transaction_index: i.try_into().expect("usize fits into u64"),
-                }),
-                is_pending,
-            })
-            .map(
-                |transaction_and_block: TransactionAndBlock<
-                    Arc<ChainSpecT::Block>,
-                    ChainSpecT::SignedTransaction,
-                >| {
-                    ChainSpecT::RpcTransaction::rpc_type_from(&transaction_and_block, hardfork)
-                },
-            )
-            .map(HashOrTransaction::Transaction)
-            .collect()
-    } else {
-        block
-            .transactions()
-            .iter()
-            .map(|tx| HashOrTransaction::Hash(*tx.transaction_hash()))
-            .collect()
-    };
+    let transactions: Vec<HashOrTransaction<ChainSpecT::RpcTransaction>> =
+        if transaction_detail_flag {
+            block
+                .transactions()
+                .iter()
+                .enumerate()
+                .map(|(i, tx)| TransactionAndBlock {
+                    transaction: tx.clone(),
+                    block_data: Some(BlockDataForTransaction {
+                        block: block.clone(),
+                        transaction_index: i.try_into().expect("usize fits into u64"),
+                    }),
+                    is_pending,
+                })
+                .map(
+                    |transaction_and_block: TransactionAndBlock<
+                        Arc<ChainSpecT::Block>,
+                        ChainSpecT::SignedTransaction,
+                    >| {
+                        ChainSpecT::RpcTransaction::rpc_type_from(&transaction_and_block, hardfork)
+                    },
+                )
+                .map(HashOrTransaction::Transaction)
+                .collect()
+        } else {
+            block
+                .transactions()
+                .iter()
+                .map(|tx| HashOrTransaction::Hash(*tx.transaction_hash()))
+                .collect()
+        };
 
     let mix_hash = if is_pending {
         None

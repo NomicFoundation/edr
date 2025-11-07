@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
 use alloy_rlp::{Encodable as _, RlpDecodable, RlpEncodable};
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
+use edr_primitives::{Address, Bytes, B256, U256};
 use edr_signer::{FakeableSignature, SignatureWithYParity};
 use revm_primitives::{keccak256, TxKind};
 
-use crate::{request, utils::enveloped, Address, Bytes, ComputeTransactionHash as _, B256, U256};
-// transaction::{self, request, ComputeTransactionHash as _, TxKind},
+use crate::{request, utils::enveloped, ComputeTransactionHash as _};
 
 #[derive(Clone, Debug, Eq, serde::Serialize, RlpEncodable)]
 pub struct Eip7702 {

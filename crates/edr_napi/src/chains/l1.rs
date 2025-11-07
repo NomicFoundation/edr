@@ -1,10 +1,10 @@
 use std::{str::FromStr, sync::Arc};
 
-use edr_chain_l1::L1ChainSpec;
-use edr_evm::eips::{
+use edr_blockchain_fork::eips::{
     eip2935::{HISTORY_STORAGE_ADDRESS, HISTORY_STORAGE_UNSUPPORTED_BYTECODE},
     eip4788::{BEACON_ROOTS_ADDRESS, BEACON_ROOTS_BYTECODE},
 };
+use edr_chain_l1::L1ChainSpec;
 use edr_napi_core::{
     logger::Logger,
     provider::{SyncProvider, SyncProviderFactory},
@@ -142,25 +142,25 @@ impl FromStr for SpecId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            edr_chain_l1::hardfork::name::FRONTIER => Ok(SpecId::Frontier),
-            edr_chain_l1::hardfork::name::FRONTIER_THAWING => Ok(SpecId::FrontierThawing),
-            edr_chain_l1::hardfork::name::HOMESTEAD => Ok(SpecId::Homestead),
-            edr_chain_l1::hardfork::name::DAO_FORK => Ok(SpecId::DaoFork),
-            edr_chain_l1::hardfork::name::TANGERINE => Ok(SpecId::Tangerine),
-            edr_chain_l1::hardfork::name::SPURIOUS_DRAGON => Ok(SpecId::SpuriousDragon),
-            edr_chain_l1::hardfork::name::BYZANTIUM => Ok(SpecId::Byzantium),
-            edr_chain_l1::hardfork::name::CONSTANTINOPLE => Ok(SpecId::Constantinople),
-            edr_chain_l1::hardfork::name::PETERSBURG => Ok(SpecId::Petersburg),
-            edr_chain_l1::hardfork::name::ISTANBUL => Ok(SpecId::Istanbul),
-            edr_chain_l1::hardfork::name::MUIR_GLACIER => Ok(SpecId::MuirGlacier),
-            edr_chain_l1::hardfork::name::BERLIN => Ok(SpecId::Berlin),
-            edr_chain_l1::hardfork::name::LONDON => Ok(SpecId::London),
-            edr_chain_l1::hardfork::name::ARROW_GLACIER => Ok(SpecId::ArrowGlacier),
-            edr_chain_l1::hardfork::name::GRAY_GLACIER => Ok(SpecId::GrayGlacier),
-            edr_chain_l1::hardfork::name::MERGE => Ok(SpecId::Merge),
-            edr_chain_l1::hardfork::name::SHANGHAI => Ok(SpecId::Shanghai),
-            edr_chain_l1::hardfork::name::CANCUN => Ok(SpecId::Cancun),
-            edr_chain_l1::hardfork::name::PRAGUE => Ok(SpecId::Prague),
+            edr_chain_l1::chains::name::FRONTIER => Ok(SpecId::Frontier),
+            edr_chain_l1::chains::name::FRONTIER_THAWING => Ok(SpecId::FrontierThawing),
+            edr_chain_l1::chains::name::HOMESTEAD => Ok(SpecId::Homestead),
+            edr_chain_l1::chains::name::DAO_FORK => Ok(SpecId::DaoFork),
+            edr_chain_l1::chains::name::TANGERINE => Ok(SpecId::Tangerine),
+            edr_chain_l1::chains::name::SPURIOUS_DRAGON => Ok(SpecId::SpuriousDragon),
+            edr_chain_l1::chains::name::BYZANTIUM => Ok(SpecId::Byzantium),
+            edr_chain_l1::chains::name::CONSTANTINOPLE => Ok(SpecId::Constantinople),
+            edr_chain_l1::chains::name::PETERSBURG => Ok(SpecId::Petersburg),
+            edr_chain_l1::chains::name::ISTANBUL => Ok(SpecId::Istanbul),
+            edr_chain_l1::chains::name::MUIR_GLACIER => Ok(SpecId::MuirGlacier),
+            edr_chain_l1::chains::name::BERLIN => Ok(SpecId::Berlin),
+            edr_chain_l1::chains::name::LONDON => Ok(SpecId::London),
+            edr_chain_l1::chains::name::ARROW_GLACIER => Ok(SpecId::ArrowGlacier),
+            edr_chain_l1::chains::name::GRAY_GLACIER => Ok(SpecId::GrayGlacier),
+            edr_chain_l1::chains::name::MERGE => Ok(SpecId::Merge),
+            edr_chain_l1::chains::name::SHANGHAI => Ok(SpecId::Shanghai),
+            edr_chain_l1::chains::name::CANCUN => Ok(SpecId::Cancun),
+            edr_chain_l1::chains::name::PRAGUE => Ok(SpecId::Prague),
             _ => Err(napi::Error::new(
                 napi::Status::InvalidArg,
                 format!("The provided hardfork `{s}` is not supported."),
@@ -206,25 +206,25 @@ pub fn l1_hardfork_from_string(hardfork: String) -> napi::Result<SpecId> {
 #[napi(catch_unwind)]
 pub fn l1_hardfork_to_string(harfork: SpecId) -> &'static str {
     match harfork {
-        SpecId::Frontier => edr_chain_l1::hardfork::name::FRONTIER,
-        SpecId::FrontierThawing => edr_chain_l1::hardfork::name::FRONTIER_THAWING,
-        SpecId::Homestead => edr_chain_l1::hardfork::name::HOMESTEAD,
-        SpecId::DaoFork => edr_chain_l1::hardfork::name::DAO_FORK,
-        SpecId::Tangerine => edr_chain_l1::hardfork::name::TANGERINE,
-        SpecId::SpuriousDragon => edr_chain_l1::hardfork::name::SPURIOUS_DRAGON,
-        SpecId::Byzantium => edr_chain_l1::hardfork::name::BYZANTIUM,
-        SpecId::Constantinople => edr_chain_l1::hardfork::name::CONSTANTINOPLE,
-        SpecId::Petersburg => edr_chain_l1::hardfork::name::PETERSBURG,
-        SpecId::Istanbul => edr_chain_l1::hardfork::name::ISTANBUL,
-        SpecId::MuirGlacier => edr_chain_l1::hardfork::name::MUIR_GLACIER,
-        SpecId::Berlin => edr_chain_l1::hardfork::name::BERLIN,
-        SpecId::London => edr_chain_l1::hardfork::name::LONDON,
-        SpecId::ArrowGlacier => edr_chain_l1::hardfork::name::ARROW_GLACIER,
-        SpecId::GrayGlacier => edr_chain_l1::hardfork::name::GRAY_GLACIER,
-        SpecId::Merge => edr_chain_l1::hardfork::name::MERGE,
-        SpecId::Shanghai => edr_chain_l1::hardfork::name::SHANGHAI,
-        SpecId::Cancun => edr_chain_l1::hardfork::name::CANCUN,
-        SpecId::Prague => edr_chain_l1::hardfork::name::PRAGUE,
+        SpecId::Frontier => edr_chain_l1::chains::name::FRONTIER,
+        SpecId::FrontierThawing => edr_chain_l1::chains::name::FRONTIER_THAWING,
+        SpecId::Homestead => edr_chain_l1::chains::name::HOMESTEAD,
+        SpecId::DaoFork => edr_chain_l1::chains::name::DAO_FORK,
+        SpecId::Tangerine => edr_chain_l1::chains::name::TANGERINE,
+        SpecId::SpuriousDragon => edr_chain_l1::chains::name::SPURIOUS_DRAGON,
+        SpecId::Byzantium => edr_chain_l1::chains::name::BYZANTIUM,
+        SpecId::Constantinople => edr_chain_l1::chains::name::CONSTANTINOPLE,
+        SpecId::Petersburg => edr_chain_l1::chains::name::PETERSBURG,
+        SpecId::Istanbul => edr_chain_l1::chains::name::ISTANBUL,
+        SpecId::MuirGlacier => edr_chain_l1::chains::name::MUIR_GLACIER,
+        SpecId::Berlin => edr_chain_l1::chains::name::BERLIN,
+        SpecId::London => edr_chain_l1::chains::name::LONDON,
+        SpecId::ArrowGlacier => edr_chain_l1::chains::name::ARROW_GLACIER,
+        SpecId::GrayGlacier => edr_chain_l1::chains::name::GRAY_GLACIER,
+        SpecId::Merge => edr_chain_l1::chains::name::MERGE,
+        SpecId::Shanghai => edr_chain_l1::chains::name::SHANGHAI,
+        SpecId::Cancun => edr_chain_l1::chains::name::CANCUN,
+        SpecId::Prague => edr_chain_l1::chains::name::PRAGUE,
     }
 }
 
@@ -240,7 +240,7 @@ macro_rules! export_spec_id {
     ($($variant:ident),*) => {
         $(
             #[napi]
-            pub const $variant: &str = edr_chain_l1::hardfork::name::$variant;
+            pub const $variant: &str = edr_chain_l1::chains::name::$variant;
         )*
     };
 }

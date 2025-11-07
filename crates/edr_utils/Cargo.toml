@@ -3,5 +3,8 @@ name = "edr_utils"
 version.workspace = true
 edition.workspace = true
 
+[dependencies]
+edr_primitives.workspace = true
+
 [lints]
 workspace = true

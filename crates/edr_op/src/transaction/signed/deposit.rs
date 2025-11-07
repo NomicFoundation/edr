@@ -1,9 +1,50 @@
+use std::sync::OnceLock;
+
 use alloy_rlp::Encodable;
-use edr_evm_spec::ExecutableTransaction;
+use edr_chain_spec::ExecutableTransaction;
 use edr_primitives::{keccak256, Address, Bytes, B256, U256};
 use edr_transaction::{utils::enveloped, TxKind};
 
-use super::Deposit;
+/// Deposit transaction.
+///
+/// For details, see <https://specs.optimism.io/protocol/deposits.html#the-deposited-transaction-type>.
+#[derive(
+    Clone, Debug, Eq, alloy_rlp::RlpDecodable, alloy_rlp::RlpEncodable, serde::Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct Deposit {
+    // The order of these fields determines encoding order.
+    /// Hash that uniquely identifies the origin of the deposit.
+    pub source_hash: B256,
+    /// The address of the sender account.
+    pub from: Address,
+    /// The address of the recipient account, or the null (zero-length) address
+    /// if the deposit transaction is a contract creation.
+    pub to: TxKind,
+    /// The ETH value to mint on L2.
+    #[serde(with = "alloy_serde::quantity")]
+    pub mint: u128,
+    ///  The ETH value to send to the recipient account.
+    pub value: U256,
+    /// The gas limit for the L2 transaction.
+    #[serde(rename = "gas", with = "alloy_serde::quantity")]
+    pub gas_limit: u64,
+    /// Field indicating if this transaction is exempt from the L2 gas limit.
+    pub is_system_tx: bool,
+    #[serde(alias = "input")]
+    /// The calldata
+    pub data: Bytes,
+    /// Cached transaction hash
+    #[rlp(default)]
+    #[rlp(skip)]
+    #[serde(skip)]
+    pub hash: OnceLock<B256>,
+    /// Cached RLP-encoding
+    #[rlp(default)]
+    #[rlp(skip)]
+    #[serde(skip)]
+    pub rlp_encoding: OnceLock<Bytes>,
+}
 
 impl Deposit {
     /// The type identifier for a deposit transaction.
@@ -113,12 +154,12 @@ impl ExecutableTransaction for Deposit {
 mod tests {
     use std::{str::FromStr as _, sync::OnceLock};
 
-    use edr_evm_spec::ExecutableTransaction as _;
+    use edr_chain_spec::ExecutableTransaction as _;
     use edr_primitives::{address, b256, Bytes, U256};
     use edr_transaction::TxKind;
 
     use super::*;
-    use crate::transaction;
+    use crate::transaction::signed::OpSignedTransaction;
 
     #[test]
     fn transaction_hash() -> anyhow::Result<()> {
@@ -127,7 +168,7 @@ mod tests {
         const EXPECTED: B256 =
             b256!("cca2f31992022e3a833959c505de021285a7c5339c8d1b8ad75100074e1c6aea");
 
-        let transaction = transaction::Signed::Deposit(Deposit {
+        let transaction = OpSignedTransaction::Deposit(Deposit {
             source_hash: b256!("8672083ef2a54fb901eab5c1366a77c1e2c421793467cf1ea7925f21282804bb"),
             from: address!("deaddeaddeaddeaddeaddeaddeaddeaddead0001"),
             to: TxKind::Call(address!("4200000000000000000000000000000000000015")),
