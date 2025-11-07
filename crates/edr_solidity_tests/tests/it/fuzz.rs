@@ -14,7 +14,22 @@ use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_D
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/")
-        .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)|testSuccessChecker\(uint256\)|testSuccessChecker2\(int256\)|testSuccessChecker3\(uint32\)")
+        .exclude_tests(
+            &[
+                r"invariantCounter",
+                r"testIncrement\(address\)",
+                r"testNeedle\(uint256\)",
+                r"testSuccessChecker\(uint256\)",
+                r"testSuccessChecker2\(int256\)",
+                r"testSuccessChecker3\(uint32\)",
+                r"testFuzz_SetNumberAssert\(uint256\)",
+                r"testFuzz_SetNumberRequire\(uint256\)",
+                r"test_fuzz_bound\(uint256\)",
+                r"testImmutableOwner\(address\)",
+                r"testStorageOwner\(address\)",
+            ]
+            .join("|"),
+        )
         .exclude_paths("invariant");
     let runner = TEST_DATA_DEFAULT.runner().await;
     let suite_result = runner.test_collect(filter).await.suite_results;
@@ -298,13 +313,7 @@ async fn test_fuzz_fail_on_revert() {
                         None,
                         None,
                     ),
-                    (
-                        "testFuzz_SetNumberAssert(uint256)",
-                        false,
-                        None,
-                        None,
-                        None,
-                    ),
+                    ("testFuzz_SetNumberAssert(uint256)", false, None, None, None),
                 ],
             ),
         ]),
