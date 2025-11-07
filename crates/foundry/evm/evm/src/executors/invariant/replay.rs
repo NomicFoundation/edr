@@ -70,7 +70,6 @@ pub struct ReplayRunArgs<
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
     pub revert_decoder: &'a RevertDecoder,
     pub fail_on_revert: bool,
-    pub show_solidity: bool,
 }
 
 /// Results of a replay
@@ -122,7 +121,6 @@ pub fn replay_run<
         contract_decoder,
         revert_decoder,
         fail_on_revert,
-        show_solidity,
     } = args;
 
     // We want traces for a failed case.
@@ -163,7 +161,6 @@ pub fn replay_run<
             &tx.call_details.calldata,
             &ided_contracts,
             call_result.traces,
-            show_solidity,
             /* indeterminism_reason */ None,
         ));
 
@@ -288,7 +285,6 @@ pub struct ReplayErrorArgs<
     /// Must be provided if `generate_stack_trace` is true
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
     pub revert_decoder: &'a RevertDecoder,
-    pub show_solidity: bool,
 }
 
 /// Replays the error case, shrinks the failing sequence and collects all
@@ -329,7 +325,6 @@ pub fn replay_error<
         generate_stack_trace,
         contract_decoder,
         revert_decoder,
-        show_solidity,
     } = args;
 
     match failed_case.test_error {
@@ -362,7 +357,6 @@ pub fn replay_error<
                 contract_decoder,
                 fail_on_revert: failed_case.fail_on_revert,
                 revert_decoder,
-                show_solidity,
             })
         }
     }

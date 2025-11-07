@@ -67,9 +67,6 @@ pub struct BaseCounterExample {
     /// Counter example traces.
     #[serde(skip)]
     pub traces: Option<SparsedTraceArena>,
-    /// Whether to display sequence as solidity.
-    #[serde(skip)]
-    pub show_solidity: bool,
     /// If re-executing the counter example is not guaranteed to yield the same
     /// results, this field contains the reason why.
     pub indeterminism_reasons: Option<IndeterminismReasons>,
@@ -83,7 +80,6 @@ impl BaseCounterExample {
         bytes: &Bytes,
         contracts: &ContractsByAddress,
         traces: Option<SparsedTraceArena>,
-        show_solidity: bool,
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
         if let Some((name, abi)) = &contracts.get(&addr)
@@ -103,7 +99,6 @@ impl BaseCounterExample {
                         edr_common::fmt::format_tokens_raw(&args).format(", ").to_string(),
                     ),
                     traces,
-                    show_solidity,
                     indeterminism_reasons,
                 };
             }
@@ -119,7 +114,6 @@ impl BaseCounterExample {
             args: None,
             raw_args: None,
             traces,
-            show_solidity: false,
             indeterminism_reasons,
         }
     }
@@ -141,7 +135,6 @@ impl BaseCounterExample {
             args: Some(edr_common::fmt::format_tokens(args).format(", ").to_string()),
             raw_args: Some(edr_common::fmt::format_tokens_raw(args).format(", ").to_string()),
             traces,
-            show_solidity: false,
             indeterminism_reasons,
         }
     }
@@ -149,24 +142,6 @@ impl BaseCounterExample {
 
 impl fmt::Display for BaseCounterExample {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Display counterexample as solidity.
-        if self.show_solidity
-            && let (Some(sender), Some(contract), Some(address), Some(func_name), Some(args)) =
-            (&self.sender, &self.contract_name, &self.addr, &self.func_name, &self.raw_args)
-        {
-            writeln!(f, "\t\tvm.prank({sender});")?;
-            write!(
-                f,
-                "\t\t{}({}).{}({});",
-                contract.split_once(':').map_or(contract.as_str(), |(_, contract)| contract),
-                address,
-                func_name,
-                args
-            )?;
-
-            return Ok(());
-        }
-
         // Regular counterexample display.
         if let Some(sender) = self.sender {
             write!(f, "\t\tsender={sender} addr=")?

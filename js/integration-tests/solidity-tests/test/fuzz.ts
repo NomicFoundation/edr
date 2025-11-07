@@ -344,4 +344,146 @@ describe("Fuzz and invariant testing", function () {
     assert.equal(changedResults[0].testResults[0].status, "Failure");
     assert.equal(changedResults[0].testResults[0].reason, "`vm.assume` rejected too many inputs (10 allowed)");
   });
+
+  it("ShouldRevertWithAssumeCode", async function () {
+    const invariantConfig = {
+      failOnRevert: true,
+      maxAssumeRejects: 10,
+    };
+
+    const result = await testContext.runTestsWithStats("BalanceAssumeTest", {
+      invariant: invariantConfig,
+      fuzz: {
+        seed: "100",
+      },
+    });
+    assert.equal(result.failedTests, 1);
+    assert.equal(result.totalTests, 1);
+
+    const expectedReason = "`vm.assume` rejected too many inputs (10 allowed)";
+
+    const stackTrace = result.stackTraces.get("invariant_balance()");
+    assert.equal(stackTrace?.reason, expectedReason);
+  });
+
+  it("ShouldNotPanicIfNoSelectors", async function () {
+    const result = await testContext.runTestsWithStats("NoSelectorTest");
+    assert.equal(result.failedTests, 1);
+    assert.equal(result.totalTests, 1);
+
+    const expectedReason =
+      "failed to set up invariant testing environment: No contracts to fuzz.";
+
+    const stackTrace = result.stackTraces.get("invariant_panic()");
+    assert.equal(stackTrace?.reason, expectedReason);
+  });
+
+  it("InvariantTestTarget", async function () {
+    const invariantConfig = {
+      runs: 5,
+      depth: 5,
+    };
+
+    let result = await testContext.runTestsWithStats("InvariantTestNoTarget", {
+      invariant: invariantConfig,
+    });
+    assert.equal(result.failedTests, 1);
+    assert.equal(result.totalTests, 1);
+
+    let expectedReason =
+      "failed to set up invariant testing environment: No contracts to fuzz.";
+
+    let stackTrace = result.stackTraces.get("invariant_check_count()");
+    assert.equal(stackTrace?.reason, expectedReason);
+
+    // Tests targetContract.
+    result = await testContext.runTestsWithStats("InvariantTestTarget", {
+      invariant: invariantConfig,
+    });
+    assert.equal(result.failedTests, 0);
+    assert.equal(result.totalTests, 1);
+  });
+
+  it("InvariantTestTargetContractSelectors", async function () {
+    const invariantConfig = {
+      runs: 10,
+      depth: 100,
+    };
+
+    // Only this selector should be targeted.
+    const expectedSelector =
+      "project/test-contracts/TargetContractSelectors.t.sol:InvariantTargetTestSelectors.foo";
+
+    const result = await testContext.runTestsWithStats(
+      "InvariantTargetTestSelectors",
+      {
+        invariant: invariantConfig,
+        testPattern: "invariant",
+      }
+    );
+
+    // Only invariant tests should run.
+    assert.equal(result.failedTests, 0);
+    assert.equal(result.totalTests, 4);
+
+    const suiteResults = result.suiteResults[0];
+    for (const testResult of suiteResults.testResults) {
+      if ("metrics" in testResult.kind) {
+        const metrics = testResult.kind.metrics;
+        assert.equal(Object.keys(metrics).length, 1);
+        assert(metrics[expectedSelector] !== undefined);
+      } else {
+        throw new Error(
+          "The 'metrics' property does not exist on this test kind."
+        );
+      }
+    }
+  });
+
+  it("InvariantTestTargetIncludeExcludeSelectors", async function () {
+    const invariantConfig = {
+      runs: 10,
+      depth: 100,
+    };
+
+    const testCases = [
+      {
+        // Tests tagetSelector.
+        testName: "InvariantTargetIncludeTest",
+        expectedMetrics: [
+          "project/test-contracts/TargetIncludeExcludeSelectors.t.sol:InvariantTargetIncludeTest.shouldInclude1",
+          "project/test-contracts/TargetIncludeExcludeSelectors.t.sol:InvariantTargetIncludeTest.shouldInclude2",
+        ],
+      },
+      {
+        // Tests excludeSelector.
+        testName: "InvariantTargetExcludeTest",
+        expectedMetrics: [
+          "project/test-contracts/TargetIncludeExcludeSelectors.t.sol:InvariantTargetExcludeTest.shouldInclude1",
+          "project/test-contracts/TargetIncludeExcludeSelectors.t.sol:InvariantTargetExcludeTest.shouldInclude2",
+        ],
+      },
+    ];
+
+    for (const { testName, expectedMetrics } of testCases) {
+      const result = await testContext.runTestsWithStats(testName, {
+        invariant: invariantConfig,
+      });
+      assert.equal(result.failedTests, 0);
+      assert.equal(result.totalTests, 1);
+
+      const suiteResult = result.suiteResults[0];
+      if ("metrics" in suiteResult.testResults[0].kind) {
+        const metrics = suiteResult.testResults[0].kind.metrics;
+        assert.equal(Object.keys(metrics).length, expectedMetrics.length);
+        for (const metric of expectedMetrics) {
+          assert(metrics[metric] !== undefined);
+        }
+      } else {
+        throw new Error(
+          "The 'metrics' property does not exist on this test kind."
+        );
+      }
+    }
+  });
 });

@@ -273,6 +273,8 @@ pub struct TestInvariantConfig {
     pub corpus_min_size: usize,
     pub failure_persist_dir: Option<PathBuf>,
     pub show_edge_coverage: bool,
+    pub show_metrics: bool,
+    pub timeout: Option<u32>,
 }
 
 impl TestInvariantConfig {
@@ -307,6 +309,8 @@ impl Default for TestInvariantConfig {
             corpus_min_size: 0,
             failure_persist_dir: None,
             show_edge_coverage: false,
+            show_metrics: false,
+            timeout: None,
         }
     }
 }
@@ -327,9 +331,8 @@ impl From<TestInvariantConfig> for InvariantConfig {
             corpus_min_mutations: value.corpus_min_mutations,
             corpus_min_size: value.corpus_min_size,
             failure_persist_dir: value.failure_persist_dir,
-            show_metrics: false,
-            timeout: None,
-            show_solidity: false,
+            show_metrics: value.show_metrics,
+            timeout: value.timeout,
             show_edge_coverage: value.show_edge_coverage,
         }
     }
