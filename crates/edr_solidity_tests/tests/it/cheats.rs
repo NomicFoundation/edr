@@ -1,10 +1,11 @@
 //! Forge tests for cheatcodes.
 use alloy_primitives::U256;
+use edr_solidity_tests::result::{TestKind, TestStatus};
 use foundry_cheatcodes::{FsPermissions, PathPermission};
 
 use crate::helpers::{
-    L1ForgeTestData, SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_PARIS,
-    TEST_DATA_DEFAULT, TEST_DATA_MULTI_VERSION,
+    L1ForgeTestData, SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_DEFAULT,
+    TEST_DATA_MULTI_VERSION, TEST_DATA_PARIS,
 };
 
 /// Executes all cheat code tests but not fork cheat codes or tests that require
@@ -47,7 +48,10 @@ async fn test_cheats_local(test_data: &L1ForgeTestData, should_fail: bool) {
         )
         .await;
 
-    TestConfig::with_filter(runner, filter).set_should_fail(should_fail).run().await;
+    TestConfig::with_filter(runner, filter)
+        .set_should_fail(should_fail)
+        .run()
+        .await;
 }
 
 /// Executes subset of all cheat code tests in isolation mode
@@ -130,4 +134,95 @@ async fn test_cheats_local_paris() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_cheats_local_paris_should_fail() {
     test_cheats_local(&TEST_DATA_PARIS, true).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_metering_reset() {
+    let filter = SolidityTestFilter::new(".*", "GasMeteringResetTest", ".*cheats/");
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite_result = suite_results
+        .get("default/cheats/GasMeteringReset.t.sol:GasMeteringResetTest")
+        .unwrap();
+
+    // None indicates that we don't match the exact value
+    let expected_gas = [
+        ("testResetGas()", Some(96)),
+        ("testResetGas1()", Some(96)),
+        ("testResetGas2()", Some(96)),
+        ("testResetGas3()", None),
+        ("testResetGas4()", None),
+        ("testResetGas5()", Some(96)),
+        ("testResetGas6()", Some(96)),
+        ("testResetGas7()", Some(96)),
+        ("testResetGas8()", None),
+        ("testResetGas9()", Some(96)),
+        ("testResetNegativeGas()", Some(96)),
+    ];
+
+    for (test_name, gas) in expected_gas {
+        let test_result = suite_result.test_results.get(test_name).unwrap();
+        assert_eq!(test_result.status, TestStatus::Success);
+        match gas {
+            Some(gas) => assert!(matches!(test_result.kind, TestKind::Unit { gas: g } if g == gas)),
+            None => assert!(matches!(test_result.kind, TestKind::Unit { gas: _ })),
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_expect_partial_revert() {
+    let filter = SolidityTestFilter::new(".*", "ExpectPartialRevertTest", ".*cheats/");
+    let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite_result = suite_results
+        .get("default/cheats/ExpectPartialRevert.t.sol:ExpectPartialRevertTest")
+        .unwrap();
+
+    let test_result = suite_result.test_results.get("testExpectPartialRevertWithSelector()").unwrap();
+    assert_eq!(test_result.status, TestStatus::Success);
+
+    let test_result = suite_result.test_results.get("testExpectPartialRevertWith4Bytes()").unwrap();
+    assert_eq!(test_result.status, TestStatus::Success);
+
+    let test_result = suite_result.test_results.get("testExpectRevert()").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("Error != expected error: WrongNumber(0) != custom error 0x238ace70".into()));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_assume_no_revert() {
+    let filter = SolidityTestFilter::new(".*", "AssumeNoRevertTest", ".*cheats/");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 100;
+    config.fuzz.seed = Some(U256::from(100));
+    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let suite_results = runner.test_collect(filter).await.suite_results;
+
+    let suite_result = suite_results
+        .get("default/cheats/AssumeNoRevert2.t.sol:AssumeNoRevertTest")
+        .unwrap();
+
+    println!("{suite_result:#?}");
+
+    let test_result = suite_result.test_results.get("test_assume_no_revert_pass(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Success);
+
+    let test_result = suite_result.test_results.get("test_assume_no_revert_fail_assert(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert!(test_result.counterexample.is_some());
+
+    let test_result = suite_result.test_results.get("test_assume_no_revert_fail_in_2nd_call(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("CheckError()".into()));
+    assert!(test_result.counterexample.is_some());
+
+    let test_result = suite_result.test_results.get("test_assume_no_revert_fail_in_3rd_call(uint256)").unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert_eq!(test_result.reason, Some("CheckError()".into()));
+    assert!(test_result.counterexample.is_some());
 }
