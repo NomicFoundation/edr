@@ -13,11 +13,11 @@ use crate::helpers::{
 async fn test_cheats_local(test_data: &L1ForgeTestData, should_fail: bool) {
     let path_pattern = format!(".*cheats{RE_PATH_SEPARATOR}*");
     let exclude_paths = "Fork";
-    let exclude_contracts = "Isolated|Sleep|WithSeed";
+    let exclude_contracts = "Isolated|Sleep|WithSeed|ExpectPartialRevertTest|GasMeteringResetTest|AssumeNoRevert";
     let should_fail_pattern = "testShouldFail";
     let windows_exclude_patterns = ["Ffi", "File", "Line", "Root"];
 
-    let filter = if should_fail {
+    let mut filter = if should_fail {
         SolidityTestFilter::new(should_fail_pattern, ".*", &path_pattern)
             .exclude_paths(exclude_paths)
             .exclude_contracts(exclude_contracts)
@@ -39,7 +39,9 @@ async fn test_cheats_local(test_data: &L1ForgeTestData, should_fail: bool) {
         exclude_test_patterns.extend_from_slice(&windows_exclude_patterns);
     }
 
-    let filter = filter.exclude_tests(&format!("({})", exclude_test_patterns.join("|")));
+    if !exclude_test_patterns.is_empty() {
+        filter = filter.exclude_tests(&format!("({})", exclude_test_patterns.join("|")));
+    }
 
     let runner = test_data
         .runner_with_fs_permissions(
