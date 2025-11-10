@@ -159,6 +159,7 @@ impl ForgeTestProfile {
             project_root: PROJECT_ROOT.clone(),
             cheats_config_options: CheatsConfigOptions {
                 execution_context: ExecutionContextConfig::Test,
+                prompt_timeout: 0,
                 ..CheatsConfigOptions::default()
             },
             fuzz: TestFuzzConfig::new(fuzz_failure_dir).into(),
@@ -356,8 +357,8 @@ impl Default for TestFuzzDictionaryConfig {
             dictionary_weight: 40,
             include_storage: true,
             include_push_bytes: true,
-            max_fuzz_dictionary_addresses: 10_000,
-            max_fuzz_dictionary_values: 10_000,
+            max_fuzz_dictionary_addresses: 15728640,
+            max_fuzz_dictionary_values: 6553600,
         }
     }
 }
@@ -562,7 +563,7 @@ impl<
         config
     }
 
-    /// Builds a non-tracing runner
+    /// Builds a non-tracing runner with mock rpc fuzz persistence.
     pub async fn runner(
         &self,
     ) -> MultiContractRunner<
@@ -576,11 +577,29 @@ impl<
         TransactionT,
     > {
         let config = self.config_with_mock_rpc();
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a non-tracing runner with the given config
     pub async fn runner_with_config(
+        &self,
+        config: SolidityTestRunnerConfig<HardforkT>,
+    ) -> MultiContractRunner<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
+        TransactionT,
+    > {
+        self.build_runner(config).await
+    }
+
+    /// Builds a non-tracing runner with the given config
+    /// and adds failure persistence for fuzz and invariant testing.
+    pub async fn runner_with_fuzz_persistence(
         &self,
         mut config: SolidityTestRunnerConfig<HardforkT>,
     ) -> MultiContractRunner<
@@ -593,9 +612,6 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        // no prompt testing
-        config.cheats_config_options.prompt_timeout = 0;
-
         config.fuzz.failure_persist_dir = Some(self.new_fuzz_failure_dir());
         config.invariant.failure_persist_dir = Some(self.new_invariant_failure_dir());
 
@@ -618,7 +634,7 @@ impl<
         TransactionT,
     > {
         config.cheats_config_options.fs_permissions = fs_permissions;
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a non-tracing runner with the given invariant config
@@ -637,7 +653,7 @@ impl<
     > {
         let mut config = self.config_with_mock_rpc();
         config.fuzz = fuzz_config.into();
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a non-tracing runner with the given invariant config
@@ -656,7 +672,7 @@ impl<
     > {
         let mut config = self.config_with_mock_rpc();
         config.invariant = invariant_config.into();
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a non-tracing runner with the given invariant config and fuzz
@@ -678,7 +694,7 @@ impl<
     > {
         config.fuzz.seed = Some(seed);
         config.invariant = invariant_config.into();
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a tracing runner

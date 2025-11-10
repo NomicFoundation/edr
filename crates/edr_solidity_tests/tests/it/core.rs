@@ -884,7 +884,7 @@ async fn test_gas_report_revert() {
     );
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.generate_gas_report = true;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let SolidityTestsRunResult { test_result, .. } = runner.test_collect(filter).await;
 
     let gas_report = test_result.gas_report.unwrap();

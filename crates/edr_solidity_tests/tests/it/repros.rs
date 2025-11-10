@@ -78,7 +78,7 @@ macro_rules! test_repro {
                 let mut $runner_config = runner_config(None, &*TEST_DATA_DEFAULT, false).await;
                 $e
                 let filter = repro_filter($issue_number);
-                let runner = TEST_DATA_DEFAULT.runner_with_config($runner_config).await;
+                let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence($runner_config).await;
                 let test_config = TestConfig::with_filter(runner, filter).set_should_fail(false);
                 test_config.run().await;
             }
@@ -146,7 +146,7 @@ async fn repro_config(
     TxEnv,
 > {
     let config = runner_config(sender, test_data, rpc_config).await;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let filter = repro_filter(issue);
     TestConfig::with_filter(runner, filter).set_should_fail(should_fail)
 }
