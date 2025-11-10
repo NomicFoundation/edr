@@ -66,7 +66,7 @@ async fn test_cheats_local_isolated(test_data: &L1ForgeTestData) {
 
     let mut config = test_data.config_with_mock_rpc();
     config.evm_opts.isolate = true;
-    let runner = test_data.runner_with_config(config).await;
+    let runner = test_data.runner_with_fuzz_persistence(config).await;
 
     TestConfig::with_filter(runner, filter).run().await;
 }
@@ -81,7 +81,7 @@ async fn test_cheats_local_with_seed(test_data: &L1ForgeTestData) {
 
     let mut config = test_data.config_with_mock_rpc();
     config.cheats_config_options.seed = Some(U256::from(100));
-    let runner = test_data.runner_with_config(config).await;
+    let runner = test_data.runner_with_fuzz_persistence(config).await;
 
     TestConfig::with_filter(runner, filter).run().await;
 }
@@ -103,7 +103,7 @@ async fn test_cheats_sleep_test() {
 
     let mut runner_config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     runner_config.fuzz.runs = 2;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(runner_config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(runner_config).await;
 
     TestConfig::with_filter(runner, filter).run().await;
 }
@@ -142,7 +142,7 @@ async fn test_cheats_local_paris_should_fail() {
 async fn test_gas_metering_reset() {
     let filter = SolidityTestFilter::new(".*", "GasMeteringResetTest", ".*cheats/");
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;
 
     let suite_result = suite_results
@@ -178,7 +178,7 @@ async fn test_gas_metering_reset() {
 async fn test_expect_partial_revert() {
     let filter = SolidityTestFilter::new(".*", "ExpectPartialRevertTest", ".*cheats/");
     let config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;
 
     let suite_result = suite_results
@@ -202,6 +202,8 @@ async fn test_assume_no_revert() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 100;
     config.fuzz.seed = Some(U256::from(100));
+    // It's important to disable failure persistence, otherwise saved seeds from tests can influence each other's execution.
+    config.fuzz.failure_persist_dir = None;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;
 
@@ -232,6 +234,8 @@ async fn test_assume_no_revert_with_data() {
     let filter = SolidityTestFilter::new(".*", "AssumeNoRevertWithDataTest", ".*cheats/");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.seed = Some(U256::from(100));
+    // It's important to disable failure persistence, otherwise saved seeds from tests can influence each other's execution.
+    config.fuzz.failure_persist_dir = None;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;
 

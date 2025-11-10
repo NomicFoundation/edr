@@ -990,7 +990,7 @@ async fn test_invariant_gas_report() {
         SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTest1.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.generate_gas_report = true;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let test_result = runner.test_collect(filter).await.test_result;
 
     assert!(test_result.gas_report.is_some());
