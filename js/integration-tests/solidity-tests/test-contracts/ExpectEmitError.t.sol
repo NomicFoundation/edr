@@ -30,7 +30,13 @@ contract ExpectEmitErrorTest is Test {
     function testExpectEmitShouldFail() public {
         Counter counter = new Counter();
 
-        vm.expectEmit(address(counter));
+        vm.expectEmit(
+            /* checkTopic1 */ false,
+            /* checkTopic2 */ false,
+            /* checkTopic3 */ false,
+            /* checkData */   true,
+            /* emitter */     address(counter)
+        );
         emit Counter.Increment(2);
 
         // Emits `Counter.Increment(3)`, so `expectEmit` should fail
@@ -40,7 +46,13 @@ contract ExpectEmitErrorTest is Test {
     function testExpectEmitShouldSucceed() public {
         Counter counter = new Counter();
 
-        vm.expectEmit(address(counter));
+        vm.expectEmit(
+            /* checkTopic1 */ false,
+            /* checkTopic2 */ false,
+            /* checkTopic3 */ false,
+            /* checkData */   true,
+            /* emitter */     address(counter)
+        );
         emit Counter.Increment(2);
 
         // Emits `Counter.Increment(2)`, so `expectEmit` should succeed
