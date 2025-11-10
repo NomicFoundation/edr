@@ -525,25 +525,36 @@ describe("Unit tests", () => {
     );
   });
 
-  it("ExpectEmitError", async function () {
-    const { totalTests, failedTests, stackTraces } =
-      await testContext.runTestsWithStats("ExpectEmitErrorTest");
+  describe("ExpectEmitError", function () {
+    async function expectEmitErrorTest(isolate: boolean) {
+      const { totalTests, failedTests, stackTraces } =
+        await testContext.runTestsWithStats("ExpectEmitErrorTest", {isolate});
 
-    assert.equal(failedTests, 1);
-    assert.equal(totalTests, 2);
+      assert.equal(failedTests, 1);
+      assert.equal(totalTests, 2);
 
-    assertStackTraces(
-      stackTraces.get("testExpectEmitShouldFail()"),
-      "log != expected log",
-      [
-        {
-          contract: "ExpectEmitErrorTest",
-          function: "testExpectEmitShouldFail",
-          line: 37,
-          message: "log != expected log",
-        },
-      ]
-    );
+      assertStackTraces(
+        stackTraces.get("testExpectEmitShouldFail()"),
+        "log != expected log",
+        [
+          {
+            contract: "ExpectEmitErrorTest",
+            function: "testExpectEmitShouldFail",
+            line: 43,
+            message: "log != expected log",
+          },
+        ]
+      );
+    }
+
+    it("isolate off", async function() {
+      await expectEmitErrorTest(false)
+    })
+
+    // Repro for https://github.com/NomicFoundation/hardhat/issues/7677
+    it("isolate on", async function() {
+      await expectEmitErrorTest(true)
+    })
   });
 
   describe("Stack traces for a contract with impure cheatcodes, that is unsafe to replay", function () {
