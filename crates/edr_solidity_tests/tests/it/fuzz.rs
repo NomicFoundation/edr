@@ -106,7 +106,7 @@ async fn test_fuzz_collection() {
     config.invariant.runs = 1000;
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(6u32));
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
@@ -204,7 +204,7 @@ async fn test_fuzz_gas_report() {
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(6u32));
     config.generate_gas_report = true;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let test_result = runner.test_collect(filter).await.test_result;
 
     assert!(test_result.gas_report.is_some());
@@ -254,7 +254,7 @@ async fn test_should_not_shrink_fuzz_failure() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 256;
     config.fuzz.seed = Some(U256::from(100));
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;
     let suite_result = suite_results.get("default/fuzz/FuzzFailureShrink.t.sol:FuzzFailureShrinkTest").unwrap();
     let test_result = suite_result.test_results.get("testAddOne(uint256)").unwrap();
@@ -268,7 +268,7 @@ async fn test_fuzz_can_scrape_bytecode() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 2100;
     config.fuzz.seed = Some(U256::from(119u32));
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
@@ -289,7 +289,7 @@ async fn test_fuzz_timeout() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.max_test_rejects = 50000;
     config.fuzz.timeout = Some(1u32);
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
@@ -306,7 +306,7 @@ async fn test_fuzz_fail_on_revert() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailOnRevert.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.fail_on_revert = false;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
