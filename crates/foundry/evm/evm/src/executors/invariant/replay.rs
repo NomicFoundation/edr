@@ -231,14 +231,20 @@ pub fn replay_run<
         logs.extend(after_invariant_result.logs);
     }
 
-    let stack_trace_result: Option<StackTraceResult<HaltReasonT>> =
-        if let Some(indeterminism_reasons) = invariant_result.indeterminism_reasons {
-            Some(indeterminism_reasons.into())
-        } else {
-            contract_decoder
-                .and_then(|decoder| get_stack_trace(decoder, traces).transpose())
+    let stack_trace_result: Option<StackTraceResult<HaltReasonT>> = generate_stack_trace
+        .then(|| {
+            invariant_result
+                .indeterminism_reasons
                 .map(StackTraceResult::from)
-        };
+                .or_else(|| {
+                    contract_decoder.and_then(|decoder| {
+                        get_stack_trace(decoder, traces)
+                            .transpose()
+                            .map(StackTraceResult::from)
+                    })
+                })
+        })
+        .flatten();
 
     let revert_reason = revert_decoder.maybe_decode(
         invariant_result.result.as_ref(),
