@@ -3,12 +3,6 @@
 //! Core EVM abstractions.
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
-// TODO https://github.com/NomicFoundation/edr/issues/1076
-#![allow(clippy::indexing_slicing)]
-
-// TODO
-#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
-
 
 #[macro_use]
 extern crate tracing;

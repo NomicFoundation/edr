@@ -3,8 +3,6 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-// TODO https://github.com/NomicFoundation/edr/issues/1076
-#![allow(clippy::indexing_slicing)]
 #![allow(clippy::match_same_arms)]
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::default_trait_access)]
