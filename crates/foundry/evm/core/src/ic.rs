@@ -64,9 +64,9 @@ impl IcPcMap {
 }
 
 fn make_map<const PC_FIRST: bool>(code: &[u8]) -> FxHashMap<u32, u32> {
-    assert!(code.len() <= u32::MAX as usize, "bytecode is too big");
+    assert!(u32::try_from(code.len()).is_ok(), "bytecode is too big");
 
-    let mut map = FxHashMap::with_capacity_and_hasher(code.len(), Default::default());
+    let mut map = FxHashMap::with_capacity_and_hasher(code.len(), revm_primitives::map::rustc_hash::FxBuildHasher);
 
     let mut pc = 0usize;
     let mut cumulative_push_size = 0usize;
@@ -78,12 +78,13 @@ fn make_map<const PC_FIRST: bool>(code: &[u8]) -> FxHashMap<u32, u32> {
             map.insert(ic as u32, pc as u32);
         }
 
-        if (PUSH1..=PUSH32).contains(&code[pc]) {
-            // Skip the push bytes.
-            let push_size = (code[pc] - PUSH0) as usize;
-            pc += push_size;
-            cumulative_push_size += push_size;
-        }
+        if let Some(&opcode) = code.get(pc)
+            && (PUSH1..=PUSH32).contains(&opcode) {
+                // Skip the push bytes.
+                let push_size = (opcode - PUSH0) as usize;
+                pc += push_size;
+                cumulative_push_size += push_size;
+            }
 
         pc += 1;
     }
@@ -95,7 +96,7 @@ fn make_map<const PC_FIRST: bool>(code: &[u8]) -> FxHashMap<u32, u32> {
 
 /// Represents a single instruction consisting of the opcode and its immediate data.
 pub struct Instruction {
-    /// OpCode, if it could be decoded.
+    /// `OpCode`, if it could be decoded.
     pub op: Option<OpCode>,
     /// Immediate data following the opcode.
     pub immediate: Box<[u8]>,
@@ -105,16 +106,16 @@ pub struct Instruction {
 
 /// Decodes raw opcode bytes into [`Instruction`]s.
 pub fn decode_instructions(code: &[u8]) -> Result<Vec<Instruction>> {
-    assert!(code.len() <= u32::MAX as usize, "bytecode is too big");
+    assert!(u32::try_from(code.len()).is_ok(), "bytecode is too big");
 
     let mut pc = 0usize;
     let mut steps = Vec::new();
 
     while pc < code.len() {
-        let op = OpCode::new(code[pc]);
+        let op = code.get(pc).copied().and_then(OpCode::new);
         let next_pc = pc + 1;
-        let immediate_size = op.map(|op| op.info().immediate_size()).unwrap_or(0) as usize;
-        let is_normal_push = op.map(|op| op.is_push()).unwrap_or(false);
+        let immediate_size = op.map_or(0, |op| op.info().immediate_size()) as usize;
+        let is_normal_push = op.is_some_and(revm::bytecode::OpCode::is_push);
 
         if !is_normal_push && next_pc + immediate_size > code.len() {
             eyre::bail!("incomplete sequence of bytecode");
@@ -123,8 +124,10 @@ pub fn decode_instructions(code: &[u8]) -> Result<Vec<Instruction>> {
         // Ensure immediate is padded if needed.
         let immediate_end = (next_pc + immediate_size).min(code.len());
         let mut immediate = vec![0u8; immediate_size];
-        let immediate_part = &code[next_pc..immediate_end];
-        immediate[..immediate_part.len()].copy_from_slice(immediate_part);
+        if let Some(immediate_part) = code.get(next_pc..immediate_end)
+            && let Some(dest) = immediate.get_mut(..immediate_part.len()) {
+                dest.copy_from_slice(immediate_part);
+            }
 
         steps.push(Instruction { op, pc: pc as u32, immediate: immediate.into_boxed_slice() });
 

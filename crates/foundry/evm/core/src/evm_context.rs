@@ -614,7 +614,7 @@ where
         chain_context: &mut context.chain,
     };
 
-    (context.journaled_state.database.deref_mut(), evm_context)
+    (&mut *context.journaled_state.database, evm_context)
 }
 
 pub struct EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT> {

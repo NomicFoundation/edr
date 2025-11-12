@@ -45,14 +45,14 @@ impl fmt::Display for SkipReason {
     }
 }
 
-/// Decode a set of logs, only returning logs from DSTest logging events and Hardhat's `console.log`
+/// Decode a set of logs, only returning logs from `DSTest` logging events and Hardhat's `console.log`
 pub fn decode_console_logs(logs: &[Log]) -> Vec<String> {
     logs.iter().filter_map(decode_console_log).collect()
 }
 
 /// Decode a single log.
 ///
-/// This function returns [None] if it is not a DSTest log or the result of a Hardhat
+/// This function returns [None] if it is not a `DSTest` log or the result of a Hardhat
 /// `console.log`.
 pub fn decode_console_log(log: &Log) -> Option<String> {
     console::ds::ConsoleEvents::decode_log(log).ok().map(|decoded| decoded.to_string())
@@ -191,11 +191,10 @@ impl RevertDecoder {
             return string_decoded;
         }
 
-        if let Some(status) = status {
-            if !status.is_ok() {
+        if let Some(status) = status
+            && !status.is_ok() {
                 return Some(format!("EvmError: {status:?}"));
             }
-        }
         if err.is_empty() {
             None
         } else {
@@ -207,11 +206,10 @@ impl RevertDecoder {
 /// Helper function that decodes provided error as an ABI encoded or an ASCII string (if not empty).
 fn decode_as_non_empty_string(err: &[u8]) -> Option<String> {
     // ABI-encoded `string`.
-    if let Ok(s) = String::abi_decode(err) {
-        if !s.is_empty() {
+    if let Ok(s) = String::abi_decode(err)
+        && !s.is_empty() {
             return Some(s);
         }
-    }
 
     // ASCII string.
     if err.is_ascii() {
@@ -229,10 +227,12 @@ fn trimmed_hex(s: &[u8]) -> String {
     if s.len() <= n {
         hex::encode(s)
     } else {
+        let start = s.get(..n / 2).unwrap_or(s);
+        let end = s.get(s.len().saturating_sub(n / 2)..).unwrap_or(s);
         format!(
             "{}…{} ({} bytes)",
-            &hex::encode(&s[..n / 2]),
-            &hex::encode(&s[s.len() - n / 2..]),
+            &hex::encode(start),
+            &hex::encode(end),
             s.len(),
         )
     }

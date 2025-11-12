@@ -1,4 +1,4 @@
-//! DSTest log interface.
+//! `DSTest` log interface.
 
 use super::{format_units_int, format_units_uint};
 use alloy_primitives::hex;
@@ -37,13 +37,13 @@ interface Console {
     #[display("{}", val.pretty())]
     event log_string(string val);
 
-    #[display("[{}]", val.iter().map(|v| v.pretty()).format(", "))]
+    #[display("[{}]", val.iter().map(UIfmt::pretty).format(", "))]
     event log_array(uint256[] val);
 
-    #[display("[{}]", val.iter().map(|v| v.pretty()).format(", "))]
+    #[display("[{}]", val.iter().map(UIfmt::pretty).format(", "))]
     event log_array(int256[] val);
 
-    #[display("[{}]", val.iter().map(|v| v.pretty()).format(", "))]
+    #[display("[{}]", val.iter().map(UIfmt::pretty).format(", "))]
     event log_array(address[] val);
 
     #[display("{}: {}", key.pretty(), val.pretty())]
@@ -70,13 +70,13 @@ interface Console {
     #[display("{}: {}", key.pretty(), val.pretty())]
     event log_named_string(string key, string val);
 
-    #[display("{}: [{}]", key.pretty(), val.iter().map(|v| v.pretty()).format(", "))]
+    #[display("{}: [{}]", key.pretty(), val.iter().map(UIfmt::pretty).format(", "))]
     event log_named_array(string key, uint256[] val);
 
-    #[display("{}: [{}]", key.pretty(), val.iter().map(|v| v.pretty()).format(", "))]
+    #[display("{}: [{}]", key.pretty(), val.iter().map(UIfmt::pretty).format(", "))]
     event log_named_array(string key, int256[] val);
 
-    #[display("{}: [{}]", key.pretty(), val.iter().map(|v| v.pretty()).format(", "))]
+    #[display("{}: [{}]", key.pretty(), val.iter().map(UIfmt::pretty).format(", "))]
     event log_named_array(string key, address[] val);
 }
 }

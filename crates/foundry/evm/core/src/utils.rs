@@ -33,7 +33,7 @@ where
     N: Network,
     BlockT: Block + BlockEnvMut,
 {
-    use NamedChain::*;
+    use NamedChain::{Mainnet, BinanceSmartChain, BinanceSmartChainTestnet, Moonbeam, Moonbase, Moonriver, MoonbeamDev, Rsk, RskTestnet};
 
     if let Ok(chain) = NamedChain::try_from(env.cfg.chain_id) {
         let block_number = block.header().number();

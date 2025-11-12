@@ -154,8 +154,8 @@ pub trait CheatcodeBackend<
     /// Creates a new state snapshot at the current point of execution.
     ///
     /// A state snapshot is associated with a new unique id that's created for the snapshot.
-    /// State snapshots can be reverted: [DatabaseExt::revert_state], however, depending on the
-    /// [RevertStateSnapshotAction], it will keep the snapshot alive or delete it.
+    /// State snapshots can be reverted: [`DatabaseExt::revert_state`], however, depending on the
+    /// [`RevertStateSnapshotAction`], it will keep the snapshot alive or delete it.
     fn snapshot_state(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
@@ -173,7 +173,7 @@ pub trait CheatcodeBackend<
     /// This will also revert any changes in the `Env` and replace it with the captured `Env` of
     /// `Self::snapshot_state`.
     ///
-    /// Depending on [RevertStateSnapshotAction] it will keep the snapshot alive or delete it.
+    /// Depending on [`RevertStateSnapshotAction`] it will keep the snapshot alive or delete it.
     fn revert_state<'a>(
         &'a mut self,
         id: U256,
@@ -361,7 +361,7 @@ pub trait CheatcodeBackend<
         journaled_state: &JournaledState,
     ) -> Option<RevertDiagnostic>;
 
-    /// Loads the account allocs from the given `allocs` map into the passed [JournaledState].
+    /// Loads the account allocs from the given `allocs` map into the passed [`JournaledState`].
     ///
     /// Returns [Ok] if all accounts were successfully inserted into the journal, [Err] otherwise.
     fn load_allocs(
@@ -550,10 +550,10 @@ pub struct Backend<
     forks: MultiFork<BlockT, TxT, HardforkT>,
     // The default in memory db
     mem_db: FoundryEvmInMemoryDB,
-    /// The journaled_state to use to initialize new forks with
+    /// The `journaled_state` to use to initialize new forks with
     ///
     /// The way [`JournaledState`] works is, that it holds the "hot" accounts loaded from the
-    /// underlying `Database` that feeds the Account and State data to the journaled_state so it
+    /// underlying `Database` that feeds the Account and State data to the `journaled_state` so it
     /// can apply changes to the state while the EVM executes.
     ///
     /// In a way the `JournaledState` is something like a cache that
@@ -687,9 +687,9 @@ impl<
 
     pub fn insert_account_info(&mut self, address: Address, account: AccountInfo) {
         if let Some(db) = self.active_fork_db_mut() {
-            db.insert_account_info(address, account)
+            db.insert_account_info(address, account);
         } else {
-            self.mem_db.insert_account_info(address, account)
+            self.mem_db.insert_account_info(address, account);
         }
     }
 
@@ -809,7 +809,7 @@ impl<
          }
         */
         let value = self.storage_ref(address, U256::ZERO).unwrap_or_default();
-        value.as_le_bytes()[1] != 0
+        value.as_le_bytes().get(1).copied().unwrap_or(0) != 0
     }
 
     /// Checks if the given test function failed by looking at the present value
@@ -830,7 +830,7 @@ impl<
                 .cloned()
                 .unwrap_or_default()
                 .present_value();
-            return value.as_le_bytes()[1] != 0;
+            return value.as_le_bytes().get(1).copied().unwrap_or(0) != 0;
         }
 
         false
@@ -841,7 +841,7 @@ impl<
     /// See <https://github.com/dapphub/ds-test/blob/9310e879db8ba3ea6d5c6489a579118fd264a3f5/src/test.sol#L66-L72>
     pub fn is_global_failure(&self, current_state: &JournalInner<JournalEntry>) -> bool {
         if let Some(account) = current_state.state.get(&CHEATCODE_ADDRESS) {
-            let slot: U256 = GLOBAL_FAIL_SLOT.into();
+            let slot: U256 = GLOBAL_FAIL_SLOT;
             let value = account.storage.get(&slot).cloned().unwrap_or_default().present_value();
             return value == revm::primitives::U256::from(1);
         }
@@ -885,7 +885,7 @@ impl<
         }
     }
 
-    /// When creating or switching forks, we update the AccountInfo of the contract
+    /// When creating or switching forks, we update the `AccountInfo` of the contract
     pub(crate) fn update_fork_db(
         &self,
         active_journaled_state: &mut JournaledState,
@@ -996,7 +996,7 @@ impl<
                     if idx == active {
                         all_logs.append(&mut logs);
                     } else {
-                        all_logs.extend(f.journaled_state.logs.clone())
+                        all_logs.extend(f.journaled_state.logs.clone());
                     }
                 });
             return all_logs;
@@ -1272,7 +1272,7 @@ impl<
                         caller_account.into()
                     });
                     self.inner.revert_state_snapshot(id, fork_id, idx, *fork);
-                    self.active_fork_ids = Some((id, idx))
+                    self.active_fork_ids = Some((id, idx));
                 }
             }
 
@@ -1291,7 +1291,7 @@ impl<
     }
 
     fn delete_state_snapshots(&mut self) {
-        self.inner.state_snapshots.clear()
+        self.inner.state_snapshots.clear();
     }
 
     fn create_fork(
@@ -1473,7 +1473,7 @@ impl<
     }
 
     /// This is effectively the same as [`Self::create_select_fork()`] but updating an existing
-    /// [ForkId] that is mapped to the [LocalForkId]
+    /// [`ForkId`] that is mapped to the [`LocalForkId`]
     fn roll_fork(
         &mut self,
         id: Option<LocalForkId>,
@@ -1700,7 +1700,7 @@ impl<
         None
     }
 
-    /// Loads the account allocs from the given `allocs` map into the passed [JournaledState].
+    /// Loads the account allocs from the given `allocs` map into the passed [`JournaledState`].
     ///
     /// Returns [Ok] if all accounts were successfully inserted into the journal, [Err] otherwise.
     fn load_allocs(
@@ -1871,9 +1871,9 @@ impl<
 {
     fn commit(&mut self, changes: Map<Address, Account>) {
         if let Some(db) = self.active_fork_db_mut() {
-            db.commit(changes)
+            db.commit(changes);
         } else {
-            self.mem_db.commit(changes)
+            self.mem_db.commit(changes);
         }
     }
 }
@@ -1923,10 +1923,10 @@ impl<
     }
 }
 
-/// Variants of a [revm::Database]
+/// Variants of a [`revm::Database`]
 #[derive(Clone, Debug)]
 pub enum BackendDatabaseSnapshot {
-    /// Simple in-memory [revm::Database]
+    /// Simple in-memory [`revm::Database`]
     InMemory(FoundryEvmInMemoryDB),
     /// Contains the entire forking mode database
     Forked(LocalForkId, ForkId, ForkLookupIndex, Box<Fork>),
@@ -2070,14 +2070,14 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     #[track_caller]
     fn get_fork(&self, idx: ForkLookupIndex) -> &Fork {
         debug_assert!(idx < self.forks.len(), "fork lookup index must exist");
-        self.forks[idx].as_ref().unwrap()
+        self.forks.get(idx).and_then(|f| f.as_ref()).expect("fork lookup index must exist")
     }
 
     /// Returns the underlying fork mapped to the index
     #[track_caller]
     fn get_fork_mut(&mut self, idx: ForkLookupIndex) -> &mut Fork {
         debug_assert!(idx < self.forks.len(), "fork lookup index must exist");
-        self.forks[idx].as_mut().unwrap()
+        self.forks.get_mut(idx).and_then(|f| f.as_mut()).expect("fork lookup index must exist")
     }
 
     /// Returns the underlying fork corresponding to the id
@@ -2097,18 +2097,23 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     /// Removes the fork
     fn take_fork(&mut self, idx: ForkLookupIndex) -> Fork {
         debug_assert!(idx < self.forks.len(), "fork lookup index must exist");
-        self.forks[idx].take().unwrap()
+        self.forks.get_mut(idx).and_then(Option::take).expect("fork lookup index must exist")
     }
 
     fn set_fork(&mut self, idx: ForkLookupIndex, fork: Fork) {
-        self.forks[idx] = Some(fork)
+        if let Some(slot) = self.forks.get_mut(idx) {
+            *slot = Some(fork);
+        }
     }
 
     /// Returns an iterator over Forks
     pub fn forks_iter(&self) -> impl Iterator<Item = (LocalForkId, &Fork)> + '_ {
         self.issued_local_fork_ids
             .iter()
-            .map(|(id, fork_id)| (*id, self.get_fork(self.created_forks[fork_id])))
+            .map(|(id, fork_id)| {
+                let idx = *self.created_forks.get(fork_id).expect("fork_id must exist");
+                (*id, self.get_fork(idx))
+            })
     }
 
     /// Returns a mutable iterator over all Forks
@@ -2126,7 +2131,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     ) {
         self.created_forks.insert(fork_id.clone(), idx);
         self.issued_local_fork_ids.insert(id, fork_id);
-        self.set_fork(idx, fork)
+        self.set_fork(idx, fork);
     }
 
     /// Updates the fork and the local mapping and returns the new index for the `fork_db`
@@ -2156,7 +2161,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         let fork_id = self.ensure_fork_id(id)?;
         let idx = self.ensure_fork_index(fork_id)?;
 
-        if let Some(active) = self.forks[idx].as_mut() {
+        if let Some(active) = self.forks.get_mut(idx).and_then(|f| f.as_mut()) {
             // we initialize a _new_ `ForkDB` but keep the state of persistent accounts
             let mut new_db = ForkDB::new(backend);
             for addr in self.persistent_accounts.iter().copied() {
@@ -2282,7 +2287,7 @@ pub(crate) fn merge_account_data<ExtDB: DatabaseRef>(
     active_journaled_state: &mut JournaledState,
     target_fork: &mut Fork,
 ) {
-    for addr in accounts.into_iter() {
+    for addr in accounts {
         merge_db_account_data(addr, active, &mut target_fork.db);
         merge_journaled_state_data(addr, active_journaled_state, &mut target_fork.journaled_state);
     }
@@ -2314,6 +2319,8 @@ fn merge_db_account_data<ExtDB: DatabaseRef>(
     active: &CacheDB<ExtDB>,
     fork_db: &mut ForkDB,
 ) {
+    use revm_primitives::hash_map::Entry;
+
     trace!(?addr, "merging database data");
 
     let Some(acc) = active.cache.accounts.get(&addr) else { return };
@@ -2325,7 +2332,6 @@ fn merge_db_account_data<ExtDB: DatabaseRef>(
     }
 
     // port account storage over
-    use revm_primitives::hash_map::Entry;
     match fork_db.cache.accounts.entry(addr) {
         Entry::Vacant(vacant) => {
             trace!("target account not present - inserting from active");

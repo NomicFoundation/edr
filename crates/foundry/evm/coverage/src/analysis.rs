@@ -363,7 +363,7 @@ impl<'a> ContractVisitor<'a> {
 
                     if let Some(body) = case.body {
                         self.push_item_kind(CoverageItemKind::Statement, &body.src);
-                        self.visit_block(&body)?
+                        self.visit_block(&body)?;
                     }
                 }
                 Ok(())
@@ -373,15 +373,15 @@ impl<'a> ContractVisitor<'a> {
                     self.visit_expression(&condition)?;
                 }
                 if let Some(pre) = node.attribute::<Node>("pre") {
-                    self.visit_block(&pre)?
+                    self.visit_block(&pre)?;
                 }
                 if let Some(post) = node.attribute::<Node>("post") {
-                    self.visit_block(&post)?
+                    self.visit_block(&post)?;
                 }
 
                 if let Some(body) = &node.body {
                     self.push_item_kind(CoverageItemKind::Statement, &body.src);
-                    self.visit_block(body)?
+                    self.visit_block(body)?;
                 }
                 Ok(())
             }
@@ -622,10 +622,12 @@ impl SourceAnalysis {
         let mut map = vec![(u32::MAX, 0); len];
         for (idx, items) in sourced_items {
             // Assumes that all `idx` items are consecutive, guaranteed by the sort above.
-            if map[idx].0 == u32::MAX {
-                map[idx].0 = all_items.len() as u32;
+            if let Some(entry) = map.get_mut(idx) {
+                if entry.0 == u32::MAX {
+                    entry.0 = all_items.len() as u32;
+                }
+                entry.1 += items.len() as u32;
             }
-            map[idx].1 += items.len() as u32;
             all_items.extend(items);
         }
 
@@ -657,7 +659,10 @@ impl SourceAnalysis {
         if offset == u32::MAX {
             offset = 0;
         }
-        (offset, &self.all_items[offset as usize..][..len as usize])
+        let start = offset as usize;
+        let end = start.saturating_add(len as usize);
+        let items = self.all_items.get(start..end).unwrap_or(&[]);
+        (offset, items)
     }
 
     /// Returns the coverage item for the given item ID.

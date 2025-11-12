@@ -133,7 +133,7 @@ where
         environment(
             &provider,
             self.memory_limit,
-            self.env.gas_price.map(|v| v as u128),
+            self.env.gas_price.map(u128::from),
             self.env.chain_id,
             self.fork_block_number,
             self.sender,
@@ -142,11 +142,10 @@ where
         .await
         .wrap_err_with(|| {
             let mut msg = "could not instantiate forked environment".to_string();
-            if let Ok(url) = Url::parse(fork_url) {
-                if let Some(provider) = url.host() {
+            if let Ok(url) = Url::parse(fork_url)
+                && let Some(provider) = url.host() {
                     write!(msg, " with provider {provider}").unwrap();
                 }
-            }
             msg
         })
     }
@@ -201,9 +200,9 @@ where
     }
 
     /// Returns the available compute units per second, which will be
-    /// - u64::MAX, if `no_rpc_rate_limit` if set (as rate limiting is disabled)
+    /// - `u64::MAX`, if `no_rpc_rate_limit` if set (as rate limiting is disabled)
     /// - the assigned compute units, if `compute_units_per_second` is set
-    /// - ALCHEMY_FREE_TIER_CUPS (330) otherwise
+    /// - `ALCHEMY_FREE_TIER_CUPS` (330) otherwise
     pub fn get_compute_units_per_second(&self) -> u64 {
         if self.no_rpc_rate_limit {
             u64::MAX
@@ -283,7 +282,7 @@ pub struct Env {
     /// the block.difficulty value during EVM execution
     pub block_difficulty: u64,
 
-    /// Previous block beacon chain random value. Before merge this field is used for mix_hash
+    /// Previous block beacon chain random value. Before merge this field is used for `mix_hash`
     pub block_prevrandao: B256,
 
     /// the block.gaslimit value during EVM execution

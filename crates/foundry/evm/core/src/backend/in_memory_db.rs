@@ -27,7 +27,7 @@ pub struct MemDb {
 
 impl Default for MemDb {
     fn default() -> Self {
-        Self { inner: CacheDB::new(Default::default()), state_snapshots: Default::default() }
+        Self { inner: CacheDB::new(EmptyDBWrapper::default()), state_snapshots: StateSnapshots::default() }
     }
 }
 
@@ -74,7 +74,7 @@ impl Database for MemDb {
 
 impl DatabaseCommit for MemDb {
     fn commit(&mut self, changes: Map<Address, Account>) {
-        DatabaseCommit::commit(&mut self.inner, changes)
+        DatabaseCommit::commit(&mut self.inner, changes);
     }
 }
 
@@ -162,7 +162,7 @@ mod tests {
 
         let loaded = Database::basic(&mut db, address).unwrap();
         assert!(loaded.is_some());
-        assert_eq!(loaded.unwrap(), info)
+        assert_eq!(loaded.unwrap(), info);
     }
 
     /// Demonstrates that `Database::basic` for `MemDb` will always return the `AccountInfo`
@@ -185,6 +185,6 @@ mod tests {
 
         let loaded = Database::basic(&mut db, address).unwrap();
         assert!(loaded.is_some());
-        assert_eq!(loaded.unwrap(), info)
+        assert_eq!(loaded.unwrap(), info);
     }
 }
