@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports)]
 use crate::{Cheatcode, Cheatcodes, CheatsCtxt, CheatcodeBackend, Result, Vm::*, json::json_value_to_token, impl_is_pure_true, impl_is_pure_false};
 use foundry_evm_core::{
     AsEnvMut, fork::CreateFork,
@@ -217,7 +218,7 @@ impl Cheatcode for rollFork_0Call {
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
         db.roll_fork(None, (*blockNumber).to(), &mut context)?;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -245,7 +246,7 @@ impl Cheatcode for rollFork_1Call {
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
         db.roll_fork_to_transaction(None, *txHash, &mut context)?;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -273,7 +274,7 @@ impl Cheatcode for rollFork_2Call {
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
         db.roll_fork(Some(*forkId), (*blockNumber).to(), &mut context)?;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -301,7 +302,7 @@ impl Cheatcode for rollFork_3Call {
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
         db.roll_fork_to_transaction(Some(*forkId), *txHash, &mut context)?;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -329,7 +330,7 @@ impl Cheatcode for selectForkCall {
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
         db.select_fork(*forkId, &mut context)?;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -405,7 +406,7 @@ impl Cheatcode for allowCheatcodesCall {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { account } = self;
         ccx.ecx.journaled_state.database.allow_cheatcode_access(*account);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -431,7 +432,7 @@ impl Cheatcode for makePersistent_0Call {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { account } = self;
         ccx.ecx.journaled_state.database.add_persistent_account(*account);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -458,7 +459,7 @@ impl Cheatcode for makePersistent_1Call {
         let Self { account0, account1 } = self;
         ccx.ecx.journaled_state.database.add_persistent_account(*account0);
         ccx.ecx.journaled_state.database.add_persistent_account(*account1);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -486,7 +487,7 @@ impl Cheatcode for makePersistent_2Call {
         ccx.ecx.journaled_state.database.add_persistent_account(*account0);
         ccx.ecx.journaled_state.database.add_persistent_account(*account1);
         ccx.ecx.journaled_state.database.add_persistent_account(*account2);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -514,7 +515,7 @@ impl Cheatcode for makePersistent_3Call {
         for account in accounts {
             ccx.ecx.journaled_state.database.add_persistent_account(*account);
         }
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -540,7 +541,7 @@ impl Cheatcode for revokePersistent_0Call {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { account } = self;
         ccx.ecx.journaled_state.database.remove_persistent_account(account);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -568,7 +569,7 @@ impl Cheatcode for revokePersistent_1Call {
         for account in accounts {
             ccx.ecx.journaled_state.database.remove_persistent_account(account);
         }
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -704,7 +705,9 @@ impl Cheatcode for eth_getLogsCall {
         let provider = ProviderBuilder::new(&url).build()?;
         let mut filter = Filter::new().address(*target).from_block(from_block).to_block(to_block);
         for (i, &topic) in topics.iter().enumerate() {
-            filter.topics[i] = topic.into();
+            if let Some(slot) = filter.topics.get_mut(i) {
+                *slot = topic.into();
+            }
         }
 
         let logs = edr_common::block_on(provider.get_logs(&filter))
@@ -758,7 +761,7 @@ impl Cheatcode for getRawBlockHeaderCall {
             .ok_or_else(|| fmt_err!("no active fork"))?;
         let provider = ProviderBuilder::new(&url).build()?;
         let block_number = u64::try_from(blockNumber)
-            .map_err(|_| fmt_err!("block number must be less than 2^64"))?;
+            .map_err(|_e| fmt_err!("block number must be less than 2^64"))?;
         let block =
             edr_common::block_on(async move { provider.get_block(block_number.into()).await })
                 .map_err(|e| fmt_err!("failed to get block: {e}"))?
@@ -955,7 +958,7 @@ fn transact<
         context.to_owned_env_with_chain_context(),
         context.journaled_state,
     )?;
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 // Helper to add the caller of fork cheat code as persistent account (in order to make sure that the
@@ -1003,7 +1006,7 @@ fn convert_to_bytes(token: &DynSolValue) -> DynSolValue {
         // Convert fixed bytes to prevent encoding issues.
         // See: <https://github.com/foundry-rs/foundry/issues/8287>
         DynSolValue::FixedBytes(bytes, size) => {
-            DynSolValue::Bytes(bytes.as_slice()[..*size].to_vec())
+            DynSolValue::Bytes(bytes.as_slice().get(..*size).unwrap_or_default().to_vec())
         }
         DynSolValue::Address(addr) => DynSolValue::Bytes(addr.to_vec()),
         //  Convert tuple values to prevent encoding issues.

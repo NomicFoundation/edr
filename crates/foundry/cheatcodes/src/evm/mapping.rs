@@ -1,4 +1,4 @@
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, Result, Vm::*};
+use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, Result, Vm::{startMappingRecordingCall, stopMappingRecordingCall, getMappingLengthCall, getMappingSlotAtCall, getMappingKeyAndParentOfCall}};
 use alloy_primitives::{
     Address, B256, U256, keccak256,
     map::{AddressHashMap, B256HashMap},
@@ -27,7 +27,7 @@ pub struct MappingSlots {
     /// Holds the last sha3 result `sha3_result => (data_low, data_high)`, this would only record
     /// when sha3 is called with `size == 0x40`, and the lower 256 bits would be stored in
     /// `data_low`, higher 256 bits in `data_high`.
-    /// This is needed for mapping_key detect if the slot is for some mapping and record that.
+    /// This is needed for `mapping_key` detect if the slot is for some mapping and record that.
     pub seen_sha3: B256HashMap<(B256, B256)>,
 }
 
@@ -72,9 +72,9 @@ impl Cheatcode for startMappingRecordingCall {
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
         if state.mapping_slots.is_none() {
-            state.mapping_slots = Some(Default::default());
+            state.mapping_slots = Some(AddressHashMap::default());
         }
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -101,7 +101,7 @@ impl Cheatcode for stopMappingRecordingCall {
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
         state.mapping_slots = None;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -127,7 +127,7 @@ impl Cheatcode for getMappingLengthCall {
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self { target, mappingSlot } = self;
-        let result = slot_child::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(state, target, mappingSlot).map(Vec::len).unwrap_or(0);
+        let result = slot_child::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state, target, mappingSlot).map_or(0, std::vec::Vec::len);
         Ok((result as u64).abi_encode())
     }
 }
@@ -154,7 +154,7 @@ impl Cheatcode for getMappingSlotAtCall {
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self { target, mappingSlot, idx } = self;
-        let result = slot_child::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(state, target, mappingSlot)
+        let result = slot_child::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state, target, mappingSlot)
             .and_then(|set| set.get(idx.saturating_to::<usize>()))
             .copied()
             .unwrap_or_default();
@@ -187,11 +187,11 @@ impl Cheatcode for getMappingKeyAndParentOfCall {
         let mut found = false;
         let mut key = &B256::ZERO;
         let mut parent = &B256::ZERO;
-        if let Some(slots) = mapping_slot::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(state, target) {
+        if let Some(slots) = mapping_slot::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state, target) {
             if let Some(key2) = slots.keys.get(slot) {
                 found = true;
                 key = key2;
-                parent = &slots.parent_slots[slot];
+                parent = slots.parent_slots.get(slot).unwrap_or(&B256::ZERO);
             } else if let Some((key2, parent2)) = slots.seen_sha3.get(slot) {
                 found = true;
                 key = key2;
@@ -211,15 +211,6 @@ fn mapping_slot<'a,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<
-        BlockT,
-        TxT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-        ChainContextT,
-    >,
 
 >(state: &'a Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, target: &'a Address) -> Option<&'a MappingSlots> {
     state.mapping_slots.as_ref()?.get(target)
@@ -234,21 +225,12 @@ fn slot_child<'a,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<
-        BlockT,
-        TxT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-        ChainContextT,
-    >,
 >(
     state: &'a Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
     target: &'a Address,
     slot: &'a B256,
 ) -> Option<&'a Vec<B256>> {
-    mapping_slot::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(state, target)?.children.get(slot)
+    mapping_slot::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state, target)?.children.get(slot)
 }
 
 #[cold]
@@ -259,8 +241,8 @@ pub(crate) fn step(mapping_slots: &mut AddressHashMap<MappingSlots>, interpreter
                 let address = interpreter.input.target_address;
                 let offset = interpreter.stack.peek(0).expect("stack size > 1").saturating_to();
                 let data = interpreter.memory.slice_len(offset, 0x40);
-                let low = B256::from_slice(&data[..0x20]);
-                let high = B256::from_slice(&data[0x20..]);
+                let low = B256::from_slice(data.get(..0x20).unwrap_or(&[]));
+                let high = B256::from_slice(data.get(0x20..).unwrap_or(&[]));
                 let result = keccak256(&*data);
 
                 mapping_slots.entry(address).or_default().seen_sha3.insert(result, (low, high));

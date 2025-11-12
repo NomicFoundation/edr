@@ -292,8 +292,10 @@ impl<
         // Deploy libraries
         executor.set_balance(LIBRARY_DEPLOYER, U256::MAX)?;
 
-        let mut result = TestSetup::default();
-        result.has_setup_method = call_setup;
+        let mut result = TestSetup {
+            has_setup_method: call_setup,
+            ..Default::default()
+        };
         for code in self.libs_to_deploy.iter() {
             let deploy_result = executor.deploy(
                 LIBRARY_DEPLOYER,
@@ -544,7 +546,7 @@ impl<
 
         // Invariant testing requires tracing to figure out what contracts were created.
         // We also want to disable `debug` for setup since we won't be using those traces.
-        let has_invariants = self.contract.abi.functions().any(|func| func.is_invariant_test());
+        let has_invariants = self.contract.abi.functions().any(foundry_evm::abi::TestFunctionExt::is_invariant_test);
 
         let prev_tracer = executor.inspector_mut().tracer.take();
         if prev_tracer.is_some() || has_invariants {
@@ -858,7 +860,7 @@ impl<'a,
         let mut table_fixtures = vec![&first_param_fixtures[..]];
 
         // Collect fixtures for remaining parameters.
-        for param in &func.inputs[1..] {
+        for param in func.inputs.get(1..).unwrap_or(&[]) {
             let param_name = param.name();
             let Some(fixtures) = &self.setup.fuzz_fixtures.param_fixtures(param.name()) else {
                 self.result.single_fail(Some(format!("No fixture defined for param {param_name}")), start.elapsed());
@@ -879,7 +881,7 @@ impl<'a,
 
         for i in 0..fixtures_len {
             // Increment progress bar.
-            let args = table_fixtures.iter().map(|row| row[i].clone()).collect_vec();
+            let args = table_fixtures.iter().filter_map(|row| row.get(i).cloned()).collect_vec();
             let (mut raw_call_result, reason) = match self.executor.call(
                 self.cr.sender,
                 self.setup.address,
@@ -1079,7 +1081,7 @@ impl<'a,
 
         let mut counterexample = None;
         let success = invariant_result.error.is_none();
-        let reason = invariant_result.error.as_ref().and_then(|err| err.revert_reason());
+        let reason = invariant_result.error.as_ref().and_then(foundry_evm::executors::invariant::InvariantFuzzError::revert_reason);
 
         match invariant_result.error {
             // If invariants were broken, replay the error to collect logs and traces
@@ -1131,7 +1133,7 @@ impl<'a,
                                     };
 
                                 counterexample =
-                                    Some(CounterExample::Sequence(original_seq_len, counterexample_sequence))
+                                    Some(CounterExample::Sequence(original_seq_len, counterexample_sequence));
                             }
 
                             // If we can't get a revert reason for the second time, we couldn't
@@ -1271,28 +1273,25 @@ impl<'a,
                 &ITest::beforeTestSetupCall { testSelector: func.selector() },
             ) {
                 // Apply before test configured calldata.
-                match self.executor.to_mut().transact_raw(
+                if let Ok(call_result) = self.executor.to_mut().transact_raw(
                     self.cr.sender,
                     address,
                     calldata,
                     U256::ZERO,
                 ) {
-                    Ok(call_result) => {
-                        let reverted = call_result.reverted;
+                    let reverted = call_result.reverted;
 
-                        // Merge tx result traces in unit test result.
-                        self.result.extend(call_result);
+                    // Merge tx result traces in unit test result.
+                    self.result.extend(call_result);
 
-                        // To continue unit test execution the call should not revert.
-                        if reverted {
-                            self.result.single_fail(None, start.elapsed());
-                            return Err(());
-                        }
-                    }
-                    Err(_) => {
+                    // To continue unit test execution the call should not revert.
+                    if reverted {
                         self.result.single_fail(None, start.elapsed());
                         return Err(());
                     }
+                } else {
+                    self.result.single_fail(None, start.elapsed());
+                    return Err(());
                 }
             }
         }

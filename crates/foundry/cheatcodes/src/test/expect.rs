@@ -3,6 +3,7 @@ use std::{
     fmt::{self, Display},
 };
 
+#[allow(clippy::wildcard_imports)]
 use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Error, Result, Vm::*};
 use alloy_primitives::{
     Address, Bytes, LogData as RawLog, U256,
@@ -146,7 +147,7 @@ impl From<revm::context_interface::CreateScheme> for CreateScheme {
         match scheme {
             revm::context_interface::CreateScheme::Create => Self::Create,
             revm::context_interface::CreateScheme::Create2 { .. } => Self::Create2,
-            _ => unimplemented!("Unsupported create scheme"),
+            revm::context_interface::CreateScheme::Custom{ .. } => unimplemented!("Unsupported create scheme"),
         }
     }
 }
@@ -1437,7 +1438,7 @@ impl Cheatcode for stopExpectSafeMemoryCall {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self {} = self;
         ccx.state.allowed_mem_writes.remove(&u64::try_from(ccx.ecx.journaled_state.depth())?);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1569,7 +1570,7 @@ fn expect_call<
         }
     }
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn expect_emit<
@@ -1593,13 +1594,13 @@ fn expect_emit<
     if let Some(found_emit_pos) = state.expected_emits.iter().position(|(emit, _)| emit.found) {
         // The order of emits already found (back of queue) should not be modified, hence push any
         // new emit before first found emit.
-        state.expected_emits.insert(found_emit_pos, (expected_emit, Default::default()));
+        state.expected_emits.insert(found_emit_pos, (expected_emit, HashMap::default()));
     } else {
         // If no expected emits then push new one at the back of queue.
-        state.expected_emits.push_back((expected_emit, Default::default()));
+        state.expected_emits.push_back((expected_emit, HashMap::default()));
     }
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 pub(crate) fn handle_expect_emit<
@@ -1742,7 +1743,7 @@ impl LogCountMap {
         Self {
             checks: expected_emit.checks,
             expected_log: expected_emit.log.clone().expect("log should be filled here"),
-            map: Default::default(),
+            map: HashMap::default(),
         }
     }
 
@@ -1800,10 +1801,10 @@ fn expect_create<
     deployer: Address,
     create_scheme: CreateScheme,
 ) -> Result {
-    let expected_create = ExpectedCreate { bytecode, deployer, create_scheme };
+    let expected_create = ExpectedCreate { deployer, bytecode, create_scheme };
     state.expected_creates.push(expected_create);
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn expect_revert<
@@ -1844,7 +1845,7 @@ fn expect_revert<
         actual_count: 0,
         allow_internal: false,
     });
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn expect_internal_revert<
@@ -1885,7 +1886,7 @@ fn expect_internal_revert<
         actual_count: 0,
         allow_internal: true,
     });
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn checks_topics_and_data(checks: [bool; 5], expected: &RawLog, log: &RawLog) -> bool {
@@ -1898,8 +1899,8 @@ fn checks_topics_and_data(checks: [bool; 5], expected: &RawLog, log: &RawLog) ->
         .topics()
         .iter()
         .enumerate()
-        .filter(|(i, _)| checks[*i])
-        .all(|(i, topic)| topic == &expected.topics()[i])
+        .filter(|(i, _)| checks.get(*i).copied().unwrap_or(false))
+        .all(|(i, topic)| expected.topics().get(i).is_some_and(|t| topic == t))
     {
         return false;
     }
@@ -1925,5 +1926,5 @@ fn expect_safe_memory<
     #[expect(clippy::single_range_in_vec_init)] // Wanted behaviour
     let offsets = state.allowed_mem_writes.entry(depth).or_insert_with(|| vec![0..0x60]);
     offsets.push(start..end);
-    Ok(Default::default())
+    Ok(Vec::default())
 }

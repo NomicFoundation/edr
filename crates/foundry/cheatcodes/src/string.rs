@@ -675,7 +675,7 @@ impl Cheatcode for indexOfCall {
         >,
     ) -> Result {
         let Self { input, key } = self;
-        Ok(input.find(key).map(U256::from).unwrap_or(U256::MAX).abi_encode())
+        Ok(input.find(key).map_or(U256::MAX, U256::from).abi_encode())
     }
 }
 

@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports)]
 use crate::{impl_is_pure_true, CheatsCtxt, Result, Vm::*};
 use alloy_primitives::{I256, U256, U512, hex};
 use foundry_evm_core::{
@@ -178,7 +179,7 @@ fn handle_assertion_result<
     format_error: bool,
 ) -> Result {
     match result {
-        Ok(_) => Ok(Default::default()),
+        Ok(_) => Ok(Vec::default()),
         Err(err) => {
             let error_msg = error_msg.unwrap_or("assertion failed");
             let msg = if format_error {
@@ -191,7 +192,7 @@ fn handle_assertion_result<
     }
 }
 
-/// Implements [crate::Cheatcode] for pairs of cheatcodes.
+/// Implements [`crate::Cheatcode`] for pairs of cheatcodes.
 ///
 /// Accepts a list of pairs of cheatcodes, where the first cheatcode is the one that doesn't contain
 /// a custom error message, and the second one contains it at `error` field.
@@ -305,7 +306,7 @@ impl_assertions! {
 
 impl_assertions! {
     |left, right| assert_eq(left, right),
-    |e| e.format_for_values(),
+    ComparisonAssertionError::format_for_values,
     (assertEq_0Call, assertEq_1Call),
     (assertEq_2Call, assertEq_3Call),
     (assertEq_4Call, assertEq_5Call),
@@ -316,13 +317,13 @@ impl_assertions! {
 
 impl_assertions! {
     |left, right| assert_eq(&hex::encode_prefixed(left), &hex::encode_prefixed(right)),
-    |e| e.format_for_values(),
+    ComparisonAssertionError::format_for_values,
     (assertEq_12Call, assertEq_13Call),
 }
 
 impl_assertions! {
     |left, right| assert_eq(left, right),
-    |e| e.format_for_arrays(),
+    ComparisonAssertionError::format_for_arrays,
     (assertEq_14Call, assertEq_15Call),
     (assertEq_16Call, assertEq_17Call),
     (assertEq_18Call, assertEq_19Call),
@@ -336,7 +337,7 @@ impl_assertions! {
         &left.iter().map(hex::encode_prefixed).collect::<Vec<_>>(),
         &right.iter().map(hex::encode_prefixed).collect::<Vec<_>>(),
     ),
-    |e| e.format_for_arrays(),
+    ComparisonAssertionError::format_for_arrays,
     (assertEq_26Call, assertEq_27Call),
 }
 
@@ -349,7 +350,7 @@ impl_assertions! {
 
 impl_assertions! {
     |left, right| assert_not_eq(left, right),
-    |e| e.format_for_values(),
+    ComparisonAssertionError::format_for_values,
     (assertNotEq_0Call, assertNotEq_1Call),
     (assertNotEq_2Call, assertNotEq_3Call),
     (assertNotEq_4Call, assertNotEq_5Call),
@@ -360,13 +361,13 @@ impl_assertions! {
 
 impl_assertions! {
     |left, right| assert_not_eq(&hex::encode_prefixed(left), &hex::encode_prefixed(right)),
-    |e| e.format_for_values(),
+    ComparisonAssertionError::format_for_values,
     (assertNotEq_12Call, assertNotEq_13Call),
 }
 
 impl_assertions! {
     |left, right| assert_not_eq(left, right),
-    |e| e.format_for_arrays(),
+    ComparisonAssertionError::format_for_arrays,
     (assertNotEq_14Call, assertNotEq_15Call),
     (assertNotEq_16Call, assertNotEq_17Call),
     (assertNotEq_18Call, assertNotEq_19Call),
@@ -380,7 +381,7 @@ impl_assertions! {
         &left.iter().map(hex::encode_prefixed).collect::<Vec<_>>(),
         &right.iter().map(hex::encode_prefixed).collect::<Vec<_>>(),
     ),
-    |e| e.format_for_arrays(),
+    ComparisonAssertionError::format_for_arrays,
     (assertNotEq_26Call, assertNotEq_27Call),
 }
 
@@ -393,7 +394,7 @@ impl_assertions! {
 
 impl_assertions! {
     |left, right| assert_gt(left, right),
-    |e| e.format_for_values(),
+    ComparisonAssertionError::format_for_values,
     (assertGt_0Call, assertGt_1Call),
     (assertGt_2Call, assertGt_3Call),
 }
@@ -407,7 +408,7 @@ impl_assertions! {
 
 impl_assertions! {
     |left, right| assert_ge(left, right),
-    |e| e.format_for_values(),
+    ComparisonAssertionError::format_for_values,
     (assertGe_0Call, assertGe_1Call),
     (assertGe_2Call, assertGe_3Call),
 }
@@ -421,7 +422,7 @@ impl_assertions! {
 
 impl_assertions! {
     |left, right| assert_lt(left, right),
-    |e| e.format_for_values(),
+    ComparisonAssertionError::format_for_values,
     (assertLt_0Call, assertLt_1Call),
     (assertLt_2Call, assertLt_3Call),
 }
@@ -435,7 +436,7 @@ impl_assertions! {
 
 impl_assertions! {
     |left, right| assert_le(left, right),
-    |e| e.format_for_values(),
+    ComparisonAssertionError::format_for_values,
     (assertLe_0Call, assertLe_1Call),
     (assertLe_2Call, assertLe_3Call),
 }
@@ -492,16 +493,16 @@ impl_assertions! {
 }
 
 fn assert_true(condition: bool) -> Result<Vec<u8>, SimpleAssertionError> {
-    if condition { Ok(Default::default()) } else { Err(SimpleAssertionError) }
+    if condition { Ok(Vec::default()) } else { Err(SimpleAssertionError) }
 }
 
 fn assert_false(condition: bool) -> Result<Vec<u8>, SimpleAssertionError> {
-    if !condition { Ok(Default::default()) } else { Err(SimpleAssertionError) }
+    if !condition { Ok(Vec::default()) } else { Err(SimpleAssertionError) }
 }
 
 fn assert_eq<'a, T: PartialEq>(left: &'a T, right: &'a T) -> ComparisonResult<'a, T> {
     if left == right {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(ComparisonAssertionError::Eq { left, right })
     }
@@ -509,7 +510,7 @@ fn assert_eq<'a, T: PartialEq>(left: &'a T, right: &'a T) -> ComparisonResult<'a
 
 fn assert_not_eq<'a, T: PartialEq>(left: &'a T, right: &'a T) -> ComparisonResult<'a, T> {
     if left != right {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(ComparisonAssertionError::Ne { left, right })
     }
@@ -543,7 +544,7 @@ fn uint_assert_approx_eq_abs(
     let delta = left.abs_diff(right);
 
     if delta <= max_delta {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(Box::new(EqAbsAssertionError { left, right, max_delta, real_delta: delta }))
     }
@@ -557,7 +558,7 @@ fn int_assert_approx_eq_abs(
     let delta = get_delta_int(left, right);
 
     if delta <= max_delta {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(Box::new(EqAbsAssertionError { left, right, max_delta, real_delta: delta }))
     }
@@ -570,7 +571,7 @@ fn uint_assert_approx_eq_rel(
 ) -> Result<Vec<u8>, EqRelAssertionError<U256>> {
     if right.is_zero() {
         if left.is_zero() {
-            return Ok(Default::default());
+            return Ok(Vec::default());
         } else {
             return Err(EqRelAssertionError::Failure(Box::new(EqRelAssertionFailure {
                 left,
@@ -584,7 +585,7 @@ fn uint_assert_approx_eq_rel(
     let delta = calc_delta_full::<U256>(left.abs_diff(right), right)?;
 
     if delta <= max_delta {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(EqRelAssertionError::Failure(Box::new(EqRelAssertionFailure {
             left,
@@ -602,7 +603,7 @@ fn int_assert_approx_eq_rel(
 ) -> Result<Vec<u8>, EqRelAssertionError<I256>> {
     if right.is_zero() {
         if left.is_zero() {
-            return Ok(Default::default());
+            return Ok(Vec::default());
         } else {
             return Err(EqRelAssertionError::Failure(Box::new(EqRelAssertionFailure {
                 left,
@@ -616,7 +617,7 @@ fn int_assert_approx_eq_rel(
     let delta = calc_delta_full::<I256>(get_delta_int(left, right), right.unsigned_abs())?;
 
     if delta <= max_delta {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(EqRelAssertionError::Failure(Box::new(EqRelAssertionFailure {
             left,
@@ -629,7 +630,7 @@ fn int_assert_approx_eq_rel(
 
 fn assert_gt<'a, T: PartialOrd>(left: &'a T, right: &'a T) -> ComparisonResult<'a, T> {
     if left > right {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(ComparisonAssertionError::Gt { left, right })
     }
@@ -637,7 +638,7 @@ fn assert_gt<'a, T: PartialOrd>(left: &'a T, right: &'a T) -> ComparisonResult<'
 
 fn assert_ge<'a, T: PartialOrd>(left: &'a T, right: &'a T) -> ComparisonResult<'a, T> {
     if left >= right {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(ComparisonAssertionError::Ge { left, right })
     }
@@ -645,7 +646,7 @@ fn assert_ge<'a, T: PartialOrd>(left: &'a T, right: &'a T) -> ComparisonResult<'
 
 fn assert_lt<'a, T: PartialOrd>(left: &'a T, right: &'a T) -> ComparisonResult<'a, T> {
     if left < right {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(ComparisonAssertionError::Lt { left, right })
     }
@@ -653,7 +654,7 @@ fn assert_lt<'a, T: PartialOrd>(left: &'a T, right: &'a T) -> ComparisonResult<'
 
 fn assert_le<'a, T: PartialOrd>(left: &'a T, right: &'a T) -> ComparisonResult<'a, T> {
     if left <= right {
-        Ok(Default::default())
+        Ok(Vec::default())
     } else {
         Err(ComparisonAssertionError::Le { left, right })
     }

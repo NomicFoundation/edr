@@ -1,5 +1,6 @@
 //! Implementations of [`Toml`](spec::Group::Toml) cheatcodes.
 
+#[allow(clippy::wildcard_imports)]
 use crate::{Cheatcode, Cheatcodes, Result, Vm::*, json::{
     canonicalize_json_path, check_json_key_exists, parse_json, parse_json_coerce,
     parse_json_keys, resolve_type,

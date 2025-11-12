@@ -115,8 +115,7 @@ impl PartialEq for CachedEndpoints {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Pattern(a), Self::Pattern(b)) => a.as_str() == b.as_str(),
-            (&Self::All, &Self::All) => true,
-            (&Self::Remote, &Self::Remote) => true,
+            (&Self::All, &Self::All) | (&Self::Remote, &Self::Remote) => true,
             _ => false,
         }
     }
@@ -201,6 +200,6 @@ mod tests {
                 ]),
                 endpoints: CachedEndpoints::All,
             }
-        )
+        );
     }
 }

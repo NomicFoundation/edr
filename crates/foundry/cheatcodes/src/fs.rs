@@ -1,6 +1,6 @@
 //! Implementations of [`Filesystem`](spec::Group::Filesystem) cheatcodes.
 
-use crate::{Cheatcode, Cheatcodes, FsAccessKind, Result, Vm::*};
+use crate::{Cheatcode, Cheatcodes, FsAccessKind, Result, Vm::promptSecretUintCall};
 use alloy_dyn_abi::DynSolType;
 use alloy_primitives::{Bytes, U256, hex, map::Entry};
 use alloy_sol_types::SolValue;
@@ -301,7 +301,7 @@ impl Cheatcode for closeFileCall {
 
         state.test_context.opened_read_files.remove(&path);
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -379,7 +379,7 @@ impl Cheatcode for createDirCall {
         let Self { path, recursive } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Write)?;
         if *recursive { fs::create_dir_all(path) } else { fs::create_dir(path) }?;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -692,7 +692,7 @@ impl Cheatcode for removeDirCall {
         let Self { path, recursive } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Write)?;
         if *recursive { fs::remove_dir_all(path) } else { fs::remove_dir(path) }?;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -737,7 +737,7 @@ impl Cheatcode for removeFileCall {
             fs::remove_file(&path)?;
         }
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -853,7 +853,7 @@ impl Cheatcode for writeLineCall {
             writeln!(file, "{line}")?;
         }
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -982,23 +982,17 @@ impl<'a> ArtifactIdQuery<'a> {
             .next()
             .expect("split always returns at least one element");
 
-        if let Some(path) = &self.file {
-            if !id.source.ends_with(path) {
-                return false;
-            }
+        if let Some(path) = &self.file && !id.source.ends_with(path) {
+            return false;
         }
-        if let Some(name) = self.contract_name {
-            if id_name != name {
-                return false;
-            }
+        if let Some(name) = self.contract_name && id_name != name {
+            return false;
         }
-        if let Some(version) = &self.version {
-            if id.version.minor != version.minor
-                || id.version.major != version.major
-                || id.version.patch != version.patch
-            {
-                return false;
-            }
+        if let Some(version) = &self.version && (id.version.minor != version.minor
+            || id.version.major != version.major
+            || id.version.patch != version.patch)
+        {
+            return false;
         }
         true
     }
@@ -1059,7 +1053,7 @@ fn get_artifact_code<
                     filtered.retain(|(id, _)| id.version == running.version);
 
                     if filtered.len() == 1 {
-                        Some(filtered[0])
+                        filtered.first().copied()
                     } else {
                         None
                     }
@@ -1353,7 +1347,7 @@ pub(super) fn write_file<
         fs::write(path, contents)?;
     }
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn read_dir<
@@ -1407,9 +1401,12 @@ fn ffi<
         state.config.ffi,
         "FFI is disabled; add the `--ffi` flag to allow tests to call external commands"
     );
-    ensure!(!input.is_empty() && !input[0].is_empty(), "can't execute empty command");
-    let mut cmd = Command::new(&input[0]);
-    cmd.args(&input[1..]);
+    let first = input.first().ok_or_else(|| fmt_err!("can't execute empty command"))?;
+    ensure!(!first.is_empty(), "can't execute empty command");
+    let mut cmd = Command::new(first);
+    if let Some(args) = input.get(1..) {
+        cmd.args(args);
+    }
 
     debug!(target: "cheatcodes", ?cmd, "invoking ffi");
 
@@ -1463,15 +1460,14 @@ fn prompt<
         let _ = tx.send(input(&text_clone));
     });
 
-    match rx.recv_timeout(timeout) {
-        Ok(res) => res.map_err(|err| {
-            let _ = println!();
+    if let Ok(res) = rx.recv_timeout(timeout) {
+        res.map_err(|err| {
+            println!();
             err.to_string().into()
-        }),
-        Err(_) => {
-            let _ = println!();
-            Err("Prompt timed out".into())
-        }
+        })
+    } else {
+        println!();
+        Err("Prompt timed out".into())
     }
 }
 

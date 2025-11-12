@@ -9,6 +9,7 @@ use foundry_evm_core::evm_context::{
 use revm::context::result::HaltReasonTr;
 use foundry_evm_core::backend::CheatcodeBackend;
 use crate::{Cheatcode, Cheatcodes, Error, Result, string, ExecutionContextConfig, Vm::ExecutionContext, impl_is_pure_false};
+#[allow(clippy::wildcard_imports)]
 use crate::Vm::*;
 use std::{env};
 
@@ -56,7 +57,7 @@ impl Cheatcode for setEnvCall {
             unsafe {
                 env::set_var(key, value);
             }
-            Ok(Default::default())
+            Ok(Vec::default())
         }
     }
 }
@@ -1115,7 +1116,7 @@ impl Cheatcode for envOr_13Call {
         >,
     ) -> Result {
         let Self { name, delim, defaultValue } = self;
-        let default = defaultValue.to_vec();
+        let default = defaultValue.clone();
         env_array_default(name, delim, &default, &DynSolType::Bytes)
     }
 }

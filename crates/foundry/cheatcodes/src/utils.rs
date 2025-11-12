@@ -1,5 +1,6 @@
 //! Implementations of [`Utilities`](spec::Group::Utilities) cheatcodes.
 
+#[allow(clippy::wildcard_imports)]
 use crate::{Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt, Result, Vm::*, impl_is_pure_true, impl_is_pure_false};
 use foundry_evm_core::{
     evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait},
@@ -17,15 +18,15 @@ use rand::{Rng, RngCore, seq::SliceRandom};
 
 /// Contains locations of traces ignored via cheatcodes.
 ///
-/// The way we identify location in traces is by (node_idx, item_idx) tuple where node_idx is an
-/// index of a call trace node, and item_idx is a value between 0 and `node.ordering.len()` where i
+/// The way we identify location in traces is by `(node_idx, item_idx)` tuple where `node_idx` is an
+/// index of a call trace node, and `item_idx` is a value between 0 and `node.ordering.len()` where i
 /// represents point after ith item, and 0 represents the beginning of the node trace.
 #[derive(Debug, Default, Clone)]
 pub struct IgnoredTraces {
-    /// Mapping from (start_node_idx, start_item_idx) to (end_node_idx, end_item_idx) representing
+    /// Mapping from `(start_node_idx, start_item_idx)` to `(end_node_idx, end_item_idx)` representing
     /// ranges of trace nodes to ignore.
     pub ignored: HashMap<(usize, usize), (usize, usize)>,
-    /// Keeps track of (start_node_idx, start_item_idx) of the last `vm.pauseTracing` call.
+    /// Keeps track of `(start_node_idx, start_item_idx)` of the last `vm.pauseTracing` call.
     pub last_pause_call: Option<(usize, usize)>,
 }
 
@@ -62,7 +63,7 @@ impl Cheatcode for labelCall {
     ) -> Result {
         let Self { account, newLabel } = self;
         state.labels.insert(*account, newLabel.clone());
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -663,18 +664,18 @@ impl Cheatcode for pauseTracingCall {
     ) -> Result {
         let Some(tracer) = executor.tracing_inspector().and_then(|t| t.as_ref()) else {
             // No tracer -> nothing to pause
-            return Ok(Default::default());
+            return Ok(Vec::default());
         };
 
         // If paused earlier, ignore the call
         if ccx.state.ignored_traces.last_pause_call.is_some() {
-            return Ok(Default::default());
+            return Ok(Vec::default());
         }
 
         let cur_node = &tracer.traces().nodes().last().expect("no trace nodes");
         ccx.state.ignored_traces.last_pause_call = Some((cur_node.idx, cur_node.ordering.len()));
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -724,18 +725,18 @@ impl Cheatcode for resumeTracingCall {
     ) -> Result {
         let Some(tracer) = executor.tracing_inspector().and_then(|t| t.as_ref()) else {
             // No tracer -> nothing to unpause
-            return Ok(Default::default());
+            return Ok(Vec::default());
         };
 
         let Some(start) = ccx.state.ignored_traces.last_pause_call.take() else {
             // Nothing to unpause
-            return Ok(Default::default());
+            return Ok(Vec::default());
         };
 
         let node = &tracer.traces().nodes().last().expect("no trace nodes");
         ccx.state.ignored_traces.ignored.insert(start, (node.idx, node.ordering.len()));
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -776,7 +777,7 @@ impl Cheatcode for interceptInitcodeCall {
         } else {
             bail!("vm.interceptInitcode() has already been called")
         }
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -817,7 +818,7 @@ impl Cheatcode for setArbitraryStorage_0Call {
         let Self { target } = self;
         ccx.state.arbitrary_storage().mark_arbitrary(target, false);
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -858,7 +859,7 @@ impl Cheatcode for setArbitraryStorage_1Call {
         let Self { target, overwrite } = self;
         ccx.state.arbitrary_storage().mark_arbitrary(target, *overwrite);
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -914,7 +915,7 @@ impl Cheatcode for copyStorageCall {
             }
         }
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1035,7 +1036,7 @@ impl Cheatcode for setSeedCall {
     ) -> Result {
         let Self { seed } = self;
         ccx.state.set_seed(*seed);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 

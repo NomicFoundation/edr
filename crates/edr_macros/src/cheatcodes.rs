@@ -74,7 +74,7 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
     let mutability = Ident::new(mutability, Span::call_site());
 
     if description.is_empty() {
-        emit_warning!(name.span(), "missing documentation for a cheatcode")
+        emit_warning!(name.span(), "missing documentation for a cheatcode");
     }
     let description = description.replace("\n ", "\n");
 
@@ -189,8 +189,7 @@ fn derive_struct(
 
     if doc.is_empty() {
         let n = match kind {
-            StructKind::Error => "n",
-            StructKind::Event => "n",
+            StructKind::Error | StructKind::Event => "n",
             StructKind::Struct => "",
         };
         emit_warning!(name.span(), "missing documentation for a{n} {}", kind.as_str());
@@ -210,9 +209,7 @@ fn derive_struct(
                 let ty = &def[..ty_end];
                 let ty_start = ty.rfind(';').or_else(|| ty.find('{')).expect("bad struct def") + 1;
                 let ty = ty[ty_start..].trim();
-                if ty.is_empty() {
-                    panic!("bad struct def: {def:?}")
-                }
+                assert!(!ty.is_empty(), "bad struct def: {def:?}");
 
                 let doc = get_docstring(&f.attrs);
                 let doc = doc.trim();
