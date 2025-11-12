@@ -212,7 +212,7 @@ impl<
                 current_mutated: None,
                 failed_replays,
                 metrics: CorpusMetrics::default(),
-                _phantom: Default::default(),
+                _phantom: PhantomData,
             });
         };
 
@@ -295,7 +295,7 @@ impl<
             current_mutated: None,
             failed_replays,
             metrics,
-            _phantom: Default::default(),
+            _phantom: PhantomData,
         })
     }
 
@@ -314,7 +314,7 @@ impl<
             {
                 corpus.total_mutations += 1;
                 if test_run.new_coverage {
-                    corpus.new_finds_produced += 1
+                    corpus.new_finds_produced += 1;
                 }
                 let is_favored = (corpus.new_finds_produced as f64 / corpus.total_mutations as f64)
                     < FAVORABILITY_THRESHOLD;
@@ -416,8 +416,14 @@ impl<
                 .current();
             let rng = test_runner.rng();
             let corpus_len = self.in_memory_corpus.len();
-            let primary = &self.in_memory_corpus[rng.random_range(0..corpus_len)];
-            let secondary = &self.in_memory_corpus[rng.random_range(0..corpus_len)];
+            let primary = self
+                .in_memory_corpus
+                .get(rng.random_range(0..corpus_len))
+                .expect("primary corpus index out of bounds");
+            let secondary = self
+                .in_memory_corpus
+                .get(rng.random_range(0..corpus_len))
+                .expect("secondary corpus index out of bounds");
 
             match mutation_type {
                 MutationType::Splice => {
@@ -448,7 +454,11 @@ impl<
                     let start = rng.random_range(0..corpus.tx_seq.len());
                     let end = rng.random_range(start..corpus.tx_seq.len());
                     let item_idx = rng.random_range(0..corpus.tx_seq.len());
-                    let repeated = vec![new_seq[item_idx].clone(); end - start];
+                    let item = new_seq
+                        .get(item_idx)
+                        .expect("item_idx out of bounds")
+                        .clone();
+                    let repeated = vec![item; end - start];
                     new_seq.splice(start..end, repeated);
                 }
                 MutationType::Interleave => {
@@ -470,7 +480,9 @@ impl<
 
                     new_seq = corpus.tx_seq.clone();
                     for i in 0..rng.random_range(0..=new_seq.len()) {
-                        new_seq[i] = self.new_tx(test_runner)?;
+                        if let Some(item) = new_seq.get_mut(i) {
+                            *item = self.new_tx(test_runner)?;
+                        }
                     }
                 }
                 MutationType::Suffix => {
@@ -482,7 +494,9 @@ impl<
                     new_seq = corpus.tx_seq.clone();
                     for i in new_seq.len() - rng.random_range(0..new_seq.len())..corpus.tx_seq.len()
                     {
-                        new_seq[i] = self.new_tx(test_runner)?;
+                        if let Some(item) = new_seq.get_mut(i) {
+                            *item = self.new_tx(test_runner)?;
+                        }
                     }
                 }
                 MutationType::Abi => {
@@ -513,8 +527,10 @@ impl<
                                     .collect()
                             };
                             // TODO mutation strategy for individual ABI types
+                            let calldata_slice =
+                                tx.call_details.calldata.get(4..).unwrap_or(&[]);
                             let mut prev_inputs = function
-                                .abi_decode_input(&tx.call_details.calldata[4..])
+                                .abi_decode_input(calldata_slice)
                                 .expect("fuzzed_artifacts returned wrong sig");
                             // For now, only new inputs are generated, no existing inputs are
                             // mutated.
@@ -529,13 +545,19 @@ impl<
                             };
 
                             while arg_mutation_rounds > 0 {
-                                let idx = round_arg_idx[arg_mutation_rounds - 1];
+                                let Some(&idx) =
+                                    round_arg_idx.get(arg_mutation_rounds - 1)
+                                else {
+                                    break;
+                                };
                                 let input = new_function
                                     .inputs
                                     .get_mut(idx)
                                     .expect("Could not get input to mutate");
                                 let new_input = gen_input(input);
-                                prev_inputs[idx] = new_input;
+                                if let Some(prev_input) = prev_inputs.get_mut(idx) {
+                                    *prev_input = new_input;
+                                }
                                 arg_mutation_rounds -= 1;
                             }
 
@@ -586,7 +608,10 @@ impl<
         }
 
         // Continue with the next call initial sequence
-        Ok(sequence[depth].clone())
+        sequence
+            .get(depth)
+            .cloned()
+            .ok_or_else(|| eyre!("sequence index out of bounds"))
     }
 
     /// Generates single call from invariant strategy.
@@ -594,7 +619,7 @@ impl<
         Ok(self
             .tx_generator
             .new_tree(test_runner)
-            .map_err(|_| eyre!("Could not generate case"))?
+            .map_err(|_e| eyre!("Could not generate case"))?
             .current())
     }
 

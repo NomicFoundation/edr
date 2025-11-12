@@ -622,6 +622,7 @@ impl<
 {
     /// Fuzzes any deployed contract and checks any broken invariant at
     /// `invariant_address`.
+    #[allow(clippy::result_large_err)]
     pub fn invariant_fuzz(
         &mut self,
         invariant_contract: InvariantContract<'_>,
@@ -656,8 +657,12 @@ impl<
             let initial_seq = corpus_manager.new_sequence(&invariant_test)?;
 
             // Create current invariant run data.
+            let first_tx = initial_seq
+                .first()
+                .ok_or_else(|| eyre!("initial sequence is empty"))?
+                .clone();
             let mut current_run = InvariantTestRun::new(
-                initial_seq[0].clone(),
+                first_tx,
                 // Before each run, we must reset the backend state.
                 self.executor.clone(),
                 self.config.depth as usize,
@@ -804,7 +809,7 @@ impl<
                     &current_run,
                     &self.config,
                 )
-                    .map_err(|_| eyre!("Failed to call afterInvariant"))?;
+                    .map_err(|_e| eyre!("Failed to call afterInvariant"))?;
             }
 
             // End current invariant test run.
@@ -1076,7 +1081,7 @@ impl<
                             entry.abi.functions.extend(abi.functions.clone());
                         })
                         // Otherwise insert it into the map.
-                        .or_insert_with(|| TargetedContract::new(identifier.to_string(), abi));
+                        .or_insert_with(|| TargetedContract::new(identifier.clone(), abi));
                 }
             }
         }
@@ -1090,6 +1095,7 @@ impl<
     /// * Invariant Fuzz Test.
     /// * Invariant Strategy
     #[allow(clippy::type_complexity)]
+    #[allow(clippy::result_large_err)]
     fn prepare_test(
         &mut self,
         invariant_contract: &InvariantContract<'_>,

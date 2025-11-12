@@ -127,7 +127,7 @@ pub struct ExpectedCreate {
     pub create_scheme: CreateScheme,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum CreateScheme {
     Create,
     Create2,
@@ -142,12 +142,16 @@ impl Display for CreateScheme {
     }
 }
 
-impl From<revm::context_interface::CreateScheme> for CreateScheme {
-    fn from(scheme: revm::context_interface::CreateScheme) -> Self {
+impl TryFrom<revm::context_interface::CreateScheme> for CreateScheme {
+    type Error = &'static str;
+
+    fn try_from(scheme: revm::context_interface::CreateScheme) -> Result<Self, Self::Error> {
         match scheme {
-            revm::context_interface::CreateScheme::Create => Self::Create,
-            revm::context_interface::CreateScheme::Create2 { .. } => Self::Create2,
-            revm::context_interface::CreateScheme::Custom{ .. } => unimplemented!("Unsupported create scheme"),
+            revm::context_interface::CreateScheme::Create => Ok(Self::Create),
+            revm::context_interface::CreateScheme::Create2 { .. } => Ok(Self::Create2),
+            revm::context_interface::CreateScheme::Custom { .. } => {
+                Err("Unsupported create scheme")
+            }
         }
     }
 }

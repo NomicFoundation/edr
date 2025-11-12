@@ -271,7 +271,7 @@ pub struct InnerContextData {
 /// are not called.
 ///
 /// Stack is divided into [Cheatcodes] and `InspectorStackInner`. This is done to allow assembling
-/// `InspectorStackRefMut` inside [Cheatcodes] to allow usage of it as [revm::Inspector]. This gives
+/// `InspectorStackRefMut` inside [Cheatcodes] to allow usage of it as [`revm::Inspector`]. This gives
 /// us ability to create and execute separate EVM frames from inside cheatcodes while still having
 /// access to entire stack of inspectors and correctly handling traces, logs, debugging info
 /// collection, etc.
@@ -315,9 +315,9 @@ pub struct InspectorStackInner<ChainContextT> {
     pub chain_context: ChainContextT,
 }
 
-/// Struct keeping mutable references to both parts of [InspectorStack] and implementing
-/// [revm::Inspector]. This struct can be obtained via [InspectorStack::as_mut] or via
-/// [CheatcodesExecutor::get_inspector] method implemented for [InspectorStackInner].
+/// Struct keeping mutable references to both parts of [`InspectorStack`] and implementing
+/// [`revm::Inspector`]. This struct can be obtained via [`InspectorStack::as_mut`] or via
+/// [`CheatcodesExecutor::get_inspector`] method implemented for [`InspectorStackInner`].
 pub struct InspectorStackRefMut<'a,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -480,7 +480,7 @@ impl<
             },
         } = self;
 
-        let traces = tracer.map(|tracer| tracer.into_traces()).map(|arena| {
+        let traces = tracer.map(foundry_evm_traces::TracingInspector::into_traces).map(|arena| {
             let ignored = cheatcodes
                 .as_mut()
                 .map(|cheatcodes| {
@@ -509,8 +509,8 @@ impl<
                 .map(|cheatcodes| cheatcodes.labels.clone())
                 .unwrap_or_default(),
             traces,
-            line_coverage: line_coverage.map(|line_coverage| line_coverage.finish()),
-            edge_coverage: edge_coverage.map(|edge_coverage| edge_coverage.into_hitcount()),
+            line_coverage: line_coverage.map(foundry_evm_coverage::LineCoverageCollector::finish),
+            edge_coverage: edge_coverage.map(revm_inspectors::edge_cov::EdgeCovInspector::into_hitcount),
             cheatcodes,
             reverter,
         })
@@ -545,7 +545,7 @@ impl<
 > InspectorStackRefMut<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
     /// Adjusts the EVM data for the inner EVM context.
     /// Should be called on the top-level call of inner context (depth == 0 &&
-    /// self.in_inner_context) Decreases sender nonce for CALLs to keep backwards compatibility
+    /// `self.in_inner_context`) Decreases sender nonce for CALLs to keep backwards compatibility
     /// Updates tx.origin to the value before entering inner context
     fn adjust_evm_data_for_inner_context<
 
@@ -1224,7 +1224,7 @@ impl<
         interpreter: &mut Interpreter,
         ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
     ) {
-        self.as_mut().step_inlined(interpreter, ecx)
+        self.as_mut().step_inlined(interpreter, ecx);
     }
 
     fn step_end(
@@ -1232,7 +1232,7 @@ impl<
         interpreter: &mut Interpreter,
         ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
     ) {
-        self.as_mut().step_end_inlined(interpreter, ecx)
+        self.as_mut().step_end_inlined(interpreter, ecx);
     }
 
     fn call(
@@ -1249,7 +1249,7 @@ impl<
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        self.as_mut().call_end(context, inputs, outcome)
+        self.as_mut().call_end(context, inputs, outcome);
     }
 
     fn create(
@@ -1266,7 +1266,7 @@ impl<
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        self.as_mut().create_end(context, call, outcome)
+        self.as_mut().create_end(context, call, outcome);
     }
 
     fn initialize_interp(
@@ -1274,7 +1274,7 @@ impl<
         interpreter: &mut Interpreter,
         ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
     ) {
-        self.as_mut().initialize_interp(interpreter, ecx)
+        self.as_mut().initialize_interp(interpreter, ecx);
     }
 
     fn log(
@@ -1283,7 +1283,7 @@ impl<
         ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
         log: Log,
     ) {
-        self.as_mut().log(interpreter, ecx, log)
+        self.as_mut().log(interpreter, ecx, log);
     }
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
@@ -1317,6 +1317,7 @@ impl<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > DerefMut for InspectorStackRefMut<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+    #[allow(clippy::mut_mut)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }

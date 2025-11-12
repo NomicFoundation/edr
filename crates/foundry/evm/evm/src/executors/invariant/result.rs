@@ -116,6 +116,7 @@ impl<
 /// and returns a generic error. Either returns the call result if successful,
 /// or nothing if there was an error.
 #[allow(clippy::type_complexity)]
+#[allow(clippy::result_large_err)]
 pub(crate) fn assert_invariants<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,

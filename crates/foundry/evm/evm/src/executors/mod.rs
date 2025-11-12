@@ -279,7 +279,7 @@ impl<
 
     /// Returns `true` if the account has no code.
     pub fn is_empty_code(&self, address: Address) -> BackendResult<bool> {
-        Ok(self.backend().basic_ref(address)?.map(|acc| acc.is_empty_code_hash()).unwrap_or(true))
+        Ok(self.backend().basic_ref(address)?.is_none_or(|acc| acc.is_empty_code_hash()))
     }
 
     /// Creates the default CREATE2 Contract Deployer for local tests and scripts.
@@ -311,6 +311,7 @@ impl<
     ///
     /// Executes a CREATE transaction with the contract `code` and persistent database state
     /// modifications.
+    #[allow(clippy::type_complexity)]
     pub fn deploy(
         &mut self,
         from: Address,
@@ -329,6 +330,7 @@ impl<
     ///
     /// Panics if `env.tx.kind` is not `TxKind::Create(_)`.
     #[instrument(name = "deploy", level = "debug", skip_all)]
+    #[allow(clippy::type_complexity)]
     pub fn deploy_with_env(
         &mut self,
         env: EvmEnv<BlockT, TxT, HardforkT>,
@@ -363,6 +365,7 @@ impl<
     /// Ayn changes made during the setup call to env's block environment are persistent, for
     /// example `vm.chainId()` will change the `block.chainId` for all subsequent test calls.
     #[instrument(name = "setup", level = "debug", skip_all)]
+    #[allow(clippy::type_complexity)]
     pub fn setup(
         &mut self,
         from: Option<Address>,
@@ -392,6 +395,7 @@ impl<
     }
 
     /// Performs a call to an account on the current state of the VM.
+    #[allow(clippy::type_complexity)]
     pub fn call(
         &self,
         from: Address,
@@ -407,6 +411,7 @@ impl<
     }
 
     /// Performs a call to an account on the current state of the VM.
+    #[allow(clippy::type_complexity)]
     pub fn call_sol<C: SolCall>(
         &self,
         from: Address,
@@ -422,6 +427,7 @@ impl<
     }
 
     /// Performs a call to an account on the current state of the VM.
+    #[allow(clippy::type_complexity)]
     pub fn transact(
         &mut self,
         from: Address,
@@ -562,8 +568,8 @@ impl<
     /// expensive to set up an EVM call just for checking a single boolean flag.
     ///
     /// See:
-    /// - Newer DSTest: <https://github.com/dapphub/ds-test/blob/e282159d5170298eb2455a6c05280ab5a73a4ef0/src/test.sol#L47-L63>
-    /// - Older DSTest: <https://github.com/dapphub/ds-test/blob/9ca4ecd48862b40d7b0197b600713f64d337af12/src/test.sol#L38-L49>
+    /// - Newer `DSTest`: <https://github.com/dapphub/ds-test/blob/e282159d5170298eb2455a6c05280ab5a73a4ef0/src/test.sol#L47-L63>
+    /// - Older `DSTest`: <https://github.com/dapphub/ds-test/blob/9ca4ecd48862b40d7b0197b600713f64d337af12/src/test.sol#L38-L49>
     /// - forge-std: <https://github.com/foundry-rs/forge-std/blob/19891e6a0b5474b9ea6827ddb90bb9388f7acfc0/src/StdAssertions.sol#L38-L44>
     pub fn is_success(
         &self,
@@ -811,7 +817,7 @@ impl<
             edge_coverage: None,
             state_changeset: HashMap::default(),
             env: EvmEnv::default_with_spec_id(HardforkT::default()),
-            cheatcodes: Default::default(),
+            cheatcodes: Option::default(),
             out: None,
             reverter: None,
             indeterminism_reasons: None,
@@ -821,6 +827,7 @@ impl<
 
 impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainContextTr, EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: 'static + HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
     /// Unpacks an EVM result.
+    #[allow(clippy::type_complexity)]
     pub fn from_evm_result(r: Result<Self, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>>) -> eyre::Result<(Self, Option<String>)> {
         match r {
             Ok(r) => Ok((r, None)),
@@ -830,6 +837,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainCo
     }
 
     /// Unpacks an execution result.
+    #[allow(clippy::type_complexity)]
     pub fn from_execution_result(r: Result<Self, ExecutionErr<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>>) -> (Self, Option<String>) {
         match r {
             Ok(r) => (r, None),
@@ -852,6 +860,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainCo
     }
 
     /// Returns an `EvmError` if the call failed, otherwise returns `self`.
+    #[allow(clippy::type_complexity)]
     pub fn into_result(self, rd: Option<&RevertDecoder>) -> Result<Self, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
         if let Some(reason) = self.exit_reason
             && reason.is_ok()
@@ -863,6 +872,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainCo
     }
 
     /// Decodes the result of the call with the given function.
+    #[allow(clippy::type_complexity)]
     pub fn into_decoded_result(
         mut self,
         func: &Function,
@@ -980,7 +990,7 @@ fn convert_executed_result<
     };
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
         env.cfg.spec.into(),
-        &env.tx.input(),
+        env.tx.input(),
         env.tx.kind().is_create(),
         env.tx.access_list().map_or(0, Iterator::count).try_into()?,
         0,

@@ -60,14 +60,14 @@ impl From<eyre::Report> for InvariantFuzzError {
 impl std::fmt::Display for InvariantFuzzError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some(revert_reason) = self.revert_reason() {
-            write!(f, "{}", revert_reason)
+            write!(f, "{revert_reason}")
         } else {
             match self {
                 InvariantFuzzError::Revert(_) => write!(f, "reverted due to unknown reason"),
                 InvariantFuzzError::BrokenInvariant(_) => write!(f, "broken invariant"),
                 InvariantFuzzError::MaxAssumeRejects(_) => write!(f, "maximum rejections reached"),
-                InvariantFuzzError::Other(error_message) => write!(f, "{}", error_message),
-                InvariantFuzzError::Abi(error) => write!(f, "{}", error),
+                InvariantFuzzError::Other(error_message) => write!(f, "{error_message}"),
+                InvariantFuzzError::Abi(error) => write!(f, "{error}"),
             }
         }
     }
