@@ -55,14 +55,14 @@ impl fmt::Display for DetailedRevertReason {
 ///     succeeds, as doesn't return data, the validation causes a revert.
 ///
 ///     Identified when: a call with non-empty calldata is made to an address
-/// without bytecode,     followed by an empty revert at the same depth.
+///     without bytecode, followed by an empty revert at the same depth.
 ///
 ///  2. **Void call to non-contract address:** in this case the solidity
 ///     compiler adds some checks before doing the call, so it never takes
 ///     place.
 ///
 ///     Identified when: extcodesize for the target address returns 0 + empty
-/// revert at the same     depth.
+///     revert at the same depth.
 #[derive(Clone, Debug, Default)]
 pub struct RevertDiagnostic {
     /// Tracks calls with calldata that target an address without executable
