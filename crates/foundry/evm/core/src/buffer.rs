@@ -65,9 +65,14 @@ pub fn get_buffer_accesses(op: u8, stack: &[U256]) -> Option<BufferAccesses> {
         opcode::MLOAD => (Some((BufferKind::Memory, 1, -1)), None),
         opcode::MSTORE => (None, Some((1, -1))),
         opcode::MSTORE8 => (None, Some((1, -2))),
-        opcode::KECCAK256 | opcode::RETURN | opcode::REVERT | opcode::LOG0 | opcode::LOG1 | opcode::LOG2 | opcode::LOG3 | opcode::LOG4 => {
-            (Some((BufferKind::Memory, 1, 2)), None)
-        }
+        opcode::KECCAK256
+        | opcode::RETURN
+        | opcode::REVERT
+        | opcode::LOG0
+        | opcode::LOG1
+        | opcode::LOG2
+        | opcode::LOG3
+        | opcode::LOG4 => (Some((BufferKind::Memory, 1, 2)), None),
         opcode::CREATE | opcode::CREATE2 => (Some((BufferKind::Memory, 2, 3)), None),
         opcode::CALL | opcode::CALLCODE => (Some((BufferKind::Memory, 4, 5)), None),
         opcode::DELEGATECALL | opcode::STATICCALL => (Some((BufferKind::Memory, 3, 4)), None),
@@ -82,7 +87,9 @@ pub fn get_buffer_accesses(op: u8, stack: &[U256]) -> Option<BufferAccesses> {
         0 => None,
         1.. => {
             if (stack_index as usize) <= stack_len {
-                stack.get(stack_len - stack_index as usize).map(alloy_primitives::Uint::saturating_to)
+                stack
+                    .get(stack_len - stack_index as usize)
+                    .map(alloy_primitives::Uint::saturating_to)
             } else {
                 None
             }
@@ -94,13 +101,25 @@ pub fn get_buffer_accesses(op: u8, stack: &[U256]) -> Option<BufferAccesses> {
         let (read, write) = buffer_access;
         let read_access = read.and_then(|b| {
             let (buffer, offset, len) = b;
-            Some((buffer, BufferAccess { offset: get_size(offset)?, len: get_size(len)? }))
+            Some((
+                buffer,
+                BufferAccess {
+                    offset: get_size(offset)?,
+                    len: get_size(len)?,
+                },
+            ))
         });
         let write_access = write.and_then(|b| {
             let (offset, len) = b;
-            Some(BufferAccess { offset: get_size(offset)?, len: get_size(len)? })
+            Some(BufferAccess {
+                offset: get_size(offset)?,
+                len: get_size(len)?,
+            })
         });
-        Some(BufferAccesses { read: read_access, write: write_access })
+        Some(BufferAccesses {
+            read: read_access,
+            write: write_access,
+        })
     } else {
         None
     }

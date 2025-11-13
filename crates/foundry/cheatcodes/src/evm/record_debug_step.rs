@@ -3,7 +3,7 @@ use alloy_primitives::{Bytes, U256};
 use foundry_evm_traces::CallTraceArena;
 use revm::{bytecode::opcode::OpCode, interpreter::InstructionResult};
 
-use foundry_evm_core::buffer::{BufferKind, get_buffer_accesses};
+use foundry_evm_core::buffer::{get_buffer_accesses, BufferKind};
 use revm_inspectors::tracing::types::{CallTraceStep, RecordedMemory, TraceMemberOrder};
 use spec::Vm::DebugStep;
 
@@ -39,25 +39,35 @@ fn recursive_flatten_call_trace<'a>(
         *record_started = true;
     }
 
-    let node = arena.nodes().get(node_idx).expect("Node index should be valid");
+    let node = arena
+        .nodes()
+        .get(node_idx)
+        .expect("Node index should be valid");
 
     for order in &node.ordering {
         match order {
             TraceMemberOrder::Step(step_idx) => {
                 if *record_started {
-                    let step = node.trace.steps.get(*step_idx).expect("Step index should be valid");
+                    let step = node
+                        .trace
+                        .steps
+                        .get(*step_idx)
+                        .expect("Step index should be valid");
                     flatten_steps.push(step);
                 }
             }
             TraceMemberOrder::Call(call_idx) => {
-                let child_node_idx = node.children.get(*call_idx).expect("Child node index should be valid");
-                    recursive_flatten_call_trace(
-                        *child_node_idx,
-                        arena,
-                        node_start_idx,
-                        record_started,
-                        flatten_steps,
-                    );
+                let child_node_idx = node
+                    .children
+                    .get(*call_idx)
+                    .expect("Child node index should be valid");
+                recursive_flatten_call_trace(
+                    *child_node_idx,
+                    arena,
+                    node_start_idx,
+                    record_started,
+                    flatten_steps,
+                );
             }
             TraceMemberOrder::Log(_) => {}
         }
@@ -95,8 +105,12 @@ fn get_memory_input_for_opcode(
     memory: Option<&RecordedMemory>,
 ) -> Bytes {
     let mut memory_input = Bytes::new();
-    let Some(stack_data) = stack else { return memory_input };
-    let Some(memory_data) = memory else { return memory_input };
+    let Some(stack_data) = stack else {
+        return memory_input;
+    };
+    let Some(memory_data) = memory else {
+        return memory_input;
+    };
 
     if let Some(accesses) = get_buffer_accesses(opcode, stack_data)
         && let Some((BufferKind::Memory, access)) = accesses.read
@@ -112,8 +126,12 @@ fn get_memory_input_for_opcode(
 fn get_stack_inputs_for_opcode(opcode: u8, stack: Option<&Vec<U256>>) -> Vec<U256> {
     let mut inputs = Vec::new();
 
-    let Some(op) = OpCode::new(opcode) else { return inputs };
-    let Some(stack_data) = stack else { return inputs };
+    let Some(op) = OpCode::new(opcode) else {
+        return inputs;
+    };
+    let Some(stack_data) = stack else {
+        return inputs;
+    };
 
     let stack_input_size = op.inputs() as usize;
     for i in 0..stack_input_size {

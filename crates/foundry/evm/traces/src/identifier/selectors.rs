@@ -3,21 +3,21 @@
 #![allow(missing_docs)]
 #![allow(unused)]
 
+use crate::abi::abi_decode_calldata;
 use alloy_json_abi::JsonAbi;
-use alloy_primitives::{B256, Selector, map::HashMap};
+use alloy_primitives::{map::HashMap, Selector, B256};
 use eyre::Context;
+use foundry_evm_core::fork::provider::runtime_transport::RuntimeTransportBuilder;
 use itertools::Itertools;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     fmt,
     sync::{
-        Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc,
     },
     time::Duration,
 };
-use foundry_evm_core::fork::provider::runtime_transport::RuntimeTransportBuilder;
-use crate::abi::abi_decode_calldata;
 
 const BASE_URL: &str = "https://api.openchain.xyz";
 const SELECTOR_LOOKUP_URL: &str = "https://api.openchain.xyz/signature-database/v1/lookup";
@@ -219,7 +219,9 @@ impl OpenChainClient {
             )
         }
 
-        let mut sigs = self.decode_function_selector(calldata[..8].parse().unwrap()).await?;
+        let mut sigs = self
+            .decode_function_selector(calldata[..8].parse().unwrap())
+            .await?;
         // Retain only signatures that can be decoded.
         sigs.retain(|sig| abi_decode_calldata(sig, calldata, true, true).is_ok());
         Ok(sigs)
@@ -254,12 +256,22 @@ impl OpenChainClient {
                     .flat_map(|abi| abi.events().map(alloy_json_abi::Event::signature))
                     .collect::<Vec<_>>();
 
-                SelectorImportRequest { function: functions_and_errors, event: events }
+                SelectorImportRequest {
+                    function: functions_and_errors,
+                    event: events,
+                }
             }
             SelectorImportData::Raw(raw) => {
-                let function_and_error =
-                    raw.function.iter().chain(raw.error.iter()).cloned().collect::<Vec<_>>();
-                SelectorImportRequest { function: function_and_error, event: raw.event }
+                let function_and_error = raw
+                    .function
+                    .iter()
+                    .chain(raw.error.iter())
+                    .cloned()
+                    .collect::<Vec<_>>();
+                SelectorImportRequest {
+                    function: function_and_error,
+                    event: raw.event,
+                }
             }
         };
 
@@ -279,7 +291,10 @@ pub struct PossibleSigs {
 
 impl PossibleSigs {
     fn new() -> Self {
-        Self { method: SelectorOrSig::Selector("0x00000000".to_string()), data: vec![] }
+        Self {
+            method: SelectorOrSig::Selector("0x00000000".to_string()),
+            data: vec![],
+        }
     }
 }
 
@@ -539,7 +554,10 @@ mod tests {
         let result = parse_signatures(vec!["event".to_string()]);
         assert_eq!(
             result,
-            ParsedSignatures { signatures: RawSelectorImportData::default(), ..Default::default() }
+            ParsedSignatures {
+                signatures: RawSelectorImportData::default(),
+                ..Default::default()
+            }
         );
     }
 }

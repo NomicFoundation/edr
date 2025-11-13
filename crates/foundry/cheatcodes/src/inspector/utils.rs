@@ -1,11 +1,14 @@
 use crate::inspector::Cheatcodes;
 use alloy_primitives::{Address, Bytes, U256};
-use revm::context::CfgEnv;
-use revm::context::result::HaltReasonTr;
-use revm::interpreter::{CreateInputs};
-use revm::Journal;
 use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait};
+use foundry_evm_core::evm_context::{
+    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
+};
+use revm::context::result::HaltReasonTr;
+use revm::context::CfgEnv;
+use revm::interpreter::CreateInputs;
+use revm::Journal;
 
 /// Common behaviour of legacy and EOF create inputs.
 pub(crate) trait CommonCreateInput {
@@ -31,9 +34,26 @@ pub(crate) trait CommonCreateInput {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self,
-      cheatcodes: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
-      ecx: &mut revm::context::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>) -> Address;
+    >(
+        &self,
+        cheatcodes: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        ecx: &mut revm::context::Context<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) -> Address;
 }
 
 impl CommonCreateInput for &mut CreateInputs {
@@ -69,9 +89,26 @@ impl CommonCreateInput for &mut CreateInputs {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self,
-      cheatcodes: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
-      ecx: &mut revm::context::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>) -> Address {
+    >(
+        &self,
+        cheatcodes: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        ecx: &mut revm::context::Context<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) -> Address {
         let old_nonce = ecx
             .journaled_state
             .state

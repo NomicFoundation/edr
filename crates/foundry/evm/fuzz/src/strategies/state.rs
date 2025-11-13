@@ -1,19 +1,19 @@
 use crate::invariant::{BasicTxDetails, FuzzRunIdentifiedContracts};
+use crate::FuzzDictionaryConfig;
 use alloy_dyn_abi::{DynSolType, DynSolValue, EventExt, FunctionExt};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{
-    Address, B256, Bytes, Log, U256,
     map::{AddressIndexSet, B256IndexSet, HashMap},
+    Address, Bytes, Log, B256, U256,
 };
 use foundry_evm_core::utils::StateChangeset;
-use parking_lot::{RawRwLock, RwLock, lock_api::RwLockReadGuard};
+use parking_lot::{lock_api::RwLockReadGuard, RawRwLock, RwLock};
 use revm::{
     bytecode::opcode,
     database::{CacheDB, DatabaseRef, DbAccount},
     state::AccountInfo,
 };
 use std::{collections::BTreeMap, fmt, sync::Arc};
-use crate::FuzzDictionaryConfig;
 
 /// The maximum number of bytes we will look at in bytecodes to find push bytes (24 KiB).
 ///
@@ -44,7 +44,10 @@ impl EvmFuzzState {
         // Create fuzz dictionary and insert values from db state.
         let mut dictionary = FuzzDictionary::new(config);
         dictionary.insert_db_values(accs);
-        Self { inner: Arc::new(RwLock::new(dictionary)), deployed_libs: deployed_libs.to_vec() }
+        Self {
+            inner: Arc::new(RwLock::new(dictionary)),
+            deployed_libs: deployed_libs.to_vec(),
+        }
     }
 
     pub fn collect_values(&self, values: impl IntoIterator<Item = B256>) {
@@ -127,7 +130,10 @@ impl fmt::Debug for FuzzDictionary {
 
 impl FuzzDictionary {
     pub fn new(config: FuzzDictionaryConfig) -> Self {
-        let mut dictionary = Self { config, ..Default::default() };
+        let mut dictionary = Self {
+            config,
+            ..Default::default()
+        };
         dictionary.prefill();
         dictionary
     }
@@ -268,7 +274,9 @@ impl FuzzDictionary {
                     break;
                 }
 
-                let push_bytes = code.get(push_start..push_end).expect("push_start..push_end should be within code bounds");
+                let push_bytes = code
+                    .get(push_start..push_end)
+                    .expect("push_start..push_end should be within code bounds");
                 let push_value = U256::try_from_be_slice(push_bytes).unwrap();
                 if push_value != U256::ZERO {
                     // Never add 0 to the dictionary as it's always present.
@@ -317,7 +325,11 @@ impl FuzzDictionary {
     fn insert_value(&mut self, value: B256) {
         if self.state_values.len() < self.config.max_fuzz_dictionary_values {
             let new_value = self.state_values.insert(value);
-            let counter = if new_value { &mut self.misses } else { &mut self.hits };
+            let counter = if new_value {
+                &mut self.misses
+            } else {
+                &mut self.hits
+            };
             *counter += 1;
         }
     }
@@ -340,7 +352,10 @@ impl FuzzDictionary {
                         self.insert_value(sample_value);
                     }
                 } else {
-                    self.sample_values.entry(sample_type).or_default().insert(sample_value);
+                    self.sample_values
+                        .entry(sample_type)
+                        .or_default()
+                        .insert(sample_value);
                 }
             }
         }
@@ -390,11 +405,17 @@ impl FuzzDictionary {
 /// This assumes that the metadata is at the end of the bytecode.
 pub fn ignore_metadata_hash(bytecode: &[u8]) -> &[u8] {
     // Get the last two bytes of the bytecode to find the length of CBOR metadata.
-    let Some((rest, metadata_len_bytes)) = bytecode.split_last_chunk() else { return bytecode };
+    let Some((rest, metadata_len_bytes)) = bytecode.split_last_chunk() else {
+        return bytecode;
+    };
     let metadata_len = u16::from_be_bytes(*metadata_len_bytes) as usize;
     if metadata_len > rest.len() {
         return bytecode;
     }
     let (rest, metadata) = rest.split_at(rest.len() - metadata_len);
-    if ciborium::from_reader::<ciborium::Value, _>(metadata).is_ok() { rest } else { bytecode }
+    if ciborium::from_reader::<ciborium::Value, _>(metadata).is_ok() {
+        rest
+    } else {
+        bytecode
+    }
 }

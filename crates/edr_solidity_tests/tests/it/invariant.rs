@@ -6,7 +6,9 @@ use alloy_primitives::U256;
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::fuzz::CounterExample;
 
-use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT};
+use crate::helpers::{
+    assert_multiple, SolidityTestFilter, TestFuzzConfig, TestInvariantConfig, TEST_DATA_DEFAULT,
+};
 
 macro_rules! get_counterexample {
     ($runner:ident, $filter:expr) => {
@@ -1098,13 +1100,7 @@ async fn test_invariant_timeout() {
         &results,
         BTreeMap::from([(
             "default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest",
-            vec![(
-                "invariant_counter_timeout()",
-                true,
-                None,
-                None,
-                None,
-            )],
+            vec![("invariant_counter_timeout()", true, None, None, None)],
         )]),
     );
 }

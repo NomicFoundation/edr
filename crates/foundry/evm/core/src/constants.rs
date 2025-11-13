@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, B256, address, b256, hex};
+use alloy_primitives::{address, b256, hex, Address, B256};
 
 /// The cheatcode handler address.
 ///
@@ -78,6 +78,9 @@ mod tests {
 
     #[test]
     fn create2_deployer() {
-        assert_eq!(DEFAULT_CREATE2_DEPLOYER_DEPLOYER.create(0), DEFAULT_CREATE2_DEPLOYER);
+        assert_eq!(
+            DEFAULT_CREATE2_DEPLOYER_DEPLOYER.create(0),
+            DEFAULT_CREATE2_DEPLOYER
+        );
     }
 }

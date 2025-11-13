@@ -32,7 +32,10 @@ pub struct FuzzRunIdentifiedContracts {
 impl FuzzRunIdentifiedContracts {
     /// Creates a new `FuzzRunIdentifiedContracts` instance.
     pub fn new(targets: TargetedContracts, is_updatable: bool) -> Self {
-        Self { targets: Arc::new(Mutex::new(targets)), is_updatable }
+        Self {
+            targets: Arc::new(Mutex::new(targets)),
+            is_updatable,
+        }
     }
 
     /// If targets are updatable, collect all contracts created during an invariant run (which
@@ -115,8 +118,15 @@ impl TargetedContracts {
     pub fn fuzzed_artifacts(&self, tx: &BasicTxDetails) -> (Option<&JsonAbi>, Option<&Function>) {
         match self.inner.get(&tx.call_details.target) {
             Some(c) => {
-                let selector = tx.call_details.calldata.get(..4).expect("calldata should have at least 4 bytes for selector");
-                (Some(&c.abi), c.abi.functions().find(|f| f.selector() == selector))
+                let selector = tx
+                    .call_details
+                    .calldata
+                    .get(..4)
+                    .expect("calldata should have at least 4 bytes for selector");
+                (
+                    Some(&c.abi),
+                    c.abi.functions().find(|f| f.selector() == selector),
+                )
             }
             None => (None, None),
         }
@@ -135,7 +145,11 @@ impl TargetedContracts {
     pub fn can_replay(&self, tx: &BasicTxDetails) -> bool {
         match self.inner.get(&tx.call_details.target) {
             Some(c) => {
-                let selector = tx.call_details.calldata.get(..4).expect("calldata should have at least 4 bytes for selector");
+                let selector = tx
+                    .call_details
+                    .calldata
+                    .get(..4)
+                    .expect("calldata should have at least 4 bytes for selector");
                 c.abi.functions().any(|f| f.selector() == selector)
             }
             None => false,
@@ -145,14 +159,20 @@ impl TargetedContracts {
     /// Identifies fuzzed contract and function based on given tx details and returns unique metric
     /// key composed from contract identifier and function name.
     pub fn fuzzed_metric_key(&self, tx: &BasicTxDetails) -> Option<String> {
-        self.inner.get(&tx.call_details.target).and_then(|contract| {
-            let selector = tx.call_details.calldata.get(..4).expect("calldata should have at least 4 bytes for selector");
-            contract
-                .abi
-                .functions()
-                .find(|f| f.selector() == selector)
-                .map(|function| format!("{}.{}", contract.identifier.clone(), function.name))
-        })
+        self.inner
+            .get(&tx.call_details.target)
+            .and_then(|contract| {
+                let selector = tx
+                    .call_details
+                    .calldata
+                    .get(..4)
+                    .expect("calldata should have at least 4 bytes for selector");
+                contract
+                    .abi
+                    .functions()
+                    .find(|f| f.selector() == selector)
+                    .map(|function| format!("{}.{}", contract.identifier.clone(), function.name))
+            })
     }
 }
 
@@ -186,7 +206,12 @@ pub struct TargetedContract {
 impl TargetedContract {
     /// Returns a new `TargetedContract` instance.
     pub fn new(identifier: String, abi: JsonAbi) -> Self {
-        Self { identifier, abi, targeted_functions: Vec::new(), excluded_functions: Vec::new() }
+        Self {
+            identifier,
+            abi,
+            targeted_functions: Vec::new(),
+            excluded_functions: Vec::new(),
+        }
     }
 
     /// Helper to retrieve functions to fuzz for specified abi.
@@ -218,9 +243,11 @@ impl TargetedContract {
     ) -> eyre::Result<()> {
         for selector in selectors {
             if should_exclude {
-                self.excluded_functions.push(self.get_function(selector)?.clone());
+                self.excluded_functions
+                    .push(self.get_function(selector)?.clone());
             } else {
-                self.targeted_functions.push(self.get_function(selector)?.clone());
+                self.targeted_functions
+                    .push(self.get_function(selector)?.clone());
             }
         }
         Ok(())

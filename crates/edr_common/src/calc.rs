@@ -26,7 +26,6 @@ pub fn median_sorted(values: &[u64]) -> u64 {
     } else {
         *values.get(mid).expect("values is not empty")
     }
-
 }
 
 #[cfg(test)]
@@ -47,7 +46,16 @@ mod tests {
 
     #[test]
     fn calc_mean_overflow() {
-        let m = mean(&[0, 1, 2, u64::from(u32::MAX), 3, u64::from(u16::MAX), u64::MAX, 6]);
+        let m = mean(&[
+            0,
+            1,
+            2,
+            u64::from(u32::MAX),
+            3,
+            u64::from(u16::MAX),
+            u64::MAX,
+            6,
+        ]);
         assert_eq!(m, 2305843009750573057);
     }
 

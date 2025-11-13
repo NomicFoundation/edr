@@ -1,20 +1,26 @@
 //! Implementations of [`Utilities`](spec::Group::Utilities) cheatcodes.
 
 #[allow(clippy::wildcard_imports)]
-use crate::{Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt, Result, Vm::*, impl_is_pure_true, impl_is_pure_false};
-use foundry_evm_core::{
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait},
-    backend::CheatcodeBackend,
-    constants::DEFAULT_CREATE2_DEPLOYER,
-    ContextExt,
+use crate::{
+    impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt,
+    Result, Vm::*,
 };
-use revm::context::result::HaltReasonTr;
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_ens::namehash;
-use alloy_primitives::{B64, U256, aliases::B32, map::HashMap};
+use alloy_primitives::{aliases::B32, map::HashMap, B64, U256};
 use alloy_sol_types::SolValue;
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    constants::DEFAULT_CREATE2_DEPLOYER,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
+    ContextExt,
+};
 use proptest::prelude::Strategy;
-use rand::{Rng, RngCore, seq::SliceRandom};
+use rand::{seq::SliceRandom, Rng, RngCore};
+use revm::context::result::HaltReasonTr;
 
 /// Contains locations of traces ignored via cheatcodes.
 ///
@@ -138,7 +144,10 @@ impl Cheatcode for computeCreateAddressCall {
         >,
     ) -> Result {
         let Self { nonce, deployer } = self;
-        ensure!(*nonce <= U256::from(u64::MAX), "nonce must be less than 2^64 - 1");
+        ensure!(
+            *nonce <= U256::from(u64::MAX),
+            "nonce must be less than 2^64 - 1"
+        );
         Ok(deployer.create(nonce.to()).abi_encode())
     }
 }
@@ -174,7 +183,11 @@ impl Cheatcode for computeCreate2Address_0Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { salt, initCodeHash, deployer } = self;
+        let Self {
+            salt,
+            initCodeHash,
+            deployer,
+        } = self;
         Ok(deployer.create2(salt, initCodeHash).abi_encode())
     }
 }
@@ -211,7 +224,9 @@ impl Cheatcode for computeCreate2Address_1Call {
         >,
     ) -> Result {
         let Self { salt, initCodeHash } = self;
-        Ok(DEFAULT_CREATE2_DEPLOYER.create2(salt, initCodeHash).abi_encode())
+        Ok(DEFAULT_CREATE2_DEPLOYER
+            .create2(salt, initCodeHash)
+            .abi_encode())
     }
 }
 
@@ -734,7 +749,10 @@ impl Cheatcode for resumeTracingCall {
         };
 
         let node = &tracer.traces().nodes().last().expect("no trace nodes");
-        ccx.state.ignored_traces.ignored.insert(start, (node.idx, node.ordering.len()));
+        ccx.state
+            .ignored_traces
+            .ignored
+            .insert(start, (node.idx, node.ordering.len()));
 
         Ok(Vec::default())
     }
@@ -857,7 +875,9 @@ impl Cheatcode for setArbitraryStorage_1Call {
         >,
     ) -> Result {
         let Self { target, overwrite } = self;
-        ccx.state.arbitrary_storage().mark_arbitrary(target, *overwrite);
+        ccx.state
+            .arbitrary_storage()
+            .mark_arbitrary(target, *overwrite);
 
         Ok(Vec::default())
     }
@@ -1066,11 +1086,13 @@ fn random_uint<
     if let Some(bits) = bits {
         // Generate random with specified bits.
         ensure!(bits <= U256::from(256), "number of bits cannot exceed 256");
-        return Ok(DynSolValue::type_strategy(&DynSolType::Uint(bits.to::<usize>()))
-            .new_tree(state.test_runner())
-            .unwrap()
-            .current()
-            .abi_encode());
+        return Ok(
+            DynSolValue::type_strategy(&DynSolType::Uint(bits.to::<usize>()))
+                .new_tree(state.test_runner())
+                .unwrap()
+                .current()
+                .abi_encode(),
+        );
     }
 
     if let Some((min, max)) = bounds {
@@ -1116,11 +1138,15 @@ fn random_int<
     bits: Option<U256>,
 ) -> Result {
     let no_bits = bits.unwrap_or(U256::from(256));
-    ensure!(no_bits <= U256::from(256), "number of bits cannot exceed 256");
-    Ok(DynSolValue::type_strategy(&DynSolType::Int(no_bits.to::<usize>()))
-        .new_tree(state.test_runner())
-        .unwrap()
-        .current()
-        .abi_encode())
+    ensure!(
+        no_bits <= U256::from(256),
+        "number of bits cannot exceed 256"
+    );
+    Ok(
+        DynSolValue::type_strategy(&DynSolType::Int(no_bits.to::<usize>()))
+            .new_tree(state.test_runner())
+            .unwrap()
+            .current()
+            .abi_encode(),
+    )
 }
-

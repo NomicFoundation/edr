@@ -1,13 +1,16 @@
 use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Error, Result};
 use alloy_primitives::Address;
+use foundry_evm_core::backend::CheatcodeBackend;
 use foundry_evm_core::constants::MAGIC_ASSUME;
+use foundry_evm_core::evm_context::{
+    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
+};
+use revm::context::result::HaltReasonTr;
 use spec::Vm::{
-    PotentialRevert, assumeCall, assumeNoRevert_0Call, assumeNoRevert_1Call, assumeNoRevert_2Call,
+    assumeCall, assumeNoRevert_0Call, assumeNoRevert_1Call, assumeNoRevert_2Call, PotentialRevert,
 };
 use std::fmt::Debug;
-use revm::context::result::HaltReasonTr;
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait};
 
 #[derive(Clone, Debug)]
 pub struct AssumeNoRevert {
@@ -65,9 +68,24 @@ impl Cheatcode for assumeCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self { condition } = self;
-        if *condition { Ok(Vec::default()) } else { Err(Error::from(MAGIC_ASSUME)) }
+        if *condition {
+            Ok(Vec::default())
+        } else {
+            Err(Error::from(MAGIC_ASSUME))
+        }
     }
 }
 
@@ -90,8 +108,28 @@ impl Cheatcode for assumeNoRevert_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        assume_no_revert::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(ccx.state, ccx.ecx.journaled_state.depth, vec![])
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        assume_no_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(ccx.state, ccx.ecx.journaled_state.depth, vec![])
     }
 }
 
@@ -114,9 +152,29 @@ impl Cheatcode for assumeNoRevert_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { potentialRevert } = self;
-        assume_no_revert::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(
+        assume_no_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth,
             vec![AcceptableRevertParameters::from(potentialRevert)],
@@ -143,12 +201,35 @@ impl Cheatcode for assumeNoRevert_2Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { potentialReverts } = self;
-        assume_no_revert::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(
+        assume_no_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth,
-            potentialReverts.iter().map(AcceptableRevertParameters::from).collect(),
+            potentialReverts
+                .iter()
+                .map(AcceptableRevertParameters::from)
+                .collect(),
         )
     }
 }
@@ -162,7 +243,15 @@ fn assume_no_revert<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 >(
-    state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+    state: &mut Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
     depth: usize,
     parameters: Vec<AcceptableRevertParameters>,
 ) -> Result {
@@ -171,7 +260,11 @@ fn assume_no_revert<
         "you must make another external call prior to calling assumeNoRevert again"
     );
 
-    state.assume_no_revert = Some(AssumeNoRevert { depth, reasons: parameters, reverted_by: None });
+    state.assume_no_revert = Some(AssumeNoRevert {
+        depth,
+        reasons: parameters,
+        reverted_by: None,
+    });
 
     Ok(Vec::default())
 }

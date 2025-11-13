@@ -24,7 +24,12 @@ impl UintValueTree {
     /// * `start` - Starting value for the tree
     /// * `fixed` - If `true` the tree would only contain one element and won't be simplified.
     fn new(start: U256, fixed: bool) -> Self {
-        Self { lo: U256::ZERO, curr: start, hi: start, fixed }
+        Self {
+            lo: U256::ZERO,
+            curr: start,
+            hi: start,
+            fixed,
+        }
     }
 
     fn reposition(&mut self) -> bool {
@@ -113,7 +118,11 @@ impl UintStrategy {
         // Choose if we want values around 0 or max
         let is_min = rng.random::<bool>();
         let offset = U256::from(rng.random_range(0..4));
-        let start = if is_min { offset } else { self.type_max().saturating_sub(offset) };
+        let start = if is_min {
+            offset
+        } else {
+            self.type_max().saturating_sub(offset)
+        };
         Ok(UintValueTree::new(start, false))
     }
 
@@ -125,7 +134,10 @@ impl UintStrategy {
 
         // Generate value tree from fixture.
         let fixture_idx = runner.rng().random_range(0..self.fixtures.len());
-        let fixture = self.fixtures.get(fixture_idx).expect("fixture_idx should be within fixtures bounds");
+        let fixture = self
+            .fixtures
+            .get(fixture_idx)
+            .expect("fixture_idx should be within fixtures bounds");
         if let Some(uint_fixture) = fixture.as_uint()
             && uint_fixture.1 == self.bits
         {
@@ -133,7 +145,11 @@ impl UintStrategy {
         }
 
         // If fixture is not a valid type, raise error and generate random value.
-        error!("{:?} is not a valid {} fixture", fixture, DynSolType::Uint(self.bits));
+        error!(
+            "{:?} is not a valid {} fixture",
+            fixture,
+            DynSolType::Uint(self.bits)
+        );
         self.generate_random_tree(runner)
     }
 
@@ -170,7 +186,11 @@ impl UintStrategy {
     }
 
     fn type_max(&self) -> U256 {
-        if self.bits < 256 { (U256::from(1) << self.bits) - U256::from(1) } else { U256::MAX }
+        if self.bits < 256 {
+            (U256::from(1) << self.bits) - U256::from(1)
+        } else {
+            U256::MAX
+        }
     }
 }
 

@@ -1,17 +1,20 @@
 //! Implementations of [`Environment`](spec::Group::Environment) cheatcodes.
 
+#[allow(clippy::wildcard_imports)]
+use crate::Vm::*;
+use crate::{
+    impl_is_pure_false, string, Cheatcode, Cheatcodes, Error, ExecutionContextConfig, Result,
+    Vm::ExecutionContext,
+};
 use alloy_dyn_abi::DynSolType;
 use alloy_sol_types::SolValue;
+use foundry_evm_core::backend::CheatcodeBackend;
 use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
     TransactionErrorTrait,
 };
 use revm::context::result::HaltReasonTr;
-use foundry_evm_core::backend::CheatcodeBackend;
-use crate::{Cheatcode, Cheatcodes, Error, Result, string, ExecutionContextConfig, Vm::ExecutionContext, impl_is_pure_false};
-#[allow(clippy::wildcard_imports)]
-use crate::Vm::*;
-use std::{env};
+use std::env;
 
 impl_is_pure_false!(setEnvCall);
 impl Cheatcode for setEnvCall {
@@ -48,11 +51,17 @@ impl Cheatcode for setEnvCall {
         if key.is_empty() {
             Err(fmt_err!("environment variable key can't be empty"))
         } else if key.contains('=') {
-            Err(fmt_err!("environment variable key can't contain equal sign `=`"))
+            Err(fmt_err!(
+                "environment variable key can't contain equal sign `=`"
+            ))
         } else if key.contains('\0') {
-            Err(fmt_err!("environment variable key can't contain NUL character `\\0`"))
+            Err(fmt_err!(
+                "environment variable key can't contain NUL character `\\0`"
+            ))
         } else if value.contains('\0') {
-            Err(fmt_err!("environment variable value can't contain NUL character `\\0`"))
+            Err(fmt_err!(
+                "environment variable value can't contain NUL character `\\0`"
+            ))
         } else {
             unsafe {
                 env::set_var(key, value);
@@ -893,7 +902,11 @@ impl Cheatcode for envOr_7Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { name, delim, defaultValue } = self;
+        let Self {
+            name,
+            delim,
+            defaultValue,
+        } = self;
         env_array_default(name, delim, defaultValue, &DynSolType::Bool)
     }
 }
@@ -930,7 +943,11 @@ impl Cheatcode for envOr_8Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { name, delim, defaultValue } = self;
+        let Self {
+            name,
+            delim,
+            defaultValue,
+        } = self;
         env_array_default(name, delim, defaultValue, &DynSolType::Uint(256))
     }
 }
@@ -967,7 +984,11 @@ impl Cheatcode for envOr_9Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { name, delim, defaultValue } = self;
+        let Self {
+            name,
+            delim,
+            defaultValue,
+        } = self;
         env_array_default(name, delim, defaultValue, &DynSolType::Int(256))
     }
 }
@@ -1004,7 +1025,11 @@ impl Cheatcode for envOr_10Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { name, delim, defaultValue } = self;
+        let Self {
+            name,
+            delim,
+            defaultValue,
+        } = self;
         env_array_default(name, delim, defaultValue, &DynSolType::Address)
     }
 }
@@ -1041,7 +1066,11 @@ impl Cheatcode for envOr_11Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { name, delim, defaultValue } = self;
+        let Self {
+            name,
+            delim,
+            defaultValue,
+        } = self;
         env_array_default(name, delim, defaultValue, &DynSolType::FixedBytes(32))
     }
 }
@@ -1078,7 +1107,11 @@ impl Cheatcode for envOr_12Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { name, delim, defaultValue } = self;
+        let Self {
+            name,
+            delim,
+            defaultValue,
+        } = self;
         env_array_default(name, delim, defaultValue, &DynSolType::String)
     }
 }
@@ -1115,7 +1148,11 @@ impl Cheatcode for envOr_13Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { name, delim, defaultValue } = self;
+        let Self {
+            name,
+            delim,
+            defaultValue,
+        } = self;
         let default = defaultValue.clone();
         env_array_default(name, delim, &default, &DynSolType::Bytes)
     }
@@ -1152,7 +1189,9 @@ impl Cheatcode for isContextCall {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { context: context_arg } = self;
+        let Self {
+            context: context_arg,
+        } = self;
         let configured_context = &state.config.execution_context;
 
         let group_match = matches!(
@@ -1199,9 +1238,9 @@ fn get_env(key: &str) -> Result<String> {
     match env::var(key) {
         Ok(val) => Ok(val),
         Err(env::VarError::NotPresent) => Err(fmt_err!("environment variable {key:?} not found")),
-        Err(env::VarError::NotUnicode(s)) => {
-            Err(fmt_err!("environment variable {key:?} was not valid unicode: {s:?}"))
-        }
+        Err(env::VarError::NotUnicode(s)) => Err(fmt_err!(
+            "environment variable {key:?} was not valid unicode: {s:?}"
+        )),
     }
 }
 

@@ -1,33 +1,45 @@
 //! Implementations of [`Evm`](spec::Group::Evm) cheatcodes.
 
 #[allow(clippy::wildcard_imports)]
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt, Error, Result, Vm::*, inspector::{RecordDebugStepInfo}, impl_is_pure_false};
+use crate::{
+    impl_is_pure_false, impl_is_pure_true, inspector::RecordDebugStepInfo, Cheatcode, Cheatcodes,
+    CheatcodesExecutor, CheatsCtxt, Error, Result, Vm::*,
+};
 use alloy_genesis::{Genesis, GenesisAccount};
-use alloy_primitives::{Address, B256, Bytes, U256, map::HashMap};
+use alloy_primitives::{map::HashMap, Address, Bytes, B256, U256};
 use alloy_sol_types::SolValue;
 use edr_common::fs::{read_json_file, write_json_file};
 use foundry_evm_core::{
-    ContextExt,
     backend::{CheatcodeBackend, RevertStateSnapshotAction},
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, TEST_CONTRACT_ADDRESS},
     utils::get_blob_base_fee_update_fraction_by_spec_id,
+    ContextExt,
 };
 use foundry_evm_traces::StackSnapshotType;
 use itertools::Itertools;
 use rand::Rng;
-use revm::{bytecode::Bytecode, context::JournalTr, primitives::{KECCAK_EMPTY, hardfork::SpecId}, state::Account, Journal};
+use revm::context::result::HaltReasonTr;
+use revm::context::CfgEnv;
+use revm::{
+    bytecode::Bytecode,
+    context::JournalTr,
+    primitives::{hardfork::SpecId, KECCAK_EMPTY},
+    state::Account,
+    Journal,
+};
 use std::{
-    collections::{BTreeMap, btree_map::Entry},
+    collections::{btree_map::Entry, BTreeMap},
     fmt::Display,
     path::Path,
 };
-use revm::context::CfgEnv;
-use revm::context::result::HaltReasonTr;
 
 mod record_debug_step;
+use foundry_evm_core::evm_context::{
+    split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
+};
 use record_debug_step::{convert_call_trace_to_debug_step, flatten_call_trace};
 use serde::Serialize;
-use foundry_evm_core::evm_context::{split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait};
 
 mod fork;
 pub(crate) mod mapping;
@@ -171,7 +183,18 @@ impl Cheatcode for addrCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self { privateKey } = self;
         let wallet = super::crypto::parse_wallet(privateKey)?;
         Ok(wallet.address().abi_encode())
@@ -197,7 +220,19 @@ impl Cheatcode for getNonceCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { account } = self;
         get_nonce(ccx, account)
     }
@@ -222,7 +257,19 @@ impl Cheatcode for loadCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { target, slot } = *self;
         ensure_not_precompile!(&target, ccx);
         ccx.ecx.journaled_state.load_account(target)?;
@@ -277,11 +324,26 @@ impl Cheatcode for loadAllocsCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { pathToAllocsJson } = self;
 
         let path = Path::new(pathToAllocsJson);
-        ensure!(path.exists(), "allocs file does not exist: {pathToAllocsJson}");
+        ensure!(
+            path.exists(),
+            "allocs file does not exist: {pathToAllocsJson}"
+        );
 
         // Let's first assume we're reading a file with only the allocs.
         let allocs: BTreeMap<Address, GenesisAccount> = if let Ok(allocs) = read_json_file(path) {
@@ -319,7 +381,19 @@ impl Cheatcode for cloneAccountCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { source, target } = self;
 
         let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
@@ -327,7 +401,10 @@ impl Cheatcode for cloneAccountCall {
         let genesis = &genesis_account(account.data);
         db.clone_account(genesis, target, journal)?;
         // Cloned account should persist in forked envs.
-        ccx.ecx.journaled_state.database.add_persistent_account(*target);
+        ccx.ecx
+            .journaled_state
+            .database
+            .add_persistent_account(*target);
         Ok(Vec::default())
     }
 }
@@ -351,7 +428,19 @@ impl Cheatcode for dumpStateCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { pathToStateJson } = self;
         let path = Path::new(pathToStateJson);
 
@@ -399,7 +488,18 @@ impl Cheatcode for recordCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         state.recording_accesses = true;
         state.accesses.clear();
@@ -426,7 +526,18 @@ impl Cheatcode for stopRecordCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         state.recording_accesses = false;
         Ok(Vec::default())
     }
@@ -451,7 +562,18 @@ impl Cheatcode for accessesCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self { target } = *self;
         let result = (
             state.accesses.reads.entry(target).or_default().as_slice(),
@@ -480,7 +602,18 @@ impl Cheatcode for recordLogsCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         state.recorded_logs = Some(Vec::default());
         Ok(Vec::default())
@@ -506,9 +639,24 @@ impl Cheatcode for getRecordedLogsCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
-        Ok(state.recorded_logs.replace(Vec::default()).unwrap_or_default().abi_encode())
+        Ok(state
+            .recorded_logs
+            .replace(Vec::default())
+            .unwrap_or_default()
+            .abi_encode())
     }
 }
 
@@ -531,7 +679,18 @@ impl Cheatcode for pauseGasMeteringCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         state.gas_metering.paused = true;
         Ok(Vec::default())
@@ -557,7 +716,18 @@ impl Cheatcode for resumeGasMeteringCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         state.gas_metering.resume();
         Ok(Vec::default())
@@ -583,7 +753,18 @@ impl Cheatcode for resetGasMeteringCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         state.gas_metering.reset();
         Ok(Vec::default())
@@ -609,7 +790,18 @@ impl Cheatcode for lastCallGasCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         let Some(last_call_gas) = &state.gas_metering.last_call_gas else {
             bail!("no external call was made yet");
@@ -637,9 +829,24 @@ impl Cheatcode for chainIdCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newChainId } = self;
-        ensure!(*newChainId <= U256::from(u64::MAX), "chain ID must be less than 2^64 - 1");
+        ensure!(
+            *newChainId <= U256::from(u64::MAX),
+            "chain ID must be less than 2^64 - 1"
+        );
         ccx.ecx.cfg.chain_id = newChainId.to();
         Ok(Vec::default())
     }
@@ -664,7 +871,19 @@ impl Cheatcode for coinbaseCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newCoinbase } = self;
         ccx.ecx.block.set_beneficiary(*newCoinbase);
         Ok(Vec::default())
@@ -690,7 +909,19 @@ impl Cheatcode for difficultyCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newDifficulty } = self;
         ensure!(
             ccx.ecx.cfg.spec.into() < SpecId::MERGE,
@@ -721,9 +952,24 @@ impl Cheatcode for feeCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newBasefee } = self;
-        ensure!(*newBasefee <= U256::from(u64::MAX), "base fee must be less than 2^64 - 1");
+        ensure!(
+            *newBasefee <= U256::from(u64::MAX),
+            "base fee must be less than 2^64 - 1"
+        );
         ccx.ecx.block.set_basefee(newBasefee.saturating_to());
         Ok(Vec::default())
     }
@@ -748,7 +994,19 @@ impl Cheatcode for prevrandao_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
             ccx.ecx.cfg.spec.into() >= SpecId::MERGE,
@@ -779,7 +1037,19 @@ impl Cheatcode for prevrandao_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newPrevrandao } = self;
         ensure!(
             ccx.ecx.cfg.spec.into() >= SpecId::MERGE,
@@ -810,7 +1080,19 @@ impl Cheatcode for blobhashesCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { hashes } = self;
         ensure!(
             ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
@@ -841,7 +1123,19 @@ impl Cheatcode for getBlobhashesCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         ensure!(
             ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
@@ -871,7 +1165,19 @@ impl Cheatcode for rollCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newHeight } = self;
         ccx.ecx.block.set_number(*newHeight);
         Ok(Vec::default())
@@ -897,7 +1203,19 @@ impl Cheatcode for getBlockNumberCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         Ok(ccx.ecx.block.number().abi_encode())
     }
@@ -922,9 +1240,24 @@ impl Cheatcode for txGasPriceCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newGasPrice } = self;
-        ensure!(*newGasPrice <= U256::from(u64::MAX), "gas price must be less than 2^64 - 1");
+        ensure!(
+            *newGasPrice <= U256::from(u64::MAX),
+            "gas price must be less than 2^64 - 1"
+        );
         ccx.ecx.tx.set_gas_price(newGasPrice.saturating_to());
         Ok(Vec::default())
     }
@@ -949,7 +1282,19 @@ impl Cheatcode for warpCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newTimestamp } = self;
         ccx.ecx.block.set_timestamp(*newTimestamp);
         Ok(Vec::default())
@@ -975,7 +1320,19 @@ impl Cheatcode for getBlockTimestampCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         Ok(ccx.ecx.block.timestamp().abi_encode())
     }
@@ -1000,7 +1357,19 @@ impl Cheatcode for blobBaseFeeCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { newBlobBaseFee } = self;
         ensure!(
             ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
@@ -1035,7 +1404,19 @@ impl Cheatcode for getBlobBaseFeeCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         Ok(ccx.ecx.block.blob_excess_gas().unwrap_or(0).abi_encode())
     }
@@ -1060,11 +1441,30 @@ impl Cheatcode for dealCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { account: address, newBalance: new_balance } = *self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            account: address,
+            newBalance: new_balance,
+        } = *self;
         let account = journaled_account(ccx.ecx, address)?;
         let old_balance = std::mem::replace(&mut account.info.balance, new_balance);
-        let record = DealRecord { address, old_balance, new_balance };
+        let record = DealRecord {
+            address,
+            old_balance,
+            new_balance,
+        };
         ccx.state.eth_deals.push(record);
         Ok(Vec::default())
     }
@@ -1089,8 +1489,23 @@ impl Cheatcode for etchCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { target, newRuntimeBytecode } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            target,
+            newRuntimeBytecode,
+        } = self;
         ensure_not_precompile!(target, ccx);
         ccx.ecx.journaled_state.load_account(*target)?;
         let bytecode = Bytecode::new_raw_checked(Bytes::copy_from_slice(newRuntimeBytecode))
@@ -1119,7 +1534,19 @@ impl Cheatcode for resetNonceCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { account } = self;
         let account = journaled_account(ccx.ecx, *account)?;
         // Per EIP-161, EOA nonces start at 0, but contract nonces
@@ -1152,7 +1579,19 @@ impl Cheatcode for setNonceCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { account, newNonce } = *self;
         let account = journaled_account(ccx.ecx, account)?;
         // nonce must increment only
@@ -1186,7 +1625,19 @@ impl Cheatcode for setNonceUnsafeCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { account, newNonce } = *self;
         let account = journaled_account(ccx.ecx, account)?;
         account.info.nonce = newNonce;
@@ -1213,12 +1664,30 @@ impl Cheatcode for storeCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { target, slot, value } = *self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            target,
+            slot,
+            value,
+        } = *self;
         ensure_not_precompile!(&target, ccx);
         // ensure the account is touched
         let _ = journaled_account(ccx.ecx, target)?;
-        ccx.ecx.journaled_state.sstore(target, slot.into(), value.into())?;
+        ccx.ecx
+            .journaled_state
+            .sstore(target, slot.into(), value.into())?;
         Ok(Vec::default())
     }
 }
@@ -1242,11 +1711,26 @@ impl Cheatcode for coolCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { target } = self;
         if let Some(account) = ccx.ecx.journaled_state.state.get_mut(target) {
             account.unmark_touch();
-            account.storage.values_mut().for_each(revm::state::EvmStorageSlot::mark_cold);
+            account
+                .storage
+                .values_mut()
+                .for_each(revm::state::EvmStorageSlot::mark_cold);
         }
         Ok(Vec::default())
     }
@@ -1271,13 +1755,31 @@ impl Cheatcode for accessListCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self { access } = self;
         let access_list = access
             .iter()
             .map(|item| {
-                let keys = item.storageKeys.iter().map(|key| B256::from(*key)).collect_vec();
-                alloy_rpc_types::AccessListItem { address: item.target, storage_keys: keys }
+                let keys = item
+                    .storageKeys
+                    .iter()
+                    .map(|key| B256::from(*key))
+                    .collect_vec();
+                alloy_rpc_types::AccessListItem {
+                    address: item.target,
+                    storage_keys: keys,
+                }
             })
             .collect_vec();
         state.access_list = Some(alloy_rpc_types::AccessList::from(access_list));
@@ -1304,7 +1806,18 @@ impl Cheatcode for noAccessListCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         // Set to empty option in order to override previous applied access list.
         if state.access_list.is_some() {
@@ -1333,7 +1846,19 @@ impl Cheatcode for warmSlotCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { target, slot } = *self;
         set_cold_slot(ccx, target, slot.into(), false);
         Ok(Vec::default())
@@ -1359,7 +1884,19 @@ impl Cheatcode for coolSlotCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { target, slot } = *self;
         set_cold_slot(ccx, target, slot.into(), true);
         Ok(Vec::default())
@@ -1385,9 +1922,33 @@ impl Cheatcode for readCallersCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
-        read_callers::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(ccx.state, &ccx.ecx.tx.caller(), ccx.ecx.journaled_state.depth())
+        read_callers::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
+            &ccx.ecx.tx.caller(),
+            ccx.ecx.journaled_state.depth(),
+        )
     }
 }
 
@@ -1410,7 +1971,19 @@ impl Cheatcode for snapshotValue_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { name, value } = self;
         inner_value_snapshot(ccx, None, Some(name.clone()), value.to_string())
     }
@@ -1435,9 +2008,26 @@ impl Cheatcode for snapshotValue_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { group, name, value } = self;
-        inner_value_snapshot(ccx, Some(group.clone()), Some(name.clone()), value.to_string())
+        inner_value_snapshot(
+            ccx,
+            Some(group.clone()),
+            Some(name.clone()),
+            value.to_string(),
+        )
     }
 }
 
@@ -1460,7 +2050,19 @@ impl Cheatcode for snapshotGasLastCall_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { name } = self;
         let Some(last_call_gas) = &ccx.state.gas_metering.last_call_gas else {
             bail!("no external call was made yet");
@@ -1488,7 +2090,19 @@ impl Cheatcode for snapshotGasLastCall_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { name, group } = self;
         let Some(last_call_gas) = &ccx.state.gas_metering.last_call_gas else {
             bail!("no external call was made yet");
@@ -1521,7 +2135,19 @@ impl Cheatcode for startSnapshotGas_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { name } = self;
         inner_start_gas_snapshot(ccx, None, Some(name.clone()))
     }
@@ -1546,7 +2172,19 @@ impl Cheatcode for startSnapshotGas_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { group, name } = self;
         inner_start_gas_snapshot(ccx, Some(group.clone()), Some(name.clone()))
     }
@@ -1571,7 +2209,19 @@ impl Cheatcode for stopSnapshotGas_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         inner_stop_gas_snapshot(ccx, None, None)
     }
@@ -1596,7 +2246,19 @@ impl Cheatcode for stopSnapshotGas_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { name } = self;
         inner_stop_gas_snapshot(ccx, None, Some(name.clone()))
     }
@@ -1621,7 +2283,19 @@ impl Cheatcode for stopSnapshotGas_2Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { group, name } = self;
         inner_stop_gas_snapshot(ccx, Some(group.clone()), Some(name.clone()))
     }
@@ -1647,7 +2321,19 @@ impl Cheatcode for snapshotCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         inner_snapshot_state(ccx)
     }
@@ -1672,7 +2358,19 @@ impl Cheatcode for snapshotStateCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         inner_snapshot_state(ccx)
     }
@@ -1698,7 +2396,19 @@ impl Cheatcode for revertToCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { snapshotId } = self;
         inner_revert_to_state(ccx, *snapshotId)
     }
@@ -1723,7 +2433,19 @@ impl Cheatcode for revertToStateCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { snapshotId } = self;
         inner_revert_to_state(ccx, *snapshotId)
     }
@@ -1749,7 +2471,19 @@ impl Cheatcode for revertToAndDeleteCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { snapshotId } = self;
         inner_revert_to_state_and_delete(ccx, *snapshotId)
     }
@@ -1774,7 +2508,19 @@ impl Cheatcode for revertToStateAndDeleteCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { snapshotId } = self;
         inner_revert_to_state_and_delete(ccx, *snapshotId)
     }
@@ -1800,7 +2546,19 @@ impl Cheatcode for deleteSnapshotCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { snapshotId } = self;
         inner_delete_state_snapshot(ccx, *snapshotId)
     }
@@ -1825,7 +2583,19 @@ impl Cheatcode for deleteStateSnapshotCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { snapshotId } = self;
         inner_delete_state_snapshot(ccx, *snapshotId)
     }
@@ -1851,7 +2621,19 @@ impl Cheatcode for deleteSnapshotsCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         inner_delete_state_snapshots(ccx)
     }
@@ -1876,7 +2658,19 @@ impl Cheatcode for deleteStateSnapshotsCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         inner_delete_state_snapshots(ccx)
     }
@@ -1901,7 +2695,18 @@ impl Cheatcode for startStateDiffRecordingCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         state.recorded_account_diffs_stack = Some(Vec::default());
         Ok(Vec::default())
@@ -1927,9 +2732,28 @@ impl Cheatcode for stopAndReturnStateDiffCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
-        get_state_diff::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state)
+        get_state_diff::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state)
     }
 }
 
@@ -1952,9 +2776,28 @@ impl Cheatcode for getStateDiffCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let mut diffs = String::new();
-        let state_diffs = get_recorded_state_diffs::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state);
+        let state_diffs = get_recorded_state_diffs::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state);
         for (address, state_diffs) in state_diffs {
             diffs.push_str(&format!("{address}\n"));
             diffs.push_str(&format!("{state_diffs}\n"));
@@ -1982,8 +2825,27 @@ impl Cheatcode for getStateDiffJsonCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
-        let state_diffs = get_recorded_state_diffs::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state);
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let state_diffs = get_recorded_state_diffs::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state);
         Ok(serde_json::to_string(&state_diffs)?.abi_encode())
     }
 }
@@ -2007,15 +2869,36 @@ impl Cheatcode for setBlockhashCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { blockNumber, blockHash } = *self;
-        ensure!(blockNumber <= U256::from(u64::MAX), "blockNumber must be less than 2^64 - 1");
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            blockNumber,
+            blockHash,
+        } = *self;
+        ensure!(
+            blockNumber <= U256::from(u64::MAX),
+            "blockNumber must be less than 2^64 - 1"
+        );
         ensure!(
             blockNumber <= U256::from(ccx.ecx.block.number()),
             "block number must be less than or equal to the current block number"
         );
 
-        ccx.ecx.journaled_state.database.set_blockhash(blockNumber, blockHash);
+        ccx.ecx
+            .journaled_state
+            .database
+            .set_blockhash(blockNumber, blockHash);
 
         Ok(Vec::default())
     }
@@ -2040,9 +2923,33 @@ impl Cheatcode for startDebugTraceRecordingCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>, executor: &mut dyn CheatcodesExecutor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+        executor: &mut dyn CheatcodesExecutor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Some(tracer) = executor.tracing_inspector().and_then(|t| t.as_mut()) else {
-            return Err(Error::from("no tracer initiated, consider adding -vvv flag"));
+            return Err(Error::from(
+                "no tracer initiated, consider adding -vvv flag",
+            ));
         };
 
         let mut info = RecordDebugStepInfo {
@@ -2089,9 +2996,33 @@ impl Cheatcode for stopAndReturnDebugTraceRecordingCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>, executor: &mut dyn CheatcodesExecutor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+        executor: &mut dyn CheatcodesExecutor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Some(tracer) = executor.tracing_inspector().and_then(|t| t.as_mut()) else {
-            return Err(Error::from("no tracer initiated, consider adding -vvv flag"));
+            return Err(Error::from(
+                "no tracer initiated, consider adding -vvv flag",
+            ));
         };
 
         let Some(record_info) = ccx.state.record_debug_steps_info else {
@@ -2102,8 +3033,10 @@ impl Cheatcode for stopAndReturnDebugTraceRecordingCall {
         let root = tracer.traces();
         let steps = flatten_call_trace(0, root, record_info.start_node_idx);
 
-        let debug_steps: Vec<DebugStep> =
-            steps.iter().map(|&step| convert_call_trace_to_debug_step(step)).collect();
+        let debug_steps: Vec<DebugStep> = steps
+            .iter()
+            .map(|&step| convert_call_trace_to_debug_step(step))
+            .collect();
         // Free up memory by clearing the steps if they are not recorded outside of cheatcode usage.
         if !record_info.original_tracer_config.record_steps {
             tracer.traces_mut().nodes_mut().iter_mut().for_each(|node| {
@@ -2140,7 +3073,19 @@ pub(super) fn get_nonce<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>, address: &Address) -> Result {
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    address: &Address,
+) -> Result {
     let account = ccx.ecx.journaled_state.load_account(*address)?;
     Ok(account.info.nonce.abi_encode())
 }
@@ -2162,9 +3107,22 @@ fn inner_snapshot_state<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+) -> Result {
     let (db, context) = split_context(ccx.ecx);
-    Ok(db.snapshot_state(context.journaled_state, context.to_owned_env()).abi_encode())
+    Ok(db
+        .snapshot_state(context.journaled_state, context.to_owned_env())
+        .abi_encode())
 }
 
 fn inner_revert_to_state<
@@ -2184,11 +3142,25 @@ fn inner_revert_to_state<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>, snapshot_id: U256) -> Result {
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    snapshot_id: U256,
+) -> Result {
     let (db, mut context) = split_context(ccx.ecx);
-    let result = if let Some(journaled_state) =
-        db.revert_state(snapshot_id, RevertStateSnapshotAction::RevertKeep, &mut context)
-    {
+    let result = if let Some(journaled_state) = db.revert_state(
+        snapshot_id,
+        RevertStateSnapshotAction::RevertKeep,
+        &mut context,
+    ) {
         // we reset the evm's journaled_state to the state of the snapshot previous state
         ccx.ecx.journaled_state.inner = journaled_state;
         true
@@ -2215,12 +3187,26 @@ fn inner_revert_to_state_and_delete<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>, snapshot_id: U256) -> Result {
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    snapshot_id: U256,
+) -> Result {
     let (db, mut context) = split_context(ccx.ecx);
 
-    let result = if let Some(journaled_state) =
-        db.revert_state(snapshot_id, RevertStateSnapshotAction::RevertRemove, &mut context)
-    {
+    let result = if let Some(journaled_state) = db.revert_state(
+        snapshot_id,
+        RevertStateSnapshotAction::RevertRemove,
+        &mut context,
+    ) {
         // we reset the evm's journaled_state to the state of the snapshot previous state
         ccx.ecx.journaled_state.inner = journaled_state;
         true
@@ -2247,8 +3233,24 @@ fn inner_delete_state_snapshot<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>, snapshot_id: U256) -> Result {
-    let result = ccx.ecx.journaled_state.database.delete_state_snapshot(snapshot_id);
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    snapshot_id: U256,
+) -> Result {
+    let result = ccx
+        .ecx
+        .journaled_state
+        .database
+        .delete_state_snapshot(snapshot_id);
     Ok(result.abi_encode())
 }
 
@@ -2269,7 +3271,18 @@ fn inner_delete_state_snapshots<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+) -> Result {
     ccx.ecx.journaled_state.database.delete_state_snapshots();
     Ok(Vec::default())
 }
@@ -2292,14 +3305,27 @@ fn inner_value_snapshot<
         ChainContextT,
     >,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     group: Option<String>,
     name: Option<String>,
     value: String,
 ) -> Result {
     let (group, name) = derive_snapshot_name(ccx, group, name);
 
-    ccx.state.gas_snapshots.entry(group).or_default().insert(name, value);
+    ccx.state
+        .gas_snapshots
+        .entry(group)
+        .or_default()
+        .insert(name, value);
 
     Ok(Vec::default())
 }
@@ -2322,14 +3348,27 @@ fn inner_last_gas_snapshot<
         ChainContextT,
     >,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     group: Option<String>,
     name: Option<String>,
     value: u64,
 ) -> Result {
     let (group, name) = derive_snapshot_name(ccx, group, name);
 
-    ccx.state.gas_snapshots.entry(group).or_default().insert(name, value.to_string());
+    ccx.state
+        .gas_snapshots
+        .entry(group)
+        .or_default()
+        .insert(name, value.to_string());
 
     Ok(value.abi_encode())
 }
@@ -2352,13 +3391,28 @@ fn inner_start_gas_snapshot<
         ChainContextT,
     >,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     group: Option<String>,
     name: Option<String>,
 ) -> Result {
     // Revert if there is an active gas snapshot as we can only have one active snapshot at a time.
     if ccx.state.gas_metering.active_gas_snapshot.is_some() {
-        let (group, name) = ccx.state.gas_metering.active_gas_snapshot.as_ref().unwrap().clone();
+        let (group, name) = ccx
+            .state
+            .gas_metering
+            .active_gas_snapshot
+            .as_ref()
+            .unwrap()
+            .clone();
         bail!("gas snapshot was already started with group: {group} and name: {name}");
     }
 
@@ -2396,13 +3450,28 @@ fn inner_stop_gas_snapshot<
         ChainContextT,
     >,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     group: Option<String>,
     name: Option<String>,
 ) -> Result {
     // If group and name are not provided, use the last snapshot group and name.
     let (group, name) = group.zip(name).unwrap_or_else(|| {
-        let (group, name) = ccx.state.gas_metering.active_gas_snapshot.as_ref().unwrap().clone();
+        let (group, name) = ccx
+            .state
+            .gas_metering
+            .active_gas_snapshot
+            .as_ref()
+            .unwrap()
+            .clone();
         (group, name)
     });
 
@@ -2465,12 +3534,26 @@ fn derive_snapshot_name<
         ChainContextT,
     >,
 >(
-    ccx: &CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     group: Option<String>,
     name: Option<String>,
 ) -> (String, String) {
     let group = group.unwrap_or_else(|| {
-        ccx.state.config.running_artifact.clone().expect("expected running contract").name
+        ccx.state
+            .config
+            .running_artifact
+            .clone()
+            .expect("expected running contract")
+            .name
     });
     let name = name.unwrap_or_else(|| "default".to_string());
     (group, name)
@@ -2507,12 +3590,28 @@ fn read_callers<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
->(state: &Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, default_sender: &Address, call_depth: usize) -> Result {
+>(
+    state: &Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
+    default_sender: &Address,
+    call_depth: usize,
+) -> Result {
     let mut mode = CallerMode::None;
     let mut new_caller = default_sender;
     let mut new_origin = default_sender;
     if let Some(prank) = state.get_prank(call_depth) {
-        mode = if prank.single_call { CallerMode::Prank } else { CallerMode::RecurrentPrank };
+        mode = if prank.single_call {
+            CallerMode::Prank
+        } else {
+            CallerMode::RecurrentPrank
+        };
         new_caller = &prank.new_caller;
         if let Some(new) = &prank.new_origin {
             new_origin = new;
@@ -2523,7 +3622,8 @@ fn read_callers<
 }
 
 /// Ensures the `Account` is loaded and touched.
-pub(super) fn journaled_account<BlockT: BlockEnvTr,
+pub(super) fn journaled_account<
+    BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2552,7 +3652,11 @@ pub(super) fn journaled_account<BlockT: BlockEnvTr,
 ) -> Result<&mut Account> {
     ecx.journaled_state.load_account(addr)?;
     ecx.journaled_state.touch(addr);
-    Ok(ecx.journaled_state.state.get_mut(&addr).expect("account is loaded"))
+    Ok(ecx
+        .journaled_state
+        .state
+        .get_mut(&addr)
+        .expect("account is loaded"))
 }
 
 /// Consumes recorded account accesses and returns them as an abi encoded
@@ -2570,7 +3674,17 @@ fn get_state_diff<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
->(state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+>(
+    state: &mut Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
+) -> Result {
     let res = state
         .recorded_account_diffs_stack
         .replace(Vec::default())
@@ -2586,7 +3700,11 @@ fn genesis_account(account: &Account) -> GenesisAccount {
     GenesisAccount {
         nonce: Some(account.info.nonce),
         balance: account.info.balance,
-        code: account.info.code.as_ref().map(revm::bytecode::Bytecode::original_bytes),
+        code: account
+            .info
+            .code
+            .as_ref()
+            .map(revm::bytecode::Bytecode::original_bytes),
         storage: Some(
             account
                 .storage
@@ -2607,7 +3725,17 @@ fn get_recorded_state_diffs<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
->(state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> BTreeMap<Address, AccountStateDiffs> {
+>(
+    state: &mut Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
+) -> BTreeMap<Address, AccountStateDiffs> {
     let mut state_diffs: BTreeMap<Address, AccountStateDiffs> = BTreeMap::default();
     if let Some(records) = &state.recorded_account_diffs_stack {
         records
@@ -2621,12 +3749,12 @@ fn get_recorded_state_diffs<
                 // Record account balance diffs.
                 if account_access.oldBalance != account_access.newBalance {
                     let account_diff =
-                        state_diffs.entry(account_access.account).or_insert_with(|| {
-                            AccountStateDiffs {
+                        state_diffs
+                            .entry(account_access.account)
+                            .or_insert_with(|| AccountStateDiffs {
                                 label: state.labels.get(&account_access.account).cloned(),
                                 ..Default::default()
-                            }
-                        });
+                            });
                     // Update balance diff. Do not overwrite the initial balance if already set.
                     if let Some(diff) = &mut account_diff.balance_diff {
                         diff.new_value = account_access.newBalance;
@@ -2684,7 +3812,21 @@ fn set_cold_slot<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>, target: Address, slot: U256, cold: bool) {
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    target: Address,
+    slot: U256,
+    cold: bool,
+) {
     if let Some(account) = ccx.ecx.journaled_state.state.get_mut(&target)
         && let Some(storage_slot) = account.storage.get_mut(&slot)
     {

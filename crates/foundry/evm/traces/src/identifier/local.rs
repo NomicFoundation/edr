@@ -1,11 +1,11 @@
 use super::{IdentifiedAddress, TraceIdentifier};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::JsonAbi;
-use alloy_primitives::{Address, Bytes, map::HashMap};
-use revm_inspectors::tracing::types::CallTraceNode;
-use std::borrow::Cow;
+use alloy_primitives::{map::HashMap, Address, Bytes};
 use edr_solidity::artifacts::ArtifactId;
 use foundry_evm_core::contracts::{bytecode_diff_score, ContractsByArtifact};
+use revm_inspectors::tracing::types::CallTraceNode;
+use std::borrow::Cow;
 
 /// A trace identifier that tries to identify addresses using local contracts.
 pub struct LocalTraceIdentifier<'a> {
@@ -27,7 +27,11 @@ impl<'a> LocalTraceIdentifier<'a> {
             .map(|(id, bytecode)| (id, bytecode.len()))
             .collect::<Vec<_>>();
         ordered_ids.sort_by_key(|(_, len)| *len);
-        Self { known_contracts, ordered_ids, contracts_bytecode: None }
+        Self {
+            known_contracts,
+            ordered_ids,
+            contracts_bytecode: None,
+        }
     }
 
     pub fn with_bytecodes(mut self, contracts_bytecode: &'a HashMap<Address, Bytes>) -> Self {
@@ -66,11 +70,15 @@ impl<'a> LocalTraceIdentifier<'a> {
                 if is_creation && current_bytecode.len() > bytecode.len() {
                     // Try to decode ctor args with contract abi.
                     if let Some(constructor) = contract.abi.constructor() {
-                        let constructor_args = current_bytecode.get(bytecode.len()..).expect("slice should be valid");
+                        let constructor_args = current_bytecode
+                            .get(bytecode.len()..)
+                            .expect("slice should be valid");
                         if constructor.abi_decode_input(constructor_args).is_ok() {
                             // If we can decode args with current abi then remove args from
                             // code to compare.
-                            current_bytecode = current_bytecode.get(..bytecode.len()).expect("slice should be valid");
+                            current_bytecode = current_bytecode
+                                .get(..bytecode.len())
+                                .expect("slice should be valid");
                         }
                     }
                 }
@@ -94,7 +102,10 @@ impl<'a> LocalTraceIdentifier<'a> {
         // Start at artifacts with the same code length: `len..len*1.1`.
         let same_length_idx = self.find_index(len);
         for idx in same_length_idx..self.ordered_ids.len() {
-            let (id, len) = self.ordered_ids.get(idx).expect("idx should be within ordered_ids bounds");
+            let (id, len) = self
+                .ordered_ids
+                .get(idx)
+                .expect("idx should be within ordered_ids bounds");
             if *len > max_len {
                 break;
             }
@@ -107,7 +118,10 @@ impl<'a> LocalTraceIdentifier<'a> {
         let min_len = (len * 9) / 10;
         let idx = self.find_index(min_len);
         for i in idx..same_length_idx {
-            let (id, _) = self.ordered_ids.get(i).expect("i should be within ordered_ids bounds");
+            let (id, _) = self
+                .ordered_ids
+                .get(i)
+                .expect("i should be within ordered_ids bounds");
             if let found @ Some(_) = check(id, true, &mut min_score) {
                 return found;
             }
@@ -126,17 +140,29 @@ impl<'a> LocalTraceIdentifier<'a> {
 
         // Note: the diff score can be inaccurate for small contracts so we're using a relatively
         // high threshold here to avoid filtering out too many contracts.
-        if min_score < 0.85 { min_score_id } else { None }
+        if min_score < 0.85 {
+            min_score_id
+        } else {
+            None
+        }
     }
 
     /// Returns the index of the artifact with the given code length, or the index of the first
     /// artifact with a greater code length if the exact code length is not found.
     fn find_index(&self, len: usize) -> usize {
-        let (Ok(mut idx) | Err(mut idx)) =
-            self.ordered_ids.binary_search_by_key(&len, |(_, probe)| *probe);
+        let (Ok(mut idx) | Err(mut idx)) = self
+            .ordered_ids
+            .binary_search_by_key(&len, |(_, probe)| *probe);
 
         // In case of multiple artifacts with the same code length, we need to find the first one.
-        while idx > 0 && self.ordered_ids.get(idx - 1).expect("idx - 1 should be within ordered_ids bounds").1 == len {
+        while idx > 0
+            && self
+                .ordered_ids
+                .get(idx - 1)
+                .expect("idx - 1 should be within ordered_ids bounds")
+                .1
+                == len
+        {
             idx -= 1;
         }
 
@@ -157,8 +183,14 @@ impl TraceIdentifier for LocalTraceIdentifier<'_> {
             .map(|&node| {
                 (
                     node.trace.address,
-                    node.trace.kind.is_any_create().then_some(&node.trace.output[..]),
-                    node.trace.kind.is_any_create().then_some(&node.trace.data[..]),
+                    node.trace
+                        .kind
+                        .is_any_create()
+                        .then_some(&node.trace.output[..]),
+                    node.trace
+                        .kind
+                        .is_any_create()
+                        .then_some(&node.trace.data[..]),
                 )
             })
             .filter_map(|(address, runtime_code, creation_code)| {

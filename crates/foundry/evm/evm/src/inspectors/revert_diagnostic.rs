@@ -5,15 +5,15 @@ use foundry_evm_core::{
     constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS},
 };
 use revm::{
-    Database, Inspector,
     bytecode::opcode,
     context::{ContextTr, JournalTr},
     inspector::JournalExt,
     interpreter::{
-        CallInputs, CallOutcome, CallScheme, InstructionResult, Interpreter, InterpreterAction,
         interpreter::EthInterpreter,
         interpreter_types::{Jumps, LoopControl},
+        CallInputs, CallOutcome, CallScheme, InstructionResult, Interpreter, InterpreterAction,
     },
+    Database, Inspector,
 };
 use std::fmt;
 
@@ -75,7 +75,11 @@ impl RevertDiagnostic {
     /// For delegate calls, this is the `bytecode_address`. Otherwise, it's the `target_address`.
     #[allow(clippy::unused_self)]
     fn code_target_address(&self, inputs: &mut CallInputs) -> Address {
-        if is_delegatecall(inputs.scheme) { inputs.bytecode_address } else { inputs.target_address }
+        if is_delegatecall(inputs.scheme) {
+            inputs.bytecode_address
+        } else {
+            inputs.target_address
+        }
     }
 
     /// Derives the revert reason based on the cached data. Should only be called after a revert.
@@ -101,11 +105,13 @@ impl RevertDiagnostic {
     /// Injects the revert diagnostic into the debug traces. Should only be called after a revert.
     fn broadcast_diagnostic(&self, interpreter: &mut Interpreter) {
         if let Some(reason) = self.reason() {
-            interpreter.bytecode.set_action(InterpreterAction::new_return(
-                InstructionResult::Revert,
-                reason.to_string().abi_encode().into(),
-                interpreter.gas,
-            ));
+            interpreter
+                .bytecode
+                .set_action(InterpreterAction::new_return(
+                    InstructionResult::Revert,
+                    reason.to_string().abi_encode().into(),
+                    interpreter.gas,
+                ));
         }
     }
 

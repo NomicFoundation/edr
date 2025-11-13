@@ -1,7 +1,7 @@
 use proc_macro2::{Delimiter, Group, Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
-    Data, DataEnum, DataStruct, DeriveInput, Fields, Member, Token, Type, punctuated::Punctuated,
+    punctuated::Punctuated, Data, DataEnum, DataStruct, DeriveInput, Fields, Member, Token, Type,
 };
 
 pub fn console_fmt(input: &DeriveInput) -> TokenStream {
@@ -85,7 +85,11 @@ fn derive_enum(e: &DataEnum) -> TokenStream {
         let fields: Punctuated<Ident, Token![,]> = fields
             .enumerate()
             .map(|(i, field)| {
-                field.ident.as_ref().cloned().unwrap_or_else(|| format_ident!("__var_{i}"))
+                field
+                    .ident
+                    .as_ref()
+                    .cloned()
+                    .unwrap_or_else(|| format_ident!("__var_{i}"))
             })
             .collect();
 

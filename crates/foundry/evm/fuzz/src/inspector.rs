@@ -1,9 +1,9 @@
 use crate::{invariant::RandomCallGenerator, strategies::EvmFuzzState};
 use revm::{
-    Inspector,
     context::{ContextTr, Transaction},
     inspector::JournalExt,
     interpreter::{CallInput, CallInputs, CallOutcome, CallScheme, Interpreter},
+    Inspector,
 };
 
 /// An inspector that can fuzz and collect data for that effect.
@@ -56,7 +56,8 @@ impl Fuzzer {
     /// Collects `stack` and `memory` values into the fuzz dictionary.
     #[cold]
     fn collect_data(&mut self, interpreter: &Interpreter) {
-        self.fuzz_state.collect_values(interpreter.stack.data().iter().copied().map(Into::into));
+        self.fuzz_state
+            .collect_values(interpreter.stack.data().iter().copied().map(Into::into));
 
         // TODO: disabled for now since it's flooding the dictionary
         // for index in 0..interpreter.shared_memory.len() / 32 {

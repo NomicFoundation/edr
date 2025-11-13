@@ -2,11 +2,9 @@ use std::collections::HashMap;
 
 use alloy_primitives::{Bytes, Log};
 use derive_where::derive_where;
-use foundry_evm_core::{
-    evm_context::{
-        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-        TransactionErrorTrait,
-    },
+use foundry_evm_core::evm_context::{
+    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::FuzzCase;

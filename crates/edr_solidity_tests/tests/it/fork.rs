@@ -5,7 +5,9 @@ mod remote {
     use edr_solidity_tests::result::SuiteResult;
     use foundry_cheatcodes::{FsPermissions, PathPermission};
 
-    use crate::helpers::{SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_DEFAULT, TEST_DATA_PARIS};
+    use crate::helpers::{
+        SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_DEFAULT, TEST_DATA_PARIS,
+    };
 
     /// Executes reverting fork test
     #[tokio::test(flavor = "multi_thread")]
@@ -41,12 +43,9 @@ mod remote {
                 TEST_DATA_PARIS.config_with_remote_rpc(),
             )
             .await;
-        let filter = SolidityTestFilter::new(
-            ".*",
-            ".*",
-            &format!(".*cheats{RE_PATH_SEPARATOR}Fork"),
-        )
-        .exclude_tests(".*Revert");
+        let filter =
+            SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}Fork"))
+                .exclude_tests(".*Revert");
         TestConfig::with_filter(runner, filter).run().await;
     }
 

@@ -1,5 +1,5 @@
 use alloy_dyn_abi::{DynSolType, DynSolValue};
-use alloy_primitives::{I256, Sign, U256};
+use alloy_primitives::{Sign, I256, U256};
 use proptest::{
     prelude::Rng,
     strategy::{NewTree, Strategy, ValueTree},
@@ -24,7 +24,12 @@ impl IntValueTree {
     /// * `start` - Starting value for the tree
     /// * `fixed` - If `true` the tree would only contain one element and won't be simplified.
     fn new(start: I256, fixed: bool) -> Self {
-        Self { lo: I256::ZERO, curr: start, hi: start, fixed }
+        Self {
+            lo: I256::ZERO,
+            curr: start,
+            hi: start,
+            fixed,
+        }
     }
 
     fn reposition(&mut self) -> bool {
@@ -68,7 +73,12 @@ impl ValueTree for IntValueTree {
         }
 
         self.lo = if self.curr != I256::MIN && self.curr != I256::MAX {
-            self.curr + if self.hi.is_negative() { I256::MINUS_ONE } else { I256::ONE }
+            self.curr
+                + if self.hi.is_negative() {
+                    I256::MINUS_ONE
+                } else {
+                    I256::ONE
+                }
         } else {
             self.curr
         };
@@ -147,7 +157,10 @@ impl IntStrategy {
 
         // Generate value tree from fixture.
         let fixture_idx = runner.rng().random_range(0..self.fixtures.len());
-        let fixture = self.fixtures.get(fixture_idx).expect("fixture_idx should be within fixtures bounds");
+        let fixture = self
+            .fixtures
+            .get(fixture_idx)
+            .expect("fixture_idx should be within fixtures bounds");
         if let Some(int_fixture) = fixture.as_int()
             && int_fixture.1 == self.bits
         {
@@ -155,7 +168,11 @@ impl IntStrategy {
         }
 
         // If fixture is not a valid type, raise error and generate random value.
-        error!("{:?} is not a valid {} fixture", fixture, DynSolType::Int(self.bits));
+        error!(
+            "{:?} is not a valid {} fixture",
+            fixture,
+            DynSolType::Int(self.bits)
+        );
         self.generate_random_tree(runner)
     }
 
@@ -193,7 +210,11 @@ impl IntStrategy {
 
         // we have a small bias here, i.e. intN::min will never be generated
         // but it's ok since it's generated in `fn generate_edge_tree(...)`
-        let sign = if rng.random::<bool>() { Sign::Positive } else { Sign::Negative };
+        let sign = if rng.random::<bool>() {
+            Sign::Positive
+        } else {
+            Sign::Negative
+        };
         let (start, _) = I256::overflowing_from_sign_and_abs(sign, U256::from_limbs(inner));
 
         Ok(IntValueTree::new(start, false))

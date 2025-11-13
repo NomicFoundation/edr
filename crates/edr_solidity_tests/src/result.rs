@@ -6,9 +6,15 @@ use std::{
     time::Duration,
 };
 
+use crate::backend::IndeterminismReasons;
+use crate::decode::{decode_console_logs, SkipReason};
+use crate::fuzz::{BaseCounterExample, FuzzTestResult, FuzzedCases};
+use crate::gas_report::GasReport;
 use alloy_primitives::{map::AddressHashMap, Address, Log};
 use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
+use foundry_evm::executors::invariant::InvariantFuzzError;
+use foundry_evm::executors::RawCallResult;
 use foundry_evm::{
     coverage::HitMaps,
     evm_context::{
@@ -21,12 +27,6 @@ use foundry_evm::{
 };
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
-use foundry_evm::executors::invariant::InvariantFuzzError;
-use foundry_evm::executors::RawCallResult;
-use crate::backend::IndeterminismReasons;
-use crate::decode::{decode_console_logs, SkipReason};
-use crate::fuzz::{BaseCounterExample, FuzzTestResult, FuzzedCases};
-use crate::gas_report::GasReport;
 
 pub use foundry_evm::executors::invariant::InvariantMetrics;
 
@@ -503,13 +503,21 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
 
     /// Creates a failed test result with given reason.
     pub fn fail(reason: String) -> Self {
-        Self { status: TestStatus::Failure, reason: Some(reason), ..Default::default() }
+        Self {
+            status: TestStatus::Failure,
+            reason: Some(reason),
+            ..Default::default()
+        }
     }
 
     /// Creates a test setup result.
     pub fn setup_result(setup: TestSetup<HaltReasonT>) -> Self {
         Self {
-            status: if setup.skipped { TestStatus::Skipped } else { TestStatus::Failure },
+            status: if setup.skipped {
+                TestStatus::Skipped
+            } else {
+                TestStatus::Failure
+            },
             reason: setup.reason,
             decoded_logs: decode_console_logs(&setup.logs),
             logs: setup.logs,
@@ -539,14 +547,7 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
     pub fn single_result<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<
-            BlockT,
-            ChainContextT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            TxT,
-        >,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
         TxT: TransactionEnvTr,
@@ -554,17 +555,32 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         &mut self,
         success: bool,
         reason: Option<String>,
-        raw_call_result: RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
-        duration: Duration
+        raw_call_result: RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        duration: Duration,
     ) {
-        self.kind =
-            TestKind::Unit { gas: raw_call_result.gas_used.wrapping_sub(raw_call_result.stipend) };
+        self.kind = TestKind::Unit {
+            gas: raw_call_result
+                .gas_used
+                .wrapping_sub(raw_call_result.stipend),
+        };
 
         // Record logs, labels, traces and merge coverages.
         self.logs.extend(raw_call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(raw_call_result.labels);
-        self.traces.extend(raw_call_result.traces.map(|traces| (TraceKind::Execution, traces)));
+        self.traces.extend(
+            raw_call_result
+                .traces
+                .map(|traces| (TraceKind::Execution, traces)),
+        );
         self.merge_coverages(raw_call_result.line_coverage);
 
         self.status = match success {
@@ -594,7 +610,8 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.logs.extend(result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(result.labeled_addresses);
-        self.traces.extend(result.traces.map(|traces| (TraceKind::Execution, traces)));
+        self.traces
+            .extend(result.traces.map(|traces| (TraceKind::Execution, traces)));
         self.merge_coverages(result.line_coverage);
 
         self.status = if result.skipped {
@@ -607,7 +624,11 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.reason = result.reason;
         self.counterexample = result.counterexample;
         self.duration = duration;
-        self.gas_report_traces = result.gas_report_traces.into_iter().map(|t| vec![t]).collect();
+        self.gas_report_traces = result
+            .gas_report_traces
+            .into_iter()
+            .map(|t| vec![t])
+            .collect();
         self.deprecated_cheatcodes = result.deprecated_cheatcodes;
     }
 
@@ -662,7 +683,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
             failed_corpus_replays: 0,
         };
         self.status = TestStatus::Failure;
-        self.reason = Some(format!("failed to set up invariant testing environment: {e}"));
+        self.reason = Some(format!(
+            "failed to set up invariant testing environment: {e}"
+        ));
         self.duration = duration;
     }
 
@@ -678,7 +701,7 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         reverts: usize,
         metrics: HashMap<String, InvariantMetrics>,
         failed_corpus_replays: usize,
-        duration: Duration
+        duration: Duration,
     ) {
         self.kind = TestKind::Invariant {
             runs: cases.len(),
@@ -711,22 +734,30 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
     pub fn extend<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<
-            BlockT,
-            ChainContextT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            TxT,
-        >,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
         TxT: TransactionEnvTr,
-    >(&mut self, call_result: RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) {
+    >(
+        &mut self,
+        call_result: RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) {
         self.logs.extend(call_result.logs);
         self.decoded_logs = decode_console_logs(&self.logs);
         self.labeled_addresses.extend(call_result.labels);
-        self.traces.extend(call_result.traces.map(|traces| (TraceKind::Execution, traces)));
+        self.traces.extend(
+            call_result
+                .traces
+                .map(|traces| (TraceKind::Execution, traces)),
+        );
         self.merge_coverages(call_result.line_coverage);
     }
 
@@ -769,7 +800,13 @@ impl fmt::Display for TestKindReport {
             } => {
                 write!(f, "(runs: {runs}, μ: {mean_gas}, ~: {median_gas})")
             }
-            TestKindReport::Invariant { runs, calls, reverts, metrics: _, failed_corpus_replays } => {
+            TestKindReport::Invariant {
+                runs,
+                calls,
+                reverts,
+                metrics: _,
+                failed_corpus_replays,
+            } => {
                 if *failed_corpus_replays != 0 {
                     write!(
                         f,
@@ -819,7 +856,7 @@ pub enum TestKind {
 
 impl Default for TestKind {
     fn default() -> Self {
-        Self::Unit {gas: 0}
+        Self::Unit { gas: 0 }
     }
 }
 
@@ -827,7 +864,7 @@ impl TestKind {
     /// The gas consumed by this test
     pub fn report(&self) -> TestKindReport {
         match self {
-            TestKind::Unit {gas} => TestKindReport::Standard { gas: *gas },
+            TestKind::Unit { gas } => TestKindReport::Standard { gas: *gas },
             TestKind::Fuzz {
                 runs,
                 mean_gas,
@@ -841,7 +878,9 @@ impl TestKind {
             TestKind::Invariant {
                 runs,
                 calls,
-                reverts, metrics, failed_corpus_replays,
+                reverts,
+                metrics,
+                failed_corpus_replays,
             } => TestKindReport::Invariant {
                 runs: *runs,
                 calls: *calls,
@@ -887,37 +926,49 @@ pub struct TestSetup<HaltReasonT> {
     /// Whether the test had a setup method.
     pub has_setup_method: bool,
     /// Indeterminism from cheatcodes during execution.
-    pub indeterminism_reasons: Option<IndeterminismReasons>
+    pub indeterminism_reasons: Option<IndeterminismReasons>,
 }
 
 impl<HaltReasonT: HaltReasonTrait> TestSetup<HaltReasonT> {
-
     pub fn failed(reason: String) -> Self {
-        Self { reason: Some(reason), ..Default::default() }
+        Self {
+            reason: Some(reason),
+            ..Default::default()
+        }
     }
 
     pub fn skipped(reason: String) -> Self {
-        Self { reason: Some(reason), skipped: true, ..Default::default() }
+        Self {
+            reason: Some(reason),
+            skipped: true,
+            ..Default::default()
+        }
     }
 
     pub fn extend<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<
-            BlockT,
-            ChainContextT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            TxT,
-        >,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
         TxT: TransactionEnvTr,
-    >(&mut self, raw: RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, trace_kind: TraceKind) {
+    >(
+        &mut self,
+        raw: RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        trace_kind: TraceKind,
+    ) {
         self.logs.extend(raw.logs);
         self.labels.extend(raw.labels);
-        self.traces.extend(raw.traces.map(|traces| (trace_kind, traces)));
+        self.traces
+            .extend(raw.traces.map(|traces| (trace_kind, traces)));
         if let Some(indeterminism_reasons) = self.indeterminism_reasons.as_mut() {
             indeterminism_reasons.merge(raw.indeterminism_reasons);
         } else {

@@ -80,7 +80,10 @@ impl RandomCallGenerator {
                 .new_tree(&mut self.runner.lock())
                 .unwrap()
                 .current()
-                .map(|call_details| BasicTxDetails { sender, call_details });
+                .map(|call_details| BasicTxDetails {
+                    sender,
+                    call_details,
+                });
 
             self.last_sequence.write().push(choice.clone());
             choice

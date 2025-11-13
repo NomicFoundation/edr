@@ -1,3 +1,4 @@
+use crate::inspectors::error_ext::ErrorExt;
 use alloy_primitives::Log;
 use alloy_sol_types::{SolEvent, SolInterface, SolValue};
 use edr_common::fmt::ConsoleFmt;
@@ -7,6 +8,7 @@ use foundry_evm_core::{
     constants::HARDHAT_CONSOLE_ADDRESS,
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
+use revm::context::ContextTr;
 use revm::{
     context::{CfgEnv, Context as EvmContext},
     interpreter::{
@@ -14,8 +16,6 @@ use revm::{
     },
     Database, Inspector, Journal,
 };
-use revm::context::ContextTr;
-use crate::inspectors::error_ext::ErrorExt;
 
 /// An inspector that collects logs during execution.
 ///
@@ -37,7 +37,11 @@ impl LogCollector {
             let result = InstructionResult::Revert;
             let output = err.abi_encode_revert();
             return Some(CallOutcome {
-                result: InterpreterResult { result, output, gas: Gas::new(inputs.gas_limit) },
+                result: InterpreterResult {
+                    result,
+                    output,
+                    gas: Gas::new(inputs.gas_limit),
+                },
                 memory_offset: inputs.return_memory_offset.clone(),
             });
         }

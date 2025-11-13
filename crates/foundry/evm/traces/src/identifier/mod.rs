@@ -1,9 +1,9 @@
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::{map::HashMap, Address, Bytes};
-use revm_inspectors::tracing::types::CallTraceNode;
-use std::borrow::Cow;
 use edr_solidity::artifacts::ArtifactId;
 use foundry_evm_core::contracts::ContractsByArtifact;
+use revm_inspectors::tracing::types::CallTraceNode;
+use std::borrow::Cow;
 
 mod local;
 pub use local::LocalTraceIdentifier;

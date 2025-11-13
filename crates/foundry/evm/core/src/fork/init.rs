@@ -1,17 +1,17 @@
 use crate::{
-    AsEnvMut,
-    utils::apply_chain_and_block_specific_env_changes,
     constants::NON_ARCHIVE_NODE_WARNING,
-    opts::{BlockEnvOpts, TxEnvOpts},
     evm_context::{BlockEnvMut, EvmEnv},
+    opts::{BlockEnvOpts, TxEnvOpts},
+    utils::apply_chain_and_block_specific_env_changes,
+    AsEnvMut,
 };
-use revm::context_interface::Block;
 use alloy_consensus::BlockHeader;
 use alloy_primitives::{Address, U256};
-use alloy_provider::{Network, Provider, network::BlockResponse};
+use alloy_provider::{network::BlockResponse, Network, Provider};
 use alloy_rpc_types::BlockNumberOrTag;
 use eyre::WrapErr;
 use revm::context::CfgEnv;
+use revm::context_interface::Block;
 
 /// Initializes a REVM block environment based on a forked
 /// ethereum provider.
@@ -23,7 +23,10 @@ pub async fn environment<NetworkT, ProviderT, BlockT, TxT, HardforkT>(
     pin_block: Option<u64>,
     origin: Address,
     disable_block_gas_limit: bool,
-) -> eyre::Result<(EvmEnv<BlockT, TxT, HardforkT>, <NetworkT as Network>::BlockResponse)>
+) -> eyre::Result<(
+    EvmEnv<BlockT, TxT, HardforkT>,
+    <NetworkT as Network>::BlockResponse,
+)>
 where
     NetworkT: Network,
     ProviderT: Provider<NetworkT>,
@@ -34,7 +37,10 @@ where
     let block_number = if let Some(pin_block) = pin_block {
         pin_block
     } else {
-        provider.get_block_number().await.wrap_err("failed to get latest block number")?
+        provider
+            .get_block_number()
+            .await
+            .wrap_err("failed to get latest block number")?
     };
     let (fork_gas_price, rpc_chain_id, block) = tokio::try_join!(
         provider.get_gas_price(),
@@ -75,22 +81,31 @@ where
             prevrandao: block.header().mix_hash(),
             basefee: block.header().base_fee_per_gas().unwrap_or_default(),
             gas_limit: block.header().gas_limit(),
-        }.into(),
+        }
+        .into(),
         tx: TxEnvOpts {
             caller: origin,
             gas_price: gas_price.unwrap_or(fork_gas_price),
             chain_id: Some(override_chain_id.unwrap_or(rpc_chain_id)),
             gas_limit: block.header().gas_limit() as u64,
-        }.into(),
+        }
+        .into(),
     };
 
-    apply_chain_and_block_specific_env_changes::<NetworkT, BlockT, TxT, HardforkT>(env.as_env_mut(), &block);
+    apply_chain_and_block_specific_env_changes::<NetworkT, BlockT, TxT, HardforkT>(
+        env.as_env_mut(),
+        &block,
+    );
 
     Ok((env, block))
 }
 
 /// Configures the environment for the given chain id and memory limit.
-pub fn configure_env<HardforkT>(chain_id: u64, memory_limit: u64, disable_block_gas_limit: bool) -> CfgEnv<HardforkT>
+pub fn configure_env<HardforkT>(
+    chain_id: u64,
+    memory_limit: u64,
+    disable_block_gas_limit: bool,
+) -> CfgEnv<HardforkT>
 where
     HardforkT: Default,
 {

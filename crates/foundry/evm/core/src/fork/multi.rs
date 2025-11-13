@@ -9,23 +9,22 @@ use crate::{
     fork::provider::{ProviderBuilder, RetryProvider},
 };
 use alloy_consensus::BlockHeader;
-use alloy_primitives::{U256, map::HashMap};
+use alloy_primitives::{map::HashMap, U256};
 use alloy_provider::network::BlockResponse;
-use foundry_fork_db::{BackendHandler, BlockchainDb, SharedBackend, cache::BlockchainDbMeta};
+use foundry_fork_db::{cache::BlockchainDbMeta, BackendHandler, BlockchainDb, SharedBackend};
 use futures::{
-    FutureExt, StreamExt,
-    channel::mpsc::{Receiver, Sender, channel},
+    channel::mpsc::{channel, Receiver, Sender},
     stream::{Fuse, Stream},
     task::{Context, Poll},
-    Future,
+    Future, FutureExt, StreamExt,
 };
 use std::{
     fmt::{self, Write},
     pin::Pin,
     sync::{
-        Arc,
         atomic::AtomicUsize,
-        mpsc::{Sender as OneshotSender, channel as oneshot_channel},
+        mpsc::{channel as oneshot_channel, Sender as OneshotSender},
+        Arc,
     },
     time::Duration,
 };
@@ -121,8 +120,13 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     #[doc(hidden)]
     pub fn new() -> (Self, MultiForkHandler<BlockT, TxT, HardforkT>) {
         let (handler, handler_rx) = channel(1);
-        let _shutdown = Arc::new(ShutDownMultiFork { handler: Some(handler.clone()) });
-        (Self { handler, _shutdown }, MultiForkHandler::new(handler_rx))
+        let _shutdown = Arc::new(ShutDownMultiFork {
+            handler: Some(handler.clone()),
+        });
+        (
+            Self { handler, _shutdown },
+            MultiForkHandler::new(handler_rx),
+        )
     }
 
     /// Returns a fork backend.
@@ -132,10 +136,17 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         &self,
         fork: CreateFork<BlockT, TxT, HardforkT>,
     ) -> eyre::Result<(ForkId, SharedBackend, EvmEnv<BlockT, TxT, HardforkT>)> {
-        trace!("Creating new fork, url={}, block={:?}", fork.url, fork.evm_opts.fork_block_number);
+        trace!(
+            "Creating new fork, url={}, block={:?}",
+            fork.url,
+            fork.evm_opts.fork_block_number
+        );
         let (sender, rx) = oneshot_channel();
         let req = Request::CreateFork(Box::new(fork), sender);
-        self.handler.clone().try_send(req).map_err(|e| eyre::eyre!("{:?}", e))?;
+        self.handler
+            .clone()
+            .try_send(req)
+            .map_err(|e| eyre::eyre!("{:?}", e))?;
         rx.recv()?
     }
 
@@ -150,7 +161,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         trace!(?fork, ?block, "rolling fork");
         let (sender, rx) = oneshot_channel();
         let req = Request::RollFork(fork, block, sender);
-        self.handler.clone().try_send(req).map_err(|e| eyre::eyre!("{:?}", e))?;
+        self.handler
+            .clone()
+            .try_send(req)
+            .map_err(|e| eyre::eyre!("{:?}", e))?;
         rx.recv()?
     }
 
@@ -159,7 +173,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         trace!(?fork, "getting env config");
         let (sender, rx) = oneshot_channel();
         let req = Request::GetEnv(fork, sender);
-        self.handler.clone().try_send(req).map_err(|e| eyre::eyre!("{:?}", e))?;
+        self.handler
+            .clone()
+            .try_send(req)
+            .map_err(|e| eyre::eyre!("{:?}", e))?;
         Ok(rx.recv()?)
     }
 
@@ -192,7 +209,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         trace!(?id, "get fork backend");
         let (sender, rx) = oneshot_channel();
         let req = Request::GetFork(id, sender);
-        self.handler.clone().try_send(req).map_err(|e| eyre::eyre!("{:?}", e))?;
+        self.handler
+            .clone()
+            .try_send(req)
+            .map_err(|e| eyre::eyre!("{:?}", e))?;
         Ok(rx.recv()?)
     }
 
@@ -202,15 +222,22 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     pub fn get_fork_url(&self, id: impl Into<ForkId>) -> eyre::Result<Option<String>> {
         let (sender, rx) = oneshot_channel();
         let req = Request::GetForkUrl(id.into(), sender);
-        self.handler.clone().try_send(req).map_err(|e| eyre::eyre!("{:?}", e))?;
+        self.handler
+            .clone()
+            .try_send(req)
+            .map_err(|e| eyre::eyre!("{:?}", e))?;
         Ok(rx.recv()?)
     }
 }
 
 type Handler = BackendHandler<Arc<RetryProvider>>;
 
-type CreateFuture<BlockT, TxT, HardforkT> =
-    Pin<Box<dyn Future<Output = eyre::Result<(ForkId, CreatedFork<BlockT, TxT, HardforkT>, Handler)>> + Send>>;
+type CreateFuture<BlockT, TxT, HardforkT> = Pin<
+    Box<
+        dyn Future<Output = eyre::Result<(ForkId, CreatedFork<BlockT, TxT, HardforkT>, Handler)>>
+            + Send,
+    >,
+>;
 type CreateSender<BlockT, TxT, HardforkT> =
     OneshotSender<eyre::Result<(ForkId, SharedBackend, EvmEnv<BlockT, TxT, HardforkT>)>>;
 type GetEnvSender<BlockT, TxT, HardforkT> = OneshotSender<Option<EvmEnv<BlockT, TxT, HardforkT>>>;
@@ -219,7 +246,10 @@ type GetEnvSender<BlockT, TxT, HardforkT> = OneshotSender<Option<EvmEnv<BlockT, 
 #[derive(Debug)]
 enum Request<BlockT, TxT, HardforkT> {
     /// Creates a new `ForkBackend`.
-    CreateFork(Box<CreateFork<BlockT, TxT, HardforkT>>, CreateSender<BlockT, TxT, HardforkT>),
+    CreateFork(
+        Box<CreateFork<BlockT, TxT, HardforkT>>,
+        CreateSender<BlockT, TxT, HardforkT>,
+    ),
     /// Returns the Fork backend for the `ForkId` if it exists.
     GetFork(ForkId, OneshotSender<Option<SharedBackend>>),
     /// Adjusts the block that's being forked, by creating a new fork at the new block.
@@ -285,8 +315,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 
     /// Sets the interval after which all rpc caches should be flushed periodically.
     pub fn set_flush_cache_interval(&mut self, period: Duration) -> &mut Self {
-        self.flush_cache_interval =
-            Some(tokio::time::interval_at(tokio::time::Instant::now() + period, period));
+        self.flush_cache_interval = Some(tokio::time::interval_at(
+            tokio::time::Instant::now() + period,
+            period,
+        ));
         self
     }
 
@@ -298,9 +330,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     ) -> Option<&mut Vec<CreateSender<BlockT, TxT, HardforkT>>> {
         for task in &mut self.pending_tasks {
             if let ForkTask::Create(_, in_progress, _, additional) = task
-                && in_progress == id {
-                    return Some(additional);
-                }
+                && in_progress == id
+            {
+                return Some(additional);
+            }
         }
         None
     }
@@ -321,7 +354,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 
         // Need to create a new fork.
         let task = Box::pin(create_fork(fork));
-        self.pending_tasks.push(ForkTask::Create(task, fork_id, sender, Vec::new()));
+        self.pending_tasks
+            .push(ForkTask::Create(task, fork_id, sender, Vec::new()));
     }
 
     fn insert_new_fork(
@@ -332,13 +366,21 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         additional_senders: Vec<CreateSender<BlockT, TxT, HardforkT>>,
     ) {
         self.forks.insert(fork_id.clone(), fork.clone());
-        let _ = sender.send(Ok((fork_id.clone(), fork.backend.clone(), fork.opts.env.clone())));
+        let _ = sender.send(Ok((
+            fork_id.clone(),
+            fork.backend.clone(),
+            fork.opts.env.clone(),
+        )));
 
         // Notify all additional senders and track unique forkIds.
         for sender in additional_senders {
             let next_fork_id = fork.inc_senders(fork_id.clone());
             self.forks.insert(next_fork_id.clone(), fork.clone());
-            let _ = sender.send(Ok((next_fork_id, fork.backend.clone(), fork.opts.env.clone())));
+            let _ = sender.send(Ok((
+                next_fork_id,
+                fork.backend.clone(),
+                fork.opts.env.clone(),
+            )));
         }
     }
 
@@ -489,7 +531,11 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr> Future
             && !pin.forks.is_empty()
         {
             trace!(target: "fork::multi", "tick flushing caches");
-            let forks = pin.forks.values().map(|f| f.backend.clone()).collect::<Vec<_>>();
+            let forks = pin
+                .forks
+                .values()
+                .map(|f| f.backend.clone())
+                .collect::<Vec<_>>();
             // Flush this on new thread to not block here.
             std::thread::Builder::new()
                 .name("flusher".into())
@@ -521,7 +567,11 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     CreatedFork<BlockT, TxT, HardforkT>
 {
     pub fn new(opts: CreateFork<BlockT, TxT, HardforkT>, backend: SharedBackend) -> Self {
-        Self { opts, backend, num_senders: Arc::new(AtomicUsize::new(1)) }
+        Self {
+            opts,
+            backend,
+            num_senders: Arc::new(AtomicUsize::new(1)),
+        }
     }
 
     /// Increment senders and return unique identifier of the fork.
@@ -529,7 +579,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         format!(
             "{}-{}",
             fork_id.as_str(),
-            self.num_senders.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            self.num_senders
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         )
         .into()
     }

@@ -24,7 +24,10 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
     let mut safety = None::<Ident>;
     for attr in attrs.iter().filter(|a| a.path().is_ident("cheatcode")) {
         attr.meta.require_list()?.parse_nested_meta(|meta| {
-            let path = meta.path.get_ident().ok_or_else(|| meta.error("expected ident"))?;
+            let path = meta
+                .path
+                .get_ident()
+                .ok_or_else(|| meta.error("expected ident"))?;
             let path_s = path.to_string();
             match path_s.as_str() {
                 "group" if group.is_none() => group = Some(meta.value()?.parse()?),
@@ -53,7 +56,9 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
     check_named_fields(data, name);
 
     let id = name.to_string();
-    let id = id.strip_suffix("Call").expect("function struct ends in Call");
+    let id = id
+        .strip_suffix("Call")
+        .expect("function struct ends in Call");
 
     let doc = get_docstring(attrs);
     let (signature, selector, declaration, description) = func_docstring(&doc);
@@ -102,7 +107,10 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
 /// Generates the `CHEATCODES` constant and implements `CheatcodeImpl` dispatch for an enum.
 fn derive_calls_enum(name: &Ident, input: &syn::DataEnum) -> Result<TokenStream> {
     if input.variants.iter().any(|v| v.fields.len() != 1) {
-        return Err(syn::Error::new(name.span(), "expected all variants to have a single field"));
+        return Err(syn::Error::new(
+            name.span(),
+            "expected all variants to have a single field",
+        ));
     }
 
     // keep original order for matching
@@ -135,7 +143,10 @@ fn derive_errors_events_enum(
     events: bool,
 ) -> Result<TokenStream> {
     if input.variants.iter().any(|v| v.fields.len() != 1) {
-        return Err(syn::Error::new(name.span(), "expected all variants to have a single field"));
+        return Err(syn::Error::new(
+            name.span(),
+            "expected all variants to have a single field",
+        ));
     }
 
     let (ident, ty_assoc_name, ty, doc) = if events {
@@ -192,7 +203,11 @@ fn derive_struct(
             StructKind::Error | StructKind::Event => "n",
             StructKind::Struct => "",
         };
-        emit_warning!(name.span(), "missing documentation for a{n} {}", kind.as_str());
+        emit_warning!(
+            name.span(),
+            "missing documentation for a{n} {}",
+            kind.as_str()
+        );
     }
 
     if kind == StructKind::Struct {
@@ -207,7 +222,11 @@ fn derive_struct(
                 let to_find = format!("{name};");
                 let ty_end = def.find(&to_find).expect("field not found in def");
                 let ty = &def[..ty_end];
-                let ty_start = ty.rfind(';').or_else(|| ty.find('{')).expect("bad struct def") + 1;
+                let ty_start = ty
+                    .rfind(';')
+                    .or_else(|| ty.find('{'))
+                    .expect("bad struct def")
+                    + 1;
                 let ty = ty[ty_start..].trim();
                 assert!(!ty.is_empty(), "bad struct def: {def:?}");
 
@@ -283,20 +302,24 @@ fn derive_enum(name: &Ident, input: &syn::DataEnum, attrs: &[Attribute]) -> Resu
     if doc.is_empty() {
         emit_warning!(name.span(), "missing documentation for an enum");
     }
-    let variants = input.variants.iter().filter(|v| v.discriminant.is_none()).map(|v| {
-        let name = v.ident.to_string();
-        let doc = get_docstring(&v.attrs);
-        let doc = doc.trim();
-        if doc.is_empty() {
-            emit_warning!(v.ident.span(), "missing documentation for a variant");
-        }
-        quote! {
-            EnumVariant {
-                name: #name,
-                description: #doc,
+    let variants = input
+        .variants
+        .iter()
+        .filter(|v| v.discriminant.is_none())
+        .map(|v| {
+            let name = v.ident.to_string();
+            let doc = get_docstring(&v.attrs);
+            let doc = doc.trim();
+            if doc.is_empty() {
+                emit_warning!(v.ident.span(), "missing documentation for a variant");
             }
-        }
-    });
+            quote! {
+                EnumVariant {
+                    name: #name,
+                    description: #doc,
+                }
+            }
+        });
     Ok(quote! {
         impl #name {
             /// The enum definition.
@@ -325,9 +348,13 @@ fn get_docstring(attrs: &[Attribute]) -> String {
             continue;
         }
         let syn::Meta::NameValue(syn::MetaNameValue {
-                                     value: syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(s), .. }),
-                                     ..
-                                 }) = &attr.meta
+            value:
+                syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(s),
+                    ..
+                }),
+            ..
+        }) = &attr.meta
         else {
             continue;
         };
@@ -388,7 +415,9 @@ fn func_docstring(doc: &str) -> (&str, &str, &str, &str) {
     assert!(!sig.starts_with('`') && !sig.ends_with('`'));
 
     let selector_end = sig_line.rfind('`').unwrap();
-    let selector = sig_line[sig_end..selector_end].strip_prefix("` and selector `").unwrap();
+    let selector = sig_line[sig_end..selector_end]
+        .strip_prefix("` and selector `")
+        .unwrap();
     assert!(!selector.starts_with('`') && !selector.ends_with('`'));
     assert!(selector.starts_with("0x"));
 
@@ -403,7 +432,10 @@ fn func_docstring(doc: &str) -> (&str, &str, &str, &str) {
 /// Returns `(visibility, mutability)` from a given Solidity function declaration.
 fn parse_function_attrs(f: &str, span: Span) -> Result<(&str, &str)> {
     let Some(ext_start) = f.find("external") else {
-        return Err(Error::new(span, "functions must have `external` visibility"));
+        return Err(Error::new(
+            span,
+            "functions must have `external` visibility",
+        ));
     };
     let visibility = "External";
 

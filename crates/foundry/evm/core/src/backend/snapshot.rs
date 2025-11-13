@@ -1,8 +1,8 @@
-use crate::evm_context::EvmEnv;
 use super::JournaledState;
+use crate::evm_context::EvmEnv;
 use alloy_primitives::{
-    B256, U256,
     map::{AddressHashMap, HashMap},
+    B256, U256,
 };
 use revm::state::AccountInfo;
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,11 @@ impl<DatabaseT, BlockT, TxT, HardforkT> BackendStateSnapshot<DatabaseT, BlockT, 
         journaled_state: JournaledState,
         env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> Self {
-        Self { db, journaled_state, env }
+        Self {
+            db,
+            journaled_state,
+            env,
+        }
     }
 
     /// Called when this state snapshot is reverted.

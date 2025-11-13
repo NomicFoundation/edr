@@ -19,8 +19,8 @@ pub mod result;
 
 pub use foundry_evm::executors::stack_trace::StackTraceError;
 
-mod test_filter;
 mod error;
+mod test_filter;
 
 pub use foundry_evm::*;
 pub use test_filter::{TestFilter, TestFilterConfig};

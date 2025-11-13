@@ -1,8 +1,8 @@
 use super::{fuzz_calldata, fuzz_param_from_state};
 use crate::{
-    FuzzFixtures,
     invariant::{BasicTxDetails, CallDetails, FuzzRunIdentifiedContracts, SenderFilters},
-    strategies::{EvmFuzzState, fuzz_calldata_from_state, fuzz_param},
+    strategies::{fuzz_calldata_from_state, fuzz_param, EvmFuzzState},
+    FuzzFixtures,
 };
 use alloy_json_abi::Function;
 use alloy_primitives::Address;
@@ -24,26 +24,26 @@ pub fn override_call_strat(
         20 => any::<prop::sample::Selector>()
             .prop_map(move |selector| *selector.select(contracts_ref.lock().keys())),
     ]
-        .prop_flat_map(move |target_address| {
-            let fuzz_state = fuzz_state.clone();
-            let fuzz_fixtures = fuzz_fixtures.clone();
+    .prop_flat_map(move |target_address| {
+        let fuzz_state = fuzz_state.clone();
+        let fuzz_fixtures = fuzz_fixtures.clone();
 
-            let func = {
-                let contracts = contracts.targets.lock();
-                let contract = contracts.get(&target_address).unwrap_or_else(|| {
-                    // Choose a random contract if target selected by lazy strategy is not in fuzz run
-                    // identified contracts. This can happen when contract is created in `setUp` call
-                    // but is not included in targetContracts.
-                    contracts.values().choose(&mut rand::rng()).unwrap()
-                });
-                let fuzzed_functions: Vec<_> = contract.abi_fuzzed_functions().cloned().collect();
-                any::<prop::sample::Index>().prop_map(move |index| index.get(&fuzzed_functions).clone())
-            };
+        let func = {
+            let contracts = contracts.targets.lock();
+            let contract = contracts.get(&target_address).unwrap_or_else(|| {
+                // Choose a random contract if target selected by lazy strategy is not in fuzz run
+                // identified contracts. This can happen when contract is created in `setUp` call
+                // but is not included in targetContracts.
+                contracts.values().choose(&mut rand::rng()).unwrap()
+            });
+            let fuzzed_functions: Vec<_> = contract.abi_fuzzed_functions().cloned().collect();
+            any::<prop::sample::Index>().prop_map(move |index| index.get(&fuzzed_functions).clone())
+        };
 
-            func.prop_flat_map(move |func| {
-                fuzz_contract_with_calldata(&fuzz_state, &fuzz_fixtures, target_address, func)
-            })
+        func.prop_flat_map(move |func| {
+            fuzz_contract_with_calldata(&fuzz_state, &fuzz_fixtures, target_address, func)
         })
+    })
 }
 
 /// Creates the invariant strategy.
@@ -78,7 +78,10 @@ pub fn invariant_strat(
             );
             (sender, call_details)
         })
-        .prop_map(|(sender, call_details)| BasicTxDetails { sender, call_details })
+        .prop_map(|(sender, call_details)| BasicTxDetails {
+            sender,
+            call_details,
+        })
 }
 
 /// Strategy to select a sender address:
@@ -90,7 +93,9 @@ fn select_random_sender(
     dictionary_weight: u32,
 ) -> impl Strategy<Value = Address> + use<> {
     if !senders.targeted.is_empty() {
-        any::<prop::sample::Index>().prop_map(move |index| *index.get(&senders.targeted)).boxed()
+        any::<prop::sample::Index>()
+            .prop_map(move |index| *index.get(&senders.targeted))
+            .boxed()
     } else {
         assert!(dictionary_weight <= 100, "dictionary_weight must be <= 100");
         proptest::prop_oneof![
@@ -119,8 +124,8 @@ pub fn fuzz_contract_with_calldata(
         60 => fuzz_calldata(func.clone(), fuzz_fixtures),
         40 => fuzz_calldata_from_state(func, fuzz_state),
     ]
-        .prop_map(move |calldata| {
-            trace!(input=?calldata);
-            CallDetails { target, calldata }
-        })
+    .prop_map(move |calldata| {
+        trace!(input=?calldata);
+        CallDetails { target, calldata }
+    })
 }

@@ -1,11 +1,17 @@
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
+use super::{
+    Cheatcodes, CheatsConfig, Fuzzer, LineCoverageCollector, LogCollector, RevertDiagnostic,
+    TracingInspector,
+};
 use alloy_primitives::map::HashMap;
+use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
 use derive_where::derive_where;
 use edr_coverage::CodeCoverageReporter;
 use eyre::eyre;
+use foundry_cheatcodes::CheatcodesExecutor;
+use foundry_evm_core::backend::JournaledState;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
     evm_context::{
@@ -15,19 +21,21 @@ use foundry_evm_core::{
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::{SparsedTraceArena, TracingMode};
-use revm::{context::{
-    result::{ExecutionResult, HaltReason, HaltReasonTr},
-    BlockEnv, CfgEnv, Context as EvmContext,
-}, context_interface::{result::Output, JournalTr}, interpreter::{
-    interpreter::EthInterpreter, CallInputs, CallOutcome, CallScheme, CreateInputs,
-    CreateOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
-}, DatabaseCommit, Inspector, InspectEvm as _, Journal, JournalEntry};
 use revm::context::CreateScheme;
 use revm::state::{Account, AccountStatus};
+use revm::{
+    context::{
+        result::{ExecutionResult, HaltReason, HaltReasonTr},
+        BlockEnv, CfgEnv, Context as EvmContext,
+    },
+    context_interface::{result::Output, JournalTr},
+    interpreter::{
+        interpreter::EthInterpreter, CallInputs, CallOutcome, CallScheme, CreateInputs,
+        CreateOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
+    },
+    DatabaseCommit, InspectEvm as _, Inspector, Journal, JournalEntry,
+};
 use revm_inspectors::edge_cov::EdgeCovInspector;
-use foundry_cheatcodes::CheatcodesExecutor;
-use foundry_evm_core::backend::JournaledState;
-use super::{Cheatcodes, CheatsConfig, LineCoverageCollector, Fuzzer, LogCollector, TracingInspector, RevertDiagnostic};
 
 #[derive(Clone, Debug, Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
@@ -160,10 +168,13 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
     > {
         let Self {
             block,
-            chain_context, code_coverage, gas_price,
+            chain_context,
+            code_coverage,
+            gas_price,
             cheatcodes,
             fuzzer,
-            trace, logs,
+            trace,
+            logs,
             line_coverage,
             enable_isolation,
         } = self;
@@ -285,7 +296,17 @@ pub struct InspectorStack<
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub cheatcodes: Option<Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>>,
+    pub cheatcodes: Option<
+        Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    >,
     pub inner: InspectorStackInner<ChainContextT>,
 }
 
@@ -318,7 +339,8 @@ pub struct InspectorStackInner<ChainContextT> {
 /// Struct keeping mutable references to both parts of [`InspectorStack`] and implementing
 /// [`revm::Inspector`]. This struct can be obtained via [`InspectorStack::as_mut`] or via
 /// [`CheatcodesExecutor::get_inspector`] method implemented for [`InspectorStackInner`].
-pub struct InspectorStackRefMut<'a,
+pub struct InspectorStackRefMut<
+    'a,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -327,21 +349,39 @@ pub struct InspectorStackRefMut<'a,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 > {
-    pub cheatcodes: Option<&'a mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>>,
+    pub cheatcodes: Option<
+        &'a mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    >,
     pub inner: &'a mut InspectorStackInner<ChainContextT>,
 }
 
 impl<
-
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-    DatabaseT:
-    CheatcodeBackend<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >
+    CheatcodesExecutor<
         BlockT,
         TxT,
         EvmBuilderT,
@@ -349,22 +389,33 @@ impl<
         HardforkT,
         TransactionErrorT,
         ChainContextT,
-    >,
-> CheatcodesExecutor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT> for InspectorStackInner<ChainContextT> {
+        DatabaseT,
+    > for InspectorStackInner<ChainContextT>
+{
     fn tracing_inspector(&mut self) -> Option<&mut Option<TracingInspector>> {
         Some(&mut self.tracer)
     }
 }
 
 impl<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-> InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+    >
+    InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
+{
     /// Creates a new inspector stack.
     ///
     /// Note that the stack is empty by default, and you must add inspectors to it.
@@ -406,7 +457,18 @@ impl<
 
     /// Set the cheatcodes inspector.
     #[inline]
-    pub fn set_cheatcodes(&mut self, cheatcodes: Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) {
+    pub fn set_cheatcodes(
+        &mut self,
+        cheatcodes: Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) {
         self.cheatcodes = Some(cheatcodes);
     }
 
@@ -457,7 +519,10 @@ impl<
         }
 
         if let Some(config) = mode.into_config() {
-            *self.tracer.get_or_insert_with(Default::default).config_mut() = config;
+            *self
+                .tracer
+                .get_or_insert_with(Default::default)
+                .config_mut() = config;
         } else {
             self.tracer = None;
         }
@@ -465,38 +530,52 @@ impl<
 
     /// Collects all the data gathered during inspection into a single struct.
     #[inline]
-    pub fn collect(self) -> eyre::Result<InspectorData<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    pub fn collect(
+        self,
+    ) -> eyre::Result<
+        InspectorData<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         let Self {
             mut cheatcodes,
             inner:
-            InspectorStackInner {
-                code_coverage,
-                line_coverage,
-                edge_coverage,
-                log_collector,
-                tracer,
-                reverter,
-                ..
-            },
+                InspectorStackInner {
+                    code_coverage,
+                    line_coverage,
+                    edge_coverage,
+                    log_collector,
+                    tracer,
+                    reverter,
+                    ..
+                },
         } = self;
 
-        let traces = tracer.map(foundry_evm_traces::TracingInspector::into_traces).map(|arena| {
-            let ignored = cheatcodes
-                .as_mut()
-                .map(|cheatcodes| {
-                    let mut ignored = std::mem::take(&mut cheatcodes.ignored_traces.ignored);
+        let traces = tracer
+            .map(foundry_evm_traces::TracingInspector::into_traces)
+            .map(|arena| {
+                let ignored = cheatcodes
+                    .as_mut()
+                    .map(|cheatcodes| {
+                        let mut ignored = std::mem::take(&mut cheatcodes.ignored_traces.ignored);
 
-                    // If the last pause call was not resumed, ignore the rest of the trace
-                    if let Some(last_pause_call) = cheatcodes.ignored_traces.last_pause_call {
-                        ignored.insert(last_pause_call, (arena.nodes().len(), 0));
-                    }
+                        // If the last pause call was not resumed, ignore the rest of the trace
+                        if let Some(last_pause_call) = cheatcodes.ignored_traces.last_pause_call {
+                            ignored.insert(last_pause_call, (arena.nodes().len(), 0));
+                        }
 
-                    ignored
-                })
-                .unwrap_or_default();
+                        ignored
+                    })
+                    .unwrap_or_default();
 
-            SparsedTraceArena { arena, ignored }
-        });
+                SparsedTraceArena { arena, ignored }
+            });
 
         if let Some(code_coverage) = code_coverage {
             code_coverage.report().map_err(|error| eyre!(error))?;
@@ -510,56 +589,102 @@ impl<
                 .unwrap_or_default(),
             traces,
             line_coverage: line_coverage.map(foundry_evm_coverage::LineCoverageCollector::finish),
-            edge_coverage: edge_coverage.map(revm_inspectors::edge_cov::EdgeCovInspector::into_hitcount),
+            edge_coverage: edge_coverage
+                .map(revm_inspectors::edge_cov::EdgeCovInspector::into_hitcount),
             cheatcodes,
             reverter,
         })
     }
-
 }
 
 impl<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr + TryInto<HaltReason>,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-> InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr + TryInto<HaltReason>,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+    >
+    InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
+{
     #[inline(always)]
-    fn as_mut(&mut self) -> InspectorStackRefMut<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
-        InspectorStackRefMut { cheatcodes: self.cheatcodes.as_mut(), inner: &mut self.inner }
+    fn as_mut(
+        &mut self,
+    ) -> InspectorStackRefMut<
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    > {
+        InspectorStackRefMut {
+            cheatcodes: self.cheatcodes.as_mut(),
+            inner: &mut self.inner,
+        }
     }
 }
 
 impl<
-
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr + TryInto<HaltReason>,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-> InspectorStackRefMut<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr + TryInto<HaltReason>,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+    >
+    InspectorStackRefMut<
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
+{
     /// Adjusts the EVM data for the inner EVM context.
     /// Should be called on the top-level call of inner context (depth == 0 &&
     /// `self.in_inner_context`) Decreases sender nonce for CALLs to keep backwards compatibility
     /// Updates tx.origin to the value before entering inner context
     fn adjust_evm_data_for_inner_context<
-
-    DatabaseT: CheatcodeBackend<
-    BlockT,
-    TxT,
-    EvmBuilderT,
-    HaltReasonT,
-    HardforkT,
-    TransactionErrorT,
-    ChainContextT>
-    >(&mut self, ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>) {
-        let inner_context_data =
-            self.inner_context_data.as_ref().expect("should be called in inner context");
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &mut self,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
+        let inner_context_data = self
+            .inner_context_data
+            .as_ref()
+            .expect("should be called in inner context");
         ecx.tx.set_caller(inner_context_data.original_origin);
     }
 
@@ -571,10 +696,18 @@ impl<
             HaltReasonT,
             HardforkT,
             TransactionErrorT,
-            ChainContextT>
+            ChainContextT,
+        >,
     >(
         &mut self,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) -> CallOutcome {
@@ -616,10 +749,18 @@ impl<
             HaltReasonT,
             HardforkT,
             TransactionErrorT,
-            ChainContextT>
+            ChainContextT,
+        >,
     >(
         &mut self,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) -> CreateOutcome {
@@ -645,13 +786,14 @@ impl<
 
     fn transact_inner<
         DatabaseT: CheatcodeBackend<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT> + DatabaseCommit
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            > + DatabaseCommit
             + DerefMut<
                 Target: CheatcodeBackend<
                     BlockT,
@@ -663,10 +805,17 @@ impl<
                     ChainContextT,
                 > + DatabaseCommit
                             + Sized,
-            >
+            >,
     >(
         &mut self,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         kind: TxKind,
         caller: Address,
         input: Bytes,
@@ -687,11 +836,14 @@ impl<
         // If we haven't disabled gas limit checks, ensure that transaction gas limit will not
         // exceed block gas limit.
         if !ecx.cfg.disable_block_gas_limit {
-            ecx.tx.set_gas_limit(std::cmp::min(ecx.tx.gas_limit(), ecx.block.gas_limit()));
+            ecx.tx
+                .set_gas_limit(std::cmp::min(ecx.tx.gas_limit(), ecx.block.gas_limit()));
         }
         ecx.tx.set_gas_price(0);
 
-        self.inner_context_data = Some(InnerContextData { original_origin: cached_env.tx.caller() });
+        self.inner_context_data = Some(InnerContextData {
+            original_origin: cached_env.tx.caller(),
+        });
         self.in_inner_context = true;
 
         let res = self.with_stack(|inspector| {
@@ -702,7 +854,11 @@ impl<
 
                 for (addr, acc_mut) in &mut state {
                     // mark all accounts cold, besides preloaded addresses
-                    if !context.journaled_state.warm_preloaded_addresses.contains(addr) {
+                    if !context
+                        .journaled_state
+                        .warm_preloaded_addresses
+                        .contains(addr)
+                    {
                         acc_mut.mark_cold();
                     }
 
@@ -723,7 +879,11 @@ impl<
             journaled_state.depth = 1;
 
             let env_with_chain = context.to_owned_env_with_chain_context();
-            let mut evm = EvmBuilderT::evm_with_journal_and_inspector(journaled_state, env_with_chain, inspector);
+            let mut evm = EvmBuilderT::evm_with_journal_and_inspector(
+                journaled_state,
+                env_with_chain,
+                inspector,
+            );
 
             let res = evm.inspect_tx(context.tx.clone());
 
@@ -745,8 +905,11 @@ impl<
 
         let Ok(res) = res else {
             // Should we match, encode and propagate error as a revert reason?
-            let result =
-                InterpreterResult { result: InstructionResult::Revert, output: Bytes::new(), gas };
+            let result = InterpreterResult {
+                result: InstructionResult::Revert,
+                output: Bytes::new(),
+                gas,
+            };
             return (result, None);
         };
 
@@ -776,7 +939,13 @@ impl<
         }
 
         let (result, address, output) = match res.result {
-            ExecutionResult::Success { reason, gas_used, gas_refunded, logs: _, output } => {
+            ExecutionResult::Success {
+                reason,
+                gas_used,
+                gas_refunded,
+                logs: _,
+                output,
+            } => {
                 gas.set_refund(gas_refunded as i64);
                 let _ = gas.record_cost(gas_used);
                 let address = match output {
@@ -798,12 +967,32 @@ impl<
                 (InstructionResult::Revert, None, output)
             }
         };
-        (InterpreterResult { result, output, gas }, address)
+        (
+            InterpreterResult {
+                result,
+                output,
+                gas,
+            },
+            address,
+        )
     }
 
     /// Moves out of references, constructs an [`InspectorStack`] and runs the given closure with
     /// it.
-    fn with_stack<O>(&mut self, f: impl FnOnce(&mut InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>) -> O) -> O {
+    fn with_stack<O>(
+        &mut self,
+        f: impl FnOnce(
+            &mut InspectorStack<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            >,
+        ) -> O,
+    ) -> O {
         let mut stack = InspectorStack {
             cheatcodes: self
                 .cheatcodes
@@ -832,18 +1021,29 @@ impl<
             HaltReasonT,
             HardforkT,
             TransactionErrorT,
-            ChainContextT>
-    >(&mut self, ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>) {
+            ChainContextT,
+        >,
+    >(
+        &mut self,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
+    ) {
         if self.enable_isolation {
             // If we're in isolation mode, we need to keep track of the state at the beginning of
             // the frame to be able to roll back on revert
-            self.top_frame_journal.clone_from(&ecx.journaled_state.state);
+            self.top_frame_journal
+                .clone_from(&ecx.journaled_state.state);
         }
     }
 
     /// Invoked at the end of root frame.
     fn top_level_frame_end<
-
         DatabaseT: CheatcodeBackend<
             BlockT,
             TxT,
@@ -851,10 +1051,18 @@ impl<
             HaltReasonT,
             HardforkT,
             TransactionErrorT,
-            ChainContextT>
+            ChainContextT,
+        >,
     >(
         &mut self,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         result: InstructionResult,
     ) {
         if !result.is_revert() {
@@ -877,7 +1085,6 @@ impl<
 
     #[inline(always)]
     fn step_inlined<
-
         DatabaseT: CheatcodeBackend<
             BlockT,
             TxT,
@@ -885,11 +1092,19 @@ impl<
             HaltReasonT,
             HardforkT,
             TransactionErrorT,
-            ChainContextT>
+            ChainContextT,
+        >,
     >(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
     ) {
         call_inspectors!(
             [
@@ -907,7 +1122,6 @@ impl<
 
     #[inline(always)]
     fn step_end_inlined<
-
         DatabaseT: CheatcodeBackend<
             BlockT,
             TxT,
@@ -915,11 +1129,19 @@ impl<
             HaltReasonT,
             HardforkT,
             TransactionErrorT,
-            ChainContextT>
+            ChainContextT,
+        >,
     >(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
     ) {
         call_inspectors!(
             [
@@ -934,15 +1156,40 @@ impl<
 }
 
 impl<
-
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr + TryInto<HaltReason>,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr + TryInto<HaltReason>,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            > + DatabaseCommit
+            + DerefMut<
+                Target: CheatcodeBackend<
+                    BlockT,
+                    TxT,
+                    EvmBuilderT,
+                    HaltReasonT,
+                    HardforkT,
+                    TransactionErrorT,
+                    ChainContextT,
+                > + DatabaseCommit
+                            + Sized,
+            >,
+    >
+    Inspector<
+        EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+    >
+    for InspectorStackRefMut<
+        '_,
         BlockT,
         TxT,
         EvmBuilderT,
@@ -950,26 +1197,19 @@ impl<
         HardforkT,
         TransactionErrorT,
         ChainContextT,
-    > + DatabaseCommit
-    + DerefMut<
-        Target: CheatcodeBackend<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-        > + DatabaseCommit
-                    + Sized,
-    >,
-> Inspector<
-    EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>
-> for InspectorStackRefMut<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+    >
+{
     fn initialize_interp(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
     ) {
         call_inspectors!(
             [
@@ -984,7 +1224,14 @@ impl<
     fn step(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
     ) {
         self.step_inlined(interpreter, ecx);
     }
@@ -992,7 +1239,14 @@ impl<
     fn step_end(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
     ) {
         self.step_end_inlined(interpreter, ecx);
     }
@@ -1001,18 +1255,36 @@ impl<
     fn log(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         log: Log,
     ) {
         call_inspectors!(
-            [&mut self.tracer, &mut self.log_collector, &mut self.cheatcodes],
+            [
+                &mut self.tracer,
+                &mut self.log_collector,
+                &mut self.cheatcodes
+            ],
             |inspector| inspector.log(interpreter, ecx, log.clone()),
         );
     }
 
     fn call(
         &mut self,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         call: &mut CallInputs,
     ) -> Option<CallOutcome> {
         if self.in_inner_context && ecx.journaled_state.depth == 1 {
@@ -1024,7 +1296,8 @@ impl<
             self.top_level_frame_start(ecx);
         }
 
-        let code_coverage_collector = self.inner
+        let code_coverage_collector = self
+            .inner
             .code_coverage
             .as_mut()
             .map(|reporter| &mut reporter.collector);
@@ -1053,7 +1326,10 @@ impl<
                 // Check if any mock function set for call data or if catch-all mock function set
                 // for selector.
                 if let Some(target) = mocks.get(&call.input.bytes(ecx)).or_else(|| {
-                    call.input.bytes(ecx).get(..4).and_then(|selector| mocks.get(selector))
+                    call.input
+                        .bytes(ecx)
+                        .get(..4)
+                        .and_then(|selector| mocks.get(selector))
                 }) {
                     call.bytecode_address = *target;
                 }
@@ -1084,8 +1360,11 @@ impl<
                 }
                 // Mark accounts and storage cold before STATICCALLs
                 CallScheme::StaticCall => {
-                    let JournaledState { state, warm_preloaded_addresses, .. } =
-                        &mut ecx.journaled_state.inner;
+                    let JournaledState {
+                        state,
+                        warm_preloaded_addresses,
+                        ..
+                    } = &mut ecx.journaled_state.inner;
                     for (addr, acc_mut) in state {
                         // Do not mark accounts and storage cold accounts with arbitrary storage.
                         if let Some(cheatcodes) = &self.cheatcodes
@@ -1113,7 +1392,14 @@ impl<
 
     fn call_end(
         &mut self,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
@@ -1132,7 +1418,14 @@ impl<
 
     fn create(
         &mut self,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         create: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
         if self.in_inner_context && ecx.journaled_state.depth == 1 {
@@ -1146,7 +1439,11 @@ impl<
 
         call_inspectors!(
             #[ret]
-            [&mut self.tracer, &mut self.line_coverage, &mut self.cheatcodes],
+            [
+                &mut self.tracer,
+                &mut self.line_coverage,
+                &mut self.cheatcodes
+            ],
             |inspector| inspector.create(ecx, create).map(Some),
         );
 
@@ -1171,7 +1468,14 @@ impl<
 
     fn create_end(
         &mut self,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
@@ -1190,14 +1494,39 @@ impl<
 }
 
 impl<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr + TryInto<HaltReason>,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr + TryInto<HaltReason>,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            > + DatabaseCommit
+            + DerefMut<
+                Target: CheatcodeBackend<
+                    BlockT,
+                    TxT,
+                    EvmBuilderT,
+                    HaltReasonT,
+                    HardforkT,
+                    TransactionErrorT,
+                    ChainContextT,
+                > + DatabaseCommit
+                            + Sized,
+            >,
+    >
+    Inspector<
+        EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+    >
+    for InspectorStack<
         BlockT,
         TxT,
         EvmBuilderT,
@@ -1205,24 +1534,19 @@ impl<
         HardforkT,
         TransactionErrorT,
         ChainContextT,
-    > + DatabaseCommit
-    + DerefMut<
-        Target: CheatcodeBackend<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-        > + DatabaseCommit
-                    + Sized,
-    >,
-> Inspector<EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>> for InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+    >
+{
     fn step(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
     ) {
         self.as_mut().step_inlined(interpreter, ecx);
     }
@@ -1230,14 +1554,28 @@ impl<
     fn step_end(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
     ) {
         self.as_mut().step_end_inlined(interpreter, ecx);
     }
 
     fn call(
         &mut self,
-        context: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        context: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         inputs: &mut CallInputs,
     ) -> Option<CallOutcome> {
         self.as_mut().call(context, inputs)
@@ -1245,7 +1583,14 @@ impl<
 
     fn call_end(
         &mut self,
-        context: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        context: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
@@ -1254,7 +1599,14 @@ impl<
 
     fn create(
         &mut self,
-        context: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        context: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         create: &mut CreateInputs,
     ) -> Option<CreateOutcome> {
         self.as_mut().create(context, create)
@@ -1262,7 +1614,14 @@ impl<
 
     fn create_end(
         &mut self,
-        context: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        context: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
@@ -1272,7 +1631,14 @@ impl<
     fn initialize_interp(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
     ) {
         self.as_mut().initialize_interp(interpreter, ecx);
     }
@@ -1280,27 +1646,63 @@ impl<
     fn log(
         &mut self,
         interpreter: &mut Interpreter,
-        ecx: &mut EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
+        ecx: &mut EvmContext<
+            BlockT,
+            TxT,
+            CfgEnv<HardforkT>,
+            DatabaseT,
+            Journal<DatabaseT>,
+            ChainContextT,
+        >,
         log: Log,
     ) {
         self.as_mut().log(interpreter, ecx, log);
     }
 
     fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
-        <InspectorStackRefMut<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> as Inspector<revm::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>>>::selfdestruct(&mut self.as_mut(), contract, target, value);
+        <InspectorStackRefMut<
+            '_,
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        > as Inspector<
+            revm::Context<
+                BlockT,
+                TxT,
+                CfgEnv<HardforkT>,
+                DatabaseT,
+                Journal<DatabaseT>,
+                ChainContextT,
+            >,
+        >>::selfdestruct(&mut self.as_mut(), contract, target, value);
     }
 }
 
-impl<'a,
-
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-> Deref for InspectorStackRefMut<'a, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+impl<
+        'a,
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+    > Deref
+    for InspectorStackRefMut<
+        'a,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
+{
     type Target = &'a mut InspectorStackInner<ChainContextT>;
 
     fn deref(&self) -> &Self::Target {
@@ -1309,14 +1711,25 @@ impl<'a,
 }
 
 impl<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-> DerefMut for InspectorStackRefMut<'_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+    > DerefMut
+    for InspectorStackRefMut<
+        '_,
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
+{
     #[allow(clippy::mut_mut)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
@@ -1324,16 +1737,24 @@ impl<
 }
 
 impl<
-
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-
-> Deref for InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+    > Deref
+    for InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
+{
     type Target = InspectorStackInner<ChainContextT>;
 
     fn deref(&self) -> &Self::Target {
@@ -1342,14 +1763,24 @@ impl<
 }
 
 impl<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-> DerefMut for InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+    > DerefMut
+    for InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >
+{
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }

@@ -1,6 +1,6 @@
 use revm::{
-    Context, Database, Journal, JournalEntry,
     context::{CfgEnv, JournalInner, JournalTr},
+    Context, Database, Journal, JournalEntry,
 };
 
 /// Helper container type for `block`, `cfg`, and `tx`.
@@ -29,7 +29,12 @@ where
         Self { block, cfg, tx }
     }
 
-    pub fn new_with_spec_id(cfg: CfgEnv<HardforkT>, block: BlockT, tx: TxT, spec_id: HardforkT) -> Self {
+    pub fn new_with_spec_id(
+        cfg: CfgEnv<HardforkT>,
+        block: BlockT,
+        tx: TxT,
+        spec_id: HardforkT,
+    ) -> Self {
         let mut cfg = cfg;
         cfg.spec = spec_id;
 
@@ -74,7 +79,11 @@ impl<'a, BlockT, TxT, HardforkT> AsEnvMut for EnvMut<'a, BlockT, TxT, HardforkT>
     type TxT = TxT;
 
     fn as_env_mut(&mut self) -> EnvMut<'_, BlockT, TxT, HardforkT> {
-        EnvMut { block: self.block, cfg: self.cfg, tx: self.tx }
+        EnvMut {
+            block: self.block,
+            cfg: self.cfg,
+            tx: self.tx,
+        }
     }
 }
 
@@ -92,7 +101,8 @@ impl<BlockT, TxT, HardforkT> AsEnvMut for Env<BlockT, TxT, HardforkT> {
     }
 }
 
-impl<DB, J, C, BlockT, TxT, HardforkT> AsEnvMut for Context<BlockT, TxT, CfgEnv<HardforkT>, DB, J, C>
+impl<DB, J, C, BlockT, TxT, HardforkT> AsEnvMut
+    for Context<BlockT, TxT, CfgEnv<HardforkT>, DB, J, C>
 where
     DB: Database,
     J: JournalTr<Database = DB>,
@@ -102,7 +112,11 @@ where
     type TxT = TxT;
 
     fn as_env_mut(&mut self) -> EnvMut<'_, BlockT, TxT, HardforkT> {
-        EnvMut { block: &mut self.block, cfg: &mut self.cfg, tx: &mut self.tx }
+        EnvMut {
+            block: &mut self.block,
+            cfg: &mut self.cfg,
+            tx: &mut self.tx,
+        }
     }
 }
 
@@ -115,10 +129,15 @@ pub trait ContextExt {
     #[allow(clippy::type_complexity)]
     fn as_db_env_and_journal(
         &mut self,
-    ) -> (&mut Self::DB, &mut JournalInner<JournalEntry>, EnvMut<'_, Self::BlockT, Self::TxT, Self::HardforkT>);
+    ) -> (
+        &mut Self::DB,
+        &mut JournalInner<JournalEntry>,
+        EnvMut<'_, Self::BlockT, Self::TxT, Self::HardforkT>,
+    );
 }
 
-impl<DB, C, BlockT, TxT, HardforkT> ContextExt for Context<BlockT, TxT, CfgEnv<HardforkT>, DB, Journal<DB, JournalEntry>, C>
+impl<DB, C, BlockT, TxT, HardforkT> ContextExt
+    for Context<BlockT, TxT, CfgEnv<HardforkT>, DB, Journal<DB, JournalEntry>, C>
 where
     DB: Database,
 {
@@ -129,11 +148,19 @@ where
 
     fn as_db_env_and_journal(
         &mut self,
-    ) -> (&mut Self::DB, &mut JournalInner<JournalEntry>, EnvMut<'_, BlockT, TxT, HardforkT>) {
+    ) -> (
+        &mut Self::DB,
+        &mut JournalInner<JournalEntry>,
+        EnvMut<'_, BlockT, TxT, HardforkT>,
+    ) {
         (
             &mut self.journaled_state.database,
             &mut self.journaled_state.inner,
-            EnvMut { block: &mut self.block, cfg: &mut self.cfg, tx: &mut self.tx },
+            EnvMut {
+                block: &mut self.block,
+                cfg: &mut self.cfg,
+                tx: &mut self.tx,
+            },
         )
     }
 }

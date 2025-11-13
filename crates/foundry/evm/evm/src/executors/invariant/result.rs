@@ -154,7 +154,7 @@ pub(crate) fn assert_invariants<
             TransactionErrorT,
         >,
     >,
-    InvariantFuzzError
+    InvariantFuzzError,
 > {
     let mut inner_sequence = vec![];
 
@@ -250,11 +250,9 @@ pub(crate) fn can_continue<
     let mut call_results = None;
 
     let handlers_succeeded =
-        invariant_run.executor.is_success(
-            false,
-            Cow::Borrowed(state_changeset),
-            false,
-        );
+        invariant_run
+            .executor
+            .is_success(false, Cow::Borrowed(state_changeset), false);
 
     // Assert invariants if the call did not revert and the handlers did not fail.
     if !call_result.reverted && handlers_succeeded {

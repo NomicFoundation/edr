@@ -9,8 +9,8 @@
 extern crate tracing;
 
 use alloy_primitives::{
-    Bytes,
     map::{B256HashMap, HashMap},
+    Bytes,
 };
 use analysis::SourceAnalysis;
 use eyre::Result;
@@ -55,7 +55,8 @@ pub struct CoverageReport {
 impl CoverageReport {
     /// Add a source file path.
     pub fn add_source(&mut self, version: Version, source_id: usize, path: PathBuf) {
-        self.source_paths.insert((version.clone(), source_id), path.clone());
+        self.source_paths
+            .insert((version.clone(), source_id), path.clone());
         self.source_paths_to_ids.insert((version, path), source_id);
     }
 
@@ -103,7 +104,9 @@ impl CoverageReport {
         for (version, items) in &self.analyses {
             for item in items.all_items() {
                 let key = (version.clone(), item.loc.source_id);
-                let Some(path) = self.source_paths.get(&key) else { continue };
+                let Some(path) = self.source_paths.get(&key) else {
+                    continue;
+                };
                 f(by_file.entry(path).or_default(), item);
             }
         }
@@ -129,7 +132,11 @@ impl CoverageReport {
 
         // Add source level hits.
         if let Some(anchors) = self.anchors.get(contract_id) {
-            let anchors = if is_deployed_code { &anchors.1 } else { &anchors.0 };
+            let anchors = if is_deployed_code {
+                &anchors.1
+            } else {
+                &anchors.0
+            };
             for anchor in anchors {
                 if let Some(hits) = hit_map.get(anchor.instruction) {
                     self.analyses
@@ -178,7 +185,9 @@ impl HitMaps {
     pub fn merge(&mut self, other: Self) {
         self.reserve(other.len());
         for (code_hash, other) in other.0 {
-            self.entry(code_hash).and_modify(|e| e.merge(&other)).or_insert(other);
+            self.entry(code_hash)
+                .and_modify(|e| e.merge(&other))
+                .or_insert(other);
         }
     }
 
@@ -216,7 +225,13 @@ impl HitMap {
     /// Create a new hitmap with the given bytecode.
     #[inline]
     pub fn new(bytecode: Bytes) -> Self {
-        Self { bytecode, hits: HashMap::with_capacity_and_hasher(1024, alloy_primitives::map::foldhash::fast::RandomState::default()) }
+        Self {
+            bytecode,
+            hits: HashMap::with_capacity_and_hasher(
+                1024,
+                alloy_primitives::map::foldhash::fast::RandomState::default(),
+            ),
+        }
     }
 
     /// Returns the bytecode.
@@ -349,7 +364,9 @@ impl Display for CoverageItem {
             CoverageItemKind::Statement => {
                 write!(f, "Statement")?;
             }
-            CoverageItemKind::Branch { branch_id, path_id, .. } => {
+            CoverageItemKind::Branch {
+                branch_id, path_id, ..
+            } => {
                 write!(f, "Branch (branch: {branch_id}, path: {path_id})")?;
             }
             CoverageItemKind::Function { name } => {
@@ -375,7 +392,11 @@ pub struct SourceLocation {
 
 impl Display for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "source ID {}, lines {:?}, bytes {:?}", self.source_id, self.lines, self.bytes)
+        write!(
+            f,
+            "source ID {}, lines {:?}, bytes {:?}",
+            self.source_id, self.lines, self.bytes
+        )
     }
 }
 

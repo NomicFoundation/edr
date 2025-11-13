@@ -2,18 +2,18 @@
 
 pub mod runtime_transport;
 
-use edr_defaults::ALCHEMY_FREE_TIER_CUPS;
-use runtime_transport::RuntimeTransportBuilder;
+use alloy_chains::NamedChain;
 use alloy_provider::{
-    Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
     fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
     network::{AnyNetwork, EthereumWallet},
+    Identity, ProviderBuilder as AlloyProviderBuilder, RootProvider,
 };
 use alloy_rpc_client::ClientBuilder;
 use alloy_transport::{layers::RetryBackoffLayer, utils::guess_local_url};
+use edr_defaults::ALCHEMY_FREE_TIER_CUPS;
 use eyre::{Result, WrapErr};
-use alloy_chains::NamedChain;
 use reqwest::Url;
+use runtime_transport::RuntimeTransportBuilder;
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
@@ -282,7 +282,9 @@ impl ProviderBuilder {
             .with_jwt(jwt)
             .accept_invalid_certs(accept_invalid_certs)
             .build();
-        let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
+        let client = ClientBuilder::default()
+            .layer(retry_layer)
+            .transport(transport, is_local);
 
         if !is_local {
             client.set_poll_interval(
@@ -290,7 +292,9 @@ impl ProviderBuilder {
                     .average_blocktime_hint()
                     // we cap the poll interval because if not provided, chain would default to
                     // mainnet
-                    .map_or(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME,|hint| hint.min(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME))
+                    .map_or(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME, |hint| {
+                        hint.min(DEFAULT_UNKNOWN_CHAIN_BLOCK_TIME)
+                    })
                     .mul_f32(POLL_INTERVAL_BLOCK_TIME_SCALE_FACTOR),
             );
         }
@@ -327,7 +331,9 @@ impl ProviderBuilder {
             .accept_invalid_certs(accept_invalid_certs)
             .build();
 
-        let client = ClientBuilder::default().layer(retry_layer).transport(transport, is_local);
+        let client = ClientBuilder::default()
+            .layer(retry_layer)
+            .transport(transport, is_local);
 
         if !is_local {
             client.set_poll_interval(

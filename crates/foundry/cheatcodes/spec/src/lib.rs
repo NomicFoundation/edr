@@ -2,7 +2,6 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-
 #![allow(clippy::match_same_arms)]
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::default_trait_access)]
@@ -115,11 +114,13 @@ mod tests {
 
     const JSON_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/cheatcodes.json");
     #[cfg(feature = "schema")]
-    const SCHEMA_PATH: &str =
-        concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/cheatcodes.schema.json");
+    const SCHEMA_PATH: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../assets/cheatcodes.schema.json"
+    );
     const IFACE_PATH: &str = concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../edr_solidity_tests/tests/testdata/cheats/Vm.sol"
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../edr_solidity_tests/tests/testdata/cheats/Vm.sol"
     );
 
     /// Generates the `cheatcodes.json` file contents.
@@ -179,7 +180,10 @@ interface Vm {{
             return;
         }
 
-        eprintln!("\n\x1b[31;1merror\x1b[0m: {} was not up-to-date, updating\n", file.display());
+        eprintln!(
+            "\n\x1b[31;1merror\x1b[0m: {} was not up-to-date, updating\n",
+            file.display()
+        );
         if std::env::var("CI").is_ok() {
             eprintln!("    NOTE: run `cargo cheats` locally and commit the updated files\n");
         }

@@ -37,7 +37,9 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     /// based on the configured rpc cache path.
     pub fn block_cache_dir(&self, chain_id: impl Into<Chain>, block: u64) -> Option<PathBuf> {
         self.rpc_cache_path.as_ref().map(|rpc_cache_path| {
-            rpc_cache_path.join(chain_id.into().to_string()).join(block.to_string())
+            rpc_cache_path
+                .join(chain_id.into().to_string())
+                .join(block.to_string())
         })
     }
 }

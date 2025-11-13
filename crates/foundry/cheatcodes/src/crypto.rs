@@ -1,25 +1,28 @@
 //! Implementations of [`Crypto`](spec::Group::Crypto) Cheatcodes.
 
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, Result, Vm::{signCall, signCompactCall, signP256Call, publicKeyP256Call}};
+use crate::{
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
+    Vm::{publicKeyP256Call, signCall, signCompactCall, signP256Call},
+};
 use alloy_primitives::{B256, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
-use k256::{
-    elliptic_curve::{bigint::ArrayEncoding, sec1::ToEncodedPoint},
+use foundry_evm_core::backend::CheatcodeBackend;
+use foundry_evm_core::evm_context::{
+    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
 };
 use k256::ecdsa::SigningKey;
+use k256::elliptic_curve::{bigint::ArrayEncoding, sec1::ToEncodedPoint};
 use p256::ecdsa::{
-    Signature as P256Signature, SigningKey as P256SigningKey, signature::hazmat::PrehashSigner,
+    signature::hazmat::PrehashSigner, Signature as P256Signature, SigningKey as P256SigningKey,
 };
 use revm::context::result::HaltReasonTr;
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait};
 
 impl_is_pure_true!(signCall);
 impl Cheatcode for signCall {
     fn apply<
-
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -36,7 +39,18 @@ impl Cheatcode for signCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self { privateKey, digest } = self;
         let sig = sign(privateKey, digest)?;
         Ok(encode_full_sig(sig))
@@ -62,7 +76,18 @@ impl Cheatcode for signCompactCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self { privateKey, digest } = self;
         let sig = sign(privateKey, digest)?;
         Ok(encode_compact_sig(sig))
@@ -88,15 +113,18 @@ impl Cheatcode for signP256Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, _state: &mut Cheatcodes<
-        BlockT,
-        TxT,
-        ChainContextT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-    >) -> Result {
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self { privateKey, digest } = self;
         sign_p256(privateKey, digest)
     }
@@ -121,18 +149,23 @@ impl Cheatcode for publicKeyP256Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, _state: &mut Cheatcodes<
-        BlockT,
-        TxT,
-        ChainContextT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-    >) -> Result {
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self { privateKey } = self;
-        let pub_key =
-            parse_private_key_p256(privateKey)?.verifying_key().as_affine().to_encoded_point(false);
+        let pub_key = parse_private_key_p256(privateKey)?
+            .verifying_key()
+            .as_affine()
+            .to_encoded_point(false);
         let pub_key_x = U256::from_be_bytes((*pub_key.x().unwrap()).into());
         let pub_key_y = U256::from_be_bytes((*pub_key.y().unwrap()).into());
 
@@ -164,7 +197,6 @@ fn sign(private_key: &U256, digest: &B256) -> Result<alloy_primitives::Signature
     Ok(sig)
 }
 
-
 fn sign_p256(private_key: &U256, digest: &B256) -> Result {
     let signing_key = parse_private_key_p256(private_key)?;
     let signature: P256Signature = signing_key.sign_prehash(digest.as_slice())?;
@@ -194,7 +226,9 @@ fn parse_private_key(private_key: &U256) -> Result<SigningKey> {
 
 fn parse_private_key_p256(private_key: &U256) -> Result<P256SigningKey> {
     validate_private_key::<p256::NistP256>(private_key)?;
-    Ok(P256SigningKey::from_bytes((&private_key.to_be_bytes()).into())?)
+    Ok(P256SigningKey::from_bytes(
+        (&private_key.to_be_bytes()).into(),
+    )?)
 }
 
 pub(super) fn parse_wallet(private_key: &U256) -> Result<PrivateKeySigner> {
@@ -204,7 +238,7 @@ pub(super) fn parse_wallet(private_key: &U256) -> Result<PrivateKeySigner> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{FixedBytes, hex::FromHex};
+    use alloy_primitives::{hex::FromHex, FixedBytes};
     use p256::ecdsa::signature::hazmat::PrehashVerifier;
 
     #[test]
@@ -216,24 +250,27 @@ mod tests {
         let digest = FixedBytes::from_hex(
             "0x44acf6b7e36c1342c2c5897204fe09504e1e2efb1a900377dbc4e7a6a133ec56",
         )
-            .unwrap();
+        .unwrap();
 
         let result = sign_p256(&pk_u256, &digest).unwrap();
         let result_bytes: [u8; 64] = result.try_into().unwrap();
         let signature = P256Signature::from_bytes(&result_bytes.into()).unwrap();
         let verifying_key = VerifyingKey::from(&signing_key);
-        assert!(verifying_key.verify_prehash(digest.as_slice(), &signature).is_ok());
+        assert!(verifying_key
+            .verify_prehash(digest.as_slice(), &signature)
+            .is_ok());
     }
 
     #[test]
     fn test_sign_p256_pk_too_large() {
         // max n from https://neuromancer.sk/std/secg/secp256r1
-        let pk =
-            "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551".parse().unwrap();
+        let pk = "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"
+            .parse()
+            .unwrap();
         let digest = FixedBytes::from_hex(
             "0x54705ba3baafdbdfba8c5f9a70f7a89bee98d906b53e31074da7baecdc0da9ad",
         )
-            .unwrap();
+        .unwrap();
         let result = sign_p256(&pk, &digest);
         assert_eq!(
             result.err().unwrap().to_string(),
@@ -246,7 +283,7 @@ mod tests {
         let digest = FixedBytes::from_hex(
             "0x54705ba3baafdbdfba8c5f9a70f7a89bee98d906b53e31074da7baecdc0da9ad",
         )
-            .unwrap();
+        .unwrap();
         let result = sign_p256(&U256::ZERO, &digest);
         assert_eq!(result.err().unwrap().to_string(), "private key cannot be 0");
     }

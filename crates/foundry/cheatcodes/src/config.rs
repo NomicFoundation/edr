@@ -5,8 +5,8 @@ use std::{
     time::Duration,
 };
 
-use alloy_primitives::U256;
 use alloy_primitives::map::AddressHashMap;
+use alloy_primitives::U256;
 use edr_common::fs::normalize_path;
 use edr_solidity::artifacts::ArtifactId;
 use foundry_compilers::utils::canonicalize;
@@ -127,7 +127,8 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
             rpc_storage_caching,
             fs_permissions,
             labels,
-            seed, allow_internal_expect_revert,
+            seed,
+            allow_internal_expect_revert,
         } = config;
 
         // TODO
@@ -191,7 +192,10 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         ensure!(
             self.is_normalized_path_allowed(&normalized, kind),
             "the path {} is not allowed to be accessed for {kind} operations",
-            normalized.strip_prefix(&self.project_root).unwrap_or(path).display()
+            normalized
+                .strip_prefix(&self.project_root)
+                .unwrap_or(path)
+                .display()
         );
         Ok(normalized)
     }
@@ -232,7 +236,10 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         let mut urls = Vec::with_capacity(self.rpc_endpoints.len());
         for alias in self.rpc_endpoints.keys() {
             let url = self.rpc_endpoint(alias)?.url;
-            urls.push(Rpc { key: alias.clone(), url: url.into() });
+            urls.push(Rpc {
+                key: alias.clone(),
+                url: url.into(),
+            });
         }
         Ok(urls)
     }
@@ -269,7 +276,8 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         }
 
         // Add new mappings
-        self.chain_id_to_alias.insert(data.chain_id, alias.to_string());
+        self.chain_id_to_alias
+            .insert(data.chain_id, alias.to_string());
         self.chains.insert(alias.to_string(), data);
     }
 
@@ -292,13 +300,18 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         }
 
         // Chain not found in either case
-        Err(fmt_err!("vm.getChain: Chain with alias \"{}\" not found", alias))
+        Err(fmt_err!(
+            "vm.getChain: Chain with alias \"{}\" not found",
+            alias
+        ))
     }
 
     /// Get RPC URL for an alias
     pub fn get_rpc_url_non_mut(&self, alias: &str) -> Result<String> {
         // Try to get from config first
-        if let Ok(endpoint) = self.rpc_endpoint(alias) { Ok(endpoint.url.into()) } else {
+        if let Ok(endpoint) = self.rpc_endpoint(alias) {
+            Ok(endpoint.url.into())
+        } else {
             // If not in config, try to get default URL
             let chain_data = self.get_chain_data_by_alias_non_mut(alias)?;
             Ok(chain_data.default_rpc_url)

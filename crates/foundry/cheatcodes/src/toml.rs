@@ -1,18 +1,26 @@
 //! Implementations of [`Toml`](spec::Group::Toml) cheatcodes.
 
 #[allow(clippy::wildcard_imports)]
-use crate::{Cheatcode, Cheatcodes, Result, Vm::*, json::{
-    canonicalize_json_path, check_json_key_exists, parse_json, parse_json_coerce,
-    parse_json_keys, resolve_type,
-}, FsAccessKind, impl_is_pure_true, impl_is_pure_false};
-use foundry_evm_core::{
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait},
-    backend::CheatcodeBackend,
+use crate::{
+    impl_is_pure_false, impl_is_pure_true,
+    json::{
+        canonicalize_json_path, check_json_key_exists, parse_json, parse_json_coerce,
+        parse_json_keys, resolve_type,
+    },
+    Cheatcode, Cheatcodes, FsAccessKind, Result,
+    Vm::*,
 };
-use revm::context::result::HaltReasonTr;
 use alloy_dyn_abi::DynSolType;
 use alloy_sol_types::SolValue;
 use edr_common::fs;
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
+};
+use revm::context::result::HaltReasonTr;
 use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
 
@@ -192,7 +200,11 @@ impl Cheatcode for parseTomlUintArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::Array(Box::new(DynSolType::Uint(256))))
+        parse_toml_coerce(
+            toml,
+            key,
+            &DynSolType::Array(Box::new(DynSolType::Uint(256))),
+        )
     }
 }
 
@@ -264,7 +276,11 @@ impl Cheatcode for parseTomlIntArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::Array(Box::new(DynSolType::Int(256))))
+        parse_toml_coerce(
+            toml,
+            key,
+            &DynSolType::Array(Box::new(DynSolType::Int(256))),
+        )
     }
 }
 
@@ -624,7 +640,11 @@ impl Cheatcode for parseTomlBytes32ArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::Array(Box::new(DynSolType::FixedBytes(32))))
+        parse_toml_coerce(
+            toml,
+            key,
+            &DynSolType::Array(Box::new(DynSolType::FixedBytes(32))),
+        )
     }
 }
 
@@ -659,7 +679,10 @@ impl Cheatcode for parseTomlType_0Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { toml, typeDescription } = self;
+        let Self {
+            toml,
+            typeDescription,
+        } = self;
         parse_toml_coerce(toml, "$", &resolve_type(typeDescription)?).map(|v| v.abi_encode())
     }
 }
@@ -695,7 +718,11 @@ impl Cheatcode for parseTomlType_1Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { toml, key, typeDescription } = self;
+        let Self {
+            toml,
+            key,
+            typeDescription,
+        } = self;
         parse_toml_coerce(toml, key, &resolve_type(typeDescription)?).map(|v| v.abi_encode())
     }
 }
@@ -731,7 +758,11 @@ impl Cheatcode for parseTomlTypeArrayCall {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { toml, key, typeDescription } = self;
+        let Self {
+            toml,
+            key,
+            typeDescription,
+        } = self;
         let ty = resolve_type(typeDescription)?;
         parse_toml_coerce(toml, key, &DynSolType::Array(Box::new(ty))).map(|v| v.abi_encode())
     }
@@ -844,7 +875,11 @@ impl Cheatcode for writeToml_1Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { json, path, valueKey } = self;
+        let Self {
+            json,
+            path,
+            valueKey,
+        } = self;
         let json =
             serde_json::from_str(json).unwrap_or_else(|_| JsonValue::String(json.to_owned()));
 
@@ -906,9 +941,11 @@ fn toml_to_json_value(toml: TomlValue) -> JsonValue {
         TomlValue::Float(f) => JsonValue::Number(serde_json::Number::from_f64(f).unwrap()),
         TomlValue::Boolean(b) => JsonValue::Bool(b),
         TomlValue::Array(a) => JsonValue::Array(a.into_iter().map(toml_to_json_value).collect()),
-        TomlValue::Table(t) => {
-            JsonValue::Object(t.into_iter().map(|(k, v)| (k, toml_to_json_value(v))).collect())
-        }
+        TomlValue::Table(t) => JsonValue::Object(
+            t.into_iter()
+                .map(|(k, v)| (k, toml_to_json_value(v)))
+                .collect(),
+        ),
         TomlValue::Datetime(d) => JsonValue::String(d.to_string()),
     }
 }
@@ -926,9 +963,11 @@ fn json_to_toml_value(json: JsonValue) -> TomlValue {
         },
         JsonValue::Bool(b) => TomlValue::Boolean(b),
         JsonValue::Array(a) => TomlValue::Array(a.into_iter().map(json_to_toml_value).collect()),
-        JsonValue::Object(o) => {
-            TomlValue::Table(o.into_iter().map(|(k, v)| (k, json_to_toml_value(v))).collect())
-        }
+        JsonValue::Object(o) => TomlValue::Table(
+            o.into_iter()
+                .map(|(k, v)| (k, json_to_toml_value(v)))
+                .collect(),
+        ),
         JsonValue::Null => TomlValue::String("null".to_string()),
     }
 }

@@ -29,6 +29,10 @@ use foundry_evm::{
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
+use crate::contracts::get_contract_name;
+use crate::error::TestRunnerError;
+use crate::fuzz::invariant::InvariantConfig;
+use crate::fuzz::FuzzConfig;
 use crate::{
     config::CollectStackTraces,
     result::SuiteResult,
@@ -36,10 +40,6 @@ use crate::{
     ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
     TestFilter,
 };
-use crate::contracts::get_contract_name;
-use crate::error::TestRunnerError;
-use crate::fuzz::FuzzConfig;
-use crate::fuzz::invariant::InvariantConfig;
 
 pub struct SuiteResultAndArtifactId<HaltReasonT> {
     pub artifact_id: ArtifactId,
@@ -294,10 +294,13 @@ impl<
         fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
         filter: &dyn TestFilter,
         handle: &tokio::runtime::Handle,
-    ) -> Result<(
-        SuiteResult<HaltReasonT>,
-        Option<crate::gas_report::GasReport>,
-    ), TestRunnerError> {
+    ) -> Result<
+        (
+            SuiteResult<HaltReasonT>,
+            Option<crate::gas_report::GasReport>,
+        ),
+        TestRunnerError,
+    > {
         let identifier = artifact_id.identifier();
         let mut span_name = identifier.as_str();
 
@@ -354,20 +357,27 @@ impl<
         debug!("start executing all tests in contract");
 
         let runner: ContractRunner<'_, _, _, EvmBuilderT, HaltReasonT, _, _, _, _> =
-            ContractRunner::new(&identifier, executor_builder, contract, ContractRunnerArtifacts {
+            ContractRunner::new(
+                &identifier,
+                executor_builder,
+                contract,
+                ContractRunnerArtifacts {
                     revert_decoder: &self.revert_decoder,
                     known_contracts: &self.known_contracts,
                     libs_to_deploy: &self.libs_to_deploy,
                     contract_decoder: Arc::clone(&self.contract_decoder),
                     _phantom: PhantomData,
-                }, ContractRunnerOptions {
+                },
+                ContractRunnerOptions {
                     initial_balance: self.evm_opts.initial_balance,
                     sender: self.evm_opts.sender,
                     enable_fuzz_fixtures: self.enable_fuzz_fixtures,
-                enable_table_tests: self.enable_table_tests,
+                    enable_table_tests: self.enable_table_tests,
                     fuzz_config: &self.fuzz_config,
-                    invariant_config: &self.invariant_config
-                }, span);
+                    invariant_config: &self.invariant_config,
+                },
+                span,
+            );
         let mut r = runner.run_tests(filter, handle)?;
 
         let mut gas_report = self
@@ -447,14 +457,16 @@ impl<
         let (tx_results, mut rx_results) =
             tokio::sync::mpsc::unbounded_channel::<SuiteResultAndArtifactId<HaltReasonT>>();
 
-        let test_result = self.test(
-            tokio::runtime::Handle::current(),
-            Arc::new(filter),
-            Arc::new(move |suite_result| {
-                let _ = tx_results.clone().send(suite_result);
-            }),
-            // TODO return error instead once testsa are backported
-        ).expect("fork created successfully");
+        let test_result = self
+            .test(
+                tokio::runtime::Handle::current(),
+                Arc::new(filter),
+                Arc::new(move |suite_result| {
+                    let _ = tx_results.clone().send(suite_result);
+                }),
+                // TODO return error instead once testsa are backported
+            )
+            .expect("fork created successfully");
 
         let mut suite_results = BTreeMap::new();
 
@@ -512,8 +524,13 @@ impl<
             .into_par_iter()
             .map(|(id, contract)| {
                 let _guard = tokio_handle.enter();
-                let (result, gas_report) =
-                    self.run_test_suite(&id, &contract, fork.clone(), filter.as_ref(), &tokio_handle)?;
+                let (result, gas_report) = self.run_test_suite(
+                    &id,
+                    &contract,
+                    fork.clone(),
+                    filter.as_ref(),
+                    &tokio_handle,
+                )?;
 
                 on_test_suite_completed_fn(SuiteResultAndArtifactId {
                     artifact_id: id,

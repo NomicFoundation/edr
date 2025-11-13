@@ -182,7 +182,14 @@ impl
         Self::evm_with_journal_and_inspector(journaled_state, env, inspector)
     }
 
-    fn evm_with_journal_and_inspector<DatabaseT: Database, InspectorT: Inspector<EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>, EthInterpreter>>(journaled_state: Journal<DatabaseT>, env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>, inspector: InspectorT) -> Self::Evm<DatabaseT, InspectorT> {
+    fn evm_with_journal_and_inspector<
+        DatabaseT: Database,
+        InspectorT: Inspector<EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>, EthInterpreter>,
+    >(
+        journaled_state: Journal<DatabaseT>,
+        env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>,
+        inspector: InspectorT,
+    ) -> Self::Evm<DatabaseT, InspectorT> {
         let context = revm::Context {
             tx: env.tx,
             block: env.block,

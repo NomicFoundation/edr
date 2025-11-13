@@ -2,7 +2,7 @@ use super::state::EvmFuzzState;
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::{Address, B256, I256, U256};
 use proptest::prelude::*;
-use rand::{SeedableRng, rngs::StdRng};
+use rand::{rngs::StdRng, SeedableRng};
 
 /// The max length of arrays we fuzz for is 256.
 const MAX_ARRAY_LEN: usize = 256;
@@ -60,14 +60,14 @@ fn fuzz_param_inner(
                 },
                 50 => default_strategy,
             ]
-                .boxed()
+            .boxed()
         } else {
             default_strategy.boxed()
         }
     };
 
     match *param {
-        DynSolType::Address | DynSolType::Bytes=> value(),
+        DynSolType::Address | DynSolType::Bytes => value(),
         DynSolType::Int(n @ 8..=256) => super::IntStrategy::new(n, fuzz_fixtures)
             .prop_map(move |x| DynSolValue::Int(x, n))
             .boxed(),
@@ -79,7 +79,12 @@ fn fuzz_param_inner(
         DynSolType::String => value()
             .prop_map(move |value| {
                 DynSolValue::String(
-                    value.as_str().unwrap().trim().trim_end_matches('\0').to_string(),
+                    value
+                        .as_str()
+                        .unwrap()
+                        .trim()
+                        .trim_end_matches('\0')
+                        .to_string(),
                 )
             })
             .boxed(),
@@ -160,7 +165,9 @@ pub fn fuzz_param_from_state(
             .boxed(),
         DynSolType::FixedBytes(size @ 1..=32) => value()
             .prop_map(move |mut v| {
-                let slice = v.get_mut(size..).expect("value should be at least size bytes");
+                let slice = v
+                    .get_mut(size..)
+                    .expect("value should be at least size bytes");
                 slice.fill(0);
                 DynSolValue::FixedBytes(B256::from(v), size)
             })
@@ -169,13 +176,18 @@ pub fn fuzz_param_from_state(
         DynSolType::String => DynSolValue::type_strategy(param)
             .prop_map(move |value| {
                 DynSolValue::String(
-                    value.as_str().unwrap().trim().trim_end_matches('\0').to_string(),
+                    value
+                        .as_str()
+                        .unwrap()
+                        .trim()
+                        .trim_end_matches('\0')
+                        .to_string(),
                 )
             })
             .boxed(),
-        DynSolType::Bytes => {
-            value().prop_map(move |value| DynSolValue::Bytes(value.0.into())).boxed()
-        }
+        DynSolType::Bytes => value()
+            .prop_map(move |value| DynSolValue::Bytes(value.0.into()))
+            .boxed(),
         DynSolType::Int(n @ 8..=256) => match n / 8 {
             32 => value()
                 .prop_map(move |value| DynSolValue::Int(I256::from_raw(value.into()), 256))
@@ -226,9 +238,12 @@ pub fn fuzz_param_from_state(
 
 #[cfg(test)]
 mod tests {
-    use crate::{FuzzFixtures, strategies::{EvmFuzzState, fuzz_calldata, fuzz_calldata_from_state}, FuzzDictionaryConfig};
-    use revm::database::{CacheDB, EmptyDB};
+    use crate::{
+        strategies::{fuzz_calldata, fuzz_calldata_from_state, EvmFuzzState},
+        FuzzDictionaryConfig, FuzzFixtures,
+    };
     use foundry_evm_traces::abi::get_func;
+    use revm::database::{CacheDB, EmptyDB};
 
     #[test]
     fn can_fuzz_array() {
@@ -240,7 +255,10 @@ mod tests {
             60 => fuzz_calldata(func.clone(), &FuzzFixtures::default()),
             40 => fuzz_calldata_from_state(func, &state),
         ];
-        let cfg = proptest::test_runner::Config { failure_persistence: None, ..Default::default() };
+        let cfg = proptest::test_runner::Config {
+            failure_persistence: None,
+            ..Default::default()
+        };
         let mut runner = proptest::test_runner::TestRunner::new(cfg);
         let _ = runner.run(&strategy, |_| Ok(()));
     }

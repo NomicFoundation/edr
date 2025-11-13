@@ -1,9 +1,9 @@
+use crate::abi::{get_error, get_event, get_func};
+use crate::identifier::selectors::{OpenChainClient, SelectorKind};
 use alloy_json_abi::{Error, Event, Function, JsonAbi};
 use alloy_primitives::{map::HashMap, Selector, B256};
+use edr_common::fs;
 use eyre::Result;
-use edr_common::{
-    fs,
-};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -11,8 +11,6 @@ use std::{
     sync::Arc,
 };
 use tokio::sync::RwLock;
-use crate::abi::{get_error, get_event, get_func};
-use crate::identifier::selectors::{OpenChainClient, SelectorKind};
 
 /// Cache for function, event and error signatures. Used by [`SignaturesIdentifier`].
 #[derive(Debug, Default, Deserialize)]
@@ -67,7 +65,11 @@ impl From<&SignaturesCache> for SignaturesDiskCache {
                 acc
             },
         );
-        Self { functions, errors, events }
+        Self {
+            functions,
+            errors,
+            events,
+        }
     }
 }
 
@@ -130,8 +132,11 @@ impl SignaturesCache {
 
     /// Extends the cache with multiple signatures.
     pub fn extend(&mut self, signatures: impl IntoIterator<Item = (SelectorKind, String)>) {
-        self.signatures
-            .extend(signatures.into_iter().map(|(k, v)| (k, (!v.is_empty()).then_some(v))));
+        self.signatures.extend(
+            signatures
+                .into_iter()
+                .map(|(k, v)| (k, (!v.is_empty()).then_some(v))),
+        );
     }
 
     /// Gets a signature from the cache.
@@ -163,7 +168,11 @@ impl SignaturesIdentifier {
     /// - `cache_dir` is the cache directory to store the signatures.
     /// - `offline` disables the `OpenChain` client.
     pub fn new_with(cache_dir: Option<&Path>, offline: bool) -> Result<Self> {
-        let client = if !offline { Some(OpenChainClient::new()?) } else { None };
+        let client = if !offline {
+            Some(OpenChainClient::new()?)
+        } else {
+            None
+        };
         let (cache, cache_path) = if let Some(cache_dir) = cache_dir {
             let path = cache_dir.join("signatures");
             let cache = SignaturesCache::load(&path);
@@ -171,7 +180,11 @@ impl SignaturesIdentifier {
         } else {
             Default::default()
         };
-        Ok(Self { cache: Arc::new(RwLock::new(cache)), cache_path, client })
+        Ok(Self {
+            cache: Arc::new(RwLock::new(cache)),
+            cache_path,
+            client,
+        })
     }
 
     /// Saves the cache to the file system.
@@ -189,7 +202,11 @@ impl SignaturesIdentifier {
         &self,
         identifiers: impl IntoIterator<Item = Selector>,
     ) -> Vec<Option<Function>> {
-        self.identify_map(identifiers.into_iter().map(SelectorKind::Function), get_func).await
+        self.identify_map(
+            identifiers.into_iter().map(SelectorKind::Function),
+            get_func,
+        )
+        .await
     }
 
     /// Identifies a `Function`.
@@ -202,7 +219,8 @@ impl SignaturesIdentifier {
         &self,
         identifiers: impl IntoIterator<Item = B256>,
     ) -> Vec<Option<Event>> {
-        self.identify_map(identifiers.into_iter().map(SelectorKind::Event), get_event).await
+        self.identify_map(identifiers.into_iter().map(SelectorKind::Event), get_event)
+            .await
     }
 
     /// Identifies an `Event`.
@@ -215,7 +233,8 @@ impl SignaturesIdentifier {
         &self,
         identifiers: impl IntoIterator<Item = Selector>,
     ) -> Vec<Option<Error>> {
-        self.identify_map(identifiers.into_iter().map(SelectorKind::Error), get_error).await
+        self.identify_map(identifiers.into_iter().map(SelectorKind::Error), get_error)
+            .await
     }
 
     /// Identifies an `Error`.
@@ -232,21 +251,29 @@ impl SignaturesIdentifier {
 
         let mut cache_r = self.cache.read().await;
         if let Some(client) = &self.client {
-            let query =
-                selectors.iter().copied().filter(|v| !cache_r.contains_key(v)).collect::<Vec<_>>();
+            let query = selectors
+                .iter()
+                .copied()
+                .filter(|v| !cache_r.contains_key(v))
+                .collect::<Vec<_>>();
             if !query.is_empty() {
                 drop(cache_r);
                 let mut cache_w = self.cache.write().await;
                 if let Ok(res) = client.decode_selectors(&query).await {
                     for (selector, signatures) in std::iter::zip(query, res) {
-                        cache_w.signatures.insert(selector, signatures.into_iter().next());
+                        cache_w
+                            .signatures
+                            .insert(selector, signatures.into_iter().next());
                     }
                 }
                 drop(cache_w);
                 cache_r = self.cache.read().await;
             }
         }
-        selectors.iter().map(|selector| cache_r.get(selector).unwrap_or_default()).collect()
+        selectors
+            .iter()
+            .map(|selector| cache_r.get(selector).unwrap_or_default())
+            .collect()
     }
 
     async fn identify_map<T>(
@@ -255,7 +282,10 @@ impl SignaturesIdentifier {
         get_type: impl Fn(&str) -> Result<T>,
     ) -> Vec<Option<T>> {
         let results = self.identify(&Vec::from_iter(selectors)).await;
-        results.into_iter().map(|r| r.and_then(|r| get_type(&r).ok())).collect()
+        results
+            .into_iter()
+            .map(|r| r.and_then(|r| get_type(&r).ok()))
+            .collect()
     }
 }
 

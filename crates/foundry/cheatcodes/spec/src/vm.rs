@@ -2,7 +2,10 @@
 // module. Instead, we emit custom diagnostics in `#[derive(Cheatcode)]`.
 #![allow(missing_docs)]
 
-use super::{Error, Enum, Cow, EnumVariant, Struct, StructField, CheatcodeDef, Cheatcode, Function, Visibility, Mutability, Group, Status, Safety, fmt};
+use super::{
+    fmt, Cheatcode, CheatcodeDef, Cow, Enum, EnumVariant, Error, Function, Group, Mutability,
+    Safety, Status, Struct, StructField, Visibility,
+};
 use alloy_sol_types::sol;
 use edr_macros::Cheatcode;
 
@@ -2529,7 +2532,6 @@ interface Vm {
     function interceptInitcode() external;
 }
 }
-
 
 impl fmt::Display for Vm::CheatcodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -2,7 +2,6 @@
 //! WebSocket, or IPC transport and supports retries based on CUPS logic.
 
 use super::REQUEST_TIMEOUT;
-use edr_defaults::DEFAULT_USER_AGENT;
 use alloy_json_rpc::{RequestPacket, ResponsePacket};
 use alloy_pubsub::{PubSubConnect, PubSubFrontend};
 use alloy_rpc_types::engine::{Claims, JwtSecret};
@@ -12,6 +11,7 @@ use alloy_transport::{
 use alloy_transport_http::Http;
 use alloy_transport_ipc::IpcConnect;
 use alloy_transport_ws::WsConnect;
+use edr_defaults::DEFAULT_USER_AGENT;
 use reqwest::header::{HeaderName, HeaderValue};
 use std::{fmt, path::PathBuf, str::FromStr, sync::Arc};
 use thiserror::Error;
@@ -158,7 +158,9 @@ impl RuntimeTransport {
             "http" | "https" => self.connect_http(),
             "ws" | "wss" => self.connect_ws().await,
             "file" => self.connect_ipc().await,
-            _ => Err(RuntimeTransportError::BadScheme(self.url.scheme().to_string())),
+            _ => Err(RuntimeTransportError::BadScheme(
+                self.url.scheme().to_string(),
+            )),
         }
     }
 
@@ -210,12 +212,18 @@ impl RuntimeTransport {
     /// Connects to an HTTP [`alloy_transport_http::Http`] transport.
     fn connect_http(&self) -> Result<InnerTransport, RuntimeTransportError> {
         let client = self.reqwest_client()?;
-        Ok(InnerTransport::Http(Http::with_client(client, self.url.clone())))
+        Ok(InnerTransport::Http(Http::with_client(
+            client,
+            self.url.clone(),
+        )))
     }
 
     /// Connects to a WS transport.
     async fn connect_ws(&self) -> Result<InnerTransport, RuntimeTransportError> {
-        let auth = self.jwt.as_ref().and_then(|jwt| build_auth(jwt.clone()).ok());
+        let auth = self
+            .jwt
+            .as_ref()
+            .and_then(|jwt| build_auth(jwt.clone()).ok());
         let mut ws = WsConnect::new(self.url.to_string());
         if let Some(auth) = auth {
             ws = ws.with_auth(auth);
@@ -360,13 +368,18 @@ mod tests {
 
         let http_handler = axum::routing::get(|actual_headers: HeaderMap| {
             let user_agent = HeaderName::from_str("User-Agent").unwrap();
-            assert_eq!(actual_headers[user_agent], HeaderValue::from_str("test-agent").unwrap());
+            assert_eq!(
+                actual_headers[user_agent],
+                HeaderValue::from_str("test-agent").unwrap()
+            );
 
             async { "" }
         });
 
         let server_task = tokio::spawn(async move {
-            axum::serve(listener, http_handler.into_make_service()).await.unwrap();
+            axum::serve(listener, http_handler.into_make_service())
+                .await
+                .unwrap();
         });
 
         let transport = RuntimeTransportBuilder::new(url.clone())
