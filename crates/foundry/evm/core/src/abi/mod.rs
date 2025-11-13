@@ -1,4 +1,5 @@
-//! Solidity ABI-related utilities and [`sol!`](alloy_sol_types::sol) definitions.
+//! Solidity ABI-related utilities and [`sol!`](alloy_sol_types::sol)
+//! definitions.
 
 pub use foundry_cheatcodes_spec::Vm;
 

@@ -1,6 +1,7 @@
 //! Various utilities to decode test results.
 
-use crate::abi::{console, Vm};
+use std::{fmt, sync::OnceLock};
+
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::{Error, JsonAbi};
 use alloy_primitives::{hex, map::HashMap, Log, Selector};
@@ -11,7 +12,8 @@ use alloy_sol_types::{
 use edr_defaults::SELECTOR_LEN;
 use itertools::Itertools;
 use revm::interpreter::InstructionResult;
-use std::{fmt, sync::OnceLock};
+
+use crate::abi::{console, Vm};
 
 /// A skip reason.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,7 +30,8 @@ impl SkipReason {
             })
     }
 
-    /// Decodes a skip reason from a string that was obtained by formatting `Self`.
+    /// Decodes a skip reason from a string that was obtained by formatting
+    /// `Self`.
     ///
     /// This is a hack to support re-decoding a skip reason in proptest.
     pub fn decode_self(s: &str) -> Option<Self> {
@@ -48,15 +51,16 @@ impl fmt::Display for SkipReason {
     }
 }
 
-/// Decode a set of logs, only returning logs from `DSTest` logging events and Hardhat's `console.log`
+/// Decode a set of logs, only returning logs from `DSTest` logging events and
+/// Hardhat's `console.log`
 pub fn decode_console_logs(logs: &[Log]) -> Vec<String> {
     logs.iter().filter_map(decode_console_log).collect()
 }
 
 /// Decode a single log.
 ///
-/// This function returns [None] if it is not a `DSTest` log or the result of a Hardhat
-/// `console.log`.
+/// This function returns [None] if it is not a `DSTest` log or the result of a
+/// Hardhat `console.log`.
 pub fn decode_console_log(log: &Log) -> Option<String> {
     console::ds::ConsoleEvents::decode_log(log)
         .ok()
@@ -85,7 +89,8 @@ impl RevertDecoder {
 
     /// Sets the ABIs to use for error decoding.
     ///
-    /// Note that this is decently expensive as it will hash all errors for faster indexing.
+    /// Note that this is decently expensive as it will hash all errors for
+    /// faster indexing.
     pub fn with_abis<'a>(mut self, abi: impl IntoIterator<Item = &'a JsonAbi>) -> Self {
         self.extend_from_abis(abi);
         self
@@ -93,7 +98,8 @@ impl RevertDecoder {
 
     /// Sets the ABI to use for error decoding.
     ///
-    /// Note that this is decently expensive as it will hash all errors for faster indexing.
+    /// Note that this is decently expensive as it will hash all errors for
+    /// faster indexing.
     pub fn with_abi(mut self, abi: &JsonAbi) -> Self {
         self.extend_from_abi(abi);
         self
@@ -101,7 +107,8 @@ impl RevertDecoder {
 
     /// Sets the ABI to use for error decoding, if it is present.
     ///
-    /// Note that this is decently expensive as it will hash all errors for faster indexing.
+    /// Note that this is decently expensive as it will hash all errors for
+    /// faster indexing.
     pub fn with_abi_opt(mut self, abi: Option<&JsonAbi>) -> Self {
         if let Some(abi) = abi {
             self.extend_from_abi(abi);
@@ -130,8 +137,8 @@ impl RevertDecoder {
 
     /// Tries to decode an error message from the given revert bytes.
     ///
-    /// Note that this is just a best-effort guess, and should not be relied upon for anything other
-    /// than user output.
+    /// Note that this is just a best-effort guess, and should not be relied
+    /// upon for anything other than user output.
     pub fn decode(&self, err: &[u8], status: Option<InstructionResult>) -> String {
         self.maybe_decode(err, status).unwrap_or_else(|| {
             if err.is_empty() {
@@ -150,7 +157,8 @@ impl RevertDecoder {
             return Some(reason.to_string());
         }
 
-        // Solidity's `Error(string)` (handled separately in order to strip revert: prefix)
+        // Solidity's `Error(string)` (handled separately in order to strip revert:
+        // prefix)
         if let Some(ContractError(Revert(revert))) = RevertReason::decode(err) {
             return Some(revert.reason);
         }
@@ -216,7 +224,8 @@ impl RevertDecoder {
     }
 }
 
-/// Helper function that decodes provided error as an ABI encoded or an ASCII string (if not empty).
+/// Helper function that decodes provided error as an ABI encoded or an ASCII
+/// string (if not empty).
 fn decode_as_non_empty_string(err: &[u8]) -> Option<String> {
     // ABI-encoded `string`.
     if let Ok(s) = String::abi_decode(err)

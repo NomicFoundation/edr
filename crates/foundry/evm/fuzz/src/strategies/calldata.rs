@@ -1,11 +1,12 @@
-use crate::{
-    strategies::{fuzz_param_from_state, fuzz_param_with_fixtures, EvmFuzzState},
-    FuzzFixtures,
-};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::Function;
 use alloy_primitives::Bytes;
 use proptest::prelude::Strategy;
+
+use crate::{
+    strategies::{fuzz_param_from_state, fuzz_param_with_fixtures, EvmFuzzState},
+    FuzzFixtures,
+};
 
 /// Given a function, it returns a strategy which generates valid calldata
 /// for that function's input types, following declared test fixtures.
@@ -38,8 +39,9 @@ pub fn fuzz_calldata(
     })
 }
 
-/// Given a function and some state, it returns a strategy which generated valid calldata for the
-/// given function's input types, based on state taken from the EVM.
+/// Given a function and some state, it returns a strategy which generated valid
+/// calldata for the given function's input types, based on state taken from the
+/// EVM.
 pub fn fuzz_calldata_from_state(
     func: Function,
     state: &EvmFuzzState,
@@ -65,11 +67,12 @@ pub fn fuzz_calldata_from_state(
 
 #[cfg(test)]
 mod tests {
-    use crate::{strategies::fuzz_calldata, FuzzFixtures};
     use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
     use alloy_json_abi::Function;
     use alloy_primitives::{map::HashMap, Address};
     use proptest::prelude::Strategy;
+
+    use crate::{strategies::fuzz_calldata, FuzzFixtures};
 
     #[test]
     fn can_fuzz_with_fixtures() {

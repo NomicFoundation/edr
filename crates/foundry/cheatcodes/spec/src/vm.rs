@@ -1,13 +1,15 @@
-// We don't document function parameters individually so we can't enable `missing_docs` for this
-// module. Instead, we emit custom diagnostics in `#[derive(Cheatcode)]`.
+// We don't document function parameters individually so we can't enable
+// `missing_docs` for this module. Instead, we emit custom diagnostics in
+// `#[derive(Cheatcode)]`.
 #![allow(missing_docs)]
+
+use alloy_sol_types::sol;
+use edr_macros::Cheatcode;
 
 use super::{
     fmt, Cheatcode, CheatcodeDef, Cow, Enum, EnumVariant, Error, Function, Group, Mutability,
     Safety, Status, Struct, StructField, Visibility,
 };
-use alloy_sol_types::sol;
-use edr_macros::Cheatcode;
 
 sol! {
 // Cheatcodes are marked as view/pure/none using the following rules:

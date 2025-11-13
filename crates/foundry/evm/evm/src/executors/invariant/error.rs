@@ -1,9 +1,9 @@
-use super::{BasicTxDetails, InvariantContract};
-use crate::executors::RawCallResult;
+use std::fmt::Formatter;
+
 use alloy_primitives::{Address, Bytes};
 use eyre::Report;
-use foundry_evm_core::backend::IndeterminismReasons;
 use foundry_evm_core::{
+    backend::IndeterminismReasons,
     decode::RevertDecoder,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
@@ -16,7 +16,9 @@ use foundry_evm_fuzz::{
 };
 use proptest::test_runner::TestError;
 use revm::context::result::HaltReasonTr;
-use std::fmt::Formatter;
+
+use super::{BasicTxDetails, InvariantContract};
+use crate::executors::RawCallResult;
 
 /// Stores information about failures and reverts of the invariant tests.
 #[derive(Clone, Debug, Default)]

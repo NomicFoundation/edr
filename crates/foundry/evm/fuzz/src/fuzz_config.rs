@@ -1,8 +1,11 @@
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    sync::{OnceLock, RwLock},
+};
+
 use alloy_primitives::U256;
 use proptest::test_runner::{FailurePersistence, FileFailurePersistence};
-use std::collections::HashSet;
-use std::path::PathBuf;
-use std::sync::{OnceLock, RwLock};
 
 static FAILURE_PATHS: OnceLock<RwLock<HashSet<&'static str>>> = OnceLock::new();
 

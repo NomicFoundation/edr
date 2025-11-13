@@ -1,5 +1,5 @@
-use crate::invariant::{BasicTxDetails, FuzzRunIdentifiedContracts};
-use crate::FuzzDictionaryConfig;
+use std::{collections::BTreeMap, fmt, sync::Arc};
+
 use alloy_dyn_abi::{DynSolType, DynSolValue, EventExt, FunctionExt};
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{
@@ -13,21 +13,28 @@ use revm::{
     database::{CacheDB, DatabaseRef, DbAccount},
     state::AccountInfo,
 };
-use std::{collections::BTreeMap, fmt, sync::Arc};
 
-/// The maximum number of bytes we will look at in bytecodes to find push bytes (24 KiB).
+use crate::{
+    invariant::{BasicTxDetails, FuzzRunIdentifiedContracts},
+    FuzzDictionaryConfig,
+};
+
+/// The maximum number of bytes we will look at in bytecodes to find push bytes
+/// (24 KiB).
 ///
-/// This is to limit the performance impact of fuzz tests that might deploy arbitrarily sized
-/// bytecode (as is the case with Solmate).
+/// This is to limit the performance impact of fuzz tests that might deploy
+/// arbitrarily sized bytecode (as is the case with Solmate).
 const PUSH_BYTE_ANALYSIS_LIMIT: usize = 24 * 1024;
 
-/// A set of arbitrary 32 byte data from the VM used to generate values for the strategy.
+/// A set of arbitrary 32 byte data from the VM used to generate values for the
+/// strategy.
 ///
 /// Wrapped in a shareable container.
 #[derive(Clone, Debug)]
 pub struct EvmFuzzState {
     inner: Arc<RwLock<FuzzDictionary>>,
-    /// Addresses of external libraries deployed in test setup, excluded from fuzz test inputs.
+    /// Addresses of external libraries deployed in test setup, excluded from
+    /// fuzz test inputs.
     pub deployed_libs: Vec<Address>,
 }
 
@@ -37,7 +44,8 @@ impl EvmFuzzState {
         config: FuzzDictionaryConfig,
         deployed_libs: &[Address],
     ) -> Self {
-        // Sort accounts to ensure deterministic dictionary generation from the same setUp state.
+        // Sort accounts to ensure deterministic dictionary generation from the same
+        // setUp state.
         let mut accs = db.cache.accounts.iter().collect::<Vec<_>>();
         accs.sort_by_key(|(address, _)| *address);
 
@@ -57,8 +65,8 @@ impl EvmFuzzState {
         }
     }
 
-    /// Collects state changes from a [`StateChangeset`] and logs into an [`EvmFuzzState`] according to
-    /// the given [`FuzzDictionaryConfig`].
+    /// Collects state changes from a [`StateChangeset`] and logs into an
+    /// [`EvmFuzzState`] according to the given [`FuzzDictionaryConfig`].
     pub fn collect_values_from_call(
         &self,
         fuzzed_contracts: &FuzzRunIdentifiedContracts,
@@ -80,8 +88,8 @@ impl EvmFuzzState {
 
     /// Removes all newly added entries from the dictionary.
     ///
-    /// Should be called between fuzz/invariant runs to avoid accumulating data derived from fuzz
-    /// inputs.
+    /// Should be called between fuzz/invariant runs to avoid accumulating data
+    /// derived from fuzz inputs.
     pub fn revert(&self) {
         self.inner.write().revert();
     }
@@ -96,8 +104,8 @@ impl EvmFuzzState {
     }
 }
 
-// We're using `IndexSet` to have a stable element order when restoring persisted state, as well as
-// for performance when iterating over the sets.
+// We're using `IndexSet` to have a stable element order when restoring
+// persisted state, as well as for performance when iterating over the sets.
 #[derive(Default)]
 pub struct FuzzDictionary {
     /// Collected state values.
@@ -112,7 +120,8 @@ pub struct FuzzDictionary {
     /// Number of address values initially collected from db.
     /// Used to revert new collected addresses at the end of each run.
     db_addresses: usize,
-    /// Sample typed values that are collected from call result and used across invariant runs.
+    /// Sample typed values that are collected from call result and used across
+    /// invariant runs.
     sample_values: HashMap<DynSolType, B256IndexSet>,
 
     misses: usize,
@@ -168,8 +177,8 @@ impl FuzzDictionary {
             self.insert_value(Address::random().into_word());
         }
 
-        // Record number of values and addresses inserted from db to be used for reverting at the
-        // end of each run.
+        // Record number of values and addresses inserted from db to be used for
+        // reverting at the end of each run.
         self.db_state_values = self.state_values.len();
         self.db_addresses = self.addresses.len();
     }
@@ -194,7 +203,8 @@ impl FuzzDictionary {
     /// Insert values from call log topics and data into fuzz dictionary.
     fn insert_logs_values(&mut self, abi: Option<&JsonAbi>, logs: &[Log], run_depth: u32) {
         let mut samples = Vec::new();
-        // Decode logs with known events and collect samples from indexed fields and event body.
+        // Decode logs with known events and collect samples from indexed fields and
+        // event body.
         for log in logs {
             let mut log_decoded = false;
             // Try to decode log with events from contract abi.
@@ -209,7 +219,8 @@ impl FuzzDictionary {
                 }
             }
 
-            // If we weren't able to decode event then we insert raw data in fuzz dictionary.
+            // If we weren't able to decode event then we insert raw data in fuzz
+            // dictionary.
             if !log_decoded {
                 for &topic in log.topics() {
                     self.insert_value(topic);
@@ -248,7 +259,8 @@ impl FuzzDictionary {
 
     /// Insert values from push bytes into fuzz dictionary.
     /// Values are collected only once for a given address.
-    /// If values are newly collected then they are removed at the end of current run.
+    /// If values are newly collected then they are removed at the end of
+    /// current run.
     fn insert_push_bytes_values(&mut self, address: &Address, account_info: &AccountInfo) {
         if self.config.include_push_bytes && !self.addresses.contains(address) {
             // Insert push bytes
@@ -296,8 +308,9 @@ impl FuzzDictionary {
         }
     }
 
-    /// Insert values from single storage slot and storage value into fuzz dictionary.
-    /// If storage values are newly collected then they are removed at the end of current run.
+    /// Insert values from single storage slot and storage value into fuzz
+    /// dictionary. If storage values are newly collected then they are
+    /// removed at the end of current run.
     fn insert_storage_value(&mut self, storage_slot: &U256, storage_value: &U256) {
         self.insert_value(B256::from(*storage_slot));
         self.insert_value(B256::from(*storage_value));
@@ -313,7 +326,8 @@ impl FuzzDictionary {
     }
 
     /// Insert address into fuzz dictionary.
-    /// If address is newly collected then it is removed by index at the end of current run.
+    /// If address is newly collected then it is removed by index at the end of
+    /// current run.
     fn insert_address(&mut self, address: Address) {
         if self.addresses.len() < self.config.max_fuzz_dictionary_addresses {
             self.addresses.insert(address);
@@ -321,7 +335,8 @@ impl FuzzDictionary {
     }
 
     /// Insert raw value into fuzz dictionary.
-    /// If value is newly collected then it is removed by index at the end of current run.
+    /// If value is newly collected then it is removed by index at the end of
+    /// current run.
     fn insert_value(&mut self, value: B256) {
         if self.state_values.len() < self.config.max_fuzz_dictionary_values {
             let new_value = self.state_values.insert(value);
@@ -336,7 +351,8 @@ impl FuzzDictionary {
 
     /// Insert sample values that are reused across multiple runs.
     /// The number of samples is limited to invariant run depth.
-    /// If collected samples limit is reached then values are inserted as regular values.
+    /// If collected samples limit is reached then values are inserted as
+    /// regular values.
     pub fn insert_sample_values(
         &mut self,
         sample_values: impl IntoIterator<Item = DynSolValue>,
@@ -383,7 +399,8 @@ impl FuzzDictionary {
         &self.addresses
     }
 
-    /// Revert values and addresses collected during the run by truncating to initial db len.
+    /// Revert values and addresses collected during the run by truncating to
+    /// initial db len.
     pub fn revert(&mut self) {
         self.state_values.truncate(self.db_state_values);
         self.addresses.truncate(self.db_addresses);

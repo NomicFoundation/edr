@@ -1,15 +1,5 @@
 //! Implementations of [`Toml`](spec::Group::Toml) cheatcodes.
 
-#[allow(clippy::wildcard_imports)]
-use crate::{
-    impl_is_pure_false, impl_is_pure_true,
-    json::{
-        canonicalize_json_path, check_json_key_exists, parse_json, parse_json_coerce,
-        parse_json_keys, resolve_type,
-    },
-    Cheatcode, Cheatcodes, FsAccessKind, Result,
-    Vm::*,
-};
 use alloy_dyn_abi::DynSolType;
 use alloy_sol_types::SolValue;
 use edr_common::fs;
@@ -23,6 +13,17 @@ use foundry_evm_core::{
 use revm::context::result::HaltReasonTr;
 use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
+
+#[allow(clippy::wildcard_imports)]
+use crate::{
+    impl_is_pure_false, impl_is_pure_true,
+    json::{
+        canonicalize_json_path, check_json_key_exists, parse_json, parse_json_coerce,
+        parse_json_keys, resolve_type,
+    },
+    Cheatcode, Cheatcodes, FsAccessKind, Result,
+    Vm::*,
+};
 
 impl_is_pure_true!(keyExistsTomlCall);
 impl Cheatcode for keyExistsTomlCall {
@@ -907,7 +908,8 @@ fn parse_toml(toml: &str, key: &str) -> Result {
     parse_json(&toml_to_json_string(toml)?, key)
 }
 
-/// Parse a TOML string and return the value at the given path, coercing it to the given type.
+/// Parse a TOML string and return the value at the given path, coercing it to
+/// the given type.
 fn parse_toml_coerce(toml: &str, key: &str, ty: &DynSolType) -> Result {
     parse_json_coerce(&toml_to_json_string(toml)?, key, ty)
 }

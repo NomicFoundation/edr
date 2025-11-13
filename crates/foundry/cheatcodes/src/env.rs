@@ -1,20 +1,24 @@
 //! Implementations of [`Environment`](spec::Group::Environment) cheatcodes.
 
+use std::env;
+
+use alloy_dyn_abi::DynSolType;
+use alloy_sol_types::SolValue;
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
+};
+use revm::context::result::HaltReasonTr;
+
 #[allow(clippy::wildcard_imports)]
 use crate::Vm::*;
 use crate::{
     impl_is_pure_false, string, Cheatcode, Cheatcodes, Error, ExecutionContextConfig, Result,
     Vm::ExecutionContext,
 };
-use alloy_dyn_abi::DynSolType;
-use alloy_sol_types::SolValue;
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
-};
-use revm::context::result::HaltReasonTr;
-use std::env;
 
 impl_is_pure_false!(setEnvCall);
 impl Cheatcode for setEnvCall {
@@ -1244,8 +1248,8 @@ fn get_env(key: &str) -> Result<String> {
     }
 }
 
-/// Converts the error message of a failed parsing attempt to a more user-friendly message that
-/// doesn't leak the value.
+/// Converts the error message of a failed parsing attempt to a more
+/// user-friendly message that doesn't leak the value.
 fn map_env_err<'a>(key: &'a str, value: &'a str) -> impl FnOnce(Error) -> Error + 'a {
     move |e| {
         // failed parsing <value> as type `uint256`: parser error:

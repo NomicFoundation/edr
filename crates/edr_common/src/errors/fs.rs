@@ -1,13 +1,12 @@
+#[expect(unused_imports)]
+use std::fs::{self, File};
 use std::{
     io,
     path::{Path, PathBuf},
 };
 
-#[expect(unused_imports)]
-use std::fs::{self, File};
-
-/// Various error variants for `fs` operations that serve as an addition to the `io::Error` which
-/// does not provide any information about the path.
+/// Various error variants for `fs` operations that serve as an addition to the
+/// `io::Error` which does not provide any information about the path.
 #[derive(Debug, thiserror::Error)]
 #[expect(missing_docs)]
 pub enum FsPathError {
@@ -42,7 +41,8 @@ pub enum FsPathError {
     /// Provides additional path context for [`File::open`].
     #[error("failed to open file {path:?}: {source}")]
     Open { source: io::Error, path: PathBuf },
-    /// Provides additional path context for the file whose contents should be parsed as JSON.
+    /// Provides additional path context for the file whose contents should be
+    /// parsed as JSON.
     #[error("failed to parse json file: {path:?}: {source}")]
     ReadJson {
         source: serde_json::Error,

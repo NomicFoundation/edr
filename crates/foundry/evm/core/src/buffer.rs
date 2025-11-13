@@ -1,7 +1,8 @@
 use alloy_primitives::U256;
 use revm::bytecode::opcode;
 
-/// Used to keep track of which buffer is currently active to be drawn by the debugger.
+/// Used to keep track of which buffer is currently active to be drawn by the
+/// debugger.
 #[derive(Debug, PartialEq)]
 pub enum BufferKind {
     Memory,
@@ -39,22 +40,24 @@ pub struct BufferAccess {
 pub struct BufferAccesses {
     /// The read buffer kind and access information.
     pub read: Option<(BufferKind, BufferAccess)>,
-    /// The only mutable buffer is the memory buffer, so don't store the buffer kind.
+    /// The only mutable buffer is the memory buffer, so don't store the buffer
+    /// kind.
     pub write: Option<BufferAccess>,
 }
 
 /// A utility function to get the buffer access.
 ///
-/// The `memory_access` variable stores the index on the stack that indicates the buffer
-/// offset/len accessed by the given opcode:
-///    (read buffer, buffer read offset, buffer read len, write memory offset, write memory len)
-///    \>= 1: the stack index
+/// The `memory_access` variable stores the index on the stack that indicates
+/// the buffer offset/len accessed by the given opcode:
+///    (read buffer, buffer read offset, buffer read len, write memory offset,
+/// write memory len)    \>= 1: the stack index
 ///    0: no memory access
 ///    -1: a fixed len of 32 bytes
 ///    -2: a fixed len of 1 byte
 ///
-/// The return value is a tuple about accessed buffer region by the given opcode:
-///    (read buffer, buffer read offset, buffer read len, write memory offset, write memory len)
+/// The return value is a tuple about accessed buffer region by the given
+/// opcode:    (read buffer, buffer read offset, buffer read len, write memory
+/// offset, write memory len)
 pub fn get_buffer_accesses(op: u8, stack: &[U256]) -> Option<BufferAccesses> {
     let buffer_access = match op {
         opcode::CALLDATACOPY => (Some((BufferKind::Calldata, 2, 3)), Some((1, 3))),

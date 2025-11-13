@@ -1,25 +1,28 @@
-use crate::{
-    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
-    Vm::{
-        getMappingKeyAndParentOfCall, getMappingLengthCall, getMappingSlotAtCall,
-        startMappingRecordingCall, stopMappingRecordingCall,
-    },
-};
 use alloy_primitives::{
     keccak256,
     map::{AddressHashMap, B256HashMap},
     Address, B256, U256,
 };
 use alloy_sol_types::SolValue;
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
-use revm::context::result::HaltReasonTr;
 use revm::{
     bytecode::opcode,
+    context::result::HaltReasonTr,
     interpreter::{interpreter_types::Jumps, Interpreter},
+};
+
+use crate::{
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
+    Vm::{
+        getMappingKeyAndParentOfCall, getMappingLengthCall, getMappingSlotAtCall,
+        startMappingRecordingCall, stopMappingRecordingCall,
+    },
 };
 
 /// Recorded mapping slots.
@@ -34,10 +37,11 @@ pub struct MappingSlots {
     /// Holds mapping child (slots => slots[])
     pub children: B256HashMap<Vec<B256>>,
 
-    /// Holds the last sha3 result `sha3_result => (data_low, data_high)`, this would only record
-    /// when sha3 is called with `size == 0x40`, and the lower 256 bits would be stored in
-    /// `data_low`, higher 256 bits in `data_high`.
-    /// This is needed for `mapping_key` detect if the slot is for some mapping and record that.
+    /// Holds the last sha3 result `sha3_result => (data_low, data_high)`, this
+    /// would only record when sha3 is called with `size == 0x40`, and the
+    /// lower 256 bits would be stored in `data_low`, higher 256 bits in
+    /// `data_high`. This is needed for `mapping_key` detect if the slot is
+    /// for some mapping and record that.
     pub seen_sha3: B256HashMap<(B256, B256)>,
 }
 

@@ -1,3 +1,9 @@
+use std::{
+    cell::RefCell,
+    collections::{btree_map::Entry, HashMap as Map},
+    sync::Arc,
+};
+
 use alloy_primitives::{Address, Bytes, FixedBytes, Selector, U256};
 use alloy_sol_types::{sol, SolCall};
 use eyre::{eyre, ContextCompat, Result};
@@ -24,11 +30,6 @@ use revm::{
 };
 use serde::{Deserialize, Serialize};
 use shrink::shrink_sequence;
-use std::{
-    cell::RefCell,
-    collections::{btree_map::Entry, HashMap as Map},
-    sync::Arc,
-};
 
 use crate::{
     executors::{Executor, RawCallResult},
@@ -37,8 +38,8 @@ use crate::{
 
 mod error;
 pub use error::{InvariantFailures, InvariantFuzzError};
-use foundry_evm_core::abi::TestFunctionExt;
 use foundry_evm_core::{
+    abi::TestFunctionExt,
     constants::DEFAULT_CREATE2_DEPLOYER,
     contracts::{ContractsByAddress, ContractsByArtifact},
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
@@ -629,7 +630,8 @@ impl<
         fuzz_fixtures: &FuzzFixtures,
         deployed_libs: &[Address],
     ) -> Result<InvariantFuzzTestResult, InvariantFuzzError> {
-        // Throw an error to abort test run if the invariant function accepts input params
+        // Throw an error to abort test run if the invariant function accepts input
+        // params
         if !invariant_contract.invariant_function.inputs.is_empty() {
             return Err(eyre!("Invariant test function should have no inputs"))?;
         }
@@ -649,7 +651,8 @@ impl<
             runs < self.config.runs
         };
 
-        // Invariant runs with edge coverage if corpus dir is set or showing edge coverage.
+        // Invariant runs with edge coverage if corpus dir is set or showing edge
+        // coverage.
         let edge_coverage_enabled =
             self.config.corpus_dir.is_some() || self.config.show_edge_coverage;
 
@@ -972,8 +975,8 @@ impl<
             }
         }
 
-        // Insert `targetArtifacts` into the executor `targeted_abi`, if they have not been seen
-        // before.
+        // Insert `targetArtifacts` into the executor `targeted_abi`, if they have not
+        // been seen before.
         for contract in targeted_artifacts {
             let identifier = self.validate_selected_contract(contract, &[])?;
 
@@ -1029,9 +1032,9 @@ impl<
         if target_test_selectors.is_empty()
             && let Some(target) = targeted_contracts.get(&address)
         {
-            // If test contract is marked as a target and no target selector explicitly set, then
-            // include only state-changing functions that are not reserved and selectors that are
-            // not explicitly excluded.
+            // If test contract is marked as a target and no target selector explicitly set,
+            // then include only state-changing functions that are not reserved
+            // and selectors that are not explicitly excluded.
             let selectors: Vec<_> = target
                 .abi
                 .functions()
@@ -1072,8 +1075,8 @@ impl<
         // Since `targetInterfaces` returns a tuple array there is no guarantee
         // that the addresses are unique this map is used to merge functions of
         // the specified interfaces for the same address. For example:
-        // `[(addr1, ["IERC20", "IOwnable"])]` and `[(addr1, ["IERC20"]), (addr1, ("IOwnable"))]`
-        // should be equivalent.
+        // `[(addr1, ["IERC20", "IOwnable"])]` and `[(addr1, ["IERC20"]), (addr1,
+        // ("IOwnable"))]` should be equivalent.
         let mut combined = TargetedContracts::new();
 
         // Loop through each address and its associated artifact identifiers.
@@ -1160,8 +1163,8 @@ impl<
         )
         .no_shrink();
 
-        // Allows `override_call_strat` to use the address given by the Fuzzer inspector during
-        // EVM execution.
+        // Allows `override_call_strat` to use the address given by the Fuzzer inspector
+        // during EVM execution.
         let mut call_generator = None;
         if self.config.call_override {
             let target_contract_ref = Arc::new(RwLock::new(Address::ZERO));

@@ -1,16 +1,16 @@
-//! Contains various `std::fs` wrapper functions that also contain the target path in their errors.
+//! Contains various `std::fs` wrapper functions that also contain the target
+//! path in their errors.
 
-use crate::errors::FsPathError;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use flate2::Compression;
-use serde::{de::DeserializeOwned, Serialize};
-use std::io::BufReader;
 use std::{
     fs::{self, File},
-    io::{BufWriter, Write},
+    io::{BufReader, BufWriter, Write},
     path::{Component, Path, PathBuf},
 };
+
+use flate2::{read::GzDecoder, write::GzEncoder, Compression};
+use serde::{de::DeserializeOwned, Serialize};
+
+use crate::errors::FsPathError;
 
 /// The [`fs`](self) result type.
 pub type Result<T> = std::result::Result<T, FsPathError>;
@@ -56,7 +56,8 @@ pub fn read_json_file<T: DeserializeOwned>(path: &Path) -> Result<T> {
     })
 }
 
-/// Reads and decodes the json gzip file, then deserialize it into the provided type.
+/// Reads and decodes the json gzip file, then deserialize it into the provided
+/// type.
 pub fn read_json_gzip_file<T: DeserializeOwned>(path: &Path) -> Result<T> {
     let file = open(path)?;
     let reader = BufReader::new(file);
@@ -142,8 +143,8 @@ pub fn open(path: impl AsRef<Path>) -> Result<fs::File> {
 
 /// Normalize a path, removing things like `.` and `..`.
 ///
-/// NOTE: This does not return symlinks and does not touch the filesystem at all (unlike
-/// [`std::fs::canonicalize`])
+/// NOTE: This does not return symlinks and does not touch the filesystem at all
+/// (unlike [`std::fs::canonicalize`])
 ///
 /// ref: <https://github.com/rust-lang/cargo/blob/9ded34a558a900563b0acf3730e223c649cf859d/crates/cargo-util/src/paths.rs#L81>
 pub fn normalize_path(path: &Path) -> PathBuf {
@@ -173,7 +174,8 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     ret
 }
 
-/// Returns an iterator over all files with the given extension under the `root` dir.
+/// Returns an iterator over all files with the given extension under the `root`
+/// dir.
 pub fn files_with_ext<'a>(root: &Path, ext: &'a str) -> impl Iterator<Item = PathBuf> + 'a {
     walkdir::WalkDir::new(root)
         .sort_by_file_name()
@@ -190,8 +192,8 @@ pub fn json_files(root: &Path) -> impl Iterator<Item = PathBuf> {
 
 /// Canonicalize a path, returning an error if the path does not exist.
 ///
-/// Mainly useful to apply canonicalization to paths obtained from project files but still error
-/// properly instead of flattening the errors.
+/// Mainly useful to apply canonicalization to paths obtained from project files
+/// but still error properly instead of flattening the errors.
 pub fn canonicalize_path(path: impl AsRef<Path>) -> std::io::Result<PathBuf> {
     dunce::canonicalize(path)
 }

@@ -29,12 +29,11 @@ use foundry_evm::{
 };
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::contracts::get_contract_name;
-use crate::error::TestRunnerError;
-use crate::fuzz::invariant::InvariantConfig;
-use crate::fuzz::FuzzConfig;
 use crate::{
     config::CollectStackTraces,
+    contracts::get_contract_name,
+    error::TestRunnerError,
+    fuzz::{invariant::InvariantConfig, FuzzConfig},
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,

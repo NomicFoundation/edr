@@ -8,15 +8,6 @@
 #[macro_use]
 extern crate tracing;
 
-use alloy_primitives::{
-    map::{B256HashMap, HashMap},
-    Bytes,
-};
-use analysis::SourceAnalysis;
-use eyre::Result;
-use foundry_compilers::artifacts::sourcemap::SourceMap;
-use hashbrown as _;
-use semver::Version;
 use std::{
     collections::BTreeMap,
     fmt::Display,
@@ -26,6 +17,16 @@ use std::{
     sync::Arc,
 };
 
+use alloy_primitives::{
+    map::{B256HashMap, HashMap},
+    Bytes,
+};
+use analysis::SourceAnalysis;
+use eyre::Result;
+use foundry_compilers::artifacts::sourcemap::SourceMap;
+use hashbrown as _;
+use semver::Version;
+
 pub mod analysis;
 pub mod anchors;
 
@@ -34,8 +35,9 @@ pub use inspector::LineCoverageCollector;
 
 /// A coverage report.
 ///
-/// A coverage report contains coverage items and opcodes corresponding to those items (called
-/// "anchors"). A single coverage item may be referred to by multiple anchors.
+/// A coverage report contains coverage items and opcodes corresponding to those
+/// items (called "anchors"). A single coverage item may be referred to by
+/// multiple anchors.
 #[derive(Clone, Debug, Default)]
 pub struct CoverageReport {
     /// A map of source IDs to the source path.
@@ -113,11 +115,12 @@ impl CoverageReport {
         by_file.into_iter()
     }
 
-    /// Processes data from a [`HitMap`] and sets hit counts for coverage items in this coverage
-    /// map.
+    /// Processes data from a [`HitMap`] and sets hit counts for coverage items
+    /// in this coverage map.
     ///
-    /// This function should only be called *after* all the relevant sources have been processed and
-    /// added to the map (see [`add_source`](Self::add_source)).
+    /// This function should only be called *after* all the relevant sources
+    /// have been processed and added to the map (see
+    /// [`add_source`](Self::add_source)).
     pub fn add_hit_map(
         &mut self,
         contract_id: &ContractId,
@@ -153,8 +156,9 @@ impl CoverageReport {
 
     /// Retains all the coverage items specified by `predicate`.
     ///
-    /// This function should only be called after all the sources were used, otherwise, the output
-    /// will be missing the ones that are dependent on them.
+    /// This function should only be called after all the sources were used,
+    /// otherwise, the output will be missing the ones that are dependent on
+    /// them.
     pub fn retain_sources(&mut self, mut predicate: impl FnMut(&Path) -> bool) {
         self.analyses.retain(|version, analysis| {
             analysis.all_items_mut().retain(|item| {
@@ -214,7 +218,8 @@ impl DerefMut for HitMaps {
 
 /// Hit data for an address.
 ///
-/// Contains low-level data about hit counters for the instructions in the bytecode of a contract.
+/// Contains low-level data about hit counters for the instructions in the
+/// bytecode of a contract.
 #[derive(Clone, Debug)]
 pub struct HitMap {
     bytecode: Bytes,
@@ -303,7 +308,8 @@ impl Display for ContractId {
     }
 }
 
-/// An item anchor describes what instruction marks a [`CoverageItem`] as covered.
+/// An item anchor describes what instruction marks a [`CoverageItem`] as
+/// covered.
 #[derive(Clone, Debug)]
 pub struct ItemAnchor {
     /// The program counter for the opcode of this anchor.
@@ -328,14 +334,15 @@ pub enum CoverageItemKind {
     Branch {
         /// The ID that identifies the branch.
         ///
-        /// There may be multiple items with the same branch ID - they belong to the same branch,
-        /// but represent different paths.
+        /// There may be multiple items with the same branch ID - they belong to
+        /// the same branch, but represent different paths.
         branch_id: u32,
         /// The path ID for this branch.
         ///
         /// The first path has ID 0, the next ID 1, and so on.
         path_id: u32,
-        /// If true, then the branch anchor is the first opcode within the branch source range.
+        /// If true, then the branch anchor is the first opcode within the
+        /// branch source range.
         is_first_opcode: bool,
     },
     /// A function in the code.

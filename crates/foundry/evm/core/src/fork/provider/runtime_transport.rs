@@ -1,7 +1,9 @@
-//! Runtime transport that connects on first request, which can take either of an HTTP,
-//! WebSocket, or IPC transport and supports retries based on CUPS logic.
+//! Runtime transport that connects on first request, which can take either of
+//! an HTTP, WebSocket, or IPC transport and supports retries based on CUPS
+//! logic.
 
-use super::REQUEST_TIMEOUT;
+use std::{fmt, path::PathBuf, str::FromStr, sync::Arc};
+
 use alloy_json_rpc::{RequestPacket, ResponsePacket};
 use alloy_pubsub::{PubSubConnect, PubSubFrontend};
 use alloy_rpc_types::engine::{Claims, JwtSecret};
@@ -13,14 +15,15 @@ use alloy_transport_ipc::IpcConnect;
 use alloy_transport_ws::WsConnect;
 use edr_defaults::DEFAULT_USER_AGENT;
 use reqwest::header::{HeaderName, HeaderValue};
-use std::{fmt, path::PathBuf, str::FromStr, sync::Arc};
 use thiserror::Error;
 use tokio::sync::RwLock;
 use tower::Service;
 use url::Url;
 
-/// An enum representing the different transports that can be used to connect to a runtime.
-/// Only meant to be used internally by [`RuntimeTransport`].
+use super::REQUEST_TIMEOUT;
+
+/// An enum representing the different transports that can be used to connect to
+/// a runtime. Only meant to be used internally by [`RuntimeTransport`].
 #[derive(Clone, Debug)]
 pub enum InnerTransport {
     /// HTTP transport
@@ -65,10 +68,11 @@ pub enum RuntimeTransportError {
 
 /// Runtime transport that only connects on first request.
 ///
-/// A runtime transport is a custom [`alloy_transport::Transport`] that only connects when the
-/// *first* request is made. When the first request is made, it will connect to the runtime using
-/// either an HTTP WebSocket, or IPC transport depending on the URL used.
-/// It also supports retries for rate-limiting and timeout-related errors.
+/// A runtime transport is a custom [`alloy_transport::Transport`] that only
+/// connects when the *first* request is made. When the first request is made,
+/// it will connect to the runtime using either an HTTP WebSocket, or IPC
+/// transport depending on the URL used. It also supports retries for
+/// rate-limiting and timeout-related errors.
 #[derive(Clone, Debug, Error)]
 pub struct RuntimeTransport {
     /// The inner actual transport used.
@@ -247,11 +251,12 @@ impl RuntimeTransport {
     }
 
     /// Sends a request using the underlying transport.
-    /// If this is the first request, it will connect to the appropriate transport depending on the
-    /// URL scheme. When sending the request, retries will be automatically handled depending
-    /// on the parameters set on the [`RuntimeTransport`].
-    /// For sending the actual request, this action is delegated down to the
-    /// underlying transport through Tower's [`tower::Service::call`]. See tower's [`tower::Service`]
+    /// If this is the first request, it will connect to the appropriate
+    /// transport depending on the URL scheme. When sending the request,
+    /// retries will be automatically handled depending on the parameters
+    /// set on the [`RuntimeTransport`]. For sending the actual request,
+    /// this action is delegated down to the underlying transport through
+    /// Tower's [`tower::Service::call`]. See tower's [`tower::Service`]
     /// trait for more information.
     pub fn request(&self, req: RequestPacket) -> TransportFut<'static> {
         let this = self.clone();
@@ -358,8 +363,9 @@ fn url_to_file_path(url: &Url) -> Result<PathBuf, ()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use reqwest::header::HeaderMap;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_user_agent_header() {

@@ -1,24 +1,29 @@
 //! Implementations of [`Crypto`](spec::Group::Crypto) Cheatcodes.
 
-use crate::{
-    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
-    Vm::{publicKeyP256Call, signCall, signCompactCall, signP256Call},
-};
 use alloy_primitives::{B256, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
-use k256::ecdsa::SigningKey;
-use k256::elliptic_curve::{bigint::ArrayEncoding, sec1::ToEncodedPoint};
+use k256::{
+    ecdsa::SigningKey,
+    elliptic_curve::{bigint::ArrayEncoding, sec1::ToEncodedPoint},
+};
 use p256::ecdsa::{
     signature::hazmat::PrehashSigner, Signature as P256Signature, SigningKey as P256SigningKey,
 };
 use revm::context::result::HaltReasonTr;
+
+use crate::{
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
+    Vm::{publicKeyP256Call, signCall, signCompactCall, signP256Call},
+};
 
 impl_is_pure_true!(signCall);
 impl Cheatcode for signCall {
@@ -237,9 +242,10 @@ pub(super) fn parse_wallet(private_key: &U256) -> Result<PrivateKeySigner> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use alloy_primitives::{hex::FromHex, FixedBytes};
     use p256::ecdsa::signature::hazmat::PrehashVerifier;
+
+    use super::*;
 
     #[test]
     fn test_sign_p256() {

@@ -1,7 +1,3 @@
-use crate::{
-    evm_context::{BlockEnvMut, TransactionEnvTr},
-    EnvMut,
-};
 use alloy_chains::NamedChain;
 use alloy_consensus::BlockHeader;
 use alloy_json_abi::{Function, JsonAbi};
@@ -18,6 +14,11 @@ use revm::{
     },
 };
 
+use crate::{
+    evm_context::{BlockEnvMut, TransactionEnvTr},
+    EnvMut,
+};
+
 /// Hints to the compiler that this is a cold path, i.e. unlikely to be taken.
 #[cold]
 #[inline(always)]
@@ -25,12 +26,14 @@ pub fn cold_path() {
     // TODO: remove `#[cold]` and call `std::hint::cold_path` once stable.
 }
 
-/// Depending on the configured chain id and block number this should apply any specific changes
+/// Depending on the configured chain id and block number this should apply any
+/// specific changes
 ///
 /// - checks for prevrandao mixhash after merge
 /// - applies chain specifics: on Arbitrum `block.number` is the L1 block
 ///
-/// Should be called with proper chain id (retrieved from provider if not provided).
+/// Should be called with proper chain id (retrieved from provider if not
+/// provided).
 pub fn apply_chain_and_block_specific_env_changes<N, BlockT, TxT, HardforkT>(
     env: EnvMut<'_, BlockT, TxT, HardforkT>,
     block: &N::BlockResponse,
@@ -58,11 +61,11 @@ pub fn apply_chain_and_block_specific_env_changes<N, BlockT, TxT, HardforkT>(
             }
             BinanceSmartChain | BinanceSmartChainTestnet => {
                 // https://github.com/foundry-rs/foundry/issues/9942
-                // As far as observed from the source code of bnb-chain/bsc, the `difficulty` field
-                // is still in use and returned by the corresponding opcode but `prevrandao`
-                // (`mixHash`) is always zero, even though bsc adopts the newer EVM
-                // specification. This will confuse revm and causes emulation
-                // failure.
+                // As far as observed from the source code of bnb-chain/bsc, the `difficulty`
+                // field is still in use and returned by the corresponding
+                // opcode but `prevrandao` (`mixHash`) is always zero, even
+                // though bsc adopts the newer EVM specification. This will
+                // confuse revm and causes emulation failure.
                 env.block
                     .set_prevrandao(Some(env.block.difficulty().into()));
                 return;
@@ -118,7 +121,8 @@ pub fn get_function<'a>(
 }
 
 /// Configures the env for the given RPC transaction.
-/// Accounts for an impersonated transaction by resetting the `env.tx.caller` field to `tx.from`.
+/// Accounts for an impersonated transaction by resetting the `env.tx.caller`
+/// field to `tx.from`.
 pub fn configure_tx_env<TxT: TransactionEnvTr>(env_tx: &mut TxT, tx: &Transaction<AnyTxEnvelope>) {
     let from = tx.from();
     if let AnyTxEnvelope::Ethereum(tx) = &tx.inner.inner() {
@@ -127,14 +131,16 @@ pub fn configure_tx_env<TxT: TransactionEnvTr>(env_tx: &mut TxT, tx: &Transactio
 }
 
 /// Configures the env for the given RPC transaction request.
-/// `impersonated_from` is the address of the impersonated account. This helps account for an
-/// impersonated transaction by resetting the `env.tx.caller` field to `impersonated_from`.
+/// `impersonated_from` is the address of the impersonated account. This helps
+/// account for an impersonated transaction by resetting the `env.tx.caller`
+/// field to `impersonated_from`.
 pub fn configure_tx_req_env<TxT: TransactionEnvTr>(
     env_tx: &mut TxT,
     tx: &TransactionRequest,
     impersonated_from: Option<Address>,
 ) -> eyre::Result<()> {
-    // If no transaction type is provided, we need to infer it from the other fields.
+    // If no transaction type is provided, we need to infer it from the other
+    // fields.
     let tx_type = tx
         .transaction_type
         .unwrap_or_else(|| tx.minimal_tx_type() as u8);

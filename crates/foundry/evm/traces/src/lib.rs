@@ -8,7 +8,6 @@
 #[macro_use]
 extern crate tracing;
 
-use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     collections::BTreeSet,
@@ -16,7 +15,6 @@ use std::{
 };
 
 use alloy_primitives::map::HashMap;
-
 use revm_inspectors::tracing::types::DecodedTraceStep;
 pub use revm_inspectors::tracing::{
     types::{
@@ -26,10 +24,12 @@ pub use revm_inspectors::tracing::{
     CallTraceArena, FourByteInspector, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType,
     TraceWriter, TracingInspector, TracingInspectorConfig,
 };
+use serde::{Deserialize, Serialize};
 
 /// Call trace address identifiers.
 ///
-/// Identifiers figure out what ABIs and labels belong to all the addresses of the trace.
+/// Identifiers figure out what ABIs and labels belong to all the addresses of
+/// the trace.
 pub mod identifier;
 use identifier::LocalTraceIdentifier;
 
@@ -46,7 +46,8 @@ pub struct SparsedTraceArena {
     /// Full trace arena.
     #[serde(flatten)]
     pub arena: CallTraceArena,
-    /// Ranges of trace steps to ignore in format (`start_node`, `start_step`) -> (`end_node`, `end_step`).
+    /// Ranges of trace steps to ignore in format (`start_node`, `start_step`)
+    /// -> (`end_node`, `end_step`).
     /// See `foundry_cheatcodes::utils::IgnoredTraces` for more information.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub ignored: HashMap<(usize, usize), (usize, usize)>,
@@ -64,8 +65,8 @@ impl SparsedTraceArena {
                 ignored: &HashMap<(usize, usize), (usize, usize)>,
                 cur_ignore_end: &mut Option<(usize, usize)>,
             ) {
-                // Prepend an additional None item to the ordering to handle the beginning of the
-                // trace.
+                // Prepend an additional None item to the ordering to handle the beginning of
+                // the trace.
                 let node = nodes
                     .get(node_idx)
                     .expect("node_idx should be within nodes bounds");
@@ -258,7 +259,8 @@ impl TraceKind {
     }
 }
 
-/// Given a list of traces and artifacts, it returns a map connecting address to abi
+/// Given a list of traces and artifacts, it returns a map connecting address to
+/// abi
 pub fn load_contracts<'a>(
     traces: impl IntoIterator<Item = &'a CallTraceArena>,
     known_contracts: &ContractsByArtifact,

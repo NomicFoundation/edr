@@ -1,24 +1,28 @@
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Error, Result};
+use std::fmt::Debug;
+
 use alloy_primitives::Address;
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::constants::MAGIC_ASSUME;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    constants::MAGIC_ASSUME,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use revm::context::result::HaltReasonTr;
 use spec::Vm::{
     assumeCall, assumeNoRevert_0Call, assumeNoRevert_1Call, assumeNoRevert_2Call, PotentialRevert,
 };
-use std::fmt::Debug;
+
+use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Error, Result};
 
 #[derive(Clone, Debug)]
 pub struct AssumeNoRevert {
     /// The call depth at which the cheatcode was added.
     pub depth: usize,
-    /// Acceptable revert parameters for the next call, to be thrown out if they are encountered;
-    /// reverts with parameters not specified here will count as normal reverts and not rejects
-    /// towards the counter.
+    /// Acceptable revert parameters for the next call, to be thrown out if they
+    /// are encountered; reverts with parameters not specified here will
+    /// count as normal reverts and not rejects towards the counter.
     pub reasons: Vec<AcceptableRevertParameters>,
     /// Address that reverted the call.
     pub reverted_by: Option<Address>,
@@ -29,7 +33,8 @@ pub struct AssumeNoRevert {
 pub struct AcceptableRevertParameters {
     /// The expected revert data returned by the revert
     pub reason: Vec<u8>,
-    /// If true then only the first 4 bytes of expected data returned by the revert are checked.
+    /// If true then only the first 4 bytes of expected data returned by the
+    /// revert are checked.
     pub partial_match: bool,
     /// Contract expected to revert next call.
     pub reverter: Option<Address>,

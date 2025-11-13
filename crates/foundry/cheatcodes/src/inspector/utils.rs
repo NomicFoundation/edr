@@ -1,14 +1,18 @@
-use crate::inspector::Cheatcodes;
 use alloy_primitives::{Address, Bytes, U256};
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
-use revm::context::result::HaltReasonTr;
-use revm::context::CfgEnv;
-use revm::interpreter::CreateInputs;
-use revm::Journal;
+use revm::{
+    context::{result::HaltReasonTr, CfgEnv},
+    interpreter::CreateInputs,
+    Journal,
+};
+
+use crate::inspector::Cheatcodes;
 
 /// Common behaviour of legacy and EOF create inputs.
 pub(crate) trait CommonCreateInput {

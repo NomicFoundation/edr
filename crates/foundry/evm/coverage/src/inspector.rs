@@ -1,4 +1,5 @@
-use crate::{HitMap, HitMaps};
+use std::ptr::NonNull;
+
 use alloy_primitives::B256;
 use revm::{
     context::ContextTr,
@@ -6,7 +7,8 @@ use revm::{
     interpreter::{interpreter_types::Jumps, Interpreter},
     Inspector,
 };
-use std::ptr::NonNull;
+
+use crate::{HitMap, HitMaps};
 
 /// Inspector implementation for collecting coverage information.
 #[derive(Clone, Debug)]
@@ -55,7 +57,8 @@ impl LineCoverageCollector {
         self.maps
     }
 
-    /// Gets the hit map for the current contract, or inserts a new one if it doesn't exist.
+    /// Gets the hit map for the current contract, or inserts a new one if it
+    /// doesn't exist.
     ///
     /// The map is stored in `current_map` and returned as a mutable reference.
     /// See comments on `current_map` for more details.
@@ -83,10 +86,11 @@ impl LineCoverageCollector {
     }
 }
 
-/// Helper function for extracting contract hash used to record coverage hit map.
+/// Helper function for extracting contract hash used to record coverage hit
+/// map.
 ///
-/// If the contract hash is zero (contract not yet created but it's going to be created in current
-/// tx) then the hash is calculated from the bytecode.
+/// If the contract hash is zero (contract not yet created but it's going to be
+/// created in current tx) then the hash is calculated from the bytecode.
 #[inline]
 fn get_or_insert_contract_hash(interpreter: &mut Interpreter) -> B256 {
     if interpreter.bytecode.hash().is_none_or(|h| h.is_zero()) {

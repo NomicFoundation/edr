@@ -1,18 +1,23 @@
-use crate::abi::{get_error, get_event, get_func};
-use crate::identifier::selectors::{OpenChainClient, SelectorKind};
-use alloy_json_abi::{Error, Event, Function, JsonAbi};
-use alloy_primitives::{map::HashMap, Selector, B256};
-use edr_common::fs;
-use eyre::Result;
-use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+use alloy_json_abi::{Error, Event, Function, JsonAbi};
+use alloy_primitives::{map::HashMap, Selector, B256};
+use edr_common::fs;
+use eyre::Result;
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
-/// Cache for function, event and error signatures. Used by [`SignaturesIdentifier`].
+use crate::{
+    abi::{get_error, get_event, get_func},
+    identifier::selectors::{OpenChainClient, SelectorKind},
+};
+
+/// Cache for function, event and error signatures. Used by
+/// [`SignaturesIdentifier`].
 #[derive(Debug, Default, Deserialize)]
 #[serde(try_from = "SignaturesDiskCache")]
 pub struct SignaturesCache {
@@ -150,15 +155,16 @@ impl SignaturesCache {
     }
 }
 
-/// An identifier that tries to identify functions and events using signatures found at
-/// `https://openchain.xyz` or a local cache.
+/// An identifier that tries to identify functions and events using signatures
+/// found at `https://openchain.xyz` or a local cache.
 #[derive(Clone, Debug)]
 pub struct SignaturesIdentifier {
     /// Cached selectors for functions, events and custom errors.
     cache: Arc<RwLock<SignaturesCache>>,
     /// Location where to save the signature cache.
     cache_path: Option<PathBuf>,
-    /// The `OpenChain` client to fetch signatures from. `None` if disabled on construction.
+    /// The `OpenChain` client to fetch signatures from. `None` if disabled on
+    /// construction.
     client: Option<OpenChainClient>,
 }
 

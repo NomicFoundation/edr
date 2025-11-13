@@ -1,5 +1,5 @@
-#[allow(clippy::wildcard_imports)]
-use crate::{impl_is_pure_true, CheatsCtxt, Result, Vm::*};
+use std::fmt::{Debug, Display};
+
 use alloy_primitives::{hex, I256, U256, U512};
 use foundry_evm_core::{
     abi::console::{format_units_int, format_units_uint},
@@ -10,7 +10,9 @@ use foundry_evm_core::{
     },
 };
 use itertools::Itertools;
-use std::fmt::{Debug, Display};
+
+#[allow(clippy::wildcard_imports)]
+use crate::{impl_is_pure_true, CheatsCtxt, Result, Vm::*};
 
 const EQ_REL_DELTA_RESOLUTION: U256 = U256::from_limbs([18, 0, 0, 0]);
 
@@ -198,12 +200,15 @@ fn handle_assertion_result<ERR>(
 
 /// Implements [`crate::Cheatcode`] for pairs of cheatcodes.
 ///
-/// Accepts a list of pairs of cheatcodes, where the first cheatcode is the one that doesn't contain
-/// a custom error message, and the second one contains it at `error` field.
+/// Accepts a list of pairs of cheatcodes, where the first cheatcode is the one
+/// that doesn't contain a custom error message, and the second one contains it
+/// at `error` field.
 ///
-/// Passed `args` are the common arguments for both cheatcode structs (excluding `error` field).
+/// Passed `args` are the common arguments for both cheatcode structs (excluding
+/// `error` field).
 ///
-/// Macro also accepts an optional closure that formats the error returned by the assertion.
+/// Macro also accepts an optional closure that formats the error returned by
+/// the assertion.
 macro_rules! impl_assertions {
     (|$($arg:ident),*| $body:expr, $format_error:literal, $(($no_error:ident, $with_error:ident)),* $(,)?) => {
         impl_assertions!(@args_tt |($($arg),*)| $body, |e| e.to_string(), $format_error, $(($no_error, $with_error),)*);
@@ -545,7 +550,8 @@ fn get_delta_int(left: I256, right: I256) -> U256 {
 
 /// Calculates the relative delta for an absolute difference.
 ///
-/// Avoids overflow in the multiplication by using [`U512`] to hold the intermediary result.
+/// Avoids overflow in the multiplication by using [`U512`] to hold the
+/// intermediary result.
 fn calc_delta_full<T>(abs_diff: U256, right: U256) -> Result<U256, EqRelAssertionError<T>> {
     let delta = U512::from(abs_diff) * U512::from(10).pow(U512::from(EQ_REL_DELTA_RESOLUTION))
         / U512::from(right);

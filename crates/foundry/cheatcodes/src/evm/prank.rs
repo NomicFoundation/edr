@@ -1,15 +1,15 @@
-#[allow(clippy::wildcard_imports)]
-use crate::{evm::journaled_account, impl_is_pure_true, Cheatcode, CheatsCtxt, Result, Vm::*};
 use alloy_primitives::Address;
-use foundry_evm_core::evm_context::HardforkTr;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
     evm_context::{
-        BlockEnvTr, ChainContextTr, EvmBuilderTrait, TransactionEnvTr, TransactionErrorTrait,
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
     },
 };
-use revm::context::result::HaltReasonTr;
-use revm::context::JournalTr;
+use revm::context::{result::HaltReasonTr, JournalTr};
+
+#[allow(clippy::wildcard_imports)]
+use crate::{evm::journaled_account, impl_is_pure_true, Cheatcode, CheatsCtxt, Result, Vm::*};
 
 /// Prank information.
 #[derive(Clone, Copy, Debug, Default)]
@@ -456,9 +456,9 @@ fn prank<
     single_call: bool,
     delegate_call: bool,
 ) -> Result {
-    // Ensure that we load the account of the pranked address and mark it as touched.
-    // This is necessary to ensure that account state changes (such as the account's `nonce`) are
-    // properly tracked.
+    // Ensure that we load the account of the pranked address and mark it as
+    // touched. This is necessary to ensure that account state changes (such as
+    // the account's `nonce`) are properly tracked.
     let account = journaled_account(ccx.ecx, *new_caller)?;
 
     // Ensure that code exists at `msg.sender` if delegate calling.
@@ -484,8 +484,9 @@ fn prank<
             used,
             "cannot overwrite a prank until it is applied at least once"
         );
-        // This case can only fail if the user calls `vm.startPrank` and then `vm.prank` later on.
-        // This should not be possible without first calling `stopPrank`
+        // This case can only fail if the user calls `vm.startPrank` and then `vm.prank`
+        // later on. This should not be possible without first calling
+        // `stopPrank`
         ensure!(
             single_call == *current_single_call,
             "cannot override an ongoing prank with a single vm.prank; \

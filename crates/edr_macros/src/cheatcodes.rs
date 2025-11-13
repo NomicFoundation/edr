@@ -104,7 +104,8 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
     })
 }
 
-/// Generates the `CHEATCODES` constant and implements `CheatcodeImpl` dispatch for an enum.
+/// Generates the `CHEATCODES` constant and implements `CheatcodeImpl` dispatch
+/// for an enum.
 fn derive_calls_enum(name: &Ident, input: &syn::DataEnum) -> Result<TokenStream> {
     if input.variants.iter().any(|v| v.fields.len() != 1) {
         return Err(syn::Error::new(
@@ -370,8 +371,8 @@ fn get_docstring(attrs: &[Attribute]) -> String {
     doc
 }
 
-/// Returns `(signature, hex_selector, declaration, description)` from a given `sol!`-generated
-/// docstring for a function.
+/// Returns `(signature, hex_selector, declaration, description)` from a given
+/// `sol!`-generated docstring for a function.
 ///
 /// # Examples
 ///
@@ -429,7 +430,8 @@ fn func_docstring(doc: &str) -> (&str, &str, &str, &str) {
     (sig, selector, declaration, description.trim())
 }
 
-/// Returns `(visibility, mutability)` from a given Solidity function declaration.
+/// Returns `(visibility, mutability)` from a given Solidity function
+/// declaration.
 fn parse_function_attrs(f: &str, span: Span) -> Result<(&str, &str)> {
     let Some(ext_start) = f.find("external") else {
         return Err(Error::new(

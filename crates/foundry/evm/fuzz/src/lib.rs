@@ -8,6 +8,8 @@
 #[macro_use]
 extern crate tracing;
 
+use std::{fmt, sync::Arc};
+
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_primitives::{
     map::{AddressHashMap, HashMap},
@@ -19,7 +21,6 @@ use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
 use itertools::Itertools;
 pub use proptest::test_runner::{Config as PropFuzzConfig, Reason};
 use serde::{Deserialize, Serialize};
-use std::{fmt, sync::Arc};
 
 mod error;
 pub use error::FuzzError;
@@ -39,7 +40,8 @@ pub use inspector::Fuzzer;
 pub enum CounterExample {
     /// Call used as a counter example for fuzz tests.
     Single(BaseCounterExample),
-    /// Original sequence size and sequence of calls used as a counter example for invariant tests.
+    /// Original sequence size and sequence of calls used as a counter example
+    /// for invariant tests.
     Sequence(usize, Vec<BaseCounterExample>),
 }
 
@@ -70,7 +72,8 @@ pub struct BaseCounterExample {
 }
 
 impl BaseCounterExample {
-    /// Creates counter example representing a step from invariant call sequence.
+    /// Creates counter example representing a step from invariant call
+    /// sequence.
     pub fn from_invariant_call(
         sender: Address,
         addr: Address,
@@ -193,22 +196,24 @@ pub struct FuzzTestResult {
     pub first_case: FuzzCase,
     /// Gas usage (`gas_used`, `call_stipend`) per cases
     pub gas_by_case: Vec<(u64, u64)>,
-    /// Whether the test case was successful. This means that the transaction executed
-    /// properly, or that there was a revert and that the test was expected to fail
-    /// (prefixed with `testFail`)
+    /// Whether the test case was successful. This means that the transaction
+    /// executed properly, or that there was a revert and that the test was
+    /// expected to fail (prefixed with `testFail`)
     pub success: bool,
-    /// Whether the test case was skipped. `reason` will contain the skip reason, if any.
+    /// Whether the test case was skipped. `reason` will contain the skip
+    /// reason, if any.
     pub skipped: bool,
 
-    /// If there was a revert, this field will be populated. Note that the test can
-    /// still be successful (i.e self.success == true) when it's expected to fail.
+    /// If there was a revert, this field will be populated. Note that the test
+    /// can still be successful (i.e self.success == true) when it's
+    /// expected to fail.
     pub reason: Option<String>,
 
     /// Minimal reproduction test case for failing fuzz tests
     pub counterexample: Option<CounterExample>,
 
-    /// Any captured & parsed as strings logs along the test's execution which should
-    /// be printed to the user.
+    /// Any captured & parsed as strings logs along the test's execution which
+    /// should be printed to the user.
     pub logs: Vec<Log>,
 
     /// Labeled addresses
@@ -216,8 +221,9 @@ pub struct FuzzTestResult {
 
     /// Exemplary traces for a fuzz run of the test function
     ///
-    /// **Note** We only store a single trace of a successful fuzz call, otherwise we would get
-    /// `num(fuzz_cases)` traces, one for each run, which is neither helpful nor performant.
+    /// **Note** We only store a single trace of a successful fuzz call,
+    /// otherwise we would get `num(fuzz_cases)` traces, one for each run,
+    /// which is neither helpful nor performant.
     pub traces: Option<SparsedTraceArena>,
 
     /// Additional traces used for gas report construction.
@@ -366,8 +372,8 @@ impl FuzzedCases {
 
 /// Fixtures to be used for fuzz tests.
 ///
-/// The key represents name of the fuzzed parameter, value holds possible fuzzed values.
-/// For example, for a fixture function declared as
+/// The key represents name of the fuzzed parameter, value holds possible fuzzed
+/// values. For example, for a fixture function declared as
 /// `function fixture_sender() external returns (address[] memory senders)`
 /// the fuzz fixtures will contain `sender` key with `senders` array as value
 #[derive(Clone, Default, Debug)]
@@ -395,7 +401,8 @@ impl FuzzFixtures {
 }
 
 /// Extracts fixture name from a function name.
-/// For example: fixtures defined in `fixture_Owner` function will be applied for `owner` parameter.
+/// For example: fixtures defined in `fixture_Owner` function will be applied
+/// for `owner` parameter.
 pub fn fixture_name(function_name: String) -> String {
     normalize_fixture(function_name.strip_prefix("fixture").unwrap())
 }

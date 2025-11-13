@@ -1,6 +1,7 @@
-use super::Function;
 use alloy_sol_types::SolCall;
 use serde::{Deserialize, Serialize};
+
+use super::Function;
 
 /// Cheatcode definition trait. Implemented by all [`Vm`](crate::Vm) functions.
 pub trait CheatcodeDef: std::fmt::Debug + Clone + SolCall {
@@ -8,7 +9,8 @@ pub trait CheatcodeDef: std::fmt::Debug + Clone + SolCall {
     const CHEATCODE: &'static Cheatcode<'static>;
 }
 
-/// Specification of a single cheatcode. Extends [`Function`] with additional metadata.
+/// Specification of a single cheatcode. Extends [`Function`] with additional
+/// metadata.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -22,10 +24,11 @@ pub struct Cheatcode<'a> {
     // Manually-specified fields.
     /// The group that the cheatcode belongs to.
     pub group: Group,
-    /// The current status of the cheatcode. E.g. whether it is stable or experimental, etc.
+    /// The current status of the cheatcode. E.g. whether it is stable or
+    /// experimental, etc.
     pub status: Status<'a>,
-    /// Whether the cheatcode is safe to use inside of scripts. E.g. it does not change state in an
-    /// unexpected way.
+    /// Whether the cheatcode is safe to use inside of scripts. E.g. it does not
+    /// change state in an unexpected way.
     pub safety: Safety,
 }
 
@@ -37,30 +40,33 @@ pub struct Cheatcode<'a> {
 pub enum Status<'a> {
     /// The cheatcode and its API is currently stable.
     Stable,
-    /// The cheatcode is unstable, meaning it may contain bugs and may break its API on any
-    /// release.
+    /// The cheatcode is unstable, meaning it may contain bugs and may break its
+    /// API on any release.
     ///
     /// Use of experimental cheatcodes will result in a warning.
     Experimental,
-    /// The cheatcode has been deprecated, meaning it will be removed in a future release.
+    /// The cheatcode has been deprecated, meaning it will be removed in a
+    /// future release.
     ///
     /// Contains the optional reason for deprecation.
     ///
-    /// Use of deprecated cheatcodes is discouraged and will result in a warning.
+    /// Use of deprecated cheatcodes is discouraged and will result in a
+    /// warning.
     Deprecated(Option<&'a str>),
     /// The cheatcode has been removed and is no longer available for use.
     ///
     /// Use of removed cheatcodes will result in a hard error.
     Removed,
-    /// The cheatcode is only used internally for foundry testing and may be changed or removed at
-    /// any time.
+    /// The cheatcode is only used internally for foundry testing and may be
+    /// changed or removed at any time.
     ///
     /// Use of internal cheatcodes is discouraged and will result in a warning.
     Internal,
 }
 
 /// Cheatcode groups.
-/// Initially derived and modified from inline comments in [`forge-std`'s `Vm.sol`][vmsol].
+/// Initially derived and modified from inline comments in [`forge-std`'s
+/// `Vm.sol`][vmsol].
 ///
 /// [vmsol]: https://github.com/foundry-rs/forge-std/blob/dcb0d52bc4399d37a6545848e3b8f9d03c77b98d/src/Vm.sol
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -104,13 +110,15 @@ pub enum Group {
     ///
     /// Safety: safe.
     String,
-    /// Utility cheatcodes that deal with parsing values from and converting values to JSON.
+    /// Utility cheatcodes that deal with parsing values from and converting
+    /// values to JSON.
     ///
     /// Examples: `serializeJson`, `parseJsonUint`, `writeJson`.
     ///
     /// Safety: safe.
     Json,
-    /// Utility cheatcodes that deal with parsing values from and converting values to TOML.
+    /// Utility cheatcodes that deal with parsing values from and converting
+    /// values to TOML.
     ///
     /// Examples: `parseToml`, `writeToml`.
     ///
@@ -133,8 +141,8 @@ pub enum Group {
 impl Group {
     /// Returns the safety of this cheatcode group.
     ///
-    /// Some groups are inherently safe or unsafe, while others are ambiguous and will return
-    /// `None`.
+    /// Some groups are inherently safe or unsafe, while others are ambiguous
+    /// and will return `None`.
     #[inline]
     pub const fn safety(self) -> Option<Safety> {
         match self {

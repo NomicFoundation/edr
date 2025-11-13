@@ -22,7 +22,8 @@ impl UintValueTree {
     /// Create a new tree
     /// # Arguments
     /// * `start` - Starting value for the tree
-    /// * `fixed` - If `true` the tree would only contain one element and won't be simplified.
+    /// * `fixed` - If `true` the tree would only contain one element and won't
+    ///   be simplified.
     fn new(start: U256, fixed: bool) -> Self {
         Self {
             lo: U256::ZERO,
@@ -71,19 +72,22 @@ impl ValueTree for UintValueTree {
 }
 
 /// Value tree for unsigned ints (up to uint256).
-/// The strategy combines 3 different strategies, each assigned a specific weight:
-/// 1. Generate purely random value in a range. This will first choose bit size uniformly (up `bits`
-///    param). Then generate a value for this bit size.
-/// 2. Generate a random value around the edges (+/- 3 around 0 and max possible value)
+/// The strategy combines 3 different strategies, each assigned a specific
+/// weight:
+/// 1. Generate purely random value in a range. This will first choose bit size
+///    uniformly (up `bits` param). Then generate a value for this bit size.
+/// 2. Generate a random value around the edges (+/- 3 around 0 and max possible
+///    value)
 /// 3. Generate a value from a predefined fixtures set
 ///
 /// To define uint fixtures:
-/// - return an array of possible values for a parameter named `amount` declare a function `function
-///   fixture_amount() public returns (uint32[] memory)`.
-/// - use `amount` named parameter in fuzzed test in order to include fixtures in fuzzed values
-///   `function testFuzz_uint32(uint32 amount)`.
+/// - return an array of possible values for a parameter named `amount` declare
+///   a function `function fixture_amount() public returns (uint32[] memory)`.
+/// - use `amount` named parameter in fuzzed test in order to include fixtures
+///   in fuzzed values `function testFuzz_uint32(uint32 amount)`.
 ///
-/// If fixture is not a valid uint type then error is raised and random value generated.
+/// If fixture is not a valid uint type then error is raised and random value
+/// generated.
 #[derive(Debug)]
 pub struct UintStrategy {
     /// Bit size of uint (e.g. 256)
@@ -102,7 +106,8 @@ impl UintStrategy {
     /// Create a new strategy.
     /// #Arguments
     /// * `bits` - Size of uint in bits
-    /// * `fixtures` - A set of fixed values to be generated (according to fixtures weight)
+    /// * `fixtures` - A set of fixed values to be generated (according to
+    ///   fixtures weight)
     pub fn new(bits: usize, fixtures: Option<&[DynSolValue]>) -> Self {
         Self {
             bits,
@@ -211,9 +216,10 @@ impl Strategy for UintStrategy {
 
 #[cfg(test)]
 mod tests {
-    use crate::strategies::uint::UintValueTree;
     use alloy_primitives::U256;
     use proptest::strategy::ValueTree;
+
+    use crate::strategies::uint::UintValueTree;
 
     #[test]
     fn test_uint_tree_complicate_max() {

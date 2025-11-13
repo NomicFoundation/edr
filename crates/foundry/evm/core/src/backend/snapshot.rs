@@ -1,11 +1,12 @@
-use super::JournaledState;
-use crate::evm_context::EvmEnv;
 use alloy_primitives::{
     map::{AddressHashMap, HashMap},
     B256, U256,
 };
 use revm::state::AccountInfo;
 use serde::{Deserialize, Serialize};
+
+use super::JournaledState;
+use crate::evm_context::EvmEnv;
 
 /// A minimal abstraction of a state at a certain point in time
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -41,11 +42,12 @@ impl<DatabaseT, BlockT, TxT, HardforkT> BackendStateSnapshot<DatabaseT, BlockT, 
 
     /// Called when this state snapshot is reverted.
     ///
-    /// Since we want to keep all additional logs that were emitted since the snapshot was taken
-    /// we'll merge additional logs into the snapshot's `revm::JournaledState`. Additional logs are
-    /// those logs that are missing in the snapshot's `journaled_state`, since the current
-    /// `journaled_state` includes the same logs, we can simply replace use that See also
-    /// `DatabaseExt::revert`.
+    /// Since we want to keep all additional logs that were emitted since the
+    /// snapshot was taken we'll merge additional logs into the snapshot's
+    /// `revm::JournaledState`. Additional logs are those logs that are
+    /// missing in the snapshot's `journaled_state`, since the current
+    /// `journaled_state` includes the same logs, we can simply replace use that
+    /// See also `DatabaseExt::revert`.
     pub fn merge(&mut self, current: &JournaledState) {
         self.journaled_state.logs.clone_from(&current.logs);
     }

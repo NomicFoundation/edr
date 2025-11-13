@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, fmt};
+
+use serde::{Deserialize, Serialize};
 
 /// A Solidity custom error.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -11,7 +12,8 @@ pub struct Error<'a> {
     /// The description of the error.
     /// This is a markdown string derived from the NatSpec documentation.
     pub description: &'a str,
-    /// The Solidity error declaration, including full type, parameter names, etc.
+    /// The Solidity error declaration, including full type, parameter names,
+    /// etc.
     pub declaration: &'a str,
 }
 
@@ -31,7 +33,8 @@ pub struct Event<'a> {
     /// The description of the event.
     /// This is a markdown string derived from the NatSpec documentation.
     pub description: &'a str,
-    /// The Solidity event declaration, including full type, parameter names, etc.
+    /// The Solidity event declaration, including full type, parameter names,
+    /// etc.
     pub declaration: &'a str,
 }
 

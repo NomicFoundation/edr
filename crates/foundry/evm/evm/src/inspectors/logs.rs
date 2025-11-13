@@ -1,4 +1,3 @@
-use crate::inspectors::error_ext::ErrorExt;
 use alloy_primitives::Log;
 use alloy_sol_types::{SolEvent, SolInterface, SolValue};
 use edr_common::fmt::ConsoleFmt;
@@ -8,14 +7,15 @@ use foundry_evm_core::{
     constants::HARDHAT_CONSOLE_ADDRESS,
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
-use revm::context::ContextTr;
 use revm::{
-    context::{CfgEnv, Context as EvmContext},
+    context::{CfgEnv, Context as EvmContext, ContextTr},
     interpreter::{
         CallInputs, CallOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
     Database, Inspector, Journal,
 };
+
+use crate::inspectors::error_ext::ErrorExt;
 
 /// An inspector that collects logs during execution.
 ///
@@ -104,7 +104,8 @@ impl<
 
 /// Converts a Hardhat `console.log` call to a `DSTest` `log(string)` event.
 fn hh_to_ds(call: &console::hh::ConsoleCalls) -> Log {
-    // Convert the parameters of the call to their string representation using `ConsoleFmt`.
+    // Convert the parameters of the call to their string representation using
+    // `ConsoleFmt`.
     let msg = call.fmt(edr_common::fmt::FormatSpec::default());
     new_console_log(&msg)
 }

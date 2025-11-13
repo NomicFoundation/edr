@@ -1,20 +1,18 @@
 //! Foundry's main executor backend abstraction and implementation.
 
-use crate::{
-    backend::predeploy::insert_predeploys,
-    constants::{CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, TEST_CONTRACT_ADDRESS},
-    evm_context::{
-        BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmContext, EvmEnv, EvmEnvWithChainContext,
-        HardforkTr, IntoEvmContext, TransactionEnvMut, TransactionEnvTr, TransactionErrorTrait,
-    },
-    fork::{CreateFork, ForkId, MultiFork},
-    state_snapshot::StateSnapshots,
-    utils::{configure_tx_env, get_blob_base_fee_update_fraction_by_spec_id},
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap, HashSet},
+    fmt::Debug,
+    marker::PhantomData,
+    time::Instant,
 };
+
 use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
 use alloy_primitives::{address, keccak256, uint, Address, TxKind, B256, U256};
 use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction};
+use derive_where::derive_where;
 use eyre::Context;
 pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
@@ -28,16 +26,19 @@ use revm::{
     state::{Account, AccountInfo, EvmState, EvmStorageSlot},
     Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
-use std::{
-    borrow::Cow,
-    collections::{BTreeMap, HashMap, HashSet},
-    fmt::Debug,
-    marker::PhantomData,
-    time::Instant,
-};
-
-use derive_where::derive_where;
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    backend::predeploy::insert_predeploys,
+    constants::{CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, TEST_CONTRACT_ADDRESS},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmContext, EvmEnv, EvmEnvWithChainContext,
+        HardforkTr, IntoEvmContext, TransactionEnvMut, TransactionEnvTr, TransactionErrorTrait,
+    },
+    fork::{CreateFork, ForkId, MultiFork},
+    state_snapshot::StateSnapshots,
+    utils::{configure_tx_env, get_blob_base_fee_update_fraction_by_spec_id},
+};
 
 mod diagnostic;
 pub use diagnostic::RevertDiagnostic;
@@ -62,8 +63,9 @@ type ForkDB = CacheDB<SharedBackend>;
 
 /// Represents a numeric `ForkId` valid only for the existence of the `Backend`.
 ///
-/// The difference between `ForkId` and `LocalForkId` is that `ForkId` tracks pairs of `endpoint +
-/// block` which can be reused by multiple tests, whereas the `LocalForkId` is unique within a test
+/// The difference between `ForkId` and `LocalForkId` is that `ForkId` tracks
+/// pairs of `endpoint + block` which can be reused by multiple tests, whereas
+/// the `LocalForkId` is unique within a test
 pub type LocalForkId = U256;
 
 /// Represents the index of a fork in the created forks vector
@@ -89,8 +91,8 @@ const SYSTEM_TRANSACTION_TYPE: u8 = 126;
 
 /// `bytes32("failed")`, as a storage slot key into [`CHEATCODE_ADDRESS`].
 ///
-/// Used by all `forge-std` test contracts and newer `DSTest` test contracts as a global marker for
-/// a failed test.
+/// Used by all `forge-std` test contracts and newer `DSTest` test contracts as
+/// a global marker for a failed test.
 pub const GLOBAL_FAIL_SLOT: U256 =
     uint!(0x6661696c65640000000000000000000000000000000000000000000000000000_U256);
 
@@ -138,7 +140,8 @@ where
 {
 }
 
-/// An extension trait that allows us to easily extend the `revm::Inspector` capabilities
+/// An extension trait that allows us to easily extend the `revm::Inspector`
+/// capabilities
 #[auto_impl::auto_impl(&mut)]
 pub trait CheatcodeBackend<
     BlockT: BlockEnvTr,
@@ -152,9 +155,11 @@ pub trait CheatcodeBackend<
 {
     /// Creates a new state snapshot at the current point of execution.
     ///
-    /// A state snapshot is associated with a new unique id that's created for the snapshot.
-    /// State snapshots can be reverted: [`DatabaseExt::revert_state`], however, depending on the
-    /// [`RevertStateSnapshotAction`], it will keep the snapshot alive or delete it.
+    /// A state snapshot is associated with a new unique id that's created for
+    /// the snapshot. State snapshots can be reverted:
+    /// [`DatabaseExt::revert_state`], however, depending on the
+    /// [`RevertStateSnapshotAction`], it will keep the snapshot alive or delete
+    /// it.
     fn snapshot_state(
         &mut self,
         journaled_state: &JournalInner<JournalEntry>,
@@ -163,16 +168,17 @@ pub trait CheatcodeBackend<
 
     /// Reverts the snapshot if it exists
     ///
-    /// Returns `true` if the snapshot was successfully reverted, `false` if no snapshot for that id
-    /// exists.
+    /// Returns `true` if the snapshot was successfully reverted, `false` if no
+    /// snapshot for that id exists.
     ///
-    /// **N.B.** While this reverts the state of the evm to the snapshot, it keeps new logs made
-    /// since the snapshots was created. This way we can show logs that were emitted between
-    /// snapshot and its revert.
-    /// This will also revert any changes in the `Env` and replace it with the captured `Env` of
-    /// `Self::snapshot_state`.
+    /// **N.B.** While this reverts the state of the evm to the snapshot, it
+    /// keeps new logs made since the snapshots was created. This way we can
+    /// show logs that were emitted between snapshot and its revert.
+    /// This will also revert any changes in the `Env` and replace it with the
+    /// captured `Env` of `Self::snapshot_state`.
     ///
-    /// Depending on [`RevertStateSnapshotAction`] it will keep the snapshot alive or delete it.
+    /// Depending on [`RevertStateSnapshotAction`] it will keep the snapshot
+    /// alive or delete it.
     fn revert_state<'a>(
         &'a mut self,
         id: U256,
@@ -182,8 +188,8 @@ pub trait CheatcodeBackend<
 
     /// Deletes the state snapshot with the given `id`
     ///
-    /// Returns `true` if the snapshot was successfully deleted, `false` if no snapshot for that id
-    /// exists.
+    /// Returns `true` if the snapshot was successfully deleted, `false` if no
+    /// snapshot for that id exists.
     fn delete_state_snapshot(&mut self, id: U256) -> bool;
 
     /// Deletes all state snapshots.
@@ -234,7 +240,8 @@ pub trait CheatcodeBackend<
     ///
     /// This will also modify the current `EvmEnv<BlockT, TxT, HardforkT>`.
     ///
-    /// **Note**: this does not change the local state, but swaps the remote state
+    /// **Note**: this does not change the local state, but swaps the remote
+    /// state
     ///
     /// # Errors
     ///
@@ -261,8 +268,9 @@ pub trait CheatcodeBackend<
 
     /// Updates the fork to given transaction hash
     ///
-    /// This will essentially create a new fork at the block this transaction was mined and replays
-    /// all transactions up until the given transaction.
+    /// This will essentially create a new fork at the block this transaction
+    /// was mined and replays all transactions up until the given
+    /// transaction.
     ///
     /// # Errors
     ///
@@ -276,7 +284,8 @@ pub trait CheatcodeBackend<
     where
         'a: 'c;
 
-    /// Fetches the given transaction for the fork and executes it, committing the state in the DB
+    /// Fetches the given transaction for the fork and executes it, committing
+    /// the state in the DB
     fn transact(
         &mut self,
         id: Option<LocalForkId>,
@@ -302,10 +311,12 @@ pub trait CheatcodeBackend<
     where
         Self: Sized;
 
-    /// Returns the `ForkId` that's currently used in the database, if fork mode is on
+    /// Returns the `ForkId` that's currently used in the database, if fork mode
+    /// is on
     fn active_fork_id(&self) -> Option<LocalForkId>;
 
-    /// Returns the Fork url that's currently used in the database, if fork mode is on
+    /// Returns the Fork url that's currently used in the database, if fork mode
+    /// is on
     fn active_fork_url(&self) -> Option<String>;
 
     /// Whether the database is currently in forked mode.
@@ -328,9 +339,9 @@ pub trait CheatcodeBackend<
     /// Ensures that a corresponding `ForkId` exists for the given local `id`
     fn ensure_fork_id(&self, id: LocalForkId) -> eyre::Result<&ForkId>;
 
-    /// Handling multiple accounts/new contracts in a multifork environment can be challenging since
-    /// every fork has its own standalone storage section. So this can be a common error to run
-    /// into:
+    /// Handling multiple accounts/new contracts in a multifork environment can
+    /// be challenging since every fork has its own standalone storage
+    /// section. So this can be a common error to run into:
     ///
     /// ```solidity
     /// function testCanDeploy() public {
@@ -348,9 +359,10 @@ pub trait CheatcodeBackend<
     /// }
     /// ```
     ///
-    /// If this happens (`dummy.hello()`), or more general, a call on an address that's not a
-    /// contract, revm will revert without useful context. This call will check in this context if
-    /// `address(dummy)` belongs to an existing contract and if not will check all other forks if
+    /// If this happens (`dummy.hello()`), or more general, a call on an address
+    /// that's not a contract, revm will revert without useful context. This
+    /// call will check in this context if `address(dummy)` belongs to an
+    /// existing contract and if not will check all other forks if
     /// the contract is deployed there.
     ///
     /// Returns a more useful error message if that's the case
@@ -360,19 +372,22 @@ pub trait CheatcodeBackend<
         journaled_state: &JournaledState,
     ) -> Option<RevertDiagnostic>;
 
-    /// Loads the account allocs from the given `allocs` map into the passed [`JournaledState`].
+    /// Loads the account allocs from the given `allocs` map into the passed
+    /// [`JournaledState`].
     ///
-    /// Returns [Ok] if all accounts were successfully inserted into the journal, [Err] otherwise.
+    /// Returns [Ok] if all accounts were successfully inserted into the
+    /// journal, [Err] otherwise.
     fn load_allocs(
         &mut self,
         allocs: &BTreeMap<Address, GenesisAccount>,
         journaled_state: &mut JournaledState,
     ) -> Result<(), BackendError>;
 
-    /// Copies bytecode, storage, nonce and balance from the given genesis account to the target
-    /// address.
+    /// Copies bytecode, storage, nonce and balance from the given genesis
+    /// account to the target address.
     ///
-    /// Returns [Ok] if data was successfully inserted into the journal, [Err] otherwise.
+    /// Returns [Ok] if data was successfully inserted into the journal, [Err]
+    /// otherwise.
     fn clone_account(
         &mut self,
         source: &GenesisAccount,
@@ -432,8 +447,8 @@ pub trait CheatcodeBackend<
         Ok(())
     }
 
-    /// Same as [`Self::ensure_cheatcode_access()`] but only enforces it if the backend is currently
-    /// in forking mode
+    /// Same as [`Self::ensure_cheatcode_access()`] but only enforces it if the
+    /// backend is currently in forking mode
     fn ensure_cheatcode_access_forking_mode(&self, account: &Address) -> Result<(), BackendError> {
         if self.is_forked_mode() {
             return self.ensure_cheatcode_access(account);
@@ -455,10 +470,14 @@ pub trait CheatcodeBackend<
     /// # Note
     ///
     /// This function mimics the EVM limits of the `blockhash` operation:
-    /// - It sets the blockhash for blocks where `block.number - 256 <= number < block.number`
-    /// - Setting a blockhash for the current block (number == block.number) has no effect
-    /// - Setting a blockhash for future blocks (number > block.number) has no effect
-    /// - Setting a blockhash for blocks older than `block.number - 256` has no effect
+    /// - It sets the blockhash for blocks where `block.number - 256 <= number <
+    ///   block.number`
+    /// - Setting a blockhash for the current block (number == block.number) has
+    ///   no effect
+    /// - Setting a blockhash for future blocks (number > block.number) has no
+    ///   effect
+    /// - Setting a blockhash for blocks older than `block.number - 256` has no
+    ///   effect
     fn set_blockhash(&mut self, block_number: U256, block_hash: B256);
 }
 
@@ -495,46 +514,51 @@ struct _ObjectSafe<
 ///
 ///
 /// In addition to that we support forking manually on the fly.
-/// Additional forks can be created. Each unique fork is identified by its unique `ForkId`. We treat
-/// forks as unique if they have the same `(endpoint, block number)` pair.
+/// Additional forks can be created. Each unique fork is identified by its
+/// unique `ForkId`. We treat forks as unique if they have the same `(endpoint,
+/// block number)` pair.
 ///
-/// When it comes to testing, it's intended that each contract will use its own `Backend`
-/// (`Backend::clone`). This way each contract uses its own encapsulated evm state. For in-memory
-/// testing, the database is just an owned `revm::InMemoryDB`.
+/// When it comes to testing, it's intended that each contract will use its own
+/// `Backend` (`Backend::clone`). This way each contract uses its own
+/// encapsulated evm state. For in-memory testing, the database is just an owned
+/// `revm::InMemoryDB`.
 ///
-/// Each `Fork`, identified by a unique id, uses completely separate storage, write operations are
-/// performed only in the fork's own database, `ForkDB`.
+/// Each `Fork`, identified by a unique id, uses completely separate storage,
+/// write operations are performed only in the fork's own database, `ForkDB`.
 ///
 /// A `ForkDB` consists of 2 halves:
 ///   - everything fetched from the remote is readonly
-///   - all local changes (instructed by the contract) are written to the backend's `db` and don't
-///     alter the state of the remote client.
+///   - all local changes (instructed by the contract) are written to the
+///     backend's `db` and don't alter the state of the remote client.
 ///
 /// # Fork swapping
 ///
-/// Multiple "forks" can be created `Backend::create_fork()`, however only 1 can be used by the
-/// `db`. However, their state can be hot-swapped by swapping the read half of `db` from one fork to
-/// another.
-/// When swapping forks (`Backend::select_fork()`) we also update the current `EvmEnv<BlockT, TxT, HardforkT>` of the `EVM`
-/// accordingly, so that all `block.*` config values match
+/// Multiple "forks" can be created `Backend::create_fork()`, however only 1 can
+/// be used by the `db`. However, their state can be hot-swapped by swapping the
+/// read half of `db` from one fork to another.
+/// When swapping forks (`Backend::select_fork()`) we also update the current
+/// `EvmEnv<BlockT, TxT, HardforkT>` of the `EVM` accordingly, so that all
+/// `block.*` config values match
 ///
-/// When another for is selected [`CheatcodeBackend::select_fork()`] the entire storage, including
-/// `JournaledState` is swapped, but the storage of the caller's and the test contract account is
-/// _always_ cloned. This way a fork has entirely separate storage but data can still be shared
-/// across fork boundaries via stack and contract variables.
+/// When another for is selected [`CheatcodeBackend::select_fork()`] the entire
+/// storage, including `JournaledState` is swapped, but the storage of the
+/// caller's and the test contract account is _always_ cloned. This way a fork
+/// has entirely separate storage but data can still be shared across fork
+/// boundaries via stack and contract variables.
 ///
 /// # Snapshotting
 ///
-/// A snapshot of the current overall state can be taken at any point in time. A snapshot is
-/// identified by a unique id that's returned when a snapshot is created. A snapshot can only be
-/// reverted _once_. After a successful revert, the same snapshot id cannot be used again. Reverting
-/// a snapshot replaces the current active state with the snapshot state, the snapshot is deleted
-/// afterwards, as well as any snapshots taken after the reverted snapshot, (e.g.: reverting to id
-/// 0x1 will delete snapshots with ids 0x1, 0x2, etc.)
+/// A snapshot of the current overall state can be taken at any point in time. A
+/// snapshot is identified by a unique id that's returned when a snapshot is
+/// created. A snapshot can only be reverted _once_. After a successful revert,
+/// the same snapshot id cannot be used again. Reverting a snapshot replaces the
+/// current active state with the snapshot state, the snapshot is deleted
+/// afterwards, as well as any snapshots taken after the reverted snapshot,
+/// (e.g.: reverting to id 0x1 will delete snapshots with ids 0x1, 0x2, etc.)
 ///
-/// **Note:** State snapshots work across fork-swaps, e.g. if fork `A` is currently active, then a
-/// snapshot is created before fork `B` is selected, then fork `A` will be the active fork again
-/// after reverting the snapshot.
+/// **Note:** State snapshots work across fork-swaps, e.g. if fork `A` is
+/// currently active, then a snapshot is created before fork `B` is selected,
+/// then fork `A` will be the active fork again after reverting the snapshot.
 #[derive_where(Clone, Debug; BlockT, HardforkT, TxT)]
 pub struct Backend<
     BlockT,
@@ -551,20 +575,21 @@ pub struct Backend<
     mem_db: FoundryEvmInMemoryDB,
     /// The `journaled_state` to use to initialize new forks with
     ///
-    /// The way [`JournaledState`] works is, that it holds the "hot" accounts loaded from the
-    /// underlying `Database` that feeds the Account and State data to the `journaled_state` so it
-    /// can apply changes to the state while the EVM executes.
+    /// The way [`JournaledState`] works is, that it holds the "hot" accounts
+    /// loaded from the underlying `Database` that feeds the Account and
+    /// State data to the `journaled_state` so it can apply changes to the
+    /// state while the EVM executes.
     ///
     /// In a way the `JournaledState` is something like a cache that
     /// 1. check if account is already loaded (hot)
-    /// 2. if not load from the `Database` (this will then retrieve the account via RPC in forking
-    ///    mode)
+    /// 2. if not load from the `Database` (this will then retrieve the account
+    ///    via RPC in forking mode)
     ///
     /// To properly initialize we store the `JournaledState` before the first
     /// fork is selected ([`CheatcodeBackend::select_fork`]).
     ///
-    /// This will be an empty `JournaledState`, which will be populated with persistent accounts,
-    /// See [`Self::update_fork_db()`].
+    /// This will be an empty `JournaledState`, which will be populated with
+    /// persistent accounts, See [`Self::update_fork_db()`].
     fork_init_journaled_state: JournaledState,
     /// The currently active fork database
     ///
@@ -599,8 +624,8 @@ impl<
 
     /// Creates a new instance of `Backend`
     ///
-    /// If `fork` is `Some` this will use a `fork` database, otherwise with an in-memory
-    /// database.
+    /// If `fork` is `Some` this will use a `fork` database, otherwise with an
+    /// in-memory database.
     pub fn new(
         forks: MultiFork<BlockT, TxT, HardforkT>,
         fork: Option<CreateFork<BlockT, TxT, HardforkT>>,
@@ -649,8 +674,8 @@ impl<
         Ok(backend)
     }
 
-    /// Creates a new instance of `Backend` with fork added to the fork database and sets the fork
-    /// as active
+    /// Creates a new instance of `Backend` with fork added to the fork database
+    /// and sets the fork as active
     pub(crate) fn new_with_fork(
         id: &ForkId,
         fork: Fork,
@@ -673,7 +698,8 @@ impl<
         Ok(backend)
     }
 
-    /// Creates a new instance with a `BackendDatabase::InMemory` cache layer for the `CacheDB`
+    /// Creates a new instance with a `BackendDatabase::InMemory` cache layer
+    /// for the `CacheDB`
     pub fn clone_empty(&self) -> Self {
         Self {
             forks: self.forks.clone(),
@@ -733,8 +759,8 @@ impl<
 
     /// Sets the address of the `DSTest` contract that is being executed
     ///
-    /// This will also mark the caller as persistent and remove the persistent status from the
-    /// previous test contract address
+    /// This will also mark the caller as persistent and remove the persistent
+    /// status from the previous test contract address
     ///
     /// This will also grant cheatcode access to the test account
     pub fn set_test_contract(&mut self, acc: Address) -> &mut Self {
@@ -770,11 +796,14 @@ impl<
         self.inner.caller
     }
 
-    /// Failures occurred in state snapshots are tracked when the state snapshot is reverted.
+    /// Failures occurred in state snapshots are tracked when the state snapshot
+    /// is reverted.
     ///
-    /// If an error occurs in a restored state snapshot, the test is considered failed.
+    /// If an error occurs in a restored state snapshot, the test is considered
+    /// failed.
     ///
-    /// This returns whether there was a reverted state snapshot that recorded an error.
+    /// This returns whether there was a reverted state snapshot that recorded
+    /// an error.
     pub fn has_state_snapshot_failure(&self) -> bool {
         self.inner.has_state_snapshot_failure
     }
@@ -898,7 +927,8 @@ impl<
         }
     }
 
-    /// When creating or switching forks, we update the `AccountInfo` of the contract
+    /// When creating or switching forks, we update the `AccountInfo` of the
+    /// contract
     pub(crate) fn update_fork_db(
         &self,
         active_journaled_state: &mut JournaledState,
@@ -916,7 +946,8 @@ impl<
         );
     }
 
-    /// Merges the state of all `accounts` from the currently active db into the given `fork`
+    /// Merges the state of all `accounts` from the currently active db into the
+    /// given `fork`
     pub(crate) fn update_fork_db_contracts(
         &self,
         accounts: impl IntoIterator<Item = Address>,
@@ -1002,7 +1033,8 @@ impl<
         }
     }
 
-    /// Since each `Fork` tracks logs separately, we need to merge them to get _all_ of them
+    /// Since each `Fork` tracks logs separately, we need to merge them to get
+    /// _all_ of them
     pub fn merged_logs(&self, mut logs: Vec<Log>) -> Vec<Log> {
         if let Some((_, active)) = self.active_fork_ids {
             let mut all_logs = Vec::with_capacity(logs.len());
@@ -1027,7 +1059,8 @@ impl<
 
     /// Initializes settings we need to keep track of.
     ///
-    /// We need to track these mainly to prevent issues when switching between different evms
+    /// We need to track these mainly to prevent issues when switching between
+    /// different evms
     pub(crate) fn initialize(&mut self, env: &EvmEnv<BlockT, TxT, HardforkT>) {
         self.set_caller(env.tx.caller());
         self.set_spec_id(env.cfg.spec());
@@ -1054,10 +1087,11 @@ impl<
         env
     }
 
-    /// Executes the configured test call of the `env` without committing state changes.
+    /// Executes the configured test call of the `env` without committing state
+    /// changes.
     ///
-    /// Note: in case there are any cheatcodes executed that modify the environment, this will
-    /// update the given `env` with the new values.
+    /// Note: in case there are any cheatcodes executed that modify the
+    /// environment, this will update the given `env` with the new values.
     pub fn inspect<'a, InspectorT>(
         &'a mut self,
         env: &mut EvmEnv<BlockT, TxT, HardforkT>,
@@ -1091,15 +1125,16 @@ impl<
         self.fork_init_journaled_state = journaled_state;
     }
 
-    /// Cleans up already loaded accounts that would be initialized without the correct data from
-    /// the fork.
+    /// Cleans up already loaded accounts that would be initialized without the
+    /// correct data from the fork.
     ///
-    /// It can happen that an account is loaded before the first fork is selected, like
-    /// `getNonce(addr)`, which will load an empty account by default.
+    /// It can happen that an account is loaded before the first fork is
+    /// selected, like `getNonce(addr)`, which will load an empty account by
+    /// default.
     ///
-    /// This account data then would not match the account data of a fork if it exists.
-    /// So when the first fork is initialized we replace these accounts with the actual account as
-    /// it exists on the fork.
+    /// This account data then would not match the account data of a fork if it
+    /// exists. So when the first fork is initialized we replace these
+    /// accounts with the actual account as it exists on the fork.
     fn prepare_init_journal_state(&mut self) -> Result<(), BackendError> {
         let loaded_accounts = self
             .fork_init_journaled_state
@@ -1119,9 +1154,10 @@ impl<
                     .get_mut(&loaded_account)
                     .expect("exists; qed");
 
-                // here's an edge case where we need to check if this account has been created, in
-                // which case we don't need to replace it with the account from the fork because the
-                // created account takes precedence: for example contract creation in setups
+                // here's an edge case where we need to check if this account has been created,
+                // in which case we don't need to replace it with the account
+                // from the fork because the created account takes precedence:
+                // for example contract creation in setups
                 if init_account.is_created() {
                     trace!(?loaded_account, "skipping created account");
                     continue;
@@ -1164,9 +1200,11 @@ impl<
         }
     }
 
-    /// Replays all the transactions at the forks current block that were mined before the `tx`
+    /// Replays all the transactions at the forks current block that were mined
+    /// before the `tx`
     ///
-    /// Returns the _unmined_ transaction that corresponds to the given `tx_hash`
+    /// Returns the _unmined_ transaction that corresponds to the given
+    /// `tx_hash`
     pub fn replay_until(
         &mut self,
         id: LocalForkId,
@@ -1187,8 +1225,8 @@ impl<
             .get_full_block(env.block.number().saturating_to::<u64>())?;
 
         for tx in full_block.inner.transactions.txns() {
-            // System transactions such as on L2s don't contain any pricing info so we skip them
-            // otherwise this would cause reverts
+            // System transactions such as on L2s don't contain any pricing info so we skip
+            // them otherwise this would cause reverts
             if is_known_system_sender(tx.from())
                 || tx.transaction_type() == Some(SYSTEM_TRANSACTION_TYPE)
             {
@@ -1355,8 +1393,8 @@ impl<
             .get_env(fork_id)?
             .ok_or_else(|| eyre::eyre!("Requested fork `{}` does not exit", id))?;
 
-        // we still need to roll to the transaction, but we only need an empty dummy state since we
-        // don't need to update the active journaled state yet
+        // we still need to roll to the transaction, but we only need an empty dummy
+        // state since we don't need to update the active journaled state yet
         let mut journaled_state = self.inner.new_journaled_state();
 
         let mut context = EvmContext {
@@ -1384,8 +1422,9 @@ impl<
             return Ok(());
         }
 
-        // Update block number and timestamp of active fork (if any) with current env values,
-        // in order to preserve values changed by using `roll` and `warp` cheatcodes.
+        // Update block number and timestamp of active fork (if any) with current env
+        // values, in order to preserve values changed by using `roll` and
+        // `warp` cheatcodes.
         if let Some(active_fork_id) = self.active_fork_id() {
             self.forks.update_block(
                 self.ensure_fork_id(active_fork_id).cloned()?,
@@ -1401,8 +1440,9 @@ impl<
             .get_env(fork_id)?
             .ok_or_else(|| eyre::eyre!("Requested fork `{}` does not exit", id))?;
 
-        // If we're currently in forking mode we need to update the journaled_state to this point,
-        // this ensures the changes performed while the fork was active are recorded
+        // If we're currently in forking mode we need to update the journaled_state to
+        // this point, this ensures the changes performed while the fork was
+        // active are recorded
         if let Some(active) = self.active_fork_mut() {
             active.journaled_state = context.journaled_state.clone();
 
@@ -1426,10 +1466,11 @@ impl<
                 }
             }
         } else {
-            // this is the first time a fork is selected. This means up to this point all changes
-            // are made in a single `JournaledState`, for example after a `setup` that only created
-            // different forks. Since the `JournaledState` is valid for all forks until the
-            // first fork is selected, we need to update it for all forks and use it as init state
+            // this is the first time a fork is selected. This means up to this point all
+            // changes are made in a single `JournaledState`, for example after
+            // a `setup` that only created different forks. Since the
+            // `JournaledState` is valid for all forks until the first fork is
+            // selected, we need to update it for all forks and use it as init state
             // for all future forks
 
             self.set_init_journaled_state(context.journaled_state.clone());
@@ -1443,13 +1484,13 @@ impl<
             // update the shared state and track
             let mut fork = self.inner.take_fork(idx);
 
-            // Make sure all persistent accounts on the newly selected fork reflect same state as
-            // the active db / previous fork.
-            // This can get out of sync when multiple forks are created on test `setUp`, then a
-            // fork is selected and persistent contract is changed. If first action in test is to
-            // select a different fork, then the persistent contract state won't reflect changes
-            // done in `setUp` for the other fork.
-            // See <https://github.com/foundry-rs/foundry/issues/10296> and <https://github.com/foundry-rs/foundry/issues/10552>.
+            // Make sure all persistent accounts on the newly selected fork reflect same
+            // state as the active db / previous fork.
+            // This can get out of sync when multiple forks are created on test `setUp`,
+            // then a fork is selected and persistent contract is changed. If
+            // first action in test is to select a different fork, then the
+            // persistent contract state won't reflect changes done in `setUp`
+            // for the other fork. See <https://github.com/foundry-rs/foundry/issues/10296> and <https://github.com/foundry-rs/foundry/issues/10552>.
             let persistent_accounts = self.inner.persistent_accounts.clone();
             if let Some(db) = self.active_fork_db_mut() {
                 for addr in persistent_accounts {
@@ -1470,9 +1511,9 @@ impl<
             }
 
             // since all forks handle their state separately, the depth can drift
-            // this is a handover where the target fork starts at the same depth where it was
-            // selected. This ensures that there are no gaps in depth which would
-            // otherwise cause issues with the tracer
+            // this is a handover where the target fork starts at the same depth where it
+            // was selected. This ensures that there are no gaps in depth which
+            // would otherwise cause issues with the tracer
             fork.journaled_state.depth = context.journaled_state.depth;
 
             // another edge case where a fork is created and selected during setup with not
@@ -1507,8 +1548,9 @@ impl<
         Ok(())
     }
 
-    /// This is effectively the same as [`Self::create_select_fork()`] but updating an existing
-    /// [`ForkId`] that is mapped to the [`LocalForkId`]
+    /// This is effectively the same as [`Self::create_select_fork()`] but
+    /// updating an existing [`ForkId`] that is mapped to the
+    /// [`LocalForkId`]
     fn roll_fork(
         &mut self,
         id: Option<LocalForkId>,
@@ -1526,12 +1568,12 @@ impl<
         if let Some((active_id, active_idx)) = self.active_fork_ids {
             // the currently active fork is the targeted fork of this call
             if active_id == id {
-                // need to update the block's env settings right away, which is otherwise set when
-                // forks are selected `select_fork`
+                // need to update the block's env settings right away, which is otherwise set
+                // when forks are selected `select_fork`
                 update_current_env_with_fork_env(context, fork_env);
 
-                // we also need to update the journaled_state right away, this has essentially the
-                // same effect as selecting (`select_fork`) by discarding
+                // we also need to update the journaled_state right away, this has essentially
+                // the same effect as selecting (`select_fork`) by discarding
                 // non-persistent storage from the journaled_state. This which will
                 // reset cached state from the previous block
                 let mut persistent_addrs = self.inner.persistent_accounts.clone();
@@ -1551,12 +1593,14 @@ impl<
                 }
 
                 // Ensure all previously loaded accounts are present in the journaled state to
-                // prevent issues in the new journalstate, e.g. assumptions that accounts are loaded
-                // if the account is not touched, we reload it, if it's touched we clone it.
+                // prevent issues in the new journalstate, e.g. assumptions that accounts are
+                // loaded if the account is not touched, we reload it, if it's
+                // touched we clone it.
                 //
-                // Special case for accounts that are not created: we don't merge their state but
-                // load it in order to reflect their state at the new block (they should explicitly
-                // be marked as persistent if it is desired to keep state between fork rolls).
+                // Special case for accounts that are not created: we don't merge their state
+                // but load it in order to reflect their state at the new block
+                // (they should explicitly be marked as persistent if it is
+                // desired to keep state between fork rolls).
                 for (addr, acc) in context.journaled_state.state.iter() {
                     if acc.is_created() {
                         if acc.is_touched() {
@@ -1592,16 +1636,17 @@ impl<
         let (fork_block, block) =
             self.get_block_number_and_block_for_transaction(id, transaction)?;
 
-        // roll the fork to the transaction's parent block or latest if it's pending, because we
-        // need to fork off the parent block's state for tx level forking and then replay the txs
-        // before the tx in that block to get the state at the tx
+        // roll the fork to the transaction's parent block or latest if it's pending,
+        // because we need to fork off the parent block's state for tx level
+        // forking and then replay the txs before the tx in that block to get
+        // the state at the tx
         self.roll_fork(Some(id), fork_block, context)?;
 
         // we need to update the env to the block
         update_env_block(context.block, &block, context.cfg.spec.into());
 
-        // after we forked at the fork block we need to properly update the block env to the block
-        // env of the tx's block
+        // after we forked at the fork block we need to properly update the block env to
+        // the block env of the tx's block
         let _ = self.forks.update_block_env(
             self.inner.ensure_fork_id(id).cloned()?,
             context.block.clone(),
@@ -1648,11 +1693,11 @@ impl<
             fork.db.db.get_transaction(transaction)?
         };
 
-        // This is a bit ambiguous because the user wants to transact an arbitrary transaction in
-        // the current context, but we're assuming the user wants to transact the transaction as it
-        // was mined. Usually this is used in a combination of a fork at the transaction's parent
-        // transaction in the block and then the transaction is transacted:
-        // <https://github.com/foundry-rs/foundry/issues/6538>
+        // This is a bit ambiguous because the user wants to transact an arbitrary
+        // transaction in the current context, but we're assuming the user wants
+        // to transact the transaction as it was mined. Usually this is used in
+        // a combination of a fork at the transaction's parent transaction in
+        // the block and then the transaction is transacted: <https://github.com/foundry-rs/foundry/issues/6538>
         // So we modify the env to match the transaction's block.
         let (_fork_block, block) =
             self.get_block_number_and_block_for_transaction(id, transaction)?;
@@ -1710,13 +1755,14 @@ impl<
         let active_fork = self.active_fork()?;
 
         if self.inner.forks.len() == 1 {
-            // we only want to provide additional diagnostics here when in multifork mode with > 1
-            // forks
+            // we only want to provide additional diagnostics here when in multifork mode
+            // with > 1 forks
             return None;
         }
 
         if !active_fork.is_contract(callee) && !is_contract_in_state(journaled_state, callee) {
-            // no contract for `callee` available on current fork, check if available on other forks
+            // no contract for `callee` available on current fork, check if available on
+            // other forks
             let mut available_on = Vec::new();
             for (id, fork) in self.inner.forks_iter().filter(|(id, _)| *id != active_id) {
                 trace!(?id, address=?callee, "checking if account exists");
@@ -1732,8 +1778,8 @@ impl<
                     persistent: self.is_persistent(&callee),
                 })
             } else {
-                // likely user error: called a contract that's not available on active fork but is
-                // present other forks
+                // likely user error: called a contract that's not available on active fork but
+                // is present other forks
                 Some(RevertDiagnostic::ContractExistsOnOtherForks {
                     contract: callee,
                     active: active_id,
@@ -1744,15 +1790,18 @@ impl<
         None
     }
 
-    /// Loads the account allocs from the given `allocs` map into the passed [`JournaledState`].
+    /// Loads the account allocs from the given `allocs` map into the passed
+    /// [`JournaledState`].
     ///
-    /// Returns [Ok] if all accounts were successfully inserted into the journal, [Err] otherwise.
+    /// Returns [Ok] if all accounts were successfully inserted into the
+    /// journal, [Err] otherwise.
     fn load_allocs(
         &mut self,
         allocs: &BTreeMap<Address, GenesisAccount>,
         journaled_state: &mut JournaledState,
     ) -> Result<(), BackendError> {
-        // Loop through all of the allocs defined in the map and commit them to the journal.
+        // Loop through all of the allocs defined in the map and commit them to the
+        // journal.
         for (addr, acc) in allocs {
             self.clone_account(acc, addr, journaled_state)?;
         }
@@ -1760,18 +1809,19 @@ impl<
         Ok(())
     }
 
-    /// Copies bytecode, storage, nonce and balance from the given genesis account to the target
-    /// address.
+    /// Copies bytecode, storage, nonce and balance from the given genesis
+    /// account to the target address.
     ///
-    /// Returns [Ok] if data was successfully inserted into the journal, [Err] otherwise.
+    /// Returns [Ok] if data was successfully inserted into the journal, [Err]
+    /// otherwise.
     fn clone_account(
         &mut self,
         source: &GenesisAccount,
         target: &Address,
         journaled_state: &mut JournaledState,
     ) -> Result<(), BackendError> {
-        // Fetch the account from the journaled state. Will create a new account if it does
-        // not already exist.
+        // Fetch the account from the journaled state. Will create a new account if it
+        // does not already exist.
         let mut state_acc = journaled_state.load_account(self, *target)?;
 
         // Set the account's bytecode and code hash, if the `bytecode` field is present.
@@ -1806,7 +1856,8 @@ impl<
         state_acc.info.nonce = source.nonce.unwrap_or_default();
         state_acc.info.balance = source.balance;
 
-        // Touch the account to ensure the loaded information persists if called in `setUp`.
+        // Touch the account to ensure the loaded information persists if called in
+        // `setUp`.
         journaled_state.touch(*target);
 
         Ok(())
@@ -2041,21 +2092,25 @@ impl Fork {
 /// Container type for various Backend related data
 #[derive(Clone, Debug)]
 pub struct BackendInner<BlockT, TxT, HardforkT> {
-    /// Stores the `ForkId` of the fork the `Backend` launched with from the start.
+    /// Stores the `ForkId` of the fork the `Backend` launched with from the
+    /// start.
     ///
-    /// In other words if [`Backend::spawn()`] was called with a `CreateFork` command, to launch
-    /// directly in fork mode, this holds the corresponding fork identifier of this fork.
+    /// In other words if [`Backend::spawn()`] was called with a `CreateFork`
+    /// command, to launch directly in fork mode, this holds the
+    /// corresponding fork identifier of this fork.
     pub launched_with_fork: Option<LaunchedWithFork>,
     /// This tracks numeric fork ids and the `ForkId` used by the handler.
     ///
-    /// This is necessary, because there can be multiple `Backends` associated with a single
-    /// `ForkId` which is only a pair of endpoint + block. Since an existing fork can be
-    /// modified (e.g. `roll_fork`), but this should only affect the fork that's unique for the
-    /// test and not the `ForkId`
+    /// This is necessary, because there can be multiple `Backends` associated
+    /// with a single `ForkId` which is only a pair of endpoint + block.
+    /// Since an existing fork can be modified (e.g. `roll_fork`), but this
+    /// should only affect the fork that's unique for the test and not the
+    /// `ForkId`
     ///
-    /// This ensures we can treat forks as unique from the context of a test, so rolling to another
-    /// is basically creating(or reusing) another `ForkId` that's then mapped to the previous
-    /// issued _local_ numeric identifier, that remains constant, even if the underlying fork
+    /// This ensures we can treat forks as unique from the context of a test, so
+    /// rolling to another is basically creating(or reusing) another
+    /// `ForkId` that's then mapped to the previous issued _local_ numeric
+    /// identifier, that remains constant, even if the underlying fork
     /// backend changes.
     pub issued_local_fork_ids: HashMap<LocalForkId, ForkId>,
     /// tracks all the created forks
@@ -2069,13 +2124,14 @@ pub struct BackendInner<BlockT, TxT, HardforkT> {
         StateSnapshots<BackendStateSnapshot<BackendDatabaseSnapshot, BlockT, TxT, HardforkT>>,
     /// Tracks whether there was a failure in a snapshot that was reverted
     ///
-    /// The Test contract contains a bool variable that is set to true when an `assert` function
-    /// failed. When a snapshot is reverted, it reverts the state of the evm, but we still want
-    /// to know if there was an `assert` that failed after the snapshot was taken so that we can
-    /// check if the test function passed all asserts even across snapshots. When a snapshot is
-    /// reverted we get the _current_ `revm::JournaledState` which contains the state that we can
-    /// check if the `_failed` variable is set,
-    /// additionally
+    /// The Test contract contains a bool variable that is set to true when an
+    /// `assert` function failed. When a snapshot is reverted, it reverts
+    /// the state of the evm, but we still want to know if there was an
+    /// `assert` that failed after the snapshot was taken so that we can
+    /// check if the test function passed all asserts even across snapshots.
+    /// When a snapshot is reverted we get the _current_
+    /// `revm::JournaledState` which contains the state that we can check if
+    /// the `_failed` variable is set, additionally
     pub has_state_snapshot_failure: bool,
     /// Tracks the address of a Test contract
     ///
@@ -2087,8 +2143,9 @@ pub struct BackendInner<BlockT, TxT, HardforkT> {
     /// Tracks numeric identifiers for forks
     pub next_fork_id: LocalForkId,
     /// All accounts that should be kept persistent when switching forks.
-    /// This means all accounts stored here _don't_ use a separate storage section on each fork
-    /// instead the use only one that's persistent across fork swaps.
+    /// This means all accounts stored here _don't_ use a separate storage
+    /// section on each fork instead the use only one that's persistent
+    /// across fork swaps.
     pub persistent_accounts: HashSet<Address>,
     /// The configured spec id
     pub spec_id: HardforkT,
@@ -2196,7 +2253,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         self.set_fork(idx, fork);
     }
 
-    /// Updates the fork and the local mapping and returns the new index for the `fork_db`
+    /// Updates the fork and the local mapping and returns the new index for the
+    /// `fork_db`
     pub fn update_fork_mapping(
         &mut self,
         id: LocalForkId,
@@ -2354,8 +2412,9 @@ pub(crate) fn update_current_env_with_fork_env<BlockT, TxT, HardforkT, ChainCont
     current.tx.set_chain_id(fork.tx.chain_id());
 }
 
-/// Clones the data of the given `accounts` from the `active` database into the `fork_db`
-/// This includes the data held in storage (`CacheDB`) and kept in the `JournaledState`.
+/// Clones the data of the given `accounts` from the `active` database into the
+/// `fork_db` This includes the data held in storage (`CacheDB`) and kept in the
+/// `JournaledState`.
 pub(crate) fn merge_account_data<ExtDB: DatabaseRef>(
     accounts: impl IntoIterator<Item = Address>,
     active: &CacheDB<ExtDB>,
@@ -2374,7 +2433,8 @@ pub(crate) fn merge_account_data<ExtDB: DatabaseRef>(
     *active_journaled_state = target_fork.journaled_state.clone();
 }
 
-/// Clones the account data from the `active_journaled_state`  into the `fork_journaled_state`
+/// Clones the account data from the `active_journaled_state`  into the
+/// `fork_journaled_state`
 fn merge_journaled_state_data(
     addr: Address,
     active_journaled_state: &JournaledState,
@@ -2383,7 +2443,8 @@ fn merge_journaled_state_data(
     if let Some(mut acc) = active_journaled_state.state.get(&addr).cloned() {
         trace!(?addr, "updating journaled_state account data");
         if let Some(fork_account) = fork_journaled_state.state.get_mut(&addr) {
-            // This will merge the fork's tracked storage with active storage and update values
+            // This will merge the fork's tracked storage with active storage and update
+            // values
             fork_account
                 .storage
                 .extend(std::mem::take(&mut acc.storage));
@@ -2509,8 +2570,9 @@ where
     Ok(())
 }
 
-/// Helper method which updates data in the state with the data from the database.
-/// Does not change state for persistent accounts (for roll fork to transaction and transact).
+/// Helper method which updates data in the state with the data from the
+/// database. Does not change state for persistent accounts (for roll fork to
+/// transaction and transact).
 pub fn update_state<DB: Database>(
     state: &mut EvmState,
     db: &mut DB,
@@ -2528,8 +2590,8 @@ pub fn update_state<DB: Database>(
     Ok(())
 }
 
-/// Applies the changeset of a transaction to the active journaled state and also commits it in the
-/// forked db
+/// Applies the changeset of a transaction to the active journaled state and
+/// also commits it in the forked db
 fn apply_state_changeset(
     state: Map<revm::primitives::Address, Account>,
     journaled_state: &mut JournaledState,

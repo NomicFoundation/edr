@@ -24,8 +24,9 @@ pub const HARDHAT_CONSOLE_ADDRESS: Address = address!("0x000000000000000000636F6
 /// - deploying Test contracts
 /// - deploying Script contracts
 ///
-/// Derived from `address(uint160(uint256(keccak256("foundry default caller"))))`,
-/// which is equal to `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
+/// Derived from `address(uint160(uint256(keccak256("foundry default
+/// caller"))))`, which is equal to
+/// `0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38`.
 pub const CALLER: Address = address!("0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38");
 
 /// The default test contract address.
@@ -34,7 +35,8 @@ pub const TEST_CONTRACT_ADDRESS: Address = address!("0xb4c79daB8f259C7Aee6E5b2Aa
 /// Magic return value returned by the `assume` cheatcode.
 pub const MAGIC_ASSUME: &[u8] = b"FOUNDRY::ASSUME";
 
-/// Magic return value returned by the `skip` cheatcode. Optionally appended with a reason.
+/// Magic return value returned by the `skip` cheatcode. Optionally appended
+/// with a reason.
 pub const MAGIC_SKIP: &[u8] = b"FOUNDRY::SKIP";
 
 /// Test timeout return value.
@@ -56,7 +58,8 @@ pub const DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE: &[u8] = &hex!(
 );
 /// The hash of the default CREATE2 deployer code.
 ///
-/// This is calculated as `keccak256([``DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE``])`.
+/// This is calculated as
+/// `keccak256([``DEFAULT_CREATE2_DEPLOYER_RUNTIME_CODE``])`.
 pub const DEFAULT_CREATE2_DEPLOYER_CODEHASH: B256 =
     b256!("0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989");
 
@@ -67,7 +70,8 @@ pub const DEFAULT_CREATE2_DEPLOYER_CODEHASH: B256 =
 /// `address(uint160(uint256(keccak256("foundry library deployer"))))`
 pub const LIBRARY_DEPLOYER: Address = address!("1F95D37F27EA0dEA9C252FC09D5A6eaA97647353");
 
-/// Logged when an error is indicative that the user is trying to fork from a non-archive node.
+/// Logged when an error is indicative that the user is trying to fork from a
+/// non-archive node.
 pub const NON_ARCHIVE_NODE_WARNING: &str = "\
 It looks like you're trying to fork from an older block with a non-archive node which is not \
 supported. Please try to change your RPC url to an archive node if the issue persists.";

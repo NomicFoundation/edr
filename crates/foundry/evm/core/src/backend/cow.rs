@@ -2,18 +2,6 @@
 
 use std::{borrow::Cow, collections::BTreeMap};
 
-use super::{BackendError, CheatcodeInspectorTr, IndeterminismReasons, JournaledState};
-use crate::{
-    backend::{
-        diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId,
-        RevertStateSnapshotAction,
-    },
-    evm_context::{
-        BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmContext, EvmEnv, EvmEnvWithChainContext,
-        HardforkTr, IntoEvmContext as _, TransactionEnvTr, TransactionErrorTrait,
-    },
-    fork::{CreateFork, ForkId},
-};
 use alloy_genesis::GenesisAccount;
 use alloy_primitives::{Address, B256, U256};
 use derive_where::derive_where;
@@ -29,22 +17,37 @@ use revm::{
     Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 
-/// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions are called.
+use super::{BackendError, CheatcodeInspectorTr, IndeterminismReasons, JournaledState};
+use crate::{
+    backend::{
+        diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId,
+        RevertStateSnapshotAction,
+    },
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmContext, EvmEnv, EvmEnvWithChainContext,
+        HardforkTr, IntoEvmContext as _, TransactionEnvTr, TransactionErrorTrait,
+    },
+    fork::{CreateFork, ForkId},
+};
+
+/// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions
+/// are called.
 ///
-/// Any changes made during its existence that affect the caching layer of the underlying Database
-/// will result in a clone of the initial Database. Therefore, this backend type is basically
-/// a clone-on-write `Backend`, where cloning is only necessary if cheatcodes will modify the
-/// `Backend`
+/// Any changes made during its existence that affect the caching layer of the
+/// underlying Database will result in a clone of the initial Database.
+/// Therefore, this backend type is basically a clone-on-write `Backend`, where
+/// cloning is only necessary if cheatcodes will modify the `Backend`
 ///
-/// Entire purpose of this type is for fuzzing. A test function fuzzer will repeatedly execute the
-/// function via immutable raw (no state changes) calls.
+/// Entire purpose of this type is for fuzzing. A test function fuzzer will
+/// repeatedly execute the function via immutable raw (no state changes) calls.
 ///
-/// **N.B.**: we're assuming cheatcodes that alter the state (like multi fork swapping) are niche.
-/// If they executed, it will require a clone of the initial input database.
-/// This way we can support these cheatcodes cheaply without adding overhead for tests that
-/// don't make use of them. Alternatively each test case would require its own `Backend` clone,
-/// which would add significant overhead for large fuzz sets even if the Database is not big after
-/// setup.
+/// **N.B.**: we're assuming cheatcodes that alter the state (like multi fork
+/// swapping) are niche. If they executed, it will require a clone of the
+/// initial input database. This way we can support these cheatcodes cheaply
+/// without adding overhead for tests that don't make use of them. Alternatively
+/// each test case would require its own `Backend` clone, which would add
+/// significant overhead for large fuzz sets even if the Database is not big
+/// after setup.
 #[derive_where(Clone, Debug; BlockT, HardforkT, TxT)]
 pub struct CowBackend<
     'a,
@@ -58,7 +61,8 @@ pub struct CowBackend<
 > {
     /// The underlying `Backend`.
     ///
-    /// No calls on the `CowBackend` will ever persistently modify the `backend`'s state.
+    /// No calls on the `CowBackend` will ever persistently modify the
+    /// `backend`'s state.
     pub backend: Cow<
         'a,
         Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
@@ -109,10 +113,11 @@ impl<
         }
     }
 
-    /// Executes the configured transaction of the `env` without committing state changes
+    /// Executes the configured transaction of the `env` without committing
+    /// state changes
     ///
-    /// Note: in case there are any cheatcodes executed that modify the environment, this will
-    /// update the given `env` with the new values.
+    /// Note: in case there are any cheatcodes executed that modify the
+    /// environment, this will update the given `env` with the new values.
     pub fn inspect<'b, InspectorT>(
         &'b mut self,
         env: &mut EvmEnv<BlockT, TxT, HardforkT>,
@@ -122,8 +127,8 @@ impl<
     where
         InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'b mut Self, ChainContextT>,
     {
-        // this is a new call to inspect with a new env, so even if we've cloned the backend
-        // already, we reset the initialized state
+        // this is a new call to inspect with a new env, so even if we've cloned the
+        // backend already, we reset the initialized state
         self.is_initialized = false;
         self.spec_id = env.cfg.spec();
         let mut env_with_chain = EvmEnvWithChainContext::new(env.clone(), chain_context);
@@ -139,14 +144,16 @@ impl<
 
     /// Returns whether there was a state snapshot failure in the backend.
     ///
-    /// This is bubbled up from the underlying Copy-On-Write backend when a revert occurs.
+    /// This is bubbled up from the underlying Copy-On-Write backend when a
+    /// revert occurs.
     pub fn has_state_snapshot_failure(&self) -> bool {
         self.backend.has_state_snapshot_failure()
     }
 
     /// Returns a mutable instance of the Backend.
     ///
-    /// If this is the first time this is called, the backed is cloned and initialized.
+    /// If this is the first time this is called, the backed is cloned and
+    /// initialized.
     fn backend_mut(
         &mut self,
         mut env: EvmEnv<BlockT, TxT, HardforkT>,

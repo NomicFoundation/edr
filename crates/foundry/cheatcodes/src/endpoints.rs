@@ -1,7 +1,8 @@
 //! Support for multiple RPC-endpoints
 
-use alloy_sol_types::{sol_data, SolValue};
 use std::{collections::BTreeMap, fmt, ops::Deref};
+
+use alloy_sol_types::{sol_data, SolValue};
 
 /// Container type for API endpoints, like various RPC endpoints
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -128,7 +129,8 @@ impl From<RpcEndpointUrl> for RpcEndpoint {
 }
 
 /// The auth token to be used for RPC endpoints
-/// It works in the same way as the `RpcEndpoint` type, where it can be a raw string or a reference
+/// It works in the same way as the `RpcEndpoint` type, where it can be a raw
+/// string or a reference
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RpcAuth {
     Raw(String),

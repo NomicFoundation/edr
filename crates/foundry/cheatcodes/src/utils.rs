@@ -1,10 +1,5 @@
 //! Implementations of [`Utilities`](spec::Group::Utilities) cheatcodes.
 
-#[allow(clippy::wildcard_imports)]
-use crate::{
-    impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt,
-    Result, Vm::*,
-};
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_ens::namehash;
 use alloy_primitives::{aliases::B32, map::HashMap, B64, U256};
@@ -22,17 +17,25 @@ use proptest::prelude::Strategy;
 use rand::{seq::SliceRandom, Rng, RngCore};
 use revm::context::result::HaltReasonTr;
 
+#[allow(clippy::wildcard_imports)]
+use crate::{
+    impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt,
+    Result, Vm::*,
+};
+
 /// Contains locations of traces ignored via cheatcodes.
 ///
-/// The way we identify location in traces is by `(node_idx, item_idx)` tuple where `node_idx` is an
-/// index of a call trace node, and `item_idx` is a value between 0 and `node.ordering.len()` where i
-/// represents point after ith item, and 0 represents the beginning of the node trace.
+/// The way we identify location in traces is by `(node_idx, item_idx)` tuple
+/// where `node_idx` is an index of a call trace node, and `item_idx` is a value
+/// between 0 and `node.ordering.len()` where i represents point after ith item,
+/// and 0 represents the beginning of the node trace.
 #[derive(Debug, Default, Clone)]
 pub struct IgnoredTraces {
-    /// Mapping from `(start_node_idx, start_item_idx)` to `(end_node_idx, end_item_idx)` representing
-    /// ranges of trace nodes to ignore.
+    /// Mapping from `(start_node_idx, start_item_idx)` to `(end_node_idx,
+    /// end_item_idx)` representing ranges of trace nodes to ignore.
     pub ignored: HashMap<(usize, usize), (usize, usize)>,
-    /// Keeps track of `(start_node_idx, start_item_idx)` of the last `vm.pauseTracing` call.
+    /// Keeps track of `(start_node_idx, start_item_idx)` of the last
+    /// `vm.pauseTracing` call.
     pub last_pause_call: Option<(usize, usize)>,
 }
 
@@ -1060,8 +1063,8 @@ impl Cheatcode for setSeedCall {
     }
 }
 
-/// Helper to generate a random `uint` value (with given bits or bounded if specified)
-/// from type strategy.
+/// Helper to generate a random `uint` value (with given bits or bounded if
+/// specified) from type strategy.
 fn random_uint<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -1116,7 +1119,8 @@ fn random_uint<
         .abi_encode())
 }
 
-/// Helper to generate a random `int` value (with given bits if specified) from type strategy.
+/// Helper to generate a random `int` value (with given bits if specified) from
+/// type strategy.
 fn random_int<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,

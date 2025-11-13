@@ -1,5 +1,5 @@
-use super::fork::{environment, provider::ProviderBuilder};
-use crate::{evm_context::BlockEnvMut, fork::configure_env};
+use std::fmt::Write;
+
 use alloy_chains::Chain;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::AnyRpcBlock, Provider};
@@ -11,8 +11,10 @@ use revm::{
     context_interface::Block,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt::Write;
 use url::Url;
+
+use super::fork::{environment, provider::ProviderBuilder};
+use crate::{evm_context::BlockEnvMut, fork::configure_env};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EvmOpts<HardforkT> {
@@ -98,8 +100,8 @@ where
 {
     /// Configures a new `revm::Env`
     ///
-    /// If a `fork_url` is set, it gets configured with settings fetched from the endpoint (chain
-    /// id, )
+    /// If a `fork_url` is set, it gets configured with settings fetched from
+    /// the endpoint (chain id, )
     pub async fn evm_env<BlockT, TxT>(&self) -> eyre::Result<crate::Env<BlockT, TxT, HardforkT>>
     where
         BlockT: From<BlockEnvOpts> + Block + BlockEnvMut,
@@ -112,8 +114,9 @@ where
         }
     }
 
-    /// Returns the `revm::Env` that is configured with settings retrieved from the endpoint.
-    /// And the block that was used to configure the environment.
+    /// Returns the `revm::Env` that is configured with settings retrieved from
+    /// the endpoint. And the block that was used to configure the
+    /// environment.
     pub async fn fork_evm_env<BlockT, TxT>(
         &self,
         fork_url: impl AsRef<str>,
@@ -189,7 +192,8 @@ where
     /// Returns the configured chain id, which will be
     ///   - the value of `chain_id` if set
     ///   - mainnet if `fork_url` contains "mainnet"
-    ///   - the chain if `fork_url` is set and the endpoints returned its chain id successfully
+    ///   - the chain if `fork_url` is set and the endpoints returned its chain
+    ///     id successfully
     ///   - mainnet otherwise
     pub async fn get_chain_id(&self) -> u64 {
         if let Some(id) = self.env.chain_id {
@@ -202,7 +206,8 @@ where
     }
 
     /// Returns the available compute units per second, which will be
-    /// - `u64::MAX`, if `no_rpc_rate_limit` if set (as rate limiting is disabled)
+    /// - `u64::MAX`, if `no_rpc_rate_limit` if set (as rate limiting is
+    ///   disabled)
     /// - the assigned compute units, if `compute_units_per_second` is set
     /// - `ALCHEMY_FREE_TIER_CUPS` (330) otherwise
     pub fn get_compute_units_per_second(&self) -> u64 {
@@ -253,8 +258,9 @@ pub struct Env {
 
     /// the tx.gasprice value during EVM execution
     ///
-    /// This is an Option, so we can determine in fork mode whether to use the config's gas price
-    /// (if set by user) or the remote client's gas price.
+    /// This is an Option, so we can determine in fork mode whether to use the
+    /// config's gas price (if set by user) or the remote client's gas
+    /// price.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gas_price: Option<u64>,
 
@@ -284,7 +290,8 @@ pub struct Env {
     /// the block.difficulty value during EVM execution
     pub block_difficulty: u64,
 
-    /// Previous block beacon chain random value. Before merge this field is used for `mix_hash`
+    /// Previous block beacon chain random value. Before merge this field is
+    /// used for `mix_hash`
     pub block_prevrandao: B256,
 
     /// the block.gaslimit value during EVM execution
@@ -295,7 +302,8 @@ pub struct Env {
     )]
     pub block_gas_limit: Option<u64>,
 
-    /// EIP-170: Contract code size limit in bytes. Useful to increase this because of tests.
+    /// EIP-170: Contract code size limit in bytes. Useful to increase this
+    /// because of tests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code_size_limit: Option<usize>,
 }
@@ -429,16 +437,17 @@ where
 }
 
 /// Serialize `U256` as `u64` if it fits, otherwise as a hex string.
-/// If the number fits into a i64, serialize it as number without quotation marks.
-/// If the number fits into a u64, serialize it as a stringified number with quotation marks.
-/// Otherwise, serialize it as a hex string with quotation marks.
+/// If the number fits into a i64, serialize it as number without quotation
+/// marks. If the number fits into a u64, serialize it as a stringified number
+/// with quotation marks. Otherwise, serialize it as a hex string with quotation
+/// marks.
 pub fn serialize_u64_or_u256<S>(n: &U256, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    // The TOML specification handles integers as i64 so the number representation is limited to
-    // i64. If the number is larger than `i64::MAX` and up to `u64::MAX`, we serialize it as a
-    // string to avoid losing precision.
+    // The TOML specification handles integers as i64 so the number representation
+    // is limited to i64. If the number is larger than `i64::MAX` and up to
+    // `u64::MAX`, we serialize it as a string to avoid losing precision.
     if let Ok(n_i64) = i64::try_from(*n) {
         serializer.serialize_i64(n_i64)
     } else if let Ok(n_u64) = u64::try_from(*n) {

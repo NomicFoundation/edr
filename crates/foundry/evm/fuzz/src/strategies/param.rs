@@ -1,32 +1,36 @@
-use super::state::EvmFuzzState;
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::{Address, B256, I256, U256};
 use proptest::prelude::*;
 use rand::{rngs::StdRng, SeedableRng};
 
+use super::state::EvmFuzzState;
+
 /// The max length of arrays we fuzz for is 256.
 const MAX_ARRAY_LEN: usize = 256;
 
-/// Given a parameter type, returns a strategy for generating values for that type.
+/// Given a parameter type, returns a strategy for generating values for that
+/// type.
 ///
 /// See [`fuzz_param_with_fixtures`] for more information.
 pub fn fuzz_param(param: &DynSolType) -> BoxedStrategy<DynSolValue> {
     fuzz_param_inner(param, None)
 }
 
-/// Given a parameter type and configured fixtures for param name, returns a strategy for generating
-/// values for that type.
+/// Given a parameter type and configured fixtures for param name, returns a
+/// strategy for generating values for that type.
 ///
 /// Fixtures can be currently generated for uint, int, address, bytes and
 /// string types and are defined for parameter name.
-/// For example, fixtures for parameter `owner` of type `address` can be defined in a function with
-/// a `function fixture_owner() public returns (address[] memory)` signature.
+/// For example, fixtures for parameter `owner` of type `address` can be defined
+/// in a function with a `function fixture_owner() public returns (address[]
+/// memory)` signature.
 ///
 /// Fixtures are matched on parameter name, hence fixtures defined in
-/// `fixture_owner` function can be used in a fuzzed test function with a signature like
-/// `function testFuzz_ownerAddress(address owner, uint amount)`.
+/// `fixture_owner` function can be used in a fuzzed test function with a
+/// signature like `function testFuzz_ownerAddress(address owner, uint amount)`.
 ///
-/// Raises an error if all the fixture types are not of the same type as the input parameter.
+/// Raises an error if all the fixture types are not of the same type as the
+/// input parameter.
 ///
 /// Works with ABI Encoder v2 tuples.
 pub fn fuzz_param_with_fixtures(
@@ -108,8 +112,8 @@ fn fuzz_param_inner(
     }
 }
 
-/// Given a parameter type, returns a strategy for generating values for that type, given some EVM
-/// fuzz state.
+/// Given a parameter type, returns a strategy for generating values for that
+/// type, given some EVM fuzz state.
 ///
 /// Works with ABI Encoder v2 tuples.
 pub fn fuzz_param_from_state(
@@ -120,9 +124,9 @@ pub fn fuzz_param_from_state(
     let value = || {
         let state = state.clone();
         let param = param.clone();
-        // Generate a bias and use it to pick samples or non-persistent values (50 / 50).
-        // Use `Index` instead of `Selector` when selecting a value to avoid iterating over the
-        // entire dictionary.
+        // Generate a bias and use it to pick samples or non-persistent values (50 /
+        // 50). Use `Index` instead of `Selector` when selecting a value to
+        // avoid iterating over the entire dictionary.
         any::<(bool, prop::sample::Index)>().prop_map(move |(bias, index)| {
             let state = state.dictionary_read();
             let values = if bias { state.samples(&param) } else { None }
@@ -238,12 +242,13 @@ pub fn fuzz_param_from_state(
 
 #[cfg(test)]
 mod tests {
+    use foundry_evm_traces::abi::get_func;
+    use revm::database::{CacheDB, EmptyDB};
+
     use crate::{
         strategies::{fuzz_calldata, fuzz_calldata_from_state, EvmFuzzState},
         FuzzDictionaryConfig, FuzzFixtures,
     };
-    use foundry_evm_traces::abi::get_func;
-    use revm::database::{CacheDB, EmptyDB};
 
     #[test]
     fn can_fuzz_array() {

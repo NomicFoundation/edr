@@ -1,15 +1,18 @@
+use alloy_sol_types::SolValue;
+use base64::prelude::*;
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
+};
+use revm::context::result::HaltReasonTr;
+
 use crate::{
     impl_is_pure_true, Cheatcode, Cheatcodes, Result,
     Vm::{toBase64URL_0Call, toBase64URL_1Call, toBase64_0Call, toBase64_1Call},
 };
-use alloy_sol_types::SolValue;
-use base64::prelude::*;
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
-};
-use revm::context::result::HaltReasonTr;
 
 impl_is_pure_true!(toBase64_0Call);
 impl Cheatcode for toBase64_0Call {

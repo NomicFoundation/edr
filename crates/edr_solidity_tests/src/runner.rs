@@ -1,12 +1,9 @@
 //! The Forge test runner.
-use crate::error::TestRunnerError;
-use crate::revm::context::result::HaltReason;
-use crate::{
-    fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
-    multi_runner::TestContract,
-    result::{SuiteResult, TestResult, TestSetup},
-    TestFilter,
+use std::{
+    borrow::Cow, cmp::min, collections::BTreeMap, marker::PhantomData, path::Path, sync::Arc,
+    time::Instant,
 };
+
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Bytes, U256};
@@ -16,10 +13,8 @@ use edr_solidity::{
     contract_decoder::SyncNestedTraceDecoder, solidity_stack_trace::StackTraceEntry,
 };
 use eyre::Result;
-use foundry_evm::abi::TestFunctionKind;
-use foundry_evm::executors::ITest;
 use foundry_evm::{
-    abi::TestFunctionExt,
+    abi::{TestFunctionExt, TestFunctionKind},
     constants::{CALLER, LIBRARY_DEPLOYER},
     contracts::{ContractsByAddress, ContractsByArtifact},
     decode::RevertDecoder,
@@ -34,7 +29,7 @@ use foundry_evm::{
             InvariantFuzzError, ReplayErrorArgs, ReplayResult, ReplayRunArgs,
         },
         stack_trace::{get_stack_trace, StackTraceError, StackTraceResult},
-        CallResult, EvmError, Executor, ExecutorBuilder, RawCallResult,
+        CallResult, EvmError, Executor, ExecutorBuilder, ITest, RawCallResult,
     },
     fuzz::{
         fixture_name,
@@ -47,11 +42,16 @@ use itertools::Itertools;
 use proptest::test_runner::{FailurePersistence, RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::{
-    borrow::Cow, cmp::min, collections::BTreeMap, marker::PhantomData, path::Path, sync::Arc,
-    time::Instant,
-};
 use tracing::Span;
+
+use crate::{
+    error::TestRunnerError,
+    fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
+    multi_runner::TestContract,
+    result::{SuiteResult, TestResult, TestSetup},
+    revm::context::result::HaltReason,
+    TestFilter,
+};
 
 /// A type that executes all tests of a contract
 #[derive_where(Clone, Debug; BlockT, TxT, ChainContextT, HardforkT, NestedTraceDecoderT)]
@@ -348,17 +348,18 @@ impl<
     ///
     /// Fixtures can be defined:
     /// - as storage arrays in test contract, prefixed with `fixture`
-    /// - as functions prefixed with `fixture` and followed by parameter name to be fuzzed
+    /// - as functions prefixed with `fixture` and followed by parameter name to
+    ///   be fuzzed
     ///
     /// Storage array fixtures:
     /// `uint256[] public fixture_amount = [1, 2, 3];`
-    /// define an array of uint256 values to be used for fuzzing `amount` named parameter in scope
-    /// of the current test.
+    /// define an array of uint256 values to be used for fuzzing `amount` named
+    /// parameter in scope of the current test.
     ///
     /// Function fixtures:
     /// `function fixture_owner() public returns (address[] memory){}`
-    /// returns an array of addresses to be used for fuzzing `owner` named parameter in scope of the
-    /// current test.
+    /// returns an array of addresses to be used for fuzzing `owner` named
+    /// parameter in scope of the current test.
     fn fuzz_fixtures(
         &self,
         executor: &Executor<
@@ -526,7 +527,8 @@ impl<
         });
 
         // Invariant testing requires tracing to figure out what contracts were created.
-        // We also want to disable `debug` for setup since we won't be using those traces.
+        // We also want to disable `debug` for setup since we won't be using those
+        // traces.
         let has_invariants = self
             .contract
             .abi
@@ -787,12 +789,14 @@ impl<
 
     /// Runs a single unit test.
     ///
-    /// Applies before test txes (if any), runs current test and returns the `TestResult`.
+    /// Applies before test txes (if any), runs current test and returns the
+    /// `TestResult`.
     ///
-    /// Before test txes are applied in order and state modifications committed to the EVM database
-    /// (therefore the unit test call will be made on modified state).
-    /// State modifications of before test txes and unit test function call are discarded after
-    /// test ends, similar to `eth_call`.
+    /// Before test txes are applied in order and state modifications committed
+    /// to the EVM database (therefore the unit test call will be made on
+    /// modified state). State modifications of before test txes and unit
+    /// test function call are discarded after test ends, similar to
+    /// `eth_call`.
     fn run_unit_test(mut self, func: &Function) -> TestResult<HaltReasonT> {
         let start: Instant = Instant::now();
 
@@ -858,13 +862,13 @@ impl<
     }
 
     /// Runs a table test.
-    /// The parameters dataset (table) is created from defined parameter fixtures, therefore each
-    /// test table parameter should have the same number of fixtures defined.
-    /// E.g. for table test
+    /// The parameters dataset (table) is created from defined parameter
+    /// fixtures, therefore each test table parameter should have the same
+    /// number of fixtures defined. E.g. for table test
     /// - `table_test(uint256 amount, bool swap)` fixtures are defined as
     /// - `uint256[] public fixtureAmount = [2, 5]`
-    /// - `bool[] public fixtureSwap = [true, false]` The `table_test` is then called with the pair
-    ///   of args `(2, true)` and `(5, false)`.
+    /// - `bool[] public fixtureSwap = [true, false]` The `table_test` is then
+    ///   called with the pair of args `(2, true)` and `(5, false)`.
     fn run_table_test(mut self, func: &Function) -> TestResult<HaltReasonT> {
         let start = Instant::now();
 
@@ -1003,8 +1007,8 @@ impl<
                 return self.result;
             }
 
-            // If it's the last iteration and all other runs succeeded, then use last call result
-            // for logs and traces.
+            // If it's the last iteration and all other runs succeeded, then use last call
+            // result for logs and traces.
             if i == fixtures_len - 1 {
                 self.result
                     .single_result(true, None, raw_call_result, start.elapsed());
@@ -1041,8 +1045,8 @@ impl<
         let invariant_config = self.cr.invariant_config;
 
         let mut executor = self.clone_executor();
-        // Enable edge coverage if running with coverage guided fuzzing or with edge coverage
-        // metrics (useful for benchmarking the fuzzer).
+        // Enable edge coverage if running with coverage guided fuzzing or with edge
+        // coverage metrics (useful for benchmarking the fuzzer).
         executor.inspector_mut().collect_edge_coverage(
             invariant_config.corpus_dir.is_some() || invariant_config.show_edge_coverage,
         );
@@ -1279,13 +1283,13 @@ impl<
 
     /// Runs a fuzzed test.
     ///
-    /// Applies the before test txes (if any), fuzzes the current function and returns the
-    /// `TestResult`.
+    /// Applies the before test txes (if any), fuzzes the current function and
+    /// returns the `TestResult`.
     ///
-    /// Before test txes are applied in order and state modifications committed to the EVM database
-    /// (therefore the fuzz test will use the modified state).
-    /// State modifications of before test txes and fuzz test are discarded after test ends,
-    /// similar to `eth_call`.
+    /// Before test txes are applied in order and state modifications committed
+    /// to the EVM database (therefore the fuzz test will use the modified
+    /// state). State modifications of before test txes and fuzz test are
+    /// discarded after test ends, similar to `eth_call`.
     fn run_fuzz_test(mut self, func: &Function) -> TestResult<HaltReasonT> {
         let start = Instant::now();
 
@@ -1347,11 +1351,12 @@ impl<
     /// - set up the test result and executor
     /// - check if before test txes are configured and apply them in order
     ///
-    /// Before test txes are arrays of arbitrary calldata obtained by calling the `beforeTest`
-    /// function with test selector as a parameter.
+    /// Before test txes are arrays of arbitrary calldata obtained by calling
+    /// the `beforeTest` function with test selector as a parameter.
     ///
-    /// Unit tests within same contract (or even current test) are valid options for before test tx
-    /// configuration. Test execution stops if any of before test txes fails.
+    /// Unit tests within same contract (or even current test) are valid options
+    /// for before test tx configuration. Test execution stops if any of
+    /// before test txes fails.
     fn prepare_test(&mut self, func: &Function, start: Instant) -> Result<(), ()> {
         let address = self.setup.address;
 

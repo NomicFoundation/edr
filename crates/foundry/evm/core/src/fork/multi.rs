@@ -1,23 +1,8 @@
 //! Support for running multiple fork backends.
 //!
-//! The design is similar to the single `SharedBackend`, `BackendHandler` but supports multiple
-//! concurrently active pairs at once.
+//! The design is similar to the single `SharedBackend`, `BackendHandler` but
+//! supports multiple concurrently active pairs at once.
 
-use super::CreateFork;
-use crate::{
-    evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
-    fork::provider::{ProviderBuilder, RetryProvider},
-};
-use alloy_consensus::BlockHeader;
-use alloy_primitives::{map::HashMap, U256};
-use alloy_provider::network::BlockResponse;
-use foundry_fork_db::{cache::BlockchainDbMeta, BackendHandler, BlockchainDb, SharedBackend};
-use futures::{
-    channel::mpsc::{channel, Receiver, Sender},
-    stream::{Fuse, Stream},
-    task::{Context, Poll},
-    Future, FutureExt, StreamExt,
-};
 use std::{
     fmt::{self, Write},
     pin::Pin,
@@ -29,8 +14,25 @@ use std::{
     time::Duration,
 };
 
-/// The _unique_ identifier for a specific fork, this could be the name of the network a custom
-/// descriptive name.
+use alloy_consensus::BlockHeader;
+use alloy_primitives::{map::HashMap, U256};
+use alloy_provider::network::BlockResponse;
+use foundry_fork_db::{cache::BlockchainDbMeta, BackendHandler, BlockchainDb, SharedBackend};
+use futures::{
+    channel::mpsc::{channel, Receiver, Sender},
+    stream::{Fuse, Stream},
+    task::{Context, Poll},
+    Future, FutureExt, StreamExt,
+};
+
+use super::CreateFork;
+use crate::{
+    evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr},
+    fork::provider::{ProviderBuilder, RetryProvider},
+};
+
+/// The _unique_ identifier for a specific fork, this could be the name of the
+/// network a custom descriptive name.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ForkId(pub String);
 
@@ -78,14 +80,15 @@ pub struct MultiFork<BlockT, TxT, HardforkT> {
 impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     MultiFork<BlockT, TxT, HardforkT>
 {
-    /// Creates a new pair and spawns the `MultiForkHandler` on a background thread.
+    /// Creates a new pair and spawns the `MultiForkHandler` on a background
+    /// thread.
     pub fn spawn() -> Self {
         trace!(target: "fork::multi", "spawning multifork");
 
         let (fork, mut handler) = Self::new();
 
-        // Spawn a light-weight thread just for sending and receiving data from the remote
-        // client(s).
+        // Spawn a light-weight thread just for sending and receiving data from the
+        // remote client(s).
         let fut = async move {
             // Flush cache every 60s, this ensures that long-running fork tests get their
             // cache flushed from time to time.
@@ -191,8 +194,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 
     /// Updates the fork's entire env
     ///
-    /// This is required for tx level forking where we need to fork off the `block - 1` state but
-    /// still need use env settings for `env`.
+    /// This is required for tx level forking where we need to fork off the
+    /// `block - 1` state but still need use env settings for `env`.
     pub fn update_block_env(&self, fork: ForkId, env: BlockT) -> eyre::Result<()> {
         trace!(?fork, ?env, "update fork block");
         self.handler
@@ -252,7 +255,8 @@ enum Request<BlockT, TxT, HardforkT> {
     ),
     /// Returns the Fork backend for the `ForkId` if it exists.
     GetFork(ForkId, OneshotSender<Option<SharedBackend>>),
-    /// Adjusts the block that's being forked, by creating a new fork at the new block.
+    /// Adjusts the block that's being forked, by creating a new fork at the new
+    /// block.
     RollFork(ForkId, u64, CreateSender<BlockT, TxT, HardforkT>),
     /// Returns the environment of the fork.
     GetEnv(ForkId, GetEnvSender<BlockT, TxT, HardforkT>),
@@ -292,8 +296,8 @@ pub struct MultiForkHandler<BlockT, TxT, HardforkT> {
 
     /// All _unique_ forkids mapped to their corresponding backend.
     ///
-    /// Note: The backend can be shared by multiple `ForkIds` if the target the same provider and
-    /// block number.
+    /// Note: The backend can be shared by multiple `ForkIds` if the target the
+    /// same provider and block number.
     forks: HashMap<ForkId, CreatedFork<BlockT, TxT, HardforkT>>,
 
     /// Optional periodic interval to flush rpc cache.
@@ -313,7 +317,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         }
     }
 
-    /// Sets the interval after which all rpc caches should be flushed periodically.
+    /// Sets the interval after which all rpc caches should be flushed
+    /// periodically.
     pub fn set_flush_cache_interval(&mut self, period: Duration) -> &mut Self {
         self.flush_cache_interval = Some(tokio::time::interval_at(
             tokio::time::Instant::now() + period,
@@ -322,7 +327,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         self
     }
 
-    /// Returns the list of additional senders of a matching task for the given id, if any.
+    /// Returns the list of additional senders of a matching task for the given
+    /// id, if any.
     #[expect(irrefutable_let_patterns)]
     fn find_in_progress_task(
         &mut self,
@@ -390,8 +396,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             fork.opts.env.block = env;
         }
     }
-    /// Update fork block number and timestamp. Used to preserve values set by `roll` and `warp`
-    /// cheatcodes when new fork selected.
+    /// Update fork block number and timestamp. Used to preserve values set by
+    /// `roll` and `warp` cheatcodes when new fork selected.
     fn update_block(&mut self, fork_id: ForkId, block_number: U256, block_timestamp: U256) {
         if let Some(fork) = self.forks.get_mut(&fork_id) {
             fork.opts.env.block.set_number(block_number);
@@ -558,8 +564,8 @@ struct CreatedFork<BlockT, TxT, HardforkT> {
     opts: CreateFork<BlockT, TxT, HardforkT>,
     /// Copy of the sender.
     backend: SharedBackend,
-    /// How many consumers there are, since a `SharedBacked` can be used by multiple
-    /// consumers.
+    /// How many consumers there are, since a `SharedBacked` can be used by
+    /// multiple consumers.
     num_senders: Arc<AtomicUsize>,
 }
 
@@ -586,12 +592,14 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     }
 }
 
-/// A type that's used to signaling the `MultiForkHandler` when it's time to shut down.
+/// A type that's used to signaling the `MultiForkHandler` when it's time to
+/// shut down.
 ///
-/// This is essentially a sync on drop, so that the `MultiForkHandler` can flush all rpc cashes.
+/// This is essentially a sync on drop, so that the `MultiForkHandler` can flush
+/// all rpc cashes.
 ///
-/// This type intentionally does not implement `Clone` since it's intended that there's only once
-/// instance.
+/// This type intentionally does not implement `Clone` since it's intended that
+/// there's only once instance.
 #[derive(Debug)]
 struct ShutDownMultiFork<BlockT, TxT, HardforkT> {
     handler: Option<Sender<Request<BlockT, TxT, HardforkT>>>,
@@ -613,7 +621,8 @@ impl<BlockT, TxT, HardforkT> Drop for ShutDownMultiFork<BlockT, TxT, HardforkT> 
 
 /// Creates a new fork.
 ///
-/// This will establish a new `Provider` to the endpoint and return the Fork Backend.
+/// This will establish a new `Provider` to the endpoint and return the Fork
+/// Backend.
 async fn create_fork<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>(
     mut fork: CreateFork<BlockT, TxT, HardforkT>,
 ) -> eyre::Result<(ForkId, CreatedFork<BlockT, TxT, HardforkT>, Handler)> {
@@ -631,8 +640,8 @@ async fn create_fork<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: Hardf
     fork.env = env;
     let meta = BlockchainDbMeta::new(fork.env.block.clone().into(), fork.url.clone());
 
-    // We need to use the block number from the block because the env's number can be different on
-    // some L2s (e.g. Arbitrum).
+    // We need to use the block number from the block because the env's number can
+    // be different on some L2s (e.g. Arbitrum).
     let number = block.header().number();
 
     let cache_path = fork.block_cache_dir(fork.env.cfg.chain_id, number);

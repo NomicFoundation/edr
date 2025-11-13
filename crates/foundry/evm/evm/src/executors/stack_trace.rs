@@ -1,3 +1,8 @@
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
+
 use alloy_primitives::{Address, Bytes, U160};
 use edr_solidity::{
     contract_decoder::{ContractDecoderError, NestedTraceDecoder},
@@ -22,8 +27,6 @@ use revm::{
     interpreter::{InternalResult, SuccessOrHalt},
 };
 use revm_inspectors::tracing::{types::CallTraceStep, CallTraceArena};
-use std::collections::HashSet;
-use std::{borrow::Cow, collections::HashMap};
 
 use crate::executors::{EvmError, ExecutorBuilderError};
 

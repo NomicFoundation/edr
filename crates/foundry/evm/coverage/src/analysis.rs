@@ -1,4 +1,5 @@
-use super::{CoverageItem, CoverageItemKind, SourceLocation};
+use std::sync::Arc;
+
 use alloy_primitives::map::HashMap;
 use foundry_compilers::artifacts::{
     ast::{self, Ast, Node, NodeType},
@@ -6,7 +7,8 @@ use foundry_compilers::artifacts::{
 };
 use foundry_evm_core::abi::TestFunctionExt;
 use rayon::prelude::*;
-use std::sync::Arc;
+
+use super::{CoverageItem, CoverageItemKind, SourceLocation};
 
 /// A visitor that walks the AST of a single contract and finds coverage items.
 #[derive(Clone, Debug)]
@@ -21,7 +23,8 @@ pub struct ContractVisitor<'a> {
 
     /// The current branch ID
     branch_id: u32,
-    /// Stores the last line we put in the items collection to ensure we don't push duplicate lines
+    /// Stores the last line we put in the items collection to ensure we don't
+    /// push duplicate lines
     last_line: u32,
 
     /// Coverage items
@@ -68,8 +71,8 @@ impl<'a> ContractVisitor<'a> {
             .attribute("kind")
             .ok_or_else(|| eyre::eyre!("Function has no kind"))?;
 
-        // TODO: We currently can only detect empty bodies in normal functions, not any of the other
-        // kinds: https://github.com/foundry-rs/foundry/issues/9458
+        // TODO: We currently can only detect empty bodies in normal functions, not any
+        // of the other kinds: https://github.com/foundry-rs/foundry/issues/9458
         if kind != "function" && !has_statements(body) {
             return Ok(());
         }
@@ -200,8 +203,9 @@ impl<'a> ContractVisitor<'a> {
                     .attribute("trueBody")
                     .ok_or_else(|| eyre::eyre!("if statement had no true body"))?;
 
-                // We need to store the current branch ID here since visiting the body of either of
-                // the if blocks may increase `self.branch_id` in the case of nested if statements.
+                // We need to store the current branch ID here since visiting the body of either
+                // of the if blocks may increase `self.branch_id` in the case of
+                // nested if statements.
                 let branch_id = self.branch_id;
 
                 // We increase the branch ID here such that nested branches do not use the same
@@ -279,8 +283,9 @@ impl<'a> ContractVisitor<'a> {
                     .as_deref()
                     .ok_or_else(|| eyre::eyre!("yul if statement had no body"))?;
 
-                // We need to store the current branch ID here since visiting the body of either of
-                // the if blocks may increase `self.branch_id` in the case of nested if statements.
+                // We need to store the current branch ID here since visiting the body of either
+                // of the if blocks may increase `self.branch_id` in the case of
+                // nested if statements.
                 let branch_id = self.branch_id;
 
                 // We increase the branch ID here such that nested branches do not use the same
@@ -518,8 +523,9 @@ impl<'a> ContractVisitor<'a> {
         }
     }
 
-    /// Creates a coverage item for a given kind and source location. Pushes item to the internal
-    /// collection (plus additional coverage line if item is a statement).
+    /// Creates a coverage item for a given kind and source location. Pushes
+    /// item to the internal collection (plus additional coverage line if
+    /// item is a statement).
     fn push_item_kind(&mut self, kind: CoverageItemKind, src: &ast::LowFidelitySourceLocation) {
         let item = CoverageItem {
             kind,
@@ -594,13 +600,14 @@ impl SourceAnalysis {
     /// - Walking the AST of each contract (except interfaces)
     /// - Recording the items of each contract
     ///
-    /// Each coverage item contains relevant information to find opcodes corresponding to them: the
-    /// source ID the item is in, the source code range of the item, and the contract name the item
-    /// is in.
+    /// Each coverage item contains relevant information to find opcodes
+    /// corresponding to them: the source ID the item is in, the source code
+    /// range of the item, and the contract name the item is in.
     ///
-    /// Note: Source IDs are only unique per compilation job; that is, a code base compiled with
-    /// two different solc versions will produce overlapping source IDs if the compiler version is
-    /// not taken into account.
+    /// Note: Source IDs are only unique per compilation job; that is, a code
+    /// base compiled with two different solc versions will produce
+    /// overlapping source IDs if the compiler version is not taken into
+    /// account.
     pub fn new(data: &SourceFiles<'_>) -> eyre::Result<Self> {
         let mut sourced_items = data
             .sources
@@ -675,7 +682,8 @@ impl SourceAnalysis {
         &mut self.all_items
     }
 
-    /// Returns an iterator over the coverage items and their IDs for the given source.
+    /// Returns an iterator over the coverage items and their IDs for the given
+    /// source.
     pub fn items_for_source_enumerated(
         &self,
         source_id: u32,
@@ -687,7 +695,8 @@ impl SourceAnalysis {
             .map(move |(idx, item)| (base_id + idx as u32, item))
     }
 
-    /// Returns the base item ID and all the coverage items for the given source.
+    /// Returns the base item ID and all the coverage items for the given
+    /// source.
     pub fn items_for_source(&self, source_id: u32) -> (u32, &[CoverageItem]) {
         let (mut offset, len) = self
             .map

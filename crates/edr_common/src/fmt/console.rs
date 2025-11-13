@@ -281,7 +281,6 @@ mod tests {
     use edr_macros::ConsoleFmt;
 
     use super::*;
-
     use crate as edr_common;
 
     macro_rules! logf1 {

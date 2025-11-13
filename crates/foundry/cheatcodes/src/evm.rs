@@ -1,10 +1,11 @@
 //! Implementations of [`Evm`](spec::Group::Evm) cheatcodes.
 
-#[allow(clippy::wildcard_imports)]
-use crate::{
-    impl_is_pure_false, impl_is_pure_true, inspector::RecordDebugStepInfo, Cheatcode, Cheatcodes,
-    CheatcodesExecutor, CheatsCtxt, Error, Result, Vm::*,
+use std::{
+    collections::{btree_map::Entry, BTreeMap},
+    fmt::Display,
+    path::Path,
 };
+
 use alloy_genesis::{Genesis, GenesisAccount};
 use alloy_primitives::{map::HashMap, Address, Bytes, B256, U256};
 use alloy_sol_types::SolValue;
@@ -18,19 +19,18 @@ use foundry_evm_core::{
 use foundry_evm_traces::StackSnapshotType;
 use itertools::Itertools;
 use rand::Rng;
-use revm::context::result::HaltReasonTr;
-use revm::context::CfgEnv;
 use revm::{
     bytecode::Bytecode,
-    context::JournalTr,
+    context::{result::HaltReasonTr, CfgEnv, JournalTr},
     primitives::{hardfork::SpecId, KECCAK_EMPTY},
     state::Account,
     Journal,
 };
-use std::{
-    collections::{btree_map::Entry, BTreeMap},
-    fmt::Display,
-    path::Path,
+
+#[allow(clippy::wildcard_imports)]
+use crate::{
+    impl_is_pure_false, impl_is_pure_true, inspector::RecordDebugStepInfo, Cheatcode, Cheatcodes,
+    CheatcodesExecutor, CheatsCtxt, Error, Result, Vm::*,
 };
 
 mod record_debug_step;
@@ -63,7 +63,8 @@ impl RecordAccess {
 
     /// Records a write access to a storage slot.
     ///
-    /// This also records a read internally as `SSTORE` does an implicit `SLOAD`.
+    /// This also records a read internally as `SSTORE` does an implicit
+    /// `SLOAD`.
     pub fn record_write(&mut self, target: Address, slot: U256) {
         self.record_read(target, slot);
         self.writes.entry(target).or_default().push(slot);
@@ -3037,7 +3038,8 @@ impl Cheatcode for stopAndReturnDebugTraceRecordingCall {
             .iter()
             .map(|&step| convert_call_trace_to_debug_step(step))
             .collect();
-        // Free up memory by clearing the steps if they are not recorded outside of cheatcode usage.
+        // Free up memory by clearing the steps if they are not recorded outside of
+        // cheatcode usage.
         if !record_info.original_tracer_config.record_steps {
             tracer.traces_mut().nodes_mut().iter_mut().for_each(|node| {
                 node.trace.steps = Vec::new();
@@ -3161,7 +3163,8 @@ fn inner_revert_to_state<
         RevertStateSnapshotAction::RevertKeep,
         &mut context,
     ) {
-        // we reset the evm's journaled_state to the state of the snapshot previous state
+        // we reset the evm's journaled_state to the state of the snapshot previous
+        // state
         ccx.ecx.journaled_state.inner = journaled_state;
         true
     } else {
@@ -3207,7 +3210,8 @@ fn inner_revert_to_state_and_delete<
         RevertStateSnapshotAction::RevertRemove,
         &mut context,
     ) {
-        // we reset the evm's journaled_state to the state of the snapshot previous state
+        // we reset the evm's journaled_state to the state of the snapshot previous
+        // state
         ccx.ecx.journaled_state.inner = journaled_state;
         true
     } else {
@@ -3404,7 +3408,8 @@ fn inner_start_gas_snapshot<
     group: Option<String>,
     name: Option<String>,
 ) -> Result {
-    // Revert if there is an active gas snapshot as we can only have one active snapshot at a time.
+    // Revert if there is an active gas snapshot as we can only have one active
+    // snapshot at a time.
     if ccx.state.gas_metering.active_gas_snapshot.is_some() {
         let (group, name) = ccx
             .state
@@ -3483,7 +3488,8 @@ fn inner_stop_gas_snapshot<
         .find(|record| record.group == group && record.name == name)
     {
         // Calculate the gas used since the snapshot was started.
-        // We subtract 171 from the gas used to account for gas used by the snapshot itself.
+        // We subtract 171 from the gas used to account for gas used by the snapshot
+        // itself.
         let value = record.gas_used.saturating_sub(171);
 
         ccx.state
@@ -3515,7 +3521,8 @@ fn inner_stop_gas_snapshot<
     }
 }
 
-// Derives the snapshot group and name from the provided group and name or the running contract.
+// Derives the snapshot group and name from the provided group and name or the
+// running contract.
 fn derive_snapshot_name<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -3559,29 +3566,34 @@ fn derive_snapshot_name<
     (group, name)
 }
 
-/// Reads the current caller information and returns the current [`CallerMode`], `msg.sender` and
-/// `tx.origin`.
+/// Reads the current caller information and returns the current [`CallerMode`],
+/// `msg.sender` and `tx.origin`.
 ///
-/// Depending on the current caller mode, one of the following results will be returned:
+/// Depending on the current caller mode, one of the following results will be
+/// returned:
 /// - If there is an active prank:
 ///     - `caller_mode` will be equal to:
-///         - [`CallerMode::Prank`] if the prank has been set with `vm.prank(..)`.
-///         - [`CallerMode::RecurrentPrank`] if the prank has been set with `vm.startPrank(..)`.
+///         - [`CallerMode::Prank`] if the prank has been set with
+///           `vm.prank(..)`.
+///         - [`CallerMode::RecurrentPrank`] if the prank has been set with
+///           `vm.startPrank(..)`.
 ///     - `msg.sender` will be equal to the address set for the prank.
-///     - `tx.origin` will be equal to the default sender address unless an alternative one has been
-///       set when configuring the prank.
+///     - `tx.origin` will be equal to the default sender address unless an
+///       alternative one has been set when configuring the prank.
 ///
 /// - If there is an active broadcast:
 ///     - `caller_mode` will be equal to:
-///         - [`CallerMode::Broadcast`] if the broadcast has been set with `vm.broadcast(..)`.
-///         - [`CallerMode::RecurrentBroadcast`] if the broadcast has been set with
-///           `vm.startBroadcast(..)`.
-///     - `msg.sender` and `tx.origin` will be equal to the address provided when setting the
-///       broadcast.
+///         - [`CallerMode::Broadcast`] if the broadcast has been set with
+///           `vm.broadcast(..)`.
+///         - [`CallerMode::RecurrentBroadcast`] if the broadcast has been set
+///           with `vm.startBroadcast(..)`.
+///     - `msg.sender` and `tx.origin` will be equal to the address provided
+///       when setting the broadcast.
 ///
 /// - If no caller modification is active:
 ///     - `caller_mode` will be equal to [`CallerMode::None`],
-///     - `msg.sender` and `tx.origin` will be equal to the default sender address.
+///     - `msg.sender` and `tx.origin` will be equal to the default sender
+///       address.
 fn read_callers<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -3664,8 +3676,9 @@ pub(super) fn journaled_account<
 /// recorded as accessed, an abi encoded empty array is returned.
 ///
 /// In the case where `stopAndReturnStateDiff` is called at a lower
-/// depth than `startStateDiffRecording`, multiple `Vec<RecordedAccountAccesses>`
-/// will be flattened, preserving the order of the accesses.
+/// depth than `startStateDiffRecording`, multiple
+/// `Vec<RecordedAccountAccesses>` will be flattened, preserving the order of
+/// the accesses.
 fn get_state_diff<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,

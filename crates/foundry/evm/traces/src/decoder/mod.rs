@@ -1,9 +1,5 @@
-use crate::abi::get_indexed_event;
-use crate::identifier::SelectorKind;
-use crate::{
-    identifier::{IdentifiedAddress, LocalTraceIdentifier, SignaturesIdentifier, TraceIdentifier},
-    CallTrace, CallTraceArena, CallTraceNode, DecodedCallData,
-};
+use std::{collections::BTreeMap, sync::OnceLock};
+
 use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt, FunctionExt, JsonAbiExt};
 use alloy_json_abi::{Error, Event, Function, JsonAbi};
 use alloy_primitives::{
@@ -12,13 +8,13 @@ use alloy_primitives::{
 };
 use edr_common::fmt::format_token;
 use edr_defaults::SELECTOR_LEN;
-use foundry_evm_core::contracts::ContractsByArtifact;
 use foundry_evm_core::{
     abi::{console, Vm},
     constants::{
         CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, HARDHAT_CONSOLE_ADDRESS,
         TEST_CONTRACT_ADDRESS,
     },
+    contracts::ContractsByArtifact,
     decode::RevertDecoder,
     precompiles::{
         BLAKE_2F, EC_ADD, EC_MUL, EC_PAIRING, EC_RECOVER, IDENTITY, MOD_EXP, POINT_EVALUATION,
@@ -27,7 +23,15 @@ use foundry_evm_core::{
 };
 use itertools::Itertools;
 use revm_inspectors::tracing::types::{DecodedCallLog, DecodedCallTrace};
-use std::{collections::BTreeMap, sync::OnceLock};
+
+use crate::{
+    abi::get_indexed_event,
+    identifier::{
+        IdentifiedAddress, LocalTraceIdentifier, SelectorKind, SignaturesIdentifier,
+        TraceIdentifier,
+    },
+    CallTrace, CallTraceArena, CallTraceNode, DecodedCallData,
+};
 
 mod precompiles;
 
@@ -100,11 +104,11 @@ impl CallTraceDecoderBuilder {
 
 /// The call trace decoder.
 ///
-/// The decoder collects address labels and ABIs from any number of [`TraceIdentifier`]s, which it
-/// then uses to decode the call trace.
+/// The decoder collects address labels and ABIs from any number of
+/// [`TraceIdentifier`]s, which it then uses to decode the call trace.
 ///
-/// Note that a call trace decoder is required for each new set of traces, since addresses in
-/// different sets might overlap.
+/// Note that a call trace decoder is required for each new set of traces, since
+/// addresses in different sets might overlap.
 #[derive(Clone, Debug, Default)]
 pub struct CallTraceDecoder {
     /// Addresses identified to be a specific contract.
@@ -115,11 +119,11 @@ pub struct CallTraceDecoder {
     pub labels: HashMap<Address, String>,
     /// Contract addresses that have a receive function.
     pub receive_contracts: HashSet<Address>,
-    /// Contract addresses that have fallback functions, mapped to function selectors of that
-    /// contract.
+    /// Contract addresses that have fallback functions, mapped to function
+    /// selectors of that contract.
     pub fallback_contracts: HashMap<Address, HashSet<Selector>>,
-    /// Contract addresses that have do NOT have fallback functions, mapped to function selectors
-    /// of that contract.
+    /// Contract addresses that have do NOT have fallback functions, mapped to
+    /// function selectors of that contract.
     pub non_fallback_contracts: HashMap<Address, HashSet<Selector>>,
 
     /// All known functions.
@@ -143,11 +147,11 @@ pub struct CallTraceDecoder {
 impl CallTraceDecoder {
     /// Creates a new call trace decoder.
     ///
-    /// The call trace decoder always knows how to decode calls to the cheatcode address, as well
-    /// as DSTest-style logs.
+    /// The call trace decoder always knows how to decode calls to the cheatcode
+    /// address, as well as DSTest-style logs.
     pub fn new() -> &'static Self {
-        // If you want to take arguments in this function, assign them to the fields of the cloned
-        // lazy instead of removing it
+        // If you want to take arguments in this function, assign them to the fields of
+        // the cloned lazy instead of removing it
         static INIT: OnceLock<CallTraceDecoder> = OnceLock::new();
         INIT.get_or_init(Self::init)
     }
@@ -209,14 +213,16 @@ impl CallTraceDecoder {
         self.fallback_contracts.clear();
     }
 
-    /// Identify unknown addresses in the specified call trace using the specified identifier.
+    /// Identify unknown addresses in the specified call trace using the
+    /// specified identifier.
     ///
     /// Unknown contracts are contracts that either lack a label or an ABI.
     pub fn identify(&mut self, arena: &CallTraceArena, identifier: &mut impl TraceIdentifier) {
         self.collect_identified_addresses(self.identify_addresses(arena, identifier));
     }
 
-    /// Identify unknown addresses in the specified call trace using the specified identifier.
+    /// Identify unknown addresses in the specified call trace using the
+    /// specified identifier.
     ///
     /// Unknown contracts are contracts that either lack a label or an ABI.
     pub fn identify_addresses<'a>(
@@ -396,8 +402,8 @@ impl CallTraceDecoder {
                 &functions
             };
 
-            // Check if unsupported fn selector: calldata dooes NOT point to one of its selectors +
-            // non-fallback contract + no receive
+            // Check if unsupported fn selector: calldata dooes NOT point to one of its
+            // selectors + non-fallback contract + no receive
             if let Some(contract_selectors) = self.non_fallback_contracts.get(&trace.address)
                 && !contract_selectors.contains(&selector)
                 && (!cdata.is_empty() || !self.receive_contracts.contains(&trace.address))
@@ -440,8 +446,9 @@ impl CallTraceDecoder {
                 };
             };
 
-            // If traced contract is a fallback contract, check if it has the decoded function.
-            // If not, then replace call data signature with `fallback`.
+            // If traced contract is a fallback contract, check if it has the decoded
+            // function. If not, then replace call data signature with
+            // `fallback`.
             let mut call_data = self.decode_function_input(trace, func);
             if let Some(fallback_functions) = self.fallback_contracts.get(&trace.address)
                 && !fallback_functions.contains(&selector)
@@ -704,9 +711,10 @@ impl CallTraceDecoder {
     /// The default decoded return data for a trace.
     fn default_return_data(&self, trace: &CallTrace) -> Option<String> {
         // For calls with status None or successful status, don't decode revert data
-        // This is due to trace.status is derived from the revm_interpreter::InstructionResult in
-        // revm-inspectors status will `None` post revm 27, as `InstructionResult::Continue` does
-        // not exists anymore.
+        // This is due to trace.status is derived from the
+        // revm_interpreter::InstructionResult in revm-inspectors status will
+        // `None` post revm 27, as `InstructionResult::Continue` does not exists
+        // anymore.
         if trace.status.is_none()
             || trace
                 .status
@@ -822,7 +830,8 @@ impl CallTraceDecoder {
     }
 }
 
-/// Returns `true` if the given function calldata (including function selector) is ABI-encoded.
+/// Returns `true` if the given function calldata (including function selector)
+/// is ABI-encoded.
 ///
 /// This is a simple heuristic to avoid fetching non ABI-encoded selectors.
 fn is_abi_call_data(data: &[u8]) -> bool {
@@ -846,7 +855,8 @@ fn is_abi_data(data: &[u8]) -> bool {
     if rem == 0 || data.is_empty() {
         return true;
     }
-    // If the length is not a multiple of 32, also accept when the last remainder bytes are all 0.
+    // If the length is not a multiple of 32, also accept when the last remainder
+    // bytes are all 0.
     let slice = data
         .get(data.len() - rem..)
         .expect("data.len() - rem should be valid slice index");
@@ -861,8 +871,9 @@ fn reconstruct_params(event: &Event, decoded: &DecodedEvent) -> Vec<DynSolValue>
     let mut inputs = vec![];
     for input in &event.inputs {
         // Prevent panic of event `Transfer(from, to)` decoded with a signature
-        // `Transfer(address indexed from, address indexed to, uint256 indexed tokenId)` by making
-        // sure the event inputs is not higher than decoded indexed / un-indexed values.
+        // `Transfer(address indexed from, address indexed to, uint256 indexed tokenId)`
+        // by making sure the event inputs is not higher than decoded indexed /
+        // un-indexed values.
         if input.indexed && indexed < decoded.indexed.len() {
             let value = decoded
                 .indexed
@@ -889,8 +900,9 @@ fn indexed_inputs(event: &Event) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use alloy_primitives::hex;
+
+    use super::*;
 
     #[test]
     fn test_should_redact() {

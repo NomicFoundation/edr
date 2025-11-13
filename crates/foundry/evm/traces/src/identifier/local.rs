@@ -1,17 +1,20 @@
-use super::{IdentifiedAddress, TraceIdentifier};
+use std::borrow::Cow;
+
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::{map::HashMap, Address, Bytes};
 use edr_solidity::artifacts::ArtifactId;
 use foundry_evm_core::contracts::{bytecode_diff_score, ContractsByArtifact};
 use revm_inspectors::tracing::types::CallTraceNode;
-use std::borrow::Cow;
+
+use super::{IdentifiedAddress, TraceIdentifier};
 
 /// A trace identifier that tries to identify addresses using local contracts.
 pub struct LocalTraceIdentifier<'a> {
     /// Known contracts to search through.
     known_contracts: &'a ContractsByArtifact,
-    /// Vector of pairs of artifact ID and the runtime code length of the given artifact.
+    /// Vector of pairs of artifact ID and the runtime code length of the given
+    /// artifact.
     ordered_ids: Vec<(&'a ArtifactId, usize)>,
     /// The contracts bytecode.
     contracts_bytecode: Option<&'a HashMap<Address, Bytes>>,
@@ -45,7 +48,8 @@ impl<'a> LocalTraceIdentifier<'a> {
         self.known_contracts
     }
 
-    /// Identifies the artifact based on score computed for both creation and deployed bytecodes.
+    /// Identifies the artifact based on score computed for both creation and
+    /// deployed bytecodes.
     pub fn identify_code(
         &self,
         runtime_code: &[u8],
@@ -138,8 +142,9 @@ impl<'a> LocalTraceIdentifier<'a> {
 
         trace!(target: "evm::traces::local", %min_score, "no exact match found");
 
-        // Note: the diff score can be inaccurate for small contracts so we're using a relatively
-        // high threshold here to avoid filtering out too many contracts.
+        // Note: the diff score can be inaccurate for small contracts so we're using a
+        // relatively high threshold here to avoid filtering out too many
+        // contracts.
         if min_score < 0.85 {
             min_score_id
         } else {
@@ -147,14 +152,16 @@ impl<'a> LocalTraceIdentifier<'a> {
         }
     }
 
-    /// Returns the index of the artifact with the given code length, or the index of the first
-    /// artifact with a greater code length if the exact code length is not found.
+    /// Returns the index of the artifact with the given code length, or the
+    /// index of the first artifact with a greater code length if the exact
+    /// code length is not found.
     fn find_index(&self, len: usize) -> usize {
         let (Ok(mut idx) | Err(mut idx)) = self
             .ordered_ids
             .binary_search_by_key(&len, |(_, probe)| *probe);
 
-        // In case of multiple artifacts with the same code length, we need to find the first one.
+        // In case of multiple artifacts with the same code length, we need to find the
+        // first one.
         while idx > 0
             && self
                 .ordered_ids
@@ -197,9 +204,9 @@ impl TraceIdentifier for LocalTraceIdentifier<'_> {
                 let _span =
                     trace_span!(target: "evm::traces::local", "identify", %address).entered();
 
-                // In order to identify the addresses, we need at least the runtime code. It can be
-                // obtained from the trace itself (if it's a CREATE* call), or from the fetched
-                // bytecodes.
+                // In order to identify the addresses, we need at least the runtime code. It can
+                // be obtained from the trace itself (if it's a CREATE* call),
+                // or from the fetched bytecodes.
                 let (runtime_code, creation_code) = match (runtime_code, creation_code) {
                     (Some(runtime_code), Some(creation_code)) => (runtime_code, creation_code),
                     (Some(runtime_code), _) => (runtime_code, &[] as &[u8]),

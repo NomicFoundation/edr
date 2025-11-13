@@ -22,7 +22,8 @@ impl IntValueTree {
     /// Create a new tree
     /// # Arguments
     /// * `start` - Starting value for the tree
-    /// * `fixed` - If `true` the tree would only contain one element and won't be simplified.
+    /// * `fixed` - If `true` the tree would only contain one element and won't
+    ///   be simplified.
     fn new(start: I256, fixed: bool) -> Self {
         Self {
             lo: I256::ZERO,
@@ -88,19 +89,22 @@ impl ValueTree for IntValueTree {
 }
 
 /// Value tree for signed ints (up to int256).
-/// The strategy combines 3 different strategies, each assigned a specific weight:
-/// 1. Generate purely random value in a range. This will first choose bit size uniformly (up `bits`
-///    param). Then generate a value for this bit size.
-/// 2. Generate a random value around the edges (+/- 3 around min, 0 and max possible value)
+/// The strategy combines 3 different strategies, each assigned a specific
+/// weight:
+/// 1. Generate purely random value in a range. This will first choose bit size
+///    uniformly (up `bits` param). Then generate a value for this bit size.
+/// 2. Generate a random value around the edges (+/- 3 around min, 0 and max
+///    possible value)
 /// 3. Generate a value from a predefined fixtures set
 ///
 /// To define int fixtures:
-/// - return an array of possible values for a parameter named `amount` declare a function `function
-///   fixture_amount() public returns (int32[] memory)`.
-/// - use `amount` named parameter in fuzzed test in order to include fixtures in fuzzed values
-///   `function testFuzz_int32(int32 amount)`.
+/// - return an array of possible values for a parameter named `amount` declare
+///   a function `function fixture_amount() public returns (int32[] memory)`.
+/// - use `amount` named parameter in fuzzed test in order to include fixtures
+///   in fuzzed values `function testFuzz_int32(int32 amount)`.
 ///
-/// If fixture is not a valid int type then error is raised and random value generated.
+/// If fixture is not a valid int type then error is raised and random value
+/// generated.
 #[derive(Debug)]
 pub struct IntStrategy {
     /// Bit size of int (e.g. 256)
@@ -119,7 +123,8 @@ impl IntStrategy {
     /// Create a new strategy.
     /// #Arguments
     /// * `bits` - Size of uint in bits
-    /// * `fixtures` - A set of fixed values to be generated (according to fixtures weight)
+    /// * `fixtures` - A set of fixed values to be generated (according to
+    ///   fixtures weight)
     pub fn new(bits: usize, fixtures: Option<&[DynSolValue]>) -> Self {
         Self {
             bits,
@@ -239,9 +244,10 @@ impl Strategy for IntStrategy {
 
 #[cfg(test)]
 mod tests {
-    use crate::strategies::int::IntValueTree;
     use alloy_primitives::I256;
     use proptest::strategy::ValueTree;
+
+    use crate::strategies::int::IntValueTree;
 
     #[test]
     fn test_int_tree_complicate_should_not_overflow() {

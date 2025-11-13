@@ -2,14 +2,14 @@
 
 use std::collections::BTreeMap;
 
-use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_DATA_DEFAULT};
 use alloy_primitives::{Bytes, U256};
 use edr_gas_report::GasReportExecutionStatus;
-use edr_solidity_tests::result::TestKind;
 use edr_solidity_tests::{
     fuzz::CounterExample,
-    result::{SuiteResult, TestStatus},
+    result::{SuiteResult, TestKind, TestStatus},
 };
+
+use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_DATA_DEFAULT};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {
