@@ -215,7 +215,7 @@ impl<'builder, BlockchainErrorT: std::error::Error>
 ///    - nil if Canyon has not been activated.
 ///    - `keccak256(rlp(empty_string_code))` if Canyon has been activated.
 ///
-/// After Isthmus activation, the withdrawalsRoot field be the
+/// After Isthmus activation, the withdrawalsRoot field should be the
 /// `L2ToL1MessagePasser` account storage root
 fn define_op_withdrawals_root(hardfork: Hardfork, state: &dyn DynState) -> Option<B256> {
     if hardfork < Hardfork::CANYON {
@@ -264,8 +264,6 @@ mod tests {
     use edr_blockchain_api::StateAtBlock as _;
     use edr_chain_spec_provider::ProviderChainSpec;
     use edr_provider::spec::LocalBlockchainForChainSpec;
-    // use edr_evm::{blockchain::LocalBlockchain, spec::GenesisBlockFactory,
-    // GenesisBlockOptions};
     use edr_state_api::StateDiff;
 
     use super::*;
