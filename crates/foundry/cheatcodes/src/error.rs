@@ -1,4 +1,5 @@
-use crate::Vm;
+use std::{borrow::Cow, fmt};
+
 use alloy_primitives::{hex, Address, Bytes};
 use alloy_signer::Error as SignerError;
 use alloy_signer_local::LocalSignerError;
@@ -7,11 +8,13 @@ use edr_common::errors::FsPathError;
 use foundry_evm_core::backend::{BackendError, DatabaseError};
 use k256::ecdsa::signature::Error as SignatureError;
 use revm::context_interface::result::EVMError;
-use std::{borrow::Cow, fmt};
+
+use crate::Vm;
 
 /// Cheatcode result type.
 ///
-/// Type alias with a default Ok type of [`Vec<u8>`], and default Err type of [`Error`].
+/// Type alias with a default Ok type of [`Vec<u8>`], and default Err type of
+/// [`Error`].
 pub type Result<T = Vec<u8>, E = Error> = std::result::Result<T, E>;
 
 macro_rules! fmt_err {
@@ -80,10 +83,11 @@ pub(crate) fn precompile_error(address: &Address) -> Error {
 // This uses a custom repr to minimize the size of the error.
 // The repr is basically `enum { Cow<'static, str>, Cow<'static, [u8]> }`
 pub struct Error {
-    /// If true, encode `data` as `Error(string)`, otherwise encode it directly as `bytes`.
+    /// If true, encode `data` as `Error(string)`, otherwise encode it directly
+    /// as `bytes`.
     is_str: bool,
-    /// Whether this was constructed from an owned byte vec, which means we have to drop the data
-    /// in `impl Drop`.
+    /// Whether this was constructed from an owned byte vec, which means we have
+    /// to drop the data in `impl Drop`.
     drop: bool,
     /// The error data. Always a valid pointer, and never modified.
     data: *const [u8],
@@ -143,8 +147,8 @@ impl Error {
         }
     }
 
-    /// ABI-encodes this error as `CheatcodeError(string)` if the inner message is a string,
-    /// otherwise returns the raw bytes.
+    /// ABI-encodes this error as `CheatcodeError(string)` if the inner message
+    /// is a string, otherwise returns the raw bytes.
     pub fn abi_encode(&self) -> Vec<u8> {
         match self.kind() {
             ErrorKind::String(string) => Vm::CheatcodeError {

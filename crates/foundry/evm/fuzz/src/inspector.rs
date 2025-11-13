@@ -1,10 +1,11 @@
-use crate::{invariant::RandomCallGenerator, strategies::EvmFuzzState};
 use revm::{
     context::{ContextTr, Transaction},
     inspector::JournalExt,
     interpreter::{CallInput, CallInputs, CallOutcome, CallScheme, Interpreter},
     Inspector,
 };
+
+use crate::{invariant::RandomCallGenerator, strategies::EvmFuzzState};
 
 /// An inspector that can fuzz and collect data for that effect.
 #[derive(Clone, Debug)]
@@ -13,7 +14,8 @@ pub struct Fuzzer {
     pub call_generator: Option<RandomCallGenerator>,
     /// If set, it collects `stack` and `memory` values for fuzzing purposes.
     pub collect: bool,
-    /// If `collect` is set, we store the collected values in this fuzz dictionary.
+    /// If `collect` is set, we store the collected values in this fuzz
+    /// dictionary.
     pub fuzz_state: EvmFuzzState,
 }
 
@@ -62,7 +64,8 @@ impl Fuzzer {
         // TODO: disabled for now since it's flooding the dictionary
         // for index in 0..interpreter.shared_memory.len() / 32 {
         //     let mut slot = [0u8; 32];
-        //     slot.clone_from_slice(interpreter.shared_memory.get_slice(index * 32, 32));
+        //     slot.clone_from_slice(interpreter.shared_memory.get_slice(index * 32,
+        // 32));
 
         //     state.insert(slot);
         // }

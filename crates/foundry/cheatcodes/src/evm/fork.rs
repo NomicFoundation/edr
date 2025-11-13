@@ -1,25 +1,24 @@
-#[allow(clippy::wildcard_imports)]
-use crate::{
-    impl_is_pure_false, impl_is_pure_true, json::json_value_to_token, Cheatcode, CheatcodeBackend,
-    Cheatcodes, CheatsCtxt, Result, Vm::*,
-};
 use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::{B256, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::Filter;
 use alloy_sol_types::SolValue;
-use foundry_evm_core::evm_context::split_context;
-use foundry_evm_core::fork::provider::ProviderBuilder;
 use foundry_evm_core::{
     backend::CheatcodeBackend as CheatcodeBackendTrait,
     evm_context::{
-        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
-    fork::CreateFork,
+    fork::{provider::ProviderBuilder, CreateFork},
     AsEnvMut,
 };
 use revm::context::result::HaltReasonTr;
+
+#[allow(clippy::wildcard_imports)]
+use crate::{
+    impl_is_pure_false, impl_is_pure_true, json::json_value_to_token, Cheatcode, CheatcodeBackend,
+    Cheatcodes, CheatsCtxt, Result, Vm::*,
+};
 
 impl_is_pure_true!(activeForkCall);
 impl Cheatcode for activeForkCall {
@@ -1389,9 +1388,9 @@ fn transact<
     Ok(Vec::default())
 }
 
-// Helper to add the caller of fork cheat code as persistent account (in order to make sure that the
-// state of caller contract is not lost when fork changes).
-// Applies to create, select and roll forks actions.
+// Helper to add the caller of fork cheat code as persistent account (in order
+// to make sure that the state of caller contract is not lost when fork
+// changes). Applies to create, select and roll forks actions.
 // https://github.com/foundry-rs/foundry/issues/8004
 fn persist_caller<
     BlockT: BlockEnvTr,
@@ -1441,7 +1440,8 @@ fn rpc_call(url: &str, method: &str, params: &str) -> Result {
     Ok(result_as_tokens.abi_encode())
 }
 
-/// Convert fixed bytes and address values to bytes in order to prevent encoding issues.
+/// Convert fixed bytes and address values to bytes in order to prevent encoding
+/// issues.
 fn convert_to_bytes(token: &DynSolValue) -> DynSolValue {
     match token {
         // Convert fixed bytes to prevent encoding issues.

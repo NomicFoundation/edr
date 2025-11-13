@@ -3,14 +3,12 @@ use std::{
     collections::{BTreeMap, HashMap},
 };
 
-use crate::executors::{Executor, FuzzTestTimer};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Log, U256};
 use derive_where::derive_where;
-use foundry_evm_core::constants::CHEATCODE_ADDRESS;
 use foundry_evm_core::{
-    constants::{MAGIC_ASSUME, TEST_TIMEOUT},
+    constants::{CHEATCODE_ADDRESS, MAGIC_ASSUME, TEST_TIMEOUT},
     decode::{RevertDecoder, SkipReason},
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
@@ -26,6 +24,8 @@ use foundry_evm_fuzz::{
 use foundry_evm_traces::SparsedTraceArena;
 use proptest::test_runner::{TestCaseError, TestError, TestRunner};
 use revm::context::result::{HaltReason, HaltReasonTr};
+
+use crate::executors::{Executor, FuzzTestTimer};
 
 mod types;
 pub use types::{CaseOutcome, CounterExampleOutcome, FuzzOutcome};
@@ -377,8 +377,8 @@ impl<
                 cheatcodes.deprecated.clone().into_iter().collect()
             });
 
-        // Consider call success if test should not fail on reverts and reverter is not the
-        // cheatcode or test address.
+        // Consider call success if test should not fail on reverts and reverter is not
+        // the cheatcode or test address.
         let success = if !self.config.fail_on_revert
             && call
                 .reverter

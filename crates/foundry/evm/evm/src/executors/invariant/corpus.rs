@@ -1,7 +1,10 @@
-use crate::executors::{
-    invariant::{InvariantTest, InvariantTestRun},
-    Executor,
+use std::{
+    fmt,
+    marker::PhantomData,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
 };
+
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::U256;
 use eyre::eyre;
@@ -9,9 +12,8 @@ use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
     TransactionErrorTrait,
 };
-use foundry_evm_fuzz::invariant::InvariantConfig;
 use foundry_evm_fuzz::{
-    invariant::{BasicTxDetails, FuzzRunIdentifiedContracts},
+    invariant::{BasicTxDetails, FuzzRunIdentifiedContracts, InvariantConfig},
     strategies::fuzz_param_from_state,
 };
 use proptest::{
@@ -22,13 +24,12 @@ use proptest::{
 };
 use revm::context::result::{HaltReason, HaltReasonTr};
 use serde::Serialize;
-use std::marker::PhantomData;
-use std::{
-    fmt,
-    path::PathBuf,
-    time::{SystemTime, UNIX_EPOCH},
-};
 use uuid::Uuid;
+
+use crate::executors::{
+    invariant::{InvariantTest, InvariantTestRun},
+    Executor,
+};
 
 const METADATA_SUFFIX: &str = "metadata.json";
 const JSON_EXTENSION: &str = ".json";
@@ -350,7 +351,8 @@ impl<
     }
 
     /// Collects inputs from given invariant run, if new coverage produced.
-    /// Persists call sequence (if corpus directory is configured) and updates in-memory corpus.
+    /// Persists call sequence (if corpus directory is configured) and updates
+    /// in-memory corpus.
     pub fn collect_inputs(
         &mut self,
         test_run: &InvariantTestRun<
@@ -435,8 +437,8 @@ impl<
         self.in_memory_corpus.push(corpus);
     }
 
-    /// Generates new call sequence from in memory corpus. Evicts oldest corpus mutated more than
-    /// configured max mutations value.
+    /// Generates new call sequence from in memory corpus. Evicts oldest corpus
+    /// mutated more than configured max mutations value.
     pub fn new_sequence(
         &mut self,
         test: &InvariantTest<
@@ -452,16 +454,16 @@ impl<
         let mut new_seq = vec![];
         let test_runner = &mut test.execution_data.borrow_mut().branch_runner;
 
-        // Early return with first_input only if corpus dir / coverage guided fuzzing not
-        // configured.
+        // Early return with first_input only if corpus dir / coverage guided fuzzing
+        // not configured.
         let Some(corpus_dir) = &self.corpus_dir else {
             new_seq.push(self.new_tx(test_runner)?);
             return Ok(new_seq);
         };
 
         if !self.in_memory_corpus.is_empty() {
-            // Flush oldest corpus mutated more than configured max mutations unless they are
-            // favored.
+            // Flush oldest corpus mutated more than configured max mutations unless they
+            // are favored.
             let should_evict = self.in_memory_corpus.len() > self.corpus_min_size.max(1);
             if should_evict
                 && let Some(index) = self.in_memory_corpus.iter().position(|corpus| {
@@ -678,11 +680,11 @@ impl<
     }
 
     /// Returns the next call to be used in call sequence.
-    /// If coverage guided fuzzing is not configured or if previous input was discarded then this is
-    /// a new tx from strategy.
-    /// If running with coverage guided fuzzing it returns a new call only when sequence
-    /// does not have enough entries, or randomly. Otherwise, returns the next call from initial
-    /// sequence.
+    /// If coverage guided fuzzing is not configured or if previous input was
+    /// discarded then this is a new tx from strategy.
+    /// If running with coverage guided fuzzing it returns a new call only when
+    /// sequence does not have enough entries, or randomly. Otherwise,
+    /// returns the next call from initial sequence.
     pub fn generate_next_input(
         &mut self,
         test: &InvariantTest<
@@ -700,14 +702,15 @@ impl<
     ) -> eyre::Result<BasicTxDetails> {
         let test_runner = &mut test.execution_data.borrow_mut().branch_runner;
 
-        // Early return with new input if corpus dir / coverage guided fuzzing not configured or if
-        // call was discarded.
+        // Early return with new input if corpus dir / coverage guided fuzzing not
+        // configured or if call was discarded.
         if self.corpus_dir.is_none() || discarded {
             return self.new_tx(test_runner);
         }
 
-        // When running with coverage guided fuzzing enabled then generate new sequence if initial
-        // sequence's length is less than depth or randomly, to occasionally intermix new txs.
+        // When running with coverage guided fuzzing enabled then generate new sequence
+        // if initial sequence's length is less than depth or randomly, to
+        // occasionally intermix new txs.
         if depth > sequence.len().saturating_sub(1) || test_runner.rng().random_ratio(1, 10) {
             return self.new_tx(test_runner);
         }

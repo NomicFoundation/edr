@@ -7,6 +7,8 @@ pub use config::{assert_multiple, TestConfig};
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
+use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf, sync::Mutex};
+
 use alloy_primitives::{Bytes, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
@@ -45,8 +47,6 @@ use foundry_evm::{
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 pub use solidity_test_filter::SolidityTestFilter;
-use std::sync::Mutex;
-use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf};
 
 use crate::helpers::{
     config::NoOpContractDecoder, integration_test_config::IntegrationTestConfig,
@@ -59,10 +59,12 @@ static PROJECT_ROOT: Lazy<PathBuf> = Lazy::new(|| {
     dunce::canonicalize(PathBuf::from(TESTDATA)).expect("Failed to canonicalize root")
 });
 
-/// Asserts that an actual value is within a specified tolerance of an expected value.
+/// Asserts that an actual value is within a specified tolerance of an expected
+/// value.
 ///
 /// # Arguments
-/// * `actual` - The actual value to check (will be stringified for error messages)
+/// * `actual` - The actual value to check (will be stringified for error
+///   messages)
 /// * `expected` - The expected value
 /// * `tolerance` - The tolerance as a fraction (e.g., 0.1 for 10%)
 ///
@@ -777,7 +779,8 @@ impl<
         .expect("Config should be ok")
     }
 
-    /// Returns a new fuzz failure dir that will be cleaned up after this struct is dropped.
+    /// Returns a new fuzz failure dir that will be cleaned up after this struct
+    /// is dropped.
     fn new_fuzz_failure_dir(&self) -> PathBuf {
         let mut fuzz_failure_dirs = self.fuzz_failure_dirs.lock().expect("lock is not poisoned");
         let dir = tempfile::TempDir::new().expect("created tempdir");
@@ -786,7 +789,8 @@ impl<
         path
     }
 
-    /// Returns a new invariant failure dir that will be cleaned up after this struct is dropped.
+    /// Returns a new invariant failure dir that will be cleaned up after this
+    /// struct is dropped.
     fn new_invariant_failure_dir(&self) -> PathBuf {
         let mut invariant_failure_dirs = self
             .invariant_failure_dirs

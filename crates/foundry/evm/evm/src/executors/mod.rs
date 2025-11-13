@@ -12,7 +12,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
 use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{
@@ -40,15 +39,18 @@ use revm::{
     interpreter::{return_ok, InstructionResult},
 };
 
+use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
+
 mod builder;
 pub use builder::{ExecutorBuilder, ExecutorBuilderError};
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr,
-};
 // Leaving this intentionally removed as it was flagged as unused
 use foundry_evm_core::backend::GLOBAL_FAIL_SLOT;
-use foundry_evm_core::constants::{CHEATCODE_CONTRACT_HASH, DEFAULT_CREATE2_DEPLOYER_DEPLOYER};
-use foundry_evm_core::{backend::IndeterminismReasons, decode::SkipReason};
+use foundry_evm_core::{
+    backend::IndeterminismReasons,
+    constants::{CHEATCODE_CONTRACT_HASH, DEFAULT_CREATE2_DEPLOYER_DEPLOYER},
+    decode::SkipReason,
+    evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
+};
 
 pub mod fuzz;
 pub use fuzz::FuzzedExecutor;
@@ -70,15 +72,17 @@ sol! {
 
 /// EVM executor.
 ///
-/// The executor can be configured with various `revm::Inspector`s, like `Cheatcodes`.
+/// The executor can be configured with various `revm::Inspector`s, like
+/// `Cheatcodes`.
 ///
 /// There are multiple ways of interacting the EVM:
-/// - `call`: executes a transaction, but does not persist any state changes; similar to `eth_call`,
-///   where the EVM state is unchanged after the call.
+/// - `call`: executes a transaction, but does not persist any state changes;
+///   similar to `eth_call`, where the EVM state is unchanged after the call.
 /// - `transact`: executes a transaction and persists the state changes
-/// - `deploy`: a special case of `transact`, specialized for persisting the state of a contract
-///   deployment
-/// - `setup`: a special case of `transact`, used to set up the environment for a test
+/// - `deploy`: a special case of `transact`, specialized for persisting the
+///   state of a contract deployment
+/// - `setup`: a special case of `transact`, used to set up the environment for
+///   a test
 #[derive(Clone, Debug)]
 pub struct Executor<
     BlockT: BlockEnvTr,
@@ -154,8 +158,8 @@ impl<
         >,
         gas_limit: u64,
     ) -> Self {
-        // Need to create a non-empty contract on the cheatcodes address so `extcodesize` checks
-        // do not fail.
+        // Need to create a non-empty contract on the cheatcodes address so
+        // `extcodesize` checks do not fail.
         backend.insert_account_info(
             CHEATCODE_ADDRESS,
             revm::state::AccountInfo {
@@ -228,8 +232,9 @@ impl<
 
     /// Returns the gas limit for calls and deployments.
     ///
-    /// This is different from the gas limit imposed by the passed in environment, as those limits
-    /// are used by the EVM for certain opcodes like `gaslimit`.
+    /// This is different from the gas limit imposed by the passed in
+    /// environment, as those limits are used by the EVM for certain opcodes
+    /// like `gaslimit`.
     pub fn gas_limit(&self) -> u64 {
         self.gas_limit
     }
@@ -369,7 +374,8 @@ impl<
             .is_none_or(|acc| acc.is_empty_code_hash()))
     }
 
-    /// Creates the default CREATE2 Contract Deployer for local tests and scripts.
+    /// Creates the default CREATE2 Contract Deployer for local tests and
+    /// scripts.
     pub fn deploy_create2_deployer(&mut self) -> eyre::Result<()> {
         trace!("deploying local create2 deployer");
         let create2_deployer_account = self
@@ -403,8 +409,8 @@ impl<
 
     /// Deploys a contract and commits the new state to the underlying database.
     ///
-    /// Executes a CREATE transaction with the contract `code` and persistent database state
-    /// modifications.
+    /// Executes a CREATE transaction with the contract `code` and persistent
+    /// database state modifications.
     #[allow(clippy::type_complexity)]
     pub fn deploy(
         &mut self,
@@ -436,8 +442,8 @@ impl<
         self.deploy_with_env(env, rd)
     }
 
-    /// Deploys a contract using the given `env` and commits the new state to the underlying
-    /// database.
+    /// Deploys a contract using the given `env` and commits the new state to
+    /// the underlying database.
     ///
     /// # Panics
     ///
@@ -481,8 +487,8 @@ impl<
             panic!("Deployment succeeded, but no address was returned: {result:#?}");
         };
 
-        // also mark this library as persistent, this will ensure that the state of the library is
-        // persistent across fork swaps in forking mode
+        // also mark this library as persistent, this will ensure that the state of the
+        // library is persistent across fork swaps in forking mode
         self.backend_mut().add_persistent_account(address);
 
         debug!(%address, "deployed contract");
@@ -497,8 +503,9 @@ impl<
     ///
     /// This will commit any state changes to the underlying database.
     ///
-    /// Ayn changes made during the setup call to env's block environment are persistent, for
-    /// example `vm.chainId()` will change the `block.chainId` for all subsequent test calls.
+    /// Ayn changes made during the setup call to env's block environment are
+    /// persistent, for example `vm.chainId()` will change the
+    /// `block.chainId` for all subsequent test calls.
     #[instrument(name = "setup", level = "debug", skip_all)]
     #[allow(clippy::type_complexity)]
     pub fn setup(
@@ -765,10 +772,11 @@ impl<
         Ok(result)
     }
 
-    /// Commit the changeset to the database and adjust `self.inspector_config` values according to
-    /// the executed call result.
+    /// Commit the changeset to the database and adjust `self.inspector_config`
+    /// values according to the executed call result.
     ///
-    /// This should not be exposed to the user, as it should be called only by `transact*`.
+    /// This should not be exposed to the user, as it should be called only by
+    /// `transact*`.
     #[instrument(name = "commit", level = "debug", skip_all)]
     fn commit(
         &mut self,
@@ -790,8 +798,8 @@ impl<
         if let Some(cheats) = self.inspector_mut().cheatcodes.as_mut() {
             cheats.ignored_traces.ignored.clear();
 
-            // if tracing was paused but never unpaused, we should begin next frame with tracing
-            // still paused
+            // if tracing was paused but never unpaused, we should begin next frame with
+            // tracing still paused
             if let Some(last_pause_call) = cheats.ignored_traces.last_pause_call.as_mut() {
                 *last_pause_call = (0, 0);
             }
@@ -803,8 +811,8 @@ impl<
 
     /// Returns `true` if a test can be considered successful.
     ///
-    /// This is the same as [`Self::is_success`], but will consume the `state_changeset` map to use
-    /// internally when calling `failed()`.
+    /// This is the same as [`Self::is_success`], but will consume the
+    /// `state_changeset` map to use internally when calling `failed()`.
     pub fn is_raw_call_mut_success(
         &self,
         call_result: &mut RawCallResult<
@@ -827,7 +835,8 @@ impl<
 
     /// Returns `true` if a test can be considered successful.
     ///
-    /// This is the same as [`Self::is_success`], but intended for outcomes of [`Self::call_raw`].
+    /// This is the same as [`Self::is_success`], but intended for outcomes of
+    /// [`Self::call_raw`].
     pub fn is_raw_call_success(
         &self,
         state_changeset: Cow<'_, StateChangeset>,
@@ -851,20 +860,23 @@ impl<
 
     /// Returns `true` if a test can be considered successful.
     ///
-    /// If the call succeeded, we also have to check the global and local failure flags.
+    /// If the call succeeded, we also have to check the global and local
+    /// failure flags.
     ///
-    /// These are set by the test contract itself when an assertion fails, using the internal `fail`
-    /// function. The global flag is located in [`CHEATCODE_ADDRESS`] at slot [`GLOBAL_FAIL_SLOT`],
-    /// and the local flag is located in the test contract at an unspecified slot.
+    /// These are set by the test contract itself when an assertion fails, using
+    /// the internal `fail` function. The global flag is located in
+    /// [`CHEATCODE_ADDRESS`] at slot [`GLOBAL_FAIL_SLOT`], and the local
+    /// flag is located in the test contract at an unspecified slot.
     ///
     /// This behavior is inherited from Dapptools, where initially only a public
-    /// `failed` variable was used to track test failures, and later, a global failure flag was
-    /// introduced to track failures across multiple contracts in
-    /// [ds-test#30](https://github.com/dapphub/ds-test/pull/30).
+    /// `failed` variable was used to track test failures, and later, a global
+    /// failure flag was introduced to track failures across multiple
+    /// contracts in [ds-test#30](https://github.com/dapphub/ds-test/pull/30).
     ///
-    /// The assumption is that the test runner calls `failed` on the test contract to determine if
-    /// it failed. However, we want to avoid this as much as possible, as it is relatively
-    /// expensive to set up an EVM call just for checking a single boolean flag.
+    /// The assumption is that the test runner calls `failed` on the test
+    /// contract to determine if it failed. However, we want to avoid this
+    /// as much as possible, as it is relatively expensive to set up an EVM
+    /// call just for checking a single boolean flag.
     ///
     /// See:
     /// - Newer `DSTest`: <https://github.com/dapphub/ds-test/blob/e282159d5170298eb2455a6c05280ab5a73a4ef0/src/test.sol#L47-L63>
@@ -910,10 +922,11 @@ impl<
         true
     }
 
-    /// Creates the environment to use when executing a transaction in a test context
+    /// Creates the environment to use when executing a transaction in a test
+    /// context
     ///
-    /// If using a backend with cheatcodes, `tx.gas_price` and `block.number` will be overwritten by
-    /// the cheatcode state in between calls.
+    /// If using a backend with cheatcodes, `tx.gas_price` and `block.number`
+    /// will be overwritten by the cheatcode state in between calls.
     fn build_test_env(
         &self,
         caller: Address,
@@ -1282,8 +1295,9 @@ pub struct RawCallResult<
     pub reverted: bool,
     /// Whether the call includes a snapshot failure
     ///
-    /// This is tracked separately from revert because a snapshot failure can occur without a
-    /// revert, since assert failures are stored in a global variable (ds-test legacy)
+    /// This is tracked separately from revert because a snapshot failure can
+    /// occur without a revert, since assert failures are stored in a global
+    /// variable (ds-test legacy)
     pub has_state_snapshot_failure: bool,
     /// The raw result of the call.
     pub result: Bytes,
@@ -1530,8 +1544,8 @@ impl<
         })
     }
 
-    /// Update provided history map with edge coverage info collected during this call.
-    /// Uses AFL binning algo <https://github.com/h0mbre/Lucid/blob/3026e7323c52b30b3cf12563954ac1eaa9c6981e/src/coverage.rs#L57-L85>
+    /// Update provided history map with edge coverage info collected during
+    /// this call. Uses AFL binning algo <https://github.com/h0mbre/Lucid/blob/3026e7323c52b30b3cf12563954ac1eaa9c6981e/src/coverage.rs#L57-L85>
     pub fn merge_edge_coverage(&mut self, history_map: &mut [u8]) -> (bool, bool) {
         let mut new_coverage = false;
         let mut is_edge = false;
@@ -1658,7 +1672,8 @@ impl<
     }
 }
 
-/// Converts the data aggregated in the `inspector` and `call` to a `RawCallResult`
+/// Converts the data aggregated in the `inspector` and `call` to a
+/// `RawCallResult`
 fn convert_executed_result<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,

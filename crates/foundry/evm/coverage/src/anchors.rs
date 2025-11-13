@@ -1,12 +1,14 @@
-use super::{CoverageItemKind, ItemAnchor, SourceLocation};
-use crate::analysis::SourceAnalysis;
 use alloy_primitives::map::rustc_hash::FxHashSet;
 use eyre::ensure;
 use foundry_compilers::artifacts::sourcemap::{SourceElement, SourceMap};
 use foundry_evm_core::ic::IcPcMap;
 use revm::bytecode::opcode;
 
-/// Attempts to find anchors for the given items using the given source map and bytecode.
+use super::{CoverageItemKind, ItemAnchor, SourceLocation};
+use crate::analysis::SourceAnalysis;
+
+/// Attempts to find anchors for the given items using the given source map and
+/// bytecode.
 pub fn find_anchors(
     bytecode: &[u8],
     source_map: &SourceMap,
@@ -65,7 +67,8 @@ pub fn find_anchor_simple(
 /// Finds the anchor corresponding to a branch item.
 ///
 /// This finds the relevant anchors for a branch coverage item. These anchors
-/// are found using the bytecode of the contract in the range of the branching node.
+/// are found using the bytecode of the contract in the range of the branching
+/// node.
 ///
 /// For `IfStatement` nodes, the template is generally:
 /// ```text
@@ -87,9 +90,9 @@ pub fn find_anchor_simple(
 /// <true branch>
 /// ```
 ///
-/// This function will look for the last JUMPI instruction, backtrack to find the program
-/// counter of the first branch, and return an item for that program counter, and the
-/// program counter immediately after the JUMPI instruction.
+/// This function will look for the last JUMPI instruction, backtrack to find
+/// the program counter of the first branch, and return an item for that program
+/// counter, and the program counter immediately after the JUMPI instruction.
 pub fn find_anchor_branch(
     bytecode: &[u8],
     source_map: &SourceMap,
@@ -104,8 +107,8 @@ pub fn find_anchor_branch(
             .get(pc)
             .expect("pc should be within bytecode bounds");
 
-        // We found a push, so we do some PC -> IC translation accounting, but we also check if
-        // this push is coupled with the JUMPI we are interested in.
+        // We found a push, so we do some PC -> IC translation accounting, but we also
+        // check if this push is coupled with the JUMPI we are interested in.
 
         // Check if Opcode is PUSH
         if (opcode::PUSH1..=opcode::PUSH32).contains(&op) {
@@ -122,8 +125,8 @@ pub fn find_anchor_branch(
             pc += push_size;
             cumulative_push_size += push_size;
 
-            // Check if we are in the source range we are interested in, and if the next opcode
-            // is a JUMPI
+            // Check if we are in the source range we are interested in, and if the next
+            // opcode is a JUMPI
             if is_in_source_range(element, loc)
                 && *bytecode
                     .get(pc + 1)
@@ -173,7 +176,8 @@ fn is_in_source_range(element: &SourceElement, location: &SourceLocation) -> boo
         return false;
     }
 
-    // Needed because some source ranges in the source map mark the entire contract...
+    // Needed because some source ranges in the source map mark the entire
+    // contract...
     let is_within_start = element.offset() >= location.bytes.start;
     if !is_within_start {
         return false;

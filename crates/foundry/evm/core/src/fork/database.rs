@@ -1,9 +1,7 @@
 //! A revm database that forks off a remote client
 
-use crate::{
-    backend::{RevertStateSnapshotAction, StateSnapshot},
-    state_snapshot::StateSnapshots,
-};
+use std::sync::Arc;
+
 use alloy_primitives::{map::HashMap, Address, B256, U256};
 use alloy_rpc_types::BlockId;
 use foundry_fork_db::{BlockchainDb, DatabaseError, SharedBackend};
@@ -14,25 +12,31 @@ use revm::{
     state::{Account, AccountInfo},
     Database, DatabaseCommit,
 };
-use std::sync::Arc;
+
+use crate::{
+    backend::{RevertStateSnapshotAction, StateSnapshot},
+    state_snapshot::StateSnapshots,
+};
 
 /// a [`revm::Database`] that's forked off another client
 ///
-/// The `backend` is used to retrieve (missing) data, which is then fetched from the remote
-/// endpoint. The inner in-memory database holds this storage and will be used for write operations.
-/// This database uses the `backend` for read and the `db` for write operations. But note the
-/// `backend` will also write (missing) data to the `db` in the background
+/// The `backend` is used to retrieve (missing) data, which is then fetched from
+/// the remote endpoint. The inner in-memory database holds this storage and
+/// will be used for write operations. This database uses the `backend` for read
+/// and the `db` for write operations. But note the `backend` will also write
+/// (missing) data to the `db` in the background
 #[derive(Clone, Debug)]
 pub struct ForkedDatabase {
     /// Responsible for fetching missing data.
     ///
     /// This is responsible for getting data.
     backend: SharedBackend,
-    /// Cached Database layer, ensures that changes are not written to the database that
-    /// exclusively stores the state of the remote client.
+    /// Cached Database layer, ensures that changes are not written to the
+    /// database that exclusively stores the state of the remote client.
     ///
     /// This separates Read/Write operations
-    ///   - reads from the `SharedBackend as DatabaseRef` writes to the internal cache storage.
+    ///   - reads from the `SharedBackend as DatabaseRef` writes to the internal
+    ///     cache storage.
     cache_db: CacheDB<SharedBackend>,
     /// Contains all the data already fetched.
     ///
@@ -65,7 +69,8 @@ impl ForkedDatabase {
         &self.state_snapshots
     }
 
-    /// Reset the fork to a fresh forked state, and optionally update the fork config
+    /// Reset the fork to a fresh forked state, and optionally update the fork
+    /// config
     pub fn reset(
         &mut self,
         _url: Option<String>,
@@ -116,7 +121,8 @@ impl ForkedDatabase {
         id
     }
 
-    /// Removes the snapshot from the tracked snapshot and sets it as the current state
+    /// Removes the snapshot from the tracked snapshot and sets it as the
+    /// current state
     pub fn revert_state_snapshot(&mut self, id: U256, action: RevertStateSnapshotAction) -> bool {
         let state_snapshot = { self.state_snapshots().lock().remove_at(id) };
         if let Some(state_snapshot) = state_snapshot {
@@ -166,9 +172,9 @@ impl Database for ForkedDatabase {
     type Error = DatabaseError;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        // Note: this will always return Some, since the `SharedBackend` will always load the
-        // account, this differs from `<CacheDB as Database>::basic`, See also
-        // [MemDb::ensure_loaded](crate::backend::MemDb::ensure_loaded)
+        // Note: this will always return Some, since the `SharedBackend` will always
+        // load the account, this differs from `<CacheDB as Database>::basic`,
+        // See also [MemDb::ensure_loaded](crate::backend::MemDb::ensure_loaded)
         Database::basic(&mut self.cache_db, address)
     }
 
@@ -231,8 +237,8 @@ impl ForkDbStateSnapshot {
     }
 }
 
-// This `DatabaseRef` implementation works similar to `CacheDB` which prioritizes modified elements,
-// and uses another db as fallback
+// This `DatabaseRef` implementation works similar to `CacheDB` which
+// prioritizes modified elements, and uses another db as fallback
 // We prioritize stored changed accounts/storage
 impl DatabaseRef for ForkDbStateSnapshot {
     type Error = DatabaseError;
@@ -288,8 +294,8 @@ mod tests {
     use super::*;
     use crate::{backend::BlockchainDbMeta, fork::provider::get_http_provider};
 
-    /// Demonstrates that `Database::basic` for `ForkedDatabase` will always return the
-    /// `AccountInfo`
+    /// Demonstrates that `Database::basic` for `ForkedDatabase` will always
+    /// return the `AccountInfo`
     #[tokio::test(flavor = "multi_thread")]
     async fn fork_db_insert_basic_default() {
         let rpc = edr_test_utils::env::get_alchemy_url();

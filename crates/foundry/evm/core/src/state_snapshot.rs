@@ -1,7 +1,8 @@
 //! Support for snapshotting different states
 
-use alloy_primitives::{map::HashMap, U256};
 use std::ops::Add;
+
+use alloy_primitives::{map::HashMap, U256};
 
 /// Represents all state snapshots
 #[derive(Clone, Debug)]
@@ -24,8 +25,9 @@ impl<T> StateSnapshots<T> {
 
     /// Removes the state snapshot with the given `id`.
     ///
-    /// This will also remove any state snapshots taken after the state snapshot with the `id`.
-    /// e.g.: reverting to id 1 will delete snapshots with ids 1, 2, 3, etc.)
+    /// This will also remove any state snapshots taken after the state snapshot
+    /// with the `id`. e.g.: reverting to id 1 will delete snapshots with
+    /// ids 1, 2, 3, etc.)
     pub fn remove(&mut self, id: U256) -> Option<T> {
         let snapshot_state = self.state_snapshots.remove(&id);
 

@@ -1,16 +1,21 @@
-#[allow(clippy::wildcard_imports)]
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result, Vm::*};
+use std::{cmp::Ordering, collections::VecDeque};
+
 use alloy_primitives::{map::HashMap, Address, Bytes, U256};
-use foundry_evm_core::evm_context::HardforkTr;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
     evm_context::{
-        BlockEnvTr, ChainContextTr, EvmBuilderTrait, TransactionEnvTr, TransactionErrorTrait,
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
     },
 };
-use revm::context::result::HaltReasonTr;
-use revm::{bytecode::Bytecode, context::JournalTr, interpreter::InstructionResult};
-use std::{cmp::Ordering, collections::VecDeque};
+use revm::{
+    bytecode::Bytecode,
+    context::{result::HaltReasonTr, JournalTr},
+    interpreter::InstructionResult,
+};
+
+#[allow(clippy::wildcard_imports)]
+use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result, Vm::*};
 
 /// Mocked call data.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -798,8 +803,8 @@ fn mock_calls<
     );
 }
 
-// Etches a single byte onto the account if it is empty to circumvent the `extcodesize`
-// check Solidity might perform.
+// Etches a single byte onto the account if it is empty to circumvent the
+// `extcodesize` check Solidity might perform.
 fn make_acc_non_empty<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,

@@ -15,8 +15,9 @@ where
         .collect()
 }
 
-/// Given a function and a vector of string arguments, it proceeds to convert the args to alloy
-/// [`DynSolValue`]s and then ABI encode them, prefixes the encoded data with the function selector.
+/// Given a function and a vector of string arguments, it proceeds to convert
+/// the args to alloy [`DynSolValue`]s and then ABI encode them, prefixes the
+/// encoded data with the function selector.
 pub fn encode_function_args<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
 where
     I: IntoIterator<Item = S>,
@@ -25,8 +26,9 @@ where
     Ok(func.abi_encode_input(&encode_args(&func.inputs, args)?)?)
 }
 
-/// Given a function and a vector of string arguments, it proceeds to convert the args to alloy
-/// [`DynSolValue`]s and then ABI encode them. Doesn't prefix the function selector.
+/// Given a function and a vector of string arguments, it proceeds to convert
+/// the args to alloy [`DynSolValue`]s and then ABI encode them. Doesn't prefix
+/// the function selector.
 pub fn encode_function_args_raw<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
 where
     I: IntoIterator<Item = S>,
@@ -35,8 +37,9 @@ where
     Ok(func.abi_encode_input_raw(&encode_args(&func.inputs, args)?)?)
 }
 
-/// Given a function and a vector of string arguments, it proceeds to convert the args to alloy
-/// [`DynSolValue`]s and encode them using the packed encoding.
+/// Given a function and a vector of string arguments, it proceeds to convert
+/// the args to alloy [`DynSolValue`]s and encode them using the packed
+/// encoding.
 pub fn encode_function_args_packed<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
 where
     I: IntoIterator<Item = S>,
@@ -97,8 +100,9 @@ pub fn get_error(sig: &str) -> Result<Error> {
     Error::parse(sig).wrap_err("could not parse event signature")
 }
 
-/// Given an event without indexed parameters and a rawlog, it tries to return the event with the
-/// proper indexed parameters. Otherwise, it returns the original event.
+/// Given an event without indexed parameters and a rawlog, it tries to return
+/// the event with the proper indexed parameters. Otherwise, it returns the
+/// original event.
 pub fn get_indexed_event(mut event: Event, raw_log: &LogData) -> Event {
     if !event.anonymous && raw_log.topics().len() > 1 {
         let indexed_params = raw_log.topics().len() - 1;
@@ -131,9 +135,10 @@ pub fn coerce_value(ty: &str, arg: &str) -> Result<DynSolValue> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use alloy_dyn_abi::EventExt;
     use alloy_primitives::{Address, B256, U256};
+
+    use super::*;
 
     #[test]
     fn test_get_func() {

@@ -1,15 +1,17 @@
+use std::{rc::Rc, sync::Arc};
+
+use alloy_json_abi::Function;
+use alloy_primitives::Address;
+use parking_lot::RwLock;
+use proptest::prelude::*;
+use rand::seq::IteratorRandom;
+
 use super::{fuzz_calldata, fuzz_param_from_state};
 use crate::{
     invariant::{BasicTxDetails, CallDetails, FuzzRunIdentifiedContracts, SenderFilters},
     strategies::{fuzz_calldata_from_state, fuzz_param, EvmFuzzState},
     FuzzFixtures,
 };
-use alloy_json_abi::Function;
-use alloy_primitives::Address;
-use parking_lot::RwLock;
-use proptest::prelude::*;
-use rand::seq::IteratorRandom;
-use std::{rc::Rc, sync::Arc};
 
 /// Given a target address, we generate random calldata.
 pub fn override_call_strat(
@@ -31,9 +33,10 @@ pub fn override_call_strat(
         let func = {
             let contracts = contracts.targets.lock();
             let contract = contracts.get(&target_address).unwrap_or_else(|| {
-                // Choose a random contract if target selected by lazy strategy is not in fuzz run
-                // identified contracts. This can happen when contract is created in `setUp` call
-                // but is not included in targetContracts.
+                // Choose a random contract if target selected by lazy strategy is not in fuzz
+                // run identified contracts. This can happen when contract is
+                // created in `setUp` call but is not included in
+                // targetContracts.
                 contracts.values().choose(&mut rand::rng()).unwrap()
             });
             let fuzzed_functions: Vec<_> = contract.abi_fuzzed_functions().cloned().collect();
@@ -48,14 +51,15 @@ pub fn override_call_strat(
 
 /// Creates the invariant strategy.
 ///
-/// Given the known and future contracts, it generates the next call by fuzzing the `caller`,
-/// `calldata` and `target`. The generated data is evaluated lazily for every single call to fully
-/// leverage the evolving fuzz dictionary.
+/// Given the known and future contracts, it generates the next call by fuzzing
+/// the `caller`, `calldata` and `target`. The generated data is evaluated
+/// lazily for every single call to fully leverage the evolving fuzz dictionary.
 ///
-/// The fuzzed parameters can be filtered through different methods implemented in the test
-/// contract:
+/// The fuzzed parameters can be filtered through different methods implemented
+/// in the test contract:
 ///
-/// `targetContracts()`, `targetSenders()`, `excludeContracts()`, `targetSelectors()`
+/// `targetContracts()`, `targetSenders()`, `excludeContracts()`,
+/// `targetSelectors()`
 pub fn invariant_strat(
     fuzz_state: EvmFuzzState,
     senders: SenderFilters,
@@ -85,8 +89,10 @@ pub fn invariant_strat(
 }
 
 /// Strategy to select a sender address:
-/// * If `senders` is empty, then it's either a random address (10%) or from the dictionary (90%).
-/// * If `senders` is not empty, a random address is chosen from the list of senders.
+/// * If `senders` is empty, then it's either a random address (10%) or from the
+///   dictionary (90%).
+/// * If `senders` is not empty, a random address is chosen from the list of
+///   senders.
 fn select_random_sender(
     fuzz_state: &EvmFuzzState,
     senders: Rc<SenderFilters>,
@@ -109,16 +115,16 @@ fn select_random_sender(
     }
 }
 
-/// Given a function, it returns a proptest strategy which generates valid abi-encoded calldata
-/// for that function's input types.
+/// Given a function, it returns a proptest strategy which generates valid
+/// abi-encoded calldata for that function's input types.
 pub fn fuzz_contract_with_calldata(
     fuzz_state: &EvmFuzzState,
     fuzz_fixtures: &FuzzFixtures,
     target: Address,
     func: Function,
 ) -> impl Strategy<Value = CallDetails> + use<> {
-    // We need to compose all the strategies generated for each parameter in all possible
-    // combinations.
+    // We need to compose all the strategies generated for each parameter in all
+    // possible combinations.
     // `prop_oneof!` / `TupleUnion` `Arc`s for cheap cloning.
     prop_oneof![
         60 => fuzz_calldata(func.clone(), fuzz_fixtures),

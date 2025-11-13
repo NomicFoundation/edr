@@ -1,3 +1,10 @@
+use alloy_consensus::BlockHeader;
+use alloy_primitives::{Address, U256};
+use alloy_provider::{network::BlockResponse, Network, Provider};
+use alloy_rpc_types::BlockNumberOrTag;
+use eyre::WrapErr;
+use revm::{context::CfgEnv, context_interface::Block};
+
 use crate::{
     constants::NON_ARCHIVE_NODE_WARNING,
     evm_context::{BlockEnvMut, EvmEnv},
@@ -5,13 +12,6 @@ use crate::{
     utils::apply_chain_and_block_specific_env_changes,
     AsEnvMut,
 };
-use alloy_consensus::BlockHeader;
-use alloy_primitives::{Address, U256};
-use alloy_provider::{network::BlockResponse, Network, Provider};
-use alloy_rpc_types::BlockNumberOrTag;
-use eyre::WrapErr;
-use revm::context::CfgEnv;
-use revm::context_interface::Block;
 
 /// Initializes a REVM block environment based on a forked
 /// ethereum provider.
@@ -114,8 +114,8 @@ where
     cfg.memory_limit = memory_limit;
     cfg.limit_contract_code_size = Some(usize::MAX);
     // EIP-3607 rejects transactions from senders with deployed code.
-    // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if the caller
-    // is a contract. So we disable the check by default.
+    // If EIP-3607 is enabled it can cause issues during fuzz/invariant tests if the
+    // caller is a contract. So we disable the check by default.
     cfg.disable_eip3607 = true;
     cfg.disable_block_gas_limit = disable_block_gas_limit;
     cfg.disable_nonce_check = true;

@@ -6,8 +6,9 @@
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::default_trait_access)]
 
-use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, fmt};
+
+use serde::{Deserialize, Serialize};
 
 mod cheatcode;
 pub use cheatcode::{Cheatcode, CheatcodeDef, Group, Safety, Status};
@@ -109,8 +110,9 @@ impl Cheatcodes<'static> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::{fs, path::Path};
+
+    use super::*;
 
     const JSON_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../assets/cheatcodes.json");
     #[cfg(feature = "schema")]

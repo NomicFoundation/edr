@@ -6,29 +6,29 @@ use std::{
     time::Duration,
 };
 
-use crate::backend::IndeterminismReasons;
-use crate::decode::{decode_console_logs, SkipReason};
-use crate::fuzz::{BaseCounterExample, FuzzTestResult, FuzzedCases};
-use crate::gas_report::GasReport;
 use alloy_primitives::{map::AddressHashMap, Address, Log};
 use derive_where::derive_where;
 use edr_chain_spec::HaltReasonTrait;
-use foundry_evm::executors::invariant::InvariantFuzzError;
-use foundry_evm::executors::RawCallResult;
+pub use foundry_evm::executors::invariant::InvariantMetrics;
 use foundry_evm::{
     coverage::HitMaps,
     evm_context::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
-    executors::stack_trace::StackTraceResult,
+    executors::{invariant::InvariantFuzzError, stack_trace::StackTraceResult, RawCallResult},
     fuzz::{CounterExample, FuzzFixtures},
     traces::{CallTraceArena, CallTraceDecoder, TraceKind, Traces},
 };
 use serde::{Deserialize, Serialize};
 use yansi::Paint;
 
-pub use foundry_evm::executors::invariant::InvariantMetrics;
+use crate::{
+    backend::IndeterminismReasons,
+    decode::{decode_console_logs, SkipReason},
+    fuzz::{BaseCounterExample, FuzzTestResult, FuzzedCases},
+    gas_report::GasReport,
+};
 
 /// The aggregated result of a test run.
 #[derive(Clone, Debug)]
@@ -529,7 +529,8 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         }
     }
 
-    /// Returns the skipped result for single test (used in skipped fuzz test too).
+    /// Returns the skipped result for single test (used in skipped fuzz test
+    /// too).
     pub fn single_skip(&mut self, reason: SkipReason) {
         self.status = TestStatus::Skipped;
         self.reason = reason.0;
@@ -542,8 +543,8 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         self.duration = duration;
     }
 
-    /// Returns the result for single test. Merges execution results (logs, labeled addresses,
-    /// traces and coverages) in initial setup results.
+    /// Returns the result for single test. Merges execution results (logs,
+    /// labeled addresses, traces and coverages) in initial setup results.
     pub fn single_result<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr,
@@ -597,8 +598,9 @@ impl<HaltReasonT: HaltReasonTrait> TestResult<HaltReasonT> {
         }
     }
 
-    /// Returns the result for a fuzzed test. Merges fuzz execution results (logs, labeled
-    /// addresses, traces and coverages) in initial setup results.
+    /// Returns the result for a fuzzed test. Merges fuzz execution results
+    /// (logs, labeled addresses, traces and coverages) in initial setup
+    /// results.
     pub fn fuzz_result(&mut self, result: FuzzTestResult, duration: Duration) {
         self.kind = TestKind::Fuzz {
             median_gas: result.median_gas(false),

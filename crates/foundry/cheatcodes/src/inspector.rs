@@ -2,7 +2,54 @@
 
 mod utils;
 
-use crate::inspector::utils::CommonCreateInput;
+use std::{
+    cmp::max,
+    collections::{BTreeMap, VecDeque},
+    fs::File,
+    io::BufReader,
+    marker::PhantomData,
+    ops::Range,
+    path::PathBuf,
+    sync::Arc,
+};
+
+use alloy_consensus::{constants::SELECTOR_LEN, BlobTransactionSidecar};
+use alloy_primitives::{
+    hex,
+    map::{AddressHashMap, HashMap, HashSet},
+    Address, Bytes, Log, TxKind, B256, U256,
+};
+use alloy_rpc_types::AccessList;
+use alloy_sol_types::{SolCall, SolInterface};
+use derive_where::derive_where;
+use foundry_evm_core::{
+    abi::Vm::stopExpectSafeMemoryCall,
+    backend::{CheatcodeBackend, RevertDiagnostic},
+    constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, MAGIC_ASSUME},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
+};
+use foundry_evm_traces::{TracingInspector, TracingInspectorConfig};
+use itertools::Itertools;
+use proptest::test_runner::{RngAlgorithm, TestRng, TestRunner};
+use rand::Rng;
+use revm::{
+    bytecode::opcode as op,
+    context::{result::HaltReasonTr, BlockEnv, CfgEnv, JournalTr, TransactionType},
+    context_interface::transaction::SignedAuthorization,
+    interpreter::{
+        interpreter_types::{Jumps, LoopControl, MemoryTr},
+        CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, Host,
+        InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
+    },
+    state::EvmStorageSlot,
+    Inspector, Journal,
+};
+use serde_json::Value;
+use upstream_foundry_cheatcodes_spec::Vm as UpstreamVM;
+
 use crate::{
     evm::{
         mapping::{self, MappingSlots},
@@ -10,6 +57,7 @@ use crate::{
         prank::Prank,
         DealRecord, GasRecord, RecordAccess,
     },
+    inspector::utils::CommonCreateInput,
     test::{
         assume::AssumeNoRevert,
         expect::{
@@ -22,61 +70,13 @@ use crate::{
     CheatsConfig, CheatsCtxt, DynCheatcode, Error, Result,
     Vm::{self, AccountAccess},
 };
-use alloy_consensus::constants::SELECTOR_LEN;
-use alloy_consensus::BlobTransactionSidecar;
-use alloy_primitives::{
-    hex,
-    map::{AddressHashMap, HashMap, HashSet},
-    Address, Bytes, Log, TxKind, B256, U256,
-};
-use alloy_rpc_types::AccessList;
-use alloy_sol_types::{SolCall, SolInterface};
-use derive_where::derive_where;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
-};
-use foundry_evm_core::{
-    abi::Vm::stopExpectSafeMemoryCall,
-    backend::{CheatcodeBackend, RevertDiagnostic},
-    constants::{CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, MAGIC_ASSUME},
-};
-use foundry_evm_traces::{TracingInspector, TracingInspectorConfig};
-use itertools::Itertools;
-use proptest::test_runner::{RngAlgorithm, TestRng, TestRunner};
-use rand::Rng;
-use revm::context::result::HaltReasonTr;
-use revm::context::CfgEnv;
-use revm::{
-    bytecode::opcode as op,
-    context::{BlockEnv, JournalTr, TransactionType},
-    context_interface::transaction::SignedAuthorization,
-    interpreter::{
-        interpreter_types::{Jumps, LoopControl, MemoryTr},
-        CallInputs, CallOutcome, CallScheme, CreateInputs, CreateOutcome, Gas, Host,
-        InstructionResult, Interpreter, InterpreterAction, InterpreterResult,
-    },
-    state::EvmStorageSlot,
-    Inspector, Journal,
-};
-use serde_json::Value;
-use std::marker::PhantomData;
-use std::{
-    cmp::max,
-    collections::{BTreeMap, VecDeque},
-    fs::File,
-    io::BufReader,
-    ops::Range,
-    path::PathBuf,
-    sync::Arc,
-};
-use upstream_foundry_cheatcodes_spec::Vm as UpstreamVM;
 
-/// Helper trait for obtaining complete [`revm::Inspector`] instance from mutable reference to
-/// [`Cheatcodes`].
+/// Helper trait for obtaining complete [`revm::Inspector`] instance from
+/// mutable reference to [`Cheatcodes`].
 ///
-/// This is needed for cases when inspector itself needs mutable access to [`Cheatcodes`] state and
-/// allows us to correctly execute arbitrary EVM frames from inside cheatcode implementations.
+/// This is needed for cases when inspector itself needs mutable access to
+/// [`Cheatcodes`] state and allows us to correctly execute arbitrary EVM frames
+/// from inside cheatcode implementations.
 pub trait CheatcodesExecutor<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -102,8 +102,8 @@ pub trait CheatcodesExecutor<
     }
 }
 
-/// Basic implementation of [`CheatcodesExecutor`] that simply returns the [`Cheatcodes`] instance as an
-/// inspector.
+/// Basic implementation of [`CheatcodesExecutor`] that simply returns the
+/// [`Cheatcodes`] instance as an inspector.
 #[derive(Debug, Default, Clone, Copy)]
 struct TransparentCheatcodesExecutor;
 
@@ -147,10 +147,12 @@ macro_rules! try_or_return {
     };
 }
 
-/// Contains additional, test specific resources that should be kept for the duration of the test
+/// Contains additional, test specific resources that should be kept for the
+/// duration of the test
 #[derive(Debug, Default)]
 pub struct TestContext {
-    /// Buffered readers for files opened for reading (path => `BufReader` mapping)
+    /// Buffered readers for files opened for reading (path => `BufReader`
+    /// mapping)
     pub opened_read_files: HashMap<PathBuf, BufReader<File>>,
 }
 
@@ -237,13 +239,16 @@ impl GasMetering {
 /// Holds data about arbitrary storage.
 #[derive(Clone, Debug, Default)]
 pub struct ArbitraryStorage {
-    /// Mapping of arbitrary storage addresses to generated values (slot, arbitrary value).
-    /// (SLOADs return random value if storage slot wasn't accessed).
-    /// Changed values are recorded and used to copy storage to different addresses.
+    /// Mapping of arbitrary storage addresses to generated values (slot,
+    /// arbitrary value). (SLOADs return random value if storage slot wasn't
+    /// accessed). Changed values are recorded and used to copy storage to
+    /// different addresses.
     pub values: HashMap<Address, HashMap<U256, U256>>,
-    /// Mapping of address with storage copied to arbitrary storage address source.
+    /// Mapping of address with storage copied to arbitrary storage address
+    /// source.
     pub copies: HashMap<Address, Address>,
-    /// Address with storage slots that should be overwritten even if previously set.
+    /// Address with storage slots that should be overwritten even if previously
+    /// set.
     pub overwrites: HashSet<Address>,
 }
 
@@ -308,11 +313,12 @@ impl ArbitraryStorage {
         }
     }
 
-    /// Copies arbitrary storage value from source address to the given target address:
-    /// - if a value is present in arbitrary values cache, then update target storage and return
-    ///   existing value.
-    /// - if no value was yet generated for given slot, then save new value in cache and update both
-    ///   source and target storages.
+    /// Copies arbitrary storage value from source address to the given target
+    /// address:
+    /// - if a value is present in arbitrary values cache, then update target
+    ///   storage and return existing value.
+    /// - if no value was yet generated for given slot, then save new value in
+    ///   cache and update both source and target storages.
     pub fn copy<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
@@ -374,23 +380,28 @@ impl ArbitraryStorage {
     }
 }
 
-/// An EVM inspector that handles calls to various cheatcodes, each with their own behavior.
+/// An EVM inspector that handles calls to various cheatcodes, each with their
+/// own behavior.
 ///
-/// Cheatcodes can be called by contracts during execution to modify the VM environment, such as
-/// mocking addresses, signatures and altering call reverts.
+/// Cheatcodes can be called by contracts during execution to modify the VM
+/// environment, such as mocking addresses, signatures and altering call
+/// reverts.
 ///
-/// Executing cheatcodes can be very powerful. Most cheatcodes are limited to evm internals, but
-/// there are also cheatcodes like `ffi` which can execute arbitrary commands or `writeFile` and
-/// `readFile` which can manipulate files of the filesystem. Therefore, several restrictions are
-/// implemented for these cheatcodes:
-/// - `ffi`, and file cheatcodes are _always_ opt-in (via foundry config) and never enabled by
-///   default: all respective cheatcode handlers implement the appropriate checks
-/// - File cheatcodes require explicit permissions which paths are allowed for which operation, see
-///   `Config.fs_permission`
-/// - Only permitted accounts are allowed to execute cheatcodes in forking mode, this ensures no
-///   contract deployed on the live network is able to execute cheatcodes by simply calling the
-///   cheatcode address: by default, the caller, test contract and newly deployed contracts are
-///   allowed to execute cheatcodes
+/// Executing cheatcodes can be very powerful. Most cheatcodes are limited to
+/// evm internals, but there are also cheatcodes like `ffi` which can execute
+/// arbitrary commands or `writeFile` and `readFile` which can manipulate files
+/// of the filesystem. Therefore, several restrictions are implemented for these
+/// cheatcodes:
+/// - `ffi`, and file cheatcodes are _always_ opt-in (via foundry config) and
+///   never enabled by default: all respective cheatcode handlers implement the
+///   appropriate checks
+/// - File cheatcodes require explicit permissions which paths are allowed for
+///   which operation, see `Config.fs_permission`
+/// - Only permitted accounts are allowed to execute cheatcodes in forking mode,
+///   this ensures no contract deployed on the live network is able to execute
+///   cheatcodes by simply calling the cheatcode address: by default, the
+///   caller, test contract and newly deployed contracts are allowed to execute
+///   cheatcodes
 
 #[derive_where(Clone, Debug; HardforkT)]
 // Need bounds for `Unpin` for `Arc`
@@ -405,14 +416,14 @@ pub struct Cheatcodes<
 > {
     /// The block environment
     ///
-    /// Used in the cheatcode handler to overwrite the block environment separately from the
-    /// execution block environment.
+    /// Used in the cheatcode handler to overwrite the block environment
+    /// separately from the execution block environment.
     // TODO this is fine for OP, but need to be made generic for other chains
     pub block: Option<BlockEnv>,
 
-    /// Currently active EIP-7702 delegations that will be consumed when building the next
-    /// transaction. Set by `vm.attachDelegation()` and consumed via `.take()` during
-    /// transaction construction.
+    /// Currently active EIP-7702 delegations that will be consumed when
+    /// building the next transaction. Set by `vm.attachDelegation()` and
+    /// consumed via `.take()` during transaction construction.
     pub active_delegations: Vec<SignedAuthorization>,
 
     /// The active EIP-4844 blob that will be attached to the next call.
@@ -420,8 +431,8 @@ pub struct Cheatcodes<
 
     /// The gas price.
     ///
-    /// Used in the cheatcode handler to overwrite the gas price separately from the gas price
-    /// in the execution environment.
+    /// Used in the cheatcode handler to overwrite the gas price separately from
+    /// the gas price in the execution environment.
     pub gas_price: Option<u128>,
 
     /// Address labels
@@ -445,10 +456,11 @@ pub struct Cheatcodes<
     /// Whether storage access recording is currently active
     pub recording_accesses: bool,
 
-    /// Recorded account accesses (calls, creates) organized by relative call depth, where the
-    /// topmost vector corresponds to accesses at the depth at which account access recording
-    /// began. Each vector in the matrix represents a list of accesses at a specific call
-    /// depth. Once that call context has ended, the last vector is removed from the matrix and
+    /// Recorded account accesses (calls, creates) organized by relative call
+    /// depth, where the topmost vector corresponds to accesses at the depth
+    /// at which account access recording began. Each vector in the matrix
+    /// represents a list of accesses at a specific call depth. Once that
+    /// call context has ended, the last vector is removed from the matrix and
     /// merged into the previous vector.
     pub recorded_account_diffs_stack: Option<Vec<Vec<AccountAccess>>>,
 
@@ -462,7 +474,8 @@ pub struct Cheatcodes<
     // **Note**: inner must a BTreeMap because of special `Ord` impl for `MockCallDataContext`
     pub mocked_calls: HashMap<Address, BTreeMap<MockCallDataContext, VecDeque<MockCallReturnData>>>,
 
-    /// Mocked functions. Maps target address to be mocked to pair of (calldata, mock address).
+    /// Mocked functions. Maps target address to be mocked to pair of (calldata,
+    /// mock address).
     pub mocked_functions: HashMap<Address, HashMap<Bytes, Address>>,
 
     /// Expected calls
@@ -472,13 +485,15 @@ pub struct Cheatcodes<
     /// Expected creates
     pub expected_creates: Vec<ExpectedCreate>,
 
-    /// Map of context depths to memory offset ranges that may be written to within the call depth.
+    /// Map of context depths to memory offset ranges that may be written to
+    /// within the call depth.
     pub allowed_mem_writes: HashMap<u64, Vec<Range<u64>>>,
 
     /// Current EIP-2930 access lists.
     pub access_list: Option<AccessList>,
 
-    /// Additional, user configurable context this Inspector has access to when inspecting a call.
+    /// Additional, user configurable context this Inspector has access to when
+    /// inspecting a call.
     pub config: Arc<CheatsConfig<HardforkT>>,
 
     /// Test-scoped context holding data that needs to be reset every test run
@@ -508,11 +523,12 @@ pub struct Cheatcodes<
     /// The current program counter.
     pub pc: usize,
 
-    /// Whether the next contract creation should be intercepted to return its initcode.
+    /// Whether the next contract creation should be intercepted to return its
+    /// initcode.
     pub intercept_next_create_call: bool,
 
-    /// Optional cheatcodes `TestRunner`. Used for generating random values from uint and int
-    /// strategies.
+    /// Optional cheatcodes `TestRunner`. Used for generating random values from
+    /// uint and int strategies.
     test_runner: Option<TestRunner>,
 
     /// Ignored traces.
@@ -521,7 +537,8 @@ pub struct Cheatcodes<
     /// Addresses with arbitrary storage.
     pub arbitrary_storage: Option<ArbitraryStorage>,
 
-    /// Deprecated cheatcodes mapped to the reason. Used to report warnings on test results.
+    /// Deprecated cheatcodes mapped to the reason. Used to report warnings on
+    /// test results.
     pub deprecated: HashMap<&'static str, Option<&'static str>>,
 
     #[allow(clippy::type_complexity)]
@@ -537,9 +554,9 @@ pub struct Cheatcodes<
     >,
 }
 
-// This is not derived because calling this in `fn new` with `..Default::default()` creates a second
-// `CheatsConfig` which is unused, and inside it `ProjectPathsConfig` is relatively expensive to
-// create.
+// This is not derived because calling this in `fn new` with
+// `..Default::default()` creates a second `CheatsConfig` which is unused, and
+// inside it `ProjectPathsConfig` is relatively expensive to create.
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
@@ -617,9 +634,10 @@ impl<
         }
     }
 
-    /// Returns the configured prank at given depth or the first prank configured at a lower depth.
-    /// For example, if pranks configured for depth 1, 3 and 5, the prank for depth 4 is the one
-    /// configured at depth 3.
+    /// Returns the configured prank at given depth or the first prank
+    /// configured at a lower depth. For example, if pranks configured for
+    /// depth 1, 3 and 5, the prank for depth 4 is the one configured at
+    /// depth 3.
     pub fn get_prank(&self, depth: usize) -> Option<&Prank> {
         self.pranks.range(..=depth).last().map(|(_, prank)| prank)
     }
@@ -699,8 +717,8 @@ impl<
     /// Grants cheat code access for new contracts if the caller also has
     /// cheatcode access or the new contract is created in top most call.
     ///
-    /// There may be cheatcodes in the constructor of the new contract, in order to allow them
-    /// automatically we need to determine the new address.
+    /// There may be cheatcodes in the constructor of the new contract, in order
+    /// to allow them automatically we need to determine the new address.
     // TODO: https://github.com/NomicFoundation/edr/issues/1184
     #[allow(clippy::unused_self)]
     fn allow_cheatcodes_on_create<
@@ -737,9 +755,9 @@ impl<
 
     /// Apply EIP-2930 access list.
     ///
-    /// If the transaction type is [`TransactionType::Legacy`] we need to upgrade it to
-    /// [`TransactionType::Eip2930`] in order to use access lists. Other transaction types support
-    /// access lists themselves.
+    /// If the transaction type is [`TransactionType::Legacy`] we need to
+    /// upgrade it to [`TransactionType::Eip2930`] in order to use access
+    /// lists. Other transaction types support access lists themselves.
     fn apply_accesslist<
         DatabaseT: CheatcodeBackend<
             BlockT,
@@ -772,8 +790,8 @@ impl<
 
     /// Called when there was a revert.
     ///
-    /// Cleanup any previously applied cheatcodes that altered the state in such a way that revm's
-    /// revert would run into issues.
+    /// Cleanup any previously applied cheatcodes that altered the state in such
+    /// a way that revm's revert would run into issues.
     pub fn on_revert<
         DatabaseT: CheatcodeBackend<
             BlockT,
@@ -808,8 +826,9 @@ impl<
         }
 
         // Roll back all previously applied deals
-        // This will prevent overflow issues in revm's [`JournaledState::journal_revert`] routine
-        // which rolls back any transfers.
+        // This will prevent overflow issues in revm's
+        // [`JournaledState::journal_revert`] routine which rolls back any
+        // transfers.
         while let Some(record) = self.eth_deals.pop() {
             if let Some(acc) = ecx.journaled_state.inner.state.get_mut(&record.address) {
                 acc.info.balance = record.old_balance;
@@ -852,9 +871,9 @@ impl<
         let gas = Gas::new(call.gas_limit);
         let curr_depth = ecx.journaled_state.depth();
 
-        // At the root call to test function or script `run()`/`setUp()` functions, we are
-        // decreasing sender nonce to ensure that it matches on-chain nonce once we start
-        // broadcasting.
+        // At the root call to test function or script `run()`/`setUp()` functions, we
+        // are decreasing sender nonce to ensure that it matches on-chain nonce
+        // once we start broadcasting.
         if curr_depth == 0 {
             let sender = ecx.tx.caller();
             let account = match super::evm::journaled_account(ecx, sender) {
@@ -1003,8 +1022,9 @@ impl<
 
         // Record called accounts if `startStateDiffRecording` has been called
         if let Some(recorded_account_diffs_stack) = &mut self.recorded_account_diffs_stack {
-            // Determine if account is "initialized," ie, it has a non-zero balance, a non-zero
-            // nonce, a non-zero KECCAK_EMPTY codehash, or non-empty code
+            // Determine if account is "initialized," ie, it has a non-zero balance, a
+            // non-zero nonce, a non-zero KECCAK_EMPTY codehash, or non-empty
+            // code
             let initialized;
             let old_balance;
             if let Ok(acc) = ecx.journaled_state.load_account(call.target_address) {
@@ -1020,11 +1040,12 @@ impl<
                 CallScheme::DelegateCall => crate::Vm::AccountAccessKind::DelegateCall,
                 CallScheme::StaticCall => crate::Vm::AccountAccessKind::StaticCall,
             };
-            // Record this call by pushing it to a new pending vector; all subsequent calls at
-            // that depth will be pushed to the same vector. When the call ends, the
-            // RecordedAccountAccess (and all subsequent RecordedAccountAccesses) will be
-            // updated with the revert status of this call, since the EVM does not mark accounts
-            // as "warm" if the call from which they were accessed is reverted
+            // Record this call by pushing it to a new pending vector; all subsequent calls
+            // at that depth will be pushed to the same vector. When the call
+            // ends, the RecordedAccountAccess (and all subsequent
+            // RecordedAccountAccesses) will be updated with the revert status
+            // of this call, since the EVM does not mark accounts as "warm" if
+            // the call from which they were accessed is reverted
             recorded_account_diffs_stack.push(vec![AccountAccess {
                 chainInfo: crate::Vm::ChainInfo {
                     forkId: ecx
@@ -1079,7 +1100,8 @@ impl<
     }
 
     /// Returns existing or set a default `ArbitraryStorage` option.
-    /// Used by `setArbitraryStorage` cheatcode to track addresses with arbitrary storage.
+    /// Used by `setArbitraryStorage` cheatcode to track addresses with
+    /// arbitrary storage.
     pub fn arbitrary_storage(&mut self) -> &mut ArbitraryStorage {
         self.arbitrary_storage
             .get_or_insert_with(ArbitraryStorage::default)
@@ -1093,9 +1115,9 @@ impl<
         }
     }
 
-    /// Whether the given slot of address with arbitrary storage should be overwritten.
-    /// True if address is marked as and overwrite and if no value was previously generated for
-    /// given slot.
+    /// Whether the given slot of address with arbitrary storage should be
+    /// overwritten. True if address is marked as and overwrite and if no
+    /// value was previously generated for given slot.
     pub fn should_overwrite_arbitrary_storage(
         &self,
         address: &Address,
@@ -1114,7 +1136,8 @@ impl<
         }
     }
 
-    /// Whether the given address is a copy of an address with arbitrary storage.
+    /// Whether the given address is a copy of an address with arbitrary
+    /// storage.
     pub fn is_arbitrary_storage_copy(&self, address: &Address) -> bool {
         match &self.arbitrary_storage {
             Some(storage) => storage.copies.contains_key(address),
@@ -1174,8 +1197,9 @@ impl<
             ChainContextT,
         >,
     ) {
-        // When the first interpreter is initialized we've circumvented the balance and gas checks,
-        // so we apply our actual block data with the correct fees and all.
+        // When the first interpreter is initialized we've circumvented the balance and
+        // gas checks, so we apply our actual block data with the correct fees
+        // and all.
         if let Some(block) = self.block.take() {
             ecx.block = block.into();
         }
@@ -1228,7 +1252,8 @@ impl<
             self.record_state_diffs(interpreter, ecx);
         }
 
-        // `expectSafeMemory`: check if the current opcode is allowed to interact with memory.
+        // `expectSafeMemory`: check if the current opcode is allowed to interact with
+        // memory.
         if !self.allowed_mem_writes.is_empty() {
             self.check_mem_opcodes(
                 interpreter,
@@ -1335,8 +1360,9 @@ impl<
             || call.target_address == HARDHAT_CONSOLE_ADDRESS;
 
         // Clean up pranks/broadcasts if it's not a cheatcode call end. We shouldn't do
-        // it for cheatcode calls because they are not applied for cheatcodes in the `call` hook.
-        // This should be placed before the revert handling, because we might exit early there
+        // it for cheatcode calls because they are not applied for cheatcodes in the
+        // `call` hook. This should be placed before the revert handling,
+        // because we might exit early there
         if !cheatcode_call {
             // Clean up pranks
             let curr_depth = ecx.journaled_state.depth();
@@ -1354,8 +1380,9 @@ impl<
 
         // Handle assume no revert cheatcode.
         if let Some(assume_no_revert) = &mut self.assume_no_revert {
-            // Record current reverter address before processing the expect revert if call reverted,
-            // expect revert is set with expected reverter address and no actual reverter set yet.
+            // Record current reverter address before processing the expect revert if call
+            // reverted, expect revert is set with expected reverter address and
+            // no actual reverter set yet.
             if outcome.result.is_revert() && assume_no_revert.reverted_by.is_none() {
                 assume_no_revert.reverted_by = Some(call.target_address);
             }
@@ -1395,12 +1422,12 @@ impl<
 
         // Handle expected reverts.
         if let Some(expected_revert) = &mut self.expected_revert {
-            // Record current reverter address and call scheme before processing the expect revert
-            // if call reverted.
+            // Record current reverter address and call scheme before processing the expect
+            // revert if call reverted.
             if outcome.result.is_revert() {
-                // Record current reverter address if expect revert is set with expected reverter
-                // address and no actual reverter was set yet or if we're expecting more than one
-                // revert.
+                // Record current reverter address if expect revert is set with expected
+                // reverter address and no actual reverter was set yet or if
+                // we're expecting more than one revert.
                 if expected_revert.reverter.is_some()
                     && (expected_revert.reverted_by.is_none() || expected_revert.count > 1)
                 {
@@ -1446,8 +1473,8 @@ impl<
                     };
                 }
 
-                // Flip `pending_processing` flag for cheatcode revert expectations, marking that
-                // we've exited the `expectCheatcodeRevert` call scope
+                // Flip `pending_processing` flag for cheatcode revert expectations, marking
+                // that we've exited the `expectCheatcodeRevert` call scope
                 if let ExpectedRevertKind::Cheatcode { pending_processing } =
                     &mut self.expected_revert.as_mut().unwrap().kind
                 {
@@ -1456,8 +1483,8 @@ impl<
             }
         }
 
-        // Exit early for calls to cheatcodes as other logic is not relevant for cheatcode
-        // invocations
+        // Exit early for calls to cheatcodes as other logic is not relevant for
+        // cheatcode invocations
         if cheatcode_call {
             return;
         }
@@ -1473,8 +1500,8 @@ impl<
             gasRemaining: gas.remaining(),
         });
 
-        // If `startStateDiffRecording` has been called, update the `reverted` status of the
-        // previous call depth's recorded accesses, if any
+        // If `startStateDiffRecording` has been called, update the `reverted` status of
+        // the previous call depth's recorded accesses, if any
         if let Some(recorded_account_diffs_stack) = &mut self.recorded_account_diffs_stack {
             // The root call cannot be recorded.
             if ecx.journaled_state.depth() > 0
@@ -1522,10 +1549,11 @@ impl<
         // We know we've found all the expected emits in the right order
         // if the queue is fully matched.
         // If it's not fully matched, then either:
-        // 1. Not enough events were emitted (we'll know this because the amount of times we
+        // 1. Not enough events were emitted (we'll know this because the amount of
+        //    times we
         // inspected events will be less than the size of the queue) 2. The wrong events
-        // were emitted (The inspected events should match the size of the queue, but still some
-        // events will not be matched)
+        // were emitted (The inspected events should match the size of the queue, but
+        // still some events will not be matched)
 
         // First, check that we're at the call depth where the emits were declared from.
         let should_check_emits = self
@@ -1594,17 +1622,17 @@ impl<
             }
 
             // All emits were found, we're good.
-            // Clear the queue, as we expect the user to declare more events for the next call
-            // if they wanna match further events.
+            // Clear the queue, as we expect the user to declare more events for the next
+            // call if they wanna match further events.
             self.expected_emits.clear();
         }
 
-        // this will ensure we don't have false positives when trying to diagnose reverts in fork
-        // mode
+        // this will ensure we don't have false positives when trying to diagnose
+        // reverts in fork mode
         let diag = self.fork_revert_diagnostic.take();
 
-        // if there's a revert and a previous call was diagnosed as fork related revert then we can
-        // return a better error here
+        // if there's a revert and a previous call was diagnosed as fork related revert
+        // then we can return a better error here
         if outcome.result.is_revert()
             && let Some(err) = diag
         {
@@ -1612,11 +1640,12 @@ impl<
             return;
         }
 
-        // try to diagnose reverts in multi-fork mode where a call is made to an address that does
-        // not exist
+        // try to diagnose reverts in multi-fork mode where a call is made to an address
+        // that does not exist
         if let TxKind::Call(test_contract) = ecx.tx.kind() {
-            // if a call to a different contract than the original test contract returned with
-            // `Stop` we check if the contract actually exists on the active fork
+            // if a call to a different contract than the original test contract returned
+            // with `Stop` we check if the contract actually exists on the
+            // active fork
             if ecx.journaled_state.db().is_forked_mode()
                 && outcome.result.result == InstructionResult::Stop
                 && call.target_address != test_contract
@@ -1631,9 +1660,9 @@ impl<
 
         // If the depth is 0, then this is the root call terminating
         if ecx.journaled_state.depth() == 0 {
-            // If we already have a revert, we shouldn't run the below logic as it can obfuscate an
-            // earlier error that happened first with unrelated information about
-            // another error when using cheatcodes.
+            // If we already have a revert, we shouldn't run the below logic as it can
+            // obfuscate an earlier error that happened first with unrelated
+            // information about another error when using cheatcodes.
             if outcome.result.is_revert() {
                 return;
             }
@@ -1643,7 +1672,8 @@ impl<
 
             // Match expected calls
             for (address, calldatas) in &self.expected_calls {
-                // Loop over each address, and for each address, loop over each calldata it expects.
+                // Loop over each address, and for each address, loop over each calldata it
+                // expects.
                 for (calldata, (expected, actual_count)) in calldatas {
                     // Grab the values we expect to see
                     let ExpectedCallData {
@@ -1697,7 +1727,8 @@ impl<
             }
 
             // Check if we have any leftover expected emits
-            // First, if any emits were found at the root call, then we its ok and we remove them.
+            // First, if any emits were found at the root call, then we its ok and we remove
+            // them.
             self.expected_emits
                 .retain(|(expected, _)| expected.count > 0 && !expected.found);
             // If not empty, we got mismatched emits
@@ -1882,8 +1913,8 @@ impl<
             };
         }
 
-        // If `startStateDiffRecording` has been called, update the `reverted` status of the
-        // previous call depth's recorded accesses, if any
+        // If `startStateDiffRecording` has been called, update the `reverted` status of
+        // the previous call depth's recorded accesses, if any
         if let Some(recorded_account_diffs_stack) = &mut self.recorded_account_diffs_stack {
             // The root call cannot be recorded.
             if curr_depth > 0
@@ -1979,7 +2010,8 @@ impl<
     fn meter_gas(&mut self, interpreter: &mut Interpreter) {
         if let Some(paused_gas) = self.gas_metering.paused_frames.last() {
             // Keep gas constant if paused.
-            // Make sure we record the memory changes so that memory expansion is not paused.
+            // Make sure we record the memory changes so that memory expansion is not
+            // paused.
             let memory = *interpreter.gas.memory();
             interpreter.gas = *paused_gas;
             interpreter.gas.memory_mut().words_num = memory.words_num;
@@ -2075,11 +2107,13 @@ impl<
     }
 
     /// Generates or copies arbitrary values for storage slots.
-    /// Invoked in inspector `step_end` (when the current opcode is not executed), if current opcode
-    /// to execute is `SLOAD` and storage slot is cold.
-    /// Ensures that in next step (when `SLOAD` opcode is executed) an arbitrary value is returned:
-    /// - copies the existing arbitrary storage value (or the new generated one if no value in
-    ///   cache) from mapped source address to the target address.
+    /// Invoked in inspector `step_end` (when the current opcode is not
+    /// executed), if current opcode to execute is `SLOAD` and storage slot
+    /// is cold. Ensures that in next step (when `SLOAD` opcode is executed)
+    /// an arbitrary value is returned:
+    /// - copies the existing arbitrary storage value (or the new generated one
+    ///   if no value in cache) from mapped source address to the target
+    ///   address.
     /// - generates arbitrary value and saves it in target address storage.
     #[cold]
     fn arbitrary_storage_end<
@@ -2357,24 +2391,27 @@ impl<
         }
     }
 
-    /// Checks to see if the current opcode can either mutate directly or expand memory.
+    /// Checks to see if the current opcode can either mutate directly or expand
+    /// memory.
     ///
-    /// If the opcode at the current program counter is a match, check if the modified memory lies
-    /// within the allowed ranges. If not, revert and fail the test.
+    /// If the opcode at the current program counter is a match, check if the
+    /// modified memory lies within the allowed ranges. If not, revert and
+    /// fail the test.
     #[cold]
     fn check_mem_opcodes(&self, interpreter: &mut Interpreter, depth: u64) {
         let Some(ranges) = self.allowed_mem_writes.get(&depth) else {
             return;
         };
 
-        // The `mem_opcode_match` macro is used to match the current opcode against a list of
-        // opcodes that can mutate memory (either directly or expansion via reading). If the
-        // opcode is a match, the memory offsets that are being written to are checked to be
-        // within the allowed ranges. If not, the test is failed and the transaction is
-        // reverted. For all opcodes that can mutate memory aside from MSTORE,
-        // MSTORE8, and MLOAD, the size and destination offset are on the stack, and
-        // the macro expands all of these cases. For MSTORE, MSTORE8, and MLOAD, the
-        // size of the memory write is implicit, so these cases are hard-coded.
+        // The `mem_opcode_match` macro is used to match the current opcode against a
+        // list of opcodes that can mutate memory (either directly or expansion
+        // via reading). If the opcode is a match, the memory offsets that are
+        // being written to are checked to be within the allowed ranges. If not,
+        // the test is failed and the transaction is reverted. For all opcodes
+        // that can mutate memory aside from MSTORE, MSTORE8, and MLOAD, the
+        // size and destination offset are on the stack, and the macro expands
+        // all of these cases. For MSTORE, MSTORE8, and MLOAD, the size of the
+        // memory write is implicit, so these cases are hard-coded.
         macro_rules! mem_opcode_match {
             ($(($opcode:ident, $offset_depth:expr, $size_depth:expr, $writes:expr)),* $(,)?) => {
                 match interpreter.bytecode.opcode() {
@@ -2507,8 +2544,8 @@ impl<
             }
         }
 
-        // Check if the current opcode can write to memory, and if so, check if the memory
-        // being written to is registered as safe to modify.
+        // Check if the current opcode can write to memory, and if so, check if the
+        // memory being written to is registered as safe to modify.
         mem_opcode_match!(
             (CALLDATACOPY, 0, 2, true),
             (CODECOPY, 0, 2, true),
@@ -2531,11 +2568,12 @@ impl<
     }
 }
 
-/// Helper that expands memory, stores a revert string pertaining to a disallowed memory write,
-/// and sets the return range to the revert string's location in memory.
+/// Helper that expands memory, stores a revert string pertaining to a
+/// disallowed memory write, and sets the return range to the revert string's
+/// location in memory.
 ///
-/// This will set the interpreter's next action to a return with the revert string as the output.
-/// And trigger a revert.
+/// This will set the interpreter's next action to a return with the revert
+/// string as the output. And trigger a revert.
 fn disallowed_mem_write(
     dest_offset: u64,
     size: u64,
@@ -2572,7 +2610,8 @@ fn access_is_call(kind: crate::Vm::AccountAccessKind) -> bool {
     )
 }
 
-/// Appends an `AccountAccess` that resumes the recording of the current context.
+/// Appends an `AccountAccess` that resumes the recording of the current
+/// context.
 fn append_storage_access(
     last: &mut Vec<AccountAccess>,
     storage_access: crate::Vm::StorageAccess,
@@ -2581,8 +2620,8 @@ fn append_storage_access(
     // Assert that there's an existing record for the current context.
     if !last.is_empty() && last.first().unwrap().depth < storage_depth {
         // Three cases to consider:
-        // 1. If there hasn't been a context switch since the start of this context, then add the
-        //    storage access to the current context record.
+        // 1. If there hasn't been a context switch since the start of this context,
+        //    then add the storage access to the current context record.
         // 2. If there's an existing Resume record, then add the storage access to it.
         // 3. Otherwise, create a new Resume record based on the current context.
         if last.len() == 1 {
@@ -2676,7 +2715,8 @@ fn apply_dispatch_traced<
         .record_cheatcode_purity(cheat.signature(), cheat.is_pure());
 
     // Apply the cheatcode.
-    // Not using dynamic dispatch here due to the complexity involved in making it work with generic parameters.
+    // Not using dynamic dispatch here due to the complexity involved in making it
+    // work with generic parameters.
     let mut result = apply_dispatch(calls, ccx, executor);
 
     // Format the error message to include the cheatcode name.

@@ -15,7 +15,8 @@ pub use multi::{ForkId, MultiFork, MultiForkHandler};
 
 use crate::evm_context::{BlockEnvTr, EvmEnv, HardforkTr, TransactionEnvTr};
 
-/// Represents a _fork_ of a remote chain whose data is available only via the `url` endpoint.
+/// Represents a _fork_ of a remote chain whose data is available only via the
+/// `url` endpoint.
 #[derive(Clone, Debug)]
 pub struct CreateFork<BlockT, TxT, HardforkT> {
     /// Optional RPC cache path. If this is none, then no rpc calls will be
@@ -24,7 +25,8 @@ pub struct CreateFork<BlockT, TxT, HardforkT> {
     pub rpc_cache_path: Option<PathBuf>,
     /// The URL to a node for fetching remote state
     pub url: String,
-    /// The env to create this fork, main purpose is to provide some metadata for the fork
+    /// The env to create this fork, main purpose is to provide some metadata
+    /// for the fork
     pub env: EvmEnv<BlockT, TxT, HardforkT>,
     /// All env settings as configured by the user
     pub evm_opts: EvmOpts<HardforkT>,

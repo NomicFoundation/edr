@@ -1,12 +1,7 @@
 //! Implementations of [`Testing`](spec::Group::Testing) cheatcodes.
 
-use crate::{
-    impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result,
-    Vm::{
-        getChain_0Call, getChain_1Call, rpcUrlCall, rpcUrlStructsCall, rpcUrlsCall, skip_0Call,
-        skip_1Call, sleepCall, Chain,
-    },
-};
+use std::str::FromStr;
+
 use alloy_chains::Chain as AlloyChain;
 use alloy_primitives::U256;
 use alloy_sol_types::SolValue;
@@ -19,7 +14,14 @@ use foundry_evm_core::{
     },
 };
 use revm::context::result::HaltReasonTr;
-use std::str::FromStr;
+
+use crate::{
+    impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result,
+    Vm::{
+        getChain_0Call, getChain_1Call, rpcUrlCall, rpcUrlStructsCall, rpcUrlsCall, skip_0Call,
+        skip_1Call, sleepCall, Chain,
+    },
+};
 
 pub(crate) mod assert;
 pub(crate) mod assume;
@@ -253,7 +255,8 @@ impl Cheatcode for skip_1Call {
         let Self { skipTest, reason } = self;
         if *skipTest {
             // Skip should not work if called deeper than at test level.
-            // Since we're not returning the magic skip bytes, this will cause a test failure.
+            // Since we're not returning the magic skip bytes, this will cause a test
+            // failure.
             ensure!(
                 ccx.ecx.journaled_state.depth <= 1,
                 "`skip` can only be used at test level"
@@ -367,8 +370,8 @@ fn get_chain<
     let chain_id = alloy_chain.id();
 
     // Check if this is an unknown chain ID by comparing the name to the chain ID
-    // When a numeric ID is passed for an unknown chain, alloy_chain.to_string() will return the ID
-    // So if they match, it's likely an unknown chain ID
+    // When a numeric ID is passed for an unknown chain, alloy_chain.to_string()
+    // will return the ID So if they match, it's likely an unknown chain ID
     if chain_name == chain_id.to_string() {
         return Err(fmt_err!("invalid chain alias: {chain_alias}"));
     }

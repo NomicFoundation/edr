@@ -1,4 +1,3 @@
-use crate::{CallTrace, DecodedCallData};
 use alloy_primitives::{hex, Address, B256, U256};
 use alloy_sol_types::{abi, sol, SolCall};
 use foundry_evm_core::precompiles::{
@@ -7,6 +6,8 @@ use foundry_evm_core::precompiles::{
 };
 use itertools::Itertools;
 use revm_inspectors::tracing::types::DecodedCallTrace;
+
+use crate::{CallTrace, DecodedCallData};
 
 sol! {
 /// EVM precompiles interface. For illustration purposes only, as precompiles don't follow the
@@ -126,8 +127,8 @@ pub(super) fn decode(trace: &CallTrace, _chain_id: u64) -> Option<DecodedCallTra
     })
 }
 
-// Note: we use the ABI decoder, but this is not necessarily ABI-encoded data. It's just a
-// convenient way to decode the data.
+// Note: we use the ABI decoder, but this is not necessarily ABI-encoded data.
+// It's just a convenient way to decode the data.
 
 fn decode_modexp(data: &[u8]) -> alloy_sol_types::Result<Vec<String>> {
     let mut decoder = abi::Decoder::new(data);
@@ -211,8 +212,9 @@ fn iter_to_string<I: Iterator<Item = T>, T: std::fmt::Display>(iter: I) -> Strin
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use alloy_primitives::hex;
+
+    use super::*;
 
     #[test]
     fn ecpairing() {

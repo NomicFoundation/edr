@@ -3,13 +3,6 @@
 #![allow(missing_docs)]
 #![allow(unused)]
 
-use crate::abi::abi_decode_calldata;
-use alloy_json_abi::JsonAbi;
-use alloy_primitives::{map::HashMap, Selector, B256};
-use eyre::Context;
-use foundry_evm_core::fork::provider::runtime_transport::RuntimeTransportBuilder;
-use itertools::Itertools;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     fmt,
     sync::{
@@ -19,6 +12,15 @@ use std::{
     time::Duration,
 };
 
+use alloy_json_abi::JsonAbi;
+use alloy_primitives::{map::HashMap, Selector, B256};
+use eyre::Context;
+use foundry_evm_core::fork::provider::runtime_transport::RuntimeTransportBuilder;
+use itertools::Itertools;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+
+use crate::abi::abi_decode_calldata;
+
 const BASE_URL: &str = "https://api.openchain.xyz";
 const SELECTOR_LOOKUP_URL: &str = "https://api.openchain.xyz/signature-database/v1/lookup";
 const SELECTOR_IMPORT_URL: &str = "https://api.openchain.xyz/signature-database/v1/import";
@@ -26,7 +28,8 @@ const SELECTOR_IMPORT_URL: &str = "https://api.openchain.xyz/signature-database/
 /// The standard request timeout for API requests.
 const REQ_TIMEOUT: Duration = Duration::from_secs(15);
 
-/// How many request can time out before we decide this is a spurious connection.
+/// How many request can time out before we decide this is a spurious
+/// connection.
 const MAX_TIMEDOUT_REQ: usize = 4usize;
 
 /// List of signatures for a given [`SelectorKind`].
@@ -95,7 +98,8 @@ impl OpenChainClient {
             if err.is_timeout() || err.is_connect() {
                 return true;
             }
-            // Error HTTP codes (5xx) are considered connectivity issues and will prompt retry
+            // Error HTTP codes (5xx) are considered connectivity issues and will prompt
+            // retry
             if let Some(status) = err.status() {
                 let code = status.as_u16();
                 if (500..600).contains(&code) {

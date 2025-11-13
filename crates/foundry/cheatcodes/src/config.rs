@@ -5,8 +5,7 @@ use std::{
     time::Duration,
 };
 
-use alloy_primitives::map::AddressHashMap;
-use alloy_primitives::U256;
+use alloy_primitives::{map::AddressHashMap, U256};
 use edr_common::fs::normalize_path;
 use edr_solidity::artifacts::ArtifactId;
 use foundry_compilers::utils::canonicalize;
@@ -17,7 +16,8 @@ use crate::{cache::StorageCachingConfig, Vm::Rpc};
 
 /// Additional, configurable context the `Cheatcodes` inspector has access to
 ///
-/// This is essentially a subset of various `Config` settings `Cheatcodes` needs to know.
+/// This is essentially a subset of various `Config` settings `Cheatcodes` needs
+/// to know.
 #[derive(Clone, Debug)]
 pub struct CheatsConfig<HardforkT> {
     /// Whether the execution is in the context of a test run, gas snapshot or
@@ -32,7 +32,8 @@ pub struct CheatsConfig<HardforkT> {
     /// id>/<block number>`. Caching can be disabled for specific chains
     /// with `rpc_storage_caching`.
     pub rpc_cache_path: Option<PathBuf>,
-    /// RPC storage caching settings determines what chains and endpoints to cache
+    /// RPC storage caching settings determines what chains and endpoints to
+    /// cache
     pub rpc_storage_caching: StorageCachingConfig,
     /// All known endpoints and their aliases
     pub rpc_endpoints: RpcEndpoints,
@@ -159,18 +160,19 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
 
     /// Attempts to canonicalize (see [`std::fs::canonicalize`]) the path.
     ///
-    /// Canonicalization fails for non-existing paths, in which case we just normalize the path.
+    /// Canonicalization fails for non-existing paths, in which case we just
+    /// normalize the path.
     pub fn normalized_path(&self, path: impl AsRef<Path>) -> PathBuf {
         let path = self.project_root.join(path);
         canonicalize(&path).unwrap_or_else(|_| normalize_path(&path))
     }
 
-    /// Returns true if the given path is allowed, if any path `allowed_paths` is an ancestor of the
-    /// path
+    /// Returns true if the given path is allowed, if any path `allowed_paths`
+    /// is an ancestor of the path
     ///
-    /// We only allow paths that are inside  allowed paths. To prevent path traversal
-    /// ("../../etc/passwd") we canonicalize/normalize the path first. We always join with the
-    /// configured root directory.
+    /// We only allow paths that are inside  allowed paths. To prevent path
+    /// traversal ("../../etc/passwd") we canonicalize/normalize the path
+    /// first. We always join with the configured root directory.
     pub fn is_path_allowed(&self, path: impl AsRef<Path>, kind: FsAccessKind) -> bool {
         self.is_normalized_path_allowed(&self.normalized_path(path), kind)
     }
@@ -179,9 +181,11 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         self.fs_permissions.is_path_allowed(path, kind)
     }
 
-    /// Returns an error if no access is granted to access `path`, See also [`Self::is_path_allowed`]
+    /// Returns an error if no access is granted to access `path`, See also
+    /// [`Self::is_path_allowed`]
     ///
-    /// Returns the normalized version of `path`, see [`CheatsConfig::normalized_path`]
+    /// Returns the normalized version of `path`, see
+    /// [`CheatsConfig::normalized_path`]
     pub fn ensure_path_allowed(
         &self,
         path: impl AsRef<Path>,
@@ -202,17 +206,20 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
 
     /// Returns the RPC to use
     ///
-    /// If `url_or_alias` is a known alias in the `ResolvedRpcEndpoints` then it returns the
-    /// corresponding URL of that alias. otherwise this assumes `url_or_alias` is itself a URL
-    /// if it starts with a `http` or `ws` scheme.
+    /// If `url_or_alias` is a known alias in the `ResolvedRpcEndpoints` then it
+    /// returns the corresponding URL of that alias. otherwise this assumes
+    /// `url_or_alias` is itself a URL if it starts with a `http` or `ws`
+    /// scheme.
     ///
-    /// If the url is a path to an existing file, it is also considered a valid RPC URL, IPC path.
+    /// If the url is a path to an existing file, it is also considered a valid
+    /// RPC URL, IPC path.
     ///
     /// # Errors
     ///
-    ///  - Returns an error if `url_or_alias` is a known alias but references an unresolved env var.
-    ///  - Returns an error if `url_or_alias` is not an alias but does not start with a `http` or
-    ///    `ws` `scheme` and is not a path to an existing file
+    ///  - Returns an error if `url_or_alias` is a known alias but references an
+    ///    unresolved env var.
+    ///  - Returns an error if `url_or_alias` is not an alias but does not start
+    ///    with a `http` or `ws` `scheme` and is not a path to an existing file
     pub fn rpc_endpoint(&self, url_or_alias: &str) -> Result<RpcEndpoint> {
         if let Some(endpoint) = self.rpc_endpoints.get(url_or_alias) {
             Ok(endpoint.clone())
@@ -244,7 +251,8 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         Ok(urls)
     }
 
-    /// Initialize default chain data (similar to initializeStdChains in Solidity)
+    /// Initialize default chain data (similar to initializeStdChains in
+    /// Solidity)
     pub fn initialize_chain_data(&mut self) {
         if !self.chains.is_empty() {
             return; // Already initialized
@@ -259,7 +267,8 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
         }
     }
 
-    /// Set chain with default RPC URL (similar to setChainWithDefaultRpcUrl in Solidity)
+    /// Set chain with default RPC URL (similar to setChainWithDefaultRpcUrl in
+    /// Solidity)
     pub fn set_chain_with_default_rpc_url(&mut self, alias: &str, data: ChainData) {
         // Store the default RPC URL is already stored in the data
         // No need to clone it separately

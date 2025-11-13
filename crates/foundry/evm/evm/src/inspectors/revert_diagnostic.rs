@@ -1,3 +1,5 @@
+use std::fmt;
+
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::SolValue;
 use foundry_evm_core::{
@@ -15,7 +17,6 @@ use revm::{
     },
     Database, Inspector,
 };
-use std::fmt;
 
 const IGNORE: [Address; 2] = [HARDHAT_CONSOLE_ADDRESS, CHEATCODE_ADDRESS];
 
@@ -45,26 +46,30 @@ impl fmt::Display for DetailedRevertReason {
 }
 
 /// An inspector that tracks call context to enhances revert diagnostics.
-/// Useful for understanding reverts that are not linked to custom errors or revert strings.
+/// Useful for understanding reverts that are not linked to custom errors or
+/// revert strings.
 ///
 /// Supported diagnostics:
-///  1. **Non-void call to non-contract address:** the soldity compiler adds some validation to the
-///     return data of the call, so despite the call succeeds, as doesn't return data, the
-///     validation causes a revert.
+///  1. **Non-void call to non-contract address:** the soldity compiler adds
+///     some validation to the return data of the call, so despite the call
+///     succeeds, as doesn't return data, the validation causes a revert.
 ///
-///     Identified when: a call with non-empty calldata is made to an address without bytecode,
-///     followed by an empty revert at the same depth.
+///     Identified when: a call with non-empty calldata is made to an address
+/// without bytecode,     followed by an empty revert at the same depth.
 ///
-///  2. **Void call to non-contract address:** in this case the solidity compiler adds some checks
-///     before doing the call, so it never takes place.
+///  2. **Void call to non-contract address:** in this case the solidity
+///     compiler adds some checks before doing the call, so it never takes
+///     place.
 ///
-///     Identified when: extcodesize for the target address returns 0 + empty revert at the same
-///     depth.
+///     Identified when: extcodesize for the target address returns 0 + empty
+/// revert at the same     depth.
 #[derive(Clone, Debug, Default)]
 pub struct RevertDiagnostic {
-    /// Tracks calls with calldata that target an address without executable code.
+    /// Tracks calls with calldata that target an address without executable
+    /// code.
     pub non_contract_call: Option<(Address, CallScheme, usize)>,
-    /// Tracks EXTCODESIZE checks that target an address without executable code.
+    /// Tracks EXTCODESIZE checks that target an address without executable
+    /// code.
     pub non_contract_size_check: Option<(Address, usize)>,
     /// Whether the step opcode is EXTCODESIZE or not.
     pub is_extcodesize_step: bool,
@@ -72,7 +77,8 @@ pub struct RevertDiagnostic {
 
 impl RevertDiagnostic {
     /// Returns the effective target address whose code would be executed.
-    /// For delegate calls, this is the `bytecode_address`. Otherwise, it's the `target_address`.
+    /// For delegate calls, this is the `bytecode_address`. Otherwise, it's the
+    /// `target_address`.
     #[allow(clippy::unused_self)]
     fn code_target_address(&self, inputs: &mut CallInputs) -> Address {
         if is_delegatecall(inputs.scheme) {
@@ -82,7 +88,8 @@ impl RevertDiagnostic {
         }
     }
 
-    /// Derives the revert reason based on the cached data. Should only be called after a revert.
+    /// Derives the revert reason based on the cached data. Should only be
+    /// called after a revert.
     fn reason(&self) -> Option<DetailedRevertReason> {
         if let Some((addr, scheme, _)) = self.non_contract_call {
             let reason = if is_delegatecall(scheme) {
@@ -102,7 +109,8 @@ impl RevertDiagnostic {
         None
     }
 
-    /// Injects the revert diagnostic into the debug traces. Should only be called after a revert.
+    /// Injects the revert diagnostic into the debug traces. Should only be
+    /// called after a revert.
     fn broadcast_diagnostic(&self, interpreter: &mut Interpreter) {
         if let Some(reason) = self.reason() {
             interpreter
@@ -116,10 +124,10 @@ impl RevertDiagnostic {
     }
 
     /// When a `REVERT` opcode with zero data size occurs:
-    ///  - if `non_contract_call` was set at the current depth, `broadcast_diagnostic` is called.
-    ///    Otherwise, it is cleared.
-    ///  - if `non_contract_size_check` was set at the current depth, `broadcast_diagnostic` is
-    ///    called. Otherwise, it is cleared.
+    ///  - if `non_contract_call` was set at the current depth,
+    ///    `broadcast_diagnostic` is called. Otherwise, it is cleared.
+    ///  - if `non_contract_size_check` was set at the current depth,
+    ///    `broadcast_diagnostic` is called. Otherwise, it is cleared.
     #[cold]
     fn handle_revert<CTX, D>(&mut self, interp: &mut Interpreter, ctx: &mut CTX)
     where
@@ -153,8 +161,8 @@ impl RevertDiagnostic {
     }
 
     /// When an `EXTCODESIZE` opcode occurs:
-    ///  - Optimistically caches the target address and current depth in `non_contract_size_check`,
-    ///    pending later validation.
+    ///  - Optimistically caches the target address and current depth in
+    ///    `non_contract_size_check`, pending later validation.
     #[cold]
     fn handle_extcodesize<CTX, D>(&mut self, interp: &mut Interpreter, ctx: &mut CTX)
     where
@@ -176,7 +184,8 @@ impl RevertDiagnostic {
         }
     }
 
-    /// Tracks `EXTCODESIZE` output. If the bytecode size is NOT 0, clears the cache.
+    /// Tracks `EXTCODESIZE` output. If the bytecode size is NOT 0, clears the
+    /// cache.
     #[cold]
     fn handle_extcodesize_output(&mut self, interp: &mut Interpreter) {
         if let Ok(size) = interp.stack.peek(0)
@@ -195,8 +204,8 @@ where
     CTX: ContextTr<Db = D>,
     CTX::Journal: JournalExt,
 {
-    /// Tracks the first call with non-zero calldata that targets a non-contract address. Excludes
-    /// precompiles and test addresses.
+    /// Tracks the first call with non-zero calldata that targets a non-contract
+    /// address. Excludes precompiles and test addresses.
     fn call(&mut self, ctx: &mut CTX, inputs: &mut CallInputs) -> Option<CallOutcome> {
         let target = self.code_target_address(inputs);
 
@@ -215,7 +224,8 @@ where
 
     /// Handles `REVERT` and `EXTCODESIZE` opcodes for diagnostics.
     fn step(&mut self, interp: &mut Interpreter, ctx: &mut CTX) {
-        // Check if an action has already been set (which would null the instruction pointer)
+        // Check if an action has already been set (which would null the instruction
+        // pointer)
         if interp.bytecode.action.is_some() {
             return;
         }

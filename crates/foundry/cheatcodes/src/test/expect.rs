@@ -3,34 +3,37 @@ use std::{
     fmt::{self, Display},
 };
 
-use super::revert_handlers::RevertParameters;
-#[allow(clippy::wildcard_imports)]
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Error, Result, Vm::*};
 use alloy_primitives::{
     map::{hash_map::Entry, AddressHashMap, HashMap},
     Address, Bytes, LogData as RawLog, U256,
 };
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
-use revm::context::result::HaltReasonTr;
 use revm::{
-    context::JournalTr,
+    context::{result::HaltReasonTr, JournalTr},
     interpreter::{
         interpreter_types::LoopControl, InstructionResult, Interpreter, InterpreterAction,
     },
 };
+
+use super::revert_handlers::RevertParameters;
+#[allow(clippy::wildcard_imports)]
+use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Error, Result, Vm::*};
 /// Tracks the expected calls per address.
 ///
-/// For each address, we track the expected calls per call data. We track it in such manner
-/// so that we don't mix together calldatas that only contain selectors and calldatas that contain
-/// selector and arguments (partial and full matches).
+/// For each address, we track the expected calls per call data. We track it in
+/// such manner so that we don't mix together calldatas that only contain
+/// selectors and calldatas that contain selector and arguments (partial and
+/// full matches).
 ///
-/// This then allows us to customize the matching behavior for each call data on the
-/// `ExpectedCallData` struct and track how many times we've actually seen the call on the second
-/// element of the tuple.
+/// This then allows us to customize the matching behavior for each call data on
+/// the `ExpectedCallData` struct and track how many times we've actually seen
+/// the call on the second element of the tuple.
 pub type ExpectedCallTracker = HashMap<Address, HashMap<Bytes, (ExpectedCallData, u64)>>;
 
 #[derive(Clone, Debug)]
@@ -42,9 +45,10 @@ pub struct ExpectedCallData {
     /// The expected *minimum* gas supplied to the call
     pub min_gas: Option<u64>,
     /// The number of times the call is expected to be made.
-    /// If the type of call is `NonCount`, this is the lower bound for the number of calls
-    /// that must be seen.
-    /// If the type of call is `Count`, this is the exact number of calls that must be seen.
+    /// If the type of call is `NonCount`, this is the lower bound for the
+    /// number of calls that must be seen.
+    /// If the type of call is `Count`, this is the exact number of calls that
+    /// must be seen.
     pub count: u64,
     /// The type of expected call.
     pub call_type: ExpectedCallType,
@@ -68,7 +72,8 @@ pub enum ExpectedRevertKind {
     ///
     /// The `pending_processing` flag is used to track whether we have exited
     /// `expectCheatcodeRevert` context or not.
-    /// We have to track it to avoid expecting `expectCheatcodeRevert` call to revert itself.
+    /// We have to track it to avoid expecting `expectCheatcodeRevert` call to
+    /// revert itself.
     Cheatcode { pending_processing: bool },
 }
 
@@ -80,7 +85,8 @@ pub struct ExpectedRevert {
     pub depth: usize,
     /// The type of expected revert.
     pub kind: ExpectedRevertKind,
-    /// If true then only the first 4 bytes of expected data returned by the revert are checked.
+    /// If true then only the first 4 bytes of expected data returned by the
+    /// revert are checked.
     pub partial_match: bool,
     /// Contract expected to revert next call.
     pub reverter: Option<Address>,
@@ -111,8 +117,8 @@ pub struct ExpectedEmit {
     pub checks: [bool; 5],
     /// If present, check originating address against this
     pub address: Option<Address>,
-    /// If present, relax the requirement that topic 0 must be present. This allows anonymous
-    /// events with no indexed topics to be matched.
+    /// If present, relax the requirement that topic 0 must be present. This
+    /// allows anonymous events with no indexed topics to be matched.
     pub anonymous: bool,
     /// Whether the log was actually found in the subcalls
     pub found: bool,
@@ -2499,19 +2505,22 @@ impl RevertParameters for ExpectedRevert {
 /// Handles expected calls specified by the `expectCall` cheatcodes.
 ///
 /// It can handle calls in two ways:
-/// - If the cheatcode was used with a `count` argument, it will expect the call to be made exactly
-///   `count` times. e.g. `vm.expectCall(address(0xc4f3), abi.encodeWithSelector(0xd34db33f), 4)`
-///   will expect the call to address(0xc4f3) with selector `0xd34db33f` to be made exactly 4 times.
-///   If the amount of calls is less or more than 4, the test will fail. Note that the `count`
-///   argument cannot be overwritten with another `vm.expectCall`. If this is attempted,
-///   `expectCall` will revert.
-/// - If the cheatcode was used without a `count` argument, it will expect the call to be made at
-///   least the amount of times the cheatcode was called. This means that `vm.expectCall` without a
-///   count argument can be called many times, but cannot be called with a `count` argument after it
-///   was called without one. If the latter happens, `expectCall` will revert. e.g
-///   `vm.expectCall(address(0xc4f3), abi.encodeWithSelector(0xd34db33f))` will expect the call to
-///   address(0xc4f3) and selector `0xd34db33f` to be made at least once. If the amount of calls is
-///   0, the test will fail. If the call is made more than once, the test will pass.
+/// - If the cheatcode was used with a `count` argument, it will expect the call
+///   to be made exactly `count` times. e.g. `vm.expectCall(address(0xc4f3),
+///   abi.encodeWithSelector(0xd34db33f), 4)` will expect the call to
+///   address(0xc4f3) with selector `0xd34db33f` to be made exactly 4 times. If
+///   the amount of calls is less or more than 4, the test will fail. Note that
+///   the `count` argument cannot be overwritten with another `vm.expectCall`.
+///   If this is attempted, `expectCall` will revert.
+/// - If the cheatcode was used without a `count` argument, it will expect the
+///   call to be made at least the amount of times the cheatcode was called.
+///   This means that `vm.expectCall` without a count argument can be called
+///   many times, but cannot be called with a `count` argument after it was
+///   called without one. If the latter happens, `expectCall` will revert. e.g
+///   `vm.expectCall(address(0xc4f3), abi.encodeWithSelector(0xd34db33f))` will
+///   expect the call to address(0xc4f3) and selector `0xd34db33f` to be made at
+///   least once. If the amount of calls is 0, the test will fail. If the call
+///   is made more than once, the test will pass.
 #[expect(clippy::too_many_arguments)] // It is what it is
 fn expect_call<
     BlockT: BlockEnvTr,
@@ -2544,8 +2553,8 @@ fn expect_call<
     if let Some(val) = value
         && *val > U256::ZERO
     {
-        // If the value of the transaction is non-zero, the EVM adds a call stipend of 2300 gas
-        // to ensure that the basic fallback function can be called.
+        // If the value of the transaction is non-zero, the EVM adds a call stipend of
+        // 2300 gas to ensure that the basic fallback function can be called.
         let positive_value_cost_stipend = 2300;
         if let Some(gas) = &mut gas {
             *gas += positive_value_cost_stipend;
@@ -2558,8 +2567,8 @@ fn expect_call<
     match call_type {
         ExpectedCallType::Count => {
             // Get the expected calls for this target.
-            // In this case, as we're using counted expectCalls, we should not be able to set them
-            // more than once.
+            // In this case, as we're using counted expectCalls, we should not be able to
+            // set them more than once.
             ensure!(
                 !expecteds.contains_key(calldata),
                 "counted expected calls can only bet set once"
@@ -2645,8 +2654,8 @@ fn expect_emit<
         count,
     };
     if let Some(found_emit_pos) = state.expected_emits.iter().position(|(emit, _)| emit.found) {
-        // The order of emits already found (back of queue) should not be modified, hence push any
-        // new emit before first found emit.
+        // The order of emits already found (back of queue) should not be modified,
+        // hence push any new emit before first found emit.
         state
             .expected_emits
             .insert(found_emit_pos, (expected_emit, HashMap::default()));
@@ -2682,15 +2691,17 @@ pub(crate) fn handle_expect_emit<
     interpreter: &mut Interpreter,
 ) {
     // Fill or check the expected emits.
-    // We expect for emit checks to be filled as they're declared (from oldest to newest),
-    // so we fill them and push them to the back of the queue.
-    // If the user has properly filled all the emits, they'll end up in their original order.
-    // If not, the queue will not be in the order the events will be intended to be filled,
-    // and we'll be able to later detect this and bail.
+    // We expect for emit checks to be filled as they're declared (from oldest to
+    // newest), so we fill them and push them to the back of the queue.
+    // If the user has properly filled all the emits, they'll end up in their
+    // original order. If not, the queue will not be in the order the events
+    // will be intended to be filled, and we'll be able to later detect this and
+    // bail.
 
     // First, we can return early if all events have been matched.
-    // This allows a contract to arbitrarily emit more events than expected (additive behavior),
-    // as long as all the previous events were matched in the order they were expected to be.
+    // This allows a contract to arbitrarily emit more events than expected
+    // (additive behavior), as long as all the previous events were matched in
+    // the order they were expected to be.
     if state
         .expected_emits
         .iter()
@@ -2704,8 +2715,8 @@ pub(crate) fn handle_expect_emit<
         .iter()
         .any(|(expected, _)| expected.log.is_none());
     let index_to_fill_or_check = if should_fill_logs {
-        // If there's anything to fill, we start with the last event to match in the queue
-        // (without taking into account events already matched).
+        // If there's anything to fill, we start with the last event to match in the
+        // queue (without taking into account events already matched).
         state
             .expected_emits
             .iter()
@@ -2713,8 +2724,9 @@ pub(crate) fn handle_expect_emit<
             .unwrap_or(state.expected_emits.len())
             .saturating_sub(1)
     } else {
-        // Otherwise, if all expected logs are filled, we start to check any unmatched event
-        // in the declared order, so we start from the front (like a queue).
+        // Otherwise, if all expected logs are filled, we start to check any unmatched
+        // event in the declared order, so we start from the front (like a
+        // queue).
         0
     };
 
@@ -2724,8 +2736,8 @@ pub(crate) fn handle_expect_emit<
         .expect("we should have an emit to fill or check");
 
     let Some(expected) = &event_to_fill_or_check.log else {
-        // Unless the caller is trying to match an anonymous event, the first topic must be
-        // filled.
+        // Unless the caller is trying to match an anonymous event, the first topic must
+        // be filled.
         if event_to_fill_or_check.anonymous || !log.topics().is_empty() {
             event_to_fill_or_check.log = Some(log.data.clone());
             // If we only filled the expected log then we put it back at the same position.
@@ -2748,7 +2760,8 @@ pub(crate) fn handle_expect_emit<
     match count_map.entry(log.address) {
         Entry::Occupied(mut entry) => {
             // Checks and inserts the log into the map.
-            // If the log doesn't pass the checks, it is ignored and `count` is not incremented.
+            // If the log doesn't pass the checks, it is ignored and `count` is not
+            // incremented.
             let log_count_map = entry.get_mut();
             log_count_map.insert(&log.data);
         }
@@ -2807,8 +2820,8 @@ pub(crate) fn handle_expect_emit<
 
 /// Handles expected emits specified by the `expectEmit` cheatcodes.
 ///
-/// The second element of the tuple counts the number of times the log has been emitted by a
-/// particular address
+/// The second element of the tuple counts the number of times the log has been
+/// emitted by a particular address
 pub(crate) type ExpectedEmitTracker = VecDeque<(ExpectedEmit, AddressHashMap<LogCountMap>)>;
 
 #[derive(Clone, Debug, Default)]
@@ -2833,7 +2846,8 @@ impl LogCountMap {
 
     /// Inserts a log into the map and increments the count.
     ///
-    /// The log must pass all checks against the expected log for the count to increment.
+    /// The log must pass all checks against the expected log for the count to
+    /// increment.
     ///
     /// Returns true if the log was inserted and count was incremented.
     fn insert(&mut self, log: &RawLog) -> bool {

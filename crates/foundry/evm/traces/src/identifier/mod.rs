@@ -1,9 +1,10 @@
+use std::borrow::Cow;
+
 use alloy_json_abi::JsonAbi;
 use alloy_primitives::{map::HashMap, Address, Bytes};
 use edr_solidity::artifacts::ArtifactId;
 use foundry_evm_core::contracts::ContractsByArtifact;
 use revm_inspectors::tracing::types::CallTraceNode;
-use std::borrow::Cow;
 
 mod local;
 pub use local::LocalTraceIdentifier;
@@ -30,7 +31,8 @@ pub struct IdentifiedAddress<'a> {
     pub artifact_id: Option<ArtifactId>,
 }
 
-/// Trace identifiers figure out what ABIs and labels belong to all the addresses of the trace.
+/// Trace identifiers figure out what ABIs and labels belong to all the
+/// addresses of the trace.
 pub trait TraceIdentifier {
     /// Attempts to identify an address in one or more call traces.
     fn identify_addresses(&mut self, nodes: &[&CallTraceNode]) -> Vec<IdentifiedAddress<'_>>;

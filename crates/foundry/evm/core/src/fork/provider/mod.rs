@@ -2,6 +2,13 @@
 
 pub mod runtime_transport;
 
+use std::{
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    str::FromStr,
+    time::Duration,
+};
+
 use alloy_chains::NamedChain;
 use alloy_provider::{
     fillers::{ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
@@ -14,19 +21,14 @@ use edr_defaults::ALCHEMY_FREE_TIER_CUPS;
 use eyre::{Result, WrapErr};
 use reqwest::Url;
 use runtime_transport::RuntimeTransportBuilder;
-use std::{
-    net::SocketAddr,
-    path::{Path, PathBuf},
-    str::FromStr,
-    time::Duration,
-};
 use url::ParseError;
 
 /// Default request timeout for http requests
 ///
-/// Note: this is only used so that connections, that are discarded on the server side won't stay
-/// open forever. We assume some nodes may have some backoff baked into them and will delay some
-/// responses. This timeout should be a reasonable amount of time to wait for a request.
+/// Note: this is only used so that connections, that are discarded on the
+/// server side won't stay open forever. We assume some nodes may have some
+/// backoff baked into them and will delay some responses. This timeout should
+/// be a reasonable amount of time to wait for a request.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
 
 /// The assumed block time for unknown chains.
@@ -58,8 +60,9 @@ pub type RetryProviderWithSigner<N = AnyNetwork> = FillProvider<
     N,
 >;
 
-/// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
-/// an anvil or other dev node) and with the default, or 7 second otherwise.
+/// Constructs a provider with a 100 millisecond interval poll if it's a
+/// localhost URL (most likely an anvil or other dev node) and with the default,
+/// or 7 second otherwise.
 ///
 /// See [`try_get_http_provider`] for more details.
 ///
@@ -80,8 +83,9 @@ pub fn get_http_provider(builder: impl AsRef<str>) -> RetryProvider {
     try_get_http_provider(builder).unwrap()
 }
 
-/// Constructs a provider with a 100 millisecond interval poll if it's a localhost URL (most likely
-/// an anvil or other dev node) and with the default, or 7 second otherwise.
+/// Constructs a provider with a 100 millisecond interval poll if it's a
+/// localhost URL (most likely an anvil or other dev node) and with the default,
+/// or 7 second otherwise.
 #[inline]
 pub fn try_get_http_provider(builder: impl AsRef<str>) -> Result<RetryProvider> {
     ProviderBuilder::new(builder.as_ref()).build()
@@ -112,8 +116,8 @@ impl ProviderBuilder {
         // a copy is needed for the next lines to work
         let mut url_str = url_str;
 
-        // invalid url: non-prefixed URL scheme is not allowed, so we prepend the default http
-        // prefix
+        // invalid url: non-prefixed URL scheme is not allowed, so we prepend the
+        // default http prefix
         let storage;
         if url_str.starts_with("localhost:") {
             storage = format!("http://{url_str}");
@@ -180,14 +184,15 @@ impl ProviderBuilder {
         self
     }
 
-    /// How often to retry a failed request. If `None`, defaults to the already-set value.
+    /// How often to retry a failed request. If `None`, defaults to the
+    /// already-set value.
     pub fn maybe_max_retry(mut self, max_retry: Option<u32>) -> Self {
         self.max_retry = max_retry.unwrap_or(self.max_retry);
         self
     }
 
-    /// The starting backoff delay to use after the first failed request. If `None`, defaults to
-    /// the already-set value.
+    /// The starting backoff delay to use after the first failed request. If
+    /// `None`, defaults to the already-set value.
     pub fn maybe_initial_backoff(mut self, initial_backoff: Option<u64>) -> Self {
         self.initial_backoff = initial_backoff.unwrap_or(self.initial_backoff);
         self

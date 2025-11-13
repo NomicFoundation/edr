@@ -1,11 +1,13 @@
-use crate::backend::LocalForkId;
 use alloy_primitives::{map::AddressHashMap, Address};
 use itertools::Itertools;
+
+use crate::backend::LocalForkId;
 
 /// Represents possible diagnostic cases on revert
 #[derive(Clone, Debug)]
 pub enum RevertDiagnostic {
-    /// The `contract` does not exist on the `active` fork but exist on other fork(s)
+    /// The `contract` does not exist on the `active` fork but exist on other
+    /// fork(s)
     ContractExistsOnOtherForks {
         contract: Address,
         active: LocalForkId,

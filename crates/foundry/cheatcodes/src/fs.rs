@@ -1,19 +1,5 @@
 //! Implementations of [`Filesystem`](spec::Group::Filesystem) cheatcodes.
 
-use crate::{Cheatcode, Cheatcodes, FsAccessKind, Result, Vm::promptSecretUintCall};
-use alloy_dyn_abi::DynSolType;
-use alloy_primitives::{hex, map::Entry, Bytes, U256};
-use alloy_sol_types::SolValue;
-use dialoguer::{Input, Password};
-use edr_common::fs;
-use edr_solidity::artifacts::ArtifactId;
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
-};
-use revm::context::result::HaltReasonTr;
-use semver::Version;
 use std::{
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
@@ -22,18 +8,34 @@ use std::{
     thread,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+use alloy_dyn_abi::DynSolType;
+use alloy_primitives::{hex, map::Entry, Bytes, U256};
+use alloy_sol_types::SolValue;
+use dialoguer::{Input, Password};
+use edr_common::fs;
+use edr_solidity::artifacts::ArtifactId;
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
+};
+use revm::context::result::HaltReasonTr;
+use semver::Version;
 use walkdir::WalkDir;
 
 use super::string::parse;
 use crate::{
-    impl_is_pure_false,
+    impl_is_pure_false, Cheatcode, Cheatcodes, FsAccessKind, Result,
     Vm::{
         closeFileCall, copyFileCall, createDirCall, existsCall, ffiCall, fsMetadataCall,
         getCodeCall, getDeployedCodeCall, isDirCall, isFileCall, projectRootCall,
-        promptAddressCall, promptCall, promptSecretCall, promptUintCall, readDir_0Call,
-        readDir_1Call, readDir_2Call, readFileBinaryCall, readFileCall, readLineCall, readLinkCall,
-        removeDirCall, removeFileCall, tryFfiCall, unixTimeCall, writeFileBinaryCall,
-        writeFileCall, writeLineCall, DirEntry, FfiResult, FsMetadata,
+        promptAddressCall, promptCall, promptSecretCall, promptSecretUintCall, promptUintCall,
+        readDir_0Call, readDir_1Call, readDir_2Call, readFileBinaryCall, readFileCall,
+        readLineCall, readLinkCall, removeDirCall, removeFileCall, tryFfiCall, unixTimeCall,
+        writeFileBinaryCall, writeFileCall, writeLineCall, DirEntry, FfiResult, FsMetadata,
     },
 };
 
@@ -625,7 +627,8 @@ impl Cheatcode for readLineCall {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
 
-        // Get reader for previously opened file to continue reading OR initialize new reader
+        // Get reader for previously opened file to continue reading OR initialize new
+        // reader
         let reader = match state.test_context.opened_read_files.entry(path.clone()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => entry.insert(BufReader::new(fs::open(path)?)),
@@ -634,7 +637,8 @@ impl Cheatcode for readLineCall {
         let mut line: String = String::new();
         reader.read_line(&mut line)?;
 
-        // Remove trailing newline character, preserving others for cases where it may be important
+        // Remove trailing newline character, preserving others for cases where it may
+        // be important
         if line.ends_with('\n') {
             line.pop();
             if line.ends_with('\r') {
@@ -1578,14 +1582,20 @@ fn prompt<
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::CheatsConfig;
+    use std::sync::Arc;
+
     use alloy_json_abi::ContractObject;
     use foundry_evm_core::evm_context::L1EvmBuilder;
-    use revm::context::result::{HaltReason, InvalidTransaction};
-    use revm::context::{BlockEnv, TxEnv};
-    use revm::primitives::hardfork::SpecId;
-    use std::sync::Arc;
+    use revm::{
+        context::{
+            result::{HaltReason, InvalidTransaction},
+            BlockEnv, TxEnv,
+        },
+        primitives::hardfork::SpecId,
+    };
+
+    use super::*;
+    use crate::CheatsConfig;
 
     fn cheats(
     ) -> Cheatcodes<BlockEnv, TxEnv, (), L1EvmBuilder, HaltReason, SpecId, InvalidTransaction> {

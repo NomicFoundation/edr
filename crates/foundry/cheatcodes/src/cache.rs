@@ -1,8 +1,9 @@
 //! Support types for configuring storage caching
 
+use std::{fmt, str::FromStr};
+
 use alloy_chains::Chain;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{fmt, str::FromStr};
 
 /// Settings to configure caching of remote.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -171,8 +172,9 @@ impl Serialize for CachedEndpoints {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use similar_asserts::assert_eq;
+
+    use super::*;
 
     #[test]
     fn can_parse_storage_config() {

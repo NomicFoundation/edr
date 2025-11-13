@@ -1,9 +1,7 @@
 use alloy_primitives::{Bytes, U256};
-
+use foundry_evm_core::buffer::{get_buffer_accesses, BufferKind};
 use foundry_evm_traces::CallTraceArena;
 use revm::{bytecode::opcode::OpCode, interpreter::InstructionResult};
-
-use foundry_evm_core::buffer::{get_buffer_accesses, BufferKind};
 use revm_inspectors::tracing::types::{CallTraceStep, RecordedMemory, TraceMemberOrder};
 use spec::Vm::DebugStep;
 
@@ -24,8 +22,9 @@ pub(crate) fn flatten_call_trace(
 
 // Inner recursive function to process nodes.
 // This implementation directly mutates `record_started` and `flatten_steps`.
-// So the recursive call can change the `record_started` flag even for the parent
-// unfinished processing, and append steps to the `flatten_steps` as the final result.
+// So the recursive call can change the `record_started` flag even for the
+// parent unfinished processing, and append steps to the `flatten_steps` as the
+// final result.
 fn recursive_flatten_call_trace<'a>(
     node_idx: usize,
     arena: &'a CallTraceArena,

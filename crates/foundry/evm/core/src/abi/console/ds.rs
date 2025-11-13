@@ -1,11 +1,12 @@
 //! `DSTest` log interface.
 
-use super::{format_units_int, format_units_uint};
 use alloy_primitives::hex;
 use alloy_sol_types::sol;
 use derive_more::Display;
 use edr_common::fmt::UIfmt;
 use itertools::Itertools;
+
+use super::{format_units_int, format_units_uint};
 
 // Using UIfmt for consistent and user-friendly formatting
 

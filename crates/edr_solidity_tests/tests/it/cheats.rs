@@ -214,7 +214,8 @@ async fn test_assume_no_revert() {
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.runs = 100;
     config.fuzz.seed = Some(U256::from(100));
-    // It's important to disable failure persistence, otherwise saved seeds from tests can influence each other's execution.
+    // It's important to disable failure persistence, otherwise saved seeds from
+    // tests can influence each other's execution.
     config.fuzz.failure_persist_dir = None;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;
@@ -258,7 +259,8 @@ async fn test_assume_no_revert_with_data() {
     let filter = SolidityTestFilter::new(".*", "AssumeNoRevertWithDataTest", ".*cheats/");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.fuzz.seed = Some(U256::from(100));
-    // It's important to disable failure persistence, otherwise saved seeds from tests can influence each other's execution.
+    // It's important to disable failure persistence, otherwise saved seeds from
+    // tests can influence each other's execution.
     config.fuzz.failure_persist_dir = None;
     let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
     let suite_results = runner.test_collect(filter).await.suite_results;

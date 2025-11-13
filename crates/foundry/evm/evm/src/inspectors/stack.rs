@@ -1,19 +1,18 @@
-use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
-
-use super::{
-    Cheatcodes, CheatsConfig, Fuzzer, LineCoverageCollector, LogCollector, RevertDiagnostic,
-    TracingInspector,
+use std::{
+    ops::{Deref, DerefMut},
+    sync::Arc,
 };
-use alloy_primitives::map::HashMap;
-use alloy_primitives::{map::AddressHashMap, Address, Bytes, Log, TxKind, U256};
+
+use alloy_primitives::{
+    map::{AddressHashMap, HashMap},
+    Address, Bytes, Log, TxKind, U256,
+};
 use derive_where::derive_where;
 use edr_coverage::CodeCoverageReporter;
 use eyre::eyre;
 use foundry_cheatcodes::CheatcodesExecutor;
-use foundry_evm_core::backend::JournaledState;
 use foundry_evm_core::{
-    backend::CheatcodeBackend,
+    backend::{CheatcodeBackend, JournaledState},
     evm_context::{
         split_context_deref_mut, BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmEnv, HardforkTr,
         IntoEvmContext as _, TransactionEnvTr, TransactionErrorTrait,
@@ -21,29 +20,33 @@ use foundry_evm_core::{
 };
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::{SparsedTraceArena, TracingMode};
-use revm::context::CreateScheme;
-use revm::state::{Account, AccountStatus};
 use revm::{
     context::{
         result::{ExecutionResult, HaltReason, HaltReasonTr},
-        BlockEnv, CfgEnv, Context as EvmContext,
+        BlockEnv, CfgEnv, Context as EvmContext, CreateScheme,
     },
     context_interface::{result::Output, JournalTr},
     interpreter::{
         interpreter::EthInterpreter, CallInputs, CallOutcome, CallScheme, CreateInputs,
         CreateOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
+    state::{Account, AccountStatus},
     DatabaseCommit, InspectEvm as _, Inspector, Journal, JournalEntry,
 };
 use revm_inspectors::edge_cov::EdgeCovInspector;
+
+use super::{
+    Cheatcodes, CheatsConfig, Fuzzer, LineCoverageCollector, LogCollector, RevertDiagnostic,
+    TracingInspector,
+};
 
 #[derive(Clone, Debug, Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
 pub struct InspectorStackBuilder<HardforkT: HardforkTr, ChainContextT: ChainContextTr> {
     /// The block environment.
     ///
-    /// Used in the cheatcode handler to overwrite the block environment separately from the
-    /// execution block environment.
+    /// Used in the cheatcode handler to overwrite the block environment
+    /// separately from the execution block environment.
     pub block: Option<BlockEnv>,
     /// The multichain context
     pub chain_context: Option<ChainContextT>,
@@ -51,8 +54,8 @@ pub struct InspectorStackBuilder<HardforkT: HardforkTr, ChainContextT: ChainCont
     pub code_coverage: Option<CodeCoverageReporter>,
     /// The gas price.
     ///
-    /// Used in the cheatcode handler to overwrite the gas price separately from the gas price
-    /// in the execution environment.
+    /// Used in the cheatcode handler to overwrite the gas price separately from
+    /// the gas price in the execution environment.
     pub gas_price: Option<u128>,
     /// The cheatcodes config.
     pub cheatcodes: Option<Arc<CheatsConfig<HardforkT>>>,
@@ -65,8 +68,9 @@ pub struct InspectorStackBuilder<HardforkT: HardforkTr, ChainContextT: ChainCont
     /// Whether line coverage info should be collected.
     pub line_coverage: Option<bool>,
     /// Whether to enable call isolation.
-    /// In isolation mode all top-level calls are executed as a separate transaction in a separate
-    /// EVM context, enabling more precise gas accounting and transaction state changes.
+    /// In isolation mode all top-level calls are executed as a separate
+    /// transaction in a separate EVM context, enabling more precise gas
+    /// accounting and transaction state changes.
     pub enable_isolation: bool,
 }
 
@@ -138,7 +142,8 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
     }
 
     /// Set whether to enable the call isolation.
-    /// For description of call isolation, see [`InspectorStack::enable_isolation`].
+    /// For description of call isolation, see
+    /// [`InspectorStack::enable_isolation`].
     #[inline]
     pub fn enable_isolation(mut self, yes: bool) -> Self {
         self.enable_isolation = yes;
@@ -212,8 +217,8 @@ impl<HardforkT: HardforkTr, ChainContextT: ChainContextTr>
     }
 }
 
-/// Helper macro to call the same method on multiple inspectors without resorting to dynamic
-/// dispatch.
+/// Helper macro to call the same method on multiple inspectors without
+/// resorting to dynamic dispatch.
 #[macro_export]
 macro_rules! call_inspectors {
     ([$($inspector:expr),+ $(,)?], |$id:ident $(,)?| $body:expr $(,)?) => {
@@ -265,11 +270,11 @@ pub struct InspectorData<
     pub reverter: Option<Address>,
 }
 
-/// Contains data about the state of outer/main EVM which created and invoked the inner EVM context.
-/// Used to adjust EVM state while in inner context.
+/// Contains data about the state of outer/main EVM which created and invoked
+/// the inner EVM context. Used to adjust EVM state while in inner context.
 ///
-/// We need this to avoid breaking changes due to EVM behavior differences in isolated vs
-/// non-isolated mode. For descriptions and workarounds for those changes see: <https://github.com/foundry-rs/foundry/pull/7186#issuecomment-1959102195>
+/// We need this to avoid breaking changes due to EVM behavior differences in
+/// isolated vs non-isolated mode. For descriptions and workarounds for those changes see: <https://github.com/foundry-rs/foundry/pull/7186#issuecomment-1959102195>
 #[derive(Debug, Clone)]
 pub struct InnerContextData {
     /// Origin of the transaction in the outer EVM context.
@@ -278,14 +283,15 @@ pub struct InnerContextData {
 
 /// An inspector that calls multiple inspectors in sequence.
 ///
-/// If a call to an inspector returns a value (indicating a stop or revert) the remaining inspectors
-/// are not called.
+/// If a call to an inspector returns a value (indicating a stop or revert) the
+/// remaining inspectors are not called.
 ///
-/// Stack is divided into [Cheatcodes] and `InspectorStackInner`. This is done to allow assembling
-/// `InspectorStackRefMut` inside [Cheatcodes] to allow usage of it as [`revm::Inspector`]. This gives
-/// us ability to create and execute separate EVM frames from inside cheatcodes while still having
-/// access to entire stack of inspectors and correctly handling traces, logs, debugging info
-/// collection, etc.
+/// Stack is divided into [Cheatcodes] and `InspectorStackInner`. This is done
+/// to allow assembling `InspectorStackRefMut` inside [Cheatcodes] to allow
+/// usage of it as [`revm::Inspector`]. This gives us ability to create and
+/// execute separate EVM frames from inside cheatcodes while still having access
+/// to entire stack of inspectors and correctly handling traces, logs, debugging
+/// info collection, etc.
 #[derive_where(Clone, Debug, Default; BlockT, TxT, HardforkT)]
 pub struct InspectorStack<
     BlockT: BlockEnvTr,
@@ -336,9 +342,10 @@ pub struct InspectorStackInner<ChainContextT> {
     pub chain_context: ChainContextT,
 }
 
-/// Struct keeping mutable references to both parts of [`InspectorStack`] and implementing
-/// [`revm::Inspector`]. This struct can be obtained via [`InspectorStack::as_mut`] or via
-/// [`CheatcodesExecutor::get_inspector`] method implemented for [`InspectorStackInner`].
+/// Struct keeping mutable references to both parts of [`InspectorStack`] and
+/// implementing [`revm::Inspector`]. This struct can be obtained via
+/// [`InspectorStack::as_mut`] or via [`CheatcodesExecutor::get_inspector`]
+/// method implemented for [`InspectorStackInner`].
 pub struct InspectorStackRefMut<
     'a,
     BlockT: BlockEnvTr,
@@ -418,9 +425,9 @@ impl<
 {
     /// Creates a new inspector stack.
     ///
-    /// Note that the stack is empty by default, and you must add inspectors to it.
-    /// This is done by calling the `set_*` methods on the stack directly, or by building the stack
-    /// with [`InspectorStack`].
+    /// Note that the stack is empty by default, and you must add inspectors to
+    /// it. This is done by calling the `set_*` methods on the stack
+    /// directly, or by building the stack with [`InspectorStack`].
     #[inline]
     pub fn new() -> Self {
         Self::default()
@@ -658,8 +665,9 @@ impl<
 {
     /// Adjusts the EVM data for the inner EVM context.
     /// Should be called on the top-level call of inner context (depth == 0 &&
-    /// `self.in_inner_context`) Decreases sender nonce for CALLs to keep backwards compatibility
-    /// Updates tx.origin to the value before entering inner context
+    /// `self.in_inner_context`) Decreases sender nonce for CALLs to keep
+    /// backwards compatibility Updates tx.origin to the value before
+    /// entering inner context
     fn adjust_evm_data_for_inner_context<
         DatabaseT: CheatcodeBackend<
             BlockT,
@@ -724,8 +732,8 @@ impl<
                 let previous_outcome = outcome.clone();
                 inspector.call_end(ecx, inputs, outcome);
 
-                // If the inspector returns a different status or a revert with a non-empty message,
-                // we assume it wants to tell us something
+                // If the inspector returns a different status or a revert with a non-empty
+                // message, we assume it wants to tell us something
                 let different = outcome.result.result != result
                     || (outcome.result.result == InstructionResult::Revert
                         && outcome.output() != previous_outcome.output());
@@ -772,8 +780,8 @@ impl<
                 let previous_outcome = outcome.clone();
                 inspector.create_end(ecx, call, outcome);
 
-                // If the inspector returns a different status or a revert with a non-empty message,
-                // we assume it wants to tell us something
+                // If the inspector returns a different status or a revert with a non-empty
+                // message, we assume it wants to tell us something
                 let different = outcome.result.result != result
                     || (outcome.result.result == InstructionResult::Revert
                         && outcome.output() != previous_outcome.output());
@@ -833,8 +841,8 @@ impl<
         // Add 21000 to the gas limit to account for the base cost of transaction.
         ecx.tx.set_gas_limit(gas_limit + 21000);
 
-        // If we haven't disabled gas limit checks, ensure that transaction gas limit will not
-        // exceed block gas limit.
+        // If we haven't disabled gas limit checks, ensure that transaction gas limit
+        // will not exceed block gas limit.
         if !ecx.cfg.disable_block_gas_limit {
             ecx.tx
                 .set_gas_limit(std::cmp::min(ecx.tx.gas_limit(), ecx.block.gas_limit()));
@@ -977,8 +985,8 @@ impl<
         )
     }
 
-    /// Moves out of references, constructs an [`InspectorStack`] and runs the given closure with
-    /// it.
+    /// Moves out of references, constructs an [`InspectorStack`] and runs the
+    /// given closure with it.
     fn with_stack<O>(
         &mut self,
         f: impl FnOnce(
@@ -1035,8 +1043,8 @@ impl<
         >,
     ) {
         if self.enable_isolation {
-            // If we're in isolation mode, we need to keep track of the state at the beginning of
-            // the frame to be able to roll back on revert
+            // If we're in isolation mode, we need to keep track of the state at the
+            // beginning of the frame to be able to roll back on revert
             self.top_frame_journal
                 .clone_from(&ecx.journaled_state.state);
         }
@@ -1068,16 +1076,16 @@ impl<
         if !result.is_revert() {
             return;
         }
-        // Encountered a revert, since cheatcodes may have altered the evm state in such a way
-        // that violates some constraints, e.g. `deal`, we need to manually roll back on revert
-        // before revm reverts the state itself
+        // Encountered a revert, since cheatcodes may have altered the evm state in such
+        // a way that violates some constraints, e.g. `deal`, we need to
+        // manually roll back on revert before revm reverts the state itself
         if let Some(cheats) = self.cheatcodes.as_mut() {
             cheats.on_revert(ecx);
         }
 
-        // If we're in isolation mode, we need to rollback to state before the root frame was
-        // created We can't rely on revm's journal because it doesn't account for changes
-        // made by isolated calls
+        // If we're in isolation mode, we need to rollback to state before the root
+        // frame was created We can't rely on revm's journal because it doesn't
+        // account for changes made by isolated calls
         if self.enable_isolation {
             ecx.journaled_state.state = std::mem::take(&mut self.top_frame_journal);
         }
@@ -1323,8 +1331,8 @@ impl<
         if let Some(cheatcodes) = self.cheatcodes.as_deref_mut() {
             // Handle mocked functions, replace bytecode address with mock if matched.
             if let Some(mocks) = cheatcodes.mocked_functions.get(&call.target_address) {
-                // Check if any mock function set for call data or if catch-all mock function set
-                // for selector.
+                // Check if any mock function set for call data or if catch-all mock function
+                // set for selector.
                 if let Some(target) = mocks.get(&call.input.bytes(ecx)).or_else(|| {
                     call.input
                         .bytes(ecx)
@@ -1403,8 +1411,8 @@ impl<
         inputs: &CallInputs,
         outcome: &mut CallOutcome,
     ) {
-        // We are processing inner context outputs in the outer context, so need to avoid processing
-        // twice.
+        // We are processing inner context outputs in the outer context, so need to
+        // avoid processing twice.
         if self.in_inner_context && ecx.journaled_state.depth == 1 {
             return;
         }
@@ -1479,8 +1487,8 @@ impl<
         call: &CreateInputs,
         outcome: &mut CreateOutcome,
     ) {
-        // We are processing inner context outputs in the outer context, so need to avoid processing
-        // twice.
+        // We are processing inner context outputs in the outer context, so need to
+        // avoid processing twice.
         if self.in_inner_context && ecx.journaled_state.depth == 1 {
             return;
         }

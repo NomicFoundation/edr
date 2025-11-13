@@ -1,10 +1,7 @@
 //! Implementations of [`Json`](spec::Group::Json) cheatcodes.
 
-#[allow(clippy::wildcard_imports)]
-use crate::{
-    impl_is_pure_false, impl_is_pure_true, string, Cheatcode, Cheatcodes, FsAccessKind, Result,
-    Vm::*,
-};
+use std::{borrow::Cow, collections::BTreeMap};
+
 use alloy_dyn_abi::{eip712_parser::EncodeType, DynSolType, DynSolValue, Resolver};
 use alloy_primitives::{hex, Address, B256, I256};
 use alloy_sol_types::SolValue;
@@ -18,7 +15,12 @@ use foundry_evm_core::{
 };
 use revm::context::result::HaltReasonTr;
 use serde_json::{Map, Value};
-use std::{borrow::Cow, collections::BTreeMap};
+
+#[allow(clippy::wildcard_imports)]
+use crate::{
+    impl_is_pure_false, impl_is_pure_true, string, Cheatcode, Cheatcodes, FsAccessKind, Result,
+    Vm::*,
+};
 
 impl_is_pure_true!(keyExistsCall);
 impl Cheatcode for keyExistsCall {
@@ -1845,8 +1847,8 @@ pub(super) fn canonicalize_json_path(path: &str) -> Cow<'_, str> {
     }
 }
 
-/// Converts a JSON [`Value`] to a [`DynSolValue`] by trying to guess encoded type. For safer
-/// decoding, use [`parse_json_as`].
+/// Converts a JSON [`Value`] to a [`DynSolValue`] by trying to guess encoded
+/// type. For safer decoding, use [`parse_json_as`].
 ///
 /// The function is designed to run recursively, so that in case of an object
 /// it will call itself to convert each of it's value and encode the whole as a
@@ -1873,8 +1875,8 @@ pub(super) fn json_value_to_token(value: &Value) -> Result<DynSolValue> {
         }
         Value::Number(number) => {
             if let Some(f) = number.as_f64() {
-                // Check if the number has decimal digits because the EVM does not support floating
-                // point math
+                // Check if the number has decimal digits because the EVM does not support
+                // floating point math
                 if f.fract() == 0.0 {
                     // Use the string representation of the `serde_json` Number type instead of
                     // calling f.to_string(), because some numbers are wrongly rounded up after
@@ -1941,8 +1943,8 @@ fn serialize_value_as_json(value: DynSolValue) -> Result<Value> {
     match value {
         DynSolValue::Bool(b) => Ok(Value::Bool(b)),
         DynSolValue::String(s) => {
-            // Strings are allowed to contain stringified JSON objects, so we try to parse it like
-            // one first.
+            // Strings are allowed to contain stringified JSON objects, so we try to parse
+            // it like one first.
             if let Ok(map) = serde_json::from_str(&s) {
                 Ok(Value::Object(map))
             } else {
@@ -1993,13 +1995,15 @@ fn serialize_value_as_json(value: DynSolValue) -> Result<Value> {
     }
 }
 
-/// Serializes a key:value pair to a specific object. If the key is valueKey, the value is
-/// expected to be an object, which will be set as the root object for the provided object key,
-/// overriding the whole root object if the object key already exists. By calling this function
-/// multiple times, the user can serialize multiple KV pairs to the same object. The value can be of
-/// any type, even a new object in itself. The function will return a stringified version of the
-/// object, so that the user can use that as a value to a new invocation of the same function with a
-/// new object key. This enables the user to reuse the same function to crate arbitrarily complex
+/// Serializes a key:value pair to a specific object. If the key is valueKey,
+/// the value is expected to be an object, which will be set as the root object
+/// for the provided object key, overriding the whole root object if the object
+/// key already exists. By calling this function multiple times, the user can
+/// serialize multiple KV pairs to the same object. The value can be of
+/// any type, even a new object in itself. The function will return a
+/// stringified version of the object, so that the user can use that as a value
+/// to a new invocation of the same function with a new object key. This enables
+/// the user to reuse the same function to crate arbitrarily complex
 /// object structures (JSON).
 fn serialize_json<
     BlockT: BlockEnvTr,
@@ -2055,9 +2059,10 @@ pub(super) fn resolve_type(type_description: &str) -> Result<DynSolType> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use alloy_primitives::FixedBytes;
     use proptest::strategy::Strategy;
+
+    use super::*;
 
     fn contains_tuple(value: &DynSolValue) -> bool {
         match value {
@@ -2069,10 +2074,11 @@ mod tests {
         }
     }
 
-    /// [`DynSolValue::Bytes`] of length 32 and 20 are converted to [`DynSolValue::FixedBytes`] and
-    /// [`DynSolValue::Address`] respectively. Thus, we can't distinguish between address and bytes of
-    /// length 20 during decoding. Because of that, there are issues with handling of arrays of
-    /// those types.
+    /// [`DynSolValue::Bytes`] of length 32 and 20 are converted to
+    /// [`DynSolValue::FixedBytes`] and [`DynSolValue::Address`]
+    /// respectively. Thus, we can't distinguish between address and bytes of
+    /// length 20 during decoding. Because of that, there are issues with
+    /// handling of arrays of those types.
     fn fixup_guessable(value: DynSolValue) -> DynSolValue {
         match value {
             DynSolValue::Array(mut v) | DynSolValue::FixedArray(mut v) => {
@@ -2100,7 +2106,8 @@ mod tests {
             .prop_filter("filter out values without type", |v| v.as_type().is_some())
     }
 
-    // Tests to ensure that conversion [DynSolValue] -> [serde_json::Value] -> [DynSolValue]
+    // Tests to ensure that conversion [DynSolValue] -> [serde_json::Value] ->
+    // [DynSolValue]
     proptest::proptest! {
         #[test]
         fn test_json_roundtrip_guessed(v in guessable_types()) {
