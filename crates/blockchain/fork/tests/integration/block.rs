@@ -1,3 +1,5 @@
+#![cfg(feature = "test-remote")]
+
 use std::{str::FromStr as _, sync::Arc};
 
 use edr_block_api::BlockValidityError;

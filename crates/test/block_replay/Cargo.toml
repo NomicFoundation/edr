@@ -28,5 +28,16 @@ parking_lot.workspace = true
 serde.workspace = true
 tokio.workspace = true
 
+[features]
+tracing = [
+    "edr_block_builder_api/tracing",
+    "edr_blockchain_api/tracing",
+    "edr_blockchain_fork/tracing",
+    "edr_chain_spec_block/tracing",
+    "edr_chain_spec_provider/tracing",
+    "edr_evm_spec/tracing",
+    "edr_receipt_spec/tracing"
+]
+
 [lints]
 workspace = true

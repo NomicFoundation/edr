@@ -23,5 +23,17 @@ edr_test_transaction.workspace = true
 paste.workspace = true
 serial_test = "2.0.0"
 
+[features]
+tracing = [
+    "edr_block_local/tracing",
+    "edr_chain_l1/tracing",
+    "edr_chain_spec_block/tracing",
+    "edr_chain_spec_provider/tracing",
+    "edr_evm_spec/tracing",
+    "edr_receipt_builder_api/tracing",
+    "edr_receipt_spec/tracing",
+    "edr_test_transaction/tracing"
+]
+
 [lints]
 workspace = true

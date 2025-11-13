@@ -27,5 +27,8 @@ edr_state_api.workspace = true
 edr_test_utils.workspace = true
 revm-context.workspace = true
 
+[features]
+tracing = ["edr_evm_spec/tracing", "edr_runtime/tracing"]
+
 [lints]
 workspace = true

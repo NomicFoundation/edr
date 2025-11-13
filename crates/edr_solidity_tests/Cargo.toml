@@ -57,6 +57,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 [features]
 test-remote = []
+tracing = ["edr_coverage/tracing", "edr_gas_report/tracing", "edr_runtime/tracing", "edr_solidity/tracing"]
 
 [lints]
 workspace = true

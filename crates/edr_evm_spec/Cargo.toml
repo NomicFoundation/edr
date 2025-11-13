@@ -14,5 +14,8 @@ revm-inspector.workspace = true
 revm-interpreter.workspace = true
 thiserror.workspace = true
 
+[features]
+tracing = ["edr_database_components/tracing"]
+
 [lints]
 workspace = true

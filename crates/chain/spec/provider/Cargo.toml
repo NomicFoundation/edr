@@ -16,5 +16,8 @@ edr_rpc_spec.workspace = true
 edr_transaction.workspace = true
 serde.workspace = true
 
+[features]
+tracing = ["edr_chain_spec_block/tracing", "edr_receipt_spec/tracing"]
+
 [lints]
 workspace = true

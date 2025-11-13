@@ -10,5 +10,8 @@ edr_receipt.workspace = true
 edr_receipt_spec.workspace = true
 edr_rpc_spec.workspace = true
 
+[features]
+tracing = ["edr_receipt_spec/tracing"]
+
 [lints]
 workspace = true

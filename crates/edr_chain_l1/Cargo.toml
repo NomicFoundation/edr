@@ -49,7 +49,17 @@ paste.workspace = true
 serde_json.workspace = true
 
 [features]
-tracing = ["dep:tracing"]
+tracing = [
+    "dep:tracing",
+    "edr_block_builder_api/tracing",
+    "edr_block_local/tracing",
+    "edr_chain_spec_block/tracing",
+    "edr_chain_spec_provider/tracing",
+    "edr_evm/tracing",
+    "edr_evm_spec/tracing",
+    "edr_receipt_builder_api/tracing",
+    "edr_receipt_spec/tracing"
+]
 
 [lints]
 workspace = true

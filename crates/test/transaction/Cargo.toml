@@ -10,5 +10,8 @@ edr_primitives.workspace = true
 edr_runtime.workspace = true
 edr_transaction.workspace = true
 
+[features]
+tracing = ["edr_chain_l1/tracing", "edr_runtime/tracing"]
+
 [lints]
 workspace = true

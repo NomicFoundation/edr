@@ -90,9 +90,26 @@ cargo_toml = { version = "0.22.3", default-features = false }
 toml = { version = "0.9.5", default-features = false }
 
 [features]
-test-utils = ["dep:anyhow", "dep:edr_test_utils"]
-tracing = ["dep:tracing", "edr_runtime/tracing"]
 test-remote = ["dep:edr_test_utils"]
+test-utils = ["dep:anyhow", "dep:edr_test_utils"]
+tracing = [
+    "dep:tracing",
+    "edr_block_builder_api/tracing",
+    "edr_blockchain_api/tracing",
+    "edr_blockchain_fork/tracing",
+    "edr_blockchain_local/tracing",
+    "edr_chain_l1/tracing",
+    "edr_chain_spec_block/tracing",
+    "edr_chain_spec_provider/tracing",
+    "edr_coverage/tracing",
+    "edr_database_components/tracing",
+    "edr_evm/tracing",
+    "edr_evm_spec/tracing",
+    "edr_gas_report/tracing",
+    "edr_receipt_spec/tracing",
+    "edr_runtime/tracing",
+    "edr_solidity/tracing"
+]
 
 [lints]
 workspace = true

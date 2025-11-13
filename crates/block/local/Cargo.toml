@@ -20,5 +20,8 @@ edr_utils.workspace = true
 itertools.workspace = true
 thiserror.workspace = true
 
+[features]
+tracing = ["edr_receipt_spec/tracing", "edr_state_persistent_trie/tracing"]
+
 [lints]
 workspace = true

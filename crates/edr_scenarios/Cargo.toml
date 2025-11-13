@@ -12,9 +12,9 @@ edr_chain_config.workspace = true
 edr_defaults.workspace = true
 edr_eth.workspace = true
 edr_runtime = { workspace = true, features = ["tracing"] }
-edr_napi_core.workspace = true
+edr_napi_core = { workspace = true, features = ["tracing"] }
 edr_primitives.workspace = true
-edr_provider = { workspace = true, features = ["test-utils"] }
+edr_provider = { workspace = true, features = ["test-utils", "tracing"] }
 edr_test_utils.workspace = true
 k256 = { version = "0.13.1", default-features = false, features = ["arithmetic", "ecdsa", "pem", "pkcs8", "precomputed-tables", "std"] }
 serde = { workspace = true, features = ["derive"] }

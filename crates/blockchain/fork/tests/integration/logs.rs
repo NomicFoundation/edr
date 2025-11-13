@@ -1,3 +1,5 @@
+#![cfg(feature = "test-remote")]
+
 use std::str::FromStr as _;
 
 use edr_blockchain_api::GetBlockchainLogs as _;

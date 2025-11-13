@@ -34,7 +34,6 @@ edr_trie.workspace = true
 edr_signer.workspace = true
 edr_state_api.workspace = true
 edr_state_fork.workspace = true
-edr_state_remote.workspace = true
 edr_state_persistent_trie.workspace = true
 edr_utils.workspace = true
 futures = { version = "0.3.28", features = ["alloc", "async-await", "executor", "std"] }
@@ -68,7 +67,18 @@ tempfile.workspace = true
 [features]
 test-remote = []
 test-utils = ["dep:anyhow", "dep:edr_block_remote", "dep:edr_blockchain_fork"]
-tracing = ["dep:tracing"]
+tracing = [
+    "dep:tracing",
+    "edr_block_builder_api/tracing",
+    "edr_block_storage/tracing",
+    "edr_blockchain_api/tracing",
+    "edr_chain_l1/tracing",
+    "edr_chain_spec_block/tracing",
+    "edr_database_components/tracing",
+    "edr_evm_spec/tracing",
+    "edr_state_fork/tracing",
+    "edr_state_persistent_trie/tracing"
+]
 
 [lints]
 workspace = true
