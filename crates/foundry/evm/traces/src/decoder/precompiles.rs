@@ -35,7 +35,7 @@ interface Precompiles {
     /* 0x0a */ function pointEvaluation(bytes32 versionedHash, bytes32 z, bytes32 y, bytes1[48] commitment, bytes1[48] proof) returns (bytes value);
 }
 }
-use Precompiles::*;
+use Precompiles::{ecrecoverCall, sha256Call, ripemdCall, identityCall, modexpCall, ecaddCall, ecmulCall, ecpairingCall, blake2fCall, pointEvaluationCall};
 
 macro_rules! tri {
     ($e:expr) => {
@@ -47,7 +47,7 @@ macro_rules! tri {
 }
 
 pub(super) fn is_known_precompile(address: Address, _chain_id: u64) -> bool {
-    address[..19].iter().all(|&x| x == 0)
+    address.get(..19).is_some_and(|slice| slice.iter().all(|&x| x == 0))
         && matches!(
             address,
             EC_RECOVER
@@ -145,7 +145,7 @@ fn decode_blake2f<'a>(data: &'a [u8]) -> alloy_sol_types::Result<Vec<String>> {
     let h = u64_le_list(decoder.take_slice(64)?);
     let m = u64_le_list(decoder.take_slice(128)?);
     let t = u64_le_list(decoder.take_slice(16)?);
-    let f = decoder.take_slice(1)?[0];
+    let f = *decoder.take_slice(1)?.first().ok_or_else(|| alloy_sol_types::Error::custom("Slice is empty"))?;
     Ok(vec![
         rounds.to_string(),
         iter_to_string(h),

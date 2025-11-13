@@ -4228,6 +4228,7 @@ dependencies = [
  "foundry-evm-core",
  "itertools 0.12.1",
  "reqwest 0.12.15",
+ "revm",
  "revm-inspectors",
  "serde",
  "serde_json",

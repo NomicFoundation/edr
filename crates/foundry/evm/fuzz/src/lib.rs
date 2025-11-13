@@ -79,25 +79,27 @@ impl BaseCounterExample {
         traces: Option<SparsedTraceArena>,
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
-        if let Some((name, abi)) = &contracts.get(&addr)
-            && let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4])
-        {
-            // skip the function selector when decoding
-            if let Ok(args) = func.abi_decode_input(&bytes[4..]) {
-                return Self {
-                    sender: Some(sender),
-                    addr: Some(addr),
-                    calldata: bytes.clone(),
-                    contract_name: Some(name.clone()),
-                    func_name: Some(func.name.clone()),
-                    signature: Some(func.signature()),
-                    args: Some(edr_common::fmt::format_tokens(&args).format(", ").to_string()),
-                    raw_args: Some(
-                        edr_common::fmt::format_tokens_raw(&args).format(", ").to_string(),
-                    ),
-                    traces,
-                    indeterminism_reasons,
-                };
+        if let Some((name, abi)) = &contracts.get(&addr) {
+            let selector = bytes.get(..4).unwrap_or(&[]);
+            if let Some(func) = abi.functions().find(|f| f.selector() == selector) {
+                // skip the function selector when decoding
+                let calldata_args = bytes.get(4..).unwrap_or(&[]);
+                if let Ok(args) = func.abi_decode_input(calldata_args) {
+                    return Self {
+                        sender: Some(sender),
+                        addr: Some(addr),
+                        calldata: bytes.clone(),
+                        contract_name: Some(name.clone()),
+                        func_name: Some(func.name.clone()),
+                        signature: Some(func.signature()),
+                        args: Some(edr_common::fmt::format_tokens(&args).format(", ").to_string()),
+                        raw_args: Some(
+                            edr_common::fmt::format_tokens_raw(&args).format(", ").to_string(),
+                        ),
+                        traces,
+                        indeterminism_reasons,
+                    };
+                }
             }
         }
 
@@ -141,21 +143,21 @@ impl fmt::Display for BaseCounterExample {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Regular counterexample display.
         if let Some(sender) = self.sender {
-            write!(f, "\t\tsender={sender} addr=")?
+            write!(f, "\t\tsender={sender} addr=")?;
         }
 
         if let Some(name) = &self.contract_name {
-            write!(f, "[{name}]")?
+            write!(f, "[{name}]")?;
         }
 
         if let Some(addr) = &self.addr {
-            write!(f, "{addr} ")?
+            write!(f, "{addr} ")?;
         }
 
         if let Some(sig) = &self.signature {
-            write!(f, "calldata={sig}")?
+            write!(f, "calldata={sig}")?;
         } else {
-            write!(f, "calldata={}", &self.calldata)?
+            write!(f, "calldata={}", &self.calldata)?;
         }
 
         if let Some(args) = &self.args {
@@ -171,7 +173,7 @@ impl fmt::Display for BaseCounterExample {
 pub struct FuzzTestResult {
     /// we keep this for the debugger
     pub first_case: FuzzCase,
-    /// Gas usage (gas_used, call_stipend) per cases
+    /// Gas usage (`gas_used`, `call_stipend`) per cases
     pub gas_by_case: Vec<(u64, u64)>,
     /// Whether the test case was successful. This means that the transaction executed
     /// properly, or that there was a revert and that the test was expected to fail
@@ -269,7 +271,7 @@ impl FuzzedCases {
         self.cases
     }
 
-    /// Get the last [FuzzCase]
+    /// Get the last [`FuzzCase`]
     #[inline]
     pub fn last(&self) -> Option<&FuzzCase> {
         self.cases.last()

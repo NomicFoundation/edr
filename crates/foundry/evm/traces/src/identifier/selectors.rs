@@ -32,7 +32,7 @@ const MAX_TIMEDOUT_REQ: usize = 4usize;
 /// List of signatures for a given [`SelectorKind`].
 pub type OpenChainSignatures = Vec<String>;
 
-/// A client that can request API data from OpenChain.
+/// A client that can request API data from `OpenChain`.
 #[derive(Clone, Debug)]
 pub struct OpenChainClient {
     inner: reqwest::Client,
@@ -54,8 +54,8 @@ impl OpenChainClient {
             .wrap_err("failed to build OpenChain client")?;
         Ok(Self {
             inner,
-            spurious_connection: Default::default(),
-            timedout_requests: Default::default(),
+            spurious_connection: Arc::default(),
+            timedout_requests: Arc::default(),
             max_timedout_requests: MAX_TIMEDOUT_REQ,
         })
     }
@@ -121,7 +121,7 @@ impl OpenChainClient {
 
     /// Marks the connection as spurious
     fn set_spurious(&self) {
-        self.spurious_connection.store(true, Ordering::Relaxed)
+        self.spurious_connection.store(true, Ordering::Relaxed);
     }
 
     fn ensure_not_spurious(&self) -> eyre::Result<()> {
@@ -131,7 +131,7 @@ impl OpenChainClient {
         Ok(())
     }
 
-    /// Decodes the given function or event selector using OpenChain
+    /// Decodes the given function or event selector using `OpenChain`
     pub async fn decode_selector(
         &self,
         selector: SelectorKind,
@@ -139,7 +139,7 @@ impl OpenChainClient {
         Ok(self.decode_selectors(&[selector]).await?.pop().unwrap())
     }
 
-    /// Decodes the given function, error or event selectors using OpenChain.
+    /// Decodes the given function, error or event selectors using `OpenChain`.
     pub async fn decode_selectors(
         &self,
         selectors: &[SelectorKind],
@@ -201,7 +201,7 @@ impl OpenChainClient {
             .collect())
     }
 
-    /// Fetches a function signature given the selector using OpenChain
+    /// Fetches a function signature given the selector using `OpenChain`
     pub async fn decode_function_selector(
         &self,
         selector: Selector,
@@ -225,12 +225,12 @@ impl OpenChainClient {
         Ok(sigs)
     }
 
-    /// Fetches an event signature given the 32 byte topic using OpenChain.
+    /// Fetches an event signature given the 32 byte topic using `OpenChain`.
     pub async fn decode_event_topic(&self, topic: B256) -> eyre::Result<OpenChainSignatures> {
         self.decode_selector(SelectorKind::Event(topic)).await
     }
 
-    /// uploads selectors to OpenChain using the given data
+    /// uploads selectors to `OpenChain` using the given data
     pub async fn import_selectors(
         &self,
         data: SelectorImportData,
@@ -243,15 +243,15 @@ impl OpenChainClient {
                     .iter()
                     .flat_map(|abi| {
                         abi.functions()
-                            .map(|func| func.signature())
-                            .chain(abi.errors().map(|error| error.signature()))
+                            .map(alloy_json_abi::Function::signature)
+                            .chain(abi.errors().map(alloy_json_abi::Error::signature))
                             .collect::<Vec<_>>()
                     })
                     .collect();
 
                 let events = abis
                     .iter()
-                    .flat_map(|abi| abi.events().map(|event| event.signature()))
+                    .flat_map(|abi| abi.events().map(alloy_json_abi::Event::signature))
                     .collect::<Vec<_>>();
 
                 SelectorImportRequest { function: functions_and_errors, event: events }
@@ -307,7 +307,7 @@ impl fmt::Display for PossibleSigs {
     }
 }
 
-/// The kind of selector to fetch from OpenChain.
+/// The kind of selector to fetch from `OpenChain`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SelectorKind {
     /// A function selector.
@@ -323,7 +323,7 @@ impl SelectorKind {
     pub fn as_function(&self) -> Option<Selector> {
         match *self {
             Self::Function(selector) | Self::Error(selector) => Some(selector),
-            _ => None,
+            Self::Event(_) => None,
         }
     }
 
@@ -383,23 +383,23 @@ impl SelectorImportResponse {
     /// Print info about the functions which were uploaded or already known
     pub fn describe(&self) {
         self.result.function.imported.iter().for_each(|(k, v)| {
-            let _ = println!("Imported: Function {k}: {v}");
+            println!("Imported: Function {k}: {v}");
         });
         self.result.event.imported.iter().for_each(|(k, v)| {
-            let _ = println!("Imported: Event {k}: {v}");
+            println!("Imported: Event {k}: {v}");
         });
         self.result.function.duplicated.iter().for_each(|(k, v)| {
-            let _ = println!("Duplicated: Function {k}: {v}");
+            println!("Duplicated: Function {k}: {v}");
         });
         self.result.event.duplicated.iter().for_each(|(k, v)| {
-            let _ = println!("Duplicated: Event {k}: {v}");
+            println!("Duplicated: Event {k}: {v}");
         });
 
-        let _ = println!("Selectors successfully uploaded to OpenChain");
+        println!("Selectors successfully uploaded to OpenChain");
     }
 }
 
-/// uploads selectors to OpenChain using the given data
+/// uploads selectors to `OpenChain` using the given data
 pub async fn import_selectors(data: SelectorImportData) -> eyre::Result<SelectorImportResponse> {
     OpenChainClient::new()?.import_selectors(data).await
 }
@@ -438,17 +438,17 @@ pub fn parse_signatures(tokens: Vec<String>) -> ParsedSignatures {
             match split.next() {
                 Some("function") => {
                     if let Some(sig) = split.next() {
-                        data.function.push(sig.to_string())
+                        data.function.push(sig.to_string());
                     }
                 }
                 Some("event") => {
                     if let Some(sig) = split.next() {
-                        data.event.push(sig.to_string())
+                        data.event.push(sig.to_string());
                     }
                 }
                 Some("error") => {
                     if let Some(sig) = split.next() {
-                        data.error.push(sig.to_string())
+                        data.error.push(sig.to_string());
                     }
                 }
                 Some(signature) => {
@@ -539,7 +539,7 @@ mod tests {
         let result = parse_signatures(vec!["event".to_string()]);
         assert_eq!(
             result,
-            ParsedSignatures { signatures: Default::default(), ..Default::default() }
+            ParsedSignatures { signatures: RawSelectorImportData::default(), ..Default::default() }
         );
     }
 }

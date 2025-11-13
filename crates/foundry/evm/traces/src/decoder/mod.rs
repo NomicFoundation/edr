@@ -31,7 +31,7 @@ use crate::identifier::SelectorKind;
 
 mod precompiles;
 
-/// Build a new [CallTraceDecoder].
+/// Build a new [`CallTraceDecoder`].
 #[derive(Default)]
 #[must_use = "builders do nothing unless you call `build` on them"]
 pub struct CallTraceDecoderBuilder {
@@ -98,7 +98,7 @@ impl CallTraceDecoderBuilder {
 
 /// The call trace decoder.
 ///
-/// The decoder collects address labels and ABIs from any number of [TraceIdentifier]s, which it
+/// The decoder collects address labels and ABIs from any number of [`TraceIdentifier`]s, which it
 /// then uses to decode the call trace.
 ///
 /// Note that a call trace decoder is required for each new set of traces, since addresses in
@@ -152,7 +152,7 @@ impl CallTraceDecoder {
 
     fn init() -> Self {
         Self {
-            contracts: Default::default(),
+            contracts: HashMap::default(),
             labels: HashMap::from_iter([
                 (CHEATCODE_ADDRESS, "VM".to_string()),
                 (HARDHAT_CONSOLE_ADDRESS, "console".to_string()),
@@ -170,9 +170,9 @@ impl CallTraceDecoder {
                 (BLAKE_2F, "Blake2F".to_string()),
                 (POINT_EVALUATION, "PointEvaluation".to_string()),
             ]),
-            receive_contracts: Default::default(),
-            fallback_contracts: Default::default(),
-            non_fallback_contracts: Default::default(),
+            receive_contracts: HashSet::default(),
+            fallback_contracts: HashMap::default(),
+            non_fallback_contracts: HashMap::default(),
 
             functions: console::hh::abi::functions()
                 .into_values()
@@ -185,7 +185,7 @@ impl CallTraceDecoder {
                 .flatten()
                 .map(|event| ((event.selector(), indexed_inputs(&event)), vec![event]))
                 .collect(),
-            revert_decoder: Default::default(),
+            revert_decoder: RevertDecoder::default(),
 
             signature_identifier: None,
             verbosity: 0,
@@ -307,17 +307,17 @@ impl CallTraceDecoder {
 
             if abi.fallback.is_some() {
                 self.fallback_contracts
-                    .insert(address, abi.functions().map(|f| f.selector()).collect());
+                    .insert(address, abi.functions().map(alloy_json_abi::Function::selector).collect());
             } else {
                 self.non_fallback_contracts
-                    .insert(address, abi.functions().map(|f| f.selector()).collect());
+                    .insert(address, abi.functions().map(alloy_json_abi::Function::selector).collect());
             }
         }
     }
 
     /// Populates the traces with decoded data by mutating the
-    /// [CallTrace] in place. See [CallTraceDecoder::decode_function] and
-    /// [CallTraceDecoder::decode_event] for more details.
+    /// [`CallTrace`] in place. See [`CallTraceDecoder::decode_function`] and
+    /// [`CallTraceDecoder::decode_event`] for more details.
     pub async fn populate_traces(&self, traces: &mut Vec<CallTraceNode>) {
         for node in traces {
             node.trace.decoded = self.decode_function(&node.trace).await;
@@ -350,18 +350,16 @@ impl CallTraceDecoder {
         }
 
         if is_abi_call_data(cdata) {
-            let selector = Selector::try_from(&cdata[..SELECTOR_LEN]).unwrap();
+            let selector_bytes = cdata.get(..SELECTOR_LEN).unwrap_or(&[]);
+            let selector = Selector::try_from(selector_bytes).unwrap();
             let mut functions = Vec::new();
-            let functions = match self.functions.get(&selector) {
-                Some(fs) => fs,
-                None => {
-                    if let Some(identifier) = &self.signature_identifier
-                        && let Some(function) = identifier.identify_function(selector).await
-                    {
-                        functions.push(function);
-                    }
-                    &functions
+            let functions = if let Some(fs) = self.functions.get(&selector) { fs } else {
+                if let Some(identifier) = &self.signature_identifier
+                    && let Some(function) = identifier.identify_function(selector).await
+                {
+                    functions.push(function);
                 }
+                &functions
             };
 
             // Check if unsupported fn selector: calldata dooes NOT point to one of its selectors +
@@ -443,10 +441,11 @@ impl CallTraceDecoder {
                 }
             }
 
-            if args.is_none()
-                && let Ok(v) = func.abi_decode_input(&trace.data[SELECTOR_LEN..])
-            {
-                args = Some(v.iter().map(|value| self.format_value(value)).collect());
+            if args.is_none() {
+                let input_data = trace.data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                if let Ok(v) = func.abi_decode_input(input_data) {
+                    args = Some(v.iter().map(|value| self.format_value(value)).collect());
+                }
             }
         }
 
@@ -464,7 +463,7 @@ impl CallTraceDecoder {
             "broadcast" | "startBroadcast" => {
                 // Redact private key if defined
                 // broadcast(uint256) / startBroadcast(uint256)
-                if !func.inputs.is_empty() && func.inputs[0].ty == "uint256" {
+                if func.inputs.first().is_some_and(|input| input.ty == "uint256") {
                     Some(vec!["<pk>".to_string()])
                 } else {
                     None
@@ -473,31 +472,35 @@ impl CallTraceDecoder {
             "getNonce" => {
                 // Redact private key if defined
                 // getNonce(Wallet)
-                if !func.inputs.is_empty() && func.inputs[0].ty == "tuple" {
+                if func.inputs.first().is_some_and(|input| input.ty == "tuple") {
                     Some(vec!["<pk>".to_string()])
                 } else {
                     None
                 }
             }
             "sign" | "signP256" => {
-                let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..]).ok()?;
+                let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                let mut decoded = func.abi_decode_input(input_data).ok()?;
 
                 // Redact private key and replace in trace
                 // sign(uint256,bytes32) / signP256(uint256,bytes32) / sign(Wallet,bytes32)
                 if !decoded.is_empty() &&
-                    (func.inputs[0].ty == "uint256" || func.inputs[0].ty == "tuple")
-                {
-                    decoded[0] = DynSolValue::String("<pk>".to_string());
-                }
+                    func.inputs.first().is_some_and(|input| input.ty == "uint256" || input.ty == "tuple")
+                    && let Some(first) = decoded.get_mut(0) {
+                        *first = DynSolValue::String("<pk>".to_string());
+                    }
 
                 Some(decoded.iter().map(format_token).collect())
             }
             "signDelegation" | "signAndAttachDelegation" => {
-                let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..]).ok()?;
+                let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                let mut decoded = func.abi_decode_input(input_data).ok()?;
                 // Redact private key and replace in trace for
                 // signAndAttachDelegation(address implementation, uint256 privateKey)
                 // signDelegation(address implementation, uint256 privateKey)
-                decoded[1] = DynSolValue::String("<pk>".to_string());
+                if let Some(second) = decoded.get_mut(1) {
+                    *second = DynSolValue::String("<pk>".to_string());
+                }
                 Some(decoded.iter().map(format_token).collect())
             }
             "parseJson" |
@@ -530,7 +533,8 @@ impl CallTraceDecoder {
                 if self.verbosity >= 5 {
                     None
                 } else {
-                    let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..]).ok()?;
+                    let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                    let mut decoded = func.abi_decode_input(input_data).ok()?;
                     let token = if func.name.as_str() == "parseJson" ||
                         // `keyExists` is being deprecated in favor of `keyExistsJson`. It will be removed in future versions.
                         func.name.as_str() == "keyExists" ||
@@ -540,7 +544,9 @@ impl CallTraceDecoder {
                     } else {
                         "<stringified JSON>"
                     };
-                    decoded[0] = DynSolValue::String(token.to_string());
+                    if let Some(first) = decoded.get_mut(0) {
+                        *first = DynSolValue::String(token.to_string());
+                    }
                     Some(decoded.iter().map(format_token).collect())
                 }
             }
@@ -548,7 +554,8 @@ impl CallTraceDecoder {
                 if self.verbosity >= 5 {
                     None
                 } else {
-                    let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..]).ok()?;
+                    let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                    let mut decoded = func.abi_decode_input(input_data).ok()?;
                     let token = if func.name.as_str() == "parseToml" ||
                         func.name.as_str() == "keyExistsToml"
                     {
@@ -556,21 +563,28 @@ impl CallTraceDecoder {
                     } else {
                         "<stringified TOML>"
                     };
-                    decoded[0] = DynSolValue::String(token.to_string());
+                    if let Some(first) = decoded.get_mut(0) {
+                        *first = DynSolValue::String(token.to_string());
+                    }
                     Some(decoded.iter().map(format_token).collect())
                 }
             }
             "createFork" |
             "createSelectFork" |
             "rpc" => {
-                let mut decoded = func.abi_decode_input(&data[SELECTOR_LEN..]).ok()?;
+                let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                let mut decoded = func.abi_decode_input(input_data).ok()?;
 
                 // Redact RPC URL except if referenced by an alias
-                if !decoded.is_empty() && func.inputs[0].ty == "string" {
-                    let url_or_alias = decoded[0].as_str().unwrap_or_default();
+                if !decoded.is_empty() && func.inputs.first().is_some_and(|input| input.ty == "string") {
+                    if let Some(first_val) = decoded.first() {
+                        let url_or_alias = first_val.as_str().unwrap_or_default();
 
-                    if url_or_alias.starts_with("http") || url_or_alias.starts_with("ws") {
-                        decoded[0] = DynSolValue::String("<rpc url>".to_string());
+                        if (url_or_alias.starts_with("http") || url_or_alias.starts_with("ws"))
+                            && let Some(first) = decoded.get_mut(0)
+                        {
+                            *first = DynSolValue::String("<rpc url>".to_string());
+                        }
                     }
                 } else {
                     return None;
@@ -646,7 +660,7 @@ impl CallTraceDecoder {
         // This is due to trace.status is derived from the revm_interpreter::InstructionResult in
         // revm-inspectors status will `None` post revm 27, as `InstructionResult::Continue` does
         // not exists anymore.
-        if trace.status.is_none() || trace.status.is_some_and(|s| s.is_ok()) {
+        if trace.status.is_none() || trace.status.is_some_and(revm::interpreter::InstructionResult::is_ok) {
             return None;
         }
         (!trace.success).then(|| self.revert_decoder.decode(&trace.output, trace.status))
@@ -657,16 +671,13 @@ impl CallTraceDecoder {
         let &[t0, ..] = log.topics() else { return DecodedCallLog { name: None, params: None } };
 
         let mut events = Vec::new();
-        let events = match self.events.get(&(t0, log.topics().len() - 1)) {
-            Some(es) => es,
-            None => {
-                if let Some(identifier) = &self.signature_identifier
-                    && let Some(event) = identifier.identify_event(t0).await
-                {
-                    events.push(get_indexed_event(event, log));
-                }
-                &events
+        let events = if let Some(es) = self.events.get(&(t0, log.topics().len() - 1)) { es } else {
+            if let Some(identifier) = &self.signature_identifier
+                && let Some(event) = identifier.identify_event(t0).await
+            {
+                events.push(get_indexed_event(event, log));
             }
+            &events
         };
         for event in events {
             if let Ok(decoded) = event.decode_log(log) {
@@ -755,7 +766,10 @@ fn is_abi_call_data(data: &[u8]) -> bool {
     match data.len().cmp(&SELECTOR_LEN) {
         std::cmp::Ordering::Less => false,
         std::cmp::Ordering::Equal => true,
-        std::cmp::Ordering::Greater => is_abi_data(&data[SELECTOR_LEN..]),
+        std::cmp::Ordering::Greater => {
+            let payload = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+            is_abi_data(payload)
+        }
     }
 }
 
@@ -768,7 +782,7 @@ fn is_abi_data(data: &[u8]) -> bool {
         return true;
     }
     // If the length is not a multiple of 32, also accept when the last remainder bytes are all 0.
-    data[data.len() - rem..].iter().all(|byte| *byte == 0)
+    data.get(data.len() - rem..).is_some_and(|slice| slice.iter().all(|byte| *byte == 0))
 }
 
 /// Restore the order of the params of a decoded event,
@@ -782,10 +796,14 @@ fn reconstruct_params(event: &Event, decoded: &DecodedEvent) -> Vec<DynSolValue>
         // `Transfer(address indexed from, address indexed to, uint256 indexed tokenId)` by making
         // sure the event inputs is not higher than decoded indexed / un-indexed values.
         if input.indexed && indexed < decoded.indexed.len() {
-            inputs.push(decoded.indexed[indexed].clone());
+            if let Some(value) = decoded.indexed.get(indexed) {
+                inputs.push(value.clone());
+            }
             indexed += 1;
         } else if unindexed < decoded.body.len() {
-            inputs.push(decoded.body[unindexed].clone());
+            if let Some(value) = decoded.body.get(unindexed) {
+                inputs.push(value.clone());
+            }
             unindexed += 1;
         }
     }

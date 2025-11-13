@@ -16,7 +16,7 @@ where
 }
 
 /// Given a function and a vector of string arguments, it proceeds to convert the args to alloy
-/// [DynSolValue]s and then ABI encode them, prefixes the encoded data with the function selector.
+/// [`DynSolValue`]s and then ABI encode them, prefixes the encoded data with the function selector.
 pub fn encode_function_args<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
 where
     I: IntoIterator<Item = S>,
@@ -26,7 +26,7 @@ where
 }
 
 /// Given a function and a vector of string arguments, it proceeds to convert the args to alloy
-/// [DynSolValue]s and then ABI encode them. Doesn't prefix the function selector.
+/// [`DynSolValue`]s and then ABI encode them. Doesn't prefix the function selector.
 pub fn encode_function_args_raw<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
 where
     I: IntoIterator<Item = S>,
@@ -36,7 +36,7 @@ where
 }
 
 /// Given a function and a vector of string arguments, it proceeds to convert the args to alloy
-/// [DynSolValue]s and encode them using the packed encoding.
+/// [`DynSolValue`]s and encode them using the packed encoding.
 pub fn encode_function_args_packed<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
 where
     I: IntoIterator<Item = S>,
@@ -65,7 +65,7 @@ pub fn abi_decode_calldata(
     let mut calldata = calldata.as_slice();
     // If function selector is prefixed in "calldata", remove it (first 4 bytes)
     if input && fn_selector && calldata.len() >= 4 {
-        calldata = &calldata[4..];
+        calldata = calldata.get(4..).unwrap_or(calldata);
     }
 
     let res =
@@ -111,12 +111,12 @@ pub fn get_indexed_event(mut event: Event, raw_log: &LogData) -> Event {
             {
                 param.indexed = true;
             }
-        })
+        });
     }
     event
 }
 
-/// Helper function to coerce a value to a [DynSolValue] given a type string
+/// Helper function to coerce a value to a [`DynSolValue`] given a type string
 pub fn coerce_value(ty: &str, arg: &str) -> Result<DynSolValue> {
     let ty = DynSolType::parse(ty)?;
     Ok(DynSolType::coerce_str(&ty, arg)?)

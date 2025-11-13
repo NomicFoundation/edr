@@ -114,10 +114,10 @@ impl TargetedContracts {
     /// Used to decode return values and logs in order to add values into fuzz dictionary.
     pub fn fuzzed_artifacts(&self, tx: &BasicTxDetails) -> (Option<&JsonAbi>, Option<&Function>) {
         match self.inner.get(&tx.call_details.target) {
-            Some(c) => (
-                Some(&c.abi),
-                c.abi.functions().find(|f| f.selector() == tx.call_details.calldata[..4]),
-            ),
+            Some(c) => {
+                let selector = tx.call_details.calldata.get(..4).unwrap_or(&[]);
+                (Some(&c.abi), c.abi.functions().find(|f| f.selector() == selector))
+            }
             None => (None, None),
         }
     }
@@ -134,7 +134,10 @@ impl TargetedContracts {
     /// Returns whether the given transaction can be replayed or not with known contracts.
     pub fn can_replay(&self, tx: &BasicTxDetails) -> bool {
         match self.inner.get(&tx.call_details.target) {
-            Some(c) => c.abi.functions().any(|f| f.selector() == tx.call_details.calldata[..4]),
+            Some(c) => {
+                let selector = tx.call_details.calldata.get(..4).unwrap_or(&[]);
+                c.abi.functions().any(|f| f.selector() == selector)
+            }
             None => false,
         }
     }
@@ -143,10 +146,11 @@ impl TargetedContracts {
     /// key composed from contract identifier and function name.
     pub fn fuzzed_metric_key(&self, tx: &BasicTxDetails) -> Option<String> {
         self.inner.get(&tx.call_details.target).and_then(|contract| {
+            let selector = tx.call_details.calldata.get(..4).unwrap_or(&[]);
             contract
                 .abi
                 .functions()
-                .find(|f| f.selector() == tx.call_details.calldata[..4])
+                .find(|f| f.selector() == selector)
                 .map(|function| format!("{}.{}", contract.identifier.clone(), function.name))
         })
     }
