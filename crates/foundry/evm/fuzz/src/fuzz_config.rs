@@ -1,8 +1,8 @@
+use alloy_primitives::U256;
+use proptest::test_runner::{FailurePersistence, FileFailurePersistence};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{OnceLock, RwLock};
-use alloy_primitives::U256;
-use proptest::test_runner::{FailurePersistence, FileFailurePersistence};
 
 static FAILURE_PATHS: OnceLock<RwLock<HashSet<&'static str>>> = OnceLock::new();
 
@@ -81,7 +81,7 @@ impl FuzzConfig {
             {
                 let failure_paths_guard = failure_paths.read().expect("lock is not poisoned");
                 if let Some(static_path) = failure_paths_guard.get(&*failure_persist_path) {
-                    return Some(Box::new(FileFailurePersistence::Direct(static_path)))
+                    return Some(Box::new(FileFailurePersistence::Direct(static_path)));
                 }
             }
             // Write block

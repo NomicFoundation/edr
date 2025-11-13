@@ -1,5 +1,5 @@
 use crate::Vm;
-use alloy_primitives::{Address, Bytes, hex};
+use alloy_primitives::{hex, Address, Bytes};
 use alloy_signer::Error as SignerError;
 use alloy_signer_local::LocalSignerError;
 use alloy_sol_types::SolError;
@@ -147,7 +147,10 @@ impl Error {
     /// otherwise returns the raw bytes.
     pub fn abi_encode(&self) -> Vec<u8> {
         match self.kind() {
-            ErrorKind::String(string) => Vm::CheatcodeError { message: string.into() }.abi_encode(),
+            ErrorKind::String(string) => Vm::CheatcodeError {
+                message: string.into(),
+            }
+            .abi_encode(),
             ErrorKind::Bytes(bytes) => bytes.into(),
         }
     }
@@ -183,7 +186,11 @@ impl Error {
 
     #[inline]
     fn new_string(data: String) -> Self {
-        Self::_new(true, true, Box::into_raw(data.into_boxed_str().into_boxed_bytes()))
+        Self::_new(
+            true,
+            true,
+            Box::into_raw(data.into_boxed_str().into_boxed_bytes()),
+        )
     }
 
     #[inline]
@@ -309,7 +316,10 @@ mod tests {
 
     #[test]
     fn encode() {
-        let error = Vm::CheatcodeError { message: "hello".into() }.abi_encode();
+        let error = Vm::CheatcodeError {
+            message: "hello".into(),
+        }
+        .abi_encode();
         assert_eq!(Error::from("hello").abi_encode(), error);
         assert_eq!(Error::encode("hello"), error);
 

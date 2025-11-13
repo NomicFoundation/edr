@@ -1,5 +1,5 @@
 use crate::backend::LocalForkId;
-use alloy_primitives::{Address, map::AddressHashMap};
+use alloy_primitives::{map::AddressHashMap, Address};
 use itertools::Itertools;
 
 /// Represents possible diagnostic cases on revert
@@ -21,11 +21,19 @@ pub enum RevertDiagnostic {
 impl RevertDiagnostic {
     /// Converts the diagnostic to a readable error message
     pub fn to_error_msg(&self, labels: &AddressHashMap<String>) -> String {
-        let get_label =
-            |addr: &Address| labels.get(addr).cloned().unwrap_or_else(|| addr.to_string());
+        let get_label = |addr: &Address| {
+            labels
+                .get(addr)
+                .cloned()
+                .unwrap_or_else(|| addr.to_string())
+        };
 
         match self {
-            Self::ContractExistsOnOtherForks { contract, active, available_on } => {
+            Self::ContractExistsOnOtherForks {
+                contract,
+                active,
+                available_on,
+            } => {
                 let contract_label = get_label(contract);
 
                 format!(
@@ -36,7 +44,11 @@ impl RevertDiagnostic {
                     available_on.iter().format(", ")
                 )
             }
-            Self::ContractDoesNotExist { contract, persistent, .. } => {
+            Self::ContractDoesNotExist {
+                contract,
+                persistent,
+                ..
+            } => {
                 let contract_label = get_label(contract);
                 if *persistent {
                     format!("Contract {contract_label} does not exist")

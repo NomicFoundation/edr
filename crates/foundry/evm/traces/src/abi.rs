@@ -2,7 +2,7 @@
 
 use alloy_dyn_abi::{DynSolType, DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::{Error, Event, Function, Param};
-use alloy_primitives::{LogData, hex};
+use alloy_primitives::{hex, LogData};
 use eyre::{Context, Result};
 
 pub fn encode_args<I, S>(inputs: &[Param], args: I) -> Result<Vec<DynSolValue>>
@@ -68,8 +68,11 @@ pub fn abi_decode_calldata(
         calldata = calldata.get(4..).unwrap_or(calldata);
     }
 
-    let res =
-        if input { func.abi_decode_input(calldata) } else { func.abi_decode_output(calldata) }?;
+    let res = if input {
+        func.abi_decode_input(calldata)
+    } else {
+        func.abi_decode_output(calldata)
+    }?;
 
     // in case the decoding worked but nothing was decoded
     if res.is_empty() {
@@ -102,16 +105,20 @@ pub fn get_indexed_event(mut event: Event, raw_log: &LogData) -> Event {
         let num_inputs = event.inputs.len();
         let num_address_params = event.inputs.iter().filter(|p| p.ty == "address").count();
 
-        event.inputs.iter_mut().enumerate().for_each(|(index, param)| {
-            if param.name.is_empty() {
-                param.name = format!("param{index}");
-            }
-            if num_inputs == indexed_params
-                || (num_address_params == indexed_params && param.ty == "address")
-            {
-                param.indexed = true;
-            }
-        });
+        event
+            .inputs
+            .iter_mut()
+            .enumerate()
+            .for_each(|(index, param)| {
+                if param.name.is_empty() {
+                    param.name = format!("param{index}");
+                }
+                if num_inputs == indexed_params
+                    || (num_address_params == indexed_params && param.ty == "address")
+                {
+                    param.indexed = true;
+                }
+            });
     }
     event
 }
@@ -165,9 +172,18 @@ mod tests {
         let parsed = event.decode_log(&log).unwrap();
 
         assert_eq!(event.inputs.iter().filter(|param| param.indexed).count(), 2);
-        assert_eq!(parsed.indexed[0], DynSolValue::Address(Address::from_word(param0)));
-        assert_eq!(parsed.body[0], DynSolValue::Uint(U256::from_be_bytes([3; 32]), 256));
-        assert_eq!(parsed.indexed[1], DynSolValue::Address(Address::from_word(param2)));
+        assert_eq!(
+            parsed.indexed[0],
+            DynSolValue::Address(Address::from_word(param0))
+        );
+        assert_eq!(
+            parsed.body[0],
+            DynSolValue::Uint(U256::from_be_bytes([3; 32]), 256)
+        );
+        assert_eq!(
+            parsed.indexed[1],
+            DynSolValue::Address(Address::from_word(param2))
+        );
     }
 
     #[test]
@@ -189,8 +205,17 @@ mod tests {
         assert_eq!(event.inputs.iter().filter(|param| param.indexed).count(), 3);
         let parsed = event.decode_log(&log).unwrap();
 
-        assert_eq!(parsed.indexed[0], DynSolValue::Address(Address::from_word(param0)));
-        assert_eq!(parsed.indexed[1], DynSolValue::Uint(U256::from_be_bytes([3; 32]), 256));
-        assert_eq!(parsed.indexed[2], DynSolValue::Address(Address::from_word(param2)));
+        assert_eq!(
+            parsed.indexed[0],
+            DynSolValue::Address(Address::from_word(param0))
+        );
+        assert_eq!(
+            parsed.indexed[1],
+            DynSolValue::Uint(U256::from_be_bytes([3; 32]), 256)
+        );
+        assert_eq!(
+            parsed.indexed[2],
+            DynSolValue::Address(Address::from_word(param2))
+        );
     }
 }

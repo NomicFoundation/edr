@@ -1,16 +1,22 @@
-use crate::{evm_context::{TransactionEnvTr, BlockEnvMut}, EnvMut};
+use crate::{
+    evm_context::{BlockEnvMut, TransactionEnvTr},
+    EnvMut,
+};
 use alloy_chains::NamedChain;
 use alloy_consensus::BlockHeader;
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_network::{AnyTxEnvelope, TransactionResponse};
-use alloy_primitives::{Address, B256, Selector, TxKind, U256};
-use alloy_provider::{Network, network::BlockResponse};
+use alloy_primitives::{Address, Selector, TxKind, B256, U256};
+use alloy_provider::{network::BlockResponse, Network};
 use alloy_rpc_types::{Transaction, TransactionRequest};
-use revm::{context::Block, primitives::{
-    eip4844::{BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN, BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE},
-    hardfork::SpecId,
-}};
 pub use revm::state::EvmState as StateChangeset;
+use revm::{
+    context::Block,
+    primitives::{
+        eip4844::{BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN, BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE},
+        hardfork::SpecId,
+    },
+};
 
 /// Hints to the compiler that this is a cold path, i.e. unlikely to be taken.
 #[cold]
@@ -28,12 +34,14 @@ pub fn cold_path() {
 pub fn apply_chain_and_block_specific_env_changes<N, BlockT, TxT, HardforkT>(
     env: EnvMut<'_, BlockT, TxT, HardforkT>,
     block: &N::BlockResponse,
-)
-where
+) where
     N: Network,
     BlockT: Block + BlockEnvMut,
 {
-    use NamedChain::{Mainnet, BinanceSmartChain, BinanceSmartChainTestnet, Moonbeam, Moonbase, Moonriver, MoonbeamDev, Rsk, RskTestnet};
+    use NamedChain::{
+        BinanceSmartChain, BinanceSmartChainTestnet, Mainnet, Moonbase, Moonbeam, MoonbeamDev,
+        Moonriver, Rsk, RskTestnet,
+    };
 
     if let Ok(chain) = NamedChain::try_from(env.cfg.chain_id) {
         let block_number = block.header().number();
@@ -42,7 +50,8 @@ where
             Mainnet => {
                 // after merge difficulty is supplanted with prevrandao EIP-4399
                 if block_number >= 15_537_351u64 {
-                    env.block.set_difficulty(env.block.prevrandao().unwrap_or_default().into());
+                    env.block
+                        .set_difficulty(env.block.prevrandao().unwrap_or_default().into());
                 }
 
                 return;
@@ -54,7 +63,8 @@ where
                 // (`mixHash`) is always zero, even though bsc adopts the newer EVM
                 // specification. This will confuse revm and causes emulation
                 // failure.
-                env.block.set_prevrandao(Some(env.block.difficulty().into()));
+                env.block
+                    .set_prevrandao(Some(env.block.difficulty().into()));
                 return;
             }
             Moonbeam | Moonbase | Moonriver | MoonbeamDev | Rsk | RskTestnet => {
@@ -82,7 +92,8 @@ where
 
     // if difficulty is `0` we assume it's past merge
     if block.header().difficulty().is_zero() {
-        env.block.set_difficulty(env.block.prevrandao().unwrap_or_default().into());
+        env.block
+            .set_difficulty(env.block.prevrandao().unwrap_or_default().into());
     }
 }
 
@@ -124,7 +135,9 @@ pub fn configure_tx_req_env<TxT: TransactionEnvTr>(
     impersonated_from: Option<Address>,
 ) -> eyre::Result<()> {
     // If no transaction type is provided, we need to infer it from the other fields.
-    let tx_type = tx.transaction_type.unwrap_or_else(|| tx.minimal_tx_type() as u8);
+    let tx_type = tx
+        .transaction_type
+        .unwrap_or_else(|| tx.minimal_tx_type() as u8);
     env_tx.set_tx_type(tx_type);
 
     let TransactionRequest {
@@ -151,7 +164,7 @@ pub fn configure_tx_req_env<TxT: TransactionEnvTr>(
     // If the transaction is impersonated, we need to set the caller to the from
     // address Ref: https://github.com/foundry-rs/foundry/issues/9541
     env_tx.set_caller(
-        impersonated_from.unwrap_or(from.ok_or_else(|| eyre::eyre!("missing `from` field"))?)
+        impersonated_from.unwrap_or(from.ok_or_else(|| eyre::eyre!("missing `from` field"))?),
     );
     env_tx.set_gas_limit(gas.ok_or_else(|| eyre::eyre!("missing `gas` field"))?);
     env_tx.set_nonce(nonce.unwrap_or_default());

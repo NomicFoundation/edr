@@ -1,6 +1,8 @@
-use std::fmt::Formatter;
+use super::{BasicTxDetails, InvariantContract};
+use crate::executors::RawCallResult;
 use alloy_primitives::{Address, Bytes};
 use eyre::Report;
+use foundry_evm_core::backend::IndeterminismReasons;
 use foundry_evm_core::{
     decode::RevertDecoder,
     evm_context::{
@@ -14,9 +16,7 @@ use foundry_evm_fuzz::{
 };
 use proptest::test_runner::TestError;
 use revm::context::result::HaltReasonTr;
-use foundry_evm_core::backend::IndeterminismReasons;
-use super::{BasicTxDetails, InvariantContract};
-use crate::executors::RawCallResult;
+use std::fmt::Formatter;
 
 /// Stores information about failures and reverts of the invariant tests.
 #[derive(Clone, Debug, Default)]
@@ -48,8 +48,7 @@ pub enum InvariantFuzzError {
     Other(String),
 }
 
-impl InvariantFuzzError {
-}
+impl InvariantFuzzError {}
 
 impl From<eyre::Report> for InvariantFuzzError {
     fn from(value: Report) -> Self {
@@ -79,7 +78,7 @@ impl InvariantFuzzError {
             Self::BrokenInvariant(case_data) | Self::Revert(case_data) => {
                 case_data.indeterminism_reasons.clone()
             }
-            Self::Abi(_) | Self::Other(_) | Self::MaxAssumeRejects(_)=> None,
+            Self::Abi(_) | Self::Other(_) | Self::MaxAssumeRejects(_) => None,
         }
     }
 
@@ -115,7 +114,7 @@ pub struct FailedInvariantCaseData {
     /// Fail on revert, used to check sequence when shrinking.
     pub fail_on_revert: bool,
     /// Indeterminism from cheatcodes if any.
-    pub indeterminism_reasons: Option<IndeterminismReasons>
+    pub indeterminism_reasons: Option<IndeterminismReasons>,
 }
 
 impl FailedInvariantCaseData {

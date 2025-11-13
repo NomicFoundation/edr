@@ -21,19 +21,21 @@ pub fn find_anchors(
         .flat_map(|source| analysis.items_for_source_enumerated(source))
         .filter_map(|(item_id, item)| {
             match item.kind {
-                CoverageItemKind::Branch { path_id, is_first_opcode: false, .. } => {
-                    find_anchor_branch(bytecode, source_map, item_id, &item.loc).map(|anchors| {
-                        match path_id {
-                            0 => anchors.0,
-                            1 => anchors.1,
-                            _ => panic!("too many path IDs for branch"),
-                        }
-                    })
-                }
+                CoverageItemKind::Branch {
+                    path_id,
+                    is_first_opcode: false,
+                    ..
+                } => find_anchor_branch(bytecode, source_map, item_id, &item.loc).map(|anchors| {
+                    match path_id {
+                        0 => anchors.0,
+                        1 => anchors.1,
+                        _ => panic!("too many path IDs for branch"),
+                    }
+                }),
                 _ => find_anchor_simple(source_map, ic_pc_map, item_id, &item.loc),
             }
-                .inspect_err(|err| warn!(%item, %err, "could not find anchor"))
-                .ok()
+            .inspect_err(|err| warn!(%item, %err, "could not find anchor"))
+            .ok()
         })
         .collect()
 }
@@ -45,10 +47,12 @@ pub fn find_anchor_simple(
     item_id: u32,
     loc: &SourceLocation,
 ) -> eyre::Result<ItemAnchor> {
-    let instruction =
-        source_map.iter().position(|element| is_in_source_range(element, loc)).ok_or_else(
-            || eyre::eyre!("Could not find anchor: No matching instruction in range {loc}"),
-        )?;
+    let instruction = source_map
+        .iter()
+        .position(|element| is_in_source_range(element, loc))
+        .ok_or_else(|| {
+            eyre::eyre!("Could not find anchor: No matching instruction in range {loc}")
+        })?;
 
     Ok(ItemAnchor {
         instruction: ic_pc_map.get(instruction as u32).ok_or_else(|| {
@@ -96,7 +100,9 @@ pub fn find_anchor_branch(
     let mut pc = 0;
     let mut cumulative_push_size = 0;
     while pc < bytecode.len() {
-        let &op = bytecode.get(pc).expect("pc should be within bytecode bounds");
+        let &op = bytecode
+            .get(pc)
+            .expect("pc should be within bytecode bounds");
 
         // We found a push, so we do some PC -> IC translation accounting, but we also check if
         // this push is coupled with the JUMPI we are interested in.
@@ -119,7 +125,10 @@ pub fn find_anchor_branch(
             // Check if we are in the source range we are interested in, and if the next opcode
             // is a JUMPI
             if is_in_source_range(element, loc)
-                && *bytecode.get(pc + 1).expect("pc + 1 should be within bytecode bounds") == opcode::JUMPI
+                && *bytecode
+                    .get(pc + 1)
+                    .expect("pc + 1 should be within bytecode bounds")
+                    == opcode::JUMPI
             {
                 // We do not support program counters bigger than usize. This is also an
                 // assumption in REVM, so this is just a sanity check.
@@ -127,10 +136,13 @@ pub fn find_anchor_branch(
 
                 // Convert the push bytes for the second branch's PC to a usize
                 let push_bytes_start = pc - push_size + 1;
-                let push_bytes =
-                    bytecode.get(push_bytes_start..push_bytes_start + push_size).expect("push bytes range should be within bytecode bounds");
+                let push_bytes = bytecode
+                    .get(push_bytes_start..push_bytes_start + push_size)
+                    .expect("push bytes range should be within bytecode bounds");
                 let mut pc_bytes = [0u8; 8];
-                let dest = pc_bytes.get_mut(8 - push_size..).expect("8 - push_size should be valid index for 8-byte array");
+                let dest = pc_bytes
+                    .get_mut(8 - push_size..)
+                    .expect("8 - push_size should be valid index for 8-byte array");
                 dest.copy_from_slice(push_bytes);
                 let pc_jump = u64::from_be_bytes(pc_bytes);
                 let pc_jump = u32::try_from(pc_jump).expect("PC is too big");
@@ -140,7 +152,10 @@ pub fn find_anchor_branch(
                         // The first branch is the opcode directly after JUMPI
                         instruction: (pc + 2) as u32,
                     },
-                    ItemAnchor { item_id, instruction: pc_jump },
+                    ItemAnchor {
+                        item_id,
+                        instruction: pc_jump,
+                    },
                 ));
             }
         }

@@ -19,7 +19,11 @@ pub enum FsPathError {
     Read { source: io::Error, path: PathBuf },
     /// Provides additional path context for [`fs::copy`].
     #[error("failed to copy from {from:?} to {to:?}: {source}")]
-    Copy { source: io::Error, from: PathBuf, to: PathBuf },
+    Copy {
+        source: io::Error,
+        from: PathBuf,
+        to: PathBuf,
+    },
     /// Provides additional path context for [`fs::read_link`].
     #[error("failed to read from {path:?}: {source}")]
     ReadLink { source: io::Error, path: PathBuf },
@@ -40,56 +44,90 @@ pub enum FsPathError {
     Open { source: io::Error, path: PathBuf },
     /// Provides additional path context for the file whose contents should be parsed as JSON.
     #[error("failed to parse json file: {path:?}: {source}")]
-    ReadJson { source: serde_json::Error, path: PathBuf },
+    ReadJson {
+        source: serde_json::Error,
+        path: PathBuf,
+    },
     /// Provides additional path context for the new JSON file.
     #[error("failed to write to json file: {path:?}: {source}")]
-    WriteJson { source: serde_json::Error, path: PathBuf },
+    WriteJson {
+        source: serde_json::Error,
+        path: PathBuf,
+    },
 }
 
 impl FsPathError {
     /// Returns the complementary error variant for [`fs::write`].
     pub fn write(source: io::Error, path: impl Into<PathBuf>) -> Self {
-        Self::Write { source, path: path.into() }
+        Self::Write {
+            source,
+            path: path.into(),
+        }
     }
 
     /// Returns the complementary error variant for [`fs::read`].
     pub fn read(source: io::Error, path: impl Into<PathBuf>) -> Self {
-        Self::Read { source, path: path.into() }
+        Self::Read {
+            source,
+            path: path.into(),
+        }
     }
 
     /// Returns the complementary error variant for [`fs::copy`].
     pub fn copy(source: io::Error, from: impl Into<PathBuf>, to: impl Into<PathBuf>) -> Self {
-        Self::Copy { source, from: from.into(), to: to.into() }
+        Self::Copy {
+            source,
+            from: from.into(),
+            to: to.into(),
+        }
     }
 
     /// Returns the complementary error variant for [`fs::read_link`].
     pub fn read_link(source: io::Error, path: impl Into<PathBuf>) -> Self {
-        Self::ReadLink { source, path: path.into() }
+        Self::ReadLink {
+            source,
+            path: path.into(),
+        }
     }
 
     /// Returns the complementary error variant for [`File::create`].
     pub fn create_file(source: io::Error, path: impl Into<PathBuf>) -> Self {
-        Self::CreateFile { source, path: path.into() }
+        Self::CreateFile {
+            source,
+            path: path.into(),
+        }
     }
 
     /// Returns the complementary error variant for [`fs::remove_file`].
     pub fn remove_file(source: io::Error, path: impl Into<PathBuf>) -> Self {
-        Self::RemoveFile { source, path: path.into() }
+        Self::RemoveFile {
+            source,
+            path: path.into(),
+        }
     }
 
     /// Returns the complementary error variant for [`fs::create_dir`].
     pub fn create_dir(source: io::Error, path: impl Into<PathBuf>) -> Self {
-        Self::CreateDir { source, path: path.into() }
+        Self::CreateDir {
+            source,
+            path: path.into(),
+        }
     }
 
     /// Returns the complementary error variant for [`fs::remove_dir`].
     pub fn remove_dir(source: io::Error, path: impl Into<PathBuf>) -> Self {
-        Self::RemoveDir { source, path: path.into() }
+        Self::RemoveDir {
+            source,
+            path: path.into(),
+        }
     }
 
     /// Returns the complementary error variant for [`File::open`].
     pub fn open(source: io::Error, path: impl Into<PathBuf>) -> Self {
-        Self::Open { source, path: path.into() }
+        Self::Open {
+            source,
+            path: path.into(),
+        }
     }
 }
 

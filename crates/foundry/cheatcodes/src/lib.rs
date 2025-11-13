@@ -2,11 +2,7 @@
 //!
 //! Foundry cheatcodes implementations.
 
-#![warn(
-    unreachable_pub,
-    unused_crate_dependencies,
-    rust_2018_idioms
-)]
+#![warn(unreachable_pub, unused_crate_dependencies, rust_2018_idioms)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![allow(elided_lifetimes_in_paths)] // Cheats context uses 3 lifetimes
 
@@ -133,7 +129,18 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode {
         >,
     >(
         &self,
-        ccx: &mut CheatsCtxt<'_, '_, BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>
+        ccx: &mut CheatsCtxt<
+            '_,
+            '_,
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
     ) -> Result {
         self.apply::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(ccx.state)
     }
@@ -180,7 +187,7 @@ pub(crate) trait Cheatcode: CheatcodeDef + DynCheatcode {
             TransactionErrorT,
             ChainContextT,
             DatabaseT,
-        >
+        >,
     ) -> Result {
         let _ = executor;
         self.apply_stateful(ccx)
@@ -195,8 +202,7 @@ pub(crate) trait DynCheatcode: IsPure {
     fn as_debug(&self) -> &dyn std::fmt::Debug;
 }
 
-impl<
-    T: Cheatcode> DynCheatcode for T {
+impl<T: Cheatcode> DynCheatcode for T {
     #[inline]
     fn cheatcode(&self) -> &'static foundry_cheatcodes_spec::Cheatcode<'static> {
         T::CHEATCODE
@@ -300,8 +306,14 @@ impl<
         DatabaseT,
     >
 {
-    type Target =
-        revm::context::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>;
+    type Target = revm::context::Context<
+        BlockT,
+        TxT,
+        CfgEnv<HardforkT>,
+        DatabaseT,
+        Journal<DatabaseT>,
+        ChainContextT,
+    >;
 
     #[inline(always)]
     fn deref(&self) -> &Self::Target {

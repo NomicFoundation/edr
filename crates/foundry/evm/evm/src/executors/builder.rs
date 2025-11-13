@@ -10,11 +10,10 @@ use revm::context::result::HaltReasonTr;
 
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
 
-#[derive(Clone, Debug)]
-#[derive(thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 pub enum ExecutorBuilderError {
     #[error("Failed to create backend: {0}")]
-    BackendError(String)
+    BackendError(String),
 }
 
 /// The builder that allows to configure an evm [`Executor`] which a stack of
@@ -152,8 +151,18 @@ where
         TransactionErrorT: TransactionErrorTrait,
     >(
         self,
-    ) -> Result<Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>, ExecutorBuilderError>
-    {
+    ) -> Result<
+        Executor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+        ExecutorBuilderError,
+    > {
         let Self {
             mut stack,
             gas_limit,
@@ -175,7 +184,8 @@ where
 
         let gas_limit = gas_limit.unwrap_or(env.block.gas_limit());
 
-        let backend = Backend::spawn(fork, local_predeploys).map_err(|err| ExecutorBuilderError::BackendError(err.to_string()))?;
+        let backend = Backend::spawn(fork, local_predeploys)
+            .map_err(|err| ExecutorBuilderError::BackendError(err.to_string()))?;
 
         Ok(Executor::new(
             backend,

@@ -1,16 +1,26 @@
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, Result, Vm::{startMappingRecordingCall, stopMappingRecordingCall, getMappingLengthCall, getMappingSlotAtCall, getMappingKeyAndParentOfCall}};
+use crate::{
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
+    Vm::{
+        getMappingKeyAndParentOfCall, getMappingLengthCall, getMappingSlotAtCall,
+        startMappingRecordingCall, stopMappingRecordingCall,
+    },
+};
 use alloy_primitives::{
-    Address, B256, U256, keccak256,
+    keccak256,
     map::{AddressHashMap, B256HashMap},
+    Address, B256, U256,
 };
 use alloy_sol_types::SolValue;
-use revm::{
-    bytecode::opcode,
-    interpreter::{Interpreter, interpreter_types::Jumps},
+use foundry_evm_core::backend::CheatcodeBackend;
+use foundry_evm_core::evm_context::{
+    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
 };
 use revm::context::result::HaltReasonTr;
-use foundry_evm_core::backend::CheatcodeBackend;
-use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait};
+use revm::{
+    bytecode::opcode,
+    interpreter::{interpreter_types::Jumps, Interpreter},
+};
 
 /// Recorded mapping slots.
 #[derive(Clone, Debug, Default)]
@@ -69,7 +79,18 @@ impl Cheatcode for startMappingRecordingCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         if state.mapping_slots.is_none() {
             state.mapping_slots = Some(AddressHashMap::default());
@@ -81,7 +102,6 @@ impl Cheatcode for startMappingRecordingCall {
 impl_is_pure_true!(stopMappingRecordingCall);
 impl Cheatcode for stopMappingRecordingCall {
     fn apply<
-
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -98,7 +118,18 @@ impl Cheatcode for stopMappingRecordingCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self {} = self;
         state.mapping_slots = None;
         Ok(Vec::default())
@@ -108,7 +139,6 @@ impl Cheatcode for stopMappingRecordingCall {
 impl_is_pure_true!(getMappingLengthCall);
 impl Cheatcode for getMappingLengthCall {
     fn apply<
-
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -125,9 +155,32 @@ impl Cheatcode for getMappingLengthCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
-        let Self { target, mappingSlot } = self;
-        let result = slot_child::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state, target, mappingSlot).map_or(0, std::vec::Vec::len);
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            target,
+            mappingSlot,
+        } = self;
+        let result = slot_child::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state, target, mappingSlot)
+        .map_or(0, std::vec::Vec::len);
         Ok((result as u64).abi_encode())
     }
 }
@@ -135,7 +188,6 @@ impl Cheatcode for getMappingLengthCall {
 impl_is_pure_true!(getMappingSlotAtCall);
 impl Cheatcode for getMappingSlotAtCall {
     fn apply<
-
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -152,12 +204,35 @@ impl Cheatcode for getMappingSlotAtCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
-        let Self { target, mappingSlot, idx } = self;
-        let result = slot_child::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state, target, mappingSlot)
-            .and_then(|set| set.get(idx.saturating_to::<usize>()))
-            .copied()
-            .unwrap_or_default();
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            target,
+            mappingSlot,
+            idx,
+        } = self;
+        let result = slot_child::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state, target, mappingSlot)
+        .and_then(|set| set.get(idx.saturating_to::<usize>()))
+        .copied()
+        .unwrap_or_default();
         Ok(result.abi_encode())
     }
 }
@@ -165,7 +240,6 @@ impl Cheatcode for getMappingSlotAtCall {
 impl_is_pure_true!(getMappingKeyAndParentOfCall);
 impl Cheatcode for getMappingKeyAndParentOfCall {
     fn apply<
-
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -182,16 +256,42 @@ impl Cheatcode for getMappingKeyAndParentOfCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
-        let Self { target, elementSlot: slot } = self;
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            target,
+            elementSlot: slot,
+        } = self;
         let mut found = false;
         let mut key = &B256::ZERO;
         let mut parent = &B256::ZERO;
-        if let Some(slots) = mapping_slot::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state, target) {
+        if let Some(slots) = mapping_slot::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state, target)
+        {
             if let Some(key2) = slots.keys.get(slot) {
                 found = true;
                 key = key2;
-                parent = slots.parent_slots.get(slot).expect("parent slot must exist if key exists");
+                parent = slots
+                    .parent_slots
+                    .get(slot)
+                    .expect("parent slot must exist if key exists");
             } else if let Some((key2, parent2)) = slots.seen_sha3.get(slot) {
                 found = true;
                 key = key2;
@@ -202,22 +302,8 @@ impl Cheatcode for getMappingKeyAndParentOfCall {
     }
 }
 
-fn mapping_slot<'a,
-
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-
->(state: &'a Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, target: &'a Address) -> Option<&'a MappingSlots> {
-    state.mapping_slots.as_ref()?.get(target)
-}
-
-fn slot_child<'a,
-
+fn mapping_slot<
+    'a,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -226,11 +312,53 @@ fn slot_child<'a,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
 >(
-    state: &'a Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+    state: &'a Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
+    target: &'a Address,
+) -> Option<&'a MappingSlots> {
+    state.mapping_slots.as_ref()?.get(target)
+}
+
+fn slot_child<
+    'a,
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+>(
+    state: &'a Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
     target: &'a Address,
     slot: &'a B256,
 ) -> Option<&'a Vec<B256>> {
-    mapping_slot::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state, target)?.children.get(slot)
+    mapping_slot::<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >(state, target)?
+    .children
+    .get(slot)
 }
 
 #[cold]
@@ -239,13 +367,21 @@ pub(crate) fn step(mapping_slots: &mut AddressHashMap<MappingSlots>, interpreter
         opcode::KECCAK256 => {
             if interpreter.stack.peek(1) == Ok(U256::from(0x40)) {
                 let address = interpreter.input.target_address;
-                let offset = interpreter.stack.peek(0).expect("stack size > 1").saturating_to();
+                let offset = interpreter
+                    .stack
+                    .peek(0)
+                    .expect("stack size > 1")
+                    .saturating_to();
                 let data = interpreter.memory.slice_len(offset, 0x40);
                 let low = B256::from_slice(data.get(..0x20).expect("data length >= 0x20"));
                 let high = B256::from_slice(data.get(0x20..).expect("data length >= 0x40"));
                 let result = keccak256(&*data);
 
-                mapping_slots.entry(address).or_default().seen_sha3.insert(result, (low, high));
+                mapping_slots
+                    .entry(address)
+                    .or_default()
+                    .seen_sha3
+                    .insert(result, (low, high));
             }
         }
         opcode::SSTORE => {

@@ -17,6 +17,7 @@ use std::{
 
 use alloy_primitives::map::HashMap;
 
+use revm_inspectors::tracing::types::DecodedTraceStep;
 pub use revm_inspectors::tracing::{
     types::{
         CallKind, CallLog, CallTrace, CallTraceNode, CallTraceStep, DecodedCallData,
@@ -25,7 +26,6 @@ pub use revm_inspectors::tracing::{
     CallTraceArena, FourByteInspector, GethTraceBuilder, ParityTraceBuilder, StackSnapshotType,
     TraceWriter, TracingInspector, TracingInspectorConfig,
 };
-use revm_inspectors::tracing::types::DecodedTraceStep;
 
 /// Call trace address identifiers.
 ///
@@ -66,7 +66,9 @@ impl SparsedTraceArena {
             ) {
                 // Prepend an additional None item to the ordering to handle the beginning of the
                 // trace.
-                let node = nodes.get(node_idx).expect("node_idx should be within nodes bounds");
+                let node = nodes
+                    .get(node_idx)
+                    .expect("node_idx should be within nodes bounds");
                 let items = std::iter::once(None)
                     .chain(node.ordering.clone().into_iter().map(Some))
                     .enumerate();
@@ -83,17 +85,30 @@ impl SparsedTraceArena {
                     match item {
                         // we only remove calls if they did not start/pause tracing
                         Some(TraceMemberOrder::Call(child_idx)) => {
-                            let node = nodes.get(node_idx).expect("node_idx should be within nodes bounds");
-                            let &child_node_idx = node.children.get(child_idx).expect("child_idx should be within children bounds");
+                            let node = nodes
+                                .get(node_idx)
+                                .expect("node_idx should be within nodes bounds");
+                            let &child_node_idx = node
+                                .children
+                                .get(child_idx)
+                                .expect("child_idx should be within children bounds");
                             clear_node(nodes, child_node_idx, ignored, cur_ignore_end);
                             remove &= cur_ignore_end.is_some();
                         }
                         // we only remove decoded internal calls if they did not start/pause tracing
                         Some(TraceMemberOrder::Step(step_idx)) => {
                             // If this is an internal call beginning, track it in `internal_calls`
-                            let node = nodes.get(node_idx).expect("node_idx should be within nodes bounds");
-                            let step = node.trace.steps.get(step_idx).expect("step_idx should be within steps bounds");
-                            if let Some(DecodedTraceStep::InternalCall(_, end_step_idx)) = &step.decoded {
+                            let node = nodes
+                                .get(node_idx)
+                                .expect("node_idx should be within nodes bounds");
+                            let step = node
+                                .trace
+                                .steps
+                                .get(step_idx)
+                                .expect("step_idx should be within steps bounds");
+                            if let Some(DecodedTraceStep::InternalCall(_, end_step_idx)) =
+                                &step.decoded
+                            {
                                 internal_calls.push((item_idx, remove, *end_step_idx));
                                 // we decide if we should remove it later
                                 remove = false;
@@ -129,7 +144,10 @@ impl SparsedTraceArena {
                 }
 
                 for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
-                    let ordering = &mut nodes.get_mut(node_idx).expect("node_idx should be within nodes bounds").ordering;
+                    let ordering = &mut nodes
+                        .get_mut(node_idx)
+                        .expect("node_idx should be within nodes bounds")
+                        .ordering;
                     ordering.remove(item_idx - offset - 1);
                 }
             }
@@ -190,7 +208,6 @@ impl TracingMode {
         })
     }
 }
-
 
 /// Decode a collection of call traces.
 ///

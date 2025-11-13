@@ -4,15 +4,15 @@ use crate::{
     backend::{RevertStateSnapshotAction, StateSnapshot},
     state_snapshot::StateSnapshots,
 };
-use alloy_primitives::{Address, B256, U256, map::HashMap};
+use alloy_primitives::{map::HashMap, Address, B256, U256};
 use alloy_rpc_types::BlockId;
 use foundry_fork_db::{BlockchainDb, DatabaseError, SharedBackend};
 use parking_lot::Mutex;
 use revm::{
-    Database, DatabaseCommit,
     bytecode::Bytecode,
     database::{CacheDB, DatabaseRef},
     state::{Account, AccountInfo},
+    Database, DatabaseCommit,
 };
 use std::sync::Arc;
 
@@ -71,7 +71,9 @@ impl ForkedDatabase {
         _url: Option<String>,
         block_number: impl Into<BlockId>,
     ) -> Result<(), String> {
-        self.backend.set_pinned_block(block_number).map_err(|err| err.to_string())?;
+        self.backend
+            .set_pinned_block(block_number)
+            .map_err(|err| err.to_string())?;
 
         // TODO need to find a way to update generic provider via url
 
@@ -100,7 +102,10 @@ impl ForkedDatabase {
             storage: db.storage.read().clone(),
             block_hashes: db.block_hashes.read().clone(),
         };
-        ForkDbStateSnapshot { local: self.cache_db.clone(), state_snapshot }
+        ForkDbStateSnapshot {
+            local: self.cache_db.clone(),
+            state_snapshot,
+        }
     }
 
     pub fn insert_state_snapshot(&self) -> U256 {
@@ -116,11 +121,18 @@ impl ForkedDatabase {
         let state_snapshot = { self.state_snapshots().lock().remove_at(id) };
         if let Some(state_snapshot) = state_snapshot {
             if action.is_keep() {
-                self.state_snapshots().lock().insert_at(state_snapshot.clone(), id);
+                self.state_snapshots()
+                    .lock()
+                    .insert_at(state_snapshot.clone(), id);
             }
             let ForkDbStateSnapshot {
                 local,
-                state_snapshot: StateSnapshot { accounts, storage, block_hashes },
+                state_snapshot:
+                    StateSnapshot {
+                        accounts,
+                        storage,
+                        block_hashes,
+                    },
             } = state_snapshot;
             let db = self.inner().db();
             {
@@ -226,7 +238,9 @@ impl DatabaseRef for ForkDbStateSnapshot {
     type Error = DatabaseError;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        if let Some(account) = self.local.cache.accounts.get(&address) { Ok(Some(account.info.clone())) } else {
+        if let Some(account) = self.local.cache.accounts.get(&address) {
+            Ok(Some(account.info.clone()))
+        } else {
             let mut acc = self.state_snapshot.accounts.get(&address).cloned();
 
             if acc.is_none() {
@@ -257,7 +271,12 @@ impl DatabaseRef for ForkDbStateSnapshot {
     }
 
     fn block_hash_ref(&self, number: u64) -> Result<B256, Self::Error> {
-        match self.state_snapshot.block_hashes.get(&U256::from(number)).copied() {
+        match self
+            .state_snapshot
+            .block_hashes
+            .get(&U256::from(number))
+            .copied()
+        {
             None => self.local.block_hash_ref(number),
             Some(block_hash) => Ok(block_hash),
         }

@@ -20,14 +20,13 @@ use derive_where::derive_where;
 use eyre::WrapErr;
 use foundry_fork_db::DatabaseError;
 use revm::{
-    Database, DatabaseCommit,
     bytecode::Bytecode,
     context::{result::HaltReasonTr, Cfg, JournalInner},
     context_interface::result::ResultAndState,
     database::DatabaseRef,
     primitives::HashMap as Map,
     state::{Account, AccountInfo},
-    InspectEvm, JournalEntry,
+    Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 
 /// A wrapper around `Backend` that ensures only `revm::DatabaseRef` functions are called.
@@ -232,7 +231,8 @@ impl<
         journaled_state: &JournaledState,
         env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> U256 {
-        self.backend_mut(env.clone()).snapshot_state(journaled_state, env)
+        self.backend_mut(env.clone())
+            .snapshot_state(journaled_state, env)
     }
 
     fn revert_state<'b>(
@@ -241,7 +241,8 @@ impl<
         action: RevertStateSnapshotAction,
         context: &'b mut EvmContext<'b, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> Option<JournaledState> {
-        self.backend_mut(context.to_owned_env()).revert_state(id, action, context)
+        self.backend_mut(context.to_owned_env())
+            .revert_state(id, action, context)
     }
 
     fn delete_state_snapshot(&mut self, id: U256) -> bool {
@@ -271,7 +272,9 @@ impl<
         transaction: B256,
         chain_context: &mut ChainContextT,
     ) -> eyre::Result<LocalForkId> {
-        self.backend.to_mut().create_fork_at_transaction(fork, transaction, chain_context)
+        self.backend
+            .to_mut()
+            .create_fork_at_transaction(fork, transaction, chain_context)
     }
 
     fn select_fork(
@@ -279,7 +282,8 @@ impl<
         id: LocalForkId,
         context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
-        self.backend_mut(context.to_owned_env()).select_fork(id, context)
+        self.backend_mut(context.to_owned_env())
+            .select_fork(id, context)
     }
 
     fn roll_fork(
@@ -288,7 +292,8 @@ impl<
         block_number: u64,
         context: &mut EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
     ) -> eyre::Result<()> {
-        self.backend_mut(context.to_owned_env()).roll_fork(id, block_number, context)
+        self.backend_mut(context.to_owned_env())
+            .roll_fork(id, block_number, context)
     }
 
     fn roll_fork_to_transaction<'a, 'b, 'c>(
@@ -300,7 +305,8 @@ impl<
     where
         'a: 'c,
     {
-        self.backend_mut(context.to_owned_env()).roll_fork_to_transaction(id, transaction, context)
+        self.backend_mut(context.to_owned_env())
+            .roll_fork_to_transaction(id, transaction, context)
     }
 
     fn transact(
@@ -363,7 +369,8 @@ impl<
         allocs: &BTreeMap<Address, GenesisAccount>,
         journaled_state: &mut JournaledState,
     ) -> Result<(), BackendError> {
-        self.backend_mut(EvmEnv::default()).load_allocs(allocs, journaled_state)
+        self.backend_mut(EvmEnv::default())
+            .load_allocs(allocs, journaled_state)
     }
 
     fn clone_account(
@@ -372,11 +379,8 @@ impl<
         target: &Address,
         journaled_state: &mut JournaledState,
     ) -> Result<(), BackendError> {
-        self.backend_mut(EvmEnv::default()).clone_account(
-            source,
-            target,
-            journaled_state,
-        )
+        self.backend_mut(EvmEnv::default())
+            .clone_account(source, target, journaled_state)
     }
 
     fn is_persistent(&self, acc: &Address) -> bool {
@@ -405,13 +409,25 @@ impl<
 
     fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool) {
         // Only convert to mutable if we need to update.
-        if !is_pure && !self.backend.inner.impure_cheatcodes.contains(cheatcode_name) {
-            self.backend.to_mut().inner.impure_cheatcodes.insert(Cow::Borrowed(cheatcode_name));
+        if !is_pure
+            && !self
+                .backend
+                .inner
+                .impure_cheatcodes
+                .contains(cheatcode_name)
+        {
+            self.backend
+                .to_mut()
+                .inner
+                .impure_cheatcodes
+                .insert(Cow::Borrowed(cheatcode_name));
         }
     }
 
     fn set_blockhash(&mut self, block_number: U256, block_hash: B256) {
-        self.backend.to_mut().set_blockhash(block_number, block_hash);
+        self.backend
+            .to_mut()
+            .set_blockhash(block_number, block_hash);
     }
 }
 

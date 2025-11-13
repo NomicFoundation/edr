@@ -1,6 +1,12 @@
 //! Implementations of [`Testing`](spec::Group::Testing) cheatcodes.
 
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result, Vm::{rpcUrlCall, rpcUrlsCall, rpcUrlStructsCall, sleepCall, skip_0Call, skip_1Call, getChain_0Call, getChain_1Call, Chain}};
+use crate::{
+    impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result,
+    Vm::{
+        getChain_0Call, getChain_1Call, rpcUrlCall, rpcUrlStructsCall, rpcUrlsCall, skip_0Call,
+        skip_1Call, sleepCall, Chain,
+    },
+};
 use alloy_chains::Chain as AlloyChain;
 use alloy_primitives::U256;
 use alloy_sol_types::SolValue;
@@ -8,7 +14,8 @@ use foundry_evm_core::{
     backend::CheatcodeBackend,
     constants::MAGIC_SKIP,
     evm_context::{
-        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait,
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
     },
 };
 use revm::context::result::HaltReasonTr;
@@ -201,7 +208,11 @@ impl Cheatcode for skip_0Call {
         >,
     ) -> Result {
         let Self { skipTest } = *self;
-        skip_1Call { skipTest, reason: String::new() }.apply_stateful(ccx)
+        skip_1Call {
+            skipTest,
+            reason: String::new(),
+        }
+        .apply_stateful(ccx)
     }
 }
 
@@ -243,7 +254,10 @@ impl Cheatcode for skip_1Call {
         if *skipTest {
             // Skip should not work if called deeper than at test level.
             // Since we're not returning the magic skip bytes, this will cause a test failure.
-            ensure!(ccx.ecx.journaled_state.depth <= 1, "`skip` can only be used at test level");
+            ensure!(
+                ccx.ecx.journaled_state.depth <= 1,
+                "`skip` can only be used at test level"
+            );
             Err([MAGIC_SKIP, reason.as_bytes()].concat().into())
         } else {
             Ok(Vec::default())
@@ -360,8 +374,11 @@ fn get_chain<
     }
 
     // Try to retrieve RPC URL and chain alias from user's config in foundry.toml.
-    let (rpc_url, chain_alias) = if let Some(rpc_url) =
-        state.config.rpc_endpoint(&chain_name).ok().map(|e| String::from(e.url))
+    let (rpc_url, chain_alias) = if let Some(rpc_url) = state
+        .config
+        .rpc_endpoint(&chain_name)
+        .ok()
+        .map(|e| String::from(e.url))
     {
         (rpc_url, chain_name.clone())
     } else {

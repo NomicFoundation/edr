@@ -28,15 +28,20 @@ impl ContractsByArtifact {
         let map = artifacts
             .into_iter()
             .filter_map(|(id, artifact)| {
-                let CompactContractBytecode { abi, bytecode, deployed_bytecode } =
-                    artifact.into_contract_bytecode();
+                let CompactContractBytecode {
+                    abi,
+                    bytecode,
+                    deployed_bytecode,
+                } = artifact.into_contract_bytecode();
                 Some((
                     id,
                     ContractData {
                         abi: abi?,
                         bytecode: bytecode.and_then(CompactBytecode::into_bytes),
                         deployed_bytecode: deployed_bytecode.and_then(|deployed_bytecode| {
-                            deployed_bytecode.bytecode.and_then(CompactBytecode::into_bytes)
+                            deployed_bytecode
+                                .bytecode
+                                .and_then(CompactBytecode::into_bytes)
                         }),
                     },
                 ))
@@ -208,13 +213,15 @@ pub fn get_file_name(id: &str) -> &str {
     id.split(':').next().unwrap_or(id)
 }
 
-
 /// Helper function to convert `CompactContractBytecode` ~>
 /// `ContractBytecodeSome`
 pub fn compact_to_contract(contract: CompactContractBytecode) -> Result<ContractBytecodeSome> {
     Ok(ContractBytecodeSome {
         abi: contract.abi.ok_or_else(|| eyre::eyre!("No contract abi"))?,
-        bytecode: contract.bytecode.ok_or_else(|| eyre::eyre!("No contract bytecode"))?.into(),
+        bytecode: contract
+            .bytecode
+            .ok_or_else(|| eyre::eyre!("No contract bytecode"))?
+            .into(),
         deployed_bytecode: contract
             .deployed_bytecode
             .ok_or_else(|| eyre::eyre!("No contract deployed bytecode"))?

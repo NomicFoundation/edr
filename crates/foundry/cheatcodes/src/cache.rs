@@ -150,7 +150,9 @@ impl<'de> Deserialize<'de> for CachedEndpoints {
     where
         D: Deserializer<'de>,
     {
-        String::deserialize(deserializer)?.parse().map_err(serde::de::Error::custom)
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -184,7 +186,10 @@ mod tests {
 
         assert_eq!(
             w.rpc_storage_caching,
-            StorageCachingConfig { chains: CachedChains::All, endpoints: CachedEndpoints::Remote }
+            StorageCachingConfig {
+                chains: CachedChains::All,
+                endpoints: CachedEndpoints::Remote
+            }
         );
 
         let s = r#"rpc_storage_caching = { chains = [1, "optimism", 999999], endpoints = "all"}"#;

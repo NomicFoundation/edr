@@ -15,7 +15,7 @@ pub use logs::LogCollector;
 
 mod stack;
 
-pub use stack::{InspectorData, InspectorStack, InspectorStackRefMut, InspectorStackBuilder};
+pub use stack::{InspectorData, InspectorStack, InspectorStackBuilder, InspectorStackRefMut};
 
 mod revert_diagnostic;
 pub use revert_diagnostic::RevertDiagnostic;

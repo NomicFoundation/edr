@@ -205,7 +205,9 @@ remote_test_repro!(
 
 // https://github.com/foundry-rs/foundry/issues/3347
 test_repro!(3347, false, None, |res| {
-    let mut res = res.remove("default/repros/Issue3347.t.sol:Issue3347Test").unwrap();
+    let mut res = res
+        .remove("default/repros/Issue3347.t.sol:Issue3347Test")
+        .unwrap();
     let test = res.test_results.remove("test()").unwrap();
     assert_eq!(test.logs.len(), 1);
     let event = Event::parse("event log2(uint256, uint256)").unwrap();
@@ -476,7 +478,9 @@ remote_test_repro!(8004);
 
 // https://github.com/foundry-rs/foundry/issues/2851
 test_repro!(2851, false, None, |res| {
-    let mut res = res.remove("default/repros/Issue2851.t.sol:Issue2851Test").unwrap();
+    let mut res = res
+        .remove("default/repros/Issue2851.t.sol:Issue2851Test")
+        .unwrap();
     let test = res.test_results.remove("invariantNotZero()").unwrap();
     assert_eq!(test.status, TestStatus::Failure);
 });
@@ -492,8 +496,13 @@ remote_test_repro!(8168);
 
 // https://github.com/foundry-rs/foundry/issues/8383
 test_repro!(8383, false, None, |res| {
-    let mut res = res.remove("default/repros/Issue8383.t.sol:Issue8383Test").unwrap();
-    let test = res.test_results.remove("testP256VerifyOutOfBounds()").unwrap();
+    let mut res = res
+        .remove("default/repros/Issue8383.t.sol:Issue8383Test")
+        .unwrap();
+    let test = res
+        .test_results
+        .remove("testP256VerifyOutOfBounds()")
+        .unwrap();
     assert_eq!(test.status, TestStatus::Success);
     match test.kind {
         TestKind::Unit { gas } => assert_eq!(gas, 3103),
@@ -525,11 +534,17 @@ test_repro!(8705, false, None, |res| {
         .unwrap();
     let test = res.test_results.remove("test_decode()").unwrap();
     assert_eq!(test.status, TestStatus::Failure);
-    assert_eq!(test.reason, Some("Error != expected error: NumberNotEven(1) != RandomError()".to_string()));
+    assert_eq!(
+        test.reason,
+        Some("Error != expected error: NumberNotEven(1) != RandomError()".to_string())
+    );
 
     let test = res.test_results.remove("test_decode_with_args()").unwrap();
     assert_eq!(test.status, TestStatus::Failure);
-    assert_eq!(test.reason, Some("Error != expected error: NumberNotEven(1) != NumberNotEven(2)".to_string()));
+    assert_eq!(
+        test.reason,
+        Some("Error != expected error: NumberNotEven(1) != NumberNotEven(2)".to_string())
+    );
 });
 
 // https://github.com/foundry-rs/foundry/issues/9643
@@ -563,7 +578,9 @@ test_repro!(10012, true);
 
 // https://github.com/foundry-rs/foundry/issues/5521
 test_repro!(5521, false, None, |res| {
-    let mut res = res.remove("default/repros/Issue5521.t.sol:Issue5521Test").unwrap();
+    let mut res = res
+        .remove("default/repros/Issue5521.t.sol:Issue5521Test")
+        .unwrap();
     let test = res.test_results.remove("test_stackPrank()").unwrap();
     assert_eq!(test.status, TestStatus::Success);
 });

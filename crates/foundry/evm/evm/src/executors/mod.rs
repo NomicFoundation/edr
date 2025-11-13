@@ -12,9 +12,14 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
 use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
-use alloy_primitives::{keccak256, map::{AddressHashMap, HashMap}, Address, Bytes, Log, TxKind, U256};
+use alloy_primitives::{
+    keccak256,
+    map::{AddressHashMap, HashMap},
+    Address, Bytes, Log, TxKind, U256,
+};
 use alloy_sol_types::{sol, SolCall};
 use foundry_evm_core::{
     backend::{Backend, BackendError, BackendResult, CheatcodeBackend, CowBackend},
@@ -34,7 +39,6 @@ use revm::{
     database::{DatabaseCommit, DatabaseRef},
     interpreter::{return_ok, InstructionResult},
 };
-use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
 
 mod builder;
 pub use builder::{ExecutorBuilder, ExecutorBuilderError};
@@ -42,9 +46,9 @@ use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr,
 };
 // Leaving this intentionally removed as it was flagged as unused
-use foundry_evm_core::{backend::IndeterminismReasons, decode::SkipReason};
 use foundry_evm_core::backend::GLOBAL_FAIL_SLOT;
 use foundry_evm_core::constants::{CHEATCODE_CONTRACT_HASH, DEFAULT_CREATE2_DEPLOYER_DEPLOYER};
+use foundry_evm_core::{backend::IndeterminismReasons, decode::SkipReason};
 
 pub mod fuzz;
 pub use fuzz::FuzzedExecutor;
@@ -90,25 +94,35 @@ pub struct Executor<
     // only interested in the database. REVM's `EVM` is a thin
     // wrapper around spawning a new EVM on every call anyway,
     // so the performance difference should be negligible.
-    backend: Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
+    backend:
+        Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
     /// The EVM environment.
     env: EvmEnv<BlockT, TxT, HardforkT>,
     /// The Revm inspector stack.
-    inspector: InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
+    inspector: InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
     chain_context: ChainContextT,
     /// The gas limit for calls and deployments.
     gas_limit: u64,
 }
 
 impl<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
-> Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+    > Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
+{
     /// Creates a new `ExecutorBuilder`.
     #[inline]
     pub fn builder() -> ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT> {
@@ -118,10 +132,26 @@ impl<
     /// Creates a new `Executor` with the given arguments.
     #[inline]
     pub fn new(
-        mut backend: Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
+        mut backend: Backend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
         env: EvmEnv<BlockT, TxT, HardforkT>,
         chain_context: ChainContextT,
-        inspector: InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
+        inspector: InspectorStack<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
         gas_limit: u64,
     ) -> Self {
         // Need to create a non-empty contract on the cheatcodes address so `extcodesize` checks
@@ -137,7 +167,13 @@ impl<
             },
         );
 
-        Self { backend, env, inspector, chain_context, gas_limit }
+        Self {
+            backend,
+            env,
+            inspector,
+            chain_context,
+            gas_limit,
+        }
     }
 
     /// Returns a reference to the EVM environment.
@@ -151,15 +187,35 @@ impl<
     }
 
     /// Returns a reference to the EVM inspector.
-    pub fn inspector(&self) -> &InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+    pub fn inspector(
+        &self,
+    ) -> &InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    > {
         &self.inspector
     }
 
     /// Returns a mutable reference to the EVM inspector.
-    pub fn inspector_mut(&mut self) -> &mut InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+    pub fn inspector_mut(
+        &mut self,
+    ) -> &mut InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    > {
         &mut self.inspector
     }
-    
+
     /// Returns the EVM spec ID.
     pub fn spec_id(&self) -> HardforkT {
         self.env.cfg.spec
@@ -188,10 +244,13 @@ impl<
         self.inspector_mut().tracing(mode);
         self
     }
-    
+
     /// Whether tracing is on and if it records EVM step level data.
     pub fn tracer_records_steps(&self) -> bool {
-        self.inspector().tracer.as_ref().is_some_and(|tracer| tracer.config().record_steps)
+        self.inspector()
+            .tracer
+            .as_ref()
+            .is_some_and(|tracer| tracer.config().record_steps)
     }
 
     /// Whether when re-executing the calls the same results are guaranteed.
@@ -201,21 +260,36 @@ impl<
 }
 
 impl<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: 'static + HaltReasonTr + TryInto<HaltReason>,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: 'static + ChainContextTr,
-> Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: 'static + HaltReasonTr + TryInto<HaltReason>,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: 'static + ChainContextTr,
+    > Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
+{
     /// Returns a reference to the EVM backend.
-    pub fn backend(&self) -> &Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+    pub fn backend(
+        &self,
+    ) -> &Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
+    {
         &self.backend
     }
 
     /// Returns a mutable reference to the EVM backend.
-    pub fn backend_mut(&mut self) -> &mut Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+    pub fn backend_mut(
+        &mut self,
+    ) -> &mut Backend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    > {
         &mut self.backend
     }
 
@@ -230,7 +304,11 @@ impl<
 
     /// Gets the balance of an account
     pub fn get_balance(&self, address: Address) -> BackendResult<U256> {
-        Ok(self.backend().basic_ref(address)?.map(|acc| acc.balance).unwrap_or_default())
+        Ok(self
+            .backend()
+            .basic_ref(address)?
+            .map(|acc| acc.balance)
+            .unwrap_or_default())
     }
 
     /// Set the nonce of an account.
@@ -244,7 +322,11 @@ impl<
 
     /// Returns the nonce of an account.
     pub fn get_nonce(&self, address: Address) -> BackendResult<u64> {
-        Ok(self.backend().basic_ref(address)?.map(|acc| acc.nonce).unwrap_or_default())
+        Ok(self
+            .backend()
+            .basic_ref(address)?
+            .map(|acc| acc.nonce)
+            .unwrap_or_default())
     }
 
     /// Set the code of an account.
@@ -262,7 +344,8 @@ impl<
         address: Address,
         storage: HashMap<U256, U256>,
     ) -> BackendResult<()> {
-        self.backend_mut().replace_account_storage(address, storage)?;
+        self.backend_mut()
+            .replace_account_storage(address, storage)?;
         Ok(())
     }
 
@@ -273,13 +356,17 @@ impl<
         slot: U256,
         value: U256,
     ) -> BackendResult<()> {
-        self.backend_mut().insert_account_storage(address, slot, value)?;
+        self.backend_mut()
+            .insert_account_storage(address, slot, value)?;
         Ok(())
     }
 
     /// Returns `true` if the account has no code.
     pub fn is_empty_code(&self, address: Address) -> BackendResult<bool> {
-        Ok(self.backend().basic_ref(address)?.is_none_or(|acc| acc.is_empty_code_hash()))
+        Ok(self
+            .backend()
+            .basic_ref(address)?
+            .is_none_or(|acc| acc.is_empty_code_hash()))
     }
 
     /// Creates the default CREATE2 Contract Deployer for local tests and scripts.
@@ -291,15 +378,22 @@ impl<
             .ok_or_else(|| BackendError::MissingAccount(DEFAULT_CREATE2_DEPLOYER))?;
 
         // If the deployer is not currently deployed, deploy the default one.
-        if create2_deployer_account.code.is_none_or(|code| code.is_empty()) {
+        if create2_deployer_account
+            .code
+            .is_none_or(|code| code.is_empty())
+        {
             let creator = DEFAULT_CREATE2_DEPLOYER_DEPLOYER;
 
             // Probably 0, but just in case.
             let initial_balance = self.get_balance(creator)?;
             self.set_balance(creator, U256::MAX)?;
 
-            let res =
-                self.deploy(creator, DEFAULT_CREATE2_DEPLOYER_CODE.into(), U256::ZERO, None)?;
+            let res = self.deploy(
+                creator,
+                DEFAULT_CREATE2_DEPLOYER_CODE.into(),
+                U256::ZERO,
+                None,
+            )?;
             trace!(create2=?res.address, "deployed local create2 deployer");
 
             self.set_balance(creator, initial_balance)?;
@@ -318,7 +412,26 @@ impl<
         code: Bytes,
         value: U256,
         rd: Option<&RevertDecoder>,
-    ) -> Result<DeployResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    ) -> Result<
+        DeployResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         let env = self.build_test_env(from, TxKind::Create, code, value);
         self.deploy_with_env(env, rd)
     }
@@ -335,7 +448,26 @@ impl<
         &mut self,
         env: EvmEnv<BlockT, TxT, HardforkT>,
         rd: Option<&RevertDecoder>,
-    ) -> Result<DeployResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    ) -> Result<
+        DeployResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         assert!(
             matches!(env.tx.kind(), TxKind::Create),
             "Expected create transaction, got {:?}",
@@ -355,7 +487,10 @@ impl<
 
         debug!(%address, "deployed contract");
 
-        Ok(DeployResult { raw: result, address })
+        Ok(DeployResult {
+            raw: result,
+            address,
+        })
     }
 
     /// Calls the `setUp()` function on a contract.
@@ -371,7 +506,26 @@ impl<
         from: Option<Address>,
         to: Address,
         rd: Option<&RevertDecoder>,
-    ) -> Result<RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    ) -> Result<
+        RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         trace!(?from, ?to, "setting up contract");
 
         let from = from.unwrap_or(CALLER);
@@ -385,10 +539,11 @@ impl<
         // and also the chainid, which can be set manually
         self.env_mut().cfg.chain_id = res.env.cfg.chain_id;
 
-        let success =
-            self.is_raw_call_success(Cow::Borrowed(&res.state_changeset), &res, false);
+        let success = self.is_raw_call_success(Cow::Borrowed(&res.state_changeset), &res, false);
         if !success {
-            return Err(res.into_execution_error("execution error".to_string()).into());
+            return Err(res
+                .into_execution_error("execution error".to_string())
+                .into());
         }
 
         Ok(res)
@@ -404,7 +559,26 @@ impl<
         args: &[DynSolValue],
         value: U256,
         rd: Option<&RevertDecoder>,
-    ) -> Result<CallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    ) -> Result<
+        CallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         let calldata = Bytes::from(func.abi_encode_input(args)?);
         let result = self.call_raw(from, to, calldata, value)?;
         result.into_decoded_result(func, rd)
@@ -419,11 +593,34 @@ impl<
         args: &C,
         value: U256,
         rd: Option<&RevertDecoder>,
-    ) -> Result<CallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, C::Return>, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    ) -> Result<
+        CallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            C::Return,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         let calldata = Bytes::from(args.abi_encode());
         let mut raw = self.call_raw(from, to, calldata, value)?;
         raw = raw.into_result(rd)?;
-        Ok(CallResult { decoded_result: C::abi_decode_returns(&raw.result)?, raw })
+        Ok(CallResult {
+            decoded_result: C::abi_decode_returns(&raw.result)?,
+            raw,
+        })
     }
 
     /// Performs a call to an account on the current state of the VM.
@@ -436,7 +633,26 @@ impl<
         args: &[DynSolValue],
         value: U256,
         rd: Option<&RevertDecoder>,
-    ) -> Result<CallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    ) -> Result<
+        CallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         let calldata = Bytes::from(func.abi_encode_input(args)?);
         let result = self.transact_raw(from, to, calldata, value)?;
         result.into_decoded_result(func, rd)
@@ -450,7 +666,15 @@ impl<
         calldata: Bytes,
         value: U256,
     ) -> eyre::Result<
-            RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+        RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     > {
         let env = self.build_test_env(from, TxKind::Call(to), calldata, value);
         self.call_with_env(env)
@@ -463,7 +687,17 @@ impl<
         to: Address,
         calldata: Bytes,
         value: U256,
-    ) -> eyre::Result<RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    ) -> eyre::Result<
+        RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         let env = self.build_test_env(from, TxKind::Call(to), calldata, value);
         self.transact_with_env(env)
     }
@@ -472,23 +706,61 @@ impl<
     ///
     /// The state after the call is **not** persisted.
     #[instrument(name = "call", level = "debug", skip_all)]
-    pub fn call_with_env(&self, mut env: EvmEnv<BlockT, TxT, HardforkT>) -> eyre::Result<
-        RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+    pub fn call_with_env(
+        &self,
+        mut env: EvmEnv<BlockT, TxT, HardforkT>,
+    ) -> eyre::Result<
+        RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
     > {
         let mut inspector = self.inspector().clone();
         let mut backend = CowBackend::new_borrowed(self.backend());
-        let result_and_state = backend.inspect(&mut env, self.chain_context.clone(), &mut inspector)?;
-        let result = convert_executed_result(env, inspector, result_and_state, backend.has_state_snapshot_failure(), backend.indeterminism_reasons())?;
+        let result_and_state =
+            backend.inspect(&mut env, self.chain_context.clone(), &mut inspector)?;
+        let result = convert_executed_result(
+            env,
+            inspector,
+            result_and_state,
+            backend.has_state_snapshot_failure(),
+            backend.indeterminism_reasons(),
+        )?;
         Ok(result)
     }
 
     /// Execute the transaction configured in `env.tx`.
     #[instrument(name = "transact", level = "debug", skip_all)]
-    pub fn transact_with_env(&mut self, mut env: EvmEnv<BlockT, TxT, HardforkT>) -> eyre::Result<RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    pub fn transact_with_env(
+        &mut self,
+        mut env: EvmEnv<BlockT, TxT, HardforkT>,
+    ) -> eyre::Result<
+        RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         let mut inspector = self.inspector().clone();
-        let result = self.backend.inspect(&mut env, self.chain_context.clone(), &mut inspector)?;
-        let mut result =
-            convert_executed_result(env, inspector, result, self.backend.has_state_snapshot_failure(), self.backend.indeterminism_reasons())?;
+        let result = self
+            .backend
+            .inspect(&mut env, self.chain_context.clone(), &mut inspector)?;
+        let mut result = convert_executed_result(
+            env,
+            inspector,
+            result,
+            self.backend.has_state_snapshot_failure(),
+            self.backend.indeterminism_reasons(),
+        )?;
         self.commit(&mut result);
         Ok(result)
     }
@@ -498,7 +770,18 @@ impl<
     ///
     /// This should not be exposed to the user, as it should be called only by `transact*`.
     #[instrument(name = "commit", level = "debug", skip_all)]
-    fn commit(&mut self, result: &mut RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) {
+    fn commit(
+        &mut self,
+        result: &mut RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) {
         // Persist changes to db.
         self.backend_mut().commit(result.state_changeset.clone());
 
@@ -524,7 +807,15 @@ impl<
     /// internally when calling `failed()`.
     pub fn is_raw_call_mut_success(
         &self,
-        call_result: &mut RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+        call_result: &mut RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
         should_fail: bool,
     ) -> bool {
         self.is_raw_call_success(
@@ -540,7 +831,15 @@ impl<
     pub fn is_raw_call_success(
         &self,
         state_changeset: Cow<'_, StateChangeset>,
-        call_result: &RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+        call_result: &RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
         should_fail: bool,
     ) -> bool {
         if call_result.has_state_snapshot_failure {
@@ -582,11 +881,7 @@ impl<
     }
 
     #[instrument(name = "is_success", level = "debug", skip_all)]
-    fn is_success_raw(
-        &self,
-        reverted: bool,
-        state_changeset: Cow<'_, StateChangeset>,
-    ) -> bool {
+    fn is_success_raw(&self, reverted: bool, state_changeset: Cow<'_, StateChangeset>) -> bool {
         // The call reverted.
         if reverted {
             return false;
@@ -604,7 +899,9 @@ impl<
         {
             return false;
         }
-        if let Ok(failed_slot) = self.backend().storage_ref(CHEATCODE_ADDRESS, GLOBAL_FAIL_SLOT)
+        if let Ok(failed_slot) = self
+            .backend()
+            .storage_ref(CHEATCODE_ADDRESS, GLOBAL_FAIL_SLOT)
             && !failed_slot.is_zero()
         {
             return false;
@@ -617,7 +914,13 @@ impl<
     ///
     /// If using a backend with cheatcodes, `tx.gas_price` and `block.number` will be overwritten by
     /// the cheatcode state in between calls.
-    fn build_test_env(&self, caller: Address, kind: TxKind, data: Bytes, value: U256) -> EvmEnv<BlockT, TxT, HardforkT> {
+    fn build_test_env(
+        &self,
+        caller: Address,
+        kind: TxKind,
+        data: Bytes,
+        value: U256,
+    ) -> EvmEnv<BlockT, TxT, HardforkT> {
         let mut cfg = self.env.cfg.clone();
         cfg.spec = self.spec_id();
 
@@ -650,21 +953,62 @@ impl<
             .inspect_err(|e| warn!(target: "forge::test", "failed calling {:?}: {e}", C::SIGNATURE))
             .unwrap_or_default()
     }
-
 }
 
 /// Represents the context after an execution error occurred.
 #[derive(Debug, thiserror::Error)]
 #[error("execution reverted: {reason} (gas: {})", raw.gas_used)]
-pub struct ExecutionErr<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> {
+pub struct ExecutionErr<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+> {
     /// The raw result of the call.
-    pub raw: RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+    pub raw: RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
     /// The revert reason.
     pub reason: String,
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> std::ops::Deref for ExecutionErr<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
-    type Target = RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>;
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    > std::ops::Deref
+    for ExecutionErr<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
+    type Target = RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -672,7 +1016,25 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, E
     }
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> std::ops::DerefMut for ExecutionErr<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    > std::ops::DerefMut
+    for ExecutionErr<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.raw
@@ -680,10 +1042,31 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, E
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum EvmError<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> {
+pub enum EvmError<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+> {
     /// Error which occurred during execution of a transaction.
     #[error(transparent)]
-    Execution(#[from] Box<ExecutionErr<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>>),
+    Execution(
+        #[from]
+        Box<
+            ExecutionErr<
+                BlockT,
+                TxT,
+                ChainContextT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+            >,
+        >,
+    ),
     /// Error which occurred during ABI encoding/decoding.
     #[error(transparent)]
     Abi(#[from] alloy_dyn_abi::Error),
@@ -699,13 +1082,54 @@ pub enum EvmError<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: Chai
     ),
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> From<ExecutionErr<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> for EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
-    fn from(err: ExecutionErr<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Self {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    >
+    From<
+        ExecutionErr<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    >
+    for EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>
+{
+    fn from(
+        err: ExecutionErr<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Self {
         Self::Execution(Box::new(err))
     }
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> From<alloy_sol_types::Error> for EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    > From<alloy_sol_types::Error>
+    for EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>
+{
     fn from(err: alloy_sol_types::Error) -> Self {
         Self::Abi(err.into())
     }
@@ -713,15 +1137,57 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, E
 
 /// The result of a deployment.
 #[derive(Debug)]
-pub struct DeployResult<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> {
+pub struct DeployResult<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+> {
     /// The raw result of the deployment.
-    pub raw: RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+    pub raw: RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
     /// The address of the deployed contract
     pub address: Address,
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> std::ops::Deref for DeployResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
-    type Target = RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>;
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    > std::ops::Deref
+    for DeployResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
+    type Target = RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -729,15 +1195,72 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, E
     }
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> std::ops::DerefMut for DeployResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    > std::ops::DerefMut
+    for DeployResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.raw
     }
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> From<DeployResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> for RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
-    fn from(d: DeployResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Self {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    >
+    From<
+        DeployResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    >
+    for RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
+    fn from(
+        d: DeployResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Self {
         d.raw
     }
 }
@@ -785,22 +1308,42 @@ pub struct RawCallResult<
     /// The `revm::Env` after the call
     pub env: EvmEnv<BlockT, TxT, HardforkT>,
     /// The cheatcode states after execution
-    pub cheatcodes: Option<Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>>,
+    pub cheatcodes: Option<
+        Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    >,
     /// The raw output of the execution
     pub out: Option<Output>,
     pub reverter: Option<Address>,
-    pub indeterminism_reasons: Option<IndeterminismReasons>
+    pub indeterminism_reasons: Option<IndeterminismReasons>,
 }
 
 impl<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    ChainContextT: ChainContextTr,
-    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: HaltReasonTr,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-> Default for RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    > Default
+    for RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
     fn default() -> Self {
         Self {
             exit_reason: None,
@@ -825,10 +1368,42 @@ impl<
     }
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainContextTr, EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: 'static + HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: 'static + ChainContextTr,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: 'static + HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    >
+    RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
     /// Unpacks an EVM result.
     #[allow(clippy::type_complexity)]
-    pub fn from_evm_result(r: Result<Self, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>>) -> eyre::Result<(Self, Option<String>)> {
+    pub fn from_evm_result(
+        r: Result<
+            Self,
+            EvmError<
+                BlockT,
+                TxT,
+                ChainContextT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+            >,
+        >,
+    ) -> eyre::Result<(Self, Option<String>)> {
         match r {
             Ok(r) => Ok((r, None)),
             Err(EvmError::Execution(e)) => Ok((e.raw, Some(e.reason))),
@@ -838,7 +1413,20 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainCo
 
     /// Unpacks an execution result.
     #[allow(clippy::type_complexity)]
-    pub fn from_execution_result(r: Result<Self, ExecutionErr<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>>) -> (Self, Option<String>) {
+    pub fn from_execution_result(
+        r: Result<
+            Self,
+            ExecutionErr<
+                BlockT,
+                TxT,
+                ChainContextT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+            >,
+        >,
+    ) -> (Self, Option<String>) {
         match r {
             Ok(r) => (r, None),
             Err(e) => (e.raw, Some(e.reason)),
@@ -846,22 +1434,53 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainCo
     }
 
     /// Converts the result of the call into an `EvmError`.
-    pub fn into_evm_error(self, rd: Option<&RevertDecoder>) -> EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
+    pub fn into_evm_error(
+        self,
+        rd: Option<&RevertDecoder>,
+    ) -> EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>
+    {
         if let Some(reason) = SkipReason::decode(&self.result) {
             return EvmError::Skip(reason);
         }
-        let reason = rd.unwrap_or_default().decode(&self.result, self.exit_reason);
+        let reason = rd
+            .unwrap_or_default()
+            .decode(&self.result, self.exit_reason);
         EvmError::Execution(Box::new(self.into_execution_error(reason)))
     }
 
     /// Converts the result of the call into an `ExecutionErr`.
-    pub fn into_execution_error(self, reason: String) -> ExecutionErr<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
+    pub fn into_execution_error(
+        self,
+        reason: String,
+    ) -> ExecutionErr<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    > {
         ExecutionErr { raw: self, reason }
     }
 
     /// Returns an `EvmError` if the call failed, otherwise returns `self`.
     #[allow(clippy::type_complexity)]
-    pub fn into_result(self, rd: Option<&RevertDecoder>) -> Result<Self, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    pub fn into_result(
+        self,
+        rd: Option<&RevertDecoder>,
+    ) -> Result<
+        Self,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         if let Some(reason) = self.exit_reason
             && reason.is_ok()
         {
@@ -877,7 +1496,26 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainCo
         mut self,
         func: &Function,
         rd: Option<&RevertDecoder>,
-    ) -> Result<CallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    ) -> Result<
+        CallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
         self = self.into_result(rd)?;
         let mut result = func.abi_decode_output(&self.result)?;
         let decoded_result = if result.len() == 1 {
@@ -886,7 +1524,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainCo
             // combine results into a tuple
             DynSolValue::Tuple(result)
         };
-        Ok(CallResult { raw: self, decoded_result })
+        Ok(CallResult {
+            raw: self,
+            decoded_result,
+        })
     }
 
     /// Update provided history map with edge coverage info collected during this call.
@@ -933,15 +1574,58 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: 'static + ChainCo
 }
 
 /// The result of a call.
-pub struct CallResult<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait, T = DynSolValue> {
+pub struct CallResult<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    T = DynSolValue,
+> {
     /// The raw result of the call.
-    pub raw: RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+    pub raw: RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
     /// The decoded result of the call.
     pub decoded_result: T,
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> std::ops::Deref for CallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
-    type Target = RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>;
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    > std::ops::Deref
+    for CallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
+    type Target = RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -949,7 +1633,25 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, E
     }
 }
 
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, ChainContextT: ChainContextTr, EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>, HaltReasonT: HaltReasonTr, HardforkT: HardforkTr, TransactionErrorT: TransactionErrorTrait> std::ops::DerefMut for CallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
+impl<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        ChainContextT: ChainContextTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+    > std::ops::DerefMut
+    for CallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.raw
@@ -967,18 +1669,50 @@ fn convert_executed_result<
     ChainContextT: ChainContextTr,
 >(
     env: EvmEnv<BlockT, TxT, HardforkT>,
-    inspector: InspectorStack<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
-    ResultAndState { result, state: state_changeset }: ResultAndState<HaltReasonT>,
+    inspector: InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
+    ResultAndState {
+        result,
+        state: state_changeset,
+    }: ResultAndState<HaltReasonT>,
     has_state_snapshot_failure: bool,
-    indeterminism_reasons: Option<IndeterminismReasons>
-) -> eyre::Result<RawCallResult<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>> {
+    indeterminism_reasons: Option<IndeterminismReasons>,
+) -> eyre::Result<
+    RawCallResult<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
+> {
     let (exit_reason, gas_refunded, gas_used, out, exec_logs) = match result {
-        ExecutionResult::Success { reason, gas_used, gas_refunded, output, logs, .. } => {
-            (reason.into(), gas_refunded, gas_used, Some(output), logs)
-        }
+        ExecutionResult::Success {
+            reason,
+            gas_used,
+            gas_refunded,
+            output,
+            logs,
+            ..
+        } => (reason.into(), gas_refunded, gas_used, Some(output), logs),
         ExecutionResult::Revert { gas_used, output } => {
             // Need to fetch the unused gas
-            (InstructionResult::Revert, 0_u64, gas_used, Some(Output::Call(output)), vec![])
+            (
+                InstructionResult::Revert,
+                0_u64,
+                gas_used,
+                Some(Output::Call(output)),
+                vec![],
+            )
         }
         ExecutionResult::Halt { reason, gas_used } => {
             let reason: HaltReason = reason.clone().try_into().map_err(|_error| {
@@ -1034,7 +1768,7 @@ fn convert_executed_result<
         cheatcodes,
         out,
         reverter,
-        indeterminism_reasons
+        indeterminism_reasons,
     })
 }
 
@@ -1046,11 +1780,14 @@ pub struct FuzzTestTimer {
 
 impl FuzzTestTimer {
     pub fn new(timeout: Option<u32>) -> Self {
-        Self { inner: timeout.map(|timeout| (Instant::now(), Duration::from_secs(timeout.into()))) }
+        Self {
+            inner: timeout.map(|timeout| (Instant::now(), Duration::from_secs(timeout.into()))),
+        }
     }
 
     /// Whether the current fuzz test timed out and should be stopped.
     pub fn is_timed_out(&self) -> bool {
-        self.inner.is_some_and(|(start, duration)| start.elapsed() > duration)
+        self.inner
+            .is_some_and(|(start, duration)| start.elapsed() > duration)
     }
 }

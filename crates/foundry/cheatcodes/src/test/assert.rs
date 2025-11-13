@@ -1,10 +1,13 @@
 #[allow(clippy::wildcard_imports)]
 use crate::{impl_is_pure_true, CheatsCtxt, Result, Vm::*};
-use alloy_primitives::{I256, U256, U512, hex};
+use alloy_primitives::{hex, I256, U256, U512};
 use foundry_evm_core::{
     abi::console::{format_units_int, format_units_uint},
-    backend::{CheatcodeBackend},
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait},
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use itertools::Itertools;
 use std::fmt::{Debug, Display};
@@ -99,7 +102,10 @@ impl EqAbsAssertionError<I256, U256> {
 }
 
 fn format_delta_percent(delta: &U256) -> String {
-    format!("{}%", format_units_uint(delta, &(EQ_REL_DELTA_RESOLUTION - U256::from(2))))
+    format!(
+        "{}%",
+        format_units_uint(delta, &(EQ_REL_DELTA_RESOLUTION - U256::from(2)))
+    )
 }
 
 #[derive(Debug)]
@@ -170,9 +176,7 @@ impl EqRelAssertionError<I256> {
 
 type ComparisonResult<'a, T> = Result<Vec<u8>, ComparisonAssertionError<'a, T>>;
 
-fn handle_assertion_result<
-    ERR,
->(
+fn handle_assertion_result<ERR>(
     result: core::result::Result<Vec<u8>, ERR>,
     error_formatter: impl Fn(&ERR) -> String,
     error_msg: Option<&str>,
@@ -493,11 +497,19 @@ impl_assertions! {
 }
 
 fn assert_true(condition: bool) -> Result<Vec<u8>, SimpleAssertionError> {
-    if condition { Ok(Vec::default()) } else { Err(SimpleAssertionError) }
+    if condition {
+        Ok(Vec::default())
+    } else {
+        Err(SimpleAssertionError)
+    }
 }
 
 fn assert_false(condition: bool) -> Result<Vec<u8>, SimpleAssertionError> {
-    if !condition { Ok(Vec::default()) } else { Err(SimpleAssertionError) }
+    if !condition {
+        Ok(Vec::default())
+    } else {
+        Err(SimpleAssertionError)
+    }
 }
 
 fn assert_eq<'a, T: PartialEq>(left: &'a T, right: &'a T) -> ComparisonResult<'a, T> {
@@ -521,7 +533,11 @@ fn get_delta_int(left: I256, right: I256) -> U256 {
     let (right_sign, right_abs) = right.into_sign_and_abs();
 
     if left_sign == right_sign {
-        if left_abs > right_abs { left_abs - right_abs } else { right_abs - left_abs }
+        if left_abs > right_abs {
+            left_abs - right_abs
+        } else {
+            right_abs - left_abs
+        }
     } else {
         left_abs + right_abs
     }
@@ -546,7 +562,12 @@ fn uint_assert_approx_eq_abs(
     if delta <= max_delta {
         Ok(Vec::default())
     } else {
-        Err(Box::new(EqAbsAssertionError { left, right, max_delta, real_delta: delta }))
+        Err(Box::new(EqAbsAssertionError {
+            left,
+            right,
+            max_delta,
+            real_delta: delta,
+        }))
     }
 }
 
@@ -560,7 +581,12 @@ fn int_assert_approx_eq_abs(
     if delta <= max_delta {
         Ok(Vec::default())
     } else {
-        Err(Box::new(EqAbsAssertionError { left, right, max_delta, real_delta: delta }))
+        Err(Box::new(EqAbsAssertionError {
+            left,
+            right,
+            max_delta,
+            real_delta: delta,
+        }))
     }
 }
 
@@ -573,12 +599,14 @@ fn uint_assert_approx_eq_rel(
         if left.is_zero() {
             return Ok(Vec::default());
         } else {
-            return Err(EqRelAssertionError::Failure(Box::new(EqRelAssertionFailure {
-                left,
-                right,
-                max_delta,
-                real_delta: EqRelDelta::Undefined,
-            })));
+            return Err(EqRelAssertionError::Failure(Box::new(
+                EqRelAssertionFailure {
+                    left,
+                    right,
+                    max_delta,
+                    real_delta: EqRelDelta::Undefined,
+                },
+            )));
         };
     }
 
@@ -587,12 +615,14 @@ fn uint_assert_approx_eq_rel(
     if delta <= max_delta {
         Ok(Vec::default())
     } else {
-        Err(EqRelAssertionError::Failure(Box::new(EqRelAssertionFailure {
-            left,
-            right,
-            max_delta,
-            real_delta: EqRelDelta::Defined(delta),
-        })))
+        Err(EqRelAssertionError::Failure(Box::new(
+            EqRelAssertionFailure {
+                left,
+                right,
+                max_delta,
+                real_delta: EqRelDelta::Defined(delta),
+            },
+        )))
     }
 }
 
@@ -605,12 +635,14 @@ fn int_assert_approx_eq_rel(
         if left.is_zero() {
             return Ok(Vec::default());
         } else {
-            return Err(EqRelAssertionError::Failure(Box::new(EqRelAssertionFailure {
-                left,
-                right,
-                max_delta,
-                real_delta: EqRelDelta::Undefined,
-            })));
+            return Err(EqRelAssertionError::Failure(Box::new(
+                EqRelAssertionFailure {
+                    left,
+                    right,
+                    max_delta,
+                    real_delta: EqRelDelta::Undefined,
+                },
+            )));
         }
     }
 
@@ -619,12 +651,14 @@ fn int_assert_approx_eq_rel(
     if delta <= max_delta {
         Ok(Vec::default())
     } else {
-        Err(EqRelAssertionError::Failure(Box::new(EqRelAssertionFailure {
-            left,
-            right,
-            max_delta,
-            real_delta: EqRelDelta::Defined(delta),
-        })))
+        Err(EqRelAssertionError::Failure(Box::new(
+            EqRelAssertionFailure {
+                left,
+                right,
+                max_delta,
+                real_delta: EqRelDelta::Defined(delta),
+            },
+        )))
     }
 }
 

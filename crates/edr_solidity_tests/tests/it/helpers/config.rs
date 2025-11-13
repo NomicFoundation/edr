@@ -247,7 +247,9 @@ pub fn assert_multiple<HaltReasonT: HaltReasonTrait>(
                 .unwrap_or_else(|| panic!("contract should exist in actuals: '{contract_name}'"))
                 .test_results
                 .get(*test_name)
-                .unwrap_or_else(|| panic!("test should exist in test results: '{contract_name}:{test_name}'"))
+                .unwrap_or_else(|| {
+                    panic!("test should exist in test results: '{contract_name}:{test_name}'")
+                })
                 .decoded_logs;
 
             let warnings_count = &actuals

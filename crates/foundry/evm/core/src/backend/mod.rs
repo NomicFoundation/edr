@@ -4,9 +4,8 @@ use crate::{
     backend::predeploy::insert_predeploys,
     constants::{CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, TEST_CONTRACT_ADDRESS},
     evm_context::{
-        EvmBuilderTrait, IntoEvmContext, TransactionErrorTrait,
-        BlockEnvTr, ChainContextTr, EvmContext, EvmEnv, EvmEnvWithChainContext, HardforkTr,
-        TransactionEnvTr, TransactionEnvMut
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, EvmContext, EvmEnv, EvmEnvWithChainContext,
+        HardforkTr, IntoEvmContext, TransactionEnvMut, TransactionEnvTr, TransactionErrorTrait,
     },
     fork::{CreateFork, ForkId, MultiFork},
     state_snapshot::StateSnapshots,
@@ -14,20 +13,20 @@ use crate::{
 };
 use alloy_genesis::GenesisAccount;
 use alloy_network::{AnyRpcBlock, AnyTxEnvelope, TransactionResponse};
-use alloy_primitives::{Address, B256, TxKind, U256, address, keccak256, uint};
+use alloy_primitives::{address, keccak256, uint, Address, TxKind, B256, U256};
 use alloy_rpc_types::{BlockNumberOrTag, Transaction as RpcTransaction};
 use eyre::Context;
-pub use foundry_fork_db::{BlockchainDb, SharedBackend, cache::BlockchainDbMeta};
+pub use foundry_fork_db::{cache::BlockchainDbMeta, BlockchainDb, SharedBackend};
 use revm::{
-    Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
     bytecode::Bytecode,
-    context::{CfgEnv, JournalInner, result::HaltReasonTr},
-    context_interface::{Cfg, result::ResultAndState},
+    context::{result::HaltReasonTr, CfgEnv, JournalInner},
+    context_interface::{result::ResultAndState, Cfg},
     database::{CacheDB, DatabaseRef},
     inspector::NoOpInspector,
     precompile::{PrecompileSpecId, Precompiles},
-    primitives::{HashMap as Map, KECCAK_EMPTY, Log, hardfork::SpecId},
+    primitives::{hardfork::SpecId, HashMap as Map, Log, KECCAK_EMPTY},
     state::{Account, AccountInfo, EvmState, EvmStorageSlot},
+    Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
 use std::{
     borrow::Cow,
@@ -628,8 +627,7 @@ impl<
 
         if let Some(fork) = fork {
             let fork_block_number = fork.evm_opts.fork_block_number;
-            let (fork_id, fork, _) =
-                backend.forks.create_fork(fork)?;
+            let (fork_id, fork, _) = backend.forks.create_fork(fork)?;
             let fork_db = ForkDB::new(fork);
             let fork_ids = backend.inner.insert_new_fork(
                 fork_id.clone(),
@@ -662,7 +660,9 @@ impl<
         let mut backend = Self::spawn(None, Vec::default())?;
         let fork_block_number = fork.fork_block_number;
         let fork_ids =
-            backend.inner.insert_new_fork(id.clone(), fork.db, journaled_state, fork_block_number);
+            backend
+                .inner
+                .insert_new_fork(id.clone(), fork.db, journaled_state, fork_block_number);
         backend.inner.launched_with_fork = Some(LaunchedWithFork {
             fork_id: id.clone(),
             local_fork_id: fork_ids.0,
@@ -809,7 +809,12 @@ impl<
          }
         */
         let value = self.storage_ref(address, U256::ZERO).unwrap_or_default();
-        value.as_le_bytes().get(1).copied().expect("U256 as_le_bytes should have at least 2 bytes") != 0
+        value
+            .as_le_bytes()
+            .get(1)
+            .copied()
+            .expect("U256 as_le_bytes should have at least 2 bytes")
+            != 0
     }
 
     /// Checks if the given test function failed by looking at the present value
@@ -842,7 +847,12 @@ impl<
     pub fn is_global_failure(&self, current_state: &JournalInner<JournalEntry>) -> bool {
         if let Some(account) = current_state.state.get(&CHEATCODE_ADDRESS) {
             let slot: U256 = GLOBAL_FAIL_SLOT;
-            let value = account.storage.get(&slot).cloned().unwrap_or_default().present_value();
+            let value = account
+                .storage
+                .get(&slot)
+                .cloned()
+                .unwrap_or_default()
+                .present_value();
             return value == revm::primitives::U256::from(1);
         }
 
@@ -863,7 +873,10 @@ impl<
     /// Check that the global fork this backend was launched is using the
     /// "latest" block tag.
     pub fn is_global_fork_latest(&self) -> bool {
-        self.inner.launched_with_fork.as_ref().is_some_and(|lf| lf.fork_block_number.is_none())
+        self.inner
+            .launched_with_fork
+            .as_ref()
+            .is_some_and(|lf| lf.fork_block_number.is_none())
     }
 
     /// Whether when re-executing the calls the same results are guaranteed.
@@ -925,7 +938,9 @@ impl<
 
     /// Returns true if the `id` is currently active
     pub fn is_active_fork(&self, id: LocalForkId) -> bool {
-        self.active_fork_ids.map(|(i, _)| i == id).unwrap_or_default()
+        self.active_fork_ids
+            .map(|(i, _)| i == id)
+            .unwrap_or_default()
     }
 
     /// Returns `true` if the `Backend` is currently in forking mode
@@ -935,12 +950,14 @@ impl<
 
     /// Returns the currently active `Fork`, if any
     pub fn active_fork(&self) -> Option<&Fork> {
-        self.active_fork_ids.map(|(_, idx)| self.inner.get_fork(idx))
+        self.active_fork_ids
+            .map(|(_, idx)| self.inner.get_fork(idx))
     }
 
     /// Returns the currently active `Fork`, if any
     pub fn active_fork_mut(&mut self) -> Option<&mut Fork> {
-        self.active_fork_ids.map(|(_, idx)| self.inner.get_fork_mut(idx))
+        self.active_fork_ids
+            .map(|(_, idx)| self.inner.get_fork_mut(idx))
     }
 
     /// Returns the currently active `ForkDB`, if any
@@ -965,7 +982,10 @@ impl<
     /// Returns the current database implementation as a `&mut dyn` value.
     #[inline(always)]
     pub fn db_mut(&mut self) -> &mut dyn Database<Error = DatabaseError> {
-        match self.active_fork_ids.map(|(_, idx)| &mut self.inner.get_fork_mut(idx).db) {
+        match self
+            .active_fork_ids
+            .map(|(_, idx)| &mut self.inner.get_fork_mut(idx).db)
+        {
             Some(fork_db) => fork_db,
             None => &mut self.mem_db,
         }
@@ -1094,8 +1114,10 @@ impl<
             let mut journaled_state = self.fork_init_journaled_state.clone();
             for loaded_account in loaded_accounts.iter().copied() {
                 trace!(?loaded_account, "replacing account on init");
-                let init_account =
-                    journaled_state.state.get_mut(&loaded_account).expect("exists; qed");
+                let init_account = journaled_state
+                    .state
+                    .get_mut(&loaded_account)
+                    .expect("exists; qed");
 
                 // here's an edge case where we need to check if this account has been created, in
                 // which case we don't need to replace it with the account from the fork because the
@@ -1159,7 +1181,10 @@ impl<
 
         let env = self.env_with_handler_cfg(env);
         let fork = self.inner.get_fork_by_id_mut(id)?;
-        let full_block = fork.db.db.get_full_block(env.block.number().saturating_to::<u64>())?;
+        let full_block = fork
+            .db
+            .db
+            .get_full_block(env.block.number().saturating_to::<u64>())?;
 
         for tx in full_block.inner.transactions.txns() {
             // System transactions such as on L2s don't contain any pricing info so we skip them
@@ -1247,7 +1272,11 @@ impl<
 
             // merge additional logs
             snapshot.merge(context.journaled_state);
-            let BackendStateSnapshot { db, mut journaled_state, env } = snapshot;
+            let BackendStateSnapshot {
+                db,
+                mut journaled_state,
+                env,
+            } = snapshot;
             match db {
                 BackendDatabaseSnapshot::InMemory(mem_db) => {
                     self.mem_db = mem_db;
@@ -1378,7 +1407,11 @@ impl<
             active.journaled_state = context.journaled_state.clone();
 
             let caller = context.tx.caller();
-            let caller_account = active.journaled_state.state.get(&context.tx.caller()).cloned();
+            let caller_account = active
+                .journaled_state
+                .state
+                .get(&context.tx.caller())
+                .cloned();
             let target_fork = self.inner.get_fork_mut(idx);
 
             // depth 0 will be the default value when the fork was created
@@ -1420,7 +1453,9 @@ impl<
             let persistent_accounts = self.inner.persistent_accounts.clone();
             if let Some(db) = self.active_fork_db_mut() {
                 for addr in persistent_accounts {
-                    let Ok(db_account) = db.load_account(addr) else { continue };
+                    let Ok(db_account) = db.load_account(addr) else {
+                        continue;
+                    };
 
                     let Some(fork_account) = fork.journaled_state.state.get_mut(&addr) else {
                         continue;
@@ -1482,8 +1517,9 @@ impl<
     ) -> eyre::Result<()> {
         trace!(?id, ?block_number, "roll fork");
         let id = self.ensure_fork(id)?;
-        let (fork_id, backend, fork_env) =
-            self.forks.roll_fork(self.inner.ensure_fork_id(id).cloned()?, block_number)?;
+        let (fork_id, backend, fork_env) = self
+            .forks
+            .roll_fork(self.inner.ensure_fork_id(id).cloned()?, block_number)?;
         // this will update the local mapping
         self.inner.roll_fork(id, fork_id, backend)?;
 
@@ -1566,8 +1602,10 @@ impl<
 
         // after we forked at the fork block we need to properly update the block env to the block
         // env of the tx's block
-        let _ =
-            self.forks.update_block_env(self.inner.ensure_fork_id(id).cloned()?, context.block.clone());
+        let _ = self.forks.update_block_env(
+            self.inner.ensure_fork_id(id).cloned()?,
+            context.block.clone(),
+        );
 
         let env_with_chain =
             EvmEnvWithChainContext::new(context.to_owned_env(), context.chain_context.clone());
@@ -1599,8 +1637,7 @@ impl<
         >,
         mut env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
         journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<()>
-    {
+    ) -> eyre::Result<()> {
         trace!(?maybe_id, ?transaction, "execute transaction");
         let persistent_accounts = self.inner.persistent_accounts.clone();
         let id = self.ensure_fork(maybe_id)?;
@@ -1639,7 +1676,10 @@ impl<
     }
 
     fn active_fork_url(&self) -> Option<String> {
-        let fork = self.inner.issued_local_fork_ids.get(&self.active_fork_id()?)?;
+        let fork = self
+            .inner
+            .issued_local_fork_ids
+            .get(&self.active_fork_id()?)?;
         self.forks.get_fork_url(fork.clone()).ok()?
     }
 
@@ -1650,7 +1690,11 @@ impl<
             }
             eyre::bail!("Requested fork `{}` does not exit", id)
         }
-        if let Some(id) = self.active_fork_id() { Ok(id) } else { eyre::bail!("No fork active") }
+        if let Some(id) = self.active_fork_id() {
+            Ok(id)
+        } else {
+            eyre::bail!("No fork active")
+        }
     }
 
     fn ensure_fork_id(&self, id: LocalForkId) -> eyre::Result<&ForkId> {
@@ -1799,15 +1843,22 @@ impl<
     #[inline(always)]
     fn record_cheatcode_purity(&mut self, cheatcode_name: &'static str, is_pure: bool) {
         if !is_pure {
-            self.inner.impure_cheatcodes.insert(Cow::Borrowed(cheatcode_name));
+            self.inner
+                .impure_cheatcodes
+                .insert(Cow::Borrowed(cheatcode_name));
         }
     }
 
     fn set_blockhash(&mut self, block_number: U256, block_hash: B256) {
         if let Some(db) = self.active_fork_db_mut() {
-            db.cache.block_hashes.insert(block_number.saturating_to(), block_hash);
+            db.cache
+                .block_hashes
+                .insert(block_number.saturating_to(), block_hash);
         } else {
-            self.mem_db.cache.block_hashes.insert(block_number.saturating_to(), block_hash);
+            self.mem_db
+                .cache
+                .block_hashes
+                .insert(block_number.saturating_to(), block_hash);
         }
     }
 }
@@ -1956,7 +2007,11 @@ impl IndeterminismReasons {
     pub fn merge(&mut self, other: Option<IndeterminismReasons>) {
         if let Some(other) = other {
             self.global_fork_latest = self.global_fork_latest || other.global_fork_latest;
-            self.impure_cheatcodes = self.impure_cheatcodes.union(&other.impure_cheatcodes).cloned().collect();
+            self.impure_cheatcodes = self
+                .impure_cheatcodes
+                .union(&other.impure_cheatcodes)
+                .cloned()
+                .collect();
         }
     }
 }
@@ -2070,14 +2125,20 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     #[track_caller]
     fn get_fork(&self, idx: ForkLookupIndex) -> &Fork {
         debug_assert!(idx < self.forks.len(), "fork lookup index must exist");
-        self.forks.get(idx).and_then(|f| f.as_ref()).expect("fork lookup index must exist")
+        self.forks
+            .get(idx)
+            .and_then(|f| f.as_ref())
+            .expect("fork lookup index must exist")
     }
 
     /// Returns the underlying fork mapped to the index
     #[track_caller]
     fn get_fork_mut(&mut self, idx: ForkLookupIndex) -> &mut Fork {
         debug_assert!(idx < self.forks.len(), "fork lookup index must exist");
-        self.forks.get_mut(idx).and_then(|f| f.as_mut()).expect("fork lookup index must exist")
+        self.forks
+            .get_mut(idx)
+            .and_then(|f| f.as_mut())
+            .expect("fork lookup index must exist")
     }
 
     /// Returns the underlying fork corresponding to the id
@@ -2097,7 +2158,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     /// Removes the fork
     fn take_fork(&mut self, idx: ForkLookupIndex) -> Fork {
         debug_assert!(idx < self.forks.len(), "fork lookup index must exist");
-        self.forks.get_mut(idx).and_then(Option::take).expect("fork lookup index must exist")
+        self.forks
+            .get_mut(idx)
+            .and_then(Option::take)
+            .expect("fork lookup index must exist")
     }
 
     fn set_fork(&mut self, idx: ForkLookupIndex, fork: Fork) {
@@ -2108,12 +2172,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
 
     /// Returns an iterator over Forks
     pub fn forks_iter(&self) -> impl Iterator<Item = (LocalForkId, &Fork)> + '_ {
-        self.issued_local_fork_ids
-            .iter()
-            .map(|(id, fork_id)| {
-                let idx = *self.created_forks.get(fork_id).expect("fork_id must exist");
-                (*id, self.get_fork(idx))
-            })
+        self.issued_local_fork_ids.iter().map(|(id, fork_id)| {
+            let idx = *self.created_forks.get(fork_id).expect("fork_id must exist");
+            (*id, self.get_fork(idx))
+        })
     }
 
     /// Returns a mutable iterator over all Forks
@@ -2147,7 +2209,11 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         self.issued_local_fork_ids.insert(id, fork_id.clone());
         self.created_forks.insert(fork_id, idx);
 
-        let fork = Fork { db, journaled_state, fork_block_number };
+        let fork = Fork {
+            db,
+            journaled_state,
+            fork_block_number,
+        };
         self.forks.push(Some(fork));
         idx
     }
@@ -2161,7 +2227,11 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         let fork_id = self.ensure_fork_id(id)?;
         let idx = self.ensure_fork_index(fork_id)?;
 
-        let active = self.forks.get_mut(idx).and_then(|f| f.as_mut()).expect("fork index should exist after ensure_fork_index");
+        let active = self
+            .forks
+            .get_mut(idx)
+            .and_then(|f| f.as_mut())
+            .expect("fork index should exist after ensure_fork_index");
         // we initialize a _new_ `ForkDB` but keep the state of persistent accounts
         let mut new_db = ForkDB::new(backend);
         for addr in self.persistent_accounts.iter().copied() {
@@ -2188,7 +2258,11 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         self.created_forks.insert(fork_id.clone(), idx);
         let id = self.next_id();
         self.issued_local_fork_ids.insert(id, fork_id);
-        let fork = Fork { db, journaled_state, fork_block_number };
+        let fork = Fork {
+            db,
+            journaled_state,
+            fork_block_number,
+        };
         self.forks.push(Some(fork));
         (id, idx)
     }
@@ -2220,7 +2294,9 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             journal_inner.set_spec_id(self.spec_id.into());
             journal_inner
         };
-        journal.precompiles.extend(self.precompiles().addresses().copied());
+        journal
+            .precompiles
+            .extend(self.precompiles().addresses().copied());
         journal
     }
 }
@@ -2288,7 +2364,11 @@ pub(crate) fn merge_account_data<ExtDB: DatabaseRef>(
 ) {
     for addr in accounts {
         merge_db_account_data(addr, active, &mut target_fork.db);
-        merge_journaled_state_data(addr, active_journaled_state, &mut target_fork.journaled_state);
+        merge_journaled_state_data(
+            addr,
+            active_journaled_state,
+            &mut target_fork.journaled_state,
+        );
     }
 
     *active_journaled_state = target_fork.journaled_state.clone();
@@ -2304,7 +2384,9 @@ fn merge_journaled_state_data(
         trace!(?addr, "updating journaled_state account data");
         if let Some(fork_account) = fork_journaled_state.state.get_mut(&addr) {
             // This will merge the fork's tracked storage with active storage and update values
-            fork_account.storage.extend(std::mem::take(&mut acc.storage));
+            fork_account
+                .storage
+                .extend(std::mem::take(&mut acc.storage));
             // swap them so we can insert the account as whole in the next step
             std::mem::swap(&mut fork_account.storage, &mut acc.storage);
         }
@@ -2322,12 +2404,17 @@ fn merge_db_account_data<ExtDB: DatabaseRef>(
 
     trace!(?addr, "merging database data");
 
-    let Some(acc) = active.cache.accounts.get(&addr) else { return };
+    let Some(acc) = active.cache.accounts.get(&addr) else {
+        return;
+    };
 
     // port contract cache over
     if let Some(code) = active.cache.contracts.get(&acc.info.code_hash) {
         trace!("merging contract cache");
-        fork_db.cache.contracts.insert(acc.info.code_hash, code.clone());
+        fork_db
+            .cache
+            .contracts
+            .insert(acc.info.code_hash, code.clone());
     }
 
     // port account storage over
@@ -2452,8 +2539,16 @@ fn apply_state_changeset(
     // commit the state and update the loaded accounts
     fork.db.commit(state);
 
-    update_state(&mut journaled_state.state, &mut fork.db, Some(persistent_accounts))?;
-    update_state(&mut fork.journaled_state.state, &mut fork.db, Some(persistent_accounts))?;
+    update_state(
+        &mut journaled_state.state,
+        &mut fork.db,
+        Some(persistent_accounts),
+    )?;
+    update_state(
+        &mut fork.journaled_state.state,
+        &mut fork.db,
+        Some(persistent_accounts),
+    )?;
 
     Ok(())
 }
@@ -2505,8 +2600,10 @@ mod tests {
 
         let block_num = provider.get_block_number().await.unwrap();
 
-        let evm_opts =
-            EvmOpts::<SpecId> { fork_block_number: Some(block_num), ..EvmOpts::default() };
+        let evm_opts = EvmOpts::<SpecId> {
+            fork_block_number: Some(block_num),
+            ..EvmOpts::default()
+        };
 
         let (env, _block) = evm_opts.fork_evm_env(&endpoint).await.unwrap();
 
@@ -2525,7 +2622,8 @@ mod tests {
             SpecId,
             InvalidTransaction,
             (),
-        >::spawn(Some(fork.clone()), Vec::default()).unwrap();
+        >::spawn(Some(fork.clone()), Vec::default())
+        .unwrap();
 
         // some rng contract from etherscan
         let address: Address = "63091244180ae240c87d1f528f5f269134cb07b3".parse().unwrap();
@@ -2541,8 +2639,11 @@ mod tests {
         }
         drop(backend);
 
-        let meta =
-            BlockchainDbMeta { chain: None, block_env: env.block, hosts: BTreeSet::default() };
+        let meta = BlockchainDbMeta {
+            chain: None,
+            block_env: env.block,
+            hosts: BTreeSet::default(),
+        };
 
         let db = BlockchainDb::new(
             meta,
@@ -2553,6 +2654,9 @@ mod tests {
         );
         assert!(db.accounts().read().contains_key(&address));
         assert!(db.storage().read().contains_key(&address));
-        assert_eq!(db.storage().read().get(&address).unwrap().len(), num_slots as usize);
+        assert_eq!(
+            db.storage().read().get(&address).unwrap().len(),
+            num_slots as usize
+        );
     }
 }

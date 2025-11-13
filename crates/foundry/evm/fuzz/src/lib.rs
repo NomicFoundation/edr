@@ -10,8 +10,8 @@ extern crate tracing;
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_primitives::{
-    Address, Bytes, Log,
     map::{AddressHashMap, HashMap},
+    Address, Bytes, Log,
 };
 use edr_common::calc;
 use foundry_evm_coverage::HitMaps;
@@ -80,10 +80,14 @@ impl BaseCounterExample {
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
         if let Some((name, abi)) = &contracts.get(&addr) {
-            let selector = bytes.get(..4).expect("bytes should have at least 4 bytes for selector");
+            let selector = bytes
+                .get(..4)
+                .expect("bytes should have at least 4 bytes for selector");
             if let Some(func) = abi.functions().find(|f| f.selector() == selector) {
                 // skip the function selector when decoding
-                let calldata_args = bytes.get(4..).expect("bytes should have at least 4 bytes if selector matched");
+                let calldata_args = bytes
+                    .get(4..)
+                    .expect("bytes should have at least 4 bytes if selector matched");
                 if let Ok(args) = func.abi_decode_input(calldata_args) {
                     return Self {
                         sender: Some(sender),
@@ -92,9 +96,15 @@ impl BaseCounterExample {
                         contract_name: Some(name.clone()),
                         func_name: Some(func.name.clone()),
                         signature: Some(func.signature()),
-                        args: Some(edr_common::fmt::format_tokens(&args).format(", ").to_string()),
+                        args: Some(
+                            edr_common::fmt::format_tokens(&args)
+                                .format(", ")
+                                .to_string(),
+                        ),
                         raw_args: Some(
-                            edr_common::fmt::format_tokens_raw(&args).format(", ").to_string(),
+                            edr_common::fmt::format_tokens_raw(&args)
+                                .format(", ")
+                                .to_string(),
                         ),
                         traces,
                         indeterminism_reasons,
@@ -131,8 +141,16 @@ impl BaseCounterExample {
             contract_name: None,
             func_name: None,
             signature: None,
-            args: Some(edr_common::fmt::format_tokens(args).format(", ").to_string()),
-            raw_args: Some(edr_common::fmt::format_tokens_raw(args).format(", ").to_string()),
+            args: Some(
+                edr_common::fmt::format_tokens(args)
+                    .format(", ")
+                    .to_string(),
+            ),
+            raw_args: Some(
+                edr_common::fmt::format_tokens_raw(args)
+                    .format(", ")
+                    .to_string(),
+            ),
             traces,
             indeterminism_reasons,
         }
@@ -231,7 +249,13 @@ impl FuzzTestResult {
     fn gas_values(&self, with_stipend: bool) -> Vec<u64> {
         self.gas_by_case
             .iter()
-            .map(|gas| if with_stipend { gas.0 } else { gas.0.saturating_sub(gas.1) })
+            .map(|gas| {
+                if with_stipend {
+                    gas.0
+                } else {
+                    gas.0.saturating_sub(gas.1)
+                }
+            })
             .collect()
     }
 }
@@ -297,7 +321,13 @@ impl FuzzedCases {
     fn gas_values(&self, with_stipend: bool) -> Vec<u64> {
         self.cases
             .iter()
-            .map(|c| if with_stipend { c.gas } else { c.gas.saturating_sub(c.stipend) })
+            .map(|c| {
+                if with_stipend {
+                    c.gas
+                } else {
+                    c.gas.saturating_sub(c.stipend)
+                }
+            })
             .collect()
     }
 
@@ -317,7 +347,13 @@ impl FuzzedCases {
     #[inline]
     pub fn highest_gas(&self, with_stipend: bool) -> u64 {
         self.highest()
-            .map(|c| if with_stipend { c.gas } else { c.gas - c.stipend })
+            .map(|c| {
+                if with_stipend {
+                    c.gas
+                } else {
+                    c.gas - c.stipend
+                }
+            })
             .unwrap_or_default()
     }
 
@@ -341,13 +377,17 @@ pub struct FuzzFixtures {
 
 impl FuzzFixtures {
     pub fn new(fixtures: HashMap<String, DynSolValue>) -> Self {
-        Self { inner: Arc::new(fixtures) }
+        Self {
+            inner: Arc::new(fixtures),
+        }
     }
 
     /// Returns configured fixtures for `param_name` fuzzed parameter.
     pub fn param_fixtures(&self, param_name: &str) -> Option<&[DynSolValue]> {
         if let Some(param_fixtures) = self.inner.get(&normalize_fixture(param_name)) {
-            param_fixtures.as_fixed_array().or_else(|| param_fixtures.as_array())
+            param_fixtures
+                .as_fixed_array()
+                .or_else(|| param_fixtures.as_array())
         } else {
             None
         }

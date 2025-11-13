@@ -1,12 +1,11 @@
 //! The Forge test runner.
-use std::{
-    borrow::Cow,
-    cmp::min,
-    collections::BTreeMap,
-    marker::PhantomData,
-    path::Path,
-    sync::Arc,
-    time::Instant,
+use crate::error::TestRunnerError;
+use crate::revm::context::result::HaltReason;
+use crate::{
+    fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
+    multi_runner::TestContract,
+    result::{SuiteResult, TestResult, TestSetup},
+    TestFilter,
 };
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
 use alloy_json_abi::Function;
@@ -14,11 +13,11 @@ use alloy_primitives::{Address, Bytes, U256};
 use derive_where::derive_where;
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity::{
-    contract_decoder::SyncNestedTraceDecoder,
-    solidity_stack_trace::StackTraceEntry,
+    contract_decoder::SyncNestedTraceDecoder, solidity_stack_trace::StackTraceEntry,
 };
 use eyre::Result;
-use itertools::Itertools;
+use foundry_evm::abi::TestFunctionKind;
+use foundry_evm::executors::ITest;
 use foundry_evm::{
     abi::TestFunctionExt,
     constants::{CALLER, LIBRARY_DEPLOYER},
@@ -32,8 +31,7 @@ use foundry_evm::{
         fuzz::FuzzedExecutor,
         invariant::{
             check_sequence, replay_error, replay_run, InvariantConfig, InvariantExecutor,
-            InvariantFuzzError, ReplayErrorArgs, ReplayResult,
-            ReplayRunArgs,
+            InvariantFuzzError, ReplayErrorArgs, ReplayResult, ReplayRunArgs,
         },
         stack_trace::{get_stack_trace, StackTraceError, StackTraceResult},
         CallResult, EvmError, Executor, ExecutorBuilder, RawCallResult,
@@ -45,20 +43,15 @@ use foundry_evm::{
     },
     traces::{load_contracts, TraceKind, TracingMode},
 };
+use itertools::Itertools;
 use proptest::test_runner::{FailurePersistence, RngAlgorithm, TestError, TestRng, TestRunner};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use tracing::Span;
-use foundry_evm::abi::TestFunctionKind;
-use foundry_evm::executors::ITest;
-use crate::{
-    fuzz::{invariant::BasicTxDetails, BaseCounterExample, FuzzConfig},
-    multi_runner::TestContract,
-    result::{SuiteResult, TestResult, TestSetup},
-    TestFilter,
+use std::{
+    borrow::Cow, cmp::min, collections::BTreeMap, marker::PhantomData, path::Path, sync::Arc,
+    time::Instant,
 };
-use crate::error::TestRunnerError;
-use crate::revm::context::result::HaltReason;
+use tracing::Span;
 
 /// A type that executes all tests of a contract
 #[derive_where(Clone, Debug; BlockT, TxT, ChainContextT, HardforkT, NestedTraceDecoderT)]
@@ -140,14 +133,7 @@ impl<
         'a,
         BlockT: BlockEnvTr,
         ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<
-            BlockT,
-            ChainContextT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            TxT,
-        >,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTrait,
         HardforkT: HardforkTr,
         NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
@@ -214,14 +200,7 @@ impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr,
         EvmBuilderT: 'static
-            + EvmBuilderTrait<
-                BlockT,
-                ChainContextT,
-                HaltReasonT,
-                HardforkT,
-                TransactionErrorT,
-                TxT,
-            >,
+            + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason>,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
@@ -255,15 +234,13 @@ impl<
         >,
         needs_setup: bool,
     ) -> TestSetup<HaltReasonT> {
-        self._setup(executor, needs_setup)
-            .unwrap_or_else(|err| {
-                if err.to_string().contains("skipped") {
-                    TestSetup::skipped(err.to_string())
-                } else {
-                    TestSetup::failed(err.to_string())
-                }
+        self._setup(executor, needs_setup).unwrap_or_else(|err| {
+            if err.to_string().contains("skipped") {
+                TestSetup::skipped(err.to_string())
+            } else {
+                TestSetup::failed(err.to_string())
             }
-            )
+        })
     }
 
     fn _setup(
@@ -382,24 +359,32 @@ impl<
     /// `function fixture_owner() public returns (address[] memory){}`
     /// returns an array of addresses to be used for fuzzing `owner` named parameter in scope of the
     /// current test.
-    fn fuzz_fixtures(&self,
-                     executor: &Executor<
-                         BlockT,
-                         TxT,
-                         EvmBuilderT,
-                         HaltReasonT,
-                         HardforkT,
-                         TransactionErrorT,
-                         ChainContextT,
-                     >,
-                     address: Address) -> FuzzFixtures {
+    fn fuzz_fixtures(
+        &self,
+        executor: &Executor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+        address: Address,
+    ) -> FuzzFixtures {
         let mut fixtures = alloy_primitives::map::HashMap::default();
-        let fixture_functions = self.contract.abi.functions().filter(|func| func.is_fixture());
+        let fixture_functions = self
+            .contract
+            .abi
+            .functions()
+            .filter(|func| func.is_fixture());
         for func in fixture_functions {
             if func.inputs.is_empty() {
                 // Read fixtures declared as functions.
-                if let Ok(CallResult { raw: _, decoded_result }) =
-                    executor.call(CALLER, address, func, &[], U256::ZERO, None)
+                if let Ok(CallResult {
+                    raw: _,
+                    decoded_result,
+                }) = executor.call(CALLER, address, func, &[], U256::ZERO, None)
                 {
                     fixtures.insert(fixture_name(func.name.clone()), decoded_result);
                 }
@@ -409,7 +394,10 @@ impl<
                 let mut vals = Vec::new();
                 let mut index = 0;
                 loop {
-                    if let Ok(CallResult { raw: _, decoded_result }) = executor.call(
+                    if let Ok(CallResult {
+                        raw: _,
+                        decoded_result,
+                    }) = executor.call(
                         CALLER,
                         address,
                         func,
@@ -436,14 +424,7 @@ impl<
         BlockT: BlockEnvTr,
         ChainContextT: 'static + ChainContextTr + Send + Sync,
         EvmBuilderT: 'static
-            + EvmBuilderTrait<
-                BlockT,
-                ChainContextT,
-                HaltReasonT,
-                HardforkT,
-                TransactionErrorT,
-                TxT,
-            >,
+            + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason> + Send + Sync,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
@@ -546,7 +527,11 @@ impl<
 
         // Invariant testing requires tracing to figure out what contracts were created.
         // We also want to disable `debug` for setup since we won't be using those traces.
-        let has_invariants = self.contract.abi.functions().any(foundry_evm::abi::TestFunctionExt::is_invariant_test);
+        let has_invariants = self
+            .contract
+            .abi
+            .functions()
+            .any(foundry_evm::abi::TestFunctionExt::is_invariant_test);
 
         let prev_tracer = executor.inspector_mut().tracer.take();
         if prev_tracer.is_some() || has_invariants {
@@ -564,26 +549,25 @@ impl<
             // these numbers to reason about the performance of their code.
             let elapsed = start.elapsed();
 
-            setup.stack_trace_result =
-                if executor.tracer_records_steps() {
-                    // We collected steps during setup, so we can generate the stack trace
-                    get_stack_trace(&*self.contract_decoder, &setup.traces)
-                        .transpose()
-                        .map(Into::into)
-                } else if let Some(indeterminism_reasons) = setup.indeterminism_reasons.as_ref() {
-                    // We cannot re-run the setup due to indeterminism, so we return the
-                    // indeterminism reasons
-                    Some(indeterminism_reasons.clone().into())
-                } else {
-                    // Re-execute with collection of steps to generate stack traces
-                    let mut executor = self.executor_builder.clone().build()?;
-                    executor.set_tracing(TracingMode::WithSteps);
-                    let setup_for_stack_traces = self.setup(&mut executor, call_setup);
+            setup.stack_trace_result = if executor.tracer_records_steps() {
+                // We collected steps during setup, so we can generate the stack trace
+                get_stack_trace(&*self.contract_decoder, &setup.traces)
+                    .transpose()
+                    .map(Into::into)
+            } else if let Some(indeterminism_reasons) = setup.indeterminism_reasons.as_ref() {
+                // We cannot re-run the setup due to indeterminism, so we return the
+                // indeterminism reasons
+                Some(indeterminism_reasons.clone().into())
+            } else {
+                // Re-execute with collection of steps to generate stack traces
+                let mut executor = self.executor_builder.clone().build()?;
+                executor.set_tracing(TracingMode::WithSteps);
+                let setup_for_stack_traces = self.setup(&mut executor, call_setup);
 
-                    get_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
-                        .transpose()
-                        .map(Into::into)
-                };
+                get_stack_trace(&*self.contract_decoder, &setup_for_stack_traces.traces)
+                    .transpose()
+                    .map(Into::into)
+            };
 
             // The setup failed, so we return a single test result for `setUp`
             let fail_msg = if !setup.deployment_failure {
@@ -622,13 +606,16 @@ impl<
             )
         });
 
-        let test_fail_functions =
-            functions.iter().filter(|func| func.test_function_kind().is_any_test_fail());
+        let test_fail_functions = functions
+            .iter()
+            .filter(|func| func.test_function_kind().is_any_test_fail());
         if test_fail_functions.clone().next().is_some() {
             let fail = || {
                 TestResult::fail("`testFail*` has been removed. Consider changing to test_Revert[If|When]_Condition and expecting a revert".to_string())
             };
-            let test_results = test_fail_functions.map(|func| (func.signature(), fail())).collect();
+            let test_results = test_fail_functions
+                .map(|func| (func.signature(), fail()))
+                .collect();
             return Ok(SuiteResult::new(start.elapsed(), test_results, warnings));
         }
 
@@ -650,7 +637,8 @@ impl<
                     "test",
                     %kind,
                     name = %if enabled!(tracing::Level::TRACE) { &sig } else { &func.name },
-                ).entered();
+                )
+                .entered();
 
                 let res = FunctionRunner::new(&self, &executor, &setup).run(
                     func,
@@ -676,7 +664,8 @@ impl<
 }
 
 /// Executes a single test function, returning a [`TestResult`].
-struct FunctionRunner<'a,
+struct FunctionRunner<
+    'a,
     BlockT: BlockEnvTr,
     ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -687,36 +676,81 @@ struct FunctionRunner<'a,
     TxT: TransactionEnvTr,
 > {
     /// The EVM executor.
-    executor: Cow<'a, Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>>,
+    executor: Cow<
+        'a,
+        Executor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >,
     /// The parent runner.
-    cr: &'a ContractRunner<'a, BlockT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, TxT, NestedTraceDecoderT>,
+    cr: &'a ContractRunner<
+        'a,
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        TxT,
+        NestedTraceDecoderT,
+    >,
     /// The test setup result.
     setup: &'a TestSetup<HaltReasonT>,
     /// The test result. Returned after running the test.
     result: TestResult<HaltReasonT>,
 }
 
-impl<'a,
-
-    BlockT: BlockEnvTr,
-    ChainContextT: 'static + ChainContextTr,
-    EvmBuilderT: 'static + EvmBuilderTrait<
+impl<
+        'a,
+        BlockT: BlockEnvTr,
+        ChainContextT: 'static + ChainContextTr,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: 'static + HaltReasonTrait + TryInto<HaltReason>,
+        HardforkT: HardforkTr,
+        NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
+        TransactionErrorT: TransactionErrorTrait,
+        TxT: TransactionEnvTr,
+    >
+    FunctionRunner<
+        'a,
         BlockT,
         ChainContextT,
+        EvmBuilderT,
         HaltReasonT,
         HardforkT,
+        NestedTraceDecoderT,
         TransactionErrorT,
         TxT,
-    >,
-    HaltReasonT: 'static + HaltReasonTrait + TryInto<HaltReason>,
-    HardforkT: HardforkTr,
-    NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
-    TransactionErrorT: TransactionErrorTrait,
-    TxT: TransactionEnvTr,
-> FunctionRunner<'a, BlockT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, NestedTraceDecoderT, TransactionErrorT, TxT> {
+    >
+{
     fn new(
-        cr: &'a ContractRunner<'a, BlockT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, TxT, NestedTraceDecoderT>,
-        executor: &'a Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
+        cr: &'a ContractRunner<
+            'a,
+            BlockT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            TxT,
+            NestedTraceDecoderT,
+        >,
+        executor: &'a Executor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
         setup: &'a TestSetup<HaltReasonT>,
     ) -> Self {
         Self {
@@ -783,36 +817,42 @@ impl<'a,
                 return self.result;
             }
             Err(err) => {
-                self.result.single_fail(Some(err.to_string()), start.elapsed());
+                self.result
+                    .single_fail(Some(err.to_string()), start.elapsed());
                 return self.result;
             }
         };
 
-        let success =
-            self.executor.is_raw_call_mut_success(&mut raw_call_result, false);
+        let success = self
+            .executor
+            .is_raw_call_mut_success(&mut raw_call_result, false);
 
         let elapsed = start.elapsed();
 
         // Exclude stack trace generation from test execution time for accurate
         // reporting
         self.result.stack_trace_result = if !success {
-            let stack_trace_result: StackTraceResult<HaltReasonT> = if self.executor.tracer_records_steps() {
-                get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
-                    .transpose()
-                    .expect("traces are not empty")
-                    .into()
-            } else if let Some(indeterminism_reasons) = raw_call_result.indeterminism_reasons.take() {
-                indeterminism_reasons.into()
-            } else {
-                self.re_run_test_for_stack_traces(func, &[], self.setup.has_setup_method)
-                    .into()
-            };
+            let stack_trace_result: StackTraceResult<HaltReasonT> =
+                if self.executor.tracer_records_steps() {
+                    get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
+                        .transpose()
+                        .expect("traces are not empty")
+                        .into()
+                } else if let Some(indeterminism_reasons) =
+                    raw_call_result.indeterminism_reasons.take()
+                {
+                    indeterminism_reasons.into()
+                } else {
+                    self.re_run_test_for_stack_traces(func, &[], self.setup.has_setup_method)
+                        .into()
+                };
             Some(stack_trace_result)
         } else {
             None
         };
 
-        self.result.single_result(success, reason, raw_call_result, elapsed);
+        self.result
+            .single_result(success, reason, raw_call_result, elapsed);
 
         self.result
     }
@@ -829,7 +869,10 @@ impl<'a,
         let start = Instant::now();
 
         if !self.cr.enable_table_tests {
-            self.result.single_fail(Some("Table tests are not supported".into()), start.elapsed());
+            self.result.single_fail(
+                Some("Table tests are not supported".into()),
+                start.elapsed(),
+            );
             return self.result;
         };
 
@@ -840,19 +883,28 @@ impl<'a,
 
         // Extract and validate fixtures for the first table test parameter.
         let Some(first_param) = func.inputs.first() else {
-            self.result.single_fail(Some("Table test should have at least one parameter".into()), start.elapsed());
+            self.result.single_fail(
+                Some("Table test should have at least one parameter".into()),
+                start.elapsed(),
+            );
             return self.result;
         };
 
         let Some(first_param_fixtures) =
             &self.setup.fuzz_fixtures.param_fixtures(first_param.name())
         else {
-            self.result.single_fail(Some("Table test should have fixtures defined".into()), start.elapsed());
+            self.result.single_fail(
+                Some("Table test should have fixtures defined".into()),
+                start.elapsed(),
+            );
             return self.result;
         };
 
         if first_param_fixtures.is_empty() {
-            self.result.single_fail(Some("Table test should have at least one fixture".into()), start.elapsed());
+            self.result.single_fail(
+                Some("Table test should have at least one fixture".into()),
+                start.elapsed(),
+            );
             return self.result;
         }
 
@@ -863,16 +915,22 @@ impl<'a,
         for param in func.inputs.get(1..).unwrap_or(&[]) {
             let param_name = param.name();
             let Some(fixtures) = &self.setup.fuzz_fixtures.param_fixtures(param.name()) else {
-                self.result.single_fail(Some(format!("No fixture defined for param {param_name}")), start.elapsed());
+                self.result.single_fail(
+                    Some(format!("No fixture defined for param {param_name}")),
+                    start.elapsed(),
+                );
                 return self.result;
             };
 
             if fixtures.len() != fixtures_len {
-                self.result.single_fail(Some(format!(
-                    "{} fixtures defined for {param_name} (expected {})",
-                    fixtures.len(),
-                    fixtures_len
-                )), start.elapsed());
+                self.result.single_fail(
+                    Some(format!(
+                        "{} fixtures defined for {param_name} (expected {})",
+                        fixtures.len(),
+                        fixtures_len
+                    )),
+                    start.elapsed(),
+                );
                 return self.result;
             }
 
@@ -881,7 +939,10 @@ impl<'a,
 
         for i in 0..fixtures_len {
             // Increment progress bar.
-            let args = table_fixtures.iter().filter_map(|row| row.get(i).cloned()).collect_vec();
+            let args = table_fixtures
+                .iter()
+                .filter_map(|row| row.get(i).cloned())
+                .collect_vec();
             let (mut raw_call_result, reason) = match self.executor.call(
                 self.cr.sender,
                 self.setup.address,
@@ -897,37 +958,47 @@ impl<'a,
                     return self.result;
                 }
                 Err(err) => {
-                    self.result.single_fail(Some(err.to_string()), start.elapsed());
+                    self.result
+                        .single_fail(Some(err.to_string()), start.elapsed());
                     return self.result;
                 }
             };
 
-            let is_success =
-                self.executor.is_raw_call_mut_success(&mut raw_call_result, false);
+            let is_success = self
+                .executor
+                .is_raw_call_mut_success(&mut raw_call_result, false);
             // Record counterexample if test fails.
             if !is_success {
                 self.result.counterexample =
                     Some(CounterExample::Single(BaseCounterExample::from_fuzz_call(
-                        Bytes::from(func.abi_encode_input(&args).expect("args have valid abi encoding")),
+                        Bytes::from(
+                            func.abi_encode_input(&args)
+                                .expect("args have valid abi encoding"),
+                        ),
                         &args,
                         raw_call_result.traces.clone(),
                         raw_call_result.indeterminism_reasons.clone(),
                     )));
                 let elapsed = start.elapsed();
 
-                let stack_trace_result: StackTraceResult<HaltReasonT> = if self.executor.tracer_records_steps() {
-                    get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
-                        .transpose()
-                        .expect("traces are not empty")
-                        .into()
-                } else if let Some(indeterminism_reasons) = raw_call_result.indeterminism_reasons.take() {
-                    indeterminism_reasons.into()
-                } else {
-                    self.re_run_test_for_stack_traces(func, &args, self.setup.has_setup_method).into()
-                };
+                let stack_trace_result: StackTraceResult<HaltReasonT> =
+                    if self.executor.tracer_records_steps() {
+                        get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
+                            .transpose()
+                            .expect("traces are not empty")
+                            .into()
+                    } else if let Some(indeterminism_reasons) =
+                        raw_call_result.indeterminism_reasons.take()
+                    {
+                        indeterminism_reasons.into()
+                    } else {
+                        self.re_run_test_for_stack_traces(func, &args, self.setup.has_setup_method)
+                            .into()
+                    };
                 self.result.stack_trace_result = Some(stack_trace_result);
 
-                self.result.single_result(false, reason, raw_call_result, elapsed);
+                self.result
+                    .single_result(false, reason, raw_call_result, elapsed);
 
                 return self.result;
             }
@@ -935,7 +1006,8 @@ impl<'a,
             // If it's the last iteration and all other runs succeeded, then use last call result
             // for logs and traces.
             if i == fixtures_len - 1 {
-                self.result.single_result(true, None, raw_call_result, start.elapsed());
+                self.result
+                    .single_result(true, None, raw_call_result, start.elapsed());
                 return self.result;
             }
         }
@@ -995,20 +1067,19 @@ impl<'a,
             .map(|failure_dir| failure_dir.join(&invariant_contract.invariant_function.name));
 
         // Try to replay recorded failure if any.
-        if let Some(failure_file) = failure_file.as_ref() && let Some(mut call_sequence) =
-            persisted_call_sequence(failure_file.as_path(), test_bytecode)
+        if let Some(failure_file) = failure_file.as_ref()
+            && let Some(mut call_sequence) =
+                persisted_call_sequence(failure_file.as_path(), test_bytecode)
         {
             // Create calls from failed sequence and check if invariant still broken.
             let txes = call_sequence
                 .iter_mut()
-                .map(|seq| {
-                    BasicTxDetails {
-                        sender: seq.sender.unwrap_or_default(),
-                        call_details: CallDetails {
-                            target: seq.addr.unwrap_or_default(),
-                            calldata: seq.calldata.clone(),
-                        },
-                    }
+                .map(|seq| BasicTxDetails {
+                    sender: seq.sender.unwrap_or_default(),
+                    call_details: CallDetails {
+                        target: seq.addr.unwrap_or_default(),
+                        calldata: seq.calldata.clone(),
+                    },
                 })
                 .collect::<Vec<BasicTxDetails>>();
             if let Ok((success, replayed_entirely)) = check_sequence(
@@ -1016,7 +1087,11 @@ impl<'a,
                 &txes,
                 (0..min(txes.len(), invariant_config.depth as usize)).collect(),
                 invariant_contract.address,
-                invariant_contract.invariant_function.selector().to_vec().into(),
+                invariant_contract
+                    .invariant_function
+                    .selector()
+                    .to_vec()
+                    .into(),
                 invariant_config.fail_on_revert,
                 invariant_contract.call_after_invariant,
             ) && !success
@@ -1037,13 +1112,14 @@ impl<'a,
                     contract_decoder: Some(&*self.cr.contract_decoder),
                     revert_decoder: self.cr.revert_decoder,
                     fail_on_revert: self.cr.invariant_config.fail_on_revert,
-                }).map_or(None, |result| result.stack_trace_result);
+                })
+                .map_or(None, |result| result.stack_trace_result);
                 self.result.invariant_replay_fail(
                     replayed_entirely,
                     &invariant_contract.invariant_function.name,
                     call_sequence,
                     stack_trace_result,
-                    start.elapsed()
+                    start.elapsed(),
                 );
                 return self.result;
             }
@@ -1058,17 +1134,18 @@ impl<'a,
             Err(e) => {
                 let elapsed = start.elapsed();
 
-                let stack_trace_result: StackTraceResult<HaltReasonT> = if self.executor.tracer_records_steps() {
-                    get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
-                        .transpose()
-                        .expect("traces are not empty")
-                        .into()
-                } else if let Some(indeterminism_reasons) = e.indetereminism_reasons() {
-                    indeterminism_reasons.into()
-                } else {
-                    self.re_run_test_for_stack_traces(func, &[], self.setup.has_setup_method)
-                        .into()
-                };
+                let stack_trace_result: StackTraceResult<HaltReasonT> =
+                    if self.executor.tracer_records_steps() {
+                        get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
+                            .transpose()
+                            .expect("traces are not empty")
+                            .into()
+                    } else if let Some(indeterminism_reasons) = e.indetereminism_reasons() {
+                        indeterminism_reasons.into()
+                    } else {
+                        self.re_run_test_for_stack_traces(func, &[], self.setup.has_setup_method)
+                            .into()
+                    };
                 self.result.stack_trace_result = Some(stack_trace_result);
 
                 self.result.invariant_setup_fail(e, elapsed);
@@ -1081,7 +1158,10 @@ impl<'a,
 
         let mut counterexample = None;
         let success = invariant_result.error.is_none();
-        let reason = invariant_result.error.as_ref().and_then(foundry_evm::executors::invariant::InvariantFuzzError::revert_reason);
+        let reason = invariant_result
+            .error
+            .as_ref()
+            .and_then(foundry_evm::executors::invariant::InvariantFuzzError::revert_reason);
 
         match invariant_result.error {
             // If invariants were broken, replay the error to collect logs and traces
@@ -1090,23 +1170,25 @@ impl<'a,
                 | InvariantFuzzError::Revert(case_data) => {
                     // Replay error to create counterexample and to collect logs, traces and
                     // coverage.
-                    match replay_error(
-                        ReplayErrorArgs {
-                            executor: self.clone_executor(),
-                            failed_case: &case_data,
-                            invariant_contract: &invariant_contract,
-                            known_contracts: self.cr.known_contracts,
-                            ided_contracts: identified_contracts.clone(),
-                            logs: &mut self.result.logs,
-                            traces: &mut self.result.traces,
-                            coverage: &mut None,
-                            deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
-                            generate_stack_trace: true,
-                            contract_decoder: Some(&*self.cr.contract_decoder),
-                            revert_decoder: self.cr.revert_decoder,
-                        }
-                    ) {
-                        Ok(ReplayResult { counterexample_sequence, stack_trace_result, revert_reason }) => {
+                    match replay_error(ReplayErrorArgs {
+                        executor: self.clone_executor(),
+                        failed_case: &case_data,
+                        invariant_contract: &invariant_contract,
+                        known_contracts: self.cr.known_contracts,
+                        ided_contracts: identified_contracts.clone(),
+                        logs: &mut self.result.logs,
+                        traces: &mut self.result.traces,
+                        coverage: &mut None,
+                        deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
+                        generate_stack_trace: true,
+                        contract_decoder: Some(&*self.cr.contract_decoder),
+                        revert_decoder: self.cr.revert_decoder,
+                    }) {
+                        Ok(ReplayResult {
+                            counterexample_sequence,
+                            stack_trace_result,
+                            revert_reason,
+                        }) => {
                             if !counterexample_sequence.is_empty() {
                                 // Persist error in invariant failure dir.
                                 if let Some(failure_dir) = failure_dir {
@@ -1132,8 +1214,10 @@ impl<'a,
                                         counterexample_sequence.len()
                                     };
 
-                                counterexample =
-                                    Some(CounterExample::Sequence(original_seq_len, counterexample_sequence));
+                                counterexample = Some(CounterExample::Sequence(
+                                    original_seq_len,
+                                    counterexample_sequence,
+                                ));
                             }
 
                             // If we can't get a revert reason for the second time, we couldn't
@@ -1151,29 +1235,29 @@ impl<'a,
                         }
                     };
                 }
-                InvariantFuzzError::Abi(_) | InvariantFuzzError::Other(_) | InvariantFuzzError::MaxAssumeRejects(_) => {}
+                InvariantFuzzError::Abi(_)
+                | InvariantFuzzError::Other(_)
+                | InvariantFuzzError::MaxAssumeRejects(_) => {}
             },
 
             // If invariants ran successfully, replay the last run to collect logs and
             // traces.
             _ => {
-                if let Err(err) = replay_run(
-                    ReplayRunArgs {
-                        executor: self.clone_executor(),
-                        invariant_contract: &invariant_contract,
-                        known_contracts: self.cr.known_contracts,
-                        ided_contracts: identified_contracts.clone(),
-                        logs: &mut self.result.logs,
-                        traces: &mut self.result.traces,
-                        line_coverage: &mut self.result.line_coverage,
-                        deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
-                        inputs: &invariant_result.last_run_inputs,
-                        generate_stack_trace: false,
-                        contract_decoder: Some(&*self.cr.contract_decoder),
-                        revert_decoder: self.cr.revert_decoder,
-                        fail_on_revert: self.cr.invariant_config.fail_on_revert,
-                    }
-                ) {
+                if let Err(err) = replay_run(ReplayRunArgs {
+                    executor: self.clone_executor(),
+                    invariant_contract: &invariant_contract,
+                    known_contracts: self.cr.known_contracts,
+                    ided_contracts: identified_contracts.clone(),
+                    logs: &mut self.result.logs,
+                    traces: &mut self.result.traces,
+                    line_coverage: &mut self.result.line_coverage,
+                    deprecated_cheatcodes: &mut self.result.deprecated_cheatcodes,
+                    inputs: &invariant_result.last_run_inputs,
+                    generate_stack_trace: false,
+                    contract_decoder: Some(&*self.cr.contract_decoder),
+                    revert_decoder: self.cr.revert_decoder,
+                    fail_on_revert: self.cr.invariant_config.fail_on_revert,
+                }) {
                     error!(%err, "Failed to replay last invariant run");
                 }
             }
@@ -1188,7 +1272,7 @@ impl<'a,
             invariant_result.reverts,
             invariant_result.metrics,
             invariant_result.failed_corpus_replays,
-            start.elapsed()
+            start.elapsed(),
         );
         self.result
     }
@@ -1214,8 +1298,12 @@ impl<'a,
         let fuzz_config = self.cr.fuzz_config.clone();
 
         // Run fuzz test.
-        let fuzzed_executor =
-            FuzzedExecutor::new(self.executor.into_owned(), runner, self.cr.sender, fuzz_config);
+        let fuzzed_executor = FuzzedExecutor::new(
+            self.executor.into_owned(),
+            runner,
+            self.cr.sender,
+            fuzz_config,
+        );
         let result = fuzzed_executor.fuzz(
             func,
             &self.setup.fuzz_fixtures,
@@ -1225,29 +1313,32 @@ impl<'a,
         );
         self.result.fuzz_result(result, start.elapsed());
 
-        self.result.stack_trace_result =
-            if let Some(CounterExample::Single(counter_example)) = self.result.counterexample.as_ref() {
-                let stack_trace_result: StackTraceResult<_> = if fuzzed_executor.tracer_records_steps() {
-                    get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
-                        .transpose()
-                        .expect("traces are not empty")
-                        .into()
-                } else if let Some(indeterminism_reasons) =
-                    counter_example.indeterminism_reasons.clone()
-                {
-                    indeterminism_reasons.into()
-                } else {
-                    re_run_fuzz_counterexample_for_stack_traces(
-                        self.cr,
-                        self.setup.address,
-                        counter_example,
-                        self.setup.has_setup_method,
-                    ).into()
-                };
-                Some(stack_trace_result)
+        self.result.stack_trace_result = if let Some(CounterExample::Single(counter_example)) =
+            self.result.counterexample.as_ref()
+        {
+            let stack_trace_result: StackTraceResult<_> = if fuzzed_executor.tracer_records_steps()
+            {
+                get_stack_trace(&*self.cr.contract_decoder, &self.result.traces)
+                    .transpose()
+                    .expect("traces are not empty")
+                    .into()
+            } else if let Some(indeterminism_reasons) =
+                counter_example.indeterminism_reasons.clone()
+            {
+                indeterminism_reasons.into()
             } else {
-                None
+                re_run_fuzz_counterexample_for_stack_traces(
+                    self.cr,
+                    self.setup.address,
+                    counter_example,
+                    self.setup.has_setup_method,
+                )
+                .into()
             };
+            Some(stack_trace_result)
+        } else {
+            None
+        };
 
         self.result
     }
@@ -1265,12 +1356,20 @@ impl<'a,
         let address = self.setup.address;
 
         // Apply before test configured functions (if any).
-        if self.cr.contract.abi.functions().filter(|func| func.name.is_before_test_setup()).count()
+        if self
+            .cr
+            .contract
+            .abi
+            .functions()
+            .filter(|func| func.name.is_before_test_setup())
+            .count()
             == 1
         {
             for calldata in self.executor.call_sol_default(
                 address,
-                &ITest::beforeTestSetupCall { testSelector: func.selector() },
+                &ITest::beforeTestSetupCall {
+                    testSelector: func.selector(),
+                },
             ) {
                 // Apply before test configured calldata.
                 if let Ok(call_result) = self.executor.to_mut().transact_raw(
@@ -1310,10 +1409,18 @@ impl<'a,
 
     fn invariant_runner(&self) -> TestRunner {
         let config = self.cr.invariant_config;
-        fuzzer_with_cases(self.cr.fuzz_config.seed, config.runs, config.max_assume_rejects, None)
+        fuzzer_with_cases(
+            self.cr.fuzz_config.seed,
+            config.runs,
+            config.max_assume_rejects,
+            None,
+        )
     }
 
-    fn clone_executor(&self) -> Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT> {
+    fn clone_executor(
+        &self,
+    ) -> Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
+    {
         self.executor.clone().into_owned()
     }
 
@@ -1353,7 +1460,7 @@ impl<'a,
             Err(EvmError::Execution(err)) => err.raw.traces,
             Err(err) => return Err(err.into()),
         }
-            .expect("enabled tracing");
+        .expect("enabled tracing");
 
         let mut traces = setup.traces;
         traces.push((TraceKind::Execution, new_traces));
@@ -1362,7 +1469,6 @@ impl<'a,
             .transpose()
             .expect("traces are not empty")
     }
-
 }
 
 /// Re-run the deployment, setup and test execution with expensive EVM step
@@ -1372,22 +1478,24 @@ fn re_run_fuzz_counterexample_for_stack_traces<
     BlockT: BlockEnvTr,
     ChainContextT: 'static + ChainContextTr,
     EvmBuilderT: 'static
-    + EvmBuilderTrait<
-    BlockT,
-    ChainContextT,
-    HaltReasonT,
-    HardforkT,
-    TransactionErrorT,
-    TxT,
-    >,
+        + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: 'static + HaltReasonTrait + TryInto<EvmHaltReason>,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     TxT: TransactionEnvTr,
     NestedTraceDecoderT: SyncNestedTraceDecoder<HaltReasonT>,
->
-(
-    contract_runner: &ContractRunner<'_, BlockT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, TxT, NestedTraceDecoderT>,
+>(
+    contract_runner: &ContractRunner<
+        '_,
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        TxT,
+        NestedTraceDecoderT,
+    >,
     address: Address,
     counter_example: &BaseCounterExample,
     needs_setup: bool,

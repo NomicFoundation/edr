@@ -1,13 +1,15 @@
 #[allow(clippy::wildcard_imports)]
-use crate::{impl_is_pure_true, Cheatcode, CheatsCtxt, Result, Vm::*, evm::journaled_account};
+use crate::{evm::journaled_account, impl_is_pure_true, Cheatcode, CheatsCtxt, Result, Vm::*};
 use alloy_primitives::Address;
+use foundry_evm_core::evm_context::HardforkTr;
 use foundry_evm_core::{
     backend::CheatcodeBackend,
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, TransactionEnvTr, TransactionErrorTrait},
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, TransactionEnvTr, TransactionErrorTrait,
+    },
 };
-use revm::context::JournalTr;
 use revm::context::result::HaltReasonTr;
-use foundry_evm_core::evm_context::HardforkTr;
+use revm::context::JournalTr;
 
 /// Prank information.
 #[derive(Clone, Copy, Debug, Default)]
@@ -56,7 +58,14 @@ impl Prank {
     /// Apply the prank by setting `used` to true if it is false
     /// Only returns self in the case it is updated (first application)
     pub fn first_time_applied(&self) -> Option<Self> {
-        if self.used { None } else { Some(Self { used: true, ..*self }) }
+        if self.used {
+            None
+        } else {
+            Some(Self {
+                used: true,
+                ..*self
+            })
+        }
     }
 }
 
@@ -79,7 +88,19 @@ impl Cheatcode for prank_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { msgSender } = self;
         prank(ccx, msgSender, None, true, false)
     }
@@ -104,7 +125,19 @@ impl Cheatcode for startPrank_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { msgSender } = self;
         prank(ccx, msgSender, None, false, false)
     }
@@ -129,8 +162,23 @@ impl Cheatcode for prank_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { msgSender, txOrigin } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            msgSender,
+            txOrigin,
+        } = self;
         prank(ccx, msgSender, Some(txOrigin), true, false)
     }
 }
@@ -154,8 +202,23 @@ impl Cheatcode for startPrank_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { msgSender, txOrigin } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            msgSender,
+            txOrigin,
+        } = self;
         prank(ccx, msgSender, Some(txOrigin), false, false)
     }
 }
@@ -179,8 +242,23 @@ impl Cheatcode for prank_2Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { msgSender, delegateCall } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            msgSender,
+            delegateCall,
+        } = self;
         prank(ccx, msgSender, None, true, *delegateCall)
     }
 }
@@ -204,8 +282,23 @@ impl Cheatcode for startPrank_2Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { msgSender, delegateCall } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            msgSender,
+            delegateCall,
+        } = self;
         prank(ccx, msgSender, None, false, *delegateCall)
     }
 }
@@ -229,15 +322,30 @@ impl Cheatcode for prank_3Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { msgSender, txOrigin, delegateCall } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            msgSender,
+            txOrigin,
+            delegateCall,
+        } = self;
         prank(ccx, msgSender, Some(txOrigin), true, *delegateCall)
     }
 }
 
 impl_is_pure_true!(startPrank_3Call);
-impl
- Cheatcode for startPrank_3Call {
+impl Cheatcode for startPrank_3Call {
     fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
@@ -255,8 +363,24 @@ impl
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { msgSender, txOrigin, delegateCall } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            msgSender,
+            txOrigin,
+            delegateCall,
+        } = self;
         prank(ccx, msgSender, Some(txOrigin), false, *delegateCall)
     }
 }
@@ -280,7 +404,19 @@ impl Cheatcode for stopPrankCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         ccx.state.pranks.remove(&ccx.ecx.journaled_state.depth());
         Ok(Vec::default())
@@ -305,7 +441,16 @@ fn prank<
         ChainContextT,
     >,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     new_caller: &Address,
     new_origin: Option<&Address>,
     single_call: bool,
@@ -319,14 +464,26 @@ fn prank<
     // Ensure that code exists at `msg.sender` if delegate calling.
     if delegate_call {
         ensure!(
-            account.info.clone().code.is_some_and(|code| !code.is_empty()),
+            account
+                .info
+                .clone()
+                .code
+                .is_some_and(|code| !code.is_empty()),
             "cannot `prank` delegate call from an EOA"
         );
     }
 
     let depth = ccx.ecx.journaled_state.depth();
-    if let Some(Prank { used, single_call: current_single_call, .. }) = ccx.state.get_prank(depth) {
-        ensure!(used, "cannot overwrite a prank until it is applied at least once");
+    if let Some(Prank {
+        used,
+        single_call: current_single_call,
+        ..
+    }) = ccx.state.get_prank(depth)
+    {
+        ensure!(
+            used,
+            "cannot overwrite a prank until it is applied at least once"
+        );
         // This case can only fail if the user calls `vm.startPrank` and then `vm.prank` later on.
         // This should not be possible without first calling `stopPrank`
         ensure!(

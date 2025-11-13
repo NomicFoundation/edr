@@ -1,23 +1,23 @@
 //! Implementations of [`String`](spec::Group::String) cheatcodes.
 
+use crate::{
+    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
+    Vm::{
+        containsCall, indexOfCall, parseAddressCall, parseBoolCall, parseBytes32Call,
+        parseBytesCall, parseIntCall, parseUintCall, replaceCall, splitCall, toLowercaseCall,
+        toString_0Call, toString_1Call, toString_2Call, toString_3Call, toString_4Call,
+        toString_5Call, toUppercaseCall, trimCall,
+    },
+};
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::{hex, U256};
 use alloy_sol_types::SolValue;
+use foundry_evm_core::backend::CheatcodeBackend;
 use foundry_evm_core::evm_context::{
     BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
     TransactionErrorTrait,
 };
 use revm::context::result::HaltReasonTr;
-use foundry_evm_core::backend::CheatcodeBackend;
-use crate::{
-    impl_is_pure_true, Cheatcode, Cheatcodes, Result,
-    Vm::{
-        containsCall, indexOfCall, parseAddressCall, parseBoolCall, parseBytes32Call, parseBytesCall,
-        parseIntCall, parseUintCall, replaceCall, splitCall, toLowercaseCall, toString_0Call,
-        toString_1Call, toString_2Call, toString_3Call, toString_4Call, toString_5Call,
-        toUppercaseCall, trimCall,
-    },
-};
 // address
 impl_is_pure_true!(toString_0Call);
 impl Cheatcode for toString_0Call {
@@ -698,17 +698,19 @@ impl Cheatcode for containsCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self,
+    >(
+        &self,
 
-      _state: &mut Cheatcodes<
-          BlockT,
-          TxT,
-          ChainContextT,
-          EvmBuilderT,
-          HaltReasonT,
-          HardforkT,
-          TransactionErrorT,
-      >, ) -> Result {
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
         let Self { subject, search } = self;
         Ok(subject.contains(search).abi_encode())
     }

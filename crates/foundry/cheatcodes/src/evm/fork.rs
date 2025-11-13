@@ -1,11 +1,8 @@
 #[allow(clippy::wildcard_imports)]
-use crate::{Cheatcode, Cheatcodes, CheatsCtxt, CheatcodeBackend, Result, Vm::*, json::json_value_to_token, impl_is_pure_true, impl_is_pure_false};
-use foundry_evm_core::{
-    AsEnvMut, fork::CreateFork,
-    evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait},
-    backend::CheatcodeBackend as CheatcodeBackendTrait,
+use crate::{
+    impl_is_pure_false, impl_is_pure_true, json::json_value_to_token, Cheatcode, CheatcodeBackend,
+    Cheatcodes, CheatsCtxt, Result, Vm::*,
 };
-use revm::context::result::HaltReasonTr;
 use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::{B256, U256};
 use alloy_provider::Provider;
@@ -13,6 +10,16 @@ use alloy_rpc_types::Filter;
 use alloy_sol_types::SolValue;
 use foundry_evm_core::evm_context::split_context;
 use foundry_evm_core::fork::provider::ProviderBuilder;
+use foundry_evm_core::{
+    backend::CheatcodeBackend as CheatcodeBackendTrait,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
+    fork::CreateFork,
+    AsEnvMut,
+};
+use revm::context::result::HaltReasonTr;
 
 impl_is_pure_true!(activeForkCall);
 impl Cheatcode for activeForkCall {
@@ -33,7 +40,19 @@ impl Cheatcode for activeForkCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self {} = self;
         ccx.ecx
             .journaled_state
@@ -63,7 +82,19 @@ impl Cheatcode for createFork_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { urlOrAlias } = self;
         create_fork(ccx, urlOrAlias, None)
     }
@@ -88,8 +119,23 @@ impl Cheatcode for createFork_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { urlOrAlias, blockNumber } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            urlOrAlias,
+            blockNumber,
+        } = self;
         create_fork(ccx, urlOrAlias, Some(blockNumber.saturating_to()))
     }
 }
@@ -113,7 +159,19 @@ impl Cheatcode for createFork_2Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { urlOrAlias, txHash } = self;
         create_fork_at_transaction(ccx, urlOrAlias, txHash)
     }
@@ -138,7 +196,19 @@ impl Cheatcode for createSelectFork_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { urlOrAlias } = self;
         create_select_fork(ccx, urlOrAlias, None)
     }
@@ -163,8 +233,23 @@ impl Cheatcode for createSelectFork_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { urlOrAlias, blockNumber } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            urlOrAlias,
+            blockNumber,
+        } = self;
         create_select_fork(ccx, urlOrAlias, Some(blockNumber.saturating_to()))
     }
 }
@@ -188,7 +273,19 @@ impl Cheatcode for createSelectFork_2Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { urlOrAlias, txHash } = self;
         create_select_fork_at_transaction(ccx, urlOrAlias, txHash)
     }
@@ -213,7 +310,19 @@ impl Cheatcode for rollFork_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { blockNumber } = self;
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
@@ -241,7 +350,19 @@ impl Cheatcode for rollFork_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { txHash } = self;
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
@@ -269,8 +390,23 @@ impl Cheatcode for rollFork_2Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { forkId, blockNumber } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            forkId,
+            blockNumber,
+        } = self;
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
         db.roll_fork(Some(*forkId), (*blockNumber).to(), &mut context)?;
@@ -297,7 +433,19 @@ impl Cheatcode for rollFork_3Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { forkId, txHash } = self;
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
@@ -325,7 +473,19 @@ impl Cheatcode for selectForkCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { forkId } = self;
         persist_caller(ccx);
         let (db, mut context) = split_context(ccx.ecx);
@@ -353,7 +513,19 @@ impl Cheatcode for transact_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { txHash } = *self;
         transact(ccx, txHash, None)
     }
@@ -378,7 +550,19 @@ impl Cheatcode for transact_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { forkId, txHash } = *self;
         transact(ccx, txHash, Some(forkId))
     }
@@ -403,9 +587,24 @@ impl Cheatcode for allowCheatcodesCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { account } = self;
-        ccx.ecx.journaled_state.database.allow_cheatcode_access(*account);
+        ccx.ecx
+            .journaled_state
+            .database
+            .allow_cheatcode_access(*account);
         Ok(Vec::default())
     }
 }
@@ -429,9 +628,24 @@ impl Cheatcode for makePersistent_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { account } = self;
-        ccx.ecx.journaled_state.database.add_persistent_account(*account);
+        ccx.ecx
+            .journaled_state
+            .database
+            .add_persistent_account(*account);
         Ok(Vec::default())
     }
 }
@@ -455,10 +669,28 @@ impl Cheatcode for makePersistent_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { account0, account1 } = self;
-        ccx.ecx.journaled_state.database.add_persistent_account(*account0);
-        ccx.ecx.journaled_state.database.add_persistent_account(*account1);
+        ccx.ecx
+            .journaled_state
+            .database
+            .add_persistent_account(*account0);
+        ccx.ecx
+            .journaled_state
+            .database
+            .add_persistent_account(*account1);
         Ok(Vec::default())
     }
 }
@@ -482,11 +714,36 @@ impl Cheatcode for makePersistent_2Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { account0, account1, account2 } = self;
-        ccx.ecx.journaled_state.database.add_persistent_account(*account0);
-        ccx.ecx.journaled_state.database.add_persistent_account(*account1);
-        ccx.ecx.journaled_state.database.add_persistent_account(*account2);
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            account0,
+            account1,
+            account2,
+        } = self;
+        ccx.ecx
+            .journaled_state
+            .database
+            .add_persistent_account(*account0);
+        ccx.ecx
+            .journaled_state
+            .database
+            .add_persistent_account(*account1);
+        ccx.ecx
+            .journaled_state
+            .database
+            .add_persistent_account(*account2);
         Ok(Vec::default())
     }
 }
@@ -510,10 +767,25 @@ impl Cheatcode for makePersistent_3Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { accounts } = self;
         for account in accounts {
-            ccx.ecx.journaled_state.database.add_persistent_account(*account);
+            ccx.ecx
+                .journaled_state
+                .database
+                .add_persistent_account(*account);
         }
         Ok(Vec::default())
     }
@@ -538,9 +810,24 @@ impl Cheatcode for revokePersistent_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { account } = self;
-        ccx.ecx.journaled_state.database.remove_persistent_account(account);
+        ccx.ecx
+            .journaled_state
+            .database
+            .remove_persistent_account(account);
         Ok(Vec::default())
     }
 }
@@ -564,10 +851,25 @@ impl Cheatcode for revokePersistent_1Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { accounts } = self;
         for account in accounts {
-            ccx.ecx.journaled_state.database.remove_persistent_account(account);
+            ccx.ecx
+                .journaled_state
+                .database
+                .remove_persistent_account(account);
         }
         Ok(Vec::default())
     }
@@ -592,9 +894,26 @@ impl Cheatcode for isPersistentCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { account } = self;
-        Ok(ccx.ecx.journaled_state.database.is_persistent(account).abi_encode())
+        Ok(ccx
+            .ecx
+            .journaled_state
+            .database
+            .is_persistent(account)
+            .abi_encode())
     }
 }
 
@@ -617,7 +936,19 @@ impl Cheatcode for rpc_0Call {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { method, params } = self;
         let url = ccx
             .ecx
@@ -660,7 +991,11 @@ impl Cheatcode for rpc_1Call {
             TransactionErrorT,
         >,
     ) -> Result {
-        let Self { urlOrAlias, method, params } = self;
+        let Self {
+            urlOrAlias,
+            method,
+            params,
+        } = self;
         let url = state.config.rpc_endpoint(urlOrAlias)?.url;
         rpc_call(url.as_ref(), method, params)
     }
@@ -685,8 +1020,25 @@ impl Cheatcode for eth_getLogsCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
-        let Self { fromBlock, toBlock, target, topics } = self;
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            fromBlock,
+            toBlock,
+            target,
+            topics,
+        } = self;
         let (Ok(from_block), Ok(to_block)) = (u64::try_from(fromBlock), u64::try_from(toBlock))
         else {
             bail!("blocks in block range must be less than 2^64 - 1")
@@ -703,7 +1055,10 @@ impl Cheatcode for eth_getLogsCall {
             .active_fork_url()
             .ok_or_else(|| fmt_err!("no active fork URL found"))?;
         let provider = ProviderBuilder::new(&url).build()?;
-        let mut filter = Filter::new().address(*target).from_block(from_block).to_block(to_block);
+        let mut filter = Filter::new()
+            .address(*target)
+            .from_block(from_block)
+            .to_block(to_block);
         for (i, &topic) in topics.iter().enumerate() {
             if let Some(slot) = filter.topics.get_mut(i) {
                 *slot = topic.into();
@@ -751,7 +1106,19 @@ impl Cheatcode for getRawBlockHeaderCall {
             TransactionErrorT,
             ChainContextT,
         >,
-    >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
         let Self { blockNumber } = self;
         let url = ccx
             .ecx
@@ -779,7 +1146,6 @@ impl Cheatcode for getRawBlockHeaderCall {
 
 /// Creates and then also selects the new fork
 fn create_select_fork<
-
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -796,7 +1162,20 @@ fn create_select_fork<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>, url_or_alias: &str, block: Option<u64>) -> Result {
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    url_or_alias: &str,
+    block: Option<u64>,
+) -> Result {
     let fork = create_fork_request(ccx, url_or_alias, block)?;
     let (db, mut context) = split_context(ccx.ecx);
     let id = db.create_select_fork(fork, &mut context)?;
@@ -821,7 +1200,20 @@ fn create_fork<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>, url_or_alias: &str, block: Option<u64>) -> Result {
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    url_or_alias: &str,
+    block: Option<u64>,
+) -> Result {
     let fork = create_fork_request(ccx, url_or_alias, block)?;
     let id = ccx.ecx.journaled_state.database.create_fork(fork)?;
     Ok(id.abi_encode())
@@ -846,7 +1238,16 @@ fn create_select_fork_at_transaction<
         ChainContextT,
     >,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     url_or_alias: &str,
     transaction: &B256,
 ) -> Result {
@@ -875,7 +1276,16 @@ fn create_fork_at_transaction<
         ChainContextT,
     >,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     url_or_alias: &str,
     transaction: &B256,
 ) -> Result {
@@ -904,7 +1314,16 @@ fn create_fork_request<
         ChainContextT,
     >,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     url_or_alias: &str,
     block: Option<u64>,
 ) -> Result<CreateFork<BlockT, TxT, HardforkT>> {
@@ -946,7 +1365,16 @@ fn transact<
         ChainContextT,
     >,
 >(
-    ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
     transaction: B256,
     fork_id: Option<U256>,
 ) -> Result {
@@ -982,17 +1410,30 @@ fn persist_caller<
         TransactionErrorT,
         ChainContextT,
     >,
->(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) {
-    ccx.ecx.journaled_state.database.add_persistent_account(ccx.caller);
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+) {
+    ccx.ecx
+        .journaled_state
+        .database
+        .add_persistent_account(ccx.caller);
 }
 
 /// Performs an Ethereum JSON-RPC request to the given endpoint.
 fn rpc_call(url: &str, method: &str, params: &str) -> Result {
     let provider = ProviderBuilder::new(url).build()?;
     let params_json: serde_json::Value = serde_json::from_str(params)?;
-    let result =
-        edr_common::block_on(provider.raw_request(method.to_string().into(), params_json))
-            .map_err(|err| fmt_err!("{method:?}: {err}"))?;
+    let result = edr_common::block_on(provider.raw_request(method.to_string().into(), params_json))
+        .map_err(|err| fmt_err!("{method:?}: {err}"))?;
     let result_as_tokens = convert_to_bytes(
         &json_value_to_token(&result).map_err(|err| fmt_err!("failed to parse result: {err}"))?,
     );
@@ -1005,9 +1446,13 @@ fn convert_to_bytes(token: &DynSolValue) -> DynSolValue {
     match token {
         // Convert fixed bytes to prevent encoding issues.
         // See: <https://github.com/foundry-rs/foundry/issues/8287>
-        DynSolValue::FixedBytes(bytes, size) => {
-            DynSolValue::Bytes(bytes.as_slice().get(..*size).expect("size should be valid for FixedBytes").to_vec())
-        }
+        DynSolValue::FixedBytes(bytes, size) => DynSolValue::Bytes(
+            bytes
+                .as_slice()
+                .get(..*size)
+                .expect("size should be valid for FixedBytes")
+                .to_vec(),
+        ),
         DynSolValue::Address(addr) => DynSolValue::Bytes(addr.to_vec()),
         //  Convert tuple values to prevent encoding issues.
         // See: <https://github.com/foundry-rs/foundry/issues/7858>

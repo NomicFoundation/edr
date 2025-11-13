@@ -13,7 +13,8 @@ use crate::helpers::{
 async fn test_cheats_local(test_data: &L1ForgeTestData, should_fail: bool) {
     let path_pattern = format!(".*cheats{RE_PATH_SEPARATOR}*");
     let exclude_paths = "Fork";
-    let exclude_contracts = "Isolated|Sleep|WithSeed|ExpectPartialRevertTest|GasMeteringResetTest|AssumeNoRevert";
+    let exclude_contracts =
+        "Isolated|Sleep|WithSeed|ExpectPartialRevertTest|GasMeteringResetTest|AssumeNoRevert";
     let should_fail_pattern = "testShouldFail";
     let windows_exclude_patterns = ["Ffi", "File", "Line", "Root"];
 
@@ -103,7 +104,9 @@ async fn test_cheats_sleep_test() {
 
     let mut runner_config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     runner_config.fuzz.runs = 2;
-    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(runner_config).await;
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_fuzz_persistence(runner_config)
+        .await;
 
     TestConfig::with_filter(runner, filter).run().await;
 }
@@ -185,15 +188,24 @@ async fn test_expect_partial_revert() {
         .get("default/cheats/ExpectPartialRevert.t.sol:ExpectPartialRevertTest")
         .unwrap();
 
-    let test_result = suite_result.test_results.get("testExpectPartialRevertWithSelector()").unwrap();
+    let test_result = suite_result
+        .test_results
+        .get("testExpectPartialRevertWithSelector()")
+        .unwrap();
     assert_eq!(test_result.status, TestStatus::Success);
 
-    let test_result = suite_result.test_results.get("testExpectPartialRevertWith4Bytes()").unwrap();
+    let test_result = suite_result
+        .test_results
+        .get("testExpectPartialRevertWith4Bytes()")
+        .unwrap();
     assert_eq!(test_result.status, TestStatus::Success);
 
     let test_result = suite_result.test_results.get("testExpectRevert()").unwrap();
     assert_eq!(test_result.status, TestStatus::Failure);
-    assert_eq!(test_result.reason, Some("Error != expected error: WrongNumber(0) != custom error 0x238ace70".into()));
+    assert_eq!(
+        test_result.reason,
+        Some("Error != expected error: WrongNumber(0) != custom error 0x238ace70".into())
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -211,19 +223,31 @@ async fn test_assume_no_revert() {
         .get("default/cheats/AssumeNoRevert2.t.sol:AssumeNoRevertTest")
         .unwrap();
 
-    let test_result = suite_result.test_results.get("test_assume_no_revert_pass(uint256)").unwrap();
+    let test_result = suite_result
+        .test_results
+        .get("test_assume_no_revert_pass(uint256)")
+        .unwrap();
     assert_eq!(test_result.status, TestStatus::Success);
 
-    let test_result = suite_result.test_results.get("test_assume_no_revert_fail_assert(uint256)").unwrap();
+    let test_result = suite_result
+        .test_results
+        .get("test_assume_no_revert_fail_assert(uint256)")
+        .unwrap();
     assert_eq!(test_result.status, TestStatus::Failure);
     assert!(test_result.counterexample.is_some());
 
-    let test_result = suite_result.test_results.get("test_assume_no_revert_fail_in_2nd_call(uint256)").unwrap();
+    let test_result = suite_result
+        .test_results
+        .get("test_assume_no_revert_fail_in_2nd_call(uint256)")
+        .unwrap();
     assert_eq!(test_result.status, TestStatus::Failure);
     assert_eq!(test_result.reason, Some("CheckError()".into()));
     assert!(test_result.counterexample.is_some());
 
-    let test_result = suite_result.test_results.get("test_assume_no_revert_fail_in_3rd_call(uint256)").unwrap();
+    let test_result = suite_result
+        .test_results
+        .get("test_assume_no_revert_fail_in_3rd_call(uint256)")
+        .unwrap();
     assert_eq!(test_result.status, TestStatus::Failure);
     assert_eq!(test_result.reason, Some("CheckError()".into()));
     assert!(test_result.counterexample.is_some());

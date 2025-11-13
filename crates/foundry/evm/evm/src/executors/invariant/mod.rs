@@ -1,8 +1,3 @@
-use std::{
-    cell::RefCell,
-    collections::{btree_map::Entry, HashMap as Map},
-    sync::Arc,
-};
 use alloy_primitives::{Address, Bytes, FixedBytes, Selector, U256};
 use alloy_sol_types::{sol, SolCall};
 use eyre::{eyre, ContextCompat, Result};
@@ -21,10 +16,7 @@ use foundry_evm_fuzz::{
 };
 use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
 use parking_lot::RwLock;
-use proptest::{
-    strategy::Strategy,
-    test_runner::TestRunner,
-};
+use proptest::{strategy::Strategy, test_runner::TestRunner};
 use result::{assert_invariants, can_continue};
 use revm::{
     context::result::{HaltReason, HaltReasonTr},
@@ -32,6 +24,11 @@ use revm::{
 };
 use serde::{Deserialize, Serialize};
 use shrink::shrink_sequence;
+use std::{
+    cell::RefCell,
+    collections::{btree_map::Entry, HashMap as Map},
+    sync::Arc,
+};
 
 use crate::{
     executors::{Executor, RawCallResult},
@@ -40,13 +37,13 @@ use crate::{
 
 mod error;
 pub use error::{InvariantFailures, InvariantFuzzError};
+use foundry_evm_core::abi::TestFunctionExt;
 use foundry_evm_core::{
     constants::DEFAULT_CREATE2_DEPLOYER,
     contracts::{ContractsByAddress, ContractsByArtifact},
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
     precompiles::PRECOMPILES,
 };
-use foundry_evm_core::abi::TestFunctionExt;
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_fuzz::invariant::TargetedContract;
 
@@ -57,7 +54,7 @@ mod result;
 pub use result::InvariantFuzzTestResult;
 
 mod corpus;
-pub use corpus::{TxCorpusManager};
+pub use corpus::TxCorpusManager;
 
 mod shrink;
 pub use shrink::check_sequence;
@@ -303,7 +300,10 @@ impl<
     /// Merge current collected coverage with the new coverage from last fuzzed
     /// call.
     pub fn merge_coverage(&self, new_coverage: Option<HitMaps>) {
-        HitMaps::merge_opt(&mut self.execution_data.borrow_mut().line_coverage, new_coverage);
+        HitMaps::merge_opt(
+            &mut self.execution_data.borrow_mut().line_coverage,
+            new_coverage,
+        );
     }
 
     /// Update metrics for a fuzzed selector, extracted from tx details.
@@ -441,7 +441,7 @@ impl<
             run_traces: vec![],
             depth: 0,
             assume_rejects_counter: 0,
-            new_coverage: false
+            new_coverage: false,
         }
     }
 }
@@ -777,7 +777,7 @@ impl<
                         call_result,
                         &state_changeset,
                     )
-                        .map_err(|e| eyre!(e.to_string()))?;
+                    .map_err(|e| eyre!(e.to_string()))?;
                     if !result.can_continue || current_run.depth == self.config.depth - 1 {
                         invariant_test.set_last_run_inputs(&current_run.inputs);
                     }
@@ -809,7 +809,7 @@ impl<
                     &current_run,
                     &self.config,
                 )
-                    .map_err(|_e| eyre!("Failed to call afterInvariant"))?;
+                .map_err(|_e| eyre!("Failed to call afterInvariant"))?;
             }
 
             // End current invariant test run.
@@ -914,16 +914,23 @@ impl<
     ///
     /// targetArtifactSelectors > excludeArtifacts > targetArtifacts
     pub fn select_contract_artifacts(&mut self, invariant_address: Address) -> Result<()> {
-        let targeted_artifact_selectors = self
-            .executor
-            .call_sol_default(invariant_address, &IInvariantTest::targetArtifactSelectorsCall {});
+        let targeted_artifact_selectors = self.executor.call_sol_default(
+            invariant_address,
+            &IInvariantTest::targetArtifactSelectorsCall {},
+        );
 
         // Insert them into the executor `targeted_abi`.
-        for IInvariantTest::FuzzArtifactSelector { artifact, selectors } in
-            targeted_artifact_selectors
+        for IInvariantTest::FuzzArtifactSelector {
+            artifact,
+            selectors,
+        } in targeted_artifact_selectors
         {
             let identifier = self.validate_selected_contract(artifact, &selectors)?;
-            self.artifact_filters.targeted.entry(identifier).or_default().extend(selectors);
+            self.artifact_filters
+                .targeted
+                .entry(identifier)
+                .or_default()
+                .extend(selectors);
         }
 
         let targeted_artifacts = self
@@ -956,7 +963,10 @@ impl<
                 })
                 .count()
                 == 0
-                && !self.artifact_filters.excluded.contains(&artifact.identifier())
+                && !self
+                    .artifact_filters
+                    .excluded
+                    .contains(&artifact.identifier())
             {
                 self.artifact_filters.excluded.push(artifact.identifier());
             }
@@ -993,8 +1003,9 @@ impl<
         let mut excluded_test_selectors = vec![];
 
         // Collect contract functions marked as target for fuzzing campaign.
-        let selectors =
-            self.executor.call_sol_default(address, &IInvariantTest::targetSelectorsCall {});
+        let selectors = self
+            .executor
+            .call_sol_default(address, &IInvariantTest::targetSelectorsCall {});
         for IInvariantTest::FuzzSelector { addr, selectors } in selectors {
             if addr == address {
                 target_test_selectors = selectors.clone();
@@ -1003,8 +1014,9 @@ impl<
         }
 
         // Collect contract functions excluded from fuzzing campaign.
-        let excluded_selectors =
-            self.executor.call_sol_default(address, &IInvariantTest::excludeSelectorsCall {});
+        let excluded_selectors = self
+            .executor
+            .call_sol_default(address, &IInvariantTest::excludeSelectorsCall {});
         for IInvariantTest::FuzzSelector { addr, selectors } in excluded_selectors {
             if addr == address {
                 // If fuzz selector address is the test contract, then record selectors to be
@@ -1070,7 +1082,9 @@ impl<
             // Identifiers are specified as an array, so we loop through them.
             for identifier in artifacts {
                 // Try to find the contract by name or identifier in the project's contracts.
-                if let Some(abi) = self.project_contracts.find_abi_by_name_or_identifier(identifier)
+                if let Some(abi) = self
+                    .project_contracts
+                    .find_abi_by_name_or_identifier(identifier)
                 {
                     combined
                         // Check if there's an entry for the given key in the 'combined' map.
@@ -1101,18 +1115,29 @@ impl<
         invariant_contract: &InvariantContract<'_>,
         fuzz_fixtures: &FuzzFixtures,
         deployed_libs: &[Address],
-    ) -> Result<(
-        InvariantTest<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-        TxCorpusManager<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>
-    ), InvariantFuzzError> {
+    ) -> Result<
+        (
+            InvariantTest<
+                BlockT,
+                TxT,
+                ChainContextT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+            >,
+            TxCorpusManager<
+                BlockT,
+                TxT,
+                ChainContextT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+            >,
+        ),
+        InvariantFuzzError,
+    > {
         // Finds out the chosen deployed contracts and/or senders.
         self.select_contract_artifacts(invariant_contract.address)?;
         let (targeted_senders, targeted_contracts) =
@@ -1132,7 +1157,8 @@ impl<
             targeted_contracts.clone(),
             self.config.dictionary.dictionary_weight,
             fuzz_fixtures.clone(),
-        ).no_shrink();
+        )
+        .no_shrink();
 
         // Allows `override_call_strat` to use the address given by the Fuzzer inspector during
         // EVM execution.
@@ -1153,8 +1179,11 @@ impl<
             ));
         }
 
-        self.executor.inspector_mut().fuzzer =
-            Some(Fuzzer { call_generator, fuzz_state: fuzz_state.clone(), collect: true });
+        self.executor.inspector_mut().fuzzer = Some(Fuzzer {
+            call_generator,
+            fuzz_state: fuzz_state.clone(),
+            collect: true,
+        });
 
         // Let's make sure the invariant is sound before actually starting the run:
         // We'll assert the invariant in its initial state, and if it fails, we'll
@@ -1230,8 +1259,9 @@ fn collect_data<
 ) {
     // Verify it has no code.
     let mut has_code = false;
-    if let Some(Some(code)) =
-        state_changeset.get(&tx.sender).map(|account| account.info.code.as_ref())
+    if let Some(Some(code)) = state_changeset
+        .get(&tx.sender)
+        .map(|account| account.info.code.as_ref())
     {
         has_code = !code.is_empty();
     }
@@ -1345,7 +1375,7 @@ pub(crate) fn call_invariant_function<
         ChainContextT,
     >,
     address: Address,
-    calldata: Bytes
+    calldata: Bytes,
 ) -> Result<
     CallInvariantResult<
         BlockT,
@@ -1357,8 +1387,7 @@ pub(crate) fn call_invariant_function<
         TxT,
     >,
 > {
-    let mut call_result =
-        executor.call_raw(CALLER, address, calldata, U256::ZERO)?;
+    let mut call_result = executor.call_raw(CALLER, address, calldata, U256::ZERO)?;
     let success = executor.is_raw_call_mut_success(&mut call_result, false);
     Ok(CallInvariantResult {
         call_result,

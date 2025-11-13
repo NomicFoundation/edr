@@ -3,10 +3,12 @@ use std::{
     collections::{BTreeMap, HashMap},
 };
 
+use crate::executors::{Executor, FuzzTestTimer};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::Function;
 use alloy_primitives::{Address, Log, U256};
 use derive_where::derive_where;
+use foundry_evm_core::constants::CHEATCODE_ADDRESS;
 use foundry_evm_core::{
     constants::{MAGIC_ASSUME, TEST_TIMEOUT},
     decode::{RevertDecoder, SkipReason},
@@ -24,8 +26,6 @@ use foundry_evm_fuzz::{
 use foundry_evm_traces::SparsedTraceArena;
 use proptest::test_runner::{TestCaseError, TestError, TestRunner};
 use revm::context::result::{HaltReason, HaltReasonTr};
-use foundry_evm_core::constants::CHEATCODE_ADDRESS;
-use crate::executors::{Executor, FuzzTestTimer};
 
 mod types;
 pub use types::{CaseOutcome, CounterExampleOutcome, FuzzOutcome};
@@ -266,10 +266,7 @@ impl<
         });
 
         let fuzz_result = execution_data.into_inner();
-        let CounterExampleData {
-            calldata,
-            call,
-        } = fuzz_result.counterexample;
+        let CounterExampleData { calldata, call } = fuzz_result.counterexample;
 
         let mut traces = fuzz_result.traces;
         let last_run_traces = if run_result.is_ok() {
@@ -376,14 +373,16 @@ impl<
         let deprecated_cheatcodes = call
             .cheatcodes
             .as_ref()
-            .map_or_else(Default::default, |cheatcodes| cheatcodes.deprecated.clone().into_iter().collect());
+            .map_or_else(Default::default, |cheatcodes| {
+                cheatcodes.deprecated.clone().into_iter().collect()
+            });
 
         // Consider call success if test should not fail on reverts and reverter is not the
         // cheatcode or test address.
         let success = if !self.config.fail_on_revert
             && call
-            .reverter
-            .is_some_and(|reverter| reverter != address && reverter != CHEATCODE_ADDRESS)
+                .reverter
+                .is_some_and(|reverter| reverter != address && reverter != CHEATCODE_ADDRESS)
         {
             true
         } else {
@@ -405,10 +404,7 @@ impl<
         } else {
             Ok(FuzzOutcome::CounterExample(CounterExampleOutcome {
                 exit_reason: call.exit_reason,
-                counterexample: CounterExampleData {
-                    calldata,
-                    call,
-                },
+                counterexample: CounterExampleData { calldata, call },
             }))
         }
     }

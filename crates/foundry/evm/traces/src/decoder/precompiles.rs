@@ -1,6 +1,6 @@
 use crate::{CallTrace, DecodedCallData};
-use alloy_primitives::{Address, B256, U256, hex};
-use alloy_sol_types::{SolCall, abi, sol};
+use alloy_primitives::{hex, Address, B256, U256};
+use alloy_sol_types::{abi, sol, SolCall};
 use foundry_evm_core::precompiles::{
     BLAKE_2F, EC_ADD, EC_MUL, EC_PAIRING, EC_RECOVER, IDENTITY, MOD_EXP, POINT_EVALUATION,
     RIPEMD_160, SHA_256,
@@ -35,7 +35,10 @@ interface Precompiles {
     /* 0x0a */ function pointEvaluation(bytes32 versionedHash, bytes32 z, bytes32 y, bytes1[48] commitment, bytes1[48] proof) returns (bytes value);
 }
 }
-use Precompiles::{ecrecoverCall, sha256Call, ripemdCall, identityCall, modexpCall, ecaddCall, ecmulCall, ecpairingCall, blake2fCall, pointEvaluationCall};
+use Precompiles::{
+    blake2fCall, ecaddCall, ecmulCall, ecpairingCall, ecrecoverCall, identityCall, modexpCall,
+    pointEvaluationCall, ripemdCall, sha256Call,
+};
 
 macro_rules! tri {
     ($e:expr) => {
@@ -47,7 +50,9 @@ macro_rules! tri {
 }
 
 pub(super) fn is_known_precompile(address: Address, _chain_id: u64) -> bool {
-    address.get(..19).is_some_and(|slice| slice.iter().all(|&x| x == 0))
+    address
+        .get(..19)
+        .is_some_and(|slice| slice.iter().all(|&x| x == 0))
         && matches!(
             address,
             EC_RECOVER
@@ -74,7 +79,15 @@ pub(super) fn decode(trace: &CallTrace, _chain_id: u64) -> Option<DecodedCallTra
     let (signature, args) = match trace.address {
         EC_RECOVER => {
             let (sig, ecrecoverCall { hash, v, r, s }) = tri!(abi_decode_call(data));
-            (sig, vec![hash.to_string(), v.to_string(), r.to_string(), s.to_string()])
+            (
+                sig,
+                vec![
+                    hash.to_string(),
+                    v.to_string(),
+                    r.to_string(),
+                    s.to_string(),
+                ],
+            )
         }
         SHA_256 => (sha256Call::SIGNATURE, vec![data.to_string()]),
         RIPEMD_160 => (ripemdCall::SIGNATURE, vec![data.to_string()]),
@@ -82,7 +95,15 @@ pub(super) fn decode(trace: &CallTrace, _chain_id: u64) -> Option<DecodedCallTra
         MOD_EXP => (modexpCall::SIGNATURE, tri!(decode_modexp(data))),
         EC_ADD => {
             let (sig, ecaddCall { x1, y1, x2, y2 }) = tri!(abi_decode_call(data));
-            (sig, vec![x1.to_string(), y1.to_string(), x2.to_string(), y2.to_string()])
+            (
+                sig,
+                vec![
+                    x1.to_string(),
+                    y1.to_string(),
+                    x2.to_string(),
+                    y2.to_string(),
+                ],
+            )
         }
         EC_MUL => {
             let (sig, ecmulCall { x1, y1, s }) = tri!(abi_decode_call(data));
@@ -96,7 +117,10 @@ pub(super) fn decode(trace: &CallTrace, _chain_id: u64) -> Option<DecodedCallTra
 
     Some(DecodedCallTrace {
         label: Some("PRECOMPILES".to_string()),
-        call_data: Some(DecodedCallData { signature: signature.to_string(), args }),
+        call_data: Some(DecodedCallData {
+            signature: signature.to_string(),
+            args,
+        }),
         // TODO: Decode return data too.
         return_data: None,
     })
@@ -140,12 +164,17 @@ fn decode_ecpairing(data: &[u8]) -> alloy_sol_types::Result<Vec<String>> {
 fn decode_blake2f<'a>(data: &'a [u8]) -> alloy_sol_types::Result<Vec<String>> {
     let mut decoder = abi::Decoder::new(data);
     let rounds = u32::from_be_bytes(decoder.take_slice(4)?.try_into().unwrap());
-    let u64_le_list =
-        |x: &'a [u8]| x.chunks_exact(8).map(|x| u64::from_le_bytes(x.try_into().unwrap()));
+    let u64_le_list = |x: &'a [u8]| {
+        x.chunks_exact(8)
+            .map(|x| u64::from_le_bytes(x.try_into().unwrap()))
+    };
     let h = u64_le_list(decoder.take_slice(64)?);
     let m = u64_le_list(decoder.take_slice(128)?);
     let t = u64_le_list(decoder.take_slice(16)?);
-    let f = *decoder.take_slice(1)?.first().ok_or_else(|| alloy_sol_types::Error::custom("Slice is empty"))?;
+    let f = *decoder
+        .take_slice(1)?
+        .first()
+        .ok_or_else(|| alloy_sol_types::Error::custom("Slice is empty"))?;
     Ok(vec![
         rounds.to_string(),
         iter_to_string(h),

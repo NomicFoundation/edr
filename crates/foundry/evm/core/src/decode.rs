@@ -1,9 +1,9 @@
 //! Various utilities to decode test results.
 
-use crate::abi::{Vm, console};
+use crate::abi::{console, Vm};
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_json_abi::{Error, JsonAbi};
-use alloy_primitives::{Log, Selector, hex, map::HashMap};
+use alloy_primitives::{hex, map::HashMap, Log, Selector};
 use alloy_sol_types::{
     ContractError::Revert, RevertReason, RevertReason::ContractError, SolEventInterface,
     SolInterface, SolValue,
@@ -20,17 +20,20 @@ pub struct SkipReason(pub Option<String>);
 impl SkipReason {
     /// Decodes a skip reason, if any.
     pub fn decode(raw_result: &[u8]) -> Option<Self> {
-        raw_result.strip_prefix(crate::constants::MAGIC_SKIP).map(|reason| {
-            let reason = String::from_utf8_lossy(reason).into_owned();
-            Self((!reason.is_empty()).then_some(reason))
-        })
+        raw_result
+            .strip_prefix(crate::constants::MAGIC_SKIP)
+            .map(|reason| {
+                let reason = String::from_utf8_lossy(reason).into_owned();
+                Self((!reason.is_empty()).then_some(reason))
+            })
     }
 
     /// Decodes a skip reason from a string that was obtained by formatting `Self`.
     ///
     /// This is a hack to support re-decoding a skip reason in proptest.
     pub fn decode_self(s: &str) -> Option<Self> {
-        s.strip_prefix("skipped").map(|rest| Self(rest.strip_prefix(": ").map(ToString::to_string)))
+        s.strip_prefix("skipped")
+            .map(|rest| Self(rest.strip_prefix(": ").map(ToString::to_string)))
     }
 }
 
@@ -55,7 +58,9 @@ pub fn decode_console_logs(logs: &[Log]) -> Vec<String> {
 /// This function returns [None] if it is not a `DSTest` log or the result of a Hardhat
 /// `console.log`.
 pub fn decode_console_log(log: &Log) -> Option<String> {
-    console::ds::ConsoleEvents::decode_log(log).ok().map(|decoded| decoded.to_string())
+    console::ds::ConsoleEvents::decode_log(log)
+        .ok()
+        .map(|decoded| decoded.to_string())
 }
 
 /// Decodes revert data.
@@ -129,7 +134,11 @@ impl RevertDecoder {
     /// than user output.
     pub fn decode(&self, err: &[u8], status: Option<InstructionResult>) -> String {
         self.maybe_decode(err, status).unwrap_or_else(|| {
-            if err.is_empty() { "<empty revert data>".to_string() } else { trimmed_hex(err) }
+            if err.is_empty() {
+                "<empty revert data>".to_string()
+            } else {
+                trimmed_hex(err)
+            }
         })
     }
 
@@ -163,7 +172,10 @@ impl RevertDecoder {
                         return Some(format!(
                             "{}({})",
                             error.name,
-                            decoded.iter().map(edr_common::fmt::format_token).format(", ")
+                            decoded
+                                .iter()
+                                .map(edr_common::fmt::format_token)
+                                .format(", ")
                         ));
                     }
                 }
@@ -192,9 +204,10 @@ impl RevertDecoder {
         }
 
         if let Some(status) = status
-            && !status.is_ok() {
-                return Some(format!("EvmError: {status:?}"));
-            }
+            && !status.is_ok()
+        {
+            return Some(format!("EvmError: {status:?}"));
+        }
         if err.is_empty() {
             None
         } else {
@@ -207,9 +220,10 @@ impl RevertDecoder {
 fn decode_as_non_empty_string(err: &[u8]) -> Option<String> {
     // ABI-encoded `string`.
     if let Ok(s) = String::abi_decode(err)
-        && !s.is_empty() {
-            return Some(s);
-        }
+        && !s.is_empty()
+    {
+        return Some(s);
+    }
 
     // ASCII string.
     if err.is_ascii() {
@@ -227,8 +241,12 @@ fn trimmed_hex(s: &[u8]) -> String {
     if s.len() <= n {
         hex::encode(s)
     } else {
-        let start = s.get(..n / 2).expect("slice length should be greater than n/2");
-        let end = s.get(s.len().saturating_sub(n / 2)..).expect("slice end index should be valid");
+        let start = s
+            .get(..n / 2)
+            .expect("slice length should be greater than n/2");
+        let end = s
+            .get(s.len().saturating_sub(n / 2)..)
+            .expect("slice end index should be valid");
         format!(
             "{}…{} ({} bytes)",
             &hex::encode(start),
@@ -244,7 +262,10 @@ mod tests {
 
     #[test]
     fn test_trimmed_hex() {
-        assert_eq!(trimmed_hex(&hex::decode("1234567890").unwrap()), "1234567890");
+        assert_eq!(
+            trimmed_hex(&hex::decode("1234567890").unwrap()),
+            "1234567890"
+        );
         assert_eq!(
             trimmed_hex(&hex::decode("492077697368207275737420737570706F72746564206869676865722D6B696E646564207479706573").unwrap()),
             "49207769736820727573742073757070…6865722d6b696e646564207479706573 (41 bytes)"

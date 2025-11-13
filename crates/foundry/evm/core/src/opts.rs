@@ -1,18 +1,16 @@
 use super::fork::{environment, provider::ProviderBuilder};
+use crate::{evm_context::BlockEnvMut, fork::configure_env};
 use alloy_chains::Chain;
-use crate::{
-    evm_context::BlockEnvMut, fork::configure_env
-};
 use alloy_primitives::{Address, B256, U256};
-use alloy_provider::{Provider, network::AnyRpcBlock};
+use alloy_provider::{network::AnyRpcBlock, Provider};
+use edr_defaults::ALCHEMY_FREE_TIER_CUPS;
 use eyre::WrapErr;
 use op_revm::{transaction::deposit::DepositTransactionParts, OpTransaction};
-use serde::{Deserializer, Serializer, Deserialize, Serialize};
-use edr_defaults::ALCHEMY_FREE_TIER_CUPS;
 use revm::{
     context::{BlockEnv, TxEnv},
     context_interface::Block,
 };
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt::Write;
 use url::Url;
 
@@ -102,9 +100,7 @@ where
     ///
     /// If a `fork_url` is set, it gets configured with settings fetched from the endpoint (chain
     /// id, )
-    pub async fn evm_env<BlockT, TxT>(
-        &self,
-    ) -> eyre::Result<crate::Env<BlockT, TxT, HardforkT>>
+    pub async fn evm_env<BlockT, TxT>(&self) -> eyre::Result<crate::Env<BlockT, TxT, HardforkT>>
     where
         BlockT: From<BlockEnvOpts> + Block + BlockEnvMut,
         TxT: From<TxEnvOpts>,
@@ -143,9 +139,10 @@ where
         .wrap_err_with(|| {
             let mut msg = "could not instantiate forked environment".to_string();
             if let Ok(url) = Url::parse(fork_url)
-                && let Some(provider) = url.host() {
-                    write!(msg, " with provider {provider}").unwrap();
-                }
+                && let Some(provider) = url.host()
+            {
+                write!(msg, " with provider {provider}").unwrap();
+            }
             msg
         })
     }
@@ -172,13 +169,15 @@ where
                 prevrandao: Some(self.env.block_prevrandao),
                 basefee: self.env.block_base_fee_per_gas,
                 gas_limit: self.gas_limit(),
-            }.into(),
+            }
+            .into(),
             tx: TxEnvOpts {
                 gas_price: self.env.gas_price.unwrap_or_default().into(),
                 gas_limit: self.gas_limit(),
                 caller: self.sender,
                 chain_id: self.env.chain_id,
-            }.into(),
+            }
+            .into(),
         }
     }
 
@@ -196,7 +195,10 @@ where
         if let Some(id) = self.env.chain_id {
             return id;
         }
-        self.get_remote_chain_id().await.unwrap_or(Chain::mainnet()).id()
+        self.get_remote_chain_id()
+            .await
+            .unwrap_or(Chain::mainnet())
+            .id()
     }
 
     /// Returns the available compute units per second, which will be
@@ -342,9 +344,20 @@ pub struct TxEnvOpts {
 
 impl From<TxEnvOpts> for TxEnv {
     fn from(value: TxEnvOpts) -> Self {
-        let TxEnvOpts { gas_price, gas_limit, chain_id, caller } = value;
+        let TxEnvOpts {
+            gas_price,
+            gas_limit,
+            chain_id,
+            caller,
+        } = value;
 
-        Self { gas_price, gas_limit, chain_id, caller, ..Self::default() }
+        Self {
+            gas_price,
+            gas_limit,
+            chain_id,
+            caller,
+            ..Self::default()
+        }
     }
 }
 

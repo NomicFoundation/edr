@@ -1,11 +1,7 @@
 //! Support for multiple RPC-endpoints
 
-use std::{
-    collections::BTreeMap,
-    fmt,
-    ops::Deref,
-};
 use alloy_sol_types::{sol_data, SolValue};
+use std::{collections::BTreeMap, fmt, ops::Deref};
 
 /// Container type for API endpoints, like various RPC endpoints
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -124,7 +120,10 @@ impl From<RpcEndpointUrl> for RpcEndpointType {
 
 impl From<RpcEndpointUrl> for RpcEndpoint {
     fn from(endpoint: RpcEndpointUrl) -> Self {
-        Self { url: endpoint, ..Default::default() }
+        Self {
+            url: endpoint,
+            ..Default::default()
+        }
     }
 }
 
@@ -162,7 +161,11 @@ pub struct RpcEndpointConfig {
 
 impl fmt::Display for RpcEndpointConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { retries, retry_backoff, compute_units_per_second } = self;
+        let Self {
+            retries,
+            retry_backoff,
+            compute_units_per_second,
+        } = self;
 
         if let Some(retries) = retries {
             write!(f, ", retries={retries}")?;
@@ -195,13 +198,20 @@ pub struct RpcEndpoint {
 
 impl RpcEndpoint {
     pub fn new(url: RpcEndpointUrl) -> Self {
-        Self { url, ..Default::default() }
+        Self {
+            url,
+            ..Default::default()
+        }
     }
 }
 
 impl fmt::Display for RpcEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { url: endpoint, auth, config } = self;
+        let Self {
+            url: endpoint,
+            auth,
+            config,
+        } = self;
         write!(f, "{endpoint}")?;
         write!(f, "{config}")?;
         if let Some(auth) = auth {

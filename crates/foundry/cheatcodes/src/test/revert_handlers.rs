@@ -1,9 +1,9 @@
 use crate::{Error, Result};
-use alloy_primitives::{Address, Bytes, address, hex};
+use alloy_primitives::{address, hex, Address, Bytes};
 use alloy_sol_types::{SolError, SolValue};
-use foundry_evm_core::decode::RevertDecoder;
-use revm::interpreter::{InstructionResult, return_ok};
 use foundry_evm_core::contracts::ContractsByArtifact;
+use foundry_evm_core::decode::RevertDecoder;
+use revm::interpreter::{return_ok, InstructionResult};
 use spec::Vm;
 
 use super::{
@@ -110,7 +110,11 @@ fn handle_revert(
             return Ok(());
         }
 
-        Err(fmt_err!("Error != expected error: {} != {}", actual, expected))
+        Err(fmt_err!(
+            "Error != expected error: {} != {}",
+            actual,
+            expected
+        ))
     }
 }
 
@@ -137,7 +141,7 @@ pub(crate) fn handle_assume_no_revert(
                     known_contracts,
                     assume_no_revert.reverted_by.as_ref(),
                 )
-                    .ok()
+                .ok()
             })
             .ok_or_else(|| retdata.clone().into())
     }
@@ -255,7 +259,10 @@ pub(crate) fn handle_expect_revert(
             Ok(success_return())
         }
     } else {
-        ensure!(!matches!(status, return_ok!()), "next call did not revert as expected");
+        ensure!(
+            !matches!(status, return_ok!()),
+            "next call did not revert as expected"
+        );
 
         handle_revert(
             is_cheatcode,

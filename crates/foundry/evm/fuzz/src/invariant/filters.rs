@@ -1,8 +1,8 @@
 use alloy_json_abi::{Function, JsonAbi};
 use alloy_primitives::{Address, Selector};
+use edr_solidity::artifacts::ArtifactId;
 use foundry_evm_core::utils::get_function;
 use std::collections::BTreeMap;
-use edr_solidity::artifacts::ArtifactId;
 
 /// Contains which contracts are to be targeted or excluded on an invariant test through their
 /// artifact identifiers.

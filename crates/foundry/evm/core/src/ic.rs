@@ -15,7 +15,9 @@ pub struct PcIcMap {
 impl PcIcMap {
     /// Creates a new `PcIcMap` for the given code.
     pub fn new(code: &[u8]) -> Self {
-        Self { inner: make_map::<true>(code) }
+        Self {
+            inner: make_map::<true>(code),
+        }
     }
 
     /// Returns the length of the map.
@@ -44,7 +46,9 @@ pub struct IcPcMap {
 impl IcPcMap {
     /// Creates a new `IcPcMap` for the given code.
     pub fn new(code: &[u8]) -> Self {
-        Self { inner: make_map::<false>(code) }
+        Self {
+            inner: make_map::<false>(code),
+        }
     }
 
     /// Returns the length of the map.
@@ -66,7 +70,10 @@ impl IcPcMap {
 fn make_map<const PC_FIRST: bool>(code: &[u8]) -> FxHashMap<u32, u32> {
     assert!(u32::try_from(code.len()).is_ok(), "bytecode is too big");
 
-    let mut map = FxHashMap::with_capacity_and_hasher(code.len(), revm_primitives::map::rustc_hash::FxBuildHasher);
+    let mut map = FxHashMap::with_capacity_and_hasher(
+        code.len(),
+        revm_primitives::map::rustc_hash::FxBuildHasher,
+    );
 
     let mut pc = 0usize;
     let mut cumulative_push_size = 0usize;
@@ -124,11 +131,19 @@ pub fn decode_instructions(code: &[u8]) -> Result<Vec<Instruction>> {
         // Ensure immediate is padded if needed.
         let immediate_end = (next_pc + immediate_size).min(code.len());
         let mut immediate = vec![0u8; immediate_size];
-        let immediate_part = code.get(next_pc..immediate_end).expect("immediate_end should be within code bounds");
-        let dest = immediate.get_mut(..immediate_part.len()).expect("immediate buffer should accommodate immediate_part");
+        let immediate_part = code
+            .get(next_pc..immediate_end)
+            .expect("immediate_end should be within code bounds");
+        let dest = immediate
+            .get_mut(..immediate_part.len())
+            .expect("immediate buffer should accommodate immediate_part");
         dest.copy_from_slice(immediate_part);
 
-        steps.push(Instruction { op, pc: pc as u32, immediate: immediate.into_boxed_slice() });
+        steps.push(Instruction {
+            op,
+            pc: pc as u32,
+            immediate: immediate.into_boxed_slice(),
+        });
 
         pc = next_pc + immediate_size;
     }
@@ -173,7 +188,12 @@ pub mod tests {
 
         assert_eq!(insns.len(), 4);
 
-        let expected = [(0, OpCode::ADD), (1, OpCode::MUL), (2, OpCode::SUB), (3, OpCode::DIV)];
+        let expected = [
+            (0, OpCode::ADD),
+            (1, OpCode::MUL),
+            (2, OpCode::SUB),
+            (3, OpCode::DIV),
+        ];
         for ((pc, want_op), insn) in expected.iter().zip(insns.iter()) {
             assert_eq!(insn.pc, *pc);
             assert_eq!(insn.op, Some(*want_op));

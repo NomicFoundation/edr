@@ -1,10 +1,15 @@
 use crate::executors::{
-    Executor,
     invariant::{InvariantTest, InvariantTestRun},
+    Executor,
 };
 use alloy_dyn_abi::JsonAbiExt;
 use alloy_primitives::U256;
 use eyre::eyre;
+use foundry_evm_core::evm_context::{
+    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
+};
+use foundry_evm_fuzz::invariant::InvariantConfig;
 use foundry_evm_fuzz::{
     invariant::{BasicTxDetails, FuzzRunIdentifiedContracts},
     strategies::fuzz_param_from_state,
@@ -15,17 +20,15 @@ use proptest::{
     strategy::{BoxedStrategy, ValueTree},
     test_runner::TestRunner,
 };
+use revm::context::result::{HaltReason, HaltReasonTr};
 use serde::Serialize;
+use std::marker::PhantomData;
 use std::{
     fmt,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
-use std::marker::PhantomData;
-use revm::context::result::{HaltReason, HaltReasonTr};
 use uuid::Uuid;
-use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait};
-use foundry_evm_fuzz::invariant::InvariantConfig;
 
 const METADATA_SUFFIX: &str = "metadata.json";
 const JSON_EXTENSION: &str = ".json";
@@ -69,11 +72,21 @@ impl CorpusEntry {
     /// New corpus from given call sequence and corpus path to read uuid.
     fn new(tx_seq: Vec<BasicTxDetails>, path: PathBuf) -> eyre::Result<Self> {
         let uuid = if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-            Uuid::try_from(stem.strip_suffix(JSON_EXTENSION).unwrap_or(stem).to_string())?
+            Uuid::try_from(
+                stem.strip_suffix(JSON_EXTENSION)
+                    .unwrap_or(stem)
+                    .to_string(),
+            )?
         } else {
             Uuid::new_v4()
         };
-        Ok(Self { uuid, total_mutations: 0, new_finds_produced: 0, tx_seq, is_favored: false })
+        Ok(Self {
+            uuid,
+            total_mutations: 0,
+            new_finds_produced: 0,
+            tx_seq,
+            is_favored: false,
+        })
     }
 
     /// New corpus with given call sequence and new uuid.
@@ -103,8 +116,16 @@ pub(crate) struct CorpusMetrics {
 impl fmt::Display for CorpusMetrics {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f)?;
-        writeln!(f, "        - cumulative edges seen: {}", self.cumulative_edges_seen)?;
-        writeln!(f, "        - cumulative features seen: {}", self.cumulative_features_seen)?;
+        writeln!(
+            f,
+            "        - cumulative edges seen: {}",
+            self.cumulative_edges_seen
+        )?;
+        writeln!(
+            f,
+            "        - cumulative features seen: {}",
+            self.cumulative_features_seen
+        )?;
         writeln!(f, "        - corpus count: {}", self.corpus_count)?;
         write!(f, "        - favored items: {}", self.favored_items)?;
         Ok(())
@@ -164,24 +185,53 @@ pub struct TxCorpusManager<
     // Corpus metrics.
     pub(crate) metrics: CorpusMetrics,
     #[allow(clippy::type_complexity)]
-    _phantom: PhantomData<fn() -> (BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT)>,
+    _phantom: PhantomData<
+        fn() -> (
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        ),
+    >,
 }
 
 impl<
-    BlockT: BlockEnvTr,
-    TxT: TransactionEnvTr,
-    EvmBuilderT: 'static + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-    HaltReasonT: 'static + HaltReasonTr + TryInto<HaltReason>,
-    HardforkT: HardforkTr,
-    TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: 'static + ChainContextTr,
->TxCorpusManager<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT> {
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: 'static
+            + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: 'static + HaltReasonTr + TryInto<HaltReason>,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: 'static + ChainContextTr,
+    >
+    TxCorpusManager<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >
+{
     pub fn new(
         invariant_config: &InvariantConfig,
         test_name: &String,
         fuzzed_contracts: &FuzzRunIdentifiedContracts,
         tx_generator: BoxedStrategy<BasicTxDetails>,
-        executor: &Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
+        executor: &Executor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
         history_map: &mut [u8],
     ) -> eyre::Result<Self> {
         let mutation_generator = prop_oneof![
@@ -301,7 +351,18 @@ impl<
 
     /// Collects inputs from given invariant run, if new coverage produced.
     /// Persists call sequence (if corpus directory is configured) and updates in-memory corpus.
-    pub fn collect_inputs(&mut self, test_run: &InvariantTestRun<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>) {
+    pub fn collect_inputs(
+        &mut self,
+        test_run: &InvariantTestRun<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    ) {
         // Early return if corpus dir / coverage guided fuzzing is not configured.
         let Some(corpus_dir) = &self.corpus_dir else {
             return;
@@ -309,8 +370,10 @@ impl<
 
         // Update stats of current mutated primary corpus.
         if let Some(uuid) = &self.current_mutated {
-            if let Some(corpus) =
-                self.in_memory_corpus.iter_mut().find(|corpus| corpus.uuid.eq(uuid))
+            if let Some(corpus) = self
+                .in_memory_corpus
+                .iter_mut()
+                .find(|corpus| corpus.uuid.eq(uuid))
             {
                 corpus.total_mutations += 1;
                 if test_run.new_coverage {
@@ -342,12 +405,16 @@ impl<
         // Persist to disk if corpus dir is configured.
         let write_result = if self.corpus_gzip {
             edr_common::fs::write_json_gzip_file(
-                corpus_dir.join(format!("{corpus_uuid}{JSON_EXTENSION}.gz")).as_path(),
+                corpus_dir
+                    .join(format!("{corpus_uuid}{JSON_EXTENSION}.gz"))
+                    .as_path(),
                 &corpus.tx_seq,
             )
         } else {
             edr_common::fs::write_json_file(
-                corpus_dir.join(format!("{corpus_uuid}{JSON_EXTENSION}")).as_path(),
+                corpus_dir
+                    .join(format!("{corpus_uuid}{JSON_EXTENSION}"))
+                    .as_path(),
                 &corpus.tx_seq,
             )
         };
@@ -370,7 +437,18 @@ impl<
 
     /// Generates new call sequence from in memory corpus. Evicts oldest corpus mutated more than
     /// configured max mutations value.
-    pub fn new_sequence(&mut self, test: &InvariantTest<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> eyre::Result<Vec<BasicTxDetails>> {
+    pub fn new_sequence(
+        &mut self,
+        test: &InvariantTest<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> eyre::Result<Vec<BasicTxDetails>> {
         let mut new_seq = vec![];
         let test_runner = &mut test.execution_data.borrow_mut().branch_runner;
 
@@ -401,7 +479,9 @@ impl<
                     .expect("Time went backwards")
                     .as_secs();
                 edr_common::fs::write_json_file(
-                    corpus_dir.join(format!("{uuid}-{eviction_time}-{METADATA_SUFFIX}")).as_path(),
+                    corpus_dir
+                        .join(format!("{uuid}-{eviction_time}-{METADATA_SUFFIX}"))
+                        .as_path(),
                     &corpus,
                 )?;
 
@@ -445,7 +525,11 @@ impl<
                     }
                 }
                 MutationType::Repeat => {
-                    let corpus = if rng.random::<bool>() { primary } else { secondary };
+                    let corpus = if rng.random::<bool>() {
+                        primary
+                    } else {
+                        secondary
+                    };
                     trace!(target: "corpus", "repeat {}", corpus.uuid);
 
                     self.current_mutated = Some(corpus.uuid);
@@ -468,12 +552,20 @@ impl<
 
                     for (tx1, tx2) in primary.tx_seq.iter().zip(secondary.tx_seq.iter()) {
                         // chunks?
-                        let tx = if rng.random::<bool>() { tx1.clone() } else { tx2.clone() };
+                        let tx = if rng.random::<bool>() {
+                            tx1.clone()
+                        } else {
+                            tx2.clone()
+                        };
                         new_seq.push(tx);
                     }
                 }
                 MutationType::Prefix => {
-                    let corpus = if rng.random::<bool>() { primary } else { secondary };
+                    let corpus = if rng.random::<bool>() {
+                        primary
+                    } else {
+                        secondary
+                    };
                     trace!(target: "corpus", "overwrite prefix of {}", corpus.uuid);
 
                     self.current_mutated = Some(corpus.uuid);
@@ -486,7 +578,11 @@ impl<
                     }
                 }
                 MutationType::Suffix => {
-                    let corpus = if rng.random::<bool>() { primary } else { secondary };
+                    let corpus = if rng.random::<bool>() {
+                        primary
+                    } else {
+                        secondary
+                    };
                     trace!(target: "corpus", "overwrite suffix of {}", corpus.uuid);
 
                     self.current_mutated = Some(corpus.uuid);
@@ -501,7 +597,11 @@ impl<
                 }
                 MutationType::Abi => {
                     let targets = test.targeted_contracts.targets.lock();
-                    let corpus = if rng.random::<bool>() { primary } else { secondary };
+                    let corpus = if rng.random::<bool>() {
+                        primary
+                    } else {
+                        secondary
+                    };
                     trace!(target: "corpus", "ABI mutate args of {}", corpus.uuid);
 
                     self.current_mutated = Some(corpus.uuid);
@@ -527,8 +627,7 @@ impl<
                                     .collect()
                             };
                             // TODO mutation strategy for individual ABI types
-                            let calldata_slice =
-                                tx.call_details.calldata.get(4..).unwrap_or(&[]);
+                            let calldata_slice = tx.call_details.calldata.get(4..).unwrap_or(&[]);
                             let mut prev_inputs = function
                                 .abi_decode_input(calldata_slice)
                                 .expect("fuzzed_artifacts returned wrong sig");
@@ -545,9 +644,7 @@ impl<
                             };
 
                             while arg_mutation_rounds > 0 {
-                                let Some(&idx) =
-                                    round_arg_idx.get(arg_mutation_rounds - 1)
-                                else {
+                                let Some(&idx) = round_arg_idx.get(arg_mutation_rounds - 1) else {
                                     break;
                                 };
                                 let input = new_function
@@ -588,7 +685,15 @@ impl<
     /// sequence.
     pub fn generate_next_input(
         &mut self,
-        test: &InvariantTest<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
+        test: &InvariantTest<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
         sequence: &[BasicTxDetails],
         discarded: bool,
         depth: usize,
