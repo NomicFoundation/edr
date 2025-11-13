@@ -145,6 +145,7 @@ async fn test_persist_fuzz_failure() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
     let mut fuzz_config = TestFuzzConfig {
         runs: 1000,
+        seed: None,
         ..TestFuzzConfig::default()
     };
     let runner = TEST_DATA_DEFAULT
