@@ -66,11 +66,11 @@ impl<'a> LocalTraceIdentifier<'a> {
                 if is_creation && current_bytecode.len() > bytecode.len() {
                     // Try to decode ctor args with contract abi.
                     if let Some(constructor) = contract.abi.constructor() {
-                        let constructor_args = current_bytecode.get(bytecode.len()..).unwrap_or(&[]);
+                        let constructor_args = current_bytecode.get(bytecode.len()..).expect("slice should be valid");
                         if constructor.abi_decode_input(constructor_args).is_ok() {
                             // If we can decode args with current abi then remove args from
                             // code to compare.
-                            current_bytecode = current_bytecode.get(..bytecode.len()).unwrap_or(current_bytecode);
+                            current_bytecode = current_bytecode.get(..bytecode.len()).expect("slice should be valid");
                         }
                     }
                 }
@@ -94,10 +94,8 @@ impl<'a> LocalTraceIdentifier<'a> {
         // Start at artifacts with the same code length: `len..len*1.1`.
         let same_length_idx = self.find_index(len);
         for idx in same_length_idx..self.ordered_ids.len() {
-            let Some(&(id, len)) = self.ordered_ids.get(idx) else {
-                break;
-            };
-            if len > max_len {
+            let (id, len) = self.ordered_ids.get(idx).expect("idx should be within ordered_ids bounds");
+            if *len > max_len {
                 break;
             }
             if let found @ Some(_) = check(id, true, &mut min_score) {
@@ -109,9 +107,7 @@ impl<'a> LocalTraceIdentifier<'a> {
         let min_len = (len * 9) / 10;
         let idx = self.find_index(min_len);
         for i in idx..same_length_idx {
-            let Some(&(id, _)) = self.ordered_ids.get(i) else {
-                break;
-            };
+            let (id, _) = self.ordered_ids.get(i).expect("i should be within ordered_ids bounds");
             if let found @ Some(_) = check(id, true, &mut min_score) {
                 return found;
             }
@@ -140,7 +136,7 @@ impl<'a> LocalTraceIdentifier<'a> {
             self.ordered_ids.binary_search_by_key(&len, |(_, probe)| *probe);
 
         // In case of multiple artifacts with the same code length, we need to find the first one.
-        while idx > 0 && self.ordered_ids.get(idx - 1).is_some_and(|&(_, prev_len)| prev_len == len) {
+        while idx > 0 && self.ordered_ids.get(idx - 1).expect("idx - 1 should be within ordered_ids bounds").1 == len {
             idx -= 1;
         }
 

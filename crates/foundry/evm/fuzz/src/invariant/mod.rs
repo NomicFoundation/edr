@@ -115,7 +115,7 @@ impl TargetedContracts {
     pub fn fuzzed_artifacts(&self, tx: &BasicTxDetails) -> (Option<&JsonAbi>, Option<&Function>) {
         match self.inner.get(&tx.call_details.target) {
             Some(c) => {
-                let selector = tx.call_details.calldata.get(..4).unwrap_or(&[]);
+                let selector = tx.call_details.calldata.get(..4).expect("calldata should have at least 4 bytes for selector");
                 (Some(&c.abi), c.abi.functions().find(|f| f.selector() == selector))
             }
             None => (None, None),
@@ -135,7 +135,7 @@ impl TargetedContracts {
     pub fn can_replay(&self, tx: &BasicTxDetails) -> bool {
         match self.inner.get(&tx.call_details.target) {
             Some(c) => {
-                let selector = tx.call_details.calldata.get(..4).unwrap_or(&[]);
+                let selector = tx.call_details.calldata.get(..4).expect("calldata should have at least 4 bytes for selector");
                 c.abi.functions().any(|f| f.selector() == selector)
             }
             None => false,
@@ -146,7 +146,7 @@ impl TargetedContracts {
     /// key composed from contract identifier and function name.
     pub fn fuzzed_metric_key(&self, tx: &BasicTxDetails) -> Option<String> {
         self.inner.get(&tx.call_details.target).and_then(|contract| {
-            let selector = tx.call_details.calldata.get(..4).unwrap_or(&[]);
+            let selector = tx.call_details.calldata.get(..4).expect("calldata should have at least 4 bytes for selector");
             contract
                 .abi
                 .functions()

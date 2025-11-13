@@ -39,27 +39,25 @@ fn recursive_flatten_call_trace<'a>(
         *record_started = true;
     }
 
-    let Some(node) = arena.nodes().get(node_idx) else {
-        return;
-    };
+    let node = arena.nodes().get(node_idx).expect("Node index should be valid");
 
     for order in &node.ordering {
         match order {
             TraceMemberOrder::Step(step_idx) => {
-                if *record_started && let Some(step) = node.trace.steps.get(*step_idx) {
+                if *record_started {
+                    let step = node.trace.steps.get(*step_idx).expect("Step index should be valid");
                     flatten_steps.push(step);
                 }
             }
             TraceMemberOrder::Call(call_idx) => {
-                if let Some(&child_node_idx) = node.children.get(*call_idx) {
+                let child_node_idx = node.children.get(*call_idx).expect("Child node index should be valid");
                     recursive_flatten_call_trace(
-                        child_node_idx,
+                        *child_node_idx,
                         arena,
                         node_start_idx,
                         record_started,
                         flatten_steps,
                     );
-                }
             }
             TraceMemberOrder::Log(_) => {}
         }

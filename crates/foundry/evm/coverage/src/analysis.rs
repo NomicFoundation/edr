@@ -622,12 +622,11 @@ impl SourceAnalysis {
         let mut map = vec![(u32::MAX, 0); len];
         for (idx, items) in sourced_items {
             // Assumes that all `idx` items are consecutive, guaranteed by the sort above.
-            if let Some(entry) = map.get_mut(idx) {
-                if entry.0 == u32::MAX {
-                    entry.0 = all_items.len() as u32;
-                }
-                entry.1 += items.len() as u32;
+            let entry = map.get_mut(idx).expect("idx should be within map bounds");
+            if entry.0 == u32::MAX {
+                entry.0 = all_items.len() as u32;
             }
+            entry.1 += items.len() as u32;
             all_items.extend(items);
         }
 
@@ -661,7 +660,7 @@ impl SourceAnalysis {
         }
         let start = offset as usize;
         let end = start.saturating_add(len as usize);
-        let items = self.all_items.get(start..end).unwrap_or(&[]);
+        let items = self.all_items.get(start..end).expect("item range should be within all_items bounds");
         (offset, items)
     }
 

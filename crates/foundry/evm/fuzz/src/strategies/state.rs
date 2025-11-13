@@ -257,10 +257,8 @@ impl FuzzDictionary {
         let mut i = 0;
         let len = code.len().min(PUSH_BYTE_ANALYSIS_LIMIT);
         while i < len {
-            let Some(&op) = code.get(i) else {
-                break;
-            };
-            if (opcode::PUSH1..=opcode::PUSH32).contains(&op) {
+            let op = code.get(i).expect("i should be within code bounds");
+            if (opcode::PUSH1..=opcode::PUSH32).contains(op) {
                 let push_size = (op - opcode::PUSH1 + 1) as usize;
                 let push_start = i + 1;
                 let push_end = push_start + push_size;
@@ -270,9 +268,7 @@ impl FuzzDictionary {
                     break;
                 }
 
-                let Some(push_bytes) = code.get(push_start..push_end) else {
-                    break;
-                };
+                let push_bytes = code.get(push_start..push_end).expect("push_start..push_end should be within code bounds");
                 let push_value = U256::try_from_be_slice(push_bytes).unwrap();
                 if push_value != U256::ZERO {
                     // Never add 0 to the dictionary as it's always present.

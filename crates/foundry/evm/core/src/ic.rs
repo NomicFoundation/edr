@@ -78,13 +78,13 @@ fn make_map<const PC_FIRST: bool>(code: &[u8]) -> FxHashMap<u32, u32> {
             map.insert(ic as u32, pc as u32);
         }
 
-        if let Some(&opcode) = code.get(pc)
-            && (PUSH1..=PUSH32).contains(&opcode) {
-                // Skip the push bytes.
-                let push_size = (opcode - PUSH0) as usize;
-                pc += push_size;
-                cumulative_push_size += push_size;
-            }
+        let opcode = code.get(pc).expect("pc should be within code bounds");
+        if (PUSH1..=PUSH32).contains(opcode) {
+            // Skip the push bytes.
+            let push_size = (opcode - PUSH0) as usize;
+            pc += push_size;
+            cumulative_push_size += push_size;
+        }
 
         pc += 1;
     }
@@ -124,10 +124,9 @@ pub fn decode_instructions(code: &[u8]) -> Result<Vec<Instruction>> {
         // Ensure immediate is padded if needed.
         let immediate_end = (next_pc + immediate_size).min(code.len());
         let mut immediate = vec![0u8; immediate_size];
-        if let Some(immediate_part) = code.get(next_pc..immediate_end)
-            && let Some(dest) = immediate.get_mut(..immediate_part.len()) {
-                dest.copy_from_slice(immediate_part);
-            }
+        let immediate_part = code.get(next_pc..immediate_end).expect("immediate_end should be within code bounds");
+        let dest = immediate.get_mut(..immediate_part.len()).expect("immediate buffer should accommodate immediate_part");
+        dest.copy_from_slice(immediate_part);
 
         steps.push(Instruction { op, pc: pc as u32, immediate: immediate.into_boxed_slice() });
 

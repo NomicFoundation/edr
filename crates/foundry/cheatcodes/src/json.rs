@@ -1823,7 +1823,7 @@ fn serialize_value_as_json(value: DynSolValue) -> Result<Value> {
         }
         DynSolValue::Bytes(b) => Ok(Value::String(hex::encode_prefixed(b))),
         DynSolValue::FixedBytes(b, size) => {
-            let bytes = b.get(..size).ok_or_else(|| fmt_err!("fixed bytes size out of bounds"))?;
+            let bytes = b.get(..size).expect("fixed bytes size out of bounds");
             Ok(Value::String(hex::encode_prefixed(bytes)))
         }
         DynSolValue::Int(i, _) => {

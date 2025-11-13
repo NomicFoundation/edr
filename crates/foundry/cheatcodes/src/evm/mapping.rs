@@ -191,7 +191,7 @@ impl Cheatcode for getMappingKeyAndParentOfCall {
             if let Some(key2) = slots.keys.get(slot) {
                 found = true;
                 key = key2;
-                parent = slots.parent_slots.get(slot).unwrap_or(&B256::ZERO);
+                parent = slots.parent_slots.get(slot).expect("parent slot must exist if key exists");
             } else if let Some((key2, parent2)) = slots.seen_sha3.get(slot) {
                 found = true;
                 key = key2;
@@ -241,8 +241,8 @@ pub(crate) fn step(mapping_slots: &mut AddressHashMap<MappingSlots>, interpreter
                 let address = interpreter.input.target_address;
                 let offset = interpreter.stack.peek(0).expect("stack size > 1").saturating_to();
                 let data = interpreter.memory.slice_len(offset, 0x40);
-                let low = B256::from_slice(data.get(..0x20).unwrap_or(&[]));
-                let high = B256::from_slice(data.get(0x20..).unwrap_or(&[]));
+                let low = B256::from_slice(data.get(..0x20).expect("data length >= 0x20"));
+                let high = B256::from_slice(data.get(0x20..).expect("data length >= 0x40"));
                 let result = keccak256(&*data);
 
                 mapping_slots.entry(address).or_default().seen_sha3.insert(result, (low, high));

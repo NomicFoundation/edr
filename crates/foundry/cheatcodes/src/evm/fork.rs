@@ -1006,7 +1006,7 @@ fn convert_to_bytes(token: &DynSolValue) -> DynSolValue {
         // Convert fixed bytes to prevent encoding issues.
         // See: <https://github.com/foundry-rs/foundry/issues/8287>
         DynSolValue::FixedBytes(bytes, size) => {
-            DynSolValue::Bytes(bytes.as_slice().get(..*size).unwrap_or_default().to_vec())
+            DynSolValue::Bytes(bytes.as_slice().get(..*size).expect("size should be valid for FixedBytes").to_vec())
         }
         DynSolValue::Address(addr) => DynSolValue::Bytes(addr.to_vec()),
         //  Convert tuple values to prevent encoding issues.

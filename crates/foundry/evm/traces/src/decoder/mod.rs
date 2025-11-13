@@ -350,8 +350,8 @@ impl CallTraceDecoder {
         }
 
         if is_abi_call_data(cdata) {
-            let selector_bytes = cdata.get(..SELECTOR_LEN).unwrap_or(&[]);
-            let selector = Selector::try_from(selector_bytes).unwrap();
+            let selector_bytes = cdata.get(..SELECTOR_LEN).expect("calldata should have at least SELECTOR_LEN bytes");
+            let selector = Selector::try_from(selector_bytes).expect("selector_bytes should convert to Selector");
             let mut functions = Vec::new();
             let functions = if let Some(fs) = self.functions.get(&selector) { fs } else {
                 if let Some(identifier) = &self.signature_identifier
@@ -442,7 +442,7 @@ impl CallTraceDecoder {
             }
 
             if args.is_none() {
-                let input_data = trace.data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                let input_data = trace.data.get(SELECTOR_LEN..).expect("calldata should have at least SELECTOR_LEN bytes");
                 if let Ok(v) = func.abi_decode_input(input_data) {
                     args = Some(v.iter().map(|value| self.format_value(value)).collect());
                 }
@@ -479,7 +479,7 @@ impl CallTraceDecoder {
                 }
             }
             "sign" | "signP256" => {
-                let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                let input_data = data.get(SELECTOR_LEN..)?;
                 let mut decoded = func.abi_decode_input(input_data).ok()?;
 
                 // Redact private key and replace in trace
@@ -493,7 +493,7 @@ impl CallTraceDecoder {
                 Some(decoded.iter().map(format_token).collect())
             }
             "signDelegation" | "signAndAttachDelegation" => {
-                let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                let input_data = data.get(SELECTOR_LEN..)?;
                 let mut decoded = func.abi_decode_input(input_data).ok()?;
                 // Redact private key and replace in trace for
                 // signAndAttachDelegation(address implementation, uint256 privateKey)
@@ -533,7 +533,7 @@ impl CallTraceDecoder {
                 if self.verbosity >= 5 {
                     None
                 } else {
-                    let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                    let input_data = data.get(SELECTOR_LEN..)?;
                     let mut decoded = func.abi_decode_input(input_data).ok()?;
                     let token = if func.name.as_str() == "parseJson" ||
                         // `keyExists` is being deprecated in favor of `keyExistsJson`. It will be removed in future versions.
@@ -544,9 +544,8 @@ impl CallTraceDecoder {
                     } else {
                         "<stringified JSON>"
                     };
-                    if let Some(first) = decoded.get_mut(0) {
-                        *first = DynSolValue::String(token.to_string());
-                    }
+                    let first = decoded.get_mut(0).expect("decoded should have at least one element");
+                    *first = DynSolValue::String(token.to_string());
                     Some(decoded.iter().map(format_token).collect())
                 }
             }
@@ -554,7 +553,7 @@ impl CallTraceDecoder {
                 if self.verbosity >= 5 {
                     None
                 } else {
-                    let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                    let input_data = data.get(SELECTOR_LEN..)?;
                     let mut decoded = func.abi_decode_input(input_data).ok()?;
                     let token = if func.name.as_str() == "parseToml" ||
                         func.name.as_str() == "keyExistsToml"
@@ -563,28 +562,25 @@ impl CallTraceDecoder {
                     } else {
                         "<stringified TOML>"
                     };
-                    if let Some(first) = decoded.get_mut(0) {
-                        *first = DynSolValue::String(token.to_string());
-                    }
+                    let first = decoded.get_mut(0).expect("decoded should have at least one element");
+                    *first = DynSolValue::String(token.to_string());
                     Some(decoded.iter().map(format_token).collect())
                 }
             }
             "createFork" |
             "createSelectFork" |
             "rpc" => {
-                let input_data = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+                let input_data = data.get(SELECTOR_LEN..)?;
                 let mut decoded = func.abi_decode_input(input_data).ok()?;
 
                 // Redact RPC URL except if referenced by an alias
                 if !decoded.is_empty() && func.inputs.first().is_some_and(|input| input.ty == "string") {
-                    if let Some(first_val) = decoded.first() {
-                        let url_or_alias = first_val.as_str().unwrap_or_default();
+                    let first_val = decoded.first().expect("decoded should have at least one element");
+                    let url_or_alias = first_val.as_str().unwrap_or_default();
 
-                        if (url_or_alias.starts_with("http") || url_or_alias.starts_with("ws"))
-                            && let Some(first) = decoded.get_mut(0)
-                        {
-                            *first = DynSolValue::String("<rpc url>".to_string());
-                        }
+                    if url_or_alias.starts_with("http") || url_or_alias.starts_with("ws") {
+                        let first = decoded.get_mut(0).expect("decoded should have at least one element");
+                        *first = DynSolValue::String("<rpc url>".to_string());
                     }
                 } else {
                     return None;
@@ -767,7 +763,7 @@ fn is_abi_call_data(data: &[u8]) -> bool {
         std::cmp::Ordering::Less => false,
         std::cmp::Ordering::Equal => true,
         std::cmp::Ordering::Greater => {
-            let payload = data.get(SELECTOR_LEN..).unwrap_or(&[]);
+            let payload = data.get(SELECTOR_LEN..).expect("data length is greater than SELECTOR_LEN");
             is_abi_data(payload)
         }
     }
@@ -782,7 +778,8 @@ fn is_abi_data(data: &[u8]) -> bool {
         return true;
     }
     // If the length is not a multiple of 32, also accept when the last remainder bytes are all 0.
-    data.get(data.len() - rem..).is_some_and(|slice| slice.iter().all(|byte| *byte == 0))
+    let slice = data.get(data.len() - rem..).expect("data.len() - rem should be valid slice index");
+    slice.iter().all(|byte| *byte == 0)
 }
 
 /// Restore the order of the params of a decoded event,
@@ -796,14 +793,12 @@ fn reconstruct_params(event: &Event, decoded: &DecodedEvent) -> Vec<DynSolValue>
         // `Transfer(address indexed from, address indexed to, uint256 indexed tokenId)` by making
         // sure the event inputs is not higher than decoded indexed / un-indexed values.
         if input.indexed && indexed < decoded.indexed.len() {
-            if let Some(value) = decoded.indexed.get(indexed) {
-                inputs.push(value.clone());
-            }
+            let value = decoded.indexed.get(indexed).expect("indexed should be within bounds");
+            inputs.push(value.clone());
             indexed += 1;
         } else if unindexed < decoded.body.len() {
-            if let Some(value) = decoded.body.get(unindexed) {
-                inputs.push(value.clone());
-            }
+            let value = decoded.body.get(unindexed).expect("unindexed should be within bounds");
+            inputs.push(value.clone());
             unindexed += 1;
         }
     }

@@ -227,8 +227,8 @@ fn trimmed_hex(s: &[u8]) -> String {
     if s.len() <= n {
         hex::encode(s)
     } else {
-        let start = s.get(..n / 2).unwrap_or(s);
-        let end = s.get(s.len().saturating_sub(n / 2)..).unwrap_or(s);
+        let start = s.get(..n / 2).expect("slice length should be greater than n/2");
+        let end = s.get(s.len().saturating_sub(n / 2)..).expect("slice end index should be valid");
         format!(
             "{}…{} ({} bytes)",
             &hex::encode(start),

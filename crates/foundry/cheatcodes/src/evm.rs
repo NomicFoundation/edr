@@ -1246,7 +1246,6 @@ impl Cheatcode for coolCall {
         let Self { target } = self;
         if let Some(account) = ccx.ecx.journaled_state.state.get_mut(target) {
             account.unmark_touch();
-            // TODO
             account.storage.values_mut().for_each(revm::state::EvmStorageSlot::mark_cold);
         }
         Ok(Vec::default())
@@ -2587,7 +2586,6 @@ fn genesis_account(account: &Account) -> GenesisAccount {
     GenesisAccount {
         nonce: Some(account.info.nonce),
         balance: account.info.balance,
-        //TODO
         code: account.info.code.as_ref().map(revm::bytecode::Bytecode::original_bytes),
         storage: Some(
             account

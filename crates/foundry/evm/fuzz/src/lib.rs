@@ -80,10 +80,10 @@ impl BaseCounterExample {
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
         if let Some((name, abi)) = &contracts.get(&addr) {
-            let selector = bytes.get(..4).unwrap_or(&[]);
+            let selector = bytes.get(..4).expect("bytes should have at least 4 bytes for selector");
             if let Some(func) = abi.functions().find(|f| f.selector() == selector) {
                 // skip the function selector when decoding
-                let calldata_args = bytes.get(4..).unwrap_or(&[]);
+                let calldata_args = bytes.get(4..).expect("bytes should have at least 4 bytes if selector matched");
                 if let Ok(args) = func.abi_decode_input(calldata_args) {
                     return Self {
                         sender: Some(sender),

@@ -809,7 +809,7 @@ impl<
          }
         */
         let value = self.storage_ref(address, U256::ZERO).unwrap_or_default();
-        value.as_le_bytes().get(1).copied().unwrap_or(0) != 0
+        value.as_le_bytes().get(1).copied().expect("U256 as_le_bytes should have at least 2 bytes") != 0
     }
 
     /// Checks if the given test function failed by looking at the present value
@@ -2161,14 +2161,13 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         let fork_id = self.ensure_fork_id(id)?;
         let idx = self.ensure_fork_index(fork_id)?;
 
-        if let Some(active) = self.forks.get_mut(idx).and_then(|f| f.as_mut()) {
-            // we initialize a _new_ `ForkDB` but keep the state of persistent accounts
-            let mut new_db = ForkDB::new(backend);
-            for addr in self.persistent_accounts.iter().copied() {
-                merge_db_account_data(addr, &active.db, &mut new_db);
-            }
-            active.db = new_db;
+        let active = self.forks.get_mut(idx).and_then(|f| f.as_mut()).expect("fork index should exist after ensure_fork_index");
+        // we initialize a _new_ `ForkDB` but keep the state of persistent accounts
+        let mut new_db = ForkDB::new(backend);
+        for addr in self.persistent_accounts.iter().copied() {
+            merge_db_account_data(addr, &active.db, &mut new_db);
         }
+        active.db = new_db;
         // update mappings
         self.issued_local_fork_ids.insert(id, new_fork_id.clone());
         self.created_forks.insert(new_fork_id, idx);

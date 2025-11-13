@@ -633,6 +633,7 @@ impl<
     ///
     /// There may be cheatcodes in the constructor of the new contract, in order to allow them
     /// automatically we need to determine the new address.
+    // TODO: https://github.com/NomicFoundation/edr/issues/1184
     #[allow(clippy::unused_self)]
     fn allow_cheatcodes_on_create<
         DatabaseT: CheatcodeBackend<
@@ -832,7 +833,7 @@ impl<
                 // The calldata is at most, as big as this call's input, and
                 if calldata.len() <= call.input.len() &&
                     // Both calldata match, taking the length of the assumed smaller one (which will have at least the selector), and
-                    call.input.bytes(ecx).get(..calldata.len()).is_some_and(|bytes| calldata.as_ref() == bytes) &&
+                    calldata.as_ref() == call.input.bytes(ecx).get(..calldata.len()).expect("calldata length should be within input bounds") &&
                     // The value matches, if provided
                     expected
                         .value.is_none_or(|value| Some(value) == call.transfer_value()) &&
@@ -2253,7 +2254,7 @@ Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, Tran
                                 let args_offset = try_or_return!(interpreter.stack.peek(3)).saturating_to::<usize>();
                                 let args_size = try_or_return!(interpreter.stack.peek(4)).saturating_to::<usize>();
                                 let memory_word = interpreter.memory.slice_len(args_offset, args_size);
-                                if memory_word.get(..SELECTOR_LEN).is_some_and(|bytes| bytes == stopExpectSafeMemoryCall::SELECTOR) {
+                                if memory_word.get(..SELECTOR_LEN).expect("memory word should have at least SELECTOR_LEN bytes") == stopExpectSafeMemoryCall::SELECTOR {
                                     return
                                 }
                             }

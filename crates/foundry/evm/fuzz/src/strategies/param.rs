@@ -160,9 +160,8 @@ pub fn fuzz_param_from_state(
             .boxed(),
         DynSolType::FixedBytes(size @ 1..=32) => value()
             .prop_map(move |mut v| {
-                if let Some(slice) = v.get_mut(size..) {
-                    slice.fill(0);
-                }
+                let slice = v.get_mut(size..).expect("value should be at least size bytes");
+                slice.fill(0);
                 DynSolValue::FixedBytes(B256::from(v), size)
             })
             .boxed(),
