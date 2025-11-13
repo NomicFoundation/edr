@@ -184,7 +184,7 @@ impl<
             coverage,
             mut evm_opts,
             project_root,
-            mut cheats_config_options,
+            cheats_config_options,
             fuzz,
             invariant,
             enable_fuzz_fixtures,
@@ -208,12 +208,6 @@ impl<
             include_traces = IncludeTraces::All;
             // Enable EVM isolation for more accurate gas measurements
             evm_opts.isolate = true;
-        }
-
-        // HACK: When EVM isolation is enabled, we need to allow internal expectRevert
-        // calls because we have a bug in isolation mode.
-        if evm_opts.isolate {
-            cheats_config_options.allow_internal_expect_revert = true;
         }
 
         Ok(Self {
