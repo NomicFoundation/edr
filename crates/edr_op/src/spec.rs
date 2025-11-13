@@ -223,21 +223,20 @@ impl GenesisBlockFactory for OpChainSpec {
             let config_base_fee_params = options.base_fee_params.as_ref();
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
-            let extra_data = options.extra_data.unwrap_or_else(|| {
+            options.extra_data = options.extra_data.or_else(|| {
                 let base_fee_params = config_base_fee_params
                     .unwrap_or(block_config.base_fee_params)
                     .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
-                encode_dynamic_base_fee_params(base_fee_params)
+                Some(encode_dynamic_base_fee_params(base_fee_params))
             });
-
-            options.extra_data = Some(extra_data);
         }
 
         if block_config.hardfork >= Hardfork::ISTHMUS {
-            options.withdrawals_root =
-                genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS);
+            options.withdrawals_root = options
+                .withdrawals_root
+                .or_else(|| genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS));
         };
         LocalBlock::with_genesis_state(genesis_state, block_config, options)
     }
