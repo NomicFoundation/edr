@@ -229,7 +229,7 @@ impl Default for TestFuzzConfig {
             runs: 256,
             fail_on_revert: true,
             max_test_rejects: 65536,
-            seed: None,
+            seed: Some(U256::from(997u32)),
             dictionary: TestFuzzDictionaryConfig::default(),
             gas_report_samples: 256,
             failure_persist_dir: None,
