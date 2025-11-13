@@ -150,70 +150,7 @@ pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
         balance: Some(BigInt::from(0u64)),
         nonce: Some(BigInt::from(0u64)),
         code: Some(l1_block_code),
-        storage: Some(vec![
-            StorageSlot {
-                index: BigInt::from(0u64),
-                // uint64 public number = 1
-                // uint64 public timestamp = 1
-                value: BigInt {
-                    words: vec![
-                        0x0000000000000001_u64, // least significative
-                        0x0000000000000001_u64,
-                    ],
-                    sign_bit: false,
-                },
-            },
-            StorageSlot {
-                index: BigInt::from(1u64),
-                // uint256 baseFee = 10 gwei
-                value: BigInt::from(0x00000002540be400_u64),
-            },
-            StorageSlot {
-                index: BigInt::from(2u64),
-                // bytes32 hash = 0
-                value: BigInt::from(0u64),
-            },
-            StorageSlot {
-                index: BigInt::from(3u64),
-                // uint64 sequenceNumber = 0
-                // uint32 blobBaseFeeScalar = 1014213
-                // uint32 baseFeeScalar = 5227
-                value: BigInt {
-                    words: vec![
-                        0x0000000000000000_u64, // least significative
-                        0x0000000000000000_u64,
-                        0x00000000000f79c5_u64,
-                        0x000000000000146b_u64,
-                    ],
-                    sign_bit: false,
-                },
-            },
-            StorageSlot {
-                index: BigInt::from(4u64),
-                // bytes32 batcherHash = 0
-                value: BigInt::from(0u64),
-            },
-            StorageSlot {
-                index: BigInt::from(5u64),
-                // uint256 l1FeeOverhead = 0
-                value: BigInt::from(0u64),
-            },
-            StorageSlot {
-                index: BigInt::from(6u64),
-                // uint256 l1FeeScalar = 0
-                value: BigInt::from(0u64),
-            },
-            StorageSlot {
-                index: BigInt::from(7u64),
-                // uint256 blobBaseFee = 10 gwei
-                value: BigInt::from(0x00000002540be400_u64),
-            },
-            StorageSlot {
-                // Operator fee parameters
-                index: BigInt::from(8u64),
-                value: BigInt::from(0u64),
-            },
-        ]),
+        storage: Some(l1_block_storage(hardfork.into())),
     };
 
     /* The rest of the predeploys use a stubbed bytecode that reverts with a
@@ -411,6 +348,75 @@ fn gas_price_oracle_isthmus() -> AccountOverride {
             ),
         }]),
     }
+}
+fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
+    let mut base_storage = vec![
+        StorageSlot {
+            index: BigInt::from(0u64),
+            // uint64 public number = 1
+            // uint64 public timestamp = 1
+            value: BigInt {
+                words: vec![
+                    0x0000000000000001_u64, // least significative
+                    0x0000000000000001_u64,
+                ],
+                sign_bit: false,
+            },
+        },
+        StorageSlot {
+            index: BigInt::from(1u64),
+            // uint256 baseFee = 10 gwei
+            value: BigInt::from(0x00000002540be400_u64),
+        },
+        StorageSlot {
+            index: BigInt::from(2u64),
+            // bytes32 hash = 0
+            value: BigInt::from(0u64),
+        },
+        StorageSlot {
+            index: BigInt::from(3u64),
+            // uint64 sequenceNumber = 0
+            // uint32 blobBaseFeeScalar = 1014213
+            // uint32 baseFeeScalar = 5227
+            value: BigInt {
+                words: vec![
+                    0x0000000000000000_u64, // least significative
+                    0x0000000000000000_u64,
+                    0x00000000000f79c5_u64,
+                    0x000000000000146b_u64,
+                ],
+                sign_bit: false,
+            },
+        },
+        StorageSlot {
+            index: BigInt::from(4u64),
+            // bytes32 batcherHash = 0
+            value: BigInt::from(0u64),
+        },
+        StorageSlot {
+            index: BigInt::from(5u64),
+            // uint256 l1FeeOverhead = 0
+            value: BigInt::from(0u64),
+        },
+        StorageSlot {
+            index: BigInt::from(6u64),
+            // uint256 l1FeeScalar = 0
+            value: BigInt::from(0u64),
+        },
+        StorageSlot {
+            index: BigInt::from(7u64),
+            // uint256 blobBaseFee = 10 gwei
+            value: BigInt::from(0x00000002540be400_u64),
+        },
+    ];
+    if hardfork >= edr_op::Hardfork::ISTHMUS {
+        base_storage.push(StorageSlot {
+            // Operator fee parameters
+            index: BigInt::from(8u64),
+            value: BigInt::from(0u64),
+        });
+    }
+    base_storage
 }
 
 fn l1_block_code(hardfork: edr_op::Hardfork) -> Uint8Array {
