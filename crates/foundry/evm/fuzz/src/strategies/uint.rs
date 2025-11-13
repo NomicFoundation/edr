@@ -124,7 +124,10 @@ impl UintStrategy {
         }
 
         // Generate value tree from fixture.
-        let fixture = &self.fixtures[runner.rng().random_range(0..self.fixtures.len())];
+        let fixture_idx = runner.rng().random_range(0..self.fixtures.len());
+        let Some(fixture) = self.fixtures.get(fixture_idx) else {
+            return self.generate_random_tree(runner);
+        };
         if let Some(uint_fixture) = fixture.as_uint()
             && uint_fixture.1 == self.bits
         {
