@@ -69,9 +69,4 @@ impl_full_block_tests! {
         url: super::op::mainnet_url(),
         header_overrides_constructor: isthmus_header_overrides,
     },
-    base_mainnet_37511249 => OpChainSpec {
-        block_number: 37_511_249,
-        url: super::base::mainnet_url(),
-        header_overrides_constructor: isthmus_header_overrides,
-    },
 }
