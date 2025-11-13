@@ -19,7 +19,7 @@ pub struct StateSnapshot {
 #[derive(Clone, Debug)]
 pub struct BackendStateSnapshot<DatabaseT, BlockT, TxT, HardforkT> {
     pub db: DatabaseT,
-    /// The journaled_state state at a specific point
+    /// The `journaled_state` state at a specific point
     pub journaled_state: JournaledState,
     /// Contains the env at the time of the snapshot
     pub env: EvmEnv<BlockT, TxT, HardforkT>,
@@ -39,8 +39,8 @@ impl<DatabaseT, BlockT, TxT, HardforkT> BackendStateSnapshot<DatabaseT, BlockT, 
     ///
     /// Since we want to keep all additional logs that were emitted since the snapshot was taken
     /// we'll merge additional logs into the snapshot's `revm::JournaledState`. Additional logs are
-    /// those logs that are missing in the snapshot's journaled_state, since the current
-    /// journaled_state includes the same logs, we can simply replace use that See also
+    /// those logs that are missing in the snapshot's `journaled_state`, since the current
+    /// `journaled_state` includes the same logs, we can simply replace use that See also
     /// `DatabaseExt::revert`.
     pub fn merge(&mut self, current: &JournaledState) {
         self.journaled_state.logs.clone_from(&current.logs);

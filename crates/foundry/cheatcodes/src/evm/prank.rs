@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports)]
 use crate::{impl_is_pure_true, Cheatcode, CheatsCtxt, Result, Vm::*, evm::journaled_account};
 use alloy_primitives::Address;
 use foundry_evm_core::{
@@ -282,7 +283,7 @@ impl Cheatcode for stopPrankCall {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self {} = self;
         ccx.state.pranks.remove(&ccx.ecx.journaled_state.depth());
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -346,5 +347,5 @@ fn prank<
     );
 
     ccx.state.pranks.insert(prank.depth, prank);
-    Ok(Default::default())
+    Ok(Vec::default())
 }

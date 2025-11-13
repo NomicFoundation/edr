@@ -8,7 +8,7 @@ use proptest::{
 };
 use std::sync::Arc;
 
-/// Given a TestRunner and a strategy, it generates calls. Used inside the Fuzzer inspector to
+/// Given a `TestRunner` and a strategy, it generates calls. Used inside the Fuzzer inspector to
 /// override external calls to test for potential reentrancy vulnerabilities..
 #[derive(Clone, Debug)]
 pub struct RandomCallGenerator {

@@ -19,7 +19,7 @@ use super::{
 /// size.
 static DUMMY_CALL_OUTPUT: Bytes = Bytes::from_static(&[0u8; 8192]);
 
-/// Same reasoning as [DUMMY_CALL_OUTPUT], but for creates.
+/// Same reasoning as [`DUMMY_CALL_OUTPUT`], but for creates.
 const DUMMY_CREATE_ADDRESS: Address = address!("0x0000000000000000000000000000000000000001");
 
 fn stringify(data: &[u8]) -> String {
@@ -273,7 +273,8 @@ fn decode_revert(revert: Vec<u8>) -> Vec<u8> {
     if matches!(
         revert.get(..4).map(|s| s.try_into().unwrap()),
         Some(Vm::CheatcodeError::SELECTOR | alloy_sol_types::Revert::SELECTOR)
-    ) && let Ok(decoded) = Vec::<u8>::abi_decode(&revert[4..])
+    ) && let Some(data) = revert.get(4..)
+        && let Ok(decoded) = Vec::<u8>::abi_decode(data)
     {
         return decoded;
     }

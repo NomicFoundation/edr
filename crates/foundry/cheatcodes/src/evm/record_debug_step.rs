@@ -39,27 +39,27 @@ fn recursive_flatten_call_trace<'a>(
         *record_started = true;
     }
 
-    let node = &arena.nodes()[node_idx];
+    let node = arena.nodes().get(node_idx).expect("Node index should be valid");
 
     for order in &node.ordering {
         match order {
             TraceMemberOrder::Step(step_idx) => {
                 if *record_started {
-                    let step = &node.trace.steps[*step_idx];
+                    let step = node.trace.steps.get(*step_idx).expect("Step index should be valid");
                     flatten_steps.push(step);
                 }
             }
             TraceMemberOrder::Call(call_idx) => {
-                let child_node_idx = node.children[*call_idx];
-                recursive_flatten_call_trace(
-                    child_node_idx,
-                    arena,
-                    node_start_idx,
-                    record_started,
-                    flatten_steps,
-                );
+                let child_node_idx = node.children.get(*call_idx).expect("Child node index should be valid");
+                    recursive_flatten_call_trace(
+                        *child_node_idx,
+                        arena,
+                        node_start_idx,
+                        record_started,
+                        flatten_steps,
+                    );
             }
-            _ => {}
+            TraceMemberOrder::Log(_) => {}
         }
     }
 }
@@ -117,7 +117,9 @@ fn get_stack_inputs_for_opcode(opcode: u8, stack: Option<&Vec<U256>>) -> Vec<U25
 
     let stack_input_size = op.inputs() as usize;
     for i in 0..stack_input_size {
-        inputs.push(stack_data[stack_data.len() - 1 - i]);
+        if let Some(&value) = stack_data.get(stack_data.len().saturating_sub(1 + i)) {
+            inputs.push(value);
+        }
     }
     inputs
 }

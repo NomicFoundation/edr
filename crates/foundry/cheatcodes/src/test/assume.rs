@@ -67,7 +67,7 @@ impl Cheatcode for assumeCall {
         >,
     >(&self, _state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self { condition } = self;
-        if *condition { Ok(Default::default()) } else { Err(Error::from(MAGIC_ASSUME)) }
+        if *condition { Ok(Vec::default()) } else { Err(Error::from(MAGIC_ASSUME)) }
     }
 }
 
@@ -173,5 +173,5 @@ fn assume_no_revert<
 
     state.assume_no_revert = Some(AssumeNoRevert { depth, reasons: parameters, reverted_by: None });
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }

@@ -26,7 +26,7 @@ where
     }
 
     pub fn new(cfg: CfgEnv<HardforkT>, block: BlockT, tx: TxT) -> Self {
-        Self { cfg, block, tx }
+        Self { block, cfg, tx }
     }
 
     pub fn new_with_spec_id(cfg: CfgEnv<HardforkT>, block: BlockT, tx: TxT, spec_id: HardforkT) -> Self {
@@ -112,6 +112,7 @@ pub trait ContextExt {
     type HardforkT;
     type TxT;
 
+    #[allow(clippy::type_complexity)]
     fn as_db_env_and_journal(
         &mut self,
     ) -> (&mut Self::DB, &mut JournalInner<JournalEntry>, EnvMut<'_, Self::BlockT, Self::TxT, Self::HardforkT>);

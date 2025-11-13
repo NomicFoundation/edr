@@ -1,5 +1,6 @@
+#[allow(clippy::wildcard_imports)]
 use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result, Vm::*};
-use alloy_primitives::{Address, Bytes, U256};
+use alloy_primitives::{Address, Bytes, U256, map::HashMap};
 use foundry_evm_core::{
     backend::CheatcodeBackend,
     evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, TransactionEnvTr, TransactionErrorTrait},
@@ -65,8 +66,8 @@ impl Cheatcode for clearMockedCallsCall {
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
-        state.mocked_calls = Default::default();
-        Ok(Default::default())
+        state.mocked_calls = HashMap::default();
+        Ok(Vec::default())
     }
 }
 
@@ -93,8 +94,8 @@ impl Cheatcode for mockCall_0Call {
         let Self { callee, data, returnData } = self;
         let _ = make_acc_non_empty(callee, ccx)?;
 
-        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(ccx.state, callee, data, None, returnData, InstructionResult::Return);
-        Ok(Default::default())
+        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(ccx.state, callee, data, None, returnData, InstructionResult::Return);
+        Ok(Vec::default())
     }
 }
 
@@ -120,8 +121,8 @@ impl Cheatcode for mockCall_1Call {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { callee, msgValue, data, returnData } = self;
         ccx.ecx.journaled_state.load_account(*callee)?;
-        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(ccx.state, callee, data, Some(msgValue), returnData, InstructionResult::Return);
-        Ok(Default::default())
+        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(ccx.state, callee, data, Some(msgValue), returnData, InstructionResult::Return);
+        Ok(Vec::default())
     }
 }
 
@@ -148,7 +149,7 @@ impl Cheatcode for mockCall_2Call {
         let Self { callee, data, returnData } = self;
         let _ = make_acc_non_empty(callee, ccx)?;
 
-        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(
+        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(
             ccx.state,
             callee,
             &Bytes::from(*data),
@@ -156,7 +157,7 @@ impl Cheatcode for mockCall_2Call {
             returnData,
             InstructionResult::Return,
         );
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -182,7 +183,7 @@ impl Cheatcode for mockCall_3Call {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { callee, msgValue, data, returnData } = self;
         ccx.ecx.journaled_state.load_account(*callee)?;
-        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(
+        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(
             ccx.state,
             callee,
             &Bytes::from(*data),
@@ -190,7 +191,7 @@ impl Cheatcode for mockCall_3Call {
             returnData,
             InstructionResult::Return,
         );
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -217,8 +218,8 @@ impl Cheatcode for mockCalls_0Call {
         let Self { callee, data, returnData } = self;
         let _ = make_acc_non_empty(callee, ccx)?;
 
-        mock_calls::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(ccx.state, callee, data, None, returnData, InstructionResult::Return);
-        Ok(Default::default())
+        mock_calls::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(ccx.state, callee, data, None, returnData, InstructionResult::Return);
+        Ok(Vec::default())
     }
 }
 
@@ -244,8 +245,8 @@ impl Cheatcode for mockCalls_1Call {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { callee, msgValue, data, returnData } = self;
         ccx.ecx.journaled_state.load_account(*callee)?;
-        mock_calls::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(ccx.state, callee, data, Some(msgValue), returnData, InstructionResult::Return);
-        Ok(Default::default())
+        mock_calls::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(ccx.state, callee, data, Some(msgValue), returnData, InstructionResult::Return);
+        Ok(Vec::default())
     }
 }
 
@@ -272,8 +273,8 @@ impl Cheatcode for mockCallRevert_0Call {
         let Self { callee, data, revertData } = self;
         let _ = make_acc_non_empty(callee, ccx)?;
 
-        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(ccx.state, callee, data, None, revertData, InstructionResult::Revert);
-        Ok(Default::default())
+        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(ccx.state, callee, data, None, revertData, InstructionResult::Revert);
+        Ok(Vec::default())
     }
 }
 
@@ -300,8 +301,8 @@ impl Cheatcode for mockCallRevert_1Call {
         let Self { callee, msgValue, data, revertData } = self;
         let _ = make_acc_non_empty(callee, ccx)?;
 
-        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(ccx.state, callee, data, Some(msgValue), revertData, InstructionResult::Revert);
-        Ok(Default::default())
+        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(ccx.state, callee, data, Some(msgValue), revertData, InstructionResult::Revert);
+        Ok(Vec::default())
     }
 }
 
@@ -328,7 +329,7 @@ impl Cheatcode for mockCallRevert_2Call {
         let Self { callee, data, revertData } = self;
         let _ = make_acc_non_empty(callee, ccx)?;
 
-        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(
+        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(
             ccx.state,
             callee,
             &Bytes::from(*data),
@@ -336,7 +337,7 @@ impl Cheatcode for mockCallRevert_2Call {
             revertData,
             InstructionResult::Revert,
         );
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -363,7 +364,7 @@ impl Cheatcode for mockCallRevert_3Call {
         let Self { callee, msgValue, data, revertData } = self;
         let _ = make_acc_non_empty(callee, ccx)?;
 
-        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(
+        mock_call::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(
             ccx.state,
             callee,
             &Bytes::from(*data),
@@ -371,7 +372,7 @@ impl Cheatcode for mockCallRevert_3Call {
             revertData,
             InstructionResult::Revert,
         );
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -398,7 +399,7 @@ impl Cheatcode for mockFunctionCall {
         let Self { callee, target, data } = self;
         state.mocked_functions.entry(*callee).or_default().insert(data.clone(), *target);
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -411,15 +412,6 @@ fn mock_call<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<
-        BlockT,
-        TxT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-        ChainContextT,
-    >,
 >(
     state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
     callee: &Address,
@@ -428,7 +420,7 @@ fn mock_call<
     rdata: &Bytes,
     ret_type: InstructionResult,
 ) {
-    mock_calls::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(state, callee, cdata, value, std::slice::from_ref(rdata), ret_type)
+    mock_calls::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state, callee, cdata, value, std::slice::from_ref(rdata), ret_type);
 }
 
 fn mock_calls<
@@ -440,15 +432,6 @@ fn mock_calls<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<
-        BlockT,
-        TxT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-        ChainContextT,
-    >,
 >(
     state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>,
     callee: &Address,
@@ -494,5 +477,5 @@ fn make_acc_non_empty<
         ccx.ecx.journaled_state.set_code(*callee, code);
     }
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }

@@ -159,7 +159,10 @@ fn convert_node_to_nested_trace<HaltReasonT: HaltReasonTr>(
     arena: &CallTraceArena,
     node_idx: usize,
 ) -> Result<NestedTrace<HaltReasonT>, StackTraceError<HaltReasonT>> {
-    let node = &arena.nodes()[node_idx];
+    let node = arena
+        .nodes()
+        .get(node_idx)
+        .expect("node index should be valid");
     let trace = &node.trace;
 
     // Based on https://github.com/paradigmxyz/revm-inspectors/blob/ceef3f3624ca51bf3c41c97d6c013606db3a6019/src/tracing/types.rs#L257

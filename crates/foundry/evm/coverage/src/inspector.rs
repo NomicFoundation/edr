@@ -29,7 +29,7 @@ impl Default for LineCoverageCollector {
         Self {
             current_map: NonNull::dangling(),
             current_hash: B256::ZERO,
-            maps: Default::default(),
+            maps: HitMaps::default(),
         }
     }
 }

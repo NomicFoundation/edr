@@ -89,9 +89,7 @@ fn derive_enum(e: &DataEnum) -> TokenStream {
             })
             .collect();
 
-        if fields.len() != 1 {
-            unimplemented!("Enum variant with more than 1 field")
-        }
+        assert!(fields.len() == 1, "Enum variant with more than 1 field");
 
         let field = fields.into_iter().next().unwrap();
         let fields = Group::new(delimiter, quote!(#field));

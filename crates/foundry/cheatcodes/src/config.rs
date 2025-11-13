@@ -298,13 +298,10 @@ impl<HardforkT: HardforkTr> CheatsConfig<HardforkT> {
     /// Get RPC URL for an alias
     pub fn get_rpc_url_non_mut(&self, alias: &str) -> Result<String> {
         // Try to get from config first
-        match self.rpc_endpoint(alias) {
-            Ok(endpoint) => Ok(endpoint.url.into()),
-            Err(_) => {
-                // If not in config, try to get default URL
-                let chain_data = self.get_chain_data_by_alias_non_mut(alias)?;
-                Ok(chain_data.default_rpc_url)
-            }
+        if let Ok(endpoint) = self.rpc_endpoint(alias) { Ok(endpoint.url.into()) } else {
+            // If not in config, try to get default URL
+            let chain_data = self.get_chain_data_by_alias_non_mut(alias)?;
+            Ok(chain_data.default_rpc_url)
         }
     }
 }

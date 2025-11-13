@@ -93,7 +93,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             // NOTE: we install the interval here because the `tokio::timer::Interval`
             // requires a rt.
             handler.set_flush_cache_interval(Duration::from_secs(60));
-            handler.await
+            handler.await;
         };
         match tokio::runtime::Handle::try_current() {
             Ok(rt) => _ = rt.spawn(fut),
@@ -105,9 +105,9 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
                             .enable_all()
                             .build()
                             .expect("failed to build tokio runtime")
-                            .block_on(fut)
+                            .block_on(fut);
                     })
-                    .expect("failed to spawn thread")
+                    .expect("failed to spawn thread");
             }
         }
 
@@ -218,7 +218,7 @@ type GetEnvSender<BlockT, TxT, HardforkT> = OneshotSender<Option<EvmEnv<BlockT, 
 /// Request that's send to the handler.
 #[derive(Debug)]
 enum Request<BlockT, TxT, HardforkT> {
-    /// Creates a new ForkBackend.
+    /// Creates a new `ForkBackend`.
     CreateFork(Box<CreateFork<BlockT, TxT, HardforkT>>, CreateSender<BlockT, TxT, HardforkT>),
     /// Returns the Fork backend for the `ForkId` if it exists.
     GetFork(ForkId, OneshotSender<Option<SharedBackend>>),
@@ -262,7 +262,7 @@ pub struct MultiForkHandler<BlockT, TxT, HardforkT> {
 
     /// All _unique_ forkids mapped to their corresponding backend.
     ///
-    /// Note: The backend can be shared by multiple ForkIds if the target the same provider and
+    /// Note: The backend can be shared by multiple `ForkIds` if the target the same provider and
     /// block number.
     forks: HashMap<ForkId, CreatedFork<BlockT, TxT, HardforkT>>,
 
@@ -276,9 +276,9 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
     fn new(incoming: Receiver<Request<BlockT, TxT, HardforkT>>) -> Self {
         Self {
             incoming: incoming.fuse(),
-            handlers: Default::default(),
-            pending_tasks: Default::default(),
-            forks: Default::default(),
+            handlers: Vec::default(),
+            pending_tasks: Vec::default(),
+            forks: HashMap::default(),
             flush_cache_interval: None,
         }
     }
@@ -297,11 +297,10 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
         id: &ForkId,
     ) -> Option<&mut Vec<CreateSender<BlockT, TxT, HardforkT>>> {
         for task in &mut self.pending_tasks {
-            if let ForkTask::Create(_, in_progress, _, additional) = task {
-                if in_progress == id {
+            if let ForkTask::Create(_, in_progress, _, additional) = task
+                && in_progress == id {
                     return Some(additional);
                 }
-            }
         }
         None
     }
@@ -370,7 +369,7 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
                     trace!(target: "fork::multi", "rolling {} to {}", fork_id, block);
                     let mut opts = fork.opts.clone();
                     opts.evm_opts.fork_block_number = Some(block);
-                    self.create_fork(opts, sender)
+                    self.create_fork(opts, sender);
                 } else {
                     let _ = sender.send(Err(eyre::eyre!("No matching fork exits for {}", fork_id)));
                 }

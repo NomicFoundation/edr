@@ -16,7 +16,7 @@ use revm::{
 };
 use std::sync::Arc;
 
-/// a [revm::Database] that's forked off another client
+/// a [`revm::Database`] that's forked off another client
 ///
 /// The `backend` is used to retrieve (missing) data, which is then fetched from the remote
 /// endpoint. The inner in-memory database holds this storage and will be used for write operations.
@@ -49,7 +49,7 @@ impl ForkedDatabase {
             cache_db: CacheDB::new(backend.clone()),
             backend,
             db,
-            state_snapshots: Arc::new(Mutex::new(Default::default())),
+            state_snapshots: Arc::new(Mutex::new(StateSnapshots::default())),
         }
     }
 
@@ -85,7 +85,7 @@ impl ForkedDatabase {
 
     /// Flushes the cache to disk if configured
     pub fn flush_cache(&self) {
-        self.db.cache().flush()
+        self.db.cache().flush();
     }
 
     /// Returns the database that holds the remote state
@@ -195,7 +195,7 @@ impl DatabaseRef for ForkedDatabase {
 
 impl DatabaseCommit for ForkedDatabase {
     fn commit(&mut self, changes: HashMap<Address, Account>) {
-        self.database_mut().commit(changes)
+        self.database_mut().commit(changes);
     }
 }
 
@@ -226,16 +226,13 @@ impl DatabaseRef for ForkDbStateSnapshot {
     type Error = DatabaseError;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        match self.local.cache.accounts.get(&address) {
-            Some(account) => Ok(Some(account.info.clone())),
-            None => {
-                let mut acc = self.state_snapshot.accounts.get(&address).cloned();
+        if let Some(account) = self.local.cache.accounts.get(&address) { Ok(Some(account.info.clone())) } else {
+            let mut acc = self.state_snapshot.accounts.get(&address).cloned();
 
-                if acc.is_none() {
-                    acc = self.local.basic_ref(address)?;
-                }
-                Ok(acc)
+            if acc.is_none() {
+                acc = self.local.basic_ref(address)?;
             }
+            Ok(acc)
         }
     }
 
@@ -278,7 +275,7 @@ mod tests {
     async fn fork_db_insert_basic_default() {
         let rpc = edr_test_utils::env::get_alchemy_url();
         let provider = get_http_provider(rpc.clone());
-        let meta = BlockchainDbMeta::new(Default::default(), rpc);
+        let meta = BlockchainDbMeta::new(revm::context::BlockEnv::default(), rpc);
 
         let db = BlockchainDb::new(meta, None);
 

@@ -1,5 +1,6 @@
 //! Implementations of [`Json`](spec::Group::Json) cheatcodes.
 
+#[allow(clippy::wildcard_imports)]
 use crate::{Cheatcode, Cheatcodes, Result, Vm::*, string, FsAccessKind, impl_is_pure_true, impl_is_pure_false};
 use foundry_evm_core::{
     evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr, TransactionErrorTrait},
@@ -1606,7 +1607,7 @@ pub(super) fn parse_json_coerce(json: &str, path: &str, ty: &DynSolType) -> Resu
     parse_json_as(value, ty).map(|v| v.abi_encode())
 }
 
-/// Parses given [serde_json::Value] as a [DynSolValue].
+/// Parses given [`serde_json::Value`] as a [`DynSolValue`].
 pub(super) fn parse_json_as(value: &Value, ty: &DynSolType) -> Result<DynSolValue> {
     let to_string = |v: &Value| {
         let mut s = v.to_string();
@@ -1807,7 +1808,7 @@ pub(super) fn json_value_to_token(value: &Value) -> Result<DynSolValue> {
     }
 }
 
-/// Serializes given [DynSolValue] into a [serde_json::Value].
+/// Serializes given [`DynSolValue`] into a [`serde_json::Value`].
 fn serialize_value_as_json(value: DynSolValue) -> Result<Value> {
     match value {
         DynSolValue::Bool(b) => Ok(Value::Bool(b)),
@@ -1821,7 +1822,10 @@ fn serialize_value_as_json(value: DynSolValue) -> Result<Value> {
             }
         }
         DynSolValue::Bytes(b) => Ok(Value::String(hex::encode_prefixed(b))),
-        DynSolValue::FixedBytes(b, size) => Ok(Value::String(hex::encode_prefixed(&b[..size]))),
+        DynSolValue::FixedBytes(b, size) => {
+            let bytes = b.get(..size).expect("fixed bytes size out of bounds");
+            Ok(Value::String(hex::encode_prefixed(bytes)))
+        }
         DynSolValue::Int(i, _) => {
             // let serde handle number parsing
             let n = serde_json::from_str(&i.to_string())?;
@@ -1887,14 +1891,16 @@ fn serialize_json<
     Ok(stringified.abi_encode())
 }
 
-/// Resolves a [DynSolType] from user input.
+/// Resolves a [`DynSolType`] from user input.
 pub(super) fn resolve_type(type_description: &str) -> Result<DynSolType> {
     if let Ok(ty) = DynSolType::parse(type_description) {
         return Ok(ty);
     };
 
     if let Ok(encoded) = EncodeType::parse(type_description) {
-        let main_type = encoded.types[0].type_name;
+        let main_type = encoded.types.first()
+            .ok_or_else(|| fmt_err!("encoded type should have a main type"))?
+            .type_name;
         let mut resolver = Resolver::default();
         for t in encoded.types {
             resolver.ingest(t.to_owned());
@@ -1922,8 +1928,8 @@ mod tests {
         }
     }
 
-    /// [DynSolValue::Bytes] of length 32 and 20 are converted to [DynSolValue::FixedBytes] and
-    /// [DynSolValue::Address] respectively. Thus, we can't distinguish between address and bytes of
+    /// [`DynSolValue::Bytes`] of length 32 and 20 are converted to [`DynSolValue::FixedBytes`] and
+    /// [`DynSolValue::Address`] respectively. Thus, we can't distinguish between address and bytes of
     /// length 20 during decoding. Because of that, there are issues with handling of arrays of
     /// those types.
     fn fixup_guessable(value: DynSolValue) -> DynSolValue {
@@ -1933,7 +1939,7 @@ mod tests {
                     v.retain(|v| {
                         let len = v.as_bytes().unwrap().len();
                         len != 32 && len != 20
-                    })
+                    });
                 }
                 DynSolValue::Array(v.into_iter().map(fixup_guessable).collect())
             }

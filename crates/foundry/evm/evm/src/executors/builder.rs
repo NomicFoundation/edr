@@ -145,6 +145,7 @@ where
     }
 
     /// Builds the executor as configured.
+    #[allow(clippy::type_complexity)]
     pub fn build<
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,

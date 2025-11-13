@@ -1,7 +1,6 @@
 //! Common utilities for building and using foundry's tools.
 
 #![warn(missing_docs, unused_crate_dependencies)]
-#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
 
 pub mod calc;
 pub mod errors;

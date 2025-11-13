@@ -1,6 +1,6 @@
 //! Implementations of [`Testing`](spec::Group::Testing) cheatcodes.
 
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result, Vm::*};
+use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result, Vm::{rpcUrlCall, rpcUrlsCall, rpcUrlStructsCall, sleepCall, skip_0Call, skip_1Call, getChain_0Call, getChain_1Call, Chain}};
 use alloy_chains::Chain as AlloyChain;
 use alloy_primitives::U256;
 use alloy_sol_types::SolValue;
@@ -162,7 +162,7 @@ impl Cheatcode for sleepCall {
         let Self { duration } = self;
         let sleep_duration = std::time::Duration::from_millis(duration.saturating_to());
         std::thread::sleep(sleep_duration);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -246,7 +246,7 @@ impl Cheatcode for skip_1Call {
             ensure!(ccx.ecx.journaled_state.depth <= 1, "`skip` can only be used at test level");
             Err([MAGIC_SKIP, reason.as_bytes()].concat().into())
         } else {
-            Ok(Default::default())
+            Ok(Vec::default())
         }
     }
 }
@@ -348,7 +348,7 @@ fn get_chain<
 ) -> Result {
     // Parse the chain alias - works for both chain names and IDs
     let alloy_chain = AlloyChain::from_str(chain_alias)
-        .map_err(|_| fmt_err!("invalid chain alias: {chain_alias}"))?;
+        .map_err(|_e| fmt_err!("invalid chain alias: {chain_alias}"))?;
     let chain_name = alloy_chain.to_string();
     let chain_id = alloy_chain.id();
 

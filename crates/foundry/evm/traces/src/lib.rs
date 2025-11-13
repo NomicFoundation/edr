@@ -4,11 +4,6 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-// TODO https://github.com/NomicFoundation/edr/issues/1076
-#![allow(clippy::indexing_slicing)]
-
-// TODO
-#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
 
 #[macro_use]
 extern crate tracing;
@@ -51,7 +46,7 @@ pub struct SparsedTraceArena {
     /// Full trace arena.
     #[serde(flatten)]
     pub arena: CallTraceArena,
-    /// Ranges of trace steps to ignore in format (start_node, start_step) -> (end_node, end_step).
+    /// Ranges of trace steps to ignore in format (`start_node`, `start_step`) -> (`end_node`, `end_step`).
     /// See `foundry_cheatcodes::utils::IgnoredTraces` for more information.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub ignored: HashMap<(usize, usize), (usize, usize)>,
@@ -63,8 +58,6 @@ impl SparsedTraceArena {
         if self.ignored.is_empty() {
             Cow::Borrowed(&self.arena)
         } else {
-            let mut arena = self.arena.clone();
-
             fn clear_node(
                 nodes: &mut [CallTraceNode],
                 node_idx: usize,
@@ -73,8 +66,9 @@ impl SparsedTraceArena {
             ) {
                 // Prepend an additional None item to the ordering to handle the beginning of the
                 // trace.
+                let node = nodes.get(node_idx).expect("node_idx should be within nodes bounds");
                 let items = std::iter::once(None)
-                    .chain(nodes[node_idx].ordering.clone().into_iter().map(Some))
+                    .chain(node.ordering.clone().into_iter().map(Some))
                     .enumerate();
 
                 let mut internal_calls = Vec::new();
@@ -89,20 +83,17 @@ impl SparsedTraceArena {
                     match item {
                         // we only remove calls if they did not start/pause tracing
                         Some(TraceMemberOrder::Call(child_idx)) => {
-                            clear_node(
-                                nodes,
-                                nodes[node_idx].children[child_idx],
-                                ignored,
-                                cur_ignore_end,
-                            );
+                            let node = nodes.get(node_idx).expect("node_idx should be within nodes bounds");
+                            let &child_node_idx = node.children.get(child_idx).expect("child_idx should be within children bounds");
+                            clear_node(nodes, child_node_idx, ignored, cur_ignore_end);
                             remove &= cur_ignore_end.is_some();
                         }
                         // we only remove decoded internal calls if they did not start/pause tracing
                         Some(TraceMemberOrder::Step(step_idx)) => {
                             // If this is an internal call beginning, track it in `internal_calls`
-                            if let Some(DecodedTraceStep::InternalCall(_, end_step_idx)) =
-                                &nodes[node_idx].trace.steps[step_idx].decoded
-                            {
+                            let node = nodes.get(node_idx).expect("node_idx should be within nodes bounds");
+                            let step = node.trace.steps.get(step_idx).expect("step_idx should be within steps bounds");
+                            if let Some(DecodedTraceStep::InternalCall(_, end_step_idx)) = &step.decoded {
                                 internal_calls.push((item_idx, remove, *end_step_idx));
                                 // we decide if we should remove it later
                                 remove = false;
@@ -138,9 +129,12 @@ impl SparsedTraceArena {
                 }
 
                 for (offset, item_idx) in items_to_remove.into_iter().enumerate() {
-                    nodes[node_idx].ordering.remove(item_idx - offset - 1);
+                    let ordering = &mut nodes.get_mut(node_idx).expect("node_idx should be within nodes bounds").ordering;
+                    ordering.remove(item_idx - offset - 1);
                 }
             }
+
+            let mut arena = self.arena.clone();
 
             clear_node(arena.nodes_mut(), 0, &self.ignored, &mut None);
 

@@ -15,8 +15,8 @@ use crate::{
     test::{
         assume::AssumeNoRevert,
         expect::{
-            self, ExpectedCallData, ExpectedCallTracker, ExpectedCallType, ExpectedCreate,
-            ExpectedEmitTracker, ExpectedRevert, ExpectedRevertKind,
+            self, CreateScheme, ExpectedCallData, ExpectedCallTracker, ExpectedCallType,
+            ExpectedCreate, ExpectedEmitTracker, ExpectedRevert, ExpectedRevertKind,
         },
         revert_handlers,
     },
@@ -61,10 +61,10 @@ use foundry_evm_core::evm_context::{BlockEnvTr, ChainContextTr, EvmBuilderTrait,
 use upstream_foundry_cheatcodes_spec::Vm as UpstreamVM;
 use crate::inspector::utils::CommonCreateInput;
 
-/// Helper trait for obtaining complete [revm::Inspector] instance from mutable reference to
-/// [Cheatcodes].
+/// Helper trait for obtaining complete [`revm::Inspector`] instance from mutable reference to
+/// [`Cheatcodes`].
 ///
-/// This is needed for cases when inspector itself needs mutable access to [Cheatcodes] state and
+/// This is needed for cases when inspector itself needs mutable access to [`Cheatcodes`] state and
 /// allows us to correctly execute arbitrary EVM frames from inside cheatcode implementations.
 pub trait CheatcodesExecutor<
     BlockT: BlockEnvTr,
@@ -91,7 +91,7 @@ pub trait CheatcodesExecutor<
     }
 }
 
-/// Basic implementation of [CheatcodesExecutor] that simply returns the [Cheatcodes] instance as an
+/// Basic implementation of [`CheatcodesExecutor`] that simply returns the [`Cheatcodes`] instance as an
 /// inspector.
 #[derive(Debug, Default, Clone, Copy)]
 struct TransparentCheatcodesExecutor;
@@ -128,14 +128,14 @@ macro_rules! try_or_return {
 /// Contains additional, test specific resources that should be kept for the duration of the test
 #[derive(Debug, Default)]
 pub struct TestContext {
-    /// Buffered readers for files opened for reading (path => BufReader mapping)
+    /// Buffered readers for files opened for reading (path => `BufReader` mapping)
     pub opened_read_files: HashMap<PathBuf, BufReader<File>>,
 }
 
 /// Every time we clone `Context`, we want it to be empty
 impl Clone for TestContext {
     fn clone(&self) -> Self {
-        Default::default()
+        TestContext::default()
     }
 }
 
@@ -311,16 +311,15 @@ impl ArbitraryStorage {
         >, target: Address, slot: U256, new_value: U256) -> U256 {
         let source = self.copies.get(&target).expect("missing arbitrary copy target entry");
         let storage_cache = self.values.get_mut(source).expect("missing arbitrary source storage");
-        let value = match storage_cache.get(&slot) {
-            Some(value) => *value,
-            None => {
-                storage_cache.insert(slot, new_value);
-                // Update source storage with new value.
-                if let Ok(mut source_account) = ecx.journaled_state.load_account(*source) {
-                    source_account.storage.insert(slot, EvmStorageSlot::new(new_value, 0));
-                }
-                new_value
+        let value = if let Some(value) = storage_cache.get(&slot) {
+            *value
+        } else {
+            storage_cache.insert(slot, new_value);
+            // Update source storage with new value.
+            if let Ok(mut source_account) = ecx.journaled_state.load_account(*source) {
+                source_account.storage.insert(slot, EvmStorageSlot::new(new_value, 0));
             }
+            new_value
         };
         // Update target storage with new value.
         if let Ok(mut target_account) = ecx.journaled_state.load_account(target) {
@@ -529,39 +528,39 @@ impl<
             fs_commit: true,
             labels: config.labels.clone(),
             config,
-            block: Default::default(),
-            active_delegations: Default::default(),
-            active_blob_sidecar: Default::default(),
-            gas_price: Default::default(),
-            pranks: Default::default(),
-            expected_revert: Default::default(),
-            assume_no_revert: Default::default(),
-            fork_revert_diagnostic: Default::default(),
-            accesses: Default::default(),
-            recording_accesses: Default::default(),
-            recorded_account_diffs_stack: Default::default(),
-            recorded_logs: Default::default(),
-            record_debug_steps_info: Default::default(),
-            mocked_calls: Default::default(),
-            mocked_functions: Default::default(),
-            expected_calls: Default::default(),
-            expected_emits: Default::default(),
-            expected_creates: Default::default(),
-            allowed_mem_writes: Default::default(),
-            access_list: Default::default(),
-            test_context: Default::default(),
-            serialized_jsons: Default::default(),
-            eth_deals: Default::default(),
-            gas_metering: Default::default(),
-            gas_snapshots: Default::default(),
-            mapping_slots: Default::default(),
-            pc: Default::default(),
-            intercept_next_create_call: Default::default(),
-            test_runner: Default::default(),
-            ignored_traces: Default::default(),
-            arbitrary_storage: Default::default(),
-            deprecated: Default::default(),
-            _phantom: Default::default(),
+            block: Option::default(),
+            active_delegations: Vec::default(),
+            active_blob_sidecar: Option::default(),
+            gas_price: Option::default(),
+            pranks: BTreeMap::default(),
+            expected_revert: Option::default(),
+            assume_no_revert: Option::default(),
+            fork_revert_diagnostic: Option::default(),
+            accesses: RecordAccess::default(),
+            recording_accesses: bool::default(),
+            recorded_account_diffs_stack: Option::default(),
+            recorded_logs: Option::default(),
+            record_debug_steps_info: Option::default(),
+            mocked_calls: HashMap::default(),
+            mocked_functions: HashMap::default(),
+            expected_calls: ExpectedCallTracker::default(),
+            expected_emits: VecDeque::default(),
+            expected_creates: Vec::default(),
+            allowed_mem_writes: HashMap::default(),
+            access_list: Option::default(),
+            test_context: TestContext::default(),
+            serialized_jsons: BTreeMap::default(),
+            eth_deals: Vec::default(),
+            gas_metering: GasMetering::default(),
+            gas_snapshots: BTreeMap::default(),
+            mapping_slots: Option::default(),
+            pc: usize::default(),
+            intercept_next_create_call: bool::default(),
+            test_runner: Option::default(),
+            ignored_traces: IgnoredTraces::default(),
+            arbitrary_storage: Option::default(),
+            deprecated: HashMap::default(),
+            _phantom: PhantomData,
         }
     }
 
@@ -634,6 +633,8 @@ impl<
     ///
     /// There may be cheatcodes in the constructor of the new contract, in order to allow them
     /// automatically we need to determine the new address.
+    // TODO: https://github.com/NomicFoundation/edr/issues/1184
+    #[allow(clippy::unused_self)]
     fn allow_cheatcodes_on_create<
         DatabaseT: CheatcodeBackend<
             BlockT,
@@ -666,8 +667,8 @@ impl<
 
     /// Apply EIP-2930 access list.
     ///
-    /// If the transaction type is [TransactionType::Legacy] we need to upgrade it to
-    /// [TransactionType::Eip2930] in order to use access lists. Other transaction types support
+    /// If the transaction type is [`TransactionType::Legacy`] we need to upgrade it to
+    /// [`TransactionType::Eip2930`] in order to use access lists. Other transaction types support
     /// access lists themselves.
     fn apply_accesslist<
         DatabaseT: CheatcodeBackend<
@@ -832,7 +833,7 @@ impl<
                 // The calldata is at most, as big as this call's input, and
                 if calldata.len() <= call.input.len() &&
                     // Both calldata match, taking the length of the assumed smaller one (which will have at least the selector), and
-                    *calldata == call.input.bytes(ecx)[..calldata.len()] &&
+                    calldata.as_ref() == call.input.bytes(ecx).get(..calldata.len()).expect("calldata length should be within input bounds") &&
                     // The value matches, if provided
                     expected
                         .value.is_none_or(|value| Some(value) == call.transfer_value()) &&
@@ -864,7 +865,7 @@ impl<
                     .map(|(_, v)| v),
             } && let Some(return_data) = if return_data_queue.len() == 1 {
                 // If the mocked calls stack has a single element in it, don't empty it
-                return_data_queue.front().map(|x| x.to_owned())
+                return_data_queue.front().cloned()
             } else {
                 // Else, we pop the front element
                 return_data_queue.pop_front()
@@ -1358,13 +1359,13 @@ for Cheatcodes<
                 // Update the reverted status of all deeper calls if this call reverted, in
                 // accordance with EVM behavior
                 if outcome.result.is_revert() {
-                    last_recorded_depth.iter_mut().for_each(|element| {
+                    for element in last_recorded_depth.iter_mut() {
                         element.reverted = true;
                         element
                             .storageAccesses
                             .iter_mut()
                             .for_each(|storage_access| storage_access.reverted = true);
-                    })
+                    }
                 }
 
                 if let Some(call_access) = last_recorded_depth.first_mut() {
@@ -1421,14 +1422,12 @@ for Cheatcodes<
                         Some(emitter) => match count_map.get(&emitter) {
                             Some(log_count) => expected
                                 .log
-                                .as_ref()
-                                .map(|l| log_count.count(l))
-                                .unwrap_or_else(|| log_count.count_unchecked()),
+                                .as_ref().map_or_else(|| log_count.count_unchecked(), |l| log_count.count(l)),
                             None => 0,
                         },
                         None => match &expected.log {
                             Some(log) => count_map.values().map(|logs| logs.count(log)).sum(),
-                            None => count_map.values().map(|logs| logs.count_unchecked()).sum(),
+                            None => count_map.values().map(super::test::expect::LogCountMap::count_unchecked).sum(),
                         },
                     };
 
@@ -1462,7 +1461,7 @@ for Cheatcodes<
             // All emits were found, we're good.
             // Clear the queue, as we expect the user to declare more events for the next call
             // if they wanna match further events.
-            self.expected_emits.clear()
+            self.expected_emits.clear();
         }
 
         // this will ensure we don't have false positives when trying to diagnose reverts in fork
@@ -1732,13 +1731,13 @@ for Cheatcodes<
                 // Update the reverted status of all deeper calls if this call reverted, in
                 // accordance with EVM behavior
                 if outcome.result.is_revert() {
-                    last_depth.iter_mut().for_each(|element| {
+                    for element in last_depth.iter_mut() {
                         element.reverted = true;
                         element
                             .storageAccesses
                             .iter_mut()
                             .for_each(|storage_access| storage_access.reverted = true);
-                    })
+                    }
                 }
 
                 if let Some(create_access) = last_depth.first_mut() {
@@ -1779,15 +1778,16 @@ for Cheatcodes<
             && let Ok(created_acc) = ecx.journaled_state.load_account(address)
         {
             let bytecode = created_acc.info.code.clone().unwrap_or_default().original_bytes();
-            if let Some((index, _)) =
-                self.expected_creates.iter().find_position(|expected_create| {
-                    expected_create.deployer == call.caller
-                        && expected_create.create_scheme.eq(call.scheme.into())
-                        && expected_create.bytecode == bytecode
-                })
-            {
-                self.expected_creates.swap_remove(index);
-            }
+            if let Ok(scheme) = CreateScheme::try_from(call.scheme)
+                && let Some((index, _)) =
+                    self.expected_creates.iter().find_position(|expected_create| {
+                        expected_create.deployer == call.caller
+                            && expected_create.create_scheme.eq(scheme)
+                            && expected_create.bytecode == bytecode
+                    })
+                {
+                    self.expected_creates.swap_remove(index);
+                }
         }
     }
 }
@@ -1837,7 +1837,7 @@ Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, Tran
             Journal<DatabaseT>,
             ChainContextT,
         >,) {
-        if interpreter.bytecode.action.as_ref().and_then(|i| i.instruction_result()).is_none() {
+        if interpreter.bytecode.action.as_ref().and_then(revm::interpreter::InterpreterAction::instruction_result).is_none() {
             self.gas_metering.gas_records.iter_mut().for_each(|record| {
                 let curr_depth = ecx.journaled_state.depth();
                 if curr_depth == record.depth {
@@ -1874,6 +1874,7 @@ Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, Tran
     }
 
     #[cold]
+    #[allow(clippy::unused_self)]
     fn meter_gas_check(&mut self, interpreter: &mut Interpreter) {
         if let Some(interpreter_action) = interpreter.bytecode.action.as_ref()
             && will_exit(interpreter_action)
@@ -2002,8 +2003,7 @@ Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, Tran
                 // load balance of this account
                 let value = ecx
                     .balance(interpreter.input.target_address)
-                    .map(|b| b.data)
-                    .unwrap_or(U256::ZERO);
+                    .map_or(U256::ZERO, |b| b.data);
 
                 // register access for the target account
                 last.push(crate::Vm::AccountAccess {
@@ -2254,7 +2254,7 @@ Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, Tran
                                 let args_offset = try_or_return!(interpreter.stack.peek(3)).saturating_to::<usize>();
                                 let args_size = try_or_return!(interpreter.stack.peek(4)).saturating_to::<usize>();
                                 let memory_word = interpreter.memory.slice_len(args_offset, args_size);
-                                if memory_word[..SELECTOR_LEN] == stopExpectSafeMemoryCall::SELECTOR {
+                                if memory_word.get(..SELECTOR_LEN).expect("memory word should have at least SELECTOR_LEN bytes") == stopExpectSafeMemoryCall::SELECTOR {
                                     return
                                 }
                             }
@@ -2356,7 +2356,7 @@ fn access_is_call(kind: crate::Vm::AccountAccessKind) -> bool {
     )
 }
 
-/// Appends an AccountAccess that resumes the recording of the current context.
+/// Appends an `AccountAccess` that resumes the recording of the current context.
 fn append_storage_access(
     last: &mut Vec<AccountAccess>,
     storage_access: crate::Vm::StorageAccess,
@@ -2526,7 +2526,7 @@ fn will_exit(action: &InterpreterAction) -> bool {
         InterpreterAction::Return(result) => {
             result.result.is_ok_or_revert() || result.result.is_error()
         }
-        _ => false,
+        InterpreterAction::NewFrame(_) => false,
     }
 }
 

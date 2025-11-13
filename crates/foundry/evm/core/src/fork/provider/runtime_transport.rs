@@ -20,7 +20,7 @@ use tower::Service;
 use url::Url;
 
 /// An enum representing the different transports that can be used to connect to a runtime.
-/// Only meant to be used internally by [RuntimeTransport].
+/// Only meant to be used internally by [`RuntimeTransport`].
 #[derive(Clone, Debug)]
 pub enum InnerTransport {
     /// HTTP transport
@@ -85,7 +85,7 @@ pub struct RuntimeTransport {
     accept_invalid_certs: bool,
 }
 
-/// A builder for [RuntimeTransport].
+/// A builder for [`RuntimeTransport`].
 #[derive(Debug)]
 pub struct RuntimeTransportBuilder {
     url: Url,
@@ -131,7 +131,7 @@ impl RuntimeTransportBuilder {
         self
     }
 
-    /// Builds the [RuntimeTransport] and returns it in a disconnected state.
+    /// Builds the [`RuntimeTransport`] and returns it in a disconnected state.
     /// The runtime transport will then connect when the first request happens.
     pub fn build(self) -> RuntimeTransport {
         RuntimeTransport {
@@ -184,13 +184,13 @@ impl RuntimeTransport {
 
         // Add any custom headers.
         for header in &self.headers {
-            let make_err = || RuntimeTransportError::BadHeader(header.to_string());
+            let make_err = || RuntimeTransportError::BadHeader(header.clone());
 
             let (key, val) = header.split_once(':').ok_or_else(make_err)?;
 
             headers.insert(
-                HeaderName::from_str(key.trim()).map_err(|_| make_err())?,
-                HeaderValue::from_str(val.trim()).map_err(|_| make_err())?,
+                HeaderName::from_str(key.trim()).map_err(|_e| make_err())?,
+                HeaderValue::from_str(val.trim()).map_err(|_e| make_err())?,
             );
         }
 
@@ -207,7 +207,7 @@ impl RuntimeTransport {
         Ok(client_builder.build()?)
     }
 
-    /// Connects to an HTTP [alloy_transport_http::Http] transport.
+    /// Connects to an HTTP [`alloy_transport_http::Http`] transport.
     fn connect_http(&self) -> Result<InnerTransport, RuntimeTransportError> {
         let client = self.reqwest_client()?;
         Ok(InnerTransport::Http(Http::with_client(client, self.url.clone())))
@@ -230,7 +230,7 @@ impl RuntimeTransport {
     /// Connects to an IPC transport.
     async fn connect_ipc(&self) -> Result<InnerTransport, RuntimeTransportError> {
         let path = url_to_file_path(&self.url)
-            .map_err(|_| RuntimeTransportError::BadPath(self.url.to_string()))?;
+            .map_err(|_e| RuntimeTransportError::BadPath(self.url.to_string()))?;
         let ipc_connector = IpcConnect::new(path.clone());
         let ipc = ipc_connector.into_service().await.map_err(|e| {
             RuntimeTransportError::TransportError(e, path.clone().display().to_string())
@@ -241,9 +241,9 @@ impl RuntimeTransport {
     /// Sends a request using the underlying transport.
     /// If this is the first request, it will connect to the appropriate transport depending on the
     /// URL scheme. When sending the request, retries will be automatically handled depending
-    /// on the parameters set on the [RuntimeTransport].
+    /// on the parameters set on the [`RuntimeTransport`].
     /// For sending the actual request, this action is delegated down to the
-    /// underlying transport through Tower's [tower::Service::call]. See tower's [tower::Service]
+    /// underlying transport through Tower's [`tower::Service::call`]. See tower's [`tower::Service`]
     /// trait for more information.
     pub fn request(&self, req: RequestPacket) -> TransportFut<'static> {
         let this = self.clone();
@@ -366,7 +366,7 @@ mod tests {
         });
 
         let server_task = tokio::spawn(async move {
-            axum::serve(listener, http_handler.into_make_service()).await.unwrap()
+            axum::serve(listener, http_handler.into_make_service()).await.unwrap();
         });
 
         let transport = RuntimeTransportBuilder::new(url.clone())

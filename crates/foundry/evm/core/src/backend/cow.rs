@@ -66,7 +66,7 @@ pub struct CowBackend<
     >,
     /// Keeps track of whether the backed is already initialized
     is_initialized: bool,
-    /// The [SpecId] of the current backend.
+    /// The [`SpecId`] of the current backend.
     spec_id: HardforkT,
 }
 
@@ -254,7 +254,7 @@ impl<
 
     fn delete_state_snapshots(&mut self) {
         if let Some(backend) = self.initialized_backend_mut() {
-            backend.delete_state_snapshots()
+            backend.delete_state_snapshots();
         }
     }
 
@@ -514,6 +514,6 @@ impl<
     >
 {
     fn commit(&mut self, changes: Map<Address, Account>) {
-        self.backend.to_mut().commit(changes)
+        self.backend.to_mut().commit(changes);
     }
 }

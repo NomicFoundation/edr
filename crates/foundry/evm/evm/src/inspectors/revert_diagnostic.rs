@@ -73,6 +73,7 @@ pub struct RevertDiagnostic {
 impl RevertDiagnostic {
     /// Returns the effective target address whose code would be executed.
     /// For delegate calls, this is the `bytecode_address`. Otherwise, it's the `target_address`.
+    #[allow(clippy::unused_self)]
     fn code_target_address(&self, inputs: &mut CallInputs) -> Address {
         if is_delegatecall(inputs.scheme) { inputs.bytecode_address } else { inputs.target_address }
     }

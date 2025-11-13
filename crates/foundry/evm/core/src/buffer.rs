@@ -45,7 +45,7 @@ pub struct BufferAccesses {
 
 /// A utility function to get the buffer access.
 ///
-/// The memory_access variable stores the index on the stack that indicates the buffer
+/// The `memory_access` variable stores the index on the stack that indicates the buffer
 /// offset/len accessed by the given opcode:
 ///    (read buffer, buffer read offset, buffer read len, write memory offset, write memory len)
 ///    \>= 1: the stack index
@@ -57,9 +57,6 @@ pub struct BufferAccesses {
 ///    (read buffer, buffer read offset, buffer read len, write memory offset, write memory len)
 pub fn get_buffer_accesses(op: u8, stack: &[U256]) -> Option<BufferAccesses> {
     let buffer_access = match op {
-        opcode::KECCAK256 | opcode::RETURN | opcode::REVERT => {
-            (Some((BufferKind::Memory, 1, 2)), None)
-        }
         opcode::CALLDATACOPY => (Some((BufferKind::Calldata, 2, 3)), Some((1, 3))),
         opcode::RETURNDATACOPY => (Some((BufferKind::Returndata, 2, 3)), Some((1, 3))),
         opcode::CALLDATALOAD => (Some((BufferKind::Calldata, 1, -1)), None),
@@ -68,7 +65,7 @@ pub fn get_buffer_accesses(op: u8, stack: &[U256]) -> Option<BufferAccesses> {
         opcode::MLOAD => (Some((BufferKind::Memory, 1, -1)), None),
         opcode::MSTORE => (None, Some((1, -1))),
         opcode::MSTORE8 => (None, Some((1, -2))),
-        opcode::LOG0 | opcode::LOG1 | opcode::LOG2 | opcode::LOG3 | opcode::LOG4 => {
+        opcode::KECCAK256 | opcode::RETURN | opcode::REVERT | opcode::LOG0 | opcode::LOG1 | opcode::LOG2 | opcode::LOG3 | opcode::LOG4 => {
             (Some((BufferKind::Memory, 1, 2)), None)
         }
         opcode::CREATE | opcode::CREATE2 => (Some((BufferKind::Memory, 2, 3)), None),
@@ -85,7 +82,7 @@ pub fn get_buffer_accesses(op: u8, stack: &[U256]) -> Option<BufferAccesses> {
         0 => None,
         1.. => {
             if (stack_index as usize) <= stack_len {
-                Some(stack[stack_len - stack_index as usize].saturating_to())
+                stack.get(stack_len - stack_index as usize).map(alloy_primitives::Uint::saturating_to)
             } else {
                 None
             }

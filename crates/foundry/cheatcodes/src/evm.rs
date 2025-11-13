@@ -1,5 +1,6 @@
 //! Implementations of [`Evm`](spec::Group::Evm) cheatcodes.
 
+#[allow(clippy::wildcard_imports)]
 use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatcodesExecutor, CheatsCtxt, Error, Result, Vm::*, inspector::{RecordDebugStepInfo}, impl_is_pure_false};
 use alloy_genesis::{Genesis, GenesisAccount};
 use alloy_primitives::{Address, B256, Bytes, U256, map::HashMap};
@@ -59,7 +60,7 @@ impl RecordAccess {
     /// Clears the recorded reads and writes.
     pub fn clear(&mut self) {
         // Also frees memory.
-        *self = Default::default();
+        *self = RecordAccess::default();
     }
 }
 
@@ -283,13 +284,12 @@ impl Cheatcode for loadAllocsCall {
         ensure!(path.exists(), "allocs file does not exist: {pathToAllocsJson}");
 
         // Let's first assume we're reading a file with only the allocs.
-        let allocs: BTreeMap<Address, GenesisAccount> = match read_json_file(path) {
-            Ok(allocs) => allocs,
-            Err(_) => {
-                // Let's try and read from a genesis file, and extract allocs.
-                let genesis = read_json_file::<Genesis>(path)?;
-                genesis.alloc
-            }
+        let allocs: BTreeMap<Address, GenesisAccount> = if let Ok(allocs) = read_json_file(path) {
+            allocs
+        } else {
+            // Let's try and read from a genesis file, and extract allocs.
+            let genesis = read_json_file::<Genesis>(path)?;
+            genesis.alloc
         };
 
         // Then, load the allocs into the database.
@@ -328,7 +328,7 @@ impl Cheatcode for cloneAccountCall {
         db.clone_account(genesis, target, journal)?;
         // Cloned account should persist in forked envs.
         ccx.ecx.journaled_state.database.add_persistent_account(*target);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -376,7 +376,7 @@ impl Cheatcode for dumpStateCall {
             .collect::<BTreeMap<_, _>>();
 
         write_json_file(path, &alloc)?;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -403,7 +403,7 @@ impl Cheatcode for recordCall {
         let Self {} = self;
         state.recording_accesses = true;
         state.accesses.clear();
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -428,7 +428,7 @@ impl Cheatcode for stopRecordCall {
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         state.recording_accesses = false;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -482,8 +482,8 @@ impl Cheatcode for recordLogsCall {
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
-        state.recorded_logs = Some(Default::default());
-        Ok(Default::default())
+        state.recorded_logs = Some(Vec::default());
+        Ok(Vec::default())
     }
 }
 
@@ -508,7 +508,7 @@ impl Cheatcode for getRecordedLogsCall {
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
-        Ok(state.recorded_logs.replace(Default::default()).unwrap_or_default().abi_encode())
+        Ok(state.recorded_logs.replace(Vec::default()).unwrap_or_default().abi_encode())
     }
 }
 
@@ -534,7 +534,7 @@ impl Cheatcode for pauseGasMeteringCall {
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
         state.gas_metering.paused = true;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -560,7 +560,7 @@ impl Cheatcode for resumeGasMeteringCall {
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
         state.gas_metering.resume();
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -586,7 +586,7 @@ impl Cheatcode for resetGasMeteringCall {
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
         state.gas_metering.reset();
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -641,7 +641,7 @@ impl Cheatcode for chainIdCall {
         let Self { newChainId } = self;
         ensure!(*newChainId <= U256::from(u64::MAX), "chain ID must be less than 2^64 - 1");
         ccx.ecx.cfg.chain_id = newChainId.to();
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -667,7 +667,7 @@ impl Cheatcode for coinbaseCall {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { newCoinbase } = self;
         ccx.ecx.block.set_beneficiary(*newCoinbase);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -698,7 +698,7 @@ impl Cheatcode for difficultyCall {
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
         ccx.ecx.block.set_difficulty(*newDifficulty);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -725,7 +725,7 @@ impl Cheatcode for feeCall {
         let Self { newBasefee } = self;
         ensure!(*newBasefee <= U256::from(u64::MAX), "base fee must be less than 2^64 - 1");
         ccx.ecx.block.set_basefee(newBasefee.saturating_to());
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -756,7 +756,7 @@ impl Cheatcode for prevrandao_0Call {
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
         ccx.ecx.block.set_prevrandao(Some(*newPrevrandao));
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -787,7 +787,7 @@ impl Cheatcode for prevrandao_1Call {
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
         ccx.ecx.block.set_prevrandao(Some((*newPrevrandao).into()));
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -818,7 +818,7 @@ impl Cheatcode for blobhashesCall {
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
         ccx.ecx.tx.set_blob_hashes(hashes.clone());
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -874,7 +874,7 @@ impl Cheatcode for rollCall {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { newHeight } = self;
         ccx.ecx.block.set_number(*newHeight);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -926,7 +926,7 @@ impl Cheatcode for txGasPriceCall {
         let Self { newGasPrice } = self;
         ensure!(*newGasPrice <= U256::from(u64::MAX), "gas price must be less than 2^64 - 1");
         ccx.ecx.tx.set_gas_price(newGasPrice.saturating_to());
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -952,7 +952,7 @@ impl Cheatcode for warpCall {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { newTimestamp } = self;
         ccx.ecx.block.set_timestamp(*newTimestamp);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1012,7 +1012,7 @@ impl Cheatcode for blobBaseFeeCall {
             (*newBlobBaseFee).to(),
             get_blob_base_fee_update_fraction_by_spec_id(ccx.ecx.cfg.spec.into()),
         );
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1066,7 +1066,7 @@ impl Cheatcode for dealCall {
         let old_balance = std::mem::replace(&mut account.info.balance, new_balance);
         let record = DealRecord { address, old_balance, new_balance };
         ccx.state.eth_deals.push(record);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1096,7 +1096,7 @@ impl Cheatcode for etchCall {
         let bytecode = Bytecode::new_raw_checked(Bytes::copy_from_slice(newRuntimeBytecode))
             .map_err(|e| fmt_err!("failed to create bytecode: {e}"))?;
         ccx.ecx.journaled_state.set_code(*target, bytecode);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1126,10 +1126,10 @@ impl Cheatcode for resetNonceCall {
         // start at 1. Comparing by code_hash instead of code
         // to avoid hitting the case where account's code is None.
         let empty = account.info.code_hash == KECCAK_EMPTY;
-        let nonce = if empty { 0 } else { 1 };
+        let nonce = u64::from(!empty);
         account.info.nonce = nonce;
         debug!(target: "cheatcodes", nonce, "reset");
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1163,7 +1163,7 @@ impl Cheatcode for setNonceCall {
              account's current nonce ({current})"
         );
         account.info.nonce = newNonce;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1190,7 +1190,7 @@ impl Cheatcode for setNonceUnsafeCall {
         let Self { account, newNonce } = *self;
         let account = journaled_account(ccx.ecx, account)?;
         account.info.nonce = newNonce;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1219,7 +1219,7 @@ impl Cheatcode for storeCall {
         // ensure the account is touched
         let _ = journaled_account(ccx.ecx, target)?;
         ccx.ecx.journaled_state.sstore(target, slot.into(), value.into())?;
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1246,9 +1246,9 @@ impl Cheatcode for coolCall {
         let Self { target } = self;
         if let Some(account) = ccx.ecx.journaled_state.state.get_mut(target) {
             account.unmark_touch();
-            account.storage.values_mut().for_each(|slot| slot.mark_cold());
+            account.storage.values_mut().for_each(revm::state::EvmStorageSlot::mark_cold);
         }
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1281,7 +1281,7 @@ impl Cheatcode for accessListCall {
             })
             .collect_vec();
         state.access_list = Some(alloy_rpc_types::AccessList::from(access_list));
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1310,7 +1310,7 @@ impl Cheatcode for noAccessListCall {
         if state.access_list.is_some() {
             state.access_list = Some(alloy_rpc_types::AccessList::default());
         }
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1336,7 +1336,7 @@ impl Cheatcode for warmSlotCall {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { target, slot } = *self;
         set_cold_slot(ccx, target, slot.into(), false);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1362,7 +1362,7 @@ impl Cheatcode for coolSlotCall {
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self { target, slot } = *self;
         set_cold_slot(ccx, target, slot.into(), true);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -1387,7 +1387,7 @@ impl Cheatcode for readCallersCall {
         >,
     >(&self, ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
         let Self {} = self;
-        read_callers::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(ccx.state, &ccx.ecx.tx.caller(), ccx.ecx.journaled_state.depth())
+        read_callers::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(ccx.state, &ccx.ecx.tx.caller(), ccx.ecx.journaled_state.depth())
     }
 }
 
@@ -1903,8 +1903,8 @@ impl Cheatcode for startStateDiffRecordingCall {
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
-        state.recorded_account_diffs_stack = Some(Default::default());
-        Ok(Default::default())
+        state.recorded_account_diffs_stack = Some(Vec::default());
+        Ok(Vec::default())
     }
 }
 
@@ -1929,7 +1929,7 @@ impl Cheatcode for stopAndReturnStateDiffCall {
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let Self {} = self;
-        get_state_diff::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(state)
+        get_state_diff::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state)
     }
 }
 
@@ -1954,7 +1954,7 @@ impl Cheatcode for getStateDiffCall {
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
         let mut diffs = String::new();
-        let state_diffs = get_recorded_state_diffs::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(state);
+        let state_diffs = get_recorded_state_diffs::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state);
         for (address, state_diffs) in state_diffs {
             diffs.push_str(&format!("{address}\n"));
             diffs.push_str(&format!("{state_diffs}\n"));
@@ -1983,7 +1983,7 @@ impl Cheatcode for getStateDiffJsonCall {
             ChainContextT,
         >,
     >(&self, state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
-        let state_diffs = get_recorded_state_diffs::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>(state);
+        let state_diffs = get_recorded_state_diffs::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(state);
         Ok(serde_json::to_string(&state_diffs)?.abi_encode())
     }
 }
@@ -2017,7 +2017,7 @@ impl Cheatcode for setBlockhashCall {
 
         ccx.ecx.journaled_state.database.set_blockhash(blockNumber, blockHash);
 
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -2066,7 +2066,7 @@ impl Cheatcode for startDebugTraceRecordingCall {
         }
 
         ccx.state.record_debug_steps_info = Some(info);
-        Ok(Default::default())
+        Ok(Vec::default())
     }
 }
 
@@ -2271,7 +2271,7 @@ fn inner_delete_state_snapshots<
     >,
 >(ccx: &mut CheatsCtxt<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT, DatabaseT>) -> Result {
     ccx.ecx.journaled_state.database.delete_state_snapshots();
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn inner_value_snapshot<
@@ -2301,7 +2301,7 @@ fn inner_value_snapshot<
 
     ccx.state.gas_snapshots.entry(group).or_default().insert(name, value);
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn inner_last_gas_snapshot<
@@ -2375,7 +2375,7 @@ fn inner_start_gas_snapshot<
 
     ccx.state.gas_metering.start();
 
-    Ok(Default::default())
+    Ok(Vec::default())
 }
 
 fn inner_stop_gas_snapshot<
@@ -2476,28 +2476,28 @@ fn derive_snapshot_name<
     (group, name)
 }
 
-/// Reads the current caller information and returns the current [CallerMode], `msg.sender` and
+/// Reads the current caller information and returns the current [`CallerMode`], `msg.sender` and
 /// `tx.origin`.
 ///
 /// Depending on the current caller mode, one of the following results will be returned:
 /// - If there is an active prank:
-///     - caller_mode will be equal to:
-///         - [CallerMode::Prank] if the prank has been set with `vm.prank(..)`.
-///         - [CallerMode::RecurrentPrank] if the prank has been set with `vm.startPrank(..)`.
+///     - `caller_mode` will be equal to:
+///         - [`CallerMode::Prank`] if the prank has been set with `vm.prank(..)`.
+///         - [`CallerMode::RecurrentPrank`] if the prank has been set with `vm.startPrank(..)`.
 ///     - `msg.sender` will be equal to the address set for the prank.
 ///     - `tx.origin` will be equal to the default sender address unless an alternative one has been
 ///       set when configuring the prank.
 ///
 /// - If there is an active broadcast:
-///     - caller_mode will be equal to:
-///         - [CallerMode::Broadcast] if the broadcast has been set with `vm.broadcast(..)`.
-///         - [CallerMode::RecurrentBroadcast] if the broadcast has been set with
+///     - `caller_mode` will be equal to:
+///         - [`CallerMode::Broadcast`] if the broadcast has been set with `vm.broadcast(..)`.
+///         - [`CallerMode::RecurrentBroadcast`] if the broadcast has been set with
 ///           `vm.startBroadcast(..)`.
 ///     - `msg.sender` and `tx.origin` will be equal to the address provided when setting the
 ///       broadcast.
 ///
 /// - If no caller modification is active:
-///     - caller_mode will be equal to [CallerMode::None],
+///     - `caller_mode` will be equal to [`CallerMode::None`],
 ///     - `msg.sender` and `tx.origin` will be equal to the default sender address.
 fn read_callers<
     BlockT: BlockEnvTr,
@@ -2507,15 +2507,6 @@ fn read_callers<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<
-        BlockT,
-        TxT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-        ChainContextT,
-    >,
 >(state: &Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>, default_sender: &Address, call_depth: usize) -> Result {
     let mut mode = CallerMode::None;
     let mut new_caller = default_sender;
@@ -2532,8 +2523,7 @@ fn read_callers<
 }
 
 /// Ensures the `Account` is loaded and touched.
-pub(super) fn journaled_account<'a,
-    BlockT: BlockEnvTr,
+pub(super) fn journaled_account<BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2550,7 +2540,7 @@ pub(super) fn journaled_account<'a,
         ChainContextT,
     >,
 >(
-    ecx: &'a mut revm::context::Context<
+    ecx: &mut revm::context::Context<
         BlockT,
         TxT,
         CfgEnv<HardforkT>,
@@ -2559,14 +2549,14 @@ pub(super) fn journaled_account<'a,
         ChainContextT,
     >,
     addr: Address,
-) -> Result<&'a mut Account> {
+) -> Result<&mut Account> {
     ecx.journaled_state.load_account(addr)?;
     ecx.journaled_state.touch(addr);
     Ok(ecx.journaled_state.state.get_mut(&addr).expect("account is loaded"))
 }
 
 /// Consumes recorded account accesses and returns them as an abi encoded
-/// array of [AccountAccess]. If there are no accounts were
+/// array of [`AccountAccess`]. If there are no accounts were
 /// recorded as accessed, an abi encoded empty array is returned.
 ///
 /// In the case where `stopAndReturnStateDiff` is called at a lower
@@ -2580,19 +2570,10 @@ fn get_state_diff<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<
-        BlockT,
-        TxT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-        ChainContextT,
-    >,
 >(state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> Result {
     let res = state
         .recorded_account_diffs_stack
-        .replace(Default::default())
+        .replace(Vec::default())
         .unwrap_or_default()
         .into_iter()
         .flatten()
@@ -2605,7 +2586,7 @@ fn genesis_account(account: &Account) -> GenesisAccount {
     GenesisAccount {
         nonce: Some(account.info.nonce),
         balance: account.info.balance,
-        code: account.info.code.as_ref().map(|o| o.original_bytes()),
+        code: account.info.code.as_ref().map(revm::bytecode::Bytecode::original_bytes),
         storage: Some(
             account
                 .storage
@@ -2626,15 +2607,6 @@ fn get_recorded_state_diffs<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     ChainContextT: ChainContextTr,
-    DatabaseT: CheatcodeBackend<
-        BlockT,
-        TxT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-        ChainContextT,
-    >,
 >(state: &mut Cheatcodes<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>) -> BTreeMap<Address, AccountStateDiffs> {
     let mut state_diffs: BTreeMap<Address, AccountStateDiffs> = BTreeMap::default();
     if let Some(records) = &state.recorded_account_diffs_stack {

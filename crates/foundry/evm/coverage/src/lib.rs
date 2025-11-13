@@ -5,9 +5,6 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-// TODO
-#![allow(clippy::all, clippy::pedantic, clippy::restriction)]
-
 #[macro_use]
 extern crate tracing;
 
@@ -156,8 +153,7 @@ impl CoverageReport {
             analysis.all_items_mut().retain(|item| {
                 self.source_paths
                     .get(&(version.clone(), item.loc.source_id))
-                    .map(|path| predicate(path))
-                    .unwrap_or(false)
+                    .is_some_and(|path| predicate(path))
             });
             !analysis.all_items().is_empty()
         });
@@ -220,7 +216,7 @@ impl HitMap {
     /// Create a new hitmap with the given bytecode.
     #[inline]
     pub fn new(bytecode: Bytes) -> Self {
-        Self { bytecode, hits: HashMap::with_capacity_and_hasher(1024, Default::default()) }
+        Self { bytecode, hits: HashMap::with_capacity_and_hasher(1024, alloy_primitives::map::foldhash::fast::RandomState::default()) }
     }
 
     /// Returns the bytecode.
@@ -238,7 +234,7 @@ impl HitMap {
     /// Increase the hit counter by 1 for the given program counter.
     #[inline]
     pub fn hit(&mut self, pc: u32) {
-        self.hits(pc, 1)
+        self.hits(pc, 1);
     }
 
     /// Increase the hit counter by `hits` for the given program counter.
@@ -292,7 +288,7 @@ impl Display for ContractId {
     }
 }
 
-/// An item anchor describes what instruction marks a [CoverageItem] as covered.
+/// An item anchor describes what instruction marks a [`CoverageItem`] as covered.
 #[derive(Clone, Debug)]
 pub struct ItemAnchor {
     /// The program counter for the opcode of this anchor.

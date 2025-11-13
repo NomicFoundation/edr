@@ -154,7 +154,10 @@ pub(crate) fn shrink_sequence<
         }
     }
 
-    Ok(shrinker.current().map(|idx| &calls[idx]).cloned().collect())
+    Ok(shrinker
+        .current()
+        .map(|idx| calls.get(idx).expect("index should be within calls bounds").clone())
+        .collect())
 }
 
 /// Checks if the given call sequence breaks the invariant.
@@ -191,7 +194,7 @@ pub fn check_sequence<
 ) -> eyre::Result<(bool, bool)> {
     // Apply the call sequence.
     for call_index in sequence {
-        let tx = &calls[call_index];
+        let tx = calls.get(call_index).expect("call_index should be within calls bounds");
         let call_result = executor.transact_raw(
             tx.sender,
             tx.call_details.target,

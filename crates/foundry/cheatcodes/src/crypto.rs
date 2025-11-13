@@ -1,6 +1,6 @@
 //! Implementations of [`Crypto`](spec::Group::Crypto) Cheatcodes.
 
-use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, Result, Vm::*};
+use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, Result, Vm::{signCall, signCompactCall, signP256Call, publicKeyP256Call}};
 use alloy_primitives::{B256, U256};
 use alloy_signer::SignerSync;
 use alloy_signer_local::PrivateKeySigner;
@@ -142,7 +142,7 @@ impl Cheatcode for publicKeyP256Call {
 
 fn encode_full_sig(sig: alloy_primitives::Signature) -> Vec<u8> {
     // Retrieve v, r and s from signature.
-    let v = U256::from(sig.v() as u64 + 27);
+    let v = U256::from(u64::from(sig.v()) + 27);
     let r = B256::from(sig.r());
     let s = B256::from(sig.s());
     (v, r, s).abi_encode()

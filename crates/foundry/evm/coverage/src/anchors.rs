@@ -16,7 +16,7 @@ pub fn find_anchors(
     let mut seen_sources = FxHashSet::default();
     source_map
         .iter()
-        .filter_map(|element| element.index())
+        .filter_map(foundry_compilers::artifacts::sourcemap::SourceElement::index)
         .filter(|&source| seen_sources.insert(source))
         .flat_map(|source| analysis.items_for_source_enumerated(source))
         .filter_map(|(item_id, item)| {
@@ -96,7 +96,7 @@ pub fn find_anchor_branch(
     let mut pc = 0;
     let mut cumulative_push_size = 0;
     while pc < bytecode.len() {
-        let op = bytecode[pc];
+        let &op = bytecode.get(pc).expect("pc should be within bytecode bounds");
 
         // We found a push, so we do some PC -> IC translation accounting, but we also check if
         // this push is coupled with the JUMPI we are interested in.
@@ -118,16 +118,20 @@ pub fn find_anchor_branch(
 
             // Check if we are in the source range we are interested in, and if the next opcode
             // is a JUMPI
-            if is_in_source_range(element, loc) && bytecode[pc + 1] == opcode::JUMPI {
+            if is_in_source_range(element, loc)
+                && *bytecode.get(pc + 1).expect("pc + 1 should be within bytecode bounds") == opcode::JUMPI
+            {
                 // We do not support program counters bigger than usize. This is also an
                 // assumption in REVM, so this is just a sanity check.
                 ensure!(push_size <= 8, "jump destination overflow");
 
                 // Convert the push bytes for the second branch's PC to a usize
                 let push_bytes_start = pc - push_size + 1;
-                let push_bytes = &bytecode[push_bytes_start..push_bytes_start + push_size];
+                let push_bytes =
+                    bytecode.get(push_bytes_start..push_bytes_start + push_size).expect("push bytes range should be within bytecode bounds");
                 let mut pc_bytes = [0u8; 8];
-                pc_bytes[8 - push_size..].copy_from_slice(push_bytes);
+                let dest = pc_bytes.get_mut(8 - push_size..).expect("8 - push_size should be valid index for 8-byte array");
+                dest.copy_from_slice(push_bytes);
                 let pc_jump = u64::from_be_bytes(pc_bytes);
                 let pc_jump = u32::try_from(pc_jump).expect("PC is too big");
                 anchors = Some((
