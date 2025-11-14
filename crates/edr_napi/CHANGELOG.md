@@ -1,5 +1,16 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.15
+
+### Minor Changes
+
+- 1e755a3: Backported features and fixes from Foundry 1.3
+
+### Patch Changes
+
+- 33337ea: Added latest EIP-1559 base fee params to Base Mainnet chain config
+- aff229f: Added support for Osaka hardfork
+
 ## 0.12.0-next.14
 
 ### Patch Changes
