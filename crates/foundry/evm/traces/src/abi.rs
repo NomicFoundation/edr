@@ -1,8 +1,89 @@
 //! ABI related helper functions.
 
-use alloy_json_abi::{Event, Function};
-use alloy_primitives::LogData;
+use alloy_dyn_abi::{DynSolType, DynSolValue, FunctionExt, JsonAbiExt};
+use alloy_json_abi::{Error, Event, Function, Param};
+use alloy_primitives::{hex, LogData};
 use eyre::{Context, Result};
+
+pub fn encode_args<I, S>(inputs: &[Param], args: I) -> Result<Vec<DynSolValue>>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    std::iter::zip(inputs, args)
+        .map(|(input, arg)| coerce_value(&input.selector_type(), arg.as_ref()))
+        .collect()
+}
+
+/// Given a function and a vector of string arguments, it proceeds to convert
+/// the args to alloy [`DynSolValue`]s and then ABI encode them, prefixes the
+/// encoded data with the function selector.
+pub fn encode_function_args<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    Ok(func.abi_encode_input(&encode_args(&func.inputs, args)?)?)
+}
+
+/// Given a function and a vector of string arguments, it proceeds to convert
+/// the args to alloy [`DynSolValue`]s and then ABI encode them. Doesn't prefix
+/// the function selector.
+pub fn encode_function_args_raw<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    Ok(func.abi_encode_input_raw(&encode_args(&func.inputs, args)?)?)
+}
+
+/// Given a function and a vector of string arguments, it proceeds to convert
+/// the args to alloy [`DynSolValue`]s and encode them using the packed
+/// encoding.
+pub fn encode_function_args_packed<I, S>(func: &Function, args: I) -> Result<Vec<u8>>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let params: Vec<Vec<u8>> = std::iter::zip(&func.inputs, args)
+        .map(|(input, arg)| coerce_value(&input.selector_type(), arg.as_ref()))
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .map(|v| v.abi_encode_packed())
+        .collect();
+
+    Ok(params.concat())
+}
+
+/// Decodes the calldata of the function
+pub fn abi_decode_calldata(
+    sig: &str,
+    calldata: &str,
+    input: bool,
+    fn_selector: bool,
+) -> Result<Vec<DynSolValue>> {
+    let func = get_func(sig)?;
+    let calldata = hex::decode(calldata)?;
+
+    let mut calldata = calldata.as_slice();
+    // If function selector is prefixed in "calldata", remove it (first 4 bytes)
+    if input && fn_selector && calldata.len() >= 4 {
+        calldata = calldata.get(4..).unwrap_or(calldata);
+    }
+
+    let res = if input {
+        func.abi_decode_input(calldata)
+    } else {
+        func.abi_decode_output(calldata)
+    }?;
+
+    // in case the decoding worked but nothing was decoded
+    if res.is_empty() {
+        eyre::bail!("no data was decoded")
+    }
+
+    Ok(res)
+}
 
 /// Given a function signature string, it tries to parse it as a `Function`
 pub fn get_func(sig: &str) -> Result<Function> {
@@ -12,6 +93,11 @@ pub fn get_func(sig: &str) -> Result<Function> {
 /// Given an event signature string, it tries to parse it as a `Event`
 pub fn get_event(sig: &str) -> Result<Event> {
     Event::parse(sig).wrap_err("could not parse event signature")
+}
+
+/// Given an error signature string, it tries to parse it as a `Error`
+pub fn get_error(sig: &str) -> Result<Error> {
+    Error::parse(sig).wrap_err("could not parse event signature")
 }
 
 /// Given an event without indexed parameters and a rawlog, it tries to return
@@ -41,9 +127,15 @@ pub fn get_indexed_event(mut event: Event, raw_log: &LogData) -> Event {
     event
 }
 
+/// Helper function to coerce a value to a [`DynSolValue`] given a type string
+pub fn coerce_value(ty: &str, arg: &str) -> Result<DynSolValue> {
+    let ty = DynSolType::parse(ty)?;
+    Ok(DynSolType::coerce_str(&ty, arg)?)
+}
+
 #[cfg(test)]
 mod tests {
-    use alloy_dyn_abi::{DynSolValue, EventExt};
+    use alloy_dyn_abi::EventExt;
     use alloy_primitives::{Address, B256, U256};
 
     use super::*;
@@ -76,10 +168,7 @@ mod tests {
         let param0 = B256::random();
         let param1 = vec![3; 32];
         let param2 = B256::random();
-        let log = LogData::new_unchecked(
-            vec![event.selector(), param0, param2],
-            param1.clone().into(),
-        );
+        let log = LogData::new_unchecked(vec![event.selector(), param0, param2], param1.into());
         let event = get_indexed_event(event, &log);
 
         assert_eq!(event.inputs.len(), 3);

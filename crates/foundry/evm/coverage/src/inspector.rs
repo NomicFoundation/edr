@@ -1,22 +1,18 @@
 use std::ptr::NonNull;
 
 use alloy_primitives::B256;
-use foundry_evm_core::{
-    backend::DatabaseError,
-    evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
-};
 use revm::{
-    bytecode::Bytecode,
-    context::{CfgEnv, Context as EvmContext},
+    context::ContextTr,
+    inspector::JournalExt,
     interpreter::{interpreter_types::Jumps, Interpreter},
-    Database, Inspector, Journal,
+    Inspector,
 };
 
 use crate::{HitMap, HitMaps};
 
 /// Inspector implementation for collecting coverage information.
 #[derive(Clone, Debug)]
-pub struct CoverageCollector {
+pub struct LineCoverageCollector {
     // NOTE: `current_map` is always a valid reference into `maps`.
     // It is accessed only through `get_or_insert_map` which guarantees that it's valid.
     // Both of these fields are unsafe to access directly outside of `*insert_map`.
@@ -27,10 +23,10 @@ pub struct CoverageCollector {
 }
 
 // SAFETY: See comments on `current_map`.
-unsafe impl Send for CoverageCollector {}
-unsafe impl Sync for CoverageCollector {}
+unsafe impl Send for LineCoverageCollector {}
+unsafe impl Sync for LineCoverageCollector {}
 
-impl Default for CoverageCollector {
+impl Default for LineCoverageCollector {
     fn default() -> Self {
         Self {
             current_map: NonNull::dangling(),
@@ -40,52 +36,22 @@ impl Default for CoverageCollector {
     }
 }
 
-impl<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        HardforkT: HardforkTr,
-        ChainContextT: ChainContextTr,
-        DatabaseT: Database<Error = DatabaseError>,
-    >
-    Inspector<
-        EvmContext<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, Journal<DatabaseT>, ChainContextT>,
-    > for CoverageCollector
+impl<CTX> Inspector<CTX> for LineCoverageCollector
+where
+    CTX: ContextTr<Journal: JournalExt>,
 {
-    fn initialize_interp(
-        &mut self,
-        interpreter: &mut Interpreter,
-        _context: &mut EvmContext<
-            BlockT,
-            TxT,
-            CfgEnv<HardforkT>,
-            DatabaseT,
-            Journal<DatabaseT>,
-            ChainContextT,
-        >,
-    ) {
+    fn initialize_interp(&mut self, interpreter: &mut Interpreter, _context: &mut CTX) {
         get_or_insert_contract_hash(interpreter);
         self.insert_map(interpreter);
     }
 
-    #[inline]
-    fn step(
-        &mut self,
-        interpreter: &mut Interpreter,
-        _context: &mut EvmContext<
-            BlockT,
-            TxT,
-            CfgEnv<HardforkT>,
-            DatabaseT,
-            Journal<DatabaseT>,
-            ChainContextT,
-        >,
-    ) {
+    fn step(&mut self, interpreter: &mut Interpreter, _context: &mut CTX) {
         let map = self.get_or_insert_map(interpreter);
         map.hit(interpreter.bytecode.pc() as u32);
     }
 }
 
-impl CoverageCollector {
+impl LineCoverageCollector {
     /// Finish collecting coverage information and return the [`HitMaps`].
     pub fn finish(self) -> HitMaps {
         self.maps
@@ -127,17 +93,10 @@ impl CoverageCollector {
 /// created in current tx) then the hash is calculated from the bytecode.
 #[inline]
 fn get_or_insert_contract_hash(interpreter: &mut Interpreter) -> B256 {
-    let mut hash = interpreter.bytecode.hash().unwrap_or_else(|| eof_panic());
-    if hash.is_zero() {
-        set_contract_hash(&mut hash, &interpreter.bytecode);
+    if interpreter.bytecode.hash().is_none_or(|h| h.is_zero()) {
+        interpreter.bytecode.regenerate_hash();
     }
-    hash
-}
-
-#[cold]
-#[inline(never)]
-fn set_contract_hash(hash: &mut B256, bytecode: &Bytecode) {
-    *hash = bytecode.hash_slow();
+    interpreter.bytecode.hash().unwrap_or_else(|| eof_panic())
 }
 
 #[cold]

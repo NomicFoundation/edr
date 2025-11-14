@@ -266,7 +266,7 @@ impl FuzzDictionary {
             // Insert push bytes
             if let Some(code) = &account_info.code {
                 self.insert_address(*address);
-                self.collect_push_bytes(code.bytes_slice());
+                self.collect_push_bytes(ignore_metadata_hash(code.original_byte_slice()));
             }
         }
     }
@@ -275,8 +275,8 @@ impl FuzzDictionary {
         let mut i = 0;
         let len = code.len().min(PUSH_BYTE_ANALYSIS_LIMIT);
         while i < len {
-            let op = code[i];
-            if (opcode::PUSH1..=opcode::PUSH32).contains(&op) {
+            let op = code.get(i).expect("i should be within code bounds");
+            if (opcode::PUSH1..=opcode::PUSH32).contains(op) {
                 let push_size = (op - opcode::PUSH1 + 1) as usize;
                 let push_start = i + 1;
                 let push_end = push_start + push_size;
@@ -286,7 +286,10 @@ impl FuzzDictionary {
                     break;
                 }
 
-                let push_value = U256::try_from_be_slice(&code[push_start..push_end]).unwrap();
+                let push_bytes = code
+                    .get(push_start..push_end)
+                    .expect("push_start..push_end should be within code bounds");
+                let push_value = U256::try_from_be_slice(push_bytes).unwrap();
                 if push_value != U256::ZERO {
                     // Never add 0 to the dictionary as it's always present.
                     self.insert_value(push_value.into());
@@ -412,5 +415,24 @@ impl FuzzDictionary {
             state.hits = self.hits,
             "FuzzDictionary stats",
         );
+    }
+}
+
+/// Utility function to ignore metadata hash of the given bytecode.
+/// This assumes that the metadata is at the end of the bytecode.
+pub fn ignore_metadata_hash(bytecode: &[u8]) -> &[u8] {
+    // Get the last two bytes of the bytecode to find the length of CBOR metadata.
+    let Some((rest, metadata_len_bytes)) = bytecode.split_last_chunk() else {
+        return bytecode;
+    };
+    let metadata_len = u16::from_be_bytes(*metadata_len_bytes) as usize;
+    if metadata_len > rest.len() {
+        return bytecode;
+    }
+    let (rest, metadata) = rest.split_at(rest.len() - metadata_len);
+    if ciborium::from_reader::<ciborium::Value, _>(metadata).is_ok() {
+        rest
+    } else {
+        bytecode
     }
 }

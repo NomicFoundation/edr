@@ -1,10 +1,10 @@
-#![doc = include_str!("../README.md")]
-#![warn(
-    missing_docs,
-    unreachable_pub,
-    unused_crate_dependencies,
-    rust_2018_idioms
-)]
+//! Cheatcode specification for Foundry.
+
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![allow(clippy::match_same_arms)]
+#![allow(clippy::doc_markdown)]
+#![allow(clippy::default_trait_access)]
 
 use std::{borrow::Cow, fmt};
 
@@ -87,19 +87,23 @@ impl Cheatcodes<'static> {
                 Vm::Wallet::STRUCT.clone(),
                 Vm::FfiResult::STRUCT.clone(),
                 Vm::ChainInfo::STRUCT.clone(),
+                Vm::Chain::STRUCT.clone(),
                 Vm::AccountAccess::STRUCT.clone(),
                 Vm::StorageAccess::STRUCT.clone(),
                 Vm::Gas::STRUCT.clone(),
+                Vm::DebugStep::STRUCT.clone(),
+                Vm::PotentialRevert::STRUCT.clone(),
+                Vm::AccessListItem::STRUCT.clone(),
             ]),
             enums: Cow::Owned(vec![
                 Vm::CallerMode::ENUM.clone(),
                 Vm::AccountAccessKind::ENUM.clone(),
                 Vm::ExecutionContext::ENUM.clone(),
             ]),
-            errors: Vm::VM_ERRORS.iter().map(|&x| x.clone()).collect(),
+            errors: Vm::VM_ERRORS.iter().copied().cloned().collect(),
             events: Cow::Borrowed(&[]),
-            // events: Vm::VM_EVENTS.iter().map(|&x| x.clone()).collect(),
-            cheatcodes: Vm::CHEATCODES.iter().map(|&x| x.clone()).collect(),
+            // events: Vm::VM_EVENTS.iter().copied().cloned().collect(),
+            cheatcodes: Vm::CHEATCODES.iter().copied().cloned().collect(),
         }
     }
 }
@@ -134,7 +138,7 @@ mod tests {
 
     fn sol_iface() -> String {
         let mut cheats = Cheatcodes::new();
-        cheats.errors = Cow::default(); // Skip errors to allow <0.8.4.
+        cheats.errors = Default::default(); // Skip errors to allow <0.8.4.
         let cheats = cheats.to_string().trim().replace('\n', "\n    ");
         format!(
             "\
@@ -183,7 +187,7 @@ interface Vm {{
             file.display()
         );
         if std::env::var("CI").is_ok() {
-            eprintln!("    NOTE: run `cargo generate-cheats-interface` locally and commit the updated files\n");
+            eprintln!("    NOTE: run `cargo cheats` locally and commit the updated files\n");
         }
         if let Some(parent) = file.parent() {
             let _ = fs::create_dir_all(parent);

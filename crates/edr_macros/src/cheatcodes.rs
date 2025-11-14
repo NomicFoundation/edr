@@ -1,5 +1,5 @@
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{quote, quote_spanned};
+use quote::quote;
 use syn::{Attribute, Data, DataStruct, DeriveInput, Error, Result};
 
 pub fn derive_cheatcode(input: &DeriveInput) -> Result<TokenStream> {
@@ -45,13 +45,10 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
     let safety = if let Some(safety) = safety {
         quote!(Safety::#safety)
     } else {
-        let panic = quote_spanned! {name.span()=>
-            panic!("cannot determine safety from the group, add a `#[cheatcode(safety = ...)]` attribute")
-        };
         quote! {
             match Group::#group.safety() {
                 Some(s) => s,
-                None => #panic,
+                None => panic_unknown_safety(),
             }
         }
     };
@@ -65,6 +62,17 @@ fn derive_call(name: &Ident, data: &DataStruct, attrs: &[Attribute]) -> Result<T
 
     let doc = get_docstring(attrs);
     let (signature, selector, declaration, description) = func_docstring(&doc);
+
+    let mut params = declaration;
+    if let Some(ret) = params.find(" returns ") {
+        params = &params[..ret];
+    }
+    if params.contains(" memory ") {
+        emit_warning!(
+            name.span(),
+            "parameter data locations must be `calldata` instead of `memory`"
+        );
+    }
 
     let (visibility, mutability) = parse_function_attrs(declaration, name.span())?;
     let visibility = Ident::new(visibility, Span::call_site());
@@ -326,7 +334,7 @@ fn derive_enum(name: &Ident, input: &syn::DataEnum, attrs: &[Attribute]) -> Resu
 }
 
 fn check_named_fields(data: &DataStruct, ident: &Ident) {
-    for field in data.fields.iter() {
+    for field in &data.fields {
         if field.ident.is_none() {
             emit_warning!(ident, "all params must be named");
         }

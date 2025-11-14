@@ -4,13 +4,10 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-// TODO https://github.com/NomicFoundation/edr/issues/1076
-#![allow(clippy::indexing_slicing)]
 
 #[macro_use]
 extern crate tracing;
 
-// Used internally
 use std::{fmt, sync::Arc};
 
 use alloy_dyn_abi::{DynSolValue, JsonAbiExt};
@@ -21,7 +18,6 @@ use alloy_primitives::{
 use edr_common::calc;
 use foundry_evm_coverage::HitMaps;
 use foundry_evm_traces::{CallTraceArena, SparsedTraceArena};
-use indexmap as _;
 use itertools::Itertools;
 pub use proptest::test_runner::{Config as PropFuzzConfig, Reason};
 use serde::{Deserialize, Serialize};
@@ -40,7 +36,7 @@ mod inspector;
 pub use inspector::Fuzzer;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 pub enum CounterExample {
     /// Call used as a counter example for fuzz tests.
     Single(BaseCounterExample),
@@ -70,9 +66,6 @@ pub struct BaseCounterExample {
     /// Counter example traces.
     #[serde(skip)]
     pub traces: Option<SparsedTraceArena>,
-    /// Whether to display sequence as solidity.
-    #[serde(skip)]
-    pub show_solidity: bool,
     /// If re-executing the counter example is not guaranteed to yield the same
     /// results, this field contains the reason why.
     pub indeterminism_reasons: Option<IndeterminismReasons>,
@@ -87,35 +80,39 @@ impl BaseCounterExample {
         bytes: &Bytes,
         contracts: &ContractsByAddress,
         traces: Option<SparsedTraceArena>,
-        show_solidity: bool,
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
-        if let Some((name, abi)) = &contracts.get(&addr)
-            && let Some(func) = abi.functions().find(|f| f.selector() == bytes[..4])
-        {
-            // skip the function selector when decoding
-            if let Ok(args) = func.abi_decode_input(&bytes[4..]) {
-                return Self {
-                    sender: Some(sender),
-                    addr: Some(addr),
-                    calldata: bytes.clone(),
-                    contract_name: Some(name.clone()),
-                    func_name: Some(func.name.clone()),
-                    signature: Some(func.signature()),
-                    args: Some(
-                        foundry_evm_core::abi::fmt::format_tokens(&args)
-                            .format(", ")
-                            .to_string(),
-                    ),
-                    raw_args: Some(
-                        foundry_evm_core::abi::fmt::format_tokens_raw(&args)
-                            .format(", ")
-                            .to_string(),
-                    ),
-                    traces,
-                    show_solidity,
-                    indeterminism_reasons,
-                };
+        if let Some((name, abi)) = &contracts.get(&addr) {
+            let selector = bytes
+                .get(..4)
+                .expect("bytes should have at least 4 bytes for selector");
+            if let Some(func) = abi.functions().find(|f| f.selector() == selector) {
+                // skip the function selector when decoding
+                let calldata_args = bytes
+                    .get(4..)
+                    .expect("bytes should have at least 4 bytes if selector matched");
+                if let Ok(args) = func.abi_decode_input(calldata_args) {
+                    return Self {
+                        sender: Some(sender),
+                        addr: Some(addr),
+                        calldata: bytes.clone(),
+                        contract_name: Some(name.clone()),
+                        func_name: Some(func.name.clone()),
+                        signature: Some(func.signature()),
+                        args: Some(
+                            edr_common::fmt::format_tokens(&args)
+                                .format(", ")
+                                .to_string(),
+                        ),
+                        raw_args: Some(
+                            edr_common::fmt::format_tokens_raw(&args)
+                                .format(", ")
+                                .to_string(),
+                        ),
+                        traces,
+                        indeterminism_reasons,
+                    };
+                }
             }
         }
 
@@ -129,7 +126,6 @@ impl BaseCounterExample {
             args: None,
             raw_args: None,
             traces,
-            show_solidity: false,
             indeterminism_reasons,
         }
     }
@@ -137,7 +133,7 @@ impl BaseCounterExample {
     /// Creates counter example for a fuzz test failure.
     pub fn from_fuzz_call(
         bytes: Bytes,
-        args: Vec<DynSolValue>,
+        args: &[DynSolValue],
         traces: Option<SparsedTraceArena>,
         indeterminism_reasons: Option<IndeterminismReasons>,
     ) -> Self {
@@ -149,17 +145,16 @@ impl BaseCounterExample {
             func_name: None,
             signature: None,
             args: Some(
-                foundry_evm_core::abi::fmt::format_tokens(&args)
+                edr_common::fmt::format_tokens(args)
                     .format(", ")
                     .to_string(),
             ),
             raw_args: Some(
-                foundry_evm_core::abi::fmt::format_tokens_raw(&args)
+                edr_common::fmt::format_tokens_raw(args)
                     .format(", ")
                     .to_string(),
             ),
             traces,
-            show_solidity: false,
             indeterminism_reasons,
         }
     }
@@ -167,31 +162,6 @@ impl BaseCounterExample {
 
 impl fmt::Display for BaseCounterExample {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Display counterexample as solidity.
-        if self.show_solidity
-            && let (Some(sender), Some(contract), Some(address), Some(func_name), Some(args)) = (
-                &self.sender,
-                &self.contract_name,
-                &self.addr,
-                &self.func_name,
-                &self.raw_args,
-            )
-        {
-            writeln!(f, "\t\tvm.prank({sender});")?;
-            write!(
-                f,
-                "\t\t{}({}).{}({});",
-                contract
-                    .split_once(':')
-                    .map_or(contract.as_str(), |(_, contract)| contract),
-                address,
-                func_name,
-                args
-            )?;
-
-            return Ok(());
-        }
-
         // Regular counterexample display.
         if let Some(sender) = self.sender {
             write!(f, "\t\tsender={sender} addr=")?;
@@ -260,8 +230,8 @@ pub struct FuzzTestResult {
     /// Those traces should not be displayed.
     pub gas_report_traces: Vec<CallTraceArena>,
 
-    /// Raw coverage info
-    pub coverage: Option<HitMaps>,
+    /// Raw line coverage info
+    pub line_coverage: Option<HitMaps>,
 
     /// Deprecated cheatcodes mapped to their replacements.
     pub deprecated_cheatcodes: std::collections::HashMap<&'static str, Option<&'static str>>,

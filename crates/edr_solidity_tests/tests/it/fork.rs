@@ -5,7 +5,9 @@ mod remote {
     use edr_solidity_tests::result::SuiteResult;
     use foundry_cheatcodes::{FsPermissions, PathPermission};
 
-    use crate::helpers::{SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_DEFAULT};
+    use crate::helpers::{
+        SolidityTestFilter, TestConfig, RE_PATH_SEPARATOR, TEST_DATA_DEFAULT, TEST_DATA_PARIS,
+    };
 
     /// Executes reverting fork test
     #[tokio::test(flavor = "multi_thread")]
@@ -17,7 +19,7 @@ mod remote {
         );
         // let runner = TEST_DATA_DEFAULT.runner().await;
         let runner = TEST_DATA_DEFAULT
-            .runner_with_config(TEST_DATA_DEFAULT.config_with_remote_rpc())
+            .runner_with_fuzz_persistence(TEST_DATA_DEFAULT.config_with_remote_rpc())
             .await;
         let suite_result = runner.test_collect(filter).await.suite_results;
         assert_eq!(suite_result.len(), 1);
@@ -35,18 +37,15 @@ mod remote {
     /// Executes all non-reverting fork cheatcodes
     #[tokio::test(flavor = "multi_thread")]
     async fn test_cheats_fork() {
-        let runner = TEST_DATA_DEFAULT
+        let runner = TEST_DATA_PARIS
             .runner_with_fs_permissions(
                 FsPermissions::new(vec![PathPermission::read_directory("./fixtures")]),
-                TEST_DATA_DEFAULT.config_with_remote_rpc(),
+                TEST_DATA_PARIS.config_with_remote_rpc(),
             )
             .await;
-        let filter = SolidityTestFilter::new(
-            "testBlockNumbersMismatch()",
-            ".*",
-            &format!(".*cheats{RE_PATH_SEPARATOR}Fork"),
-        )
-        .exclude_tests(".*Revert");
+        let filter =
+            SolidityTestFilter::new(".*", ".*", &format!(".*cheats{RE_PATH_SEPARATOR}Fork"))
+                .exclude_tests(".*Revert");
         TestConfig::with_filter(runner, filter).run().await;
     }
 
@@ -87,7 +86,7 @@ mod remote {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_transact_fork() {
         let runner = TEST_DATA_DEFAULT
-            .runner_with_config(TEST_DATA_DEFAULT.config_with_remote_rpc())
+            .runner_with_fuzz_persistence(TEST_DATA_DEFAULT.config_with_remote_rpc())
             .await;
         let filter =
             SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}Transact"));
@@ -99,7 +98,7 @@ mod remote {
     #[tokio::test(flavor = "multi_thread")]
     async fn test_create_same_fork() {
         let runner = TEST_DATA_DEFAULT
-            .runner_with_config(TEST_DATA_DEFAULT.config_with_remote_rpc())
+            .runner_with_fuzz_persistence(TEST_DATA_DEFAULT.config_with_remote_rpc())
             .await;
         let filter =
             SolidityTestFilter::new(".*", ".*", &format!(".*fork{RE_PATH_SEPARATOR}ForkSame"));

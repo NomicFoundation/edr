@@ -4,13 +4,10 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-// TODO https://github.com/NomicFoundation/edr/issues/1076
-#![allow(clippy::indexing_slicing)]
 
 #[macro_use]
 extern crate tracing;
 
-// Used by alloy-primitives with hashbrown feature
 use std::{
     collections::BTreeMap,
     fmt::Display,
@@ -24,6 +21,7 @@ use alloy_primitives::{
     map::{B256HashMap, HashMap},
     Bytes,
 };
+use analysis::SourceAnalysis;
 use eyre::Result;
 use foundry_compilers::artifacts::sourcemap::SourceMap;
 use hashbrown as _;
@@ -33,9 +31,7 @@ pub mod analysis;
 pub mod anchors;
 
 mod inspector;
-pub use inspector::CoverageCollector;
-
-use crate::analysis::SourceAnalysis;
+pub use inspector::LineCoverageCollector;
 
 /// A coverage report.
 ///
@@ -236,7 +232,10 @@ impl HitMap {
     pub fn new(bytecode: Bytes) -> Self {
         Self {
             bytecode,
-            hits: HashMap::with_capacity(1024),
+            hits: HashMap::with_capacity_and_hasher(
+                1024,
+                alloy_primitives::map::foldhash::fast::RandomState::default(),
+            ),
         }
     }
 

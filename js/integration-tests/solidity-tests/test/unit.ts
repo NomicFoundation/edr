@@ -26,7 +26,7 @@ describe("Unit tests", () => {
 
     assertStackTraces(
       stackTraces.get("testThatFails()"),
-      "revert: 1 is not equal to 2",
+      "1 is not equal to 2",
       [{ contract: "SuccessAndFailureTest", function: "testThatFails" }]
     );
 
@@ -76,7 +76,7 @@ describe("Unit tests", () => {
 
   describe("IsolateMode", function () {
     it("IsolateMode on", async function () {
-      const { totalTests, failedTests } = await testContext.runTestsWithStats(
+      const { totalTests, failedTests, stackTraces } = await testContext.runTestsWithStats(
         "IsolateTest",
         {
           isolate: true,
@@ -96,28 +96,11 @@ describe("Unit tests", () => {
     });
   });
 
-  describe("TestFail", function () {
-    it("TestFail on", async function () {
-      const { totalTests, failedTests } = await testContext.runTestsWithStats(
-        "TestFailTest",
-        {
-          testFail: true,
-        }
-      );
-
-      // Reverting test starting with `testFail` should be reported as success if `testFail` is on
-      assert.equal(failedTests, 0);
-      assert.equal(totalTests, 1);
-    });
-
-    it("TestFail off", async function () {
-      const { totalTests, failedTests } =
-        await testContext.runTestsWithStats("TestFailTest");
-
-      // Reverting test starting with `testFail` should be reported as failure if `testFail` is off
-      assert.equal(failedTests, 1);
-      assert.equal(totalTests, 1);
-    });
+  it("TestFail", async function () {
+    const { totalTests, failedTests, stackTraces } = await testContext.runTestsWithStats("TestFailTest",);
+    assert.equal(totalTests, 1);
+    assert.equal(failedTests, 1);
+    assert.ok(stackTraces.get("testFailRevert()")?.reason?.includes("`testFail*` has been removed"))
   });
 
   it("EnvVarTest", async function () {
@@ -185,6 +168,39 @@ describe("Unit tests", () => {
     assertImpureCheatcode(stackTrace, "createSelectFork");
   });
 
+  it("LibraryMultifork", async function (t) {
+    if (testContext.rpcUrl === undefined) {
+      return t.skip();
+    }
+
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("LibraryMultiForkTest", {
+        rpcEndpoints: {
+          alchemyMainnet: testContext.rpcUrl!,
+        },
+      });
+
+    assert.equal(failedTests, 0);
+    assert.equal(totalTests, 1);
+  });
+
+  it("ForkStateSetup", async function (t) {
+    if (testContext.rpcUrl === undefined) {
+      return t.skip();
+    }
+
+    const { totalTests, failedTests, stackTraces } =
+      await testContext.runTestsWithStats("ForkStateSetupTest", {
+        rpcEndpoints: {
+          mainnet: testContext.rpcUrl!,
+          base: testContext.rpcUrl!.replace("eth-mainnet", "base-mainnet"),
+        },
+      });
+
+    assert.equal(totalTests, 2);
+    assert.equal(failedTests, 0);
+  });
+
   it("FailingSetup", async function () {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("FailingSetupTest");
@@ -203,7 +219,7 @@ describe("Unit tests", () => {
     const { totalTests, failedTests, stackTraces } =
       await testContext.runTestsWithStats("FailingDeployTest");
 
-    assertStackTraces(stackTraces.get("setUp()"), "revert: Deployment failed", [
+    assertStackTraces(stackTraces.get("constructor()"), "Deployment failed", [
       { contract: "FailingDeployTest", function: "constructor" },
     ]);
 
@@ -509,25 +525,36 @@ describe("Unit tests", () => {
     );
   });
 
-  it("ExpectEmitError", async function () {
-    const { totalTests, failedTests, stackTraces } =
-      await testContext.runTestsWithStats("ExpectEmitErrorTest");
+  describe("ExpectEmitError", function () {
+    async function expectEmitErrorTest(isolate: boolean) {
+      const { totalTests, failedTests, stackTraces } =
+        await testContext.runTestsWithStats("ExpectEmitErrorTest", {isolate});
 
-    assert.equal(failedTests, 1);
-    assert.equal(totalTests, 2);
+      assert.equal(failedTests, 1);
+      assert.equal(totalTests, 2);
 
-    assertStackTraces(
-      stackTraces.get("testExpectEmitShouldFail()"),
-      "log != expected log",
-      [
-        {
-          contract: "ExpectEmitErrorTest",
-          function: "testExpectEmitShouldFail",
-          line: 37,
-          message: "log != expected log",
-        },
-      ]
-    );
+      assertStackTraces(
+        stackTraces.get("testExpectEmitShouldFail()"),
+        "log != expected log",
+        [
+          {
+            contract: "ExpectEmitErrorTest",
+            function: "testExpectEmitShouldFail",
+            line: 43,
+            message: "log != expected log",
+          },
+        ]
+      );
+    }
+
+    it("isolate off", async function() {
+      await expectEmitErrorTest(false)
+    })
+
+    // Repro for https://github.com/NomicFoundation/hardhat/issues/7677
+    it("isolate on", async function() {
+      await expectEmitErrorTest(true)
+    })
   });
 
   describe("Stack traces for a contract with impure cheatcodes, that is unsafe to replay", function () {

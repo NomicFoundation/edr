@@ -12,7 +12,7 @@ use edr_solidity_tests::{
 };
 use foundry_evm::traces::TraceKind;
 
-use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT};
+use crate::helpers::{assert_multiple, SolidityTestFilter, TEST_DATA_DEFAULT, TEST_DATA_PARIS};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_core() {
@@ -31,7 +31,7 @@ async fn test_core() {
                 vec![(
                     "setUp()",
                     false,
-                    Some("revert: setup failed predictably".to_string()),
+                    Some("setup failed predictably".to_string()),
                     None,
                     None,
                 )],
@@ -48,7 +48,7 @@ async fn test_core() {
             ),
             (
                 "default/core/Reverting.t.sol:RevertingTest",
-                vec![("testFailRevert()", true, None, None, None)],
+                vec![("testRevert()", true, None, None, None)],
             ),
             (
                 "default/core/SetupConsistency.t.sol:SetupConsistencyCheck",
@@ -59,7 +59,7 @@ async fn test_core() {
             ),
             (
                 "default/core/DSStyle.t.sol:DSStyleTest",
-                vec![("testFailingAssertions()", true, None, None, None)],
+                vec![("testDSTestFailingAssertions()", false, None, None, None)],
             ),
             (
                 "default/core/ContractEnvironment.t.sol:ContractEnvironmentTest",
@@ -91,6 +91,10 @@ async fn test_core() {
                     None,
                     None,
                 )],
+            ),
+            (
+                "default/core/BadSigAfterInvariant.t.sol:BadSigAfterInvariant",
+                vec![("testShouldPassWithWarning()", true, None, None, None)],
             ),
             (
                 "default/core/ExecutionContext.t.sol:ExecutionContextTest",
@@ -173,14 +177,14 @@ async fn test_logs() {
                         None,
                     ),
                     (
-                        "testFailWithRequire()",
+                        "testRevertIfWithRequire()",
                         true,
                         None,
                         Some(vec!["0".into(), "1".into(), "5".into()]),
                         None,
                     ),
                     (
-                        "testFailWithRevert()",
+                        "testRevertIfWithRevert()",
                         true,
                         None,
                         Some(vec!["0".into(), "1".into(), "4".into(), "100".into()]),
@@ -771,27 +775,25 @@ async fn test_trace() {
     }
 }
 
-/// Test that the test method will fail if the `testFail` prefix is used and
-/// `test_fail` is set to false.
+/// Test `beforeTest` functionality and `selfdestruct`.
+/// See <https://github.com/foundry-rs/foundry/issues/1543>
 #[tokio::test(flavor = "multi_thread")]
-async fn test_fail_test() {
-    let filter = SolidityTestFilter::new(".*", "Reverting", "default/core/Reverting.t.sol");
-    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
-    config.test_fail = false;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+async fn test_before_setup_with_selfdestruct() {
+    let filter = SolidityTestFilter::new(".*", ".*BeforeTestSelfDestructTest", ".*");
+    let runner = TEST_DATA_PARIS.runner().await;
     let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
         &results,
         BTreeMap::from([(
-            "default/core/Reverting.t.sol:RevertingTest",
-            vec![(
-                "testFailRevert()",
-                /* should succeed */ false,
-                /* revert message */ Some("revert: should revert here".into()),
-                None,
-                None,
-            )],
+            "paris/core/BeforeTest.t.sol:BeforeTestSelfDestructTest",
+            vec![
+                ("testKill()", true, None, None, None),
+                ("testA()", true, None, None, None),
+                ("testSimpleA()", true, None, None, None),
+                ("testB()", true, None, None, None),
+                ("testC(uint256)", true, None, None, None),
+            ],
         )]),
     );
 }
@@ -882,7 +884,7 @@ async fn test_gas_report_revert() {
     );
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.generate_gas_report = true;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let SolidityTestsRunResult { test_result, .. } = runner.test_collect(filter).await;
 
     let gas_report = test_result.gas_report.unwrap();

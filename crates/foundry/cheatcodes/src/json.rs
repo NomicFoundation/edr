@@ -1,30 +1,25 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write};
+//! Implementations of [`Json`](spec::Group::Json) cheatcodes.
 
-use alloy_dyn_abi::{DynSolType, DynSolValue};
-use alloy_primitives::{Address, B256, I256};
+use std::{borrow::Cow, collections::BTreeMap};
+
+use alloy_dyn_abi::{eip712_parser::EncodeType, DynSolType, DynSolValue, Resolver};
+use alloy_primitives::{hex, Address, B256, I256};
 use alloy_sol_types::SolValue;
 use edr_common::fs;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use revm::context::result::HaltReasonTr;
-use serde_json::Value;
+use serde_json::{Map, Value};
 
+#[allow(clippy::wildcard_imports)]
 use crate::{
     impl_is_pure_false, impl_is_pure_true, string, Cheatcode, Cheatcodes, FsAccessKind, Result,
-    Vm::{
-        keyExistsCall, keyExistsJsonCall, parseJsonAddressArrayCall, parseJsonAddressCall,
-        parseJsonBoolArrayCall, parseJsonBoolCall, parseJsonBytes32ArrayCall, parseJsonBytes32Call,
-        parseJsonBytesArrayCall, parseJsonBytesCall, parseJsonIntArrayCall, parseJsonIntCall,
-        parseJsonKeysCall, parseJsonStringArrayCall, parseJsonStringCall, parseJsonUintArrayCall,
-        parseJsonUintCall, parseJson_0Call, parseJson_1Call, serializeAddress_0Call,
-        serializeAddress_1Call, serializeBool_0Call, serializeBool_1Call, serializeBytes32_0Call,
-        serializeBytes32_1Call, serializeBytes_0Call, serializeBytes_1Call, serializeInt_0Call,
-        serializeInt_1Call, serializeJsonCall, serializeString_0Call, serializeString_1Call,
-        serializeUintToHexCall, serializeUint_0Call, serializeUint_1Call, writeJson_0Call,
-        writeJson_1Call,
-    },
+    Vm::*,
 };
 
 impl_is_pure_true!(keyExistsCall);
@@ -32,11 +27,20 @@ impl Cheatcode for keyExistsCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -59,11 +63,20 @@ impl Cheatcode for keyExistsJsonCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -86,11 +99,20 @@ impl Cheatcode for parseJson_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -113,11 +135,20 @@ impl Cheatcode for parseJson_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -140,11 +171,20 @@ impl Cheatcode for parseJsonUintCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -167,11 +207,20 @@ impl Cheatcode for parseJsonUintArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -185,7 +234,11 @@ impl Cheatcode for parseJsonUintArrayCall {
         >,
     ) -> Result {
         let Self { json, key } = self;
-        parse_json_coerce(json, key, &DynSolType::Uint(256))
+        parse_json_coerce(
+            json,
+            key,
+            &DynSolType::Array(Box::new(DynSolType::Uint(256))),
+        )
     }
 }
 
@@ -194,11 +247,20 @@ impl Cheatcode for parseJsonIntCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -221,11 +283,20 @@ impl Cheatcode for parseJsonIntArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -239,7 +310,11 @@ impl Cheatcode for parseJsonIntArrayCall {
         >,
     ) -> Result {
         let Self { json, key } = self;
-        parse_json_coerce(json, key, &DynSolType::Int(256))
+        parse_json_coerce(
+            json,
+            key,
+            &DynSolType::Array(Box::new(DynSolType::Int(256))),
+        )
     }
 }
 
@@ -248,11 +323,20 @@ impl Cheatcode for parseJsonBoolCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -275,11 +359,20 @@ impl Cheatcode for parseJsonBoolArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -293,7 +386,7 @@ impl Cheatcode for parseJsonBoolArrayCall {
         >,
     ) -> Result {
         let Self { json, key } = self;
-        parse_json_coerce(json, key, &DynSolType::Bool)
+        parse_json_coerce(json, key, &DynSolType::Array(Box::new(DynSolType::Bool)))
     }
 }
 
@@ -302,11 +395,20 @@ impl Cheatcode for parseJsonAddressCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -329,11 +431,20 @@ impl Cheatcode for parseJsonAddressArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -347,7 +458,7 @@ impl Cheatcode for parseJsonAddressArrayCall {
         >,
     ) -> Result {
         let Self { json, key } = self;
-        parse_json_coerce(json, key, &DynSolType::Address)
+        parse_json_coerce(json, key, &DynSolType::Array(Box::new(DynSolType::Address)))
     }
 }
 
@@ -356,11 +467,20 @@ impl Cheatcode for parseJsonStringCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -383,11 +503,20 @@ impl Cheatcode for parseJsonStringArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -401,7 +530,7 @@ impl Cheatcode for parseJsonStringArrayCall {
         >,
     ) -> Result {
         let Self { json, key } = self;
-        parse_json_coerce(json, key, &DynSolType::String)
+        parse_json_coerce(json, key, &DynSolType::Array(Box::new(DynSolType::String)))
     }
 }
 
@@ -410,11 +539,20 @@ impl Cheatcode for parseJsonBytesCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -437,11 +575,20 @@ impl Cheatcode for parseJsonBytesArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -455,7 +602,7 @@ impl Cheatcode for parseJsonBytesArrayCall {
         >,
     ) -> Result {
         let Self { json, key } = self;
-        parse_json_coerce(json, key, &DynSolType::Bytes)
+        parse_json_coerce(json, key, &DynSolType::Array(Box::new(DynSolType::Bytes)))
     }
 }
 
@@ -464,11 +611,20 @@ impl Cheatcode for parseJsonBytes32Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -491,11 +647,20 @@ impl Cheatcode for parseJsonBytes32ArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -509,7 +674,131 @@ impl Cheatcode for parseJsonBytes32ArrayCall {
         >,
     ) -> Result {
         let Self { json, key } = self;
-        parse_json_coerce(json, key, &DynSolType::FixedBytes(32))
+        parse_json_coerce(
+            json,
+            key,
+            &DynSolType::Array(Box::new(DynSolType::FixedBytes(32))),
+        )
+    }
+}
+
+impl_is_pure_true!(parseJsonType_0Call);
+impl Cheatcode for parseJsonType_0Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            json,
+            typeDescription,
+        } = self;
+        parse_json_coerce(json, "$", &resolve_type(typeDescription)?).map(|v| v.abi_encode())
+    }
+}
+
+impl_is_pure_true!(parseJsonType_1Call);
+impl Cheatcode for parseJsonType_1Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            json,
+            key,
+            typeDescription,
+        } = self;
+        parse_json_coerce(json, key, &resolve_type(typeDescription)?).map(|v| v.abi_encode())
+    }
+}
+
+impl_is_pure_true!(parseJsonTypeArrayCall);
+impl Cheatcode for parseJsonTypeArrayCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            json,
+            key,
+            typeDescription,
+        } = self;
+        let ty = resolve_type(typeDescription)?;
+        parse_json_coerce(json, key, &DynSolType::Array(Box::new(ty))).map(|v| v.abi_encode())
     }
 }
 
@@ -518,11 +807,20 @@ impl Cheatcode for parseJsonKeysCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -545,11 +843,20 @@ impl Cheatcode for serializeJsonCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -563,7 +870,8 @@ impl Cheatcode for serializeJsonCall {
         >,
     ) -> Result {
         let Self { objectKey, value } = self;
-        serialize_json(state, objectKey, None, value)
+        *state.serialized_jsons.entry(objectKey.into()).or_default() = serde_json::from_str(value)?;
+        Ok(value.abi_encode())
     }
 }
 
@@ -572,11 +880,20 @@ impl Cheatcode for serializeBool_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -594,7 +911,7 @@ impl Cheatcode for serializeBool_0Call {
             valueKey,
             value,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &value.to_string())
+        serialize_json(state, objectKey, valueKey, (*value).into())
     }
 }
 
@@ -603,11 +920,20 @@ impl Cheatcode for serializeUint_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -625,7 +951,7 @@ impl Cheatcode for serializeUint_0Call {
             valueKey,
             value,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &value.to_string())
+        serialize_json(state, objectKey, valueKey, (*value).into())
     }
 }
 
@@ -634,11 +960,20 @@ impl Cheatcode for serializeInt_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -656,7 +991,7 @@ impl Cheatcode for serializeInt_0Call {
             valueKey,
             value,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &value.to_string())
+        serialize_json(state, objectKey, valueKey, (*value).into())
     }
 }
 
@@ -665,11 +1000,20 @@ impl Cheatcode for serializeAddress_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -687,7 +1031,7 @@ impl Cheatcode for serializeAddress_0Call {
             valueKey,
             value,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &value.to_string())
+        serialize_json(state, objectKey, valueKey, (*value).into())
     }
 }
 
@@ -696,73 +1040,20 @@ impl Cheatcode for serializeBytes32_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
-    >(
-        &self,
-        state: &mut Cheatcodes<
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
             BlockT,
             TxT,
-            ChainContextT,
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
             TransactionErrorT,
-        >,
-    ) -> Result {
-        let Self {
-            objectKey,
-            valueKey,
-            value,
-        } = self;
-        serialize_json(state, objectKey, Some(valueKey), &value.to_string())
-    }
-}
-
-impl_is_pure_true!(serializeString_0Call);
-impl Cheatcode for serializeString_0Call {
-    fn apply<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
-    >(
-        &self,
-        state: &mut Cheatcodes<
-            BlockT,
-            TxT,
             ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
         >,
-    ) -> Result {
-        let Self {
-            objectKey,
-            valueKey,
-            value,
-        } = self;
-        serialize_json(state, objectKey, Some(valueKey), value)
-    }
-}
-
-impl_is_pure_true!(serializeBytes_0Call);
-impl Cheatcode for serializeBytes_0Call {
-    fn apply<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -783,9 +1074,89 @@ impl Cheatcode for serializeBytes_0Call {
         serialize_json(
             state,
             objectKey,
-            Some(valueKey),
-            &hex::encode_prefixed(value),
+            valueKey,
+            DynSolValue::FixedBytes(*value, 32),
         )
+    }
+}
+
+impl_is_pure_true!(serializeString_0Call);
+impl Cheatcode for serializeString_0Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            objectKey,
+            valueKey,
+            value,
+        } = self;
+        serialize_json(state, objectKey, valueKey, value.clone().into())
+    }
+}
+
+impl_is_pure_true!(serializeBytes_0Call);
+impl Cheatcode for serializeBytes_0Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            objectKey,
+            valueKey,
+            value,
+        } = self;
+        serialize_json(state, objectKey, valueKey, value.to_vec().into())
     }
 }
 
@@ -794,11 +1165,20 @@ impl Cheatcode for serializeBool_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -816,7 +1196,12 @@ impl Cheatcode for serializeBool_1Call {
             valueKey,
             values,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &array_str(values, false))
+        serialize_json(
+            state,
+            objectKey,
+            valueKey,
+            DynSolValue::Array(values.iter().copied().map(DynSolValue::Bool).collect()),
+        )
     }
 }
 
@@ -825,11 +1210,20 @@ impl Cheatcode for serializeUint_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -847,7 +1241,12 @@ impl Cheatcode for serializeUint_1Call {
             valueKey,
             values,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &array_str(values, false))
+        serialize_json(
+            state,
+            objectKey,
+            valueKey,
+            DynSolValue::Array(values.iter().map(|v| DynSolValue::Uint(*v, 256)).collect()),
+        )
     }
 }
 
@@ -856,11 +1255,20 @@ impl Cheatcode for serializeInt_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -878,7 +1286,12 @@ impl Cheatcode for serializeInt_1Call {
             valueKey,
             values,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &array_str(values, false))
+        serialize_json(
+            state,
+            objectKey,
+            valueKey,
+            DynSolValue::Array(values.iter().map(|v| DynSolValue::Int(*v, 256)).collect()),
+        )
     }
 }
 
@@ -887,11 +1300,20 @@ impl Cheatcode for serializeAddress_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -909,7 +1331,12 @@ impl Cheatcode for serializeAddress_1Call {
             valueKey,
             values,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &array_str(values, true))
+        serialize_json(
+            state,
+            objectKey,
+            valueKey,
+            DynSolValue::Array(values.iter().copied().map(DynSolValue::Address).collect()),
+        )
     }
 }
 
@@ -918,11 +1345,20 @@ impl Cheatcode for serializeBytes32_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -940,7 +1376,17 @@ impl Cheatcode for serializeBytes32_1Call {
             valueKey,
             values,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &array_str(values, true))
+        serialize_json(
+            state,
+            objectKey,
+            valueKey,
+            DynSolValue::Array(
+                values
+                    .iter()
+                    .map(|v| DynSolValue::FixedBytes(*v, 32))
+                    .collect(),
+            ),
+        )
     }
 }
 
@@ -949,11 +1395,20 @@ impl Cheatcode for serializeString_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -971,7 +1426,12 @@ impl Cheatcode for serializeString_1Call {
             valueKey,
             values,
         } = self;
-        serialize_json(state, objectKey, Some(valueKey), &array_str(values, true))
+        serialize_json(
+            state,
+            objectKey,
+            valueKey,
+            DynSolValue::Array(values.iter().cloned().map(DynSolValue::String).collect()),
+        )
     }
 }
 
@@ -980,11 +1440,20 @@ impl Cheatcode for serializeBytes_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1002,8 +1471,104 @@ impl Cheatcode for serializeBytes_1Call {
             valueKey,
             values,
         } = self;
-        let values = values.iter().map(hex::encode_prefixed);
-        serialize_json(state, objectKey, Some(valueKey), &array_str(values, true))
+        serialize_json(
+            state,
+            objectKey,
+            valueKey,
+            DynSolValue::Array(
+                values
+                    .iter()
+                    .cloned()
+                    .map(Into::into)
+                    .map(DynSolValue::Bytes)
+                    .collect(),
+            ),
+        )
+    }
+}
+
+impl_is_pure_true!(serializeJsonType_0Call);
+impl Cheatcode for serializeJsonType_0Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            typeDescription,
+            value,
+        } = self;
+        let ty = resolve_type(typeDescription)?;
+        let value = ty.abi_decode(value)?;
+        let value = serialize_value_as_json(value)?;
+        Ok(value.to_string().abi_encode())
+    }
+}
+
+impl_is_pure_true!(serializeJsonType_1Call);
+impl Cheatcode for serializeJsonType_1Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            objectKey,
+            valueKey,
+            typeDescription,
+            value,
+        } = self;
+        let ty = resolve_type(typeDescription)?;
+        let value = ty.abi_decode(value)?;
+        serialize_json(state, objectKey, valueKey, value)
     }
 }
 
@@ -1012,11 +1577,20 @@ impl Cheatcode for serializeUintToHexCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1035,7 +1609,7 @@ impl Cheatcode for serializeUintToHexCall {
             value,
         } = self;
         let hex = format!("0x{value:x}");
-        serialize_json(state, objectKey, Some(valueKey), &hex)
+        serialize_json(state, objectKey, valueKey, hex.into())
     }
 }
 
@@ -1044,11 +1618,20 @@ impl Cheatcode for writeJson_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1062,7 +1645,7 @@ impl Cheatcode for writeJson_0Call {
         >,
     ) -> Result {
         let Self { json, path } = self;
-        let json = serde_json::from_str(json).unwrap_or_else(|_err| Value::String(json.to_owned()));
+        let json = serde_json::from_str(json).unwrap_or_else(|_| Value::String(json.to_owned()));
         let json_string = serde_json::to_string_pretty(&json)?;
         super::fs::write_file(state, path.as_ref(), json_string.as_bytes())
     }
@@ -1073,11 +1656,20 @@ impl Cheatcode for writeJson_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1095,13 +1687,13 @@ impl Cheatcode for writeJson_1Call {
             path,
             valueKey,
         } = self;
-        let json = serde_json::from_str(json).unwrap_or_else(|_err| Value::String(json.to_owned()));
+        let json = serde_json::from_str(json).unwrap_or_else(|_| Value::String(json.to_owned()));
 
         let data_path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
         let data_s = fs::read_to_string(data_path)?;
         let data = serde_json::from_str(&data_s)?;
         let value =
-            jsonpath_lib::replace_with(data, &canonicalize_json_path(valueKey), &mut |_err| {
+            jsonpath_lib::replace_with(data, &canonicalize_json_path(valueKey), &mut |_| {
                 Some(json.clone())
             })?;
 
@@ -1125,27 +1717,79 @@ pub(super) fn parse_json(json: &str, path: &str) -> Result {
 }
 
 pub(super) fn parse_json_coerce(json: &str, path: &str, ty: &DynSolType) -> Result {
-    let value = parse_json_str(json)?;
-    let values = select(&value, path)?;
-    ensure!(!values.is_empty(), "no matching value found at {path:?}");
+    let json = parse_json_str(json)?;
+    let [value] = select(&json, path)?[..] else {
+        bail!("path {path:?} must return exactly one JSON value");
+    };
 
-    ensure!(
-        values.iter().all(|value| !value.is_object()),
-        "values at {path:?} must not be JSON objects"
-    );
+    parse_json_as(value, ty).map(|v| v.abi_encode())
+}
 
+/// Parses given [`serde_json::Value`] as a [`DynSolValue`].
+pub(super) fn parse_json_as(value: &Value, ty: &DynSolType) -> Result<DynSolValue> {
     let to_string = |v: &Value| {
         let mut s = v.to_string();
         s.retain(|c: char| c != '"');
         s
     };
-    if let Some(array) = values[0].as_array() {
-        debug!(target: "cheatcodes", %ty, "parsing array");
-        string::parse_array(array.iter().map(to_string), ty)
-    } else {
-        debug!(target: "cheatcodes", %ty, "parsing string");
-        string::parse(&to_string(values[0]), ty)
+
+    match (value, ty) {
+        (Value::Array(array), ty) => parse_json_array(array, ty),
+        (Value::Object(object), ty) => parse_json_map(object, ty),
+        (Value::String(s), DynSolType::String) => Ok(DynSolValue::String(s.clone())),
+        _ => string::parse_value(&to_string(value), ty),
     }
+}
+
+pub(super) fn parse_json_array(array: &[Value], ty: &DynSolType) -> Result<DynSolValue> {
+    match ty {
+        DynSolType::Tuple(types) => {
+            ensure!(array.len() == types.len(), "array length mismatch");
+            let values = array
+                .iter()
+                .zip(types)
+                .map(|(e, ty)| parse_json_as(e, ty))
+                .collect::<Result<Vec<_>>>()?;
+
+            Ok(DynSolValue::Tuple(values))
+        }
+        DynSolType::Array(inner) => {
+            let values = array
+                .iter()
+                .map(|e| parse_json_as(e, inner))
+                .collect::<Result<Vec<_>>>()?;
+            Ok(DynSolValue::Array(values))
+        }
+        DynSolType::FixedArray(inner, len) => {
+            ensure!(array.len() == *len, "array length mismatch");
+            let values = array
+                .iter()
+                .map(|e| parse_json_as(e, inner))
+                .collect::<Result<Vec<_>>>()?;
+            Ok(DynSolValue::FixedArray(values))
+        }
+        _ => bail!("expected {ty}, found array"),
+    }
+}
+
+pub(super) fn parse_json_map(map: &Map<String, Value>, ty: &DynSolType) -> Result<DynSolValue> {
+    let Some((name, fields, types)) = ty.as_custom_struct() else {
+        bail!("expected {ty}, found JSON object");
+    };
+
+    let mut values = Vec::with_capacity(fields.len());
+    for (field, ty) in fields.iter().zip(types.iter()) {
+        let Some(value) = map.get(field) else {
+            bail!("field {field:?} not found in JSON object")
+        };
+        values.push(parse_json_as(value, ty)?);
+    }
+
+    Ok(DynSolValue::CustomStruct {
+        name: name.to_string(),
+        prop_names: fields.to_vec(),
+        tuple: values,
+    })
 }
 
 pub(super) fn parse_json_keys(json: &str, key: &str) -> Result {
@@ -1203,7 +1847,8 @@ pub(super) fn canonicalize_json_path(path: &str) -> Cow<'_, str> {
     }
 }
 
-/// Converts a JSON [`Value`] to a [`DynSolValue`].
+/// Converts a JSON [`Value`] to a [`DynSolValue`] by trying to guess encoded
+/// type. For safer decoding, use [`parse_json_as`].
 ///
 /// The function is designed to run recursively, so that in case of an object
 /// it will call itself to convert each of it's value and encode the whole as a
@@ -1273,41 +1918,101 @@ pub(super) fn json_value_to_token(value: &Value) -> Result<DynSolValue> {
         Value::String(string) => {
             if let Some(mut val) = string.strip_prefix("0x") {
                 let s;
-                if val.len() % 2 != 0 {
+                if val.len() == 39 {
+                    return Err(format!("Cannot parse \"{val}\" as an address. If you want to specify address, prepend zero to the value.").into());
+                }
+                if !val.len().is_multiple_of(2) {
                     s = format!("0{val}");
                     val = &s[..];
                 }
-                let bytes = hex::decode(val)?;
-                Ok(match bytes.len() {
-                    20 => DynSolValue::Address(Address::from_slice(&bytes)),
-                    32 => DynSolValue::FixedBytes(B256::from_slice(&bytes), 32),
-                    _ => DynSolValue::Bytes(bytes),
-                })
-            } else {
-                Ok(DynSolValue::String(string.to_owned()))
+                if let Ok(bytes) = hex::decode(val) {
+                    return Ok(match bytes.len() {
+                        20 => DynSolValue::Address(Address::from_slice(&bytes)),
+                        32 => DynSolValue::FixedBytes(B256::from_slice(&bytes), 32),
+                        _ => DynSolValue::Bytes(bytes),
+                    });
+                }
             }
+            Ok(DynSolValue::String(string.to_owned()))
         }
     }
 }
 
-/// Serializes a key:value pair to a specific object. If the key is
-/// Some(valueKey), the value is expected to be an object, which will be set as
-/// the root object for the provided object key, overriding the whole root
-/// object if the object key already exists. By calling this function
-/// multiple times, the user can serialize multiple KV pairs to the same object.
-/// The value can be of any type, even a new object in itself. The function will
-/// return a stringified version of the object, so that the user can use that as
-/// a value to a new invocation of the same function with a new object key. This
-/// enables the user to reuse the same function to crate arbitrarily complex
+/// Serializes given [`DynSolValue`] into a [`serde_json::Value`].
+fn serialize_value_as_json(value: DynSolValue) -> Result<Value> {
+    match value {
+        DynSolValue::Bool(b) => Ok(Value::Bool(b)),
+        DynSolValue::String(s) => {
+            // Strings are allowed to contain stringified JSON objects, so we try to parse
+            // it like one first.
+            if let Ok(map) = serde_json::from_str(&s) {
+                Ok(Value::Object(map))
+            } else {
+                Ok(Value::String(s))
+            }
+        }
+        DynSolValue::Bytes(b) => Ok(Value::String(hex::encode_prefixed(b))),
+        DynSolValue::FixedBytes(b, size) => {
+            let bytes = b.get(..size).expect("fixed bytes size out of bounds");
+            Ok(Value::String(hex::encode_prefixed(bytes)))
+        }
+        DynSolValue::Int(i, _) => {
+            // let serde handle number parsing
+            let n = serde_json::from_str(&i.to_string())?;
+            Ok(Value::Number(n))
+        }
+        DynSolValue::Uint(i, _) => {
+            // let serde handle number parsing
+            let n = serde_json::from_str(&i.to_string())?;
+            Ok(Value::Number(n))
+        }
+        DynSolValue::Address(a) => Ok(Value::String(a.to_string())),
+        DynSolValue::Array(e) | DynSolValue::FixedArray(e) => Ok(Value::Array(
+            e.into_iter()
+                .map(serialize_value_as_json)
+                .collect::<Result<_>>()?,
+        )),
+        DynSolValue::CustomStruct {
+            name: _,
+            prop_names,
+            tuple,
+        } => {
+            let values = tuple
+                .into_iter()
+                .map(serialize_value_as_json)
+                .collect::<Result<Vec<_>>>()?;
+            let map = prop_names.into_iter().zip(values).collect();
+
+            Ok(Value::Object(map))
+        }
+        DynSolValue::Tuple(values) => Ok(Value::Array(
+            values
+                .into_iter()
+                .map(serialize_value_as_json)
+                .collect::<Result<_>>()?,
+        )),
+        DynSolValue::Function(_) => bail!("cannot serialize function pointer"),
+    }
+}
+
+/// Serializes a key:value pair to a specific object. If the key is valueKey,
+/// the value is expected to be an object, which will be set as the root object
+/// for the provided object key, overriding the whole root object if the object
+/// key already exists. By calling this function multiple times, the user can
+/// serialize multiple KV pairs to the same object. The value can be of
+/// any type, even a new object in itself. The function will return a
+/// stringified version of the object, so that the user can use that as a value
+/// to a new invocation of the same function with a new object key. This enables
+/// the user to reuse the same function to crate arbitrarily complex
 /// object structures (JSON).
 fn serialize_json<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
 >(
     state: &mut Cheatcodes<
         BlockT,
@@ -1319,44 +2024,106 @@ fn serialize_json<
         TransactionErrorT,
     >,
     object_key: &str,
-    value_key: Option<&str>,
-    value: &str,
+    value_key: &str,
+    value: DynSolValue,
 ) -> Result {
+    let value = serialize_value_as_json(value)?;
     let map = state.serialized_jsons.entry(object_key.into()).or_default();
-    if let Some(value_key) = value_key {
-        let parsed_value =
-            serde_json::from_str(value).unwrap_or_else(|_err| Value::String(value.into()));
-        map.insert(value_key.into(), parsed_value);
-    } else {
-        *map = serde_json::from_str(value)
-            .map_err(|err| fmt_err!("failed to parse JSON object: {err}"))?;
-    }
+    map.insert(value_key.into(), value);
     let stringified = serde_json::to_string(map).unwrap();
     Ok(stringified.abi_encode())
 }
 
-fn array_str<I, T>(values: I, quoted: bool) -> String
-where
-    I: IntoIterator,
-    I::IntoIter: ExactSizeIterator<Item = T>,
-    T: std::fmt::Display,
-{
-    let iter = values.into_iter();
-    let mut s = String::with_capacity(2 + iter.len() * 32);
-    s.push('[');
-    for (i, item) in iter.enumerate() {
-        if i > 0 {
-            s.push(',');
+/// Resolves a [`DynSolType`] from user input.
+pub(super) fn resolve_type(type_description: &str) -> Result<DynSolType> {
+    if let Ok(ty) = DynSolType::parse(type_description) {
+        return Ok(ty);
+    };
+
+    if let Ok(encoded) = EncodeType::parse(type_description) {
+        let main_type = encoded
+            .types
+            .first()
+            .ok_or_else(|| fmt_err!("encoded type should have a main type"))?
+            .type_name;
+        let mut resolver = Resolver::default();
+        for t in encoded.types {
+            resolver.ingest(t.to_owned());
         }
 
-        if quoted {
-            s.push('"');
-        }
-        write!(s, "{item}").unwrap();
-        if quoted {
-            s.push('"');
+        return Ok(resolver.resolve(main_type)?);
+    };
+
+    bail!("type description should be a valid Solidity type or a EIP712 `encodeType` string")
+}
+
+#[cfg(test)]
+mod tests {
+    use alloy_primitives::FixedBytes;
+    use proptest::strategy::Strategy;
+
+    use super::*;
+
+    fn contains_tuple(value: &DynSolValue) -> bool {
+        match value {
+            DynSolValue::Tuple(_) | DynSolValue::CustomStruct { .. } => true,
+            DynSolValue::Array(v) | DynSolValue::FixedArray(v) => {
+                v.first().is_some_and(contains_tuple)
+            }
+            _ => false,
         }
     }
-    s.push(']');
-    s
+
+    /// [`DynSolValue::Bytes`] of length 32 and 20 are converted to
+    /// [`DynSolValue::FixedBytes`] and [`DynSolValue::Address`]
+    /// respectively. Thus, we can't distinguish between address and bytes of
+    /// length 20 during decoding. Because of that, there are issues with
+    /// handling of arrays of those types.
+    fn fixup_guessable(value: DynSolValue) -> DynSolValue {
+        match value {
+            DynSolValue::Array(mut v) | DynSolValue::FixedArray(mut v) => {
+                if let Some(DynSolValue::Bytes(_)) = v.first() {
+                    v.retain(|v| {
+                        let len = v.as_bytes().unwrap().len();
+                        len != 32 && len != 20
+                    });
+                }
+                DynSolValue::Array(v.into_iter().map(fixup_guessable).collect())
+            }
+            DynSolValue::FixedBytes(v, _) => DynSolValue::FixedBytes(v, 32),
+            DynSolValue::Bytes(v) if v.len() == 32 => {
+                DynSolValue::FixedBytes(FixedBytes::from_slice(&v), 32)
+            }
+            DynSolValue::Bytes(v) if v.len() == 20 => DynSolValue::Address(Address::from_slice(&v)),
+            _ => value,
+        }
+    }
+
+    fn guessable_types() -> impl proptest::strategy::Strategy<Value = DynSolValue> {
+        proptest::arbitrary::any::<DynSolValue>()
+            .prop_map(fixup_guessable)
+            .prop_filter("tuples are not supported", |v| !contains_tuple(v))
+            .prop_filter("filter out values without type", |v| v.as_type().is_some())
+    }
+
+    // Tests to ensure that conversion [DynSolValue] -> [serde_json::Value] ->
+    // [DynSolValue]
+    proptest::proptest! {
+        #[test]
+        fn test_json_roundtrip_guessed(v in guessable_types()) {
+            let json = serialize_value_as_json(v.clone()).unwrap();
+            let value = json_value_to_token(&json).unwrap();
+
+            // do additional abi_encode -> abi_decode to avoid zero signed integers getting decoded as unsigned and causing assert_eq to fail.
+            let decoded = v.as_type().unwrap().abi_decode(&value.abi_encode()).unwrap();
+            assert_eq!(decoded, v);
+        }
+
+        #[test]
+        fn test_json_roundtrip(v in proptest::arbitrary::any::<DynSolValue>().prop_filter("filter out values without type", |v| v.as_type().is_some())) {
+                let json = serialize_value_as_json(v.clone()).unwrap();
+            let value = parse_json_as(&json, &v.as_type().unwrap()).unwrap();
+                assert_eq!(value, v);
+        }
+    }
 }

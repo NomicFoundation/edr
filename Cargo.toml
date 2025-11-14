@@ -192,7 +192,7 @@ foundry-evm-traces = { path = "crates/foundry/evm/traces" }
 
 # solc & compilation utilities
 foundry-block-explorers = { version = "0.18.0", default-features = false }
-foundry-compilers = { version = "0.17.3", default-features = false, features = [
+foundry-compilers = { version = "0.18.0", default-features = false, features = [
     "svm-solc",
 ] }
 
@@ -251,7 +251,9 @@ ethers-contract-abigen = { version = "2.0.14", default-features = false }
 alloy-consensus = { version = "1.0.22", default-features = false }
 alloy-contract = { version = "1.0.22", default-features = false }
 alloy-eips = { version = "1.0.22", default-features = false }
+alloy-ens = { version = "1.0.22", default-features = false }
 alloy-genesis = { version = "1.0.22", default-features = false }
+alloy-hardforks = { version = "0.2.12", default-features = false }
 alloy-json-rpc = { version = "1.0.22", default-features = false }
 alloy-network = { version = "1.0.22", default-features = false }
 alloy-node-bindings = { version = "0.13.0", default-features = false }
@@ -302,11 +304,13 @@ chrono = { version = "0.4", default-features = false, features = [
     "std",
 ] }
 clap = { version = "3.2.20", features = ["derive"] }
+ciborium = "0.2"
 color-eyre = "0.6"
 derive_more = { version = "2", default-features = false }
 derive-where = { version = "1.6.0", default-features = false }
 evm-disassembler = "0.5"
 eyre = "0.6"
+flate2 = "1.1"
 hex = { package = "const-hex", version = "1.6", features = ["hex"] }
 itertools = "0.12"
 jsonpath_lib = "0.3"
@@ -314,10 +318,12 @@ k256 = "0.13"
 log = { version = "0.4.17", default-features = false }
 parking_lot = { version = "0.12.1", default-features = false }
 paste = { version = "1.0.14", default-features = false }
+proptest = "1.7.0"
+regex = { version = "1", default-features = false }
 semver = { version = "1.0.26", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }
 sha3 = { version = "0.10.8", default-features = false }
-similar-asserts = "1.5"
+similar-asserts = "1.7"
 rand = "0.9"
 rustc-hash = "1.1"
 serde = { version = "1.0", features = ["derive", "std"] }
@@ -333,6 +339,7 @@ thiserror = { version = "1.0.58", default-features = false }
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+url = "2"
 vergen = { version = "8", default-features = false }
 indexmap = "2.2"
 tikv-jemallocator = "0.5.4"
@@ -340,11 +347,14 @@ num-format = "0.4.4"
 yansi = { version = "1.0", features = ["detect-tty", "detect-env"] }
 tempfile = "3.10"
 tokio = "1"
+uuid = { version = "1.17", default-features = false, features = ["serde", "std", "v4"] }
+walkdir = "2"
 
 hyper = "1.0"
 reqwest = { version = "0.12", default-features = false }
 tower = "0.4"
 tower-http = "0.5"
+axum = "0.8"
 
 [workspace.lints.rust]
 future_incompatible = "warn"

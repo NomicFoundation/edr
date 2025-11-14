@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { before, describe, it } from "node:test";
+import test, { before, describe, it } from "node:test";
 import { TestContext } from "./testContext.js";
 import {
   IncludeTraces,
@@ -162,7 +162,10 @@ describe("Call traces - IncludeTraces.All", () => {
 
     const child = trace[0].children[0];
     assert.equal(child.kind, CallKind.Call);
-    assert.deepEqual(child.inputs, new Uint8Array([0xde, 0xad, 0xbe, 0xef]));
+    assert.deepEqual(child.inputs, {
+      arguments: ["0xdeadbeef"],
+      name: "fallback"
+    });
   });
 
   it("undecoded outputs", async function () {
@@ -272,7 +275,7 @@ describe("Call traces - IncludeTraces.All", () => {
       name: "revertWithString",
       arguments: [],
     });
-    assert.equal(stringRevert.outputs, "revert: Something went wrong");
+    assert.equal(stringRevert.outputs, "Something went wrong");
 
     const customErrorRevert = trace[0].children[2];
     assert.equal(customErrorRevert.kind, CallKind.Call);
@@ -293,7 +296,7 @@ describe("Call traces - IncludeTraces.All", () => {
       name: "revertWithBytes",
       arguments: [],
     });
-    assert.deepEqual(bytesRevert.outputs, "custom error deadbeef:cafe");
+    assert.deepEqual(bytesRevert.outputs, "custom error 0xdeadbeef: cafe");
   });
 
   it("reverted contract creation", async function () {
@@ -344,7 +347,7 @@ describe("Call traces - IncludeTraces.All", () => {
     assert.equal(emptyCall3.kind, CallKind.Call);
     assert.equal(emptyCall3.success, true);
     assert.equal(emptyCall3.contract, undefined);
-    assert.deepEqual(emptyCall3.inputs, { name: "fallback", arguments: [] });
+    assert.deepEqual(emptyCall3.inputs, new Uint8Array(0));
   });
 
   it("fuzzing test should have single trace", async function () {
@@ -389,7 +392,7 @@ describe("Call traces - IncludeTraces.Failing", () => {
   });
 
   it("should capture traces for failing tests", async function () {
-    const trace = testCallTraces.get("testFailingTest()");
+    const trace = testCallTraces.get("testIntentionallyFailingTest()");
     assert.equal(trace?.length, 1);
     assert.equal(trace[0].success, false);
   });
@@ -424,5 +427,28 @@ describe("Call traces - CallTracesSetup", () => {
       name: "testAfterSetup",
       arguments: [],
     });
+  });
+});
+
+describe("Pause and Resume Tracing", () => {
+  let testCallTraces: Map<string, CallTrace[]>;
+
+  before(async () => {
+    const testContext = await TestContext.setup();
+    const runResult = await testContext.runTestsWithStats("PauseTracingTest", {
+      includeTraces: IncludeTraces.All,
+      isolate: true,
+    });
+    testCallTraces = runResult.callTraces;
+  });
+
+  it("should have fewer traces", async function () {
+    const setUpTrace = testCallTraces.get("test()")![0];
+    // Not pausing tracing would result in 3 traces here
+    assert.equal(setUpTrace.children.length, 2);
+
+    const testTrace = testCallTraces.get("test()")![1];
+    // Not pausing tracing would result in 3 traces here
+    assert.equal(testTrace.children.length, 2);
   });
 });

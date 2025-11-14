@@ -1,3 +1,4 @@
+#[macro_use]
 pub mod helpers;
 
 mod cheats;
@@ -8,3 +9,4 @@ mod fuzz;
 mod invariant;
 mod repros;
 mod spec;
+mod table;

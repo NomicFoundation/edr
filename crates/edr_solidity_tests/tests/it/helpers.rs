@@ -7,7 +7,7 @@ pub use config::{assert_multiple, TestConfig};
 mod integration_test_config;
 mod solidity_error_code;
 mod solidity_test_filter;
-use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf};
+use std::{borrow::Cow, env, fmt, io::Write, marker::PhantomData, path::PathBuf, sync::Mutex};
 
 use alloy_primitives::{Bytes, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
@@ -25,7 +25,7 @@ use edr_test_utils::{
     env::{get_alchemy_url_for_network, NetworkType},
     new_fd_lock,
 };
-use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpoint, RpcEndpoints};
+use foundry_cheatcodes::{ExecutionContextConfig, FsPermissions, RpcEndpointUrl, RpcEndpoints};
 use foundry_compilers::{
     artifacts::{CompactContractBytecode, CompactContractBytecodeCow, EvmVersion, Libraries},
     Artifact, Project, ProjectCompileOutput,
@@ -59,11 +59,51 @@ static PROJECT_ROOT: Lazy<PathBuf> = Lazy::new(|| {
     dunce::canonicalize(PathBuf::from(TESTDATA)).expect("Failed to canonicalize root")
 });
 
+/// Asserts that an actual value is within a specified tolerance of an expected
+/// value.
+///
+/// # Arguments
+/// * `actual` - The actual value to check (will be stringified for error
+///   messages)
+/// * `expected` - The expected value
+/// * `tolerance` - The tolerance as a fraction (e.g., 0.1 for 10%)
+///
+/// # Example
+/// ```
+/// assert_close!(my_value, 100, 0.1);
+/// // If my_value is not within 10% of 100, prints:
+/// // "my_value <actual_value> is not within 10% of expected 100 (range: 90-110)"
+/// ```
+macro_rules! assert_close {
+    ($actual:expr, $expected:expr, $tolerance:expr) => {{
+        use num_traits::ToPrimitive;
+
+        let actual = $actual;
+        let expected = $expected;
+        let tolerance = $tolerance;
+        let actual_f64 = actual.to_f64().expect("actual didn't fit into f64");
+        let expected_f64 = expected.to_f64().expect("expected did not fit into f64");
+        let min = expected_f64 * (1.0 - tolerance);
+        let max = expected_f64 * (1.0 + tolerance);
+
+        assert!(
+            actual_f64 >= min && actual_f64 <= max,
+            "{} {} is not within {}% of expected {} (range: {:.0}-{:.0})",
+            stringify!($actual),
+            actual,
+            tolerance * 100.0,
+            expected,
+            min,
+            max
+        );
+    }};
+}
+
 /// Profile for the tests group. Used to configure separate configurations for
 /// test runs.
 pub enum ForgeTestProfile {
     Default,
-    Cancun,
+    Paris,
     MultiVersion,
 }
 
@@ -71,16 +111,16 @@ impl fmt::Display for ForgeTestProfile {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ForgeTestProfile::Default => write!(f, "default"),
-            ForgeTestProfile::Cancun => write!(f, "cancun"),
+            ForgeTestProfile::Paris => write!(f, "paris"),
             ForgeTestProfile::MultiVersion => write!(f, "multi-version"),
         }
     }
 }
 
 impl ForgeTestProfile {
-    /// Returns true if the profile is Cancun.
-    fn is_cancun(&self) -> bool {
-        matches!(self, Self::Cancun)
+    /// Returns true if the profile is Paris.
+    fn is_paris(&self) -> bool {
+        matches!(self, Self::Paris)
     }
 
     fn project(&self) -> Project {
@@ -95,8 +135,8 @@ impl ForgeTestProfile {
                 gas_limit: u64::MAX,
                 chain_id: None,
                 tx_origin: CALLER,
-                block_number: 1,
-                block_timestamp: 1,
+                block_number: U256::from(1),
+                block_timestamp: U256::from(1),
                 ..Env::default()
             },
             sender: CALLER,
@@ -110,6 +150,8 @@ impl ForgeTestProfile {
 
     fn runner_config<HardforkT: HardforkTr>(
         hardfork: HardforkT,
+        fuzz_failure_dir: PathBuf,
+        invariant_failure_dir: PathBuf,
     ) -> SolidityTestRunnerConfig<HardforkT> {
         SolidityTestRunnerConfig {
             collect_stack_traces: CollectStackTraces::OnFailure,
@@ -118,13 +160,14 @@ impl ForgeTestProfile {
             project_root: PROJECT_ROOT.clone(),
             cheats_config_options: CheatsConfigOptions {
                 execution_context: ExecutionContextConfig::Test,
+                prompt_timeout: 0,
                 ..CheatsConfigOptions::default()
             },
-            fuzz: TestFuzzConfig::default().into(),
-            invariant: TestInvariantConfig::default().into(),
+            fuzz: TestFuzzConfig::new(fuzz_failure_dir).into(),
+            invariant: TestInvariantConfig::new(invariant_failure_dir).into(),
             coverage: false,
-            test_fail: true,
-            solidity_fuzz_fixtures: true,
+            enable_fuzz_fixtures: true,
+            enable_table_tests: true,
             local_predeploys: Vec::default(),
             on_collected_coverage_fn: None,
             generate_gas_report: false,
@@ -149,8 +192,8 @@ impl ForgeTestProfile {
             "fork/Fork.t.sol:DssExecLib:0xfD88CeE74f7D78697775aBDAE53f9Da1559728E4".to_string(),
         ];
 
-        if self.is_cancun() {
-            config.evm_version = EvmVersion::Cancun;
+        if self.is_paris() {
+            config.evm_version = EvmVersion::Paris;
         }
 
         config
@@ -163,6 +206,7 @@ impl ForgeTestProfile {
 #[derive(Debug, Clone)]
 pub struct TestFuzzConfig {
     pub runs: u32,
+    pub fail_on_revert: bool,
     pub max_test_rejects: u32,
     pub seed: Option<U256>,
     pub dictionary: TestFuzzDictionaryConfig,
@@ -171,15 +215,25 @@ pub struct TestFuzzConfig {
     pub failure_persist_file: String,
 }
 
+impl TestFuzzConfig {
+    pub fn new(failure_dir: PathBuf) -> Self {
+        Self {
+            failure_persist_dir: Some(failure_dir),
+            ..Self::default()
+        }
+    }
+}
+
 impl Default for TestFuzzConfig {
     fn default() -> Self {
         TestFuzzConfig {
             runs: 256,
+            fail_on_revert: true,
             max_test_rejects: 65536,
-            seed: None,
+            seed: Some(U256::from(997u32)),
             dictionary: TestFuzzDictionaryConfig::default(),
             gas_report_samples: 256,
-            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
+            failure_persist_dir: None,
             failure_persist_file: "testfailure".into(),
         }
     }
@@ -189,6 +243,7 @@ impl From<TestFuzzConfig> for FuzzConfig {
     fn from(value: TestFuzzConfig) -> Self {
         FuzzConfig {
             runs: value.runs,
+            fail_on_revert: value.fail_on_revert,
             max_test_rejects: value.max_test_rejects,
             seed: value.seed,
             dictionary: value.dictionary.into(),
@@ -214,7 +269,23 @@ pub struct TestInvariantConfig {
     pub shrink_run_limit: u32,
     pub max_assume_rejects: u32,
     pub gas_report_samples: u32,
+    pub corpus_dir: Option<PathBuf>,
+    pub corpus_gzip: bool,
+    pub corpus_min_mutations: usize,
+    pub corpus_min_size: usize,
     pub failure_persist_dir: Option<PathBuf>,
+    pub show_edge_coverage: bool,
+    pub show_metrics: bool,
+    pub timeout: Option<u32>,
+}
+
+impl TestInvariantConfig {
+    pub fn new(failure_dir: PathBuf) -> Self {
+        Self {
+            failure_persist_dir: Some(failure_dir),
+            ..Self::default()
+        }
+    }
 }
 
 impl Default for TestInvariantConfig {
@@ -234,7 +305,14 @@ impl Default for TestInvariantConfig {
             shrink_run_limit: 2_u32.pow(18u32),
             max_assume_rejects: 65536,
             gas_report_samples: 256,
-            failure_persist_dir: Some(tempfile::tempdir().unwrap().into_path()),
+            corpus_dir: None,
+            corpus_gzip: false,
+            corpus_min_mutations: 0,
+            corpus_min_size: 0,
+            failure_persist_dir: None,
+            show_edge_coverage: false,
+            show_metrics: false,
+            timeout: None,
         }
     }
 }
@@ -250,10 +328,14 @@ impl From<TestInvariantConfig> for InvariantConfig {
             shrink_run_limit: value.shrink_run_limit,
             max_assume_rejects: value.max_assume_rejects,
             gas_report_samples: value.gas_report_samples,
+            corpus_dir: value.corpus_dir,
+            corpus_gzip: value.corpus_gzip,
+            corpus_min_mutations: value.corpus_min_mutations,
+            corpus_min_size: value.corpus_min_size,
             failure_persist_dir: value.failure_persist_dir,
-            show_metrics: false,
-            timeout: None,
-            show_solidity: false,
+            show_metrics: value.show_metrics,
+            timeout: value.timeout,
+            show_edge_coverage: value.show_edge_coverage,
         }
     }
 }
@@ -276,8 +358,8 @@ impl Default for TestFuzzDictionaryConfig {
             dictionary_weight: 40,
             include_storage: true,
             include_push_bytes: true,
-            max_fuzz_dictionary_addresses: 10_000,
-            max_fuzz_dictionary_values: 10_000,
+            max_fuzz_dictionary_addresses: 15728640,
+            max_fuzz_dictionary_values: 6553600,
         }
     }
 }
@@ -320,6 +402,8 @@ pub struct ForgeTestData<
     known_contracts: ContractsByArtifact,
     libs_to_deploy: Vec<Bytes>,
     revert_decoder: RevertDecoder,
+    fuzz_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
+    invariant_failure_dirs: Mutex<Vec<tempfile::TempDir>>,
     hardfork: HardforkT,
     #[allow(clippy::type_complexity)]
     _phantom: PhantomData<
@@ -450,6 +534,8 @@ impl<
             known_contracts,
             libs_to_deploy,
             revert_decoder,
+            fuzz_failure_dirs: Mutex::default(),
+            invariant_failure_dirs: Mutex::default(),
             hardfork,
             _phantom: PhantomData,
         })
@@ -459,7 +545,11 @@ impl<
     pub fn config_with_mock_rpc(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
         // Construct a new one to create new failure persistance directory for each test
-        let mut config = ForgeTestProfile::runner_config(self.hardfork);
+        let mut config = ForgeTestProfile::runner_config(
+            self.hardfork,
+            self.new_fuzz_failure_dir(),
+            self.new_invariant_failure_dir(),
+        );
         config.cheats_config_options.rpc_endpoints = mock_rpc_endpoints();
 
         config
@@ -470,7 +560,11 @@ impl<
     pub fn config_with_remote_rpc(&self) -> SolidityTestRunnerConfig<HardforkT> {
         init_tracing_for_solidity_tests();
         // Construct a new one to create new failure persistance directory for each test
-        let mut config = ForgeTestProfile::runner_config(self.hardfork);
+        let mut config = ForgeTestProfile::runner_config(
+            self.hardfork,
+            self.new_fuzz_failure_dir(),
+            self.new_invariant_failure_dir(),
+        );
         config.cheats_config_options.rpc_endpoints = remote_rpc_endpoints();
         //`**/edr-cache` is cached in CI
         config.cheats_config_options.rpc_cache_path =
@@ -478,7 +572,7 @@ impl<
         config
     }
 
-    /// Builds a non-tracing runner
+    /// Builds a non-tracing runner with mock rpc fuzz persistence.
     pub async fn runner(
         &self,
     ) -> MultiContractRunner<
@@ -492,11 +586,29 @@ impl<
         TransactionT,
     > {
         let config = self.config_with_mock_rpc();
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a non-tracing runner with the given config
     pub async fn runner_with_config(
+        &self,
+        config: SolidityTestRunnerConfig<HardforkT>,
+    ) -> MultiContractRunner<
+        BlockT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        NoOpContractDecoder<HaltReasonT>,
+        TransactionErrorT,
+        TransactionT,
+    > {
+        self.build_runner(config).await
+    }
+
+    /// Builds a non-tracing runner with the given config
+    /// and adds failure persistence for fuzz and invariant testing.
+    pub async fn runner_with_fuzz_persistence(
         &self,
         mut config: SolidityTestRunnerConfig<HardforkT>,
     ) -> MultiContractRunner<
@@ -509,8 +621,8 @@ impl<
         TransactionErrorT,
         TransactionT,
     > {
-        // no prompt testing
-        config.cheats_config_options.prompt_timeout = 0;
+        config.fuzz.failure_persist_dir = Some(self.new_fuzz_failure_dir());
+        config.invariant.failure_persist_dir = Some(self.new_invariant_failure_dir());
 
         self.build_runner(config).await
     }
@@ -531,7 +643,7 @@ impl<
         TransactionT,
     > {
         config.cheats_config_options.fs_permissions = fs_permissions;
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a non-tracing runner with the given invariant config
@@ -550,7 +662,7 @@ impl<
     > {
         let mut config = self.config_with_mock_rpc();
         config.fuzz = fuzz_config.into();
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a non-tracing runner with the given invariant config
@@ -569,7 +681,7 @@ impl<
     > {
         let mut config = self.config_with_mock_rpc();
         config.invariant = invariant_config.into();
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a non-tracing runner with the given invariant config and fuzz
@@ -591,7 +703,7 @@ impl<
     > {
         config.fuzz.seed = Some(seed);
         config.invariant = invariant_config.into();
-        self.runner_with_config(config).await
+        self.runner_with_fuzz_persistence(config).await
     }
 
     /// Builds a tracing runner
@@ -666,6 +778,29 @@ impl<
         .await
         .expect("Config should be ok")
     }
+
+    /// Returns a new fuzz failure dir that will be cleaned up after this struct
+    /// is dropped.
+    fn new_fuzz_failure_dir(&self) -> PathBuf {
+        let mut fuzz_failure_dirs = self.fuzz_failure_dirs.lock().expect("lock is not poisoned");
+        let dir = tempfile::TempDir::new().expect("created tempdir");
+        let path = dir.path().to_path_buf();
+        fuzz_failure_dirs.push(dir);
+        path
+    }
+
+    /// Returns a new invariant failure dir that will be cleaned up after this
+    /// struct is dropped.
+    fn new_invariant_failure_dir(&self) -> PathBuf {
+        let mut invariant_failure_dirs = self
+            .invariant_failure_dirs
+            .lock()
+            .expect("lock is not poisoned");
+        let dir = tempfile::TempDir::new().expect("created tempdir");
+        let path = dir.path().to_path_buf();
+        invariant_failure_dirs.push(dir);
+        path
+    }
 }
 
 fn get_compiled(project: &Project) -> ProjectCompileOutput {
@@ -695,21 +830,20 @@ fn get_compiled(project: &Project) -> ProjectCompileOutput {
 
 /// Default data for the tests group.
 pub static TEST_DATA_DEFAULT: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Default, edr_chain_l1::Hardfork::CANCUN)
+    ForgeTestData::new(ForgeTestProfile::Default, edr_chain_l1::Hardfork::PRAGUE)
         .expect("linking ok")
 });
 
-/// Data for tests requiring Cancun support on Solc and EVM level.
-pub static TEST_DATA_CANCUN: Lazy<L1ForgeTestData> = Lazy::new(|| {
-    ForgeTestData::new(ForgeTestProfile::Cancun, edr_chain_l1::Hardfork::CANCUN)
-        .expect("linking ok")
+/// Data for tests requiring Paris support on Solc and EVM level.
+pub static TEST_DATA_PARIS: Lazy<L1ForgeTestData> = Lazy::new(|| {
+    ForgeTestData::new(ForgeTestProfile::Paris, edr_chain_l1::Hardfork::MERGE).expect("linking ok")
 });
 
 /// Data for tests requiring Cancun support on Solc and EVM level.
 pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
     ForgeTestData::new(
         ForgeTestProfile::MultiVersion,
-        edr_chain_l1::Hardfork::CANCUN,
+        edr_chain_l1::Hardfork::PRAGUE,
     )
     .expect("linking ok")
 });
@@ -717,35 +851,35 @@ pub static TEST_DATA_MULTI_VERSION: Lazy<L1ForgeTestData> = Lazy::new(|| {
 fn mock_rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([(
         "rpcAliasFake",
-        RpcEndpoint::Url("https://example.com".to_string()),
+        RpcEndpointUrl::new("https://example.com".to_string()),
     )])
 }
 
 fn remote_rpc_endpoints() -> RpcEndpoints {
     RpcEndpoints::new([
         (
-            "rpcAliasMainnet",
-            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Ethereum)),
+            "mainnet",
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Ethereum)),
         ),
         (
-            "rpcAliasSepolia",
-            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Sepolia)),
+            "sepolia",
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Sepolia)),
         ),
         (
-            "rpcEnvAlias",
-            RpcEndpoint::Env("${RPC_ENV_ALIAS}".to_string()),
+            "optimism",
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Optimism)),
         ),
         (
-            "rpcAliasOptimism",
-            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Optimism)),
+            "polygon",
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Polygon)),
         ),
         (
-            "rpcAliasPolygon",
-            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Polygon)),
+            "arbitrum",
+            RpcEndpointUrl::new(get_alchemy_url_for_network(NetworkType::Arbitrum)),
         ),
         (
-            "rpcAliasArbitrum",
-            RpcEndpoint::Url(get_alchemy_url_for_network(NetworkType::Arbitrum)),
+            "avaxTestnet",
+            RpcEndpointUrl::new("https://api.avax-test.network/ext/bc/C/rpc"),
         ),
     ])
 }

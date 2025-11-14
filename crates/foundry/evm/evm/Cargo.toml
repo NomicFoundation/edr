@@ -6,6 +6,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+edr_common.workspace = true
 edr_coverage.workspace = true
 edr_solidity.workspace = true
 foundry-cheatcodes.workspace = true
@@ -25,9 +26,10 @@ revm-inspectors.workspace = true
 eyre = "0.6"
 hex.workspace = true
 parking_lot.workspace = true
-proptest = "1"
+proptest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+uuid.workspace = true
 thiserror = "1"
 tracing = "0.1"
 tokio = "1.43.0"

@@ -1,27 +1,34 @@
-use std::collections::{hash_map::Entry, BTreeMap, HashMap};
+use std::{collections::BTreeMap, sync::OnceLock};
 
 use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt, FunctionExt, JsonAbiExt};
 use alloy_json_abi::{Error, Event, Function, JsonAbi};
-use alloy_primitives::{Address, LogData, Selector, B256};
+use alloy_primitives::{
+    map::{hash_map::Entry, HashMap, HashSet},
+    Address, LogData, Selector, B256,
+};
+use edr_common::fmt::format_token;
 use edr_defaults::SELECTOR_LEN;
 use foundry_evm_core::{
-    abi::{fmt::format_token, Console, HardhatConsole, Vm, HARDHAT_CONSOLE_SELECTOR_PATCHES},
+    abi::{console, Vm},
     constants::{
         CALLER, CHEATCODE_ADDRESS, DEFAULT_CREATE2_DEPLOYER, HARDHAT_CONSOLE_ADDRESS,
         TEST_CONTRACT_ADDRESS,
     },
     contracts::ContractsByArtifact,
     decode::RevertDecoder,
+    precompiles::{
+        BLAKE_2F, EC_ADD, EC_MUL, EC_PAIRING, EC_RECOVER, IDENTITY, MOD_EXP, POINT_EVALUATION,
+        RIPEMD_160, SHA_256,
+    },
 };
 use itertools::Itertools;
-use once_cell::sync::OnceCell;
 use revm_inspectors::tracing::types::{DecodedCallLog, DecodedCallTrace};
-use rustc_hash::FxHashMap;
 
 use crate::{
     abi::get_indexed_event,
     identifier::{
-        AddressIdentity, LocalTraceIdentifier, SingleSignaturesIdentifier, TraceIdentifier,
+        IdentifiedAddress, LocalTraceIdentifier, SelectorKind, SignaturesIdentifier,
+        TraceIdentifier,
     },
     CallTrace, CallTraceArena, CallTraceNode, DecodedCallData,
 };
@@ -76,8 +83,15 @@ impl CallTraceDecoderBuilder {
 
     /// Sets the signature identifier for events and functions.
     #[inline]
-    pub fn with_signature_identifier(mut self, identifier: SingleSignaturesIdentifier) -> Self {
+    pub fn with_signature_identifier(mut self, identifier: SignaturesIdentifier) -> Self {
         self.decoder.signature_identifier = Some(identifier);
+        self
+    }
+
+    /// Sets the signature identifier for events and functions.
+    #[inline]
+    pub fn with_label_disabled(mut self, disable_alias: bool) -> Self {
+        self.decoder.disable_labels = disable_alias;
         self
     }
 
@@ -104,21 +118,30 @@ pub struct CallTraceDecoder {
     /// Address labels.
     pub labels: HashMap<Address, String>,
     /// Contract addresses that have a receive function.
-    pub receive_contracts: Vec<Address>,
+    pub receive_contracts: HashSet<Address>,
+    /// Contract addresses that have fallback functions, mapped to function
+    /// selectors of that contract.
+    pub fallback_contracts: HashMap<Address, HashSet<Selector>>,
+    /// Contract addresses that have do NOT have fallback functions, mapped to
+    /// function selectors of that contract.
+    pub non_fallback_contracts: HashMap<Address, HashSet<Selector>>,
 
     /// All known functions.
-    pub functions: FxHashMap<Selector, Vec<Function>>,
+    pub functions: HashMap<Selector, Vec<Function>>,
     /// All known events.
+    ///
+    /// Key is: `(topics[0], topics.len() - 1)`.
     pub events: BTreeMap<(B256, usize), Vec<Event>>,
     /// Revert decoder. Contains all known custom errors.
     pub revert_decoder: RevertDecoder,
 
     /// A signature identifier for events and functions.
-    pub signature_identifier: Option<SingleSignaturesIdentifier>,
-    /// Whether to include values in cheatcode decoding instead of placeholders.
-    /// Since cheatcodes are used to load large files, values are hidden by
-    /// default.
-    pub verbose_cheatcode_decoding: bool,
+    pub signature_identifier: Option<SignaturesIdentifier>,
+    /// Verbosity level
+    pub verbosity: u8,
+
+    /// Disable showing of labels.
+    pub disable_labels: bool,
 }
 
 impl CallTraceDecoder {
@@ -129,54 +152,41 @@ impl CallTraceDecoder {
     pub fn new() -> &'static Self {
         // If you want to take arguments in this function, assign them to the fields of
         // the cloned lazy instead of removing it
-        static INIT: OnceCell<CallTraceDecoder> = OnceCell::new();
+        static INIT: OnceLock<CallTraceDecoder> = OnceLock::new();
         INIT.get_or_init(Self::init)
     }
 
     fn init() -> Self {
-        /// All functions from the Hardhat console ABI.
-        ///
-        /// See [`HARDHAT_CONSOLE_SELECTOR_PATCHES`] for more details.
-        fn hh_funcs() -> impl Iterator<Item = (Selector, Function)> {
-            let functions = HardhatConsole::abi::functions();
-            let mut functions: Vec<_> = functions
-                .into_values()
-                .flatten()
-                .map(|func| (func.selector(), func))
-                .collect();
-            let len = functions.len();
-            // `functions` is the list of all patched functions; duplicate the unpatched
-            // ones
-            for (unpatched, patched) in HARDHAT_CONSOLE_SELECTOR_PATCHES.iter() {
-                if let Some((_, func)) = functions[..len].iter().find(|(sel, _)| sel == patched) {
-                    functions.push((unpatched.into(), func.clone()));
-                }
-            }
-            functions.into_iter()
-        }
-
         Self {
             contracts: HashMap::default(),
-            labels: [
+            labels: HashMap::from_iter([
                 (CHEATCODE_ADDRESS, "VM".to_string()),
                 (HARDHAT_CONSOLE_ADDRESS, "console".to_string()),
                 (DEFAULT_CREATE2_DEPLOYER, "Create2Deployer".to_string()),
                 (CALLER, "DefaultSender".to_string()),
                 (TEST_CONTRACT_ADDRESS, "DefaultTestContract".to_string()),
-            ]
-            .into(),
-            receive_contracts: Vec::default(),
+                (EC_RECOVER, "ECRecover".to_string()),
+                (SHA_256, "SHA-256".to_string()),
+                (RIPEMD_160, "RIPEMD-160".to_string()),
+                (IDENTITY, "Identity".to_string()),
+                (MOD_EXP, "ModExp".to_string()),
+                (EC_ADD, "ECAdd".to_string()),
+                (EC_MUL, "ECMul".to_string()),
+                (EC_PAIRING, "ECPairing".to_string()),
+                (BLAKE_2F, "Blake2F".to_string()),
+                (POINT_EVALUATION, "PointEvaluation".to_string()),
+            ]),
+            receive_contracts: HashSet::default(),
+            fallback_contracts: HashMap::default(),
+            non_fallback_contracts: HashMap::default(),
 
-            functions: hh_funcs()
-                .chain(
-                    Vm::abi::functions()
-                        .into_values()
-                        .flatten()
-                        .map(|func| (func.selector(), func)),
-                )
-                .map(|(selector, func)| (selector, vec![func]))
+            functions: console::hh::abi::functions()
+                .into_values()
+                .chain(Vm::abi::functions().into_values())
+                .flatten()
+                .map(|func| (func.selector(), vec![func]))
                 .collect(),
-            events: Console::abi::events()
+            events: console::ds::abi::events()
                 .into_values()
                 .flatten()
                 .map(|event| ((event.selector(), indexed_inputs(&event)), vec![event]))
@@ -184,7 +194,9 @@ impl CallTraceDecoder {
             revert_decoder: RevertDecoder::default(),
 
             signature_identifier: None,
-            verbose_cheatcode_decoding: false,
+            verbosity: 0,
+
+            disable_labels: false,
         }
     }
 
@@ -198,14 +210,31 @@ impl CallTraceDecoder {
         }
 
         self.receive_contracts.clear();
+        self.fallback_contracts.clear();
     }
 
     /// Identify unknown addresses in the specified call trace using the
     /// specified identifier.
     ///
     /// Unknown contracts are contracts that either lack a label or an ABI.
-    pub fn identify(&mut self, trace: &CallTraceArena, identifier: &mut impl TraceIdentifier) {
-        self.collect_identities(identifier.identify_addresses(self.trace_addresses(trace)));
+    pub fn identify(&mut self, arena: &CallTraceArena, identifier: &mut impl TraceIdentifier) {
+        self.collect_identified_addresses(self.identify_addresses(arena, identifier));
+    }
+
+    /// Identify unknown addresses in the specified call trace using the
+    /// specified identifier.
+    ///
+    /// Unknown contracts are contracts that either lack a label or an ABI.
+    pub fn identify_addresses<'a>(
+        &self,
+        arena: &CallTraceArena,
+        identifier: &'a mut impl TraceIdentifier,
+    ) -> Vec<IdentifiedAddress<'a>> {
+        let nodes = arena.nodes().iter().filter(|node| {
+            let address = &node.trace.address;
+            !self.labels.contains_key(address) || !self.contracts.contains_key(address)
+        });
+        identifier.identify_addresses(&nodes.collect::<Vec<_>>())
     }
 
     /// Adds a single event to the decoder.
@@ -238,42 +267,25 @@ impl CallTraceDecoder {
         self.revert_decoder.push_error(error);
     }
 
-    /// Returns an iterator over the trace addresses.
-    pub fn trace_addresses<'a>(
-        &'a self,
-        arena: &'a CallTraceArena,
-    ) -> impl Iterator<Item = (&'a Address, Option<&'a [u8]>)> + Clone + 'a {
-        arena
-            .nodes()
-            .iter()
-            .map(|node| {
-                (
-                    &node.trace.address,
-                    node.trace
-                        .kind
-                        .is_any_create()
-                        .then_some(&node.trace.output[..]),
-                )
-            })
-            .filter(|(address, _)| {
-                !self.labels.contains_key(*address) || !self.contracts.contains_key(*address)
-            })
+    pub fn without_label(&mut self, disable: bool) {
+        self.disable_labels = disable;
     }
 
-    fn collect_identities(&mut self, identities: Vec<AddressIdentity<'_>>) {
-        // Skip logging if there are no identities.
-        if identities.is_empty() {
+    fn collect_identified_addresses(&mut self, mut addrs: Vec<IdentifiedAddress<'_>>) {
+        addrs.sort_by_key(|identity| identity.address);
+        addrs.dedup_by_key(|identity| identity.address);
+        if addrs.is_empty() {
             return;
         }
 
-        trace!(target: "evm::traces", len=identities.len(), "collecting address identities");
-        for AddressIdentity {
+        trace!(target: "evm::traces", len=addrs.len(), "collecting address identities");
+        for IdentifiedAddress {
             address,
             label,
             contract,
             abi,
             artifact_id: _,
-        } in identities
+        } in addrs
         {
             let _span = trace_span!(target: "evm::traces", "identity", ?contract, ?label).entered();
 
@@ -286,13 +298,17 @@ impl CallTraceDecoder {
             }
 
             if let Some(abi) = abi {
-                self.collect_abi(&abi, Some(&address));
+                self.collect_abi(&abi, Some(address));
             }
         }
     }
 
-    fn collect_abi(&mut self, abi: &JsonAbi, address: Option<&Address>) {
-        trace!(target: "evm::traces", len=abi.len(), ?address, "collecting ABI");
+    fn collect_abi(&mut self, abi: &JsonAbi, address: Option<Address>) {
+        let len = abi.len();
+        if len == 0 {
+            return;
+        }
+        trace!(target: "evm::traces", len, ?address, "collecting ABI");
         for function in abi.functions() {
             self.push_function(function.clone());
         }
@@ -302,10 +318,26 @@ impl CallTraceDecoder {
         for error in abi.errors() {
             self.push_error(error.clone());
         }
-        if let Some(address) = address
-            && abi.receive.is_some()
-        {
-            self.receive_contracts.push(*address);
+        if let Some(address) = address {
+            if abi.receive.is_some() {
+                self.receive_contracts.insert(address);
+            }
+
+            if abi.fallback.is_some() {
+                self.fallback_contracts.insert(
+                    address,
+                    abi.functions()
+                        .map(alloy_json_abi::Function::selector)
+                        .collect(),
+                );
+            } else {
+                self.non_fallback_contracts.insert(
+                    address,
+                    abi.functions()
+                        .map(alloy_json_abi::Function::selector)
+                        .collect(),
+                );
+            }
         }
     }
 
@@ -315,7 +347,7 @@ impl CallTraceDecoder {
     pub async fn populate_traces(&self, traces: &mut Vec<CallTraceNode>) {
         for node in traces {
             node.trace.decoded = self.decode_function(&node.trace).await;
-            for log in node.logs.iter_mut() {
+            for log in &mut node.logs {
                 log.decoded = self.decode_event(&log.raw_log).await;
             }
         }
@@ -323,11 +355,22 @@ impl CallTraceDecoder {
 
     /// Decodes a call trace.
     pub async fn decode_function(&self, trace: &CallTrace) -> DecodedCallTrace {
+        let label = if self.disable_labels {
+            None
+        } else {
+            self.labels.get(&trace.address).cloned()
+        };
+
+        if trace.kind.is_any_create() {
+            return DecodedCallTrace {
+                label,
+                ..Default::default()
+            };
+        }
+
         if let Some(trace) = precompiles::decode(trace, 1) {
             return trace;
         }
-
-        let label = self.labels.get(&trace.address).cloned();
 
         let cdata = &trace.data;
         if trace.address == DEFAULT_CREATE2_DEPLOYER {
@@ -337,64 +380,93 @@ impl CallTraceDecoder {
                     signature: "create2".to_string(),
                     args: vec![],
                 }),
-                return_data: trace
-                    .status
-                    .is_some_and(|s| !s.is_ok())
-                    .then(|| self.revert_decoder.decode(&trace.output, trace.status)),
+                return_data: self.default_return_data(trace),
             };
         }
 
-        if cdata.len() >= SELECTOR_LEN {
-            let selector = &cdata[..SELECTOR_LEN];
+        if is_abi_call_data(cdata) {
+            let selector_bytes = cdata
+                .get(..SELECTOR_LEN)
+                .expect("calldata should have at least SELECTOR_LEN bytes");
+            let selector = Selector::try_from(selector_bytes)
+                .expect("selector_bytes should convert to Selector");
             let mut functions = Vec::new();
-            // The Clippy suggestion makes the code more difficult to read in this case.
-            #[allow(clippy::single_match_else)]
-            let functions = match self.functions.get(selector) {
-                Some(fs) => fs,
-                None => {
-                    if let Some(identifier) = &self.signature_identifier
-                        && let Some(function) =
-                            identifier.write().await.identify_function(selector).await
-                    {
-                        functions.push(function);
-                    }
-                    &functions
+            let functions = if let Some(fs) = self.functions.get(&selector) {
+                fs
+            } else {
+                if let Some(identifier) = &self.signature_identifier
+                    && let Some(function) = identifier.identify_function(selector).await
+                {
+                    functions.push(function);
                 }
+                &functions
             };
+
+            // Check if unsupported fn selector: calldata dooes NOT point to one of its
+            // selectors + non-fallback contract + no receive
+            if let Some(contract_selectors) = self.non_fallback_contracts.get(&trace.address)
+                && !contract_selectors.contains(&selector)
+                && (!cdata.is_empty() || !self.receive_contracts.contains(&trace.address))
+            {
+                let return_data = if !trace.success {
+                    let revert_msg = self.revert_decoder.decode(&trace.output, trace.status);
+
+                    if trace.output.is_empty() || revert_msg.contains("EvmError: Revert") {
+                        Some(format!(
+                            "unrecognized function selector {} for contract {}, which has no fallback function.",
+                            selector, trace.address
+                        ))
+                    } else {
+                        Some(revert_msg)
+                    }
+                } else {
+                    None
+                };
+
+                return if let Some(func) = functions.first() {
+                    DecodedCallTrace {
+                        label,
+                        call_data: Some(self.decode_function_input(trace, func)),
+                        return_data,
+                    }
+                } else {
+                    DecodedCallTrace {
+                        label,
+                        call_data: self.fallback_call_data(trace),
+                        return_data,
+                    }
+                };
+            }
+
             let [func, ..] = &functions[..] else {
                 return DecodedCallTrace {
                     label,
-                    call_data: None,
-                    return_data: None,
+                    call_data: self.fallback_call_data(trace),
+                    return_data: self.default_return_data(trace),
                 };
             };
 
+            // If traced contract is a fallback contract, check if it has the decoded
+            // function. If not, then replace call data signature with
+            // `fallback`.
+            let mut call_data = self.decode_function_input(trace, func);
+            if let Some(fallback_functions) = self.fallback_contracts.get(&trace.address)
+                && !fallback_functions.contains(&selector)
+                && let Some(cd) = self.fallback_call_data(trace)
+            {
+                call_data.signature = cd.signature;
+            }
+
             DecodedCallTrace {
                 label,
-                call_data: Some(self.decode_function_input(trace, func)),
+                call_data: Some(call_data),
                 return_data: self.decode_function_output(trace, functions),
             }
         } else {
-            let has_receive = self.receive_contracts.contains(&trace.address);
-            let signature = if cdata.is_empty() && has_receive {
-                "receive()"
-            } else {
-                "fallback()"
-            }
-            .into();
-            let args = if cdata.is_empty() {
-                Vec::new()
-            } else {
-                vec![cdata.to_string()]
-            };
             DecodedCallTrace {
                 label,
-                call_data: Some(DecodedCallData { signature, args }),
-                return_data: if !trace.success {
-                    Some(self.revert_decoder.decode(&trace.output, trace.status))
-                } else {
-                    None
-                },
+                call_data: self.fallback_call_data(trace),
+                return_data: self.default_return_data(trace),
             }
         }
     }
@@ -402,7 +474,7 @@ impl CallTraceDecoder {
     /// Decodes a function's input into the given trace.
     fn decode_function_input(&self, trace: &CallTrace, func: &Function) -> DecodedCallData {
         let mut args = None;
-        if trace.data.len() >= edr_defaults::SELECTOR_LEN {
+        if trace.data.len() >= SELECTOR_LEN {
             if trace.address == CHEATCODE_ADDRESS {
                 // Try to decode cheatcode inputs in a more custom way
                 if let Some(v) = self.decode_cheatcode_inputs(func, &trace.data) {
@@ -410,10 +482,14 @@ impl CallTraceDecoder {
                 }
             }
 
-            if args.is_none()
-                && let Ok(v) = func.abi_decode_input(&trace.data[edr_defaults::SELECTOR_LEN..])
-            {
-                args = Some(v.iter().map(|value| self.apply_label(value)).collect());
+            if args.is_none() {
+                let input_data = trace
+                    .data
+                    .get(SELECTOR_LEN..)
+                    .expect("calldata should have at least SELECTOR_LEN bytes");
+                if let Ok(v) = func.abi_decode_input(input_data) {
+                    args = Some(v.iter().map(|value| self.format_value(value)).collect());
+                }
             }
         }
 
@@ -434,7 +510,7 @@ impl CallTraceDecoder {
             "broadcast" | "startBroadcast" => {
                 // Redact private key if defined
                 // broadcast(uint256) / startBroadcast(uint256)
-                if !func.inputs.is_empty() && func.inputs[0].ty == "uint256" {
+                if func.inputs.first().is_some_and(|input| input.ty == "uint256") {
                     Some(vec!["<pk>".to_string()])
                 } else {
                     None
@@ -443,23 +519,35 @@ impl CallTraceDecoder {
             "getNonce" => {
                 // Redact private key if defined
                 // getNonce(Wallet)
-                if !func.inputs.is_empty() && func.inputs[0].ty == "tuple" {
+                if func.inputs.first().is_some_and(|input| input.ty == "tuple") {
                     Some(vec!["<pk>".to_string()])
                 } else {
                     None
                 }
             }
             "sign" | "signP256" => {
-                let mut decoded = func.abi_decode_input(&data[edr_defaults::SELECTOR_LEN..]).ok()?;
+                let input_data = data.get(SELECTOR_LEN..)?;
+                let mut decoded = func.abi_decode_input(input_data).ok()?;
 
                 // Redact private key and replace in trace
                 // sign(uint256,bytes32) / signP256(uint256,bytes32) / sign(Wallet,bytes32)
                 if !decoded.is_empty() &&
-                    (func.inputs[0].ty == "uint256" || func.inputs[0].ty == "tuple")
-                {
-                    decoded[0] = DynSolValue::String("<pk>".to_string());
-                }
+                    func.inputs.first().is_some_and(|input| input.ty == "uint256" || input.ty == "tuple")
+                    && let Some(first) = decoded.get_mut(0) {
+                        *first = DynSolValue::String("<pk>".to_string());
+                    }
 
+                Some(decoded.iter().map(format_token).collect())
+            }
+            "signDelegation" | "signAndAttachDelegation" => {
+                let input_data = data.get(SELECTOR_LEN..)?;
+                let mut decoded = func.abi_decode_input(input_data).ok()?;
+                // Redact private key and replace in trace for
+                // signAndAttachDelegation(address implementation, uint256 privateKey)
+                // signDelegation(address implementation, uint256 privateKey)
+                if let Some(second) = decoded.get_mut(1) {
+                    *second = DynSolValue::String("<pk>".to_string());
+                }
                 Some(decoded.iter().map(format_token).collect())
             }
             "parseJson" |
@@ -489,10 +577,11 @@ impl CallTraceDecoder {
             "serializeBytes32" |
             "serializeString" |
             "serializeBytes" => {
-                if self.verbose_cheatcode_decoding {
+                if self.verbosity >= 5 {
                     None
                 } else {
-                    let mut decoded = func.abi_decode_input(&data[edr_defaults::SELECTOR_LEN..]).ok()?;
+                    let input_data = data.get(SELECTOR_LEN..)?;
+                    let mut decoded = func.abi_decode_input(input_data).ok()?;
                     let token = if func.name.as_str() == "parseJson" ||
                         // `keyExists` is being deprecated in favor of `keyExistsJson`. It will be removed in future versions.
                         func.name.as_str() == "keyExists" ||
@@ -502,15 +591,17 @@ impl CallTraceDecoder {
                     } else {
                         "<stringified JSON>"
                     };
-                    decoded[0] = DynSolValue::String(token.to_string());
+                    let first = decoded.get_mut(0).expect("decoded should have at least one element");
+                    *first = DynSolValue::String(token.to_string());
                     Some(decoded.iter().map(format_token).collect())
                 }
             }
             s if s.contains("Toml") => {
-                if self.verbose_cheatcode_decoding {
+                if self.verbosity >= 5 {
                     None
                 } else {
-                    let mut decoded = func.abi_decode_input(&data[edr_defaults::SELECTOR_LEN..]).ok()?;
+                    let input_data = data.get(SELECTOR_LEN..)?;
+                    let mut decoded = func.abi_decode_input(input_data).ok()?;
                     let token = if func.name.as_str() == "parseToml" ||
                         func.name.as_str() == "keyExistsToml"
                     {
@@ -518,9 +609,31 @@ impl CallTraceDecoder {
                     } else {
                         "<stringified TOML>"
                     };
-                    decoded[0] = DynSolValue::String(token.to_string());
+                    let first = decoded.get_mut(0).expect("decoded should have at least one element");
+                    *first = DynSolValue::String(token.to_string());
                     Some(decoded.iter().map(format_token).collect())
                 }
+            }
+            "createFork" |
+            "createSelectFork" |
+            "rpc" => {
+                let input_data = data.get(SELECTOR_LEN..)?;
+                let mut decoded = func.abi_decode_input(input_data).ok()?;
+
+                // Redact RPC URL except if referenced by an alias
+                if !decoded.is_empty() && func.inputs.first().is_some_and(|input| input.ty == "string") {
+                    let first_val = decoded.first().expect("decoded should have at least one element");
+                    let url_or_alias = first_val.as_str().unwrap_or_default();
+
+                    if url_or_alias.starts_with("http") || url_or_alias.starts_with("ws") {
+                        let first = decoded.get_mut(0).expect("decoded should have at least one element");
+                        *first = DynSolValue::String("<rpc url>".to_string());
+                    }
+                } else {
+                    return None;
+                }
+
+                Some(decoded.iter().map(format_token).collect())
             }
             _ => None,
         }
@@ -528,39 +641,38 @@ impl CallTraceDecoder {
 
     /// Decodes a function's output into the given trace.
     fn decode_function_output(&self, trace: &CallTrace, funcs: &[Function]) -> Option<String> {
-        let data = &trace.output;
-        if trace.success {
-            if trace.address == CHEATCODE_ADDRESS
-                && let Some(decoded) = funcs
-                    .iter()
-                    .find_map(|func| self.decode_cheatcode_outputs(func))
-            {
-                return Some(decoded);
-            }
-
-            if let Some(values) = funcs
-                .iter()
-                .find_map(|func| func.abi_decode_output(data).ok())
-            {
-                // Functions coming from an external database do not have any outputs specified,
-                // and will lead to returning an empty list of values.
-                if values.is_empty() {
-                    return None;
-                }
-
-                return Some(
-                    values
-                        .iter()
-                        .map(|value| self.apply_label(value))
-                        .format(", ")
-                        .to_string(),
-                );
-            }
-
-            None
-        } else {
-            Some(self.revert_decoder.decode(data, trace.status))
+        if !trace.success {
+            return self.default_return_data(trace);
         }
+
+        if trace.address == CHEATCODE_ADDRESS
+            && let Some(decoded) = funcs
+                .iter()
+                .find_map(|func| self.decode_cheatcode_outputs(func))
+        {
+            return Some(decoded);
+        }
+
+        if let Some(values) = funcs
+            .iter()
+            .find_map(|func| func.abi_decode_output(&trace.output).ok())
+        {
+            // Functions coming from an external database do not have any outputs specified,
+            // and will lead to returning an empty list of values.
+            if values.is_empty() {
+                return None;
+            }
+
+            return Some(
+                values
+                    .iter()
+                    .map(|value| self.format_value(value))
+                    .format(", ")
+                    .to_string(),
+            );
+        }
+
+        None
     }
 
     /// Custom decoding for cheatcode outputs.
@@ -568,12 +680,49 @@ impl CallTraceDecoder {
         match func.name.as_str() {
             s if s.starts_with("env") => Some("<env var value>"),
             "createWallet" | "deriveKey" => Some("<pk>"),
-            "promptSecret" => Some("<secret>"),
-            "parseJson" if !self.verbose_cheatcode_decoding => Some("<encoded JSON value>"),
-            "readFile" if !self.verbose_cheatcode_decoding => Some("<file>"),
+            "promptSecret" | "promptSecretUint" => Some("<secret>"),
+            "parseJson" if self.verbosity < 5 => Some("<encoded JSON value>"),
+            "readFile" if self.verbosity < 5 => Some("<file>"),
+            "rpcUrl" | "rpcUrls" | "rpcUrlStructs" => Some("<rpc url>"),
             _ => None,
         }
         .map(Into::into)
+    }
+
+    #[track_caller]
+    fn fallback_call_data(&self, trace: &CallTrace) -> Option<DecodedCallData> {
+        let cdata = &trace.data;
+        let signature = if cdata.is_empty() && self.receive_contracts.contains(&trace.address) {
+            "receive()"
+        } else if self.fallback_contracts.contains_key(&trace.address) {
+            "fallback()"
+        } else {
+            return None;
+        }
+        .to_string();
+        let args = if cdata.is_empty() {
+            Vec::new()
+        } else {
+            vec![cdata.to_string()]
+        };
+        Some(DecodedCallData { signature, args })
+    }
+
+    /// The default decoded return data for a trace.
+    fn default_return_data(&self, trace: &CallTrace) -> Option<String> {
+        // For calls with status None or successful status, don't decode revert data
+        // This is due to trace.status is derived from the
+        // revm_interpreter::InstructionResult in revm-inspectors status will
+        // `None` post revm 27, as `InstructionResult::Continue` does not exists
+        // anymore.
+        if trace.status.is_none()
+            || trace
+                .status
+                .is_some_and(revm::interpreter::InstructionResult::is_ok)
+        {
+            return None;
+        }
+        (!trace.success).then(|| self.revert_decoder.decode(&trace.output, trace.status))
     }
 
     /// Decodes an event.
@@ -586,18 +735,15 @@ impl CallTraceDecoder {
         };
 
         let mut events = Vec::new();
-        // The Clippy suggestion makes the code more difficult to read in this case.
-        #[allow(clippy::single_match_else)]
-        let events = match self.events.get(&(t0, log.topics().len() - 1)) {
-            Some(es) => es,
-            None => {
-                if let Some(identifier) = &self.signature_identifier
-                    && let Some(event) = identifier.write().await.identify_event(&t0[..]).await
-                {
-                    events.push(get_indexed_event(event, log));
-                }
-                &events
+        let events = if let Some(es) = self.events.get(&(t0, log.topics().len() - 1)) {
+            es
+        } else {
+            if let Some(identifier) = &self.signature_identifier
+                && let Some(event) = identifier.identify_event(t0).await
+            {
+                events.push(get_indexed_event(event, log));
             }
+            &events
         };
         for event in events {
             if let Ok(decoded) = event.decode_log(log) {
@@ -611,7 +757,7 @@ impl CallTraceDecoder {
                             .map(|(param, input)| {
                                 // undo patched names
                                 let name = input.name.clone();
-                                (name, self.apply_label(&param))
+                                (name, self.format_value(&param))
                             })
                             .collect(),
                     ),
@@ -627,35 +773,54 @@ impl CallTraceDecoder {
 
     /// Prefetches function and event signatures into the identifier cache
     pub async fn prefetch_signatures(&self, nodes: &[CallTraceNode]) {
-        const DEFAULT_CREATE2_DEPLOYER_BYTES: [u8; 20] = DEFAULT_CREATE2_DEPLOYER.0 .0;
-
         let Some(identifier) = &self.signature_identifier else {
             return;
         };
-
-        let events_it = nodes
+        let events = nodes
             .iter()
             .flat_map(|node| {
                 node.logs
                     .iter()
-                    .filter_map(|log| log.raw_log.topics().first())
+                    .map(|log| log.raw_log.topics())
+                    .filter(|&topics| {
+                        if let Some(&first) = topics.first()
+                            && self.events.contains_key(&(first, topics.len() - 1))
+                        {
+                            return false;
+                        }
+                        true
+                    })
+                    .filter_map(|topics| topics.first())
             })
-            .unique();
-        identifier.write().await.identify_events(events_it).await;
-
-        let funcs_it = nodes
+            .copied();
+        let functions = nodes
             .iter()
-            .filter_map(|n| match n.trace.address.0 .0 {
-                DEFAULT_CREATE2_DEPLOYER_BYTES
-                | [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01..=0x0a] => None,
-                _ => n.trace.data.get(..edr_defaults::SELECTOR_LEN),
+            .filter(|&n| {
+                // Ignore known addresses.
+                if n.trace.address == DEFAULT_CREATE2_DEPLOYER
+                    || n.is_precompile()
+                    || precompiles::is_known_precompile(n.trace.address, 1)
+                {
+                    return false;
+                }
+                // Ignore non-ABI calldata.
+                if n.trace.kind.is_any_create() || !is_abi_call_data(&n.trace.data) {
+                    return false;
+                }
+                true
             })
-            .filter(|v| !self.functions.contains_key(*v))
-            .unique();
-        identifier.write().await.identify_functions(funcs_it).await;
+            .filter_map(|n| n.trace.data.first_chunk().map(Selector::from))
+            .filter(|selector| !self.functions.contains_key(selector));
+        let selectors = events
+            .map(SelectorKind::Event)
+            .chain(functions.map(SelectorKind::Function))
+            .unique()
+            .collect::<Vec<_>>();
+        let _ = identifier.identify(&selectors).await;
     }
 
-    fn apply_label(&self, value: &DynSolValue) -> String {
+    /// Pretty-prints a value.
+    fn format_value(&self, value: &DynSolValue) -> String {
         if let DynSolValue::Address(addr) = value
             && let Some(label) = self.labels.get(addr)
         {
@@ -665,18 +830,63 @@ impl CallTraceDecoder {
     }
 }
 
+/// Returns `true` if the given function calldata (including function selector)
+/// is ABI-encoded.
+///
+/// This is a simple heuristic to avoid fetching non ABI-encoded selectors.
+fn is_abi_call_data(data: &[u8]) -> bool {
+    match data.len().cmp(&SELECTOR_LEN) {
+        std::cmp::Ordering::Less => false,
+        std::cmp::Ordering::Equal => true,
+        std::cmp::Ordering::Greater => {
+            let payload = data
+                .get(SELECTOR_LEN..)
+                .expect("data length is greater than SELECTOR_LEN");
+            is_abi_data(payload)
+        }
+    }
+}
+
+/// Returns `true` if the given data is ABI-encoded.
+///
+/// See [`is_abi_call_data`] for more details.
+fn is_abi_data(data: &[u8]) -> bool {
+    let rem = data.len() % 32;
+    if rem == 0 || data.is_empty() {
+        return true;
+    }
+    // If the length is not a multiple of 32, also accept when the last remainder
+    // bytes are all 0.
+    let slice = data
+        .get(data.len() - rem..)
+        .expect("data.len() - rem should be valid slice index");
+    slice.iter().all(|byte| *byte == 0)
+}
+
 /// Restore the order of the params of a decoded event,
 /// as Alloy returns the indexed and unindexed params separately.
 fn reconstruct_params(event: &Event, decoded: &DecodedEvent) -> Vec<DynSolValue> {
     let mut indexed = 0;
     let mut unindexed = 0;
     let mut inputs = vec![];
-    for input in event.inputs.iter() {
-        if input.indexed {
-            inputs.push(decoded.indexed[indexed].clone());
+    for input in &event.inputs {
+        // Prevent panic of event `Transfer(from, to)` decoded with a signature
+        // `Transfer(address indexed from, address indexed to, uint256 indexed tokenId)`
+        // by making sure the event inputs is not higher than decoded indexed /
+        // un-indexed values.
+        if input.indexed && indexed < decoded.indexed.len() {
+            let value = decoded
+                .indexed
+                .get(indexed)
+                .expect("indexed should be within bounds");
+            inputs.push(value.clone());
             indexed += 1;
-        } else {
-            inputs.push(decoded.body[unindexed].clone());
+        } else if unindexed < decoded.body.len() {
+            let value = decoded
+                .body
+                .get(unindexed)
+                .expect("unindexed should be within bounds");
+            inputs.push(value.clone());
             unindexed += 1;
         }
     }
@@ -695,7 +905,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_should_redact_pk() {
+    fn test_should_redact() {
         let decoder = CallTraceDecoder::new();
 
         // [function_signature, data, expected]
@@ -787,6 +997,275 @@ mod tests {
                         .to_string(),
                 ]),
             ),
+            (
+                // cast calldata "createFork(string)" "https://eth-mainnet.g.alchemy.com/v2/api_key"
+                "createFork(string)",
+                hex!(
+                    "
+                    31ba3498
+                    0000000000000000000000000000000000000000000000000000000000000020
+                    000000000000000000000000000000000000000000000000000000000000002c
+                    68747470733a2f2f6574682d6d61696e6e65742e672e616c6368656d792e636f
+                    6d2f76322f6170695f6b65790000000000000000000000000000000000000000
+                    "
+                )
+                .to_vec(),
+                Some(vec!["\"<rpc url>\"".to_string()]),
+            ),
+            (
+                // cast calldata "createFork(string)" "wss://eth-mainnet.g.alchemy.com/v2/api_key"
+                "createFork(string)",
+                hex!(
+                    "
+                    31ba3498
+                    0000000000000000000000000000000000000000000000000000000000000020
+                    000000000000000000000000000000000000000000000000000000000000002a
+                    7773733a2f2f6574682d6d61696e6e65742e672e616c6368656d792e636f6d2f
+                    76322f6170695f6b657900000000000000000000000000000000000000000000
+                    "
+                )
+                .to_vec(),
+                Some(vec!["\"<rpc url>\"".to_string()]),
+            ),
+            (
+                // cast calldata "createFork(string)" "mainnet"
+                "createFork(string)",
+                hex!(
+                    "
+                    31ba3498
+                    0000000000000000000000000000000000000000000000000000000000000020
+                    0000000000000000000000000000000000000000000000000000000000000007
+                    6d61696e6e657400000000000000000000000000000000000000000000000000
+                    "
+                )
+                .to_vec(),
+                Some(vec!["\"mainnet\"".to_string()]),
+            ),
+            (
+                // cast calldata "createFork(string,uint256)" "https://eth-mainnet.g.alchemy.com/v2/api_key" 1
+                "createFork(string,uint256)",
+                hex!(
+                    "
+                    6ba3ba2b
+                    0000000000000000000000000000000000000000000000000000000000000040
+                    0000000000000000000000000000000000000000000000000000000000000001
+                    000000000000000000000000000000000000000000000000000000000000002c
+                    68747470733a2f2f6574682d6d61696e6e65742e672e616c6368656d792e636f
+                    6d2f76322f6170695f6b65790000000000000000000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec!["\"<rpc url>\"".to_string(), "1".to_string()]),
+            ),
+            (
+                // cast calldata "createFork(string,uint256)" "mainnet" 1
+                "createFork(string,uint256)",
+                hex!(
+                    "
+                    6ba3ba2b
+                    0000000000000000000000000000000000000000000000000000000000000040
+                    0000000000000000000000000000000000000000000000000000000000000001
+                    0000000000000000000000000000000000000000000000000000000000000007
+                    6d61696e6e657400000000000000000000000000000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec!["\"mainnet\"".to_string(), "1".to_string()]),
+            ),
+            (
+                // cast calldata "createFork(string,bytes32)" "https://eth-mainnet.g.alchemy.com/v2/api_key" 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                "createFork(string,bytes32)",
+                hex!(
+                    "
+                    7ca29682
+                    0000000000000000000000000000000000000000000000000000000000000040
+                    ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                    000000000000000000000000000000000000000000000000000000000000002c
+                    68747470733a2f2f6574682d6d61696e6e65742e672e616c6368656d792e636f
+                    6d2f76322f6170695f6b65790000000000000000000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec![
+                    "\"<rpc url>\"".to_string(),
+                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                        .to_string(),
+                ]),
+            ),
+            (
+                // cast calldata "createFork(string,bytes32)" "mainnet"
+                // 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                "createFork(string,bytes32)",
+                hex!(
+                    "
+                    7ca29682
+                    0000000000000000000000000000000000000000000000000000000000000040
+                    ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                    0000000000000000000000000000000000000000000000000000000000000007
+                    6d61696e6e657400000000000000000000000000000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec![
+                    "\"mainnet\"".to_string(),
+                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                        .to_string(),
+                ]),
+            ),
+            (
+                // cast calldata "createSelectFork(string)" "https://eth-mainnet.g.alchemy.com/v2/api_key"
+                "createSelectFork(string)",
+                hex!(
+                    "
+                    98680034
+                    0000000000000000000000000000000000000000000000000000000000000020
+                    000000000000000000000000000000000000000000000000000000000000002c
+                    68747470733a2f2f6574682d6d61696e6e65742e672e616c6368656d792e636f
+                    6d2f76322f6170695f6b65790000000000000000000000000000000000000000
+                    "
+                )
+                .to_vec(),
+                Some(vec!["\"<rpc url>\"".to_string()]),
+            ),
+            (
+                // cast calldata "createSelectFork(string)" "mainnet"
+                "createSelectFork(string)",
+                hex!(
+                    "
+                    98680034
+                    0000000000000000000000000000000000000000000000000000000000000020
+                    0000000000000000000000000000000000000000000000000000000000000007
+                    6d61696e6e657400000000000000000000000000000000000000000000000000
+                    "
+                )
+                .to_vec(),
+                Some(vec!["\"mainnet\"".to_string()]),
+            ),
+            (
+                // cast calldata "createSelectFork(string,uint256)" "https://eth-mainnet.g.alchemy.com/v2/api_key" 1
+                "createSelectFork(string,uint256)",
+                hex!(
+                    "
+                    71ee464d
+                    0000000000000000000000000000000000000000000000000000000000000040
+                    0000000000000000000000000000000000000000000000000000000000000001
+                    000000000000000000000000000000000000000000000000000000000000002c
+                    68747470733a2f2f6574682d6d61696e6e65742e672e616c6368656d792e636f
+                    6d2f76322f6170695f6b65790000000000000000000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec!["\"<rpc url>\"".to_string(), "1".to_string()]),
+            ),
+            (
+                // cast calldata "createSelectFork(string,uint256)" "mainnet" 1
+                "createSelectFork(string,uint256)",
+                hex!(
+                    "
+                    71ee464d
+                    0000000000000000000000000000000000000000000000000000000000000040
+                    0000000000000000000000000000000000000000000000000000000000000001
+                    0000000000000000000000000000000000000000000000000000000000000007
+                    6d61696e6e657400000000000000000000000000000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec!["\"mainnet\"".to_string(), "1".to_string()]),
+            ),
+            (
+                // cast calldata "createSelectFork(string,bytes32)" "https://eth-mainnet.g.alchemy.com/v2/api_key" 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                "createSelectFork(string,bytes32)",
+                hex!(
+                    "
+                    84d52b7a
+                    0000000000000000000000000000000000000000000000000000000000000040
+                    ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                    000000000000000000000000000000000000000000000000000000000000002c
+                    68747470733a2f2f6574682d6d61696e6e65742e672e616c6368656d792e636f
+                    6d2f76322f6170695f6b65790000000000000000000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec![
+                    "\"<rpc url>\"".to_string(),
+                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                        .to_string(),
+                ]),
+            ),
+            (
+                // cast calldata "createSelectFork(string,bytes32)" "mainnet"
+                // 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                "createSelectFork(string,bytes32)",
+                hex!(
+                    "
+                    84d52b7a
+                    0000000000000000000000000000000000000000000000000000000000000040
+                    ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                    0000000000000000000000000000000000000000000000000000000000000007
+                    6d61696e6e657400000000000000000000000000000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec![
+                    "\"mainnet\"".to_string(),
+                    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                        .to_string(),
+                ]),
+            ),
+            (
+                // cast calldata "rpc(string,string,string)" "https://eth-mainnet.g.alchemy.com/v2/api_key" "eth_getBalance" "[\"0x551e7784778ef8e048e495df49f2614f84a4f1dc\",\"0x0\"]"
+                "rpc(string,string,string)",
+                hex!(
+                    "
+                    0199a220
+                    0000000000000000000000000000000000000000000000000000000000000060
+                    00000000000000000000000000000000000000000000000000000000000000c0
+                    0000000000000000000000000000000000000000000000000000000000000100
+                    000000000000000000000000000000000000000000000000000000000000002c
+                    68747470733a2f2f6574682d6d61696e6e65742e672e616c6368656d792e636f
+                    6d2f76322f6170695f6b65790000000000000000000000000000000000000000
+                    000000000000000000000000000000000000000000000000000000000000000e
+                    6574685f67657442616c616e6365000000000000000000000000000000000000
+                    0000000000000000000000000000000000000000000000000000000000000034
+                    5b22307835353165373738343737386566386530343865343935646634396632
+                    363134663834613466316463222c22307830225d000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec![
+                    "\"<rpc url>\"".to_string(),
+                    "\"eth_getBalance\"".to_string(),
+                    "\"[\\\"0x551e7784778ef8e048e495df49f2614f84a4f1dc\\\",\\\"0x0\\\"]\""
+                        .to_string(),
+                ]),
+            ),
+            (
+                // cast calldata "rpc(string,string,string)" "mainnet" "eth_getBalance"
+                // "[\"0x551e7784778ef8e048e495df49f2614f84a4f1dc\",\"0x0\"]"
+                "rpc(string,string,string)",
+                hex!(
+                    "
+                    0199a220
+                    0000000000000000000000000000000000000000000000000000000000000060
+                    00000000000000000000000000000000000000000000000000000000000000a0
+                    00000000000000000000000000000000000000000000000000000000000000e0
+                    0000000000000000000000000000000000000000000000000000000000000007
+                    6d61696e6e657400000000000000000000000000000000000000000000000000
+                    000000000000000000000000000000000000000000000000000000000000000e
+                    6574685f67657442616c616e6365000000000000000000000000000000000000
+                    0000000000000000000000000000000000000000000000000000000000000034
+                    5b22307835353165373738343737386566386530343865343935646634396632
+                    363134663834613466316463222c22307830225d000000000000000000000000
+                "
+                )
+                .to_vec(),
+                Some(vec![
+                    "\"mainnet\"".to_string(),
+                    "\"eth_getBalance\"".to_string(),
+                    "\"[\\\"0x551e7784778ef8e048e495df49f2614f84a4f1dc\\\",\\\"0x0\\\"]\""
+                        .to_string(),
+                ]),
+            ),
         ];
 
         // [function_signature, expected]
@@ -794,6 +1273,10 @@ mod tests {
             // Should redact private key on output in all cases:
             ("createWallet(string)", Some("<pk>".to_string())),
             ("deriveKey(string,uint32)", Some("<pk>".to_string())),
+            // Should redact RPC URL if defined, except if referenced by an alias:
+            ("rpcUrl(string)", Some("<rpc url>".to_string())),
+            ("rpcUrls()", Some("<rpc url>".to_string())),
+            ("rpcUrlStructs()", Some("<rpc url>".to_string())),
         ];
 
         for (function_signature, data, expected) in cheatcode_input_test_cases {

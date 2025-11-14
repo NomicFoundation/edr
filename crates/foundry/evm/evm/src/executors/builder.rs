@@ -10,6 +10,12 @@ use revm::context::result::HaltReasonTr;
 
 use crate::{executors::Executor, inspectors::InspectorStackBuilder};
 
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum ExecutorBuilderError {
+    #[error("Failed to create backend: {0}")]
+    BackendError(String),
+}
+
 /// The builder that allows to configure an evm [`Executor`] which a stack of
 /// optional [`revm::Inspector`]s, such as [`Cheatcodes`].
 ///
@@ -138,14 +144,25 @@ where
     }
 
     /// Builds the executor as configured.
+    #[allow(clippy::type_complexity)]
     pub fn build<
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         TransactionErrorT: TransactionErrorTrait,
     >(
         self,
-    ) -> Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
-    {
+    ) -> Result<
+        Executor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+        ExecutorBuilderError,
+    > {
         let Self {
             mut stack,
             gas_limit,
@@ -156,19 +173,26 @@ where
             local_predeploys,
         } = self;
 
-        stack.block = Some(env.block.clone().into());
-        stack.gas_price = Some(env.tx.gas_price());
+        if stack.block.is_none() {
+            stack.block = Some(env.block.clone().into());
+        }
+        if stack.gas_price.is_none() {
+            stack.gas_price = Some(env.tx.gas_price());
+        }
 
         env.cfg.spec = spec_id;
 
         let gas_limit = gas_limit.unwrap_or(env.block.gas_limit());
 
-        Executor::new(
-            Backend::spawn(fork, local_predeploys),
+        let backend = Backend::spawn(fork, local_predeploys)
+            .map_err(|err| ExecutorBuilderError::BackendError(err.to_string()))?;
+
+        Ok(Executor::new(
+            backend,
             env,
             chain_context,
             stack.build(),
             gas_limit,
-        )
+        ))
     }
 }

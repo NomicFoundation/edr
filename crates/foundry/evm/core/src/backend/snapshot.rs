@@ -2,9 +2,10 @@ use alloy_primitives::{
     map::{AddressHashMap, HashMap},
     B256, U256,
 };
-use revm::{context::JournalInner, state::AccountInfo, JournalEntry};
+use revm::state::AccountInfo;
 use serde::{Deserialize, Serialize};
 
+use super::JournaledState;
 use crate::evm_context::EvmEnv;
 
 /// A minimal abstraction of a state at a certain point in time
@@ -20,18 +21,16 @@ pub struct StateSnapshot {
 pub struct BackendStateSnapshot<DatabaseT, BlockT, TxT, HardforkT> {
     pub db: DatabaseT,
     /// The `journaled_state` state at a specific point
-    pub journaled_state: JournalInner<JournalEntry>,
+    pub journaled_state: JournaledState,
     /// Contains the env at the time of the snapshot
     pub env: EvmEnv<BlockT, TxT, HardforkT>,
 }
-
-// === impl BackendSnapshot ===
 
 impl<DatabaseT, BlockT, TxT, HardforkT> BackendStateSnapshot<DatabaseT, BlockT, TxT, HardforkT> {
     /// Takes a new state snapshot.
     pub fn new(
         db: DatabaseT,
-        journaled_state: JournalInner<JournalEntry>,
+        journaled_state: JournaledState,
         env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> Self {
         Self {
@@ -49,7 +48,7 @@ impl<DatabaseT, BlockT, TxT, HardforkT> BackendStateSnapshot<DatabaseT, BlockT, 
     /// missing in the snapshot's `journaled_state`, since the current
     /// `journaled_state` includes the same logs, we can simply replace use that
     /// See also `DatabaseExt::revert`.
-    pub fn merge(&mut self, current: &JournalInner<JournalEntry>) {
+    pub fn merge(&mut self, current: &JournaledState) {
         self.journaled_state.logs.clone_from(&current.logs);
     }
 }
@@ -59,16 +58,16 @@ impl<DatabaseT, BlockT, TxT, HardforkT> BackendStateSnapshot<DatabaseT, BlockT, 
 /// Whether to remove the state snapshot or keep it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum RevertStateSnapshotAction {
-    /// Remove the state snapshot after reverting
+    /// Remove the state snapshot after reverting.
     #[default]
     RevertRemove,
-    /// Keep the state snapshot after reverting
+    /// Keep the state snapshot after reverting.
     RevertKeep,
 }
 
 impl RevertStateSnapshotAction {
     /// Returns `true` if the action is to keep the state snapshot.
     pub fn is_keep(&self) -> bool {
-        matches!(self, RevertStateSnapshotAction::RevertKeep)
+        matches!(self, Self::RevertKeep)
     }
 }

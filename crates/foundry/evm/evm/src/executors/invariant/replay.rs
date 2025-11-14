@@ -62,15 +62,14 @@ pub struct ReplayRunArgs<
     pub ided_contracts: ContractsByAddress,
     pub logs: &'a mut Vec<Log>,
     pub traces: &'a mut Traces,
-    pub coverage: &'a mut Option<HitMaps>,
+    pub line_coverage: &'a mut Option<HitMaps>,
     pub deprecated_cheatcodes: &'a mut HashMap<&'static str, Option<&'static str>>,
-    pub inputs: Vec<BasicTxDetails>,
+    pub inputs: &'a [BasicTxDetails],
     pub generate_stack_trace: bool,
     /// Must be provided if `generate_stack_trace` is true
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
     pub revert_decoder: &'a RevertDecoder,
     pub fail_on_revert: bool,
-    pub show_solidity: bool,
 }
 
 /// Results of a replay
@@ -115,14 +114,13 @@ pub fn replay_run<
         mut ided_contracts,
         logs,
         traces,
-        coverage,
+        line_coverage: coverage,
         deprecated_cheatcodes,
         inputs,
         generate_stack_trace,
         contract_decoder,
         revert_decoder,
         fail_on_revert,
-        show_solidity,
     } = args;
 
     // We want traces for a failed case.
@@ -137,7 +135,7 @@ pub fn replay_run<
 
     // Replay each call from the sequence, collect logs, traces and coverage.
     for tx in inputs.iter() {
-        let call_result = executor.call_raw_committing(
+        let call_result = executor.transact_raw(
             tx.sender,
             tx.call_details.target,
             tx.call_details.calldata.clone(),
@@ -148,7 +146,7 @@ pub fn replay_run<
             TraceKind::Execution,
             call_result.traces.clone().expect("enabled tracing"),
         ));
-        HitMaps::merge_opt(coverage, call_result.coverage);
+        HitMaps::merge_opt(coverage, call_result.line_coverage);
 
         // Identify newly generated contracts, if they exist.
         ided_contracts.extend(load_contracts(
@@ -163,7 +161,6 @@ pub fn replay_run<
             &tx.call_details.calldata,
             &ided_contracts,
             call_result.traces,
-            show_solidity,
             /* indeterminism_reason */ None,
         ));
 
@@ -175,7 +172,7 @@ pub fn replay_run<
             && (fail_on_revert || !call_result.reverted)
         {
             let stack_trace_result =
-                if let Some(indeterminism_reasons) = executor.indeterminism_reasons() {
+                if let Some(indeterminism_reasons) = call_result.indeterminism_reasons {
                     Some(indeterminism_reasons.into())
                 } else {
                     contract_decoder
@@ -200,7 +197,6 @@ pub fn replay_run<
     let CallInvariantResult {
         call_result: invariant_result,
         success: invariant_success,
-        cow_backend,
     } = call_invariant_function(
         &executor,
         invariant_contract.address,
@@ -235,14 +231,20 @@ pub fn replay_run<
         logs.extend(after_invariant_result.logs);
     }
 
-    let stack_trace_result: Option<StackTraceResult<HaltReasonT>> =
-        if let Some(indeterminism_reasons) = cow_backend.backend.indeterminism_reasons() {
-            Some(indeterminism_reasons.into())
-        } else {
-            contract_decoder
-                .and_then(|decoder| get_stack_trace(decoder, traces).transpose())
+    let stack_trace_result: Option<StackTraceResult<HaltReasonT>> = generate_stack_trace
+        .then(|| {
+            invariant_result
+                .indeterminism_reasons
                 .map(StackTraceResult::from)
-        };
+                .or_else(|| {
+                    contract_decoder.and_then(|decoder| {
+                        get_stack_trace(decoder, traces)
+                            .transpose()
+                            .map(StackTraceResult::from)
+                    })
+                })
+        })
+        .flatten();
 
     let revert_reason = revert_decoder.maybe_decode(
         invariant_result.result.as_ref(),
@@ -289,7 +291,6 @@ pub struct ReplayErrorArgs<
     /// Must be provided if `generate_stack_trace` is true
     pub contract_decoder: Option<&'a NestedTraceDecoderT>,
     pub revert_decoder: &'a RevertDecoder,
-    pub show_solidity: bool,
 }
 
 /// Replays the error case, shrinks the failing sequence and collects all
@@ -330,7 +331,6 @@ pub fn replay_error<
         generate_stack_trace,
         contract_decoder,
         revert_decoder,
-        show_solidity,
     } = args;
 
     match failed_case.test_error {
@@ -356,14 +356,13 @@ pub fn replay_error<
                 ided_contracts,
                 logs,
                 traces,
-                coverage,
+                line_coverage: coverage,
                 deprecated_cheatcodes,
-                inputs: calls,
+                inputs: &calls,
                 generate_stack_trace,
                 contract_decoder,
                 fail_on_revert: failed_case.fail_on_revert,
                 revert_decoder,
-                show_solidity,
             })
         }
     }

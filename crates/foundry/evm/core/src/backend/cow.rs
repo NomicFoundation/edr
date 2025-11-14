@@ -17,7 +17,7 @@ use revm::{
     Database, DatabaseCommit, InspectEvm, JournalEntry,
 };
 
-use super::{BackendError, CheatcodeInspectorTr};
+use super::{BackendError, CheatcodeInspectorTr, IndeterminismReasons, JournaledState};
 use crate::{
     backend::{
         diagnostic::RevertDiagnostic, Backend, CheatcodeBackend, LocalForkId,
@@ -50,7 +50,7 @@ use crate::{
 /// after setup.
 #[derive_where(Clone, Debug; BlockT, HardforkT, TxT)]
 pub struct CowBackend<
-    'cow,
+    'a,
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -64,7 +64,7 @@ pub struct CowBackend<
     /// No calls on the `CowBackend` will ever persistently modify the
     /// `backend`'s state.
     pub backend: Cow<
-        'cow,
+        'a,
         Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
     >,
     /// Keeps track of whether the backed is already initialized
@@ -74,7 +74,7 @@ pub struct CowBackend<
 }
 
 impl<
-        'cow,
+        'a,
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -84,7 +84,7 @@ impl<
         ChainContextT: ChainContextTr,
     >
     CowBackend<
-        'cow,
+        'a,
         BlockT,
         TxT,
         EvmBuilderT,
@@ -95,8 +95,8 @@ impl<
     >
 {
     /// Creates a new `CowBackend` with the given `Backend`.
-    pub fn new(
-        backend: &'cow Backend<
+    pub fn new_borrowed(
+        backend: &'a Backend<
             BlockT,
             TxT,
             EvmBuilderT,
@@ -121,8 +121,8 @@ impl<
     pub fn inspect<'b, InspectorT>(
         &'b mut self,
         env: &mut EvmEnv<BlockT, TxT, HardforkT>,
-        inspector: InspectorT,
         chain_context: ChainContextT,
+        inspector: &mut InspectorT,
     ) -> eyre::Result<ResultAndState<HaltReasonT>>
     where
         InspectorT: CheatcodeInspectorTr<BlockT, TxT, HardforkT, &'b mut Self, ChainContextT>,
@@ -171,7 +171,6 @@ impl<
 
             env.cfg.spec = self.spec_id;
             backend.initialize(&env);
-
             self.is_initialized = true;
             return backend;
         }
@@ -196,6 +195,12 @@ impl<
             return Some(self.backend.to_mut());
         }
         None
+    }
+
+    /// If re-executing the counter example is not guaranteed to yield the same
+    /// results, the `Some` result contains the reason why.
+    pub fn indeterminism_reasons(&self) -> Option<IndeterminismReasons> {
+        self.backend.indeterminism_reasons()
     }
 }
 
@@ -230,7 +235,7 @@ impl<
 {
     fn snapshot_state(
         &mut self,
-        journaled_state: &JournalInner<JournalEntry>,
+        journaled_state: &JournaledState,
         env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> U256 {
         self.backend_mut(env.clone())
@@ -242,13 +247,13 @@ impl<
         id: U256,
         action: RevertStateSnapshotAction,
         context: &'b mut EvmContext<'b, BlockT, TxT, HardforkT, ChainContextT>,
-    ) -> Option<JournalInner<JournalEntry>> {
+    ) -> Option<JournaledState> {
         self.backend_mut(context.to_owned_env())
             .revert_state(id, action, context)
     }
 
     fn delete_state_snapshot(&mut self, id: U256) -> bool {
-        // delete snapshot requires a previous snapshot to be initialized
+        // delete state snapshot requires a previous snapshot to be initialized
         if let Some(backend) = self.initialized_backend_mut() {
             return backend.delete_state_snapshot(id);
         }
@@ -311,16 +316,11 @@ impl<
             .roll_fork_to_transaction(id, transaction, context)
     }
 
-    fn transact<InspectorT>(
+    fn transact(
         &mut self,
         id: Option<LocalForkId>,
         transaction: B256,
-        inspector: &mut InspectorT,
-        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
-        journaled_state: &mut JournalInner<JournalEntry>,
-    ) -> eyre::Result<()>
-    where
-        InspectorT: CheatcodeInspectorTr<
+        inspector: &mut dyn CheatcodeInspectorTr<
             BlockT,
             TxT,
             HardforkT,
@@ -335,7 +335,9 @@ impl<
             >,
             ChainContextT,
         >,
-    {
+        env: EvmEnvWithChainContext<BlockT, TxT, HardforkT, ChainContextT>,
+        journaled_state: &mut JournalInner<JournalEntry>,
+    ) -> eyre::Result<()> {
         self.backend_mut(env.clone().into()).transact(
             id,
             transaction,
@@ -364,7 +366,7 @@ impl<
     fn diagnose_revert(
         &self,
         callee: Address,
-        journaled_state: &JournalInner<JournalEntry>,
+        journaled_state: &JournaledState,
     ) -> Option<RevertDiagnostic> {
         self.backend.diagnose_revert(callee, journaled_state)
     }
@@ -372,10 +374,20 @@ impl<
     fn load_allocs(
         &mut self,
         allocs: &BTreeMap<Address, GenesisAccount>,
-        journaled_state: &mut JournalInner<JournalEntry>,
+        journaled_state: &mut JournaledState,
     ) -> Result<(), BackendError> {
         self.backend_mut(EvmEnv::default())
             .load_allocs(allocs, journaled_state)
+    }
+
+    fn clone_account(
+        &mut self,
+        source: &GenesisAccount,
+        target: &Address,
+        journaled_state: &mut JournaledState,
+    ) -> Result<(), BackendError> {
+        self.backend_mut(EvmEnv::default())
+            .clone_account(source, target, journaled_state)
     }
 
     fn is_persistent(&self, acc: &Address) -> bool {
@@ -415,8 +427,14 @@ impl<
                 .to_mut()
                 .inner
                 .impure_cheatcodes
-                .insert(cheatcode_name);
+                .insert(Cow::Borrowed(cheatcode_name));
         }
+    }
+
+    fn set_blockhash(&mut self, block_number: U256, block_hash: B256) {
+        self.backend
+            .to_mut()
+            .set_blockhash(block_number, block_hash);
     }
 }
 

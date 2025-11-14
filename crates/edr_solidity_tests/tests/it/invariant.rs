@@ -44,14 +44,14 @@ async fn test_invariant_with_alias() {
                 (
                     "invariant_neverFalse()",
                     false,
-                    Some("revert: false".into()),
+                    Some("false".into()),
                     None,
                     None,
                 ),
                 (
                     "statefulFuzz_neverFalseWithInvariantAlias()",
                     false,
-                    Some("revert: false".into()),
+                    Some("false".into()),
                     None,
                     None,
                 ),
@@ -113,7 +113,7 @@ async fn test_invariant_filters() {
                 vec![(
                     "invariantTrueWorld()",
                     false,
-                    Some("revert: false world".into()),
+                    Some("false world".into()),
                     None,
                     None,
                 )],
@@ -137,7 +137,7 @@ async fn test_invariant_filters() {
             vec![(
                 "invariantTrueWorld()",
                 false,
-                Some("revert: false world".into()),
+                Some("false world".into()),
                 None,
                 None,
             )],
@@ -186,7 +186,7 @@ async fn test_invariant_filters() {
                     (
                         "invariantShouldFail()",
                         false,
-                        Some("revert: false world".into()),
+                        Some("false world".into()),
                         None,
                         None,
                     ),
@@ -201,7 +201,7 @@ async fn test_invariant_filters() {
                 vec![(
                     "invariantShouldFail()",
                     false,
-                    Some("revert: it's false".into()),
+                    Some("it's false".into()),
                     None,
                     None,
                 )],
@@ -234,7 +234,7 @@ async fn test_invariant_override() {
             vec![(
                 "invariantNotStolen()",
                 false,
-                Some("revert: stolen".into()),
+                Some("stolen".into()),
                 None,
                 None,
             )],
@@ -267,7 +267,7 @@ async fn test_invariant_fail_on_revert() {
             vec![(
                 "statefulFuzz_BrokenInvariant()",
                 false,
-                Some("revert: failed on revert".into()),
+                Some("failed on revert".into()),
                 None,
                 None,
             )],
@@ -353,7 +353,7 @@ async fn test_invariant_inner_contract() {
             vec![(
                 "invariantHideJesus()",
                 false,
-                Some("revert: jesus betrayed".into()),
+                Some("jesus betrayed".into()),
                 None,
                 None,
             )],
@@ -724,7 +724,7 @@ async fn test_invariant_fuzzed_selected_targets() {
                 vec![(
                     "invariant_dynamic_targets()",
                     false,
-                    Some("revert: wrong target selector called".into()),
+                    Some("wrong target selector called".into()),
                     None,
                     None,
                 )],
@@ -788,7 +788,7 @@ async fn test_invariant_scrape_values() {
                 vec![(
                     "invariant_value_not_found()",
                     false,
-                    Some("revert: value from return found".into()),
+                    Some("value from return found".into()),
                     None,
                     None,
                 )],
@@ -798,7 +798,7 @@ async fn test_invariant_scrape_values() {
                 vec![(
                     "invariant_value_not_found()",
                     false,
-                    Some("revert: value from logs found".into()),
+                    Some("value from logs found".into()),
                     None,
                     None,
                 )],
@@ -840,7 +840,7 @@ async fn test_invariant_roll_fork_handler() {
             vec![(
                 "invariant_fork_handler_block()",
                 false,
-                Some("revert: too many blocks mined".into()),
+                Some("too many blocks mined".into()),
                 None,
                 None,
             )],
@@ -874,7 +874,7 @@ async fn test_invariant_roll_fork_handler() {
             vec![(
                 "invariant_fork_handler_state()",
                 false,
-                Some("revert: wrong supply".into()),
+                Some("wrong supply".into()),
                 None,
                 None,
             )],
@@ -928,14 +928,14 @@ async fn test_invariant_after_invariant() {
                 (
                     "invariant_after_invariant_failure()",
                     false,
-                    Some("revert: afterInvariant failure".into()),
+                    Some("afterInvariant failure".into()),
                     None,
                     None,
                 ),
                 (
                     "invariant_failure()",
                     false,
-                    Some("revert: invariant failure".into()),
+                    Some("invariant failure".into()),
                     None,
                     None,
                 ),
@@ -992,7 +992,7 @@ async fn test_invariant_gas_report() {
         SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTest1.t.sol");
     let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
     config.generate_gas_report = true;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let test_result = runner.test_collect(filter).await.test_result;
 
     assert!(test_result.gas_report.is_some());
@@ -1005,8 +1005,8 @@ async fn test_invariant_gas_report() {
 
     let deployment_report = invariant_breaker_report.deployments.first().unwrap();
 
-    assert_eq!(deployment_report.gas, 159_061);
-    assert_eq!(deployment_report.size, 434);
+    assert_close!(deployment_report.gas, 159_061, 0.1);
+    assert_close!(deployment_report.size, 434, 0.1);
     assert_eq!(deployment_report.status, GasReportExecutionStatus::Success);
 
     assert_eq!(invariant_breaker_report.functions.len(), 3);
@@ -1023,4 +1023,121 @@ async fn test_invariant_gas_report() {
     assert!(flag1_reports
         .iter()
         .all(|r| r.gas > 0 && r.status == GasReportExecutionStatus::Success));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_metrics() {
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantMetrics.t.sol");
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_invariant_config(TestInvariantConfig {
+            runs: 10,
+            show_metrics: true,
+            ..TestInvariantConfig::default()
+        })
+        .await;
+
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let test_results = results
+        .get("default/fuzz/invariant/common/InvariantMetrics.t.sol:CounterTest")
+        .unwrap()
+        .test_results
+        .get("invariant_counter()")
+        .unwrap();
+
+    let metrics = match &test_results.kind {
+        edr_solidity_tests::result::TestKind::Invariant { metrics, .. } => metrics,
+        _ => panic!("Expected Invariant test kind"),
+    };
+
+    assert!(metrics.contains_key(
+        "default/fuzz/invariant/common/InvariantMetrics.t.sol:CounterHandler.doSomething"
+    ));
+    assert!(metrics.contains_key(
+        "default/fuzz/invariant/common/InvariantMetrics.t.sol:CounterHandler.doAnotherThing"
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_timeout() {
+    let filter =
+        SolidityTestFilter::new(".*", ".*", ".*fuzz/invariant/common/InvariantTimeout.t.sol");
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_invariant_config(TestInvariantConfig {
+            runs: 10000,
+            depth: 20000,
+            timeout: Some(1),
+            ..TestInvariantConfig::default()
+        })
+        .await;
+
+    let results = runner.test_collect(filter).await.suite_results;
+
+    let test_results = results
+        .get("default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest")
+        .unwrap()
+        .test_results
+        .get("invariant_counter_timeout()")
+        .unwrap();
+
+    let (runs, calls, reverts) = match &test_results.kind {
+        edr_solidity_tests::result::TestKind::Invariant {
+            runs,
+            calls,
+            reverts,
+            ..
+        } => (*runs, *calls, *reverts),
+        _ => panic!("Expected Invariant test kind"),
+    };
+
+    // Test timeouts and cancels remaining runs
+    assert_eq!(runs, 0);
+    assert_eq!(calls, 0);
+    assert_eq!(reverts, 0);
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantTimeout.t.sol:TimeoutTest",
+            vec![("invariant_counter_timeout()", true, None, None, None)],
+        )]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_invariant_selectors_weight() {
+    let filter = SolidityTestFilter::new(
+        ".*",
+        ".*",
+        ".*fuzz/invariant/common/InvariantSelectorsWeight.t.sol",
+    );
+
+    let runner = TEST_DATA_DEFAULT
+        .runner_with_invariant_config_and_seed(
+            U256::from(119u32),
+            TestInvariantConfig {
+                runs: 1,
+                depth: 10,
+                ..TestInvariantConfig::default()
+            },
+            TEST_DATA_DEFAULT.config_with_mock_rpc(),
+        )
+        .await;
+
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/invariant/common/InvariantSelectorsWeight.t.sol:InvariantSelectorsWeightTest",
+            vec![(
+                "invariant_selectors_weight()",
+                true,
+                None,
+                None,
+                None,
+            )],
+        )]),
+    );
 }

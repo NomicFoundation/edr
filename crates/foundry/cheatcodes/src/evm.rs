@@ -1,23 +1,24 @@
-//! Implementations of [`Evm`](crate::Group::Evm) cheatcodes.
+//! Implementations of [`Evm`](spec::Group::Evm) cheatcodes.
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{btree_map::Entry, BTreeMap},
+    fmt::Display,
     path::Path,
 };
 
 use alloy_genesis::{Genesis, GenesisAccount};
-use alloy_primitives::{Address, Bytes, B256, U256};
+use alloy_primitives::{map::HashMap, Address, Bytes, B256, U256};
 use alloy_sol_types::SolValue;
 use edr_common::fs::{read_json_file, write_json_file};
 use foundry_evm_core::{
     backend::{CheatcodeBackend, RevertStateSnapshotAction},
     constants::{CALLER, CHEATCODE_ADDRESS, HARDHAT_CONSOLE_ADDRESS, TEST_CONTRACT_ADDRESS},
-    evm_context::{
-        split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-        TransactionErrorTrait,
-    },
     utils::get_blob_base_fee_update_fraction_by_spec_id,
+    ContextExt,
 };
+use foundry_evm_traces::StackSnapshotType;
+use itertools::Itertools;
+use rand::Rng;
 use revm::{
     bytecode::Bytecode,
     context::{result::HaltReasonTr, CfgEnv, JournalTr},
@@ -25,27 +26,20 @@ use revm::{
     state::Account,
     Journal,
 };
-use spec::Vm::{
-    resetGasMeteringCall, signCall, snapshotGasLastCall_0Call, snapshotGasLastCall_1Call,
-    snapshotValue_0Call, snapshotValue_1Call, startSnapshotGas_0Call, startSnapshotGas_1Call,
-    stopSnapshotGas_0Call, stopSnapshotGas_1Call, stopSnapshotGas_2Call,
+
+#[allow(clippy::wildcard_imports)]
+use crate::{
+    impl_is_pure_false, impl_is_pure_true, inspector::RecordDebugStepInfo, Cheatcode, Cheatcodes,
+    CheatcodesExecutor, CheatsCtxt, Error, Result, Vm::*,
 };
 
-use crate::{
-    impl_is_pure_false, impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result,
-    Vm::{
-        accessesCall, addrCall, blobBaseFeeCall, blobhashesCall, chainIdCall, coinbaseCall,
-        coolCall, dealCall, deleteSnapshotCall, deleteSnapshotsCall, deleteStateSnapshotCall,
-        deleteStateSnapshotsCall, difficultyCall, dumpStateCall, etchCall, feeCall,
-        getBlobBaseFeeCall, getBlobhashesCall, getBlockNumberCall, getBlockTimestampCall,
-        getNonceCall, getRecordedLogsCall, lastCallGasCall, loadAllocsCall, loadCall,
-        pauseGasMeteringCall, prevrandao_0Call, prevrandao_1Call, readCallersCall, recordCall,
-        recordLogsCall, resetNonceCall, resumeGasMeteringCall, revertToAndDeleteCall, revertToCall,
-        revertToStateAndDeleteCall, revertToStateCall, rollCall, setNonceCall, setNonceUnsafeCall,
-        signP256Call, snapshotCall, snapshotStateCall, startStateDiffRecordingCall,
-        stopAndReturnStateDiffCall, storeCall, txGasPriceCall, warpCall, CallerMode,
-    },
+mod record_debug_step;
+use foundry_evm_core::evm_context::{
+    split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+    TransactionErrorTrait,
 };
+use record_debug_step::{convert_call_trace_to_debug_step, flatten_call_trace};
+use serde::Serialize;
 
 mod fork;
 pub(crate) mod mapping;
@@ -59,6 +53,28 @@ pub struct RecordAccess {
     pub reads: HashMap<Address, Vec<U256>>,
     /// Storage slots writes.
     pub writes: HashMap<Address, Vec<U256>>,
+}
+
+impl RecordAccess {
+    /// Records a read access to a storage slot.
+    pub fn record_read(&mut self, target: Address, slot: U256) {
+        self.reads.entry(target).or_default().push(slot);
+    }
+
+    /// Records a write access to a storage slot.
+    ///
+    /// This also records a read internally as `SSTORE` does an implicit
+    /// `SLOAD`.
+    pub fn record_write(&mut self, target: Address, slot: U256) {
+        self.record_read(target, slot);
+        self.writes.entry(target).or_default().push(slot);
+    }
+
+    /// Clears the recorded reads and writes.
+    pub fn clear(&mut self) {
+        // Also frees memory.
+        *self = RecordAccess::default();
+    }
 }
 
 /// Records the `snapshotGas*` cheatcodes.
@@ -85,16 +101,89 @@ pub struct DealRecord {
     pub new_balance: U256,
 }
 
+/// Storage slot diff info.
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct SlotStateDiff {
+    /// Initial storage value.
+    previous_value: B256,
+    /// Current storage value.
+    new_value: B256,
+}
+
+/// Balance diff info.
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct BalanceDiff {
+    /// Initial storage value.
+    previous_value: U256,
+    /// Current storage value.
+    new_value: U256,
+}
+
+/// Account state diff info.
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct AccountStateDiffs {
+    /// Address label, if any set.
+    label: Option<String>,
+    /// Account balance changes.
+    balance_diff: Option<BalanceDiff>,
+    /// State changes, per slot.
+    state_diff: BTreeMap<B256, SlotStateDiff>,
+}
+
+impl Display for AccountStateDiffs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> eyre::Result<(), std::fmt::Error> {
+        // Print changed account.
+        if let Some(label) = &self.label {
+            writeln!(f, "label: {label}")?;
+        }
+        // Print balance diff if changed.
+        if let Some(balance_diff) = &self.balance_diff
+            && balance_diff.previous_value != balance_diff.new_value
+        {
+            writeln!(
+                f,
+                "- balance diff: {} → {}",
+                balance_diff.previous_value, balance_diff.new_value
+            )?;
+        }
+        // Print state diff if any.
+        if !&self.state_diff.is_empty() {
+            writeln!(f, "- state diff:")?;
+            for (slot, slot_changes) in &self.state_diff {
+                writeln!(
+                    f,
+                    "@ {slot}: {} → {}",
+                    slot_changes.previous_value, slot_changes.new_value
+                )?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl_is_pure_true!(addrCall);
 impl Cheatcode for addrCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -108,14 +197,14 @@ impl Cheatcode for addrCall {
         >,
     ) -> Result {
         let Self { privateKey } = self;
-        let wallet = super::utils::parse_wallet(privateKey)?;
+        let wallet = super::crypto::parse_wallet(privateKey)?;
         Ok(wallet.address().abi_encode())
     }
 }
 
 impl_is_pure_true!(getNonceCall);
 impl Cheatcode for getNonceCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -152,7 +241,7 @@ impl Cheatcode for getNonceCall {
 
 impl_is_pure_true!(loadCall);
 impl Cheatcode for loadCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -185,14 +274,41 @@ impl Cheatcode for loadCall {
         let Self { target, slot } = *self;
         ensure_not_precompile!(&target, ccx);
         ccx.ecx.journaled_state.load_account(target)?;
-        let val = ccx.ecx.journaled_state.sload(target, slot.into())?;
+        let mut val = ccx.ecx.journaled_state.sload(target, slot.into())?;
+
+        if val.is_cold && val.data.is_zero() {
+            if ccx.state.has_arbitrary_storage(&target) {
+                // If storage slot is untouched and load from a target with arbitrary storage,
+                // then set random value for current slot.
+                let rand_value = ccx.state.rng().random();
+                ccx.state.arbitrary_storage.as_mut().unwrap().save(
+                    ccx.ecx,
+                    target,
+                    slot.into(),
+                    rand_value,
+                );
+                val.data = rand_value;
+            } else if ccx.state.is_arbitrary_storage_copy(&target) {
+                // If storage slot is untouched and load from a target that copies storage from
+                // a source address with arbitrary storage, then copy existing arbitrary value.
+                // If no arbitrary value generated yet, then the random one is saved and set.
+                let rand_value = ccx.state.rng().random();
+                val.data = ccx.state.arbitrary_storage.as_mut().unwrap().copy(
+                    ccx.ecx,
+                    target,
+                    slot.into(),
+                    rand_value,
+                );
+            }
+        }
+
         Ok(val.abi_encode())
     }
 }
 
 impl_is_pure_false!(loadAllocsCall);
 impl Cheatcode for loadAllocsCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -231,7 +347,6 @@ impl Cheatcode for loadAllocsCall {
         );
 
         // Let's first assume we're reading a file with only the allocs.
-
         let allocs: BTreeMap<Address, GenesisAccount> = if let Ok(allocs) = read_json_file(path) {
             allocs
         } else {
@@ -241,16 +356,63 @@ impl Cheatcode for loadAllocsCall {
         };
 
         // Then, load the allocs into the database.
-        let (db, context) = split_context(ccx.ecx);
-        db.load_allocs(&allocs, context.journaled_state)
+        let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+        db.load_allocs(&allocs, journal)
             .map(|()| Vec::default())
             .map_err(|e| fmt_err!("failed to load allocs: {e}"))
     }
 }
 
+impl_is_pure_true!(cloneAccountCall);
+impl Cheatcode for cloneAccountCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { source, target } = self;
+
+        let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
+        let account = journal.load_account(db, *source)?;
+        let genesis = &genesis_account(account.data);
+        db.clone_account(genesis, target, journal)?;
+        // Cloned account should persist in forked envs.
+        ccx.ecx
+            .journaled_state
+            .database
+            .add_persistent_account(*target);
+        Ok(Vec::default())
+    }
+}
+
 impl_is_pure_false!(dumpStateCall);
 impl Cheatcode for dumpStateCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -300,101 +462,11 @@ impl Cheatcode for dumpStateCall {
             .state()
             .iter_mut()
             .filter(|(key, val)| !skip(key, val))
-            .map(|(key, val)| {
-                (
-                    key,
-                    GenesisAccount {
-                        nonce: Some(val.info.nonce),
-                        balance: val.info.balance,
-                        code: val.info.code.as_ref().map(Bytecode::original_bytes),
-                        storage: Some(
-                            val.storage
-                                .iter()
-                                .map(|(k, v)| (B256::from(*k), B256::from(v.present_value())))
-                                .collect(),
-                        ),
-                        private_key: None,
-                    },
-                )
-            })
-            .collect::<HashMap<_, _>>();
+            .map(|(key, val)| (key, genesis_account(val)))
+            .collect::<BTreeMap<_, _>>();
 
         write_json_file(path, &alloc)?;
         Ok(Vec::default())
-    }
-}
-
-impl_is_pure_true!(signCall);
-impl Cheatcode for signCall {
-    fn apply_full<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
-        ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-        >,
-    >(
-        &self,
-        _: &mut CheatsCtxt<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-            DatabaseT,
-        >,
-    ) -> Result {
-        let Self { privateKey, digest } = self;
-        super::utils::sign(privateKey, digest)
-    }
-}
-
-impl_is_pure_true!(signP256Call);
-impl Cheatcode for signP256Call {
-    fn apply_full<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
-        ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-        >,
-    >(
-        &self,
-        _ccx: &mut CheatsCtxt<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-            DatabaseT,
-        >,
-    ) -> Result {
-        let Self { privateKey, digest } = self;
-        super::utils::sign_p256(privateKey, digest)
     }
 }
 
@@ -403,11 +475,20 @@ impl Cheatcode for recordCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -421,7 +502,44 @@ impl Cheatcode for recordCall {
         >,
     ) -> Result {
         let Self {} = self;
-        state.accesses = Some(RecordAccess::default());
+        state.recording_accesses = true;
+        state.accesses.clear();
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(stopRecordCall);
+impl Cheatcode for stopRecordCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        state.recording_accesses = false;
         Ok(Vec::default())
     }
 }
@@ -431,11 +549,20 @@ impl Cheatcode for accessesCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -449,16 +576,10 @@ impl Cheatcode for accessesCall {
         >,
     ) -> Result {
         let Self { target } = *self;
-        let result = state
-            .accesses
-            .as_mut()
-            .map(|accesses| {
-                (
-                    &accesses.reads.entry(target).or_default()[..],
-                    &accesses.writes.entry(target).or_default()[..],
-                )
-            })
-            .unwrap_or_default();
+        let result = (
+            state.accesses.reads.entry(target).or_default().as_slice(),
+            state.accesses.writes.entry(target).or_default().as_slice(),
+        );
         Ok(result.abi_encode_params())
     }
 }
@@ -468,11 +589,20 @@ impl Cheatcode for recordLogsCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -496,11 +626,20 @@ impl Cheatcode for getRecordedLogsCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -527,11 +666,20 @@ impl Cheatcode for pauseGasMeteringCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -555,11 +703,20 @@ impl Cheatcode for resumeGasMeteringCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -583,11 +740,20 @@ impl Cheatcode for resetGasMeteringCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -611,11 +777,20 @@ impl Cheatcode for lastCallGasCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -638,7 +813,7 @@ impl Cheatcode for lastCallGasCall {
 
 impl_is_pure_true!(chainIdCall);
 impl Cheatcode for chainIdCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -680,7 +855,7 @@ impl Cheatcode for chainIdCall {
 
 impl_is_pure_true!(coinbaseCall);
 impl Cheatcode for coinbaseCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -718,7 +893,7 @@ impl Cheatcode for coinbaseCall {
 
 impl_is_pure_true!(difficultyCall);
 impl Cheatcode for difficultyCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -761,7 +936,7 @@ impl Cheatcode for difficultyCall {
 
 impl_is_pure_true!(feeCall);
 impl Cheatcode for feeCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -803,7 +978,7 @@ impl Cheatcode for feeCall {
 
 impl_is_pure_true!(prevrandao_0Call);
 impl Cheatcode for prevrandao_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -839,14 +1014,14 @@ impl Cheatcode for prevrandao_0Call {
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
-        ccx.ecx.block.set_prevrandao(*newPrevrandao);
+        ccx.ecx.block.set_prevrandao(Some(*newPrevrandao));
         Ok(Vec::default())
     }
 }
 
 impl_is_pure_true!(prevrandao_1Call);
 impl Cheatcode for prevrandao_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -882,14 +1057,14 @@ impl Cheatcode for prevrandao_1Call {
             "`prevrandao` is not supported before the Paris hard fork, use `difficulty` instead; \
              see EIP-4399: https://eips.ethereum.org/EIPS/eip-4399"
         );
-        ccx.ecx.block.set_prevrandao((*newPrevrandao).into());
+        ccx.ecx.block.set_prevrandao(Some((*newPrevrandao).into()));
         Ok(Vec::default())
     }
 }
 
 impl_is_pure_true!(blobhashesCall);
 impl Cheatcode for blobhashesCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -922,17 +1097,17 @@ impl Cheatcode for blobhashesCall {
         let Self { hashes } = self;
         ensure!(
             ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
-            "`blobhash` is not supported before the Cancun hard fork; \
+            "`blobhashes` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
-        ccx.ecx.tx.set_blob_versioned_hashes(hashes.clone());
+        ccx.ecx.tx.set_blob_hashes(hashes.clone());
         Ok(Vec::default())
     }
 }
 
 impl_is_pure_true!(getBlobhashesCall);
 impl Cheatcode for getBlobhashesCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -965,7 +1140,7 @@ impl Cheatcode for getBlobhashesCall {
         let Self {} = self;
         ensure!(
             ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
-            "`blobhash` is not supported before the Cancun hard fork; \
+            "`getBlobhashes` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
         Ok(ccx.ecx.tx.blob_versioned_hashes().abi_encode())
@@ -974,7 +1149,7 @@ impl Cheatcode for getBlobhashesCall {
 
 impl_is_pure_true!(rollCall);
 impl Cheatcode for rollCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1005,18 +1180,14 @@ impl Cheatcode for rollCall {
         >,
     ) -> Result {
         let Self { newHeight } = self;
-        ensure!(
-            *newHeight <= U256::from(u64::MAX),
-            "block height must be less than 2^64 - 1"
-        );
-        ccx.ecx.block.set_block_number(newHeight.saturating_to());
+        ccx.ecx.block.set_number(*newHeight);
         Ok(Vec::default())
     }
 }
 
 impl_is_pure_true!(getBlockNumberCall);
 impl Cheatcode for getBlockNumberCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1053,7 +1224,7 @@ impl Cheatcode for getBlockNumberCall {
 
 impl_is_pure_true!(txGasPriceCall);
 impl Cheatcode for txGasPriceCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1085,8 +1256,8 @@ impl Cheatcode for txGasPriceCall {
     ) -> Result {
         let Self { newGasPrice } = self;
         ensure!(
-            *newGasPrice <= U256::from(u128::MAX),
-            "gas price must be less than 2^128 - 1"
+            *newGasPrice <= U256::from(u64::MAX),
+            "gas price must be less than 2^64 - 1"
         );
         ccx.ecx.tx.set_gas_price(newGasPrice.saturating_to());
         Ok(Vec::default())
@@ -1095,7 +1266,7 @@ impl Cheatcode for txGasPriceCall {
 
 impl_is_pure_true!(warpCall);
 impl Cheatcode for warpCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1126,18 +1297,14 @@ impl Cheatcode for warpCall {
         >,
     ) -> Result {
         let Self { newTimestamp } = self;
-        ensure!(
-            *newTimestamp <= U256::from(u64::MAX),
-            "timestamp must be less than 2^64 - 1"
-        );
-        ccx.ecx.block.set_timestamp(newTimestamp.saturating_to());
+        ccx.ecx.block.set_timestamp(*newTimestamp);
         Ok(Vec::default())
     }
 }
 
 impl_is_pure_true!(getBlockTimestampCall);
 impl Cheatcode for getBlockTimestampCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1174,7 +1341,7 @@ impl Cheatcode for getBlockTimestampCall {
 
 impl_is_pure_true!(blobBaseFeeCall);
 impl Cheatcode for blobBaseFeeCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1205,15 +1372,15 @@ impl Cheatcode for blobBaseFeeCall {
         >,
     ) -> Result {
         let Self { newBlobBaseFee } = self;
-        let spec_id: SpecId = ccx.ecx.cfg.spec.into();
         ensure!(
-            spec_id >= SpecId::CANCUN,
+            ccx.ecx.cfg.spec.into() >= SpecId::CANCUN,
             "`blobBaseFee` is not supported before the Cancun hard fork; \
              see EIP-4844: https://eips.ethereum.org/EIPS/eip-4844"
         );
+
         ccx.ecx.block.set_blob_excess_gas_and_price(
             (*newBlobBaseFee).to(),
-            get_blob_base_fee_update_fraction_by_spec_id(spec_id),
+            get_blob_base_fee_update_fraction_by_spec_id(ccx.ecx.cfg.spec.into()),
         );
         Ok(Vec::default())
     }
@@ -1221,7 +1388,7 @@ impl Cheatcode for blobBaseFeeCall {
 
 impl_is_pure_true!(getBlobBaseFeeCall);
 impl Cheatcode for getBlobBaseFeeCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1258,7 +1425,7 @@ impl Cheatcode for getBlobBaseFeeCall {
 
 impl_is_pure_true!(dealCall);
 impl Cheatcode for dealCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1306,7 +1473,7 @@ impl Cheatcode for dealCall {
 
 impl_is_pure_true!(etchCall);
 impl Cheatcode for etchCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1342,7 +1509,8 @@ impl Cheatcode for etchCall {
         } = self;
         ensure_not_precompile!(target, ccx);
         ccx.ecx.journaled_state.load_account(*target)?;
-        let bytecode = Bytecode::new_raw(Bytes::copy_from_slice(newRuntimeBytecode));
+        let bytecode = Bytecode::new_raw_checked(Bytes::copy_from_slice(newRuntimeBytecode))
+            .map_err(|e| fmt_err!("failed to create bytecode: {e}"))?;
         ccx.ecx.journaled_state.set_code(*target, bytecode);
         Ok(Vec::default())
     }
@@ -1350,7 +1518,7 @@ impl Cheatcode for etchCall {
 
 impl_is_pure_true!(resetNonceCall);
 impl Cheatcode for resetNonceCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1395,7 +1563,7 @@ impl Cheatcode for resetNonceCall {
 
 impl_is_pure_true!(setNonceCall);
 impl Cheatcode for setNonceCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1441,7 +1609,7 @@ impl Cheatcode for setNonceCall {
 
 impl_is_pure_true!(setNonceUnsafeCall);
 impl Cheatcode for setNonceUnsafeCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1480,7 +1648,7 @@ impl Cheatcode for setNonceUnsafeCall {
 
 impl_is_pure_true!(storeCall);
 impl Cheatcode for storeCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1527,7 +1695,7 @@ impl Cheatcode for storeCall {
 
 impl_is_pure_true!(coolCall);
 impl Cheatcode for coolCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1560,15 +1728,185 @@ impl Cheatcode for coolCall {
         let Self { target } = self;
         if let Some(account) = ccx.ecx.journaled_state.state.get_mut(target) {
             account.unmark_touch();
-            account.storage.clear();
+            account
+                .storage
+                .values_mut()
+                .for_each(revm::state::EvmStorageSlot::mark_cold);
         }
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(accessListCall);
+impl Cheatcode for accessListCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self { access } = self;
+        let access_list = access
+            .iter()
+            .map(|item| {
+                let keys = item
+                    .storageKeys
+                    .iter()
+                    .map(|key| B256::from(*key))
+                    .collect_vec();
+                alloy_rpc_types::AccessListItem {
+                    address: item.target,
+                    storage_keys: keys,
+                }
+            })
+            .collect_vec();
+        state.access_list = Some(alloy_rpc_types::AccessList::from(access_list));
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(noAccessListCall);
+impl Cheatcode for noAccessListCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {} = self;
+        // Set to empty option in order to override previous applied access list.
+        if state.access_list.is_some() {
+            state.access_list = Some(alloy_rpc_types::AccessList::default());
+        }
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(warmSlotCall);
+impl Cheatcode for warmSlotCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { target, slot } = *self;
+        set_cold_slot(ccx, target, slot.into(), false);
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(coolSlotCall);
+impl Cheatcode for coolSlotCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { target, slot } = *self;
+        set_cold_slot(ccx, target, slot.into(), true);
         Ok(Vec::default())
     }
 }
 
 impl_is_pure_true!(readCallersCall);
 impl Cheatcode for readCallersCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1599,13 +1937,25 @@ impl Cheatcode for readCallersCall {
         >,
     ) -> Result {
         let Self {} = self;
-        read_callers(ccx.state, &ccx.ecx.tx.caller())
+        read_callers::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
+            &ccx.ecx.tx.caller(),
+            ccx.ecx.journaled_state.depth(),
+        )
     }
 }
 
 impl_is_pure_true!(snapshotValue_0Call);
 impl Cheatcode for snapshotValue_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1642,7 +1992,7 @@ impl Cheatcode for snapshotValue_0Call {
 
 impl_is_pure_true!(snapshotValue_1Call);
 impl Cheatcode for snapshotValue_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1684,7 +2034,7 @@ impl Cheatcode for snapshotValue_1Call {
 
 impl_is_pure_true!(snapshotGasLastCall_0Call);
 impl Cheatcode for snapshotGasLastCall_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1724,7 +2074,7 @@ impl Cheatcode for snapshotGasLastCall_0Call {
 
 impl_is_pure_true!(snapshotGasLastCall_1Call);
 impl Cheatcode for snapshotGasLastCall_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1769,7 +2119,7 @@ impl Cheatcode for snapshotGasLastCall_1Call {
 
 impl_is_pure_true!(startSnapshotGas_0Call);
 impl Cheatcode for startSnapshotGas_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1806,7 +2156,7 @@ impl Cheatcode for startSnapshotGas_0Call {
 
 impl_is_pure_true!(startSnapshotGas_1Call);
 impl Cheatcode for startSnapshotGas_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1843,7 +2193,7 @@ impl Cheatcode for startSnapshotGas_1Call {
 
 impl_is_pure_true!(stopSnapshotGas_0Call);
 impl Cheatcode for stopSnapshotGas_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1880,7 +2230,7 @@ impl Cheatcode for stopSnapshotGas_0Call {
 
 impl_is_pure_true!(stopSnapshotGas_1Call);
 impl Cheatcode for stopSnapshotGas_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1917,7 +2267,7 @@ impl Cheatcode for stopSnapshotGas_1Call {
 
 impl_is_pure_true!(stopSnapshotGas_2Call);
 impl Cheatcode for stopSnapshotGas_2Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1955,7 +2305,7 @@ impl Cheatcode for stopSnapshotGas_2Call {
 // Deprecated in favor of `snapshotStateCall`
 impl_is_pure_true!(snapshotCall);
 impl Cheatcode for snapshotCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1992,7 +2342,7 @@ impl Cheatcode for snapshotCall {
 
 impl_is_pure_true!(snapshotStateCall);
 impl Cheatcode for snapshotStateCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2030,7 +2380,7 @@ impl Cheatcode for snapshotStateCall {
 // Deprecated in favor of `revertToStateCall`
 impl_is_pure_true!(revertToCall);
 impl Cheatcode for revertToCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2067,7 +2417,7 @@ impl Cheatcode for revertToCall {
 
 impl_is_pure_true!(revertToStateCall);
 impl Cheatcode for revertToStateCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2105,7 +2455,7 @@ impl Cheatcode for revertToStateCall {
 // Deprecated in favor of `revertToStateAndDeleteCall`
 impl_is_pure_true!(revertToAndDeleteCall);
 impl Cheatcode for revertToAndDeleteCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2142,7 +2492,7 @@ impl Cheatcode for revertToAndDeleteCall {
 
 impl_is_pure_true!(revertToStateAndDeleteCall);
 impl Cheatcode for revertToStateAndDeleteCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2180,7 +2530,7 @@ impl Cheatcode for revertToStateAndDeleteCall {
 // Deprecated in favor of `deleteStateSnapshotCall`
 impl_is_pure_true!(deleteSnapshotCall);
 impl Cheatcode for deleteSnapshotCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2217,7 +2567,7 @@ impl Cheatcode for deleteSnapshotCall {
 
 impl_is_pure_true!(deleteStateSnapshotCall);
 impl Cheatcode for deleteStateSnapshotCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2255,7 +2605,7 @@ impl Cheatcode for deleteStateSnapshotCall {
 // Deprecated in favor of `deleteStateSnapshotsCall`
 impl_is_pure_true!(deleteSnapshotsCall);
 impl Cheatcode for deleteSnapshotsCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2292,7 +2642,7 @@ impl Cheatcode for deleteSnapshotsCall {
 
 impl_is_pure_true!(deleteStateSnapshotsCall);
 impl Cheatcode for deleteStateSnapshotsCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2332,11 +2682,20 @@ impl Cheatcode for startStateDiffRecordingCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -2360,11 +2719,20 @@ impl Cheatcode for stopAndReturnStateDiffCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -2378,7 +2746,315 @@ impl Cheatcode for stopAndReturnStateDiffCall {
         >,
     ) -> Result {
         let Self {} = self;
-        get_state_diff(state)
+        get_state_diff::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state)
+    }
+}
+
+impl_is_pure_true!(getStateDiffCall);
+impl Cheatcode for getStateDiffCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let mut diffs = String::new();
+        let state_diffs = get_recorded_state_diffs::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state);
+        for (address, state_diffs) in state_diffs {
+            diffs.push_str(&format!("{address}\n"));
+            diffs.push_str(&format!("{state_diffs}\n"));
+        }
+        Ok(diffs.abi_encode())
+    }
+}
+
+impl_is_pure_true!(getStateDiffJsonCall);
+impl Cheatcode for getStateDiffJsonCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let state_diffs = get_recorded_state_diffs::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state);
+        Ok(serde_json::to_string(&state_diffs)?.abi_encode())
+    }
+}
+
+impl_is_pure_true!(setBlockhashCall);
+impl Cheatcode for setBlockhashCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            blockNumber,
+            blockHash,
+        } = *self;
+        ensure!(
+            blockNumber <= U256::from(u64::MAX),
+            "blockNumber must be less than 2^64 - 1"
+        );
+        ensure!(
+            blockNumber <= U256::from(ccx.ecx.block.number()),
+            "block number must be less than or equal to the current block number"
+        );
+
+        ccx.ecx
+            .journaled_state
+            .database
+            .set_blockhash(blockNumber, blockHash);
+
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(startDebugTraceRecordingCall);
+impl Cheatcode for startDebugTraceRecordingCall {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+        executor: &mut dyn CheatcodesExecutor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Some(tracer) = executor.tracing_inspector().and_then(|t| t.as_mut()) else {
+            return Err(Error::from(
+                "no tracer initiated, consider adding -vvv flag",
+            ));
+        };
+
+        let mut info = RecordDebugStepInfo {
+            // will be updated later
+            start_node_idx: 0,
+            // keep the original config to revert back later
+            original_tracer_config: *tracer.config(),
+        };
+
+        // turn on tracer configuration for recording
+        tracer.update_config(|config| {
+            config
+                .set_steps(true)
+                .set_memory_snapshots(true)
+                .set_stack_snapshots(StackSnapshotType::Full)
+        });
+
+        // track where the recording starts
+        if let Some(last_node) = tracer.traces().nodes().last() {
+            info.start_node_idx = last_node.idx;
+        }
+
+        ccx.state.record_debug_steps_info = Some(info);
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(stopAndReturnDebugTraceRecordingCall);
+impl Cheatcode for stopAndReturnDebugTraceRecordingCall {
+    fn apply_full<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+        executor: &mut dyn CheatcodesExecutor<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Some(tracer) = executor.tracing_inspector().and_then(|t| t.as_mut()) else {
+            return Err(Error::from(
+                "no tracer initiated, consider adding -vvv flag",
+            ));
+        };
+
+        let Some(record_info) = ccx.state.record_debug_steps_info else {
+            return Err(Error::from("nothing recorded"));
+        };
+
+        // Use the trace nodes to flatten the call trace
+        let root = tracer.traces();
+        let steps = flatten_call_trace(0, root, record_info.start_node_idx);
+
+        let debug_steps: Vec<DebugStep> = steps
+            .iter()
+            .map(|&step| convert_call_trace_to_debug_step(step))
+            .collect();
+        // Free up memory by clearing the steps if they are not recorded outside of
+        // cheatcode usage.
+        if !record_info.original_tracer_config.record_steps {
+            tracer.traces_mut().nodes_mut().iter_mut().for_each(|node| {
+                node.trace.steps = Vec::new();
+                node.logs = Vec::new();
+                node.ordering = Vec::new();
+            });
+        }
+
+        // Revert the tracer config to the one before recording
+        tracer.update_config(|_config| record_info.original_tracer_config);
+
+        // Clean up the recording info
+        ccx.state.record_debug_steps_info = None;
+
+        Ok(debug_steps.abi_encode())
     }
 }
 
@@ -2528,6 +3204,7 @@ fn inner_revert_to_state_and_delete<
     snapshot_id: U256,
 ) -> Result {
     let (db, mut context) = split_context(ccx.ecx);
+
     let result = if let Some(journaled_state) = db.revert_state(
         snapshot_id,
         RevertStateSnapshotAction::RevertRemove,
@@ -2828,7 +3505,7 @@ fn inner_stop_gas_snapshot<
         ccx.state
             .gas_metering
             .gas_records
-            .retain(|record| !(record.group == group && record.name == name));
+            .retain(|record| record.group != group && record.name != name);
 
         // Clear last snapshot cache if we have an exact match.
         if let Some((snapshot_group, snapshot_name)) = &ccx.state.gas_metering.active_gas_snapshot
@@ -2904,6 +3581,15 @@ fn derive_snapshot_name<
 ///     - `tx.origin` will be equal to the default sender address unless an
 ///       alternative one has been set when configuring the prank.
 ///
+/// - If there is an active broadcast:
+///     - `caller_mode` will be equal to:
+///         - [`CallerMode::Broadcast`] if the broadcast has been set with
+///           `vm.broadcast(..)`.
+///         - [`CallerMode::RecurrentBroadcast`] if the broadcast has been set
+///           with `vm.startBroadcast(..)`.
+///     - `msg.sender` and `tx.origin` will be equal to the address provided
+///       when setting the broadcast.
+///
 /// - If no caller modification is active:
 ///     - `caller_mode` will be equal to [`CallerMode::None`],
 ///     - `msg.sender` and `tx.origin` will be equal to the default sender
@@ -2911,11 +3597,11 @@ fn derive_snapshot_name<
 fn read_callers<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
 >(
     state: &Cheatcodes<
         BlockT,
@@ -2927,13 +3613,12 @@ fn read_callers<
         TransactionErrorT,
     >,
     default_sender: &Address,
+    call_depth: usize,
 ) -> Result {
-    let Cheatcodes { prank, .. } = state;
-
     let mut mode = CallerMode::None;
     let mut new_caller = default_sender;
     let mut new_origin = default_sender;
-    if let Some(prank) = prank {
+    if let Some(prank) = state.get_prank(call_depth) {
         mode = if prank.single_call {
             CallerMode::Prank
         } else {
@@ -2952,11 +3637,11 @@ fn read_callers<
 pub(super) fn journaled_account<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
+    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
-    ChainContextT: ChainContextTr,
     DatabaseT: CheatcodeBackend<
         BlockT,
         TxT,
@@ -2997,11 +3682,11 @@ pub(super) fn journaled_account<
 fn get_state_diff<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
 >(
     state: &mut Cheatcodes<
         BlockT,
@@ -3021,4 +3706,143 @@ fn get_state_diff<
         .flatten()
         .collect::<Vec<_>>();
     Ok(res.abi_encode())
+}
+
+/// Helper function that creates a `GenesisAccount` from a regular `Account`.
+fn genesis_account(account: &Account) -> GenesisAccount {
+    GenesisAccount {
+        nonce: Some(account.info.nonce),
+        balance: account.info.balance,
+        code: account
+            .info
+            .code
+            .as_ref()
+            .map(revm::bytecode::Bytecode::original_bytes),
+        storage: Some(
+            account
+                .storage
+                .iter()
+                .map(|(k, v)| (B256::from(*k), B256::from(v.present_value())))
+                .collect(),
+        ),
+        private_key: None,
+    }
+}
+
+/// Helper function to returns state diffs recorded for each changed account.
+fn get_recorded_state_diffs<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+>(
+    state: &mut Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
+) -> BTreeMap<Address, AccountStateDiffs> {
+    let mut state_diffs: BTreeMap<Address, AccountStateDiffs> = BTreeMap::default();
+    if let Some(records) = &state.recorded_account_diffs_stack {
+        records
+            .iter()
+            .flatten()
+            .filter(|account_access| {
+                !account_access.storageAccesses.is_empty()
+                    || account_access.oldBalance != account_access.newBalance
+            })
+            .for_each(|account_access| {
+                // Record account balance diffs.
+                if account_access.oldBalance != account_access.newBalance {
+                    let account_diff =
+                        state_diffs
+                            .entry(account_access.account)
+                            .or_insert_with(|| AccountStateDiffs {
+                                label: state.labels.get(&account_access.account).cloned(),
+                                ..Default::default()
+                            });
+                    // Update balance diff. Do not overwrite the initial balance if already set.
+                    if let Some(diff) = &mut account_diff.balance_diff {
+                        diff.new_value = account_access.newBalance;
+                    } else {
+                        account_diff.balance_diff = Some(BalanceDiff {
+                            previous_value: account_access.oldBalance,
+                            new_value: account_access.newBalance,
+                        });
+                    }
+                }
+
+                // Record account state diffs.
+                for storage_access in &account_access.storageAccesses {
+                    if storage_access.isWrite && !storage_access.reverted {
+                        let account_diff = state_diffs
+                            .entry(storage_access.account)
+                            .or_insert_with(|| AccountStateDiffs {
+                                label: state.labels.get(&storage_access.account).cloned(),
+                                ..Default::default()
+                            });
+                        // Update state diff. Do not overwrite the initial value if already set.
+                        match account_diff.state_diff.entry(storage_access.slot) {
+                            Entry::Vacant(slot_state_diff) => {
+                                slot_state_diff.insert(SlotStateDiff {
+                                    previous_value: storage_access.previousValue,
+                                    new_value: storage_access.newValue,
+                                });
+                            }
+                            Entry::Occupied(mut slot_state_diff) => {
+                                slot_state_diff.get_mut().new_value = storage_access.newValue;
+                            }
+                        }
+                    }
+                }
+            });
+    }
+    state_diffs
+}
+
+/// Helper function to set / unset cold storage slot of the target address.
+fn set_cold_slot<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
+>(
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+    target: Address,
+    slot: U256,
+    cold: bool,
+) {
+    if let Some(account) = ccx.ecx.journaled_state.state.get_mut(&target)
+        && let Some(storage_slot) = account.storage.get_mut(&slot)
+    {
+        storage_slot.is_cold = cold;
+    }
 }

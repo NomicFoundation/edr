@@ -2,14 +2,13 @@
 
 use std::sync::Arc;
 
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{map::HashMap, Address, B256, U256};
 use alloy_rpc_types::BlockId;
 use foundry_fork_db::{BlockchainDb, DatabaseError, SharedBackend};
 use parking_lot::Mutex;
 use revm::{
     bytecode::Bytecode,
     database::{CacheDB, DatabaseRef},
-    primitives::HashMap as Map,
     state::{Account, AccountInfo},
     Database, DatabaseCommit,
 };
@@ -37,9 +36,9 @@ pub struct ForkedDatabase {
     ///
     /// This separates Read/Write operations
     ///   - reads from the `SharedBackend as DatabaseRef` writes to the internal
-    ///     cache storage
+    ///     cache storage.
     cache_db: CacheDB<SharedBackend>,
-    /// Contains all the data already fetched
+    /// Contains all the data already fetched.
     ///
     /// This exclusively stores the _unchanged_ remote client state.
     db: BlockchainDb,
@@ -213,7 +212,7 @@ impl DatabaseRef for ForkedDatabase {
 }
 
 impl DatabaseCommit for ForkedDatabase {
-    fn commit(&mut self, changes: Map<Address, Account>) {
+    fn commit(&mut self, changes: HashMap<Address, Account>) {
         self.database_mut().commit(changes);
     }
 }
@@ -226,8 +225,6 @@ pub struct ForkDbStateSnapshot {
     pub local: CacheDB<SharedBackend>,
     pub state_snapshot: StateSnapshot,
 }
-
-// === impl DbSnapshot ===
 
 impl ForkDbStateSnapshot {
     fn get_storage(&self, address: Address, index: U256) -> Option<U256> {
@@ -294,8 +291,6 @@ impl DatabaseRef for ForkDbStateSnapshot {
 
 #[cfg(all(test, feature = "test-remote"))]
 mod tests {
-    use revm::context::BlockEnv;
-
     use super::*;
     use crate::{backend::BlockchainDbMeta, fork::provider::get_http_provider};
 
@@ -305,7 +300,8 @@ mod tests {
     async fn fork_db_insert_basic_default() {
         let rpc = edr_test_utils::env::get_alchemy_url();
         let provider = get_http_provider(rpc.clone());
-        let meta = BlockchainDbMeta::new(BlockEnv::default(), rpc);
+        let meta = BlockchainDbMeta::new(revm::context::BlockEnv::default(), rpc);
+
         let db = BlockchainDb::new(meta, None);
 
         let backend = SharedBackend::spawn_backend(Arc::new(provider), db.clone(), None).await;

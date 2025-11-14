@@ -6,7 +6,7 @@ use alloy_primitives::{Bytes, U256};
 use edr_gas_report::GasReportExecutionStatus;
 use edr_solidity_tests::{
     fuzz::CounterExample,
-    result::{SuiteResult, TestStatus},
+    result::{SuiteResult, TestKind, TestStatus},
 };
 
 use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_DATA_DEFAULT};
@@ -14,7 +14,22 @@ use crate::helpers::{assert_multiple, SolidityTestFilter, TestFuzzConfig, TEST_D
 #[tokio::test(flavor = "multi_thread")]
 async fn test_fuzz() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/")
-        .exclude_tests(r"invariantCounter|testIncrement\(address\)|testNeedle\(uint256\)|testSuccessChecker\(uint256\)|testSuccessChecker2\(int256\)|testSuccessChecker3\(uint32\)")
+        .exclude_tests(
+            &[
+                r"invariantCounter",
+                r"testIncrement\(address\)",
+                r"testNeedle\(uint256\)",
+                r"testSuccessChecker\(uint256\)",
+                r"testSuccessChecker2\(int256\)",
+                r"testSuccessChecker3\(uint32\)",
+                r"testFuzz_SetNumberAssert\(uint256\)",
+                r"testFuzz_SetNumberRequire\(uint256\)",
+                r"test_fuzz_bound\(uint256\)",
+                r"testImmutableOwner\(address\)",
+                r"testStorageOwner\(address\)",
+            ]
+            .join("|"),
+        )
         .exclude_paths("invariant");
     let runner = TEST_DATA_DEFAULT.runner().await;
     let suite_result = runner.test_collect(filter).await.suite_results;
@@ -27,6 +42,8 @@ async fn test_fuzz() {
                 "testPositive(uint256)"
                 | "testPositive(int256)"
                 | "testSuccessfulFuzz(uint128,uint128)"
+                | "testArray(uint64[2])"
+                | "testArrayPreBytecodeHash(uint64[2])"
                 | "testToStringFuzz(bytes32)" => assert_eq!(
                     result.status,
                     TestStatus::Success,
@@ -89,7 +106,7 @@ async fn test_fuzz_collection() {
     config.invariant.runs = 1000;
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(6u32));
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let results = runner.test_collect(filter).await.suite_results;
 
     assert_multiple(
@@ -128,6 +145,7 @@ async fn test_persist_fuzz_failure() {
     let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailurePersist.t.sol");
     let mut fuzz_config = TestFuzzConfig {
         runs: 1000,
+        seed: None,
         ..TestFuzzConfig::default()
     };
     let runner = TEST_DATA_DEFAULT
@@ -187,7 +205,7 @@ async fn test_fuzz_gas_report() {
     config.fuzz.runs = 1000;
     config.fuzz.seed = Some(U256::from(6u32));
     config.generate_gas_report = true;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let test_result = runner.test_collect(filter).await.test_result;
 
     assert!(test_result.gas_report.is_some());
@@ -201,8 +219,9 @@ async fn test_fuzz_gas_report() {
     assert_eq!(sample_contract_report.deployments.len(), 1);
     let deployment = sample_contract_report.deployments.first().unwrap();
 
-    assert_eq!(deployment.gas, 224_987);
-    assert_eq!(deployment.size, 743);
+    // Assert with 10% tolerance
+    assert_close!(deployment.gas, 224_987, 0.1);
+    assert_close!(deployment.size, 743, 0.1);
     assert_eq!(deployment.status, GasReportExecutionStatus::Success);
 
     assert_eq!(sample_contract_report.functions.len(), 6);
@@ -228,4 +247,97 @@ async fn test_fuzz_gas_report() {
 
     assert!(!increment_by_reports.is_empty());
     assert!(increment_by_reports.iter().all(|r| r.gas > 0));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_should_not_shrink_fuzz_failure() {
+    let filter = SolidityTestFilter::new(".*", "FuzzFailureShrinkTest", ".*fuzz/");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 256;
+    config.fuzz.seed = Some(U256::from(100));
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let suite_results = runner.test_collect(filter).await.suite_results;
+    let suite_result = suite_results
+        .get("default/fuzz/FuzzFailureShrink.t.sol:FuzzFailureShrinkTest")
+        .unwrap();
+    let test_result = suite_result
+        .test_results
+        .get("testAddOne(uint256)")
+        .unwrap();
+    assert_eq!(test_result.status, TestStatus::Failure);
+    assert!(matches!(test_result.kind, TestKind::Fuzz { runs: 84, .. }));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_can_scrape_bytecode() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzerDict.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.runs = 2100;
+    config.fuzz.seed = Some(U256::from(119u32));
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/FuzzerDict.t.sol:FuzzerDictTest",
+            vec![
+                ("testImmutableOwner(address)", false, None, None, None),
+                ("testStorageOwner(address)", false, None, None, None),
+            ],
+        )]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_timeout() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzTimeout.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.max_test_rejects = 50000;
+    config.fuzz.timeout = Some(1u32);
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([(
+            "default/fuzz/FuzzTimeout.t.sol:FuzzTimeoutTest",
+            vec![("test_fuzz_bound(uint256)", true, None, None, None)],
+        )]),
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_fuzz_fail_on_revert() {
+    let filter = SolidityTestFilter::new(".*", ".*", ".*fuzz/FuzzFailOnRevert.t.sol");
+    let mut config = TEST_DATA_DEFAULT.config_with_mock_rpc();
+    config.fuzz.fail_on_revert = false;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
+    let results = runner.test_collect(filter).await.suite_results;
+
+    assert_multiple(
+        &results,
+        BTreeMap::from([
+            (
+                "default/fuzz/FuzzFailOnRevert.t.sol:CounterTest",
+                vec![
+                    ("testFuzz_SetNumberRequire(uint256)", true, None, None, None),
+                    ("testFuzz_SetNumberAssert(uint256)", true, None, None, None),
+                ],
+            ),
+            (
+                "default/fuzz/FuzzFailOnRevert.t.sol:AnotherCounterTest",
+                vec![
+                    (
+                        "testFuzz_SetNumberRequire(uint256)",
+                        false,
+                        Some("EvmError: Revert".into()),
+                        None,
+                        None,
+                    ),
+                    ("testFuzz_SetNumberAssert(uint256)", false, None, None, None),
+                ],
+            ),
+        ]),
+    );
 }

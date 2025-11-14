@@ -38,9 +38,11 @@ pub struct InvariantFuzzTestResult {
     /// Additional traces used for gas report construction.
     pub gas_report_traces: Vec<Vec<CallTraceArena>>,
     /// The coverage info collected during the invariant test runs.
-    pub coverage: Option<HitMaps>,
+    pub line_coverage: Option<HitMaps>,
     /// Fuzzed selectors metrics collected during the invariant test runs.
     pub metrics: HashMap<String, InvariantMetrics>,
+    /// Number of failed replays from persisted corpus.
+    pub failed_corpus_replays: usize,
 }
 
 /// Enriched results of an invariant run check.
@@ -114,6 +116,8 @@ impl<
 /// and returns a generic error. Either returns the call result if successful,
 /// or nothing if there was an error.
 #[allow(clippy::type_complexity)]
+// TODO: https://github.com/NomicFoundation/edr/issues/1184
+#[allow(clippy::result_large_err)]
 pub(crate) fn assert_invariants<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -150,6 +154,7 @@ pub(crate) fn assert_invariants<
             TransactionErrorT,
         >,
     >,
+    InvariantFuzzError,
 > {
     let mut inner_sequence = vec![];
 
@@ -162,7 +167,6 @@ pub(crate) fn assert_invariants<
     let CallInvariantResult {
         call_result,
         success,
-        cow_backend: _,
     } = call_invariant_function(
         executor,
         invariant_contract.address,
@@ -245,24 +249,13 @@ pub(crate) fn can_continue<
 > {
     let mut call_results = None;
 
-    let handlers_succeeded = || {
-        invariant_test
-            .targeted_contracts
-            .targets
-            .lock()
-            .keys()
-            .all(|address| {
-                invariant_run.executor.is_success(
-                    *address,
-                    false,
-                    Cow::Borrowed(state_changeset),
-                    false,
-                )
-            })
-    };
+    let handlers_succeeded =
+        invariant_run
+            .executor
+            .is_success(false, Cow::Borrowed(state_changeset), false);
 
     // Assert invariants if the call did not revert and the handlers did not fail.
-    if !call_result.reverted && handlers_succeeded() {
+    if !call_result.reverted && handlers_succeeded {
         if let Some(traces) = call_result.traces {
             invariant_run.run_traces.push(traces);
         }
