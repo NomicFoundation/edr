@@ -568,17 +568,18 @@ function recordTime(
 }
 
 function displaySecFromNs(deltaNs: bigint) {
-  const sec = deltaNs / 1_000_000_000n;
-  return roundToThreeDecimals(Number(sec));
+  const SEC_IN_NS = 1_000_000_000n;
+  const sec = deltaNs / SEC_IN_NS;
+  const remainder = deltaNs % SEC_IN_NS;
+  // Floor to 3 decimal places. Can't round due to BigInt and converting ns to
+  // Number risks losing precision as the max safe int for Number is 2^53 – 1.
+  return `${sec}.${remainder.toString().slice(0, 3)}`;
 }
 
 function displaySecFromUs(deltaUs: number) {
   const sec = deltaUs / 1_000_000;
-  return roundToThreeDecimals(sec);
-}
-
-function roundToThreeDecimals(n: number): number {
-  return Math.round(n * 1000) / 1000;
+  // Floor to 3 decimal places in order to make it consistent with displaySecFromNs
+  return Math.floor(sec * 1000) / 1000;
 }
 
 export async function setupRepo(
