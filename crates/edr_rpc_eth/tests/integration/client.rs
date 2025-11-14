@@ -306,7 +306,6 @@ mod alchemy {
         // TODO: consider asserting something about the logs bloom
     }
 
-    #[ignore] // TODO
     #[tokio::test]
     async fn get_logs_future_from_block() {
         let alchemy_url = get_alchemy_url();
@@ -336,7 +335,6 @@ mod alchemy {
         }
     }
 
-    #[ignore] // TODO
     #[tokio::test]
     async fn get_logs_future_to_block() {
         let alchemy_url = get_alchemy_url();
@@ -456,7 +454,6 @@ mod alchemy {
         assert_eq!(transaction_count, U256::from(1));
     }
 
-    #[ignore] // TODO
     #[tokio::test]
     async fn get_transaction_count_future_block() {
         let alchemy_url = get_alchemy_url();
@@ -577,7 +574,6 @@ mod alchemy {
             .expect("should have succeeded");
     }
 
-    #[ignore] // TODO
     #[tokio::test]
     async fn get_storage_at_future_block() {
         let alchemy_url = get_alchemy_url();
