@@ -20,7 +20,7 @@ import path from "path";
 import { simpleGit } from "simple-git";
 import { exec } from "child_process";
 import { promisify } from "util";
-import Papa from "papaparse";
+import { stringify } from "csv-stringify/sync";
 
 const execAsync = promisify(exec);
 import {
@@ -294,8 +294,8 @@ function generateCsvResults(
     executor: "edr",
   });
 
-  // Convert to CSV string using papaparse
-  return Papa.unparse(csvData);
+  // Convert to CSV string
+  return stringify(csvData, { header: true });
 }
 
 function normalizeSuiteResultSource(source: string): string {
@@ -407,8 +407,8 @@ function generateForgeTestCsvResults(
     executor: "forge",
   });
 
-  // Convert to CSV string using papaparse
-  return Papa.unparse(csvData);
+  // Convert to CSV string
+  return stringify(csvData, { header: true });
 }
 
 function extractTestSuiteName(suitePath: string): string {

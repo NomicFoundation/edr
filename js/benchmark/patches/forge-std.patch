@@ -10,10 +10,10 @@ index 756106d..b1bc08d 100644
 +artifacts
 +.DS_Store
 diff --git a/foundry.toml b/foundry.toml
-index 62ca21a..51a474f 100644
+index 62ca21a..8673c7d 100644
 --- a/foundry.toml
 +++ b/foundry.toml
-@@ -1,7 +1,9 @@
+@@ -1,11 +1,13 @@
  [profile.default]
  fs_permissions = [{ access = "read-write", path = "./"}]
 +solc_version = "0.8.30"
@@ -23,6 +23,11 @@ index 62ca21a..51a474f 100644
  
  [rpc_endpoints]
  # The RPC URLs are modified versions of the default for testing initialization.
+-mainnet = "https://eth.merkle.io" # Different API key.
++mainnet = "${ALCHEMY_URL}"
+ optimism_sepolia = "https://sepolia.optimism.io/" # Adds a trailing slash.
+ arbitrum_one_sepolia = "https://sepolia-rollup.arbitrum.io/rpc/" # Adds a trailing slash.
+ needs_undefined_env_var = "${UNDEFINED_RPC_URL_PLACEHOLDER}"
 @@ -20,4 +22,4 @@ multiline_func_header = 'attributes_first'
  quote_style = 'double'
  number_underscore = 'preserve'
