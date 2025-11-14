@@ -79,7 +79,7 @@ pub trait StateDebug {
     type Error;
 
     /// Retrieves the storage root of the account at the specified address.
-    fn account_storage_root(&self, address: &Address) -> Option<B256>;
+    fn account_storage_root(&self, address: &Address) -> Result<Option<B256>, Self::Error>;
 
     /// Inserts the provided account at the specified address.
     fn insert_account(

@@ -234,9 +234,11 @@ impl GenesisBlockFactory for OpChainSpec {
         }
 
         if block_config.hardfork >= Hardfork::ISTHMUS {
-            options.withdrawals_root = options
-                .withdrawals_root
-                .or_else(|| genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS));
+            let withdrawals_root = options.withdrawals_root.map_or_else(
+                || genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS),
+                |value| Ok(Some(value)),
+            )?;
+            options.withdrawals_root = withdrawals_root;
         };
         LocalBlock::with_genesis_state(genesis_state, block_config, options)
     }

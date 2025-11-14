@@ -18,7 +18,7 @@ use edr_receipt::{
     ExecutionReceiptChainSpec, MapReceiptLogs, ReceiptTrait, TransactionReceipt,
 };
 use edr_receipt_spec::ReceiptConstructor;
-use edr_state_api::StateDebug as _;
+use edr_state_api::{StateDebug as _, StateError};
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_transaction::TransactionAndReceipt;
 use edr_trie::ordered_trie_root;
@@ -156,6 +156,9 @@ pub enum LocalBlockCreationError {
     /// Missing prevrandao for post-merge blockchain
     #[error("Missing prevrandao for post-merge blockchain")]
     MissingPrevrandao,
+    /// State error
+    #[error(transparent)]
+    StateError(#[from] StateError),
 }
 
 impl<
