@@ -1,5 +1,9 @@
-use alloy_primitives::{B256, U256};
+use alloy_primitives::{hex, Address, B256, U256};
 use alloy_sol_types::{abi, sol, SolCall};
+use foundry_evm_core::precompiles::{
+    BLAKE_2F, EC_ADD, EC_MUL, EC_PAIRING, EC_RECOVER, IDENTITY, MOD_EXP, POINT_EVALUATION,
+    RIPEMD_160, SHA_256,
+};
 use itertools::Itertools;
 use revm_inspectors::tracing::types::DecodedCallTrace;
 
@@ -46,16 +50,35 @@ macro_rules! tri {
     };
 }
 
+pub(super) fn is_known_precompile(address: Address, _chain_id: u64) -> bool {
+    address
+        .get(..19)
+        .is_some_and(|slice| slice.iter().all(|&x| x == 0))
+        && matches!(
+            address,
+            EC_RECOVER
+                | SHA_256
+                | RIPEMD_160
+                | IDENTITY
+                | MOD_EXP
+                | EC_ADD
+                | EC_MUL
+                | EC_PAIRING
+                | BLAKE_2F
+                | POINT_EVALUATION
+        )
+}
+
 /// Tries to decode a precompile call. Returns `Some` if successful.
 pub(super) fn decode(trace: &CallTrace, _chain_id: u64) -> Option<DecodedCallTrace> {
-    if !trace.address[..19].iter().all(|&x| x == 0) {
+    if !is_known_precompile(trace.address, _chain_id) {
         return None;
     }
 
     let data = &trace.data;
 
-    let (signature, args) = match trace.address.last().unwrap() {
-        0x01 => {
+    let (signature, args) = match trace.address {
+        EC_RECOVER => {
             let (sig, ecrecoverCall { hash, v, r, s }) = tri!(abi_decode_call(data));
             (
                 sig,
@@ -67,11 +90,11 @@ pub(super) fn decode(trace: &CallTrace, _chain_id: u64) -> Option<DecodedCallTra
                 ],
             )
         }
-        0x02 => (sha256Call::SIGNATURE, vec![data.to_string()]),
-        0x03 => (ripemdCall::SIGNATURE, vec![data.to_string()]),
-        0x04 => (identityCall::SIGNATURE, vec![data.to_string()]),
-        0x05 => (modexpCall::SIGNATURE, tri!(decode_modexp(data))),
-        0x06 => {
+        SHA_256 => (sha256Call::SIGNATURE, vec![data.to_string()]),
+        RIPEMD_160 => (ripemdCall::SIGNATURE, vec![data.to_string()]),
+        IDENTITY => (identityCall::SIGNATURE, vec![data.to_string()]),
+        MOD_EXP => (modexpCall::SIGNATURE, tri!(decode_modexp(data))),
+        EC_ADD => {
             let (sig, ecaddCall { x1, y1, x2, y2 }) = tri!(abi_decode_call(data));
             (
                 sig,
@@ -83,14 +106,14 @@ pub(super) fn decode(trace: &CallTrace, _chain_id: u64) -> Option<DecodedCallTra
                 ],
             )
         }
-        0x07 => {
+        EC_MUL => {
             let (sig, ecmulCall { x1, y1, s }) = tri!(abi_decode_call(data));
             (sig, vec![x1.to_string(), y1.to_string(), s.to_string()])
         }
-        0x08 => (ecpairingCall::SIGNATURE, tri!(decode_ecpairing(data))),
-        0x09 => (blake2fCall::SIGNATURE, tri!(decode_blake2f(data))),
-        0x0a => (pointEvaluationCall::SIGNATURE, tri!(decode_kzg(data))),
-        0x00 | 0x0b.. => return None,
+        EC_PAIRING => (ecpairingCall::SIGNATURE, tri!(decode_ecpairing(data))),
+        BLAKE_2F => (blake2fCall::SIGNATURE, tri!(decode_blake2f(data))),
+        POINT_EVALUATION => (pointEvaluationCall::SIGNATURE, tri!(decode_kzg(data))),
+        _ => return None,
     };
 
     Some(DecodedCallTrace {
@@ -149,7 +172,10 @@ fn decode_blake2f<'a>(data: &'a [u8]) -> alloy_sol_types::Result<Vec<String>> {
     let h = u64_le_list(decoder.take_slice(64)?);
     let m = u64_le_list(decoder.take_slice(128)?);
     let t = u64_le_list(decoder.take_slice(16)?);
-    let f = decoder.take_slice(1)?[0];
+    let f = *decoder
+        .take_slice(1)?
+        .first()
+        .ok_or_else(|| alloy_sol_types::Error::custom("Slice is empty"))?;
     Ok(vec![
         rounds.to_string(),
         iter_to_string(h),

@@ -4,7 +4,9 @@
 
 pub mod calc;
 pub mod errors;
+pub mod fmt;
 pub mod fs;
+pub mod transactions;
 
 /// Block on a future using the current tokio runtime on the current thread.
 pub fn block_on<F: std::future::Future>(future: F) -> F::Output {

@@ -4,13 +4,10 @@
 
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
-// TODO https://github.com/NomicFoundation/edr/issues/1076
-#![allow(clippy::indexing_slicing)]
 
 #[macro_use]
 extern crate tracing;
 
-// Used by alloy-primitives with hashbrown feature
 use std::{
     collections::BTreeMap,
     fmt::Display,
@@ -21,21 +18,19 @@ use std::{
 };
 
 use alloy_primitives::{
-    map::{B256HashMap, HashMap},
+    map::{B256HashMap, DefaultHashBuilder, HashMap},
     Bytes,
 };
+use analysis::SourceAnalysis;
 use eyre::Result;
 use foundry_compilers::artifacts::sourcemap::SourceMap;
-use hashbrown as _;
 use semver::Version;
 
 pub mod analysis;
 pub mod anchors;
 
 mod inspector;
-pub use inspector::CoverageCollector;
-
-use crate::analysis::SourceAnalysis;
+pub use inspector::LineCoverageCollector;
 
 /// A coverage report.
 ///
@@ -236,7 +231,7 @@ impl HitMap {
     pub fn new(bytecode: Bytes) -> Self {
         Self {
             bytecode,
-            hits: HashMap::with_capacity(1024),
+            hits: HashMap::with_capacity_and_hasher(1024, DefaultHashBuilder::default()),
         }
     }
 
@@ -262,6 +257,12 @@ impl HitMap {
     #[inline]
     pub fn hits(&mut self, pc: u32, hits: u32) {
         *self.hits.entry(pc).or_default() += hits;
+    }
+
+    /// Reserve space for additional hits.
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        self.hits.reserve(additional);
     }
 
     /// Merge another hitmap into this, assuming the bytecode is consistent

@@ -58,7 +58,7 @@ impl<BlockReceiptT: ReceiptTrait, BlockT, HardforkT, SignedTransactionT>
             reservations: RwLock::new(Vec::new()),
             storage: RwLock::new(SparseBlockStorage::default()),
             state_diffs: Vec::new(),
-            number_to_diff_index: HashMap::new(),
+            number_to_diff_index: HashMap::default(),
             last_block_number,
         }
     }

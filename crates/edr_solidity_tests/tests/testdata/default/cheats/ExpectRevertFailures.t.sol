@@ -75,13 +75,13 @@ contract Dummy {
 contract ExpectRevertFailureTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
-    function testFailExpectRevertErrorDoesNotMatch() public {
+    function testShouldFailExpectRevertErrorDoesNotMatch() public {
         Reverter reverter = new Reverter();
         vm.expectRevert("should revert with this message");
         reverter.revertWithMessage("but reverts with this message");
     }
 
-    function testFailRevertNotOnImmediateNextCall() public {
+    function testShouldFailRevertNotOnImmediateNextCall() public {
         Reverter reverter = new Reverter();
         // expectRevert should only work for the next call. However,
         // we do not immediately revert, so,
@@ -91,30 +91,30 @@ contract ExpectRevertFailureTest is DSTest {
         reverter.revertWithMessage("revert");
     }
 
-    function testFailExpectRevertDidNotRevert() public {
+    function testShouldFailExpectRevertDidNotRevert() public {
         Reverter reverter = new Reverter();
         vm.expectRevert("does not revert, but we think it should");
         reverter.doNotRevert();
     }
 
-    function testFailExpectRevertAnyRevertDidNotRevert() public {
+    function testShouldFailExpectRevertAnyRevertDidNotRevert() public {
         Reverter reverter = new Reverter();
         vm.expectRevert();
         reverter.doNotRevert();
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
-    function testFailExpectRevertDangling() public {
+    function testShouldFailExpectRevertDangling() public {
         vm.expectRevert("dangling");
     }
 
-    function testFailexpectCheatcodeRevertForExtCall() public {
+    function testShouldFailexpectCheatcodeRevertForExtCall() public {
         Reverter reverter = new Reverter();
         vm._expectCheatcodeRevert();
         reverter.revertWithMessage("revert");
     }
 
-    function testFailexpectCheatcodeRevertForCreate() public {
+    function testShouldFailexpectCheatcodeRevertForCreate() public {
         vm._expectCheatcodeRevert();
         new ConstructorReverter("some message");
     }
@@ -227,7 +227,7 @@ contract ExpectRevertWithReverterFailureTest is DSTest {
         aContract = new AContract(bContract, cContract);
     }
 
-    function testFailExpectRevertsNotOnImmediateNextCall() public {
+    function testShouldFailExpectRevertsNotOnImmediateNextCall() public {
         // Test expect revert with reverter fails if next call doesn't revert.
         vm.expectRevert(address(aContract));
         aContract.doNotRevert();
@@ -238,7 +238,7 @@ contract ExpectRevertWithReverterFailureTest is DSTest {
 contract ExpectRevertCountFailureTest is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
-    function testFailRevertCountAny() public {
+    function testShouldFailRevertCountAny() public {
         uint64 count = 3;
         Reverter reverter = new Reverter();
         vm.expectRevert(count);
@@ -246,14 +246,14 @@ contract ExpectRevertCountFailureTest is DSTest {
         reverter.revertWithMessage("revert2");
     }
 
-    function testFailNoRevert() public {
+    function testShouldFailNoRevert() public {
         uint64 count = 0;
         Reverter reverter = new Reverter();
         vm.expectRevert(count);
         reverter.revertWithMessage("revert");
     }
 
-    function testFailReverCountSpecifc() public {
+    function testShouldFailRevertCountSpecific() public {
         uint64 count = 2;
         Reverter reverter = new Reverter();
         vm.expectRevert("revert", count);
@@ -261,14 +261,14 @@ contract ExpectRevertCountFailureTest is DSTest {
         reverter.revertWithMessage("second-revert");
     }
 
-    function testFailNoRevertSpecific() public {
+    function testShouldFailNoRevertSpecific() public {
         uint64 count = 0;
         Reverter reverter = new Reverter();
         vm.expectRevert("revert", count);
         reverter.revertWithMessage("revert");
     }
 
-    function testFailRevertCountCallsThenReverts() public {
+    function testShouldFailRevertCountCallsThenReverts() public {
         uint64 count = 2;
         Reverter reverter = new Reverter();
         Dummy dummy = new Dummy();
@@ -277,12 +277,19 @@ contract ExpectRevertCountFailureTest is DSTest {
         reverter.callThenRevert(dummy, "called a function and then reverted");
         reverter.callThenRevert(dummy, "wrong revert");
     }
+
+    // <https://github.com/foundry-rs/foundry/issues/10858>
+    function testShouldFailIfExpectRevertWrongString() public {
+        Reverter reverter = new Reverter();
+        vm.expectRevert("my not so cool error", 0);
+        reverter.revertWithMessage("my cool error");
+    }
 }
 
 contract ExpectRevertCountWithReverterFailures is DSTest {
     Vm constant vm = Vm(HEVM_ADDRESS);
 
-    function testFailRevertCountWithReverter() public {
+    function testShouldFailRevertCountWithReverter() public {
         uint64 count = 2;
         Reverter reverter = new Reverter();
         Reverter reverter2 = new Reverter();
@@ -291,14 +298,14 @@ contract ExpectRevertCountWithReverterFailures is DSTest {
         reverter2.revertWithMessage("revert");
     }
 
-    function testFailNoRevertWithReverter() public {
+    function testShouldFailNoRevertWithReverter() public {
         uint64 count = 0;
         Reverter reverter = new Reverter();
         vm.expectRevert(address(reverter), count);
         reverter.revertWithMessage("revert");
     }
 
-    function testFailReverterCountWithWrongData() public {
+    function testShouldFailReverterCountWithWrongData() public {
         uint64 count = 2;
         Reverter reverter = new Reverter();
         vm.expectRevert("revert", address(reverter), count);
@@ -306,12 +313,32 @@ contract ExpectRevertCountWithReverterFailures is DSTest {
         reverter.revertWithMessage("wrong revert");
     }
 
-    function testFailWrongReverterCountWithData() public {
+    function testShouldFailWrongReverterCountWithData() public {
         uint64 count = 2;
         Reverter reverter = new Reverter();
         Reverter reverter2 = new Reverter();
         vm.expectRevert("revert", address(reverter), count);
         reverter.revertWithMessage("revert");
         reverter2.revertWithMessage("revert");
+    }
+
+    // <https://github.com/foundry-rs/foundry/issues/10858>
+    function testShouldFailNoReverterCountWithData() public {
+        uint64 count = 0;
+        Reverter reverter = new Reverter();
+        vm.expectRevert("revert", address(reverter), count);
+        reverter.doNotRevert();
+
+        vm.expectRevert("revert", address(reverter), count);
+        reverter.revertWithMessage("revert2");
+    }
+
+    // <https://github.com/foundry-rs/foundry/issues/10858>
+    function testShouldFailNoRevertWithWrongReverter() public {
+        uint64 count = 0;
+        Reverter reverter = new Reverter();
+        Reverter reverter2 = new Reverter();
+        vm.expectRevert(address(reverter), count);
+        reverter2.revertWithMessage("revert"); // revert from wrong reverter
     }
 }

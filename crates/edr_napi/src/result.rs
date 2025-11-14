@@ -112,7 +112,9 @@ impl From<EvmHaltReason> for ExceptionalHalt {
             EvmHaltReason::StackOverflow => ExceptionalHalt::StackOverflow,
             EvmHaltReason::OutOfOffset => ExceptionalHalt::OutOfOffset,
             EvmHaltReason::CreateCollision => ExceptionalHalt::CreateCollision,
-            EvmHaltReason::PrecompileError => ExceptionalHalt::PrecompileError,
+            EvmHaltReason::PrecompileError | EvmHaltReason::PrecompileErrorWithContext(_) => {
+                ExceptionalHalt::PrecompileError
+            }
             EvmHaltReason::NonceOverflow => ExceptionalHalt::NonceOverflow,
             EvmHaltReason::CreateContractSizeLimit => ExceptionalHalt::CreateContractSizeLimit,
             EvmHaltReason::CreateContractStartingWithEF => {
@@ -198,7 +200,7 @@ impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
             }
             edr_evm_spec::result::ExecutionResult::Halt { reason, gas_used } => {
                 Either3::C(HaltResult {
-                    reason: ExceptionalHalt::from(*reason),
+                    reason: ExceptionalHalt::from(reason.clone()),
                     gas_used: BigInt::from(*gas_used),
                 })
             }

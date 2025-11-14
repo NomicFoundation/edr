@@ -1,10 +1,10 @@
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::U256;
 use proptest::{
+    prelude::Rng,
     strategy::{NewTree, Strategy, ValueTree},
     test_runner::TestRunner,
 };
-use rand::Rng;
 
 /// Value tree for unsigned ints (up to uint256).
 pub struct UintValueTree {
@@ -121,7 +121,7 @@ impl UintStrategy {
     fn generate_edge_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
         let rng = runner.rng();
         // Choose if we want values around 0 or max
-        let is_min = rng.random_bool(0.5);
+        let is_min = rng.random::<bool>();
         let offset = U256::from(rng.random_range(0..4));
         let start = if is_min {
             offset
@@ -138,7 +138,11 @@ impl UintStrategy {
         }
 
         // Generate value tree from fixture.
-        let fixture = &self.fixtures[runner.rng().random_range(0..self.fixtures.len())];
+        let fixture_idx = runner.rng().random_range(0..self.fixtures.len());
+        let fixture = self
+            .fixtures
+            .get(fixture_idx)
+            .expect("fixture_idx should be within fixtures bounds");
         if let Some(uint_fixture) = fixture.as_uint()
             && uint_fixture.1 == self.bits
         {

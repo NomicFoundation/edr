@@ -1,8 +1,11 @@
 use alloy_sol_types::SolValue;
 use base64::prelude::*;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use revm::context::result::HaltReasonTr;
 
@@ -16,11 +19,20 @@ impl Cheatcode for toBase64_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -43,11 +55,20 @@ impl Cheatcode for toBase64_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -70,11 +91,20 @@ impl Cheatcode for toBase64URL_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -97,11 +127,20 @@ impl Cheatcode for toBase64URL_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<

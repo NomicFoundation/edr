@@ -8,7 +8,7 @@ use edr_solidity_tests::{
     inspectors::cheatcodes::{CheatsConfigOptions, ExecutionContextConfig},
     TestFilterConfig,
 };
-use foundry_cheatcodes::{FsPermissions, RpcEndpoint, RpcEndpoints};
+use foundry_cheatcodes::{FsPermissions, RpcEndpointUrl, RpcEndpoints};
 use napi::{
     bindgen_prelude::{BigInt, Uint8Array},
     tokio::runtime,
@@ -36,8 +36,6 @@ pub struct SolidityTestRunnerConfigArgs {
     pub project_root: String,
     /// Configures the permissions of cheat codes that access the file system.
     pub fs_permissions: Option<Vec<PathPermission>>,
-    /// Whether to support the `testFail` prefix. Defaults to false.
-    pub test_fail: Option<bool>,
     /// Address labels for traces. Defaults to none.
     pub labels: Option<Vec<AddressLabel>>,
     /// Whether to enable isolation of calls. In isolation mode all top-level
@@ -173,7 +171,6 @@ impl SolidityTestRunnerConfigArgs {
         let SolidityTestRunnerConfigArgs {
             project_root,
             fs_permissions,
-            test_fail,
             labels,
             isolate,
             ffi,
@@ -246,7 +243,7 @@ impl SolidityTestRunnerConfigArgs {
                     RpcEndpoints::new(
                         endpoints
                             .into_iter()
-                            .map(|(chain, url)| (chain, RpcEndpoint::Url(url))),
+                            .map(|(chain, url)| (chain, RpcEndpointUrl::new(url))),
                     )
                 })
                 .unwrap_or_default(),
@@ -267,6 +264,7 @@ impl SolidityTestRunnerConfigArgs {
                 .into_iter()
                 .map(|AddressLabel { address, label }| Ok((address.try_cast()?, label)))
                 .collect::<Result<_, napi::Error>>()?,
+            seed: fuzz.seed,
             allow_internal_expect_revert: allow_internal_expect_revert.unwrap_or(false),
         };
 
@@ -282,7 +280,6 @@ impl SolidityTestRunnerConfigArgs {
         let config = edr_napi_core::solidity::config::TestRunnerConfig {
             project_root: project_root.into(),
             include_traces: include_traces.unwrap_or_default().into(),
-            test_fail: test_fail.unwrap_or_default(),
             isolate,
             ffi,
             sender: sender.map(TryCast::try_cast).transpose()?,
@@ -370,7 +367,7 @@ impl TryFrom<FuzzConfigArgs> for FuzzConfig {
         } = value;
 
         let failure_persist_dir = failure_persist_dir.map(PathBuf::from);
-        let failure_persist_file = failure_persist_file.unwrap_or("failures".to_string());
+        let failure_persist_file = failure_persist_file.unwrap_or_else(|| "failures".to_string());
         let seed = seed
             .map(|s| {
                 s.parse().map_err(|_err| {
@@ -461,6 +458,10 @@ pub struct InvariantConfigArgs {
     /// process is disabled if set to 0.
     /// Defaults to 5000.
     pub shrink_run_limit: Option<u32>,
+    /// The maximum number of rejects via `vm.assume` which can be encountered
+    /// during a single invariant run.
+    /// Defaults to 65536.
+    pub max_assume_rejects: Option<u32>,
 }
 
 impl InvariantConfigArgs {
@@ -514,6 +515,7 @@ impl From<InvariantConfigArgs> for InvariantConfig {
             include_storage,
             include_push_bytes,
             shrink_run_limit,
+            max_assume_rejects,
         } = value;
 
         let failure_persist_dir = failure_persist_dir.map(PathBuf::from);
@@ -555,6 +557,10 @@ impl From<InvariantConfigArgs> for InvariantConfig {
 
         if let Some(shrink_run_limit) = shrink_run_limit {
             invariant.shrink_run_limit = shrink_run_limit;
+        }
+
+        if let Some(max_assume_rejects) = max_assume_rejects {
+            invariant.max_assume_rejects = max_assume_rejects;
         }
 
         invariant

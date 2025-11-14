@@ -346,7 +346,7 @@ impl<
                                 Account {
                                     info: beacon_roots_contract(),
                                     status: AccountStatus::Created | AccountStatus::Touched,
-                                    storage: HashMap::new(),
+                                    storage: HashMap::default(),
                                     transaction_id: 0,
                                 },
                             ),
@@ -355,7 +355,7 @@ impl<
                                 Account {
                                     info: history_storage_contract(),
                                     status: AccountStatus::Created | AccountStatus::Touched,
-                                    storage: HashMap::new(),
+                                    storage: HashMap::default(),
                                     transaction_id: 0,
                                 },
                             ),
@@ -384,7 +384,7 @@ impl<
                             Account {
                                 info: beacon_roots_contract(),
                                 status: AccountStatus::Created | AccountStatus::Touched,
-                                storage: HashMap::new(),
+                                storage: HashMap::default(),
                                 transaction_id: 0,
                             },
                         )]

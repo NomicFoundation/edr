@@ -1,4 +1,5 @@
-//! The in memory DB
+//! In-memory database.
+
 use alloy_primitives::{Address, B256, U256};
 use foundry_fork_db::DatabaseError;
 use revm::{
@@ -11,15 +12,15 @@ use revm::{
 
 use crate::state_snapshot::StateSnapshots;
 
-/// Type alias for an in memory database
+/// Type alias for an in-memory database.
 ///
-/// See `EmptyDBWrapper`
+/// See [`EmptyDBWrapper`].
 pub type FoundryEvmInMemoryDB = CacheDB<EmptyDBWrapper>;
 
-/// In memory Database for anvil
+/// In-memory [`Database`] for Anvil.
 ///
-/// This acts like a wrapper type for [`InMemoryDB`] but is capable of applying
-/// snapshots
+/// This acts like a wrapper type for [`FoundryEvmInMemoryDB`] but is capable of
+/// applying snapshots.
 #[derive(Debug)]
 pub struct MemDb {
     pub inner: FoundryEvmInMemoryDB,
@@ -37,6 +38,7 @@ impl Default for MemDb {
 
 impl DatabaseRef for MemDb {
     type Error = DatabaseError;
+
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         DatabaseRef::basic_ref(&self.inner, address)
     }
@@ -89,11 +91,10 @@ impl DatabaseCommit for MemDb {
 ///
 /// This will also _always_ return `Some(AccountInfo)`:
 ///
-/// The [`Database`](revm::Database) implementation for `CacheDB` manages an
-/// `AccountState` for the `DbAccount`, this will be set to
-/// `AccountState::NotExisting` if the account does not exist yet.
-/// This is because there's a distinction between "non-existing" and "empty",
-/// see <https://github.com/bluealloy/revm/blob/8f4348dc93022cffb3730d9db5d3ab1aad77676a/crates/revm/src/db/in_memory_db.rs#L81-L83>.
+/// The [`Database`] implementation for `CacheDB` manages an `AccountState` for
+/// the `DbAccount`, this will be set to `AccountState::NotExisting` if the
+/// account does not exist yet. This is because there's a distinction between
+/// "non-existing" and "empty", see <https://github.com/bluealloy/revm/blob/8f4348dc93022cffb3730d9db5d3ab1aad77676a/crates/revm/src/db/in_memory_db.rs#L81-L83>.
 /// If an account is `NotExisting`, `Database::basic_ref` will always return
 /// `None` for the requested `AccountInfo`.
 ///
@@ -182,7 +183,7 @@ mod tests {
     fn mem_db_insert_basic_default() {
         let mut db = MemDb::default();
         let address = Address::from_word(b256!(
-            "000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"
+            "0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"
         ));
 
         let info = Database::basic(&mut db, address).unwrap();

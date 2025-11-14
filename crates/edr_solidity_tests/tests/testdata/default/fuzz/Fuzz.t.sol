@@ -28,4 +28,9 @@ contract FuzzTest is DSTest {
     function testToStringFuzz(bytes32 data) public {
         vm.toString(data);
     }
+
+    // `can_fuzz_array_params` from `crates/forge/tests/cli/test_cmd.rs`
+    function testArray(uint64[2] calldata) external {
+        assertTrue(true);
+    }
 }

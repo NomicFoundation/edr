@@ -1,5 +1,6 @@
+//! Implementations of [`Filesystem`](spec::Group::Filesystem) cheatcodes.
+
 use std::{
-    collections::hash_map::Entry,
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
     process::Command,
@@ -9,14 +10,17 @@ use std::{
 };
 
 use alloy_dyn_abi::DynSolType;
-use alloy_primitives::{Bytes, U256};
+use alloy_primitives::{hex, map::Entry, Bytes, U256};
 use alloy_sol_types::SolValue;
 use dialoguer::{Input, Password};
 use edr_common::fs;
 use edr_solidity::artifacts::ArtifactId;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use revm::context::result::HaltReasonTr;
 use semver::Version;
@@ -28,10 +32,10 @@ use crate::{
     Vm::{
         closeFileCall, copyFileCall, createDirCall, existsCall, ffiCall, fsMetadataCall,
         getCodeCall, getDeployedCodeCall, isDirCall, isFileCall, projectRootCall,
-        promptAddressCall, promptCall, promptSecretCall, promptUintCall, readDir_0Call,
-        readDir_1Call, readDir_2Call, readFileBinaryCall, readFileCall, readLineCall, readLinkCall,
-        removeDirCall, removeFileCall, tryFfiCall, unixTimeCall, writeFileBinaryCall,
-        writeFileCall, writeLineCall, DirEntry, FfiResult, FsMetadata,
+        promptAddressCall, promptCall, promptSecretCall, promptSecretUintCall, promptUintCall,
+        readDir_0Call, readDir_1Call, readDir_2Call, readFileBinaryCall, readFileCall,
+        readLineCall, readLinkCall, removeDirCall, removeFileCall, tryFfiCall, unixTimeCall,
+        writeFileBinaryCall, writeFileCall, writeLineCall, DirEntry, FfiResult, FsMetadata,
     },
 };
 
@@ -40,11 +44,20 @@ impl Cheatcode for existsCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -68,11 +81,20 @@ impl Cheatcode for fsMetadataCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -117,11 +139,20 @@ impl Cheatcode for isDirCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -145,11 +176,20 @@ impl Cheatcode for isFileCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -173,11 +213,20 @@ impl Cheatcode for projectRootCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -200,11 +249,20 @@ impl Cheatcode for unixTimeCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -230,11 +288,20 @@ impl Cheatcode for closeFileCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -250,7 +317,7 @@ impl Cheatcode for closeFileCall {
         let Self { path } = self;
         let path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
 
-        state.context.opened_read_files.remove(&path);
+        state.test_context.opened_read_files.remove(&path);
 
         Ok(Vec::default())
     }
@@ -261,11 +328,20 @@ impl Cheatcode for copyFileCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -292,11 +368,20 @@ impl Cheatcode for createDirCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -327,11 +412,20 @@ impl Cheatcode for readDir_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -354,11 +448,20 @@ impl Cheatcode for readDir_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -381,11 +484,20 @@ impl Cheatcode for readDir_2Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -412,11 +524,20 @@ impl Cheatcode for readFileCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -440,11 +561,20 @@ impl Cheatcode for readFileBinaryCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -468,11 +598,20 @@ impl Cheatcode for readLineCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -490,7 +629,7 @@ impl Cheatcode for readLineCall {
 
         // Get reader for previously opened file to continue reading OR initialize new
         // reader
-        let reader = match state.context.opened_read_files.entry(path.clone()) {
+        let reader = match state.test_context.opened_read_files.entry(path.clone()) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => entry.insert(BufReader::new(fs::open(path)?)),
         };
@@ -516,11 +655,20 @@ impl Cheatcode for readLinkCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -545,11 +693,20 @@ impl Cheatcode for removeDirCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -580,11 +737,20 @@ impl Cheatcode for removeFileCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -603,7 +769,7 @@ impl Cheatcode for removeFileCall {
             .ensure_path_allowed(path, FsAccessKind::Write)?;
 
         // also remove from the set if opened previously
-        state.context.opened_read_files.remove(&path);
+        state.test_context.opened_read_files.remove(&path);
 
         if state.fs_commit {
             fs::remove_file(&path)?;
@@ -618,11 +784,20 @@ impl Cheatcode for writeFileCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -645,11 +820,20 @@ impl Cheatcode for writeFileBinaryCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -672,11 +856,20 @@ impl Cheatcode for writeLineCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -712,11 +905,20 @@ impl Cheatcode for getCodeCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -739,11 +941,20 @@ impl Cheatcode for getDeployedCodeCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -890,7 +1101,7 @@ fn get_artifact_code<
                     filtered.retain(|(id, _)| id.version == running.version);
 
                     if filtered.len() == 1 {
-                        Some(filtered[0])
+                        filtered.first().copied()
                     } else {
                         None
                     }
@@ -914,11 +1125,20 @@ impl Cheatcode for ffiCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -951,11 +1171,20 @@ impl Cheatcode for tryFfiCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -980,11 +1209,20 @@ impl Cheatcode for promptCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1007,11 +1245,20 @@ impl Cheatcode for promptSecretCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1029,16 +1276,64 @@ impl Cheatcode for promptSecretCall {
     }
 }
 
+impl_is_pure_false!(promptSecretUintCall);
+impl Cheatcode for promptSecretUintCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self { promptText: text } = self;
+        parse(
+            &prompt(state, text, prompt_password)?,
+            &DynSolType::Uint(256),
+        )
+    }
+}
+
 impl_is_pure_false!(promptAddressCall);
 impl Cheatcode for promptAddressCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1061,11 +1356,20 @@ impl Cheatcode for promptUintCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1191,14 +1495,16 @@ fn ffi<
 ) -> Result<FfiResult> {
     ensure!(
         state.config.ffi,
-        "FFI is disabled. Please enable the FFI cheatcode in the config"
+        "FFI is disabled; add the `--ffi` flag to allow tests to call external commands"
     );
-    ensure!(
-        !input.is_empty() && !input[0].is_empty(),
-        "can't execute empty command"
-    );
-    let mut cmd = Command::new(&input[0]);
-    cmd.args(&input[1..]);
+    let first = input
+        .first()
+        .ok_or_else(|| fmt_err!("can't execute empty command"))?;
+    ensure!(!first.is_empty(), "can't execute empty command");
+    let mut cmd = Command::new(first);
+    if let Some(args) = input.get(1..) {
+        cmd.args(args);
+    }
 
     debug!(target: "cheatcodes", ?cmd, "invoking ffi");
 
@@ -1278,7 +1584,7 @@ fn prompt<
 mod tests {
     use std::sync::Arc;
 
-    use alloy_sol_types::private::alloy_json_abi::ContractObject;
+    use alloy_json_abi::ContractObject;
     use foundry_evm_core::evm_context::L1EvmBuilder;
     use revm::{
         context::{
@@ -1291,40 +1597,20 @@ mod tests {
     use super::*;
     use crate::CheatsConfig;
 
-    fn cheats<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
-    >() -> Cheatcodes<
-        BlockT,
-        TxT,
-        ChainContextT,
-        EvmBuilderT,
-        HaltReasonT,
-        HardforkT,
-        TransactionErrorT,
-    > {
+    fn cheats(
+    ) -> Cheatcodes<BlockEnv, TxEnv, (), L1EvmBuilder, HaltReason, SpecId, InvalidTransaction> {
         let config = CheatsConfig {
             ffi: true,
             project_root: PathBuf::from(&env!("CARGO_MANIFEST_DIR")),
             ..Default::default()
         };
-
-        let mut cheatcodes = Cheatcodes::default();
-        cheatcodes.config = Arc::new(config);
-
-        cheatcodes
+        Cheatcodes::new(Arc::new(config))
     }
 
     #[test]
     fn test_ffi_hex() {
         let msg = b"gm";
-        let cheats =
-            cheats::<BlockEnv, TxEnv, (), L1EvmBuilder, HaltReason, SpecId, InvalidTransaction>();
+        let cheats = cheats();
         let args = ["echo".to_string(), hex::encode(msg)];
         let output = ffi(&cheats, &args).unwrap();
         assert_eq!(output.stdout, Bytes::from(msg));
@@ -1333,8 +1619,7 @@ mod tests {
     #[test]
     fn test_ffi_string() {
         let msg = "gm";
-        let cheats =
-            cheats::<BlockEnv, TxEnv, (), L1EvmBuilder, HaltReason, SpecId, InvalidTransaction>();
+        let cheats = cheats();
         let args = ["echo".to_string(), msg.to_string()];
         let output = ffi(&cheats, &args).unwrap();
         assert_eq!(output.stdout, Bytes::from(msg.as_bytes()));
@@ -1348,24 +1633,5 @@ mod tests {
 
         let artifact: ContractObject = serde_json::from_str(s).unwrap();
         assert!(artifact.deployed_bytecode.is_some());
-    }
-
-    #[test]
-    fn test_artifact_id_matches_hardhat_input_source_names() {
-        let query = ArtifactIdQuery::new("contracts/Counter.sol").unwrap();
-
-        let project_id = ArtifactId {
-            name: "Counter".into(),
-            source: "project/contracts/Counter.sol".into(),
-            version: Version::new(1, 2, 3),
-        };
-        assert!(query.artifact_id_matches(&project_id));
-
-        let npm_id = ArtifactId {
-            name: "Counter".into(),
-            source: "npm/contracts/Counter.sol".into(),
-            version: Version::new(1, 2, 3),
-        };
-        assert!(query.artifact_id_matches(&npm_id));
     }
 }

@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt};
 
-use alloy_primitives::{Address, Bytes};
+use alloy_primitives::{hex, Address, Bytes};
 use alloy_signer::Error as SignerError;
 use alloy_signer_local::LocalSignerError;
 use alloy_sol_types::SolError;
@@ -69,17 +69,14 @@ macro_rules! ensure {
 macro_rules! ensure_not_precompile {
     ($address:expr, $ctxt:expr) => {
         if $ctxt.is_precompile($address) {
-            return Err($crate::error::precompile_error(
-                <Self as $crate::CheatcodeDef>::CHEATCODE.func.id,
-                $address,
-            ));
+            return Err($crate::error::precompile_error($address));
         }
     };
 }
 
 #[cold]
-pub(crate) fn precompile_error(id: &'static str, address: &Address) -> Error {
-    fmt_err!("cannot call `{id}` on precompile {address}")
+pub(crate) fn precompile_error(address: &Address) -> Error {
+    fmt_err!("cannot use precompile {address} as an argument")
 }
 
 /// Error thrown by cheatcodes.
@@ -163,7 +160,7 @@ impl Error {
     }
 
     /// Returns the kind of this error.
-    #[inline(always)]
+    #[inline]
     pub fn kind(&self) -> ErrorKind<'_> {
         let data = self.data();
         if self.is_str {
@@ -175,17 +172,23 @@ impl Error {
     }
 
     /// Returns the raw data of this error.
-    #[inline(always)]
+    #[inline]
     pub fn data(&self) -> &[u8] {
         unsafe { &*self.data }
     }
 
-    #[inline(always)]
+    /// Returns `true` if this error is a human-readable string.
+    #[inline]
+    pub fn is_str(&self) -> bool {
+        self.is_str
+    }
+
+    #[inline]
     fn new_str(data: &'static str) -> Self {
         Self::_new(true, false, data.as_bytes())
     }
 
-    #[inline(always)]
+    #[inline]
     fn new_string(data: String) -> Self {
         Self::_new(
             true,
@@ -194,17 +197,17 @@ impl Error {
         )
     }
 
-    #[inline(always)]
+    #[inline]
     fn new_bytes(data: &'static [u8]) -> Self {
         Self::_new(false, false, data)
     }
 
-    #[inline(always)]
+    #[inline]
     fn new_vec(data: Vec<u8>) -> Self {
         Self::_new(false, true, Box::into_raw(data.into_boxed_slice()))
     }
 
-    #[inline(always)]
+    #[inline]
     fn _new(is_str: bool, drop: bool, data: *const [u8]) -> Self {
         debug_assert!(!data.is_null());
         Self { is_str, drop, data }
@@ -212,7 +215,6 @@ impl Error {
 }
 
 impl Drop for Error {
-    #[inline]
     fn drop(&mut self) {
         if self.drop {
             drop(unsafe { Box::<[u8]>::from_raw(self.data.cast_mut()) });
@@ -230,21 +232,18 @@ impl From<Cow<'static, str>> for Error {
 }
 
 impl From<String> for Error {
-    #[inline]
     fn from(value: String) -> Self {
         Self::new_string(value)
     }
 }
 
 impl From<&'static str> for Error {
-    #[inline]
     fn from(value: &'static str) -> Self {
         Self::new_str(value)
     }
 }
 
 impl From<Cow<'static, [u8]>> for Error {
-    #[inline]
     fn from(value: Cow<'static, [u8]>) -> Self {
         match value {
             Cow::Borrowed(bytes) => Self::new_bytes(bytes),
@@ -254,21 +253,18 @@ impl From<Cow<'static, [u8]>> for Error {
 }
 
 impl From<&'static [u8]> for Error {
-    #[inline]
     fn from(value: &'static [u8]) -> Self {
         Self::new_bytes(value)
     }
 }
 
 impl<const N: usize> From<&'static [u8; N]> for Error {
-    #[inline]
     fn from(value: &'static [u8; N]) -> Self {
         Self::new_bytes(value)
     }
 }
 
 impl From<Vec<u8>> for Error {
-    #[inline]
     fn from(value: Vec<u8>) -> Self {
         Self::new_vec(value)
     }
@@ -285,7 +281,6 @@ impl From<Bytes> for Error {
 macro_rules! impl_from {
     ($($t:ty),* $(,)?) => {$(
         impl From<$t> for Error {
-            #[inline]
             fn from(value: $t) -> Self {
                 Self::display(value)
             }
@@ -295,10 +290,11 @@ macro_rules! impl_from {
 
 impl_from!(
     alloy_sol_types::Error,
+    alloy_dyn_abi::Error,
     alloy_primitives::SignatureError,
+    eyre::Report,
     FsPathError,
     hex::FromHexError,
-    eyre::Error,
     BackendError,
     DatabaseError,
     jsonpath_lib::JsonPathError,
@@ -313,7 +309,6 @@ impl_from!(
 );
 
 impl<T: Into<BackendError>> From<EVMError<T>> for Error {
-    #[inline]
     fn from(err: EVMError<T>) -> Self {
         Self::display(BackendError::from(err))
     }

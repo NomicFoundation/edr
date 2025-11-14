@@ -21,7 +21,7 @@ async fn issue_588() -> anyhow::Result<()> {
     let early_mainnet_fork = create_test_config_with_fork(Some(ForkConfig {
         block_number: Some(2_675_000),
         cache_dir: edr_defaults::CACHE_DIR.into(),
-        chain_overrides: HashMap::new(),
+        chain_overrides: HashMap::default(),
         http_headers: None,
         url: get_alchemy_url(),
     }));

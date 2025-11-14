@@ -1,10 +1,10 @@
 //! Regression tests for previous issues.
 
-use alloy_dyn_abi::{DynSolValue, EventExt};
+use alloy_dyn_abi::{DecodedEvent, DynSolValue, EventExt};
 use alloy_json_abi::Event;
 #[cfg(feature = "test-remote")]
 use alloy_primitives::address;
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{b256, Address, U256};
 use edr_chain_spec::{EvmHaltReason, HaltReasonTrait};
 use edr_solidity_tests::{
     result::{TestKind, TestStatus},
@@ -78,7 +78,7 @@ macro_rules! test_repro {
                 let mut $runner_config = runner_config(None, &*TEST_DATA_DEFAULT, false).await;
                 $e
                 let filter = repro_filter($issue_number);
-                let runner = TEST_DATA_DEFAULT.runner_with_config($runner_config).await;
+                let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence($runner_config).await;
                 let test_config = TestConfig::with_filter(runner, filter).set_should_fail(false);
                 test_config.run().await;
             }
@@ -146,7 +146,7 @@ async fn repro_config(
     TxEnv,
 > {
     let config = runner_config(sender, test_data, rpc_config).await;
-    let runner = TEST_DATA_DEFAULT.runner_with_config(config).await;
+    let runner = TEST_DATA_DEFAULT.runner_with_fuzz_persistence(config).await;
     let filter = repro_filter(issue);
     TestConfig::with_filter(runner, filter).set_should_fail(should_fail)
 }
@@ -167,7 +167,7 @@ test_repro!(2898);
 remote_test_repro!(2956);
 
 // https://github.com/foundry-rs/foundry/issues/2984
-test_repro!(2984);
+remote_test_repro!(2984);
 
 // https://github.com/foundry-rs/foundry/issues/3055
 test_repro!(3055, true);
@@ -212,19 +212,20 @@ test_repro!(3347, false, None, |res| {
     assert_eq!(test.logs.len(), 1);
     let event = Event::parse("event log2(uint256, uint256)").unwrap();
     let decoded = event.decode_log(&test.logs[0].data).unwrap();
-    assert!(decoded.indexed.is_empty());
     assert_eq!(
-        decoded.body,
-        vec![
-            DynSolValue::Uint(U256::from(1), 256),
-            DynSolValue::Uint(U256::from(2), 256)
-        ]
+        decoded,
+        DecodedEvent {
+            selector: Some(b256!(
+                "0x78b9a1f3b55d6797ab2c4537e83ee04ff0c65a1ca1bb39d79a62e0a78d5a8a57"
+            )),
+            indexed: vec![],
+            body: vec![
+                DynSolValue::Uint(U256::from(1), 256),
+                DynSolValue::Uint(U256::from(2), 256)
+            ]
+        }
     );
 });
-
-// https://github.com/foundry-rs/foundry/issues/3437
-// 1.0 related
-// test_repro!(3437);
 
 // https://github.com/foundry-rs/foundry/issues/3596
 test_repro!(3596, true, None);
@@ -249,17 +250,24 @@ test_repro!(3685);
 remote_test_repro!(3703);
 
 // https://github.com/foundry-rs/foundry/issues/3708
-test_repro!(3708);
-
-// https://github.com/foundry-rs/foundry/issues/3723
-// 1.0 related
-// test_repro!(3723);
+remote_test_repro!(3708);
 
 // https://github.com/foundry-rs/foundry/issues/3753
 test_repro!(3753);
 
 // https://github.com/foundry-rs/foundry/issues/3792
 test_repro!(3792);
+
+// https://github.com/foundry-rs/foundry/issues/4370
+test_repro!(4370, false, None, |res| {
+    let mut res = res
+        .remove("default/repros/Issue4370.t.sol:Issue4370Test")
+        .unwrap();
+
+    let test = res.test_results.remove("test_negativeGas()").unwrap();
+    assert!(matches!(test.status, TestStatus::Success));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 96 }));
+});
 
 // https://github.com/foundry-rs/foundry/issues/4402
 test_repro!(4402);
@@ -273,7 +281,7 @@ test_repro!(4523, false, None, |res| {
     let test = res.test_results.remove("test_GasMeter()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 53097 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(44590)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 44590 }));
 
     let test = res.test_results.remove("test_GasLeft()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
@@ -293,10 +301,6 @@ test_repro!(4630);
 // https://github.com/foundry-rs/foundry/issues/4640
 remote_test_repro!(4640);
 
-// https://github.com/foundry-rs/foundry/issues/4832
-// 1.0 related
-// test_repro!(4832);
-
 // https://github.com/foundry-rs/foundry/issues/5038
 test_repro!(5038);
 
@@ -309,22 +313,22 @@ test_repro!(5491, false, None, |res| {
     let test = res.test_results.remove("testWeirdGas1()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 3148 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(2962)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 2962 }));
 
     let test = res.test_results.remove("testWeirdGas2()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 3213 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(3070)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 3070 }));
 
     let test = res.test_results.remove("testNormalGas()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 3148 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(3124)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 3124 }));
 
     let test = res.test_results.remove("testWithAssembly()").unwrap();
     assert!(matches!(test.status, TestStatus::Success));
     // forge@56b806a3ba reports 3029 gas for this test
-    assert!(matches!(test.kind, TestKind::Standard(3006)));
+    assert!(matches!(test.kind, TestKind::Unit { gas: 3006 }));
 });
 
 // https://github.com/foundry-rs/foundry/issues/5564
@@ -458,11 +462,61 @@ remote_test_repro!(6759);
 // https://github.com/foundry-rs/foundry/issues/6966
 test_repro!(6966);
 
+// https://github.com/foundry-rs/foundry/issues/7457
+test_repro!(7457; |config| {
+    config.cheats_config_options.allow_internal_expect_revert = true;
+});
+
 // https://github.com/foundry-rs/foundry/issues/7481
 test_repro!(7481);
 
 // https://github.com/foundry-rs/foundry/issues/8006
 remote_test_repro!(8006);
+
+// https://github.com/foundry-rs/foundry/issues/8004
+remote_test_repro!(8004);
+
+// https://github.com/foundry-rs/foundry/issues/2851
+test_repro!(2851, false, None, |res| {
+    let mut res = res
+        .remove("default/repros/Issue2851.t.sol:Issue2851Test")
+        .unwrap();
+    let test = res.test_results.remove("invariantNotZero()").unwrap();
+    assert_eq!(test.status, TestStatus::Failure);
+});
+
+// https://github.com/foundry-rs/foundry/issues/8277
+test_repro!(8277);
+
+// https://github.com/foundry-rs/foundry/issues/8287
+remote_test_repro!(8287);
+
+// https://github.com/foundry-rs/foundry/issues/8168
+remote_test_repro!(8168);
+
+// https://github.com/foundry-rs/foundry/issues/8383
+test_repro!(8383, false, None, |res| {
+    let mut res = res
+        .remove("default/repros/Issue8383.t.sol:Issue8383Test")
+        .unwrap();
+    let test = res
+        .test_results
+        .remove("testP256VerifyOutOfBounds()")
+        .unwrap();
+    assert_eq!(test.status, TestStatus::Success);
+    match test.kind {
+        TestKind::Unit { gas } => assert_eq!(gas, 3103),
+        _ => panic!("not a unit test kind"),
+    }
+});
+
+// https://github.com/foundry-rs/foundry/issues/6643
+test_repro!(6643);
+
+// https://github.com/foundry-rs/foundry/issues/8971
+test_repro!(8971; |config| {
+  config.evm_opts.isolate = true;
+});
 
 // https://github.com/foundry-rs/foundry/issues/8639
 test_repro!(8639; |config| {
@@ -470,7 +524,63 @@ test_repro!(8639; |config| {
     config.fuzz.seed = Some(U256::from(100));
 });
 
-// https://github.com/foundry-rs/foundry/issues/8971
-test_repro!(8971; |config| {
-  config.evm_opts.isolate = true;
+// https://github.com/foundry-rs/foundry/issues/8566
+test_repro!(8566);
+
+// https://github.com/foundry-rs/foundry/issues/8705
+test_repro!(8705, false, None, |res| {
+    let mut res = res
+        .remove("default/repros/Issue8705.t.sol:Issue8705Test")
+        .unwrap();
+    let test = res.test_results.remove("test_decode()").unwrap();
+    assert_eq!(test.status, TestStatus::Failure);
+    assert_eq!(
+        test.reason,
+        Some("Error != expected error: NumberNotEven(1) != RandomError()".to_string())
+    );
+
+    let test = res.test_results.remove("test_decode_with_args()").unwrap();
+    assert_eq!(test.status, TestStatus::Failure);
+    assert_eq!(
+        test.reason,
+        Some("Error != expected error: NumberNotEven(1) != NumberNotEven(2)".to_string())
+    );
+});
+
+// https://github.com/foundry-rs/foundry/issues/9643
+test_repro!(9643);
+
+// https://github.com/foundry-rs/foundry/issues/7238
+test_repro!(7238; |config| {
+    config.cheats_config_options.allow_internal_expect_revert = true;
+});
+
+// https://github.com/foundry-rs/foundry/issues/10302
+remote_test_repro!(10302);
+
+// https://github.com/foundry-rs/foundry/issues/10527
+test_repro!(10527);
+
+// https://github.com/foundry-rs/foundry/issues/10552
+remote_test_repro!(10552);
+
+// https://github.com/foundry-rs/foundry/issues/10586
+test_repro!(10586);
+
+// https://github.com/foundry-rs/foundry/issues/10957
+remote_test_repro!(10957);
+
+// https://github.com/foundry-rs/foundry/issues/9526
+test_repro!(9526);
+
+// https://github.com/foundry-rs/foundry/issues/10012
+test_repro!(10012, true);
+
+// https://github.com/foundry-rs/foundry/issues/5521
+test_repro!(5521, false, None, |res| {
+    let mut res = res
+        .remove("default/repros/Issue5521.t.sol:Issue5521Test")
+        .unwrap();
+    let test = res.test_results.remove("test_stackPrank()").unwrap();
+    assert_eq!(test.status, TestStatus::Success);
 });

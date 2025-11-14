@@ -264,7 +264,7 @@ impl TestResult {
                 }),
             decoded_logs: test_result.decoded_logs,
             kind: match test_result.kind {
-                edr_solidity_tests::result::TestKind::Standard(gas_consumed) => {
+                edr_solidity_tests::result::TestKind::Unit { gas: gas_consumed } => {
                     Either3::A(StandardTestKind {
                         consumed_gas: BigInt::from(gas_consumed),
                     })
@@ -283,11 +283,27 @@ impl TestResult {
                     runs,
                     calls,
                     reverts,
+                    metrics,
+                    failed_corpus_replays,
                 } => Either3::C(InvariantTestKind {
                     // usize as u64 is always safe
                     runs: BigInt::from(runs as u64),
                     calls: BigInt::from(calls as u64),
                     reverts: BigInt::from(reverts as u64),
+                    metrics: metrics
+                        .into_iter()
+                        .map(|(name, metric)| {
+                            (
+                                name,
+                                InvariantMetrics {
+                                    calls: BigInt::from(metric.calls as u64),
+                                    reverts: BigInt::from(metric.reverts as u64),
+                                    discards: BigInt::from(metric.discards as u64),
+                                },
+                            )
+                        })
+                        .collect(),
+                    failed_corpus_replays: BigInt::from(failed_corpus_replays as u64),
                 }),
             },
             duration_ns: BigInt::from(test_result.duration.as_nanos()),
@@ -336,7 +352,7 @@ impl From<edr_solidity_tests::result::TestStatus> for TestStatus {
     }
 }
 
-/// See [`edr_solidity_tests::result::TestKind::Standard`]
+/// See [`edr_solidity_tests::result::TestKind::Unit`]
 #[napi(object)]
 #[derive(Debug, Clone)]
 pub struct StandardTestKind {
@@ -397,6 +413,27 @@ pub struct InvariantTestKind {
     /// See [`edr_solidity_tests::result::TestKind::Invariant`]
     #[napi(readonly)]
     pub reverts: BigInt,
+    /// See [`edr_solidity_tests::result::TestKind::Invariant`]
+    #[napi(readonly)]
+    pub metrics: std::collections::HashMap<String, InvariantMetrics>,
+    /// See [`edr_solidity_tests::result::TestKind::Invariant`]
+    #[napi(readonly)]
+    pub failed_corpus_replays: BigInt,
+}
+
+/// See [`edr_solidity_tests::result::InvariantMetrics`]
+#[napi(object)]
+#[derive(Debug, Clone)]
+pub struct InvariantMetrics {
+    // Count of fuzzed selector calls.
+    #[napi(readonly)]
+    pub calls: BigInt,
+    // Count of fuzzed selector reverts.
+    #[napi(readonly)]
+    pub reverts: BigInt,
+    // Count of fuzzed selector discards (through assume cheatcodes).
+    #[napi(readonly)]
+    pub discards: BigInt,
 }
 
 /// Original sequence size and sequence of calls used as a counter example
@@ -543,10 +580,19 @@ impl CallTrace {
     /// Instantiates a `CallTrace` with the details from a node and the supplied
     /// children.
     fn new(node: &traces::CallTraceNode, children: Vec<Either<CallTrace, LogTrace>>) -> Self {
-        let contract = node.trace.decoded.label.clone();
+        let contract = node
+            .trace
+            .decoded
+            .as_ref()
+            .and_then(|decoded| decoded.label.clone());
         let address = node.trace.address.to_checksum(None);
 
-        let inputs = match &node.trace.decoded.call_data {
+        let inputs = match &node
+            .trace
+            .decoded
+            .as_ref()
+            .and_then(|decoded| decoded.call_data.as_ref())
+        {
             Some(traces::DecodedCallData { signature, args }) => {
                 let name = signature
                     .split('(')
@@ -559,7 +605,12 @@ impl CallTrace {
             None => Either::B(node.trace.data.as_ref().into()),
         };
 
-        let outputs = match &node.trace.decoded.return_data {
+        let outputs = match node
+            .trace
+            .decoded
+            .as_ref()
+            .and_then(|decoded| decoded.return_data.as_ref())
+        {
             Some(outputs) => Either::A(outputs.clone()),
             None => {
                 if node.kind().is_any_create() && node.trace.success {
@@ -676,7 +727,10 @@ impl CallTrace {
 
 impl From<&traces::CallLog> for LogTrace {
     fn from(log: &traces::CallLog) -> Self {
-        let decoded_log = log.decoded.name.clone().zip(log.decoded.params.as_ref());
+        let decoded_log = log
+            .decoded
+            .as_ref()
+            .and_then(|decoded| decoded.name.clone().zip(decoded.params.as_ref()));
 
         let parameters = decoded_log.map_or_else(
             || {

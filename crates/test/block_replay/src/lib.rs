@@ -183,7 +183,7 @@ pub async fn run_full_block<
     let state = prior_blockchain
         .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
 
-    let custom_precompiles = HashMap::new();
+    let custom_precompiles = HashMap::default();
 
     let mut builder = ChainSpecT::BlockBuilder::new_block_builder(
         &prior_blockchain,
@@ -393,7 +393,7 @@ pub async fn assert_replay_header<
     let state = prior_blockchain
         .state_at_block_number(block_number - 1, prior_irregular_state.state_overrides())?;
 
-    let custom_precompiles = HashMap::new();
+    let custom_precompiles = HashMap::default();
 
     let builder = ChainSpecT::BlockBuilder::new_block_builder(
         &prior_blockchain,

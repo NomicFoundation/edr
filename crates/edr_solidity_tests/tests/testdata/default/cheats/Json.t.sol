@@ -47,7 +47,10 @@ contract ParseJsonTest is DSTest {
     }
 
     function test_H160ButNotaddress() public {
-        string memory data = abi.decode(vm.parseJson(json, ".H160NotAddress"), (string));
+        string memory data = abi.decode(
+            vm.parseJson(json, ".H160NotAddress"),
+            (string)
+        );
         assertEq("0000000000000000000000000000000000001337", data);
     }
 
@@ -97,7 +100,7 @@ contract ParseJsonTest is DSTest {
     }
 
     function test_coercionRevert() public {
-        vm._expectCheatcodeRevert("values at \".nestedObject\" must not be JSON objects");
+        vm._expectCheatcodeRevert("expected uint256, found JSON object");
         vm.parseJsonUint(json, ".nestedObject");
     }
 
@@ -105,9 +108,15 @@ contract ParseJsonTest is DSTest {
         uint256 number = vm.parseJsonUint(json, ".uintHex");
         assertEq(number, 1231232);
         number = vm.parseJsonUint(json, ".uintString");
-        assertEq(number, 115792089237316195423570985008687907853269984665640564039457584007913129639935);
+        assertEq(
+            number,
+            115792089237316195423570985008687907853269984665640564039457584007913129639935
+        );
         number = vm.parseJsonUint(json, ".uintNumber");
-        assertEq(number, 115792089237316195423570985008687907853269984665640564039457584007913129639935);
+        assertEq(
+            number,
+            115792089237316195423570985008687907853269984665640564039457584007913129639935
+        );
         uint256[] memory numbers = vm.parseJsonUintArray(json, ".uintArray");
         assertEq(numbers[0], 42);
         assertEq(numbers[1], 43);
@@ -145,7 +154,10 @@ contract ParseJsonTest is DSTest {
         bytes memory bytes_ = vm.parseJsonBytes(json, ".bytesString");
         assertEq(bytes_, hex"01");
 
-        bytes[] memory bytesArray = vm.parseJsonBytesArray(json, ".bytesStringArray");
+        bytes[] memory bytesArray = vm.parseJsonBytesArray(
+            json,
+            ".bytesStringArray"
+        );
         assertEq(bytesArray[0], hex"01");
         assertEq(bytesArray[1], hex"02");
     }
@@ -158,7 +170,10 @@ contract ParseJsonTest is DSTest {
     function test_nestedObject() public {
         bytes memory data = vm.parseJson(json, ".nestedObject");
         Nested memory nested = abi.decode(data, (Nested));
-        assertEq(nested.number, 115792089237316195423570985008687907853269984665640564039457584007913129639935);
+        assertEq(
+            nested.number,
+            115792089237316195423570985008687907853269984665640564039457584007913129639935
+        );
         assertEq(nested.str, "NEST");
     }
 
@@ -181,8 +196,8 @@ contract ParseJsonTest is DSTest {
     }
 
     function test_parseJsonKeys() public {
-        string memory jsonString =
-            '{"some_key_to_value": "some_value", "some_key_to_array": [1, 2, 3], "some_key_to_object": {"key1": "value1", "key2": 2}}';
+        string
+            memory jsonString = '{"some_key_to_value": "some_value", "some_key_to_array": [1, 2, 3], "some_key_to_object": {"key1": "value1", "key2": 2}}';
 
         string[] memory keys = vm.parseJsonKeys(jsonString, "$");
         string[] memory expected = new string[](3);
@@ -197,13 +212,19 @@ contract ParseJsonTest is DSTest {
         expected[1] = "key2";
         assertEq(abi.encode(keys), abi.encode(expected));
 
-        vm._expectCheatcodeRevert("JSON value at \".some_key_to_array\" is not an object");
+        vm._expectCheatcodeRevert(
+            'JSON value at ".some_key_to_array" is not an object'
+        );
         vm.parseJsonKeys(jsonString, ".some_key_to_array");
 
-        vm._expectCheatcodeRevert("JSON value at \".some_key_to_value\" is not an object");
+        vm._expectCheatcodeRevert(
+            'JSON value at ".some_key_to_value" is not an object'
+        );
         vm.parseJsonKeys(jsonString, ".some_key_to_value");
 
-        vm._expectCheatcodeRevert("key \".*\" must return exactly one JSON object");
+        vm._expectCheatcodeRevert(
+            'key ".*" must return exactly one JSON object'
+        );
         vm.parseJsonKeys(jsonString, ".*");
     }
 }
@@ -277,13 +298,13 @@ contract WriteJsonTest is DSTest {
     // Github issue: https://github.com/foundry-rs/foundry/issues/5745
     function test_serializeRootObject() public {
         string memory serialized = vm.serializeJson(json1, '{"foo": "bar"}');
-        assertEq(serialized, '{"foo":"bar"}');
+        assertEq(serialized, '{"foo": "bar"}');
         serialized = vm.serializeBool(json1, "boolean", true);
         assertEq(vm.parseJsonString(serialized, ".foo"), "bar");
         assertEq(vm.parseJsonBool(serialized, ".boolean"), true);
 
         string memory overwritten = vm.serializeJson(json1, '{"value": 123}');
-        assertEq(overwritten, '{"value":123}');
+        assertEq(overwritten, '{"value": 123}');
     }
 
     struct simpleJson {

@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use alloy_primitives::{Address, Bytes, TxKind, B256, U256};
 use foundry_fork_db::DatabaseError;
 use op_revm::{OpEvm, OpTransaction};
@@ -6,7 +8,7 @@ use revm::{
         either::Either,
         result::{EVMError, ExecutionResult, HaltReasonTr, InvalidTransaction},
         transaction::SignedAuthorization,
-        BlockEnv, CfgEnv, Evm, JournalInner, LocalContext, TxEnv,
+        BlockEnv, CfgEnv, Evm, LocalContext, TxEnv,
     },
     context_interface::{transaction::AccessList, Block, JournalTr, Transaction},
     handler::{instructions::EthInstructions, EthFrame, EthPrecompiles, PrecompileProvider},
@@ -17,7 +19,7 @@ use revm::{
 };
 
 use crate::{
-    backend::CheatcodeBackend,
+    backend::{CheatcodeBackend, JournaledState},
     opts::{BlockEnvOpts, TxEnvOpts},
 };
 
@@ -76,7 +78,7 @@ pub trait EvmBuilderTrait<
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
     TransactionT: TransactionEnvTr,
->
+>: std::fmt::Debug + Clone
 {
     /// Type of the EVM being built.
     type Evm<
@@ -131,12 +133,13 @@ pub trait EvmBuilderTrait<
             EthInterpreter,
         >,
     >(
-        journal: Journal<DatabaseT>,
+        journaled_state: Journal<DatabaseT>,
         env: EvmEnvWithChainContext<BlockT, TransactionT, HardforkT, ChainContextT>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT>;
 }
 
+#[derive(Debug, Clone)]
 pub struct L1EvmBuilder;
 
 impl
@@ -165,11 +168,25 @@ impl
 
     type PrecompileProvider<DatabaseT: Database> = EthPrecompiles;
 
+    fn evm_with_inspector<
+        DatabaseT: Database,
+        InspectorT: Inspector<EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>, EthInterpreter>,
+    >(
+        db: DatabaseT,
+        env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>,
+        inspector: InspectorT,
+    ) -> Self::Evm<DatabaseT, InspectorT> {
+        let mut journaled_state = Journal::<_, JournalEntry>::new(db);
+        journaled_state.set_spec_id(env.cfg.spec);
+
+        Self::evm_with_journal_and_inspector(journaled_state, env, inspector)
+    }
+
     fn evm_with_journal_and_inspector<
         DatabaseT: Database,
         InspectorT: Inspector<EthInstructionsContext<BlockEnv, TxEnv, SpecId, DatabaseT, ()>, EthInterpreter>,
     >(
-        journal: Journal<DatabaseT>,
+        journaled_state: Journal<DatabaseT>,
         env: EvmEnvWithChainContext<BlockEnv, TxEnv, SpecId, ()>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
@@ -177,7 +194,7 @@ impl
             tx: env.tx,
             block: env.block,
             cfg: env.cfg,
-            journaled_state: journal,
+            journaled_state,
             chain: env.chain_context,
             local: LocalContext::default(),
             error: Ok(()),
@@ -289,12 +306,12 @@ impl<T> TransactionEnvTr for T where
 }
 
 pub trait TransactionErrorTrait:
-    'static + From<InvalidTransaction> + std::error::Error + Send + Sync
+    'static + Clone + From<InvalidTransaction> + std::error::Error + Send + Sync
 {
 }
 
 impl<TransactionErrorT> TransactionErrorTrait for TransactionErrorT where
-    TransactionErrorT: 'static + From<InvalidTransaction> + std::error::Error + Send + Sync
+    TransactionErrorT: 'static + Clone + From<InvalidTransaction> + std::error::Error + Send + Sync
 {
 }
 
@@ -303,9 +320,10 @@ pub trait ChainContextTr: Clone + std::fmt::Debug + Default {}
 impl<T> ChainContextTr for T where T: Clone + std::fmt::Debug + Default {}
 
 pub trait TransactionEnvMut {
+    fn set_tx_type(&mut self, tx_type: u8);
     fn set_access_list(&mut self, access_list: AccessList);
     fn set_authorization_list(&mut self, authorization_list: Vec<SignedAuthorization>);
-    fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>);
+    fn set_blob_hashes(&mut self, blob_hashes: Vec<B256>);
     fn set_caller(&mut self, caller: Address);
     fn set_chain_id(&mut self, chain_id: Option<u64>);
     fn set_gas_limit(&mut self, gas_limit: u64);
@@ -313,12 +331,16 @@ pub trait TransactionEnvMut {
     fn set_gas_priority_fee(&mut self, gas_priority_fee: Option<u128>);
     fn set_max_fee_per_blob_gas(&mut self, max_fee_per_blob_gas: u128);
     fn set_nonce(&mut self, nonce: u64);
-    fn set_input(&mut self, input: Bytes);
-    fn set_transact_to(&mut self, kind: TxKind);
+    fn set_data(&mut self, data: Bytes);
+    fn set_kind(&mut self, kind: TxKind);
     fn set_value(&mut self, value: U256);
 }
 
 impl TransactionEnvMut for TxEnv {
+    fn set_tx_type(&mut self, tx_type: u8) {
+        self.tx_type = tx_type;
+    }
+
     fn set_access_list(&mut self, access_list: AccessList) {
         self.access_list = access_list;
     }
@@ -327,7 +349,7 @@ impl TransactionEnvMut for TxEnv {
         self.authorization_list = authorization_list.into_iter().map(Either::Left).collect();
     }
 
-    fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {
+    fn set_blob_hashes(&mut self, blob_hashes: Vec<B256>) {
         self.blob_hashes = blob_hashes;
     }
 
@@ -359,11 +381,11 @@ impl TransactionEnvMut for TxEnv {
         self.nonce = nonce;
     }
 
-    fn set_input(&mut self, input: Bytes) {
-        self.data = input;
+    fn set_data(&mut self, data: Bytes) {
+        self.data = data;
     }
 
-    fn set_transact_to(&mut self, kind: TxKind) {
+    fn set_kind(&mut self, kind: TxKind) {
         self.kind = kind;
     }
 
@@ -373,6 +395,10 @@ impl TransactionEnvMut for TxEnv {
 }
 
 impl TransactionEnvMut for OpTransaction<TxEnv> {
+    fn set_tx_type(&mut self, tx_type: u8) {
+        self.base.tx_type = tx_type;
+    }
+
     fn set_access_list(&mut self, access_list: AccessList) {
         self.base.access_list = access_list;
     }
@@ -381,7 +407,7 @@ impl TransactionEnvMut for OpTransaction<TxEnv> {
         self.base.authorization_list = authorization_list.into_iter().map(Either::Left).collect();
     }
 
-    fn set_blob_versioned_hashes(&mut self, blob_hashes: Vec<B256>) {
+    fn set_blob_hashes(&mut self, blob_hashes: Vec<B256>) {
         self.base.blob_hashes = blob_hashes;
     }
 
@@ -413,11 +439,11 @@ impl TransactionEnvMut for OpTransaction<TxEnv> {
         self.base.nonce = nonce;
     }
 
-    fn set_input(&mut self, input: Bytes) {
-        self.base.data = input;
+    fn set_data(&mut self, data: Bytes) {
+        self.base.data = data;
     }
 
-    fn set_transact_to(&mut self, kind: TxKind) {
+    fn set_kind(&mut self, kind: TxKind) {
         self.base.kind = kind;
     }
 
@@ -429,7 +455,7 @@ impl TransactionEnvMut for OpTransaction<TxEnv> {
 pub trait BlockEnvMut {
     fn set_basefee(&mut self, basefee: u64);
     fn set_beneficiary(&mut self, beneficiary: Address);
-    fn set_block_number(&mut self, block_number: u64);
+    fn set_number(&mut self, block_number: U256);
     fn set_blob_excess_gas_and_price(
         &mut self,
         excess_blob_gas: u64,
@@ -437,8 +463,8 @@ pub trait BlockEnvMut {
     );
     fn set_difficulty(&mut self, difficulty: U256);
     fn set_gas_limit(&mut self, gas_limit: u64);
-    fn set_prevrandao(&mut self, prevrandao: B256);
-    fn set_timestamp(&mut self, timestamp: u64);
+    fn set_prevrandao(&mut self, prevrandao: Option<B256>);
+    fn set_timestamp(&mut self, timestamp: U256);
 }
 
 impl BlockEnvMut for BlockEnv {
@@ -462,16 +488,16 @@ impl BlockEnvMut for BlockEnv {
         self.difficulty = difficulty;
     }
 
-    fn set_prevrandao(&mut self, prevrandao: B256) {
-        self.prevrandao = Some(prevrandao);
+    fn set_prevrandao(&mut self, prevrandao: Option<B256>) {
+        self.prevrandao = prevrandao;
     }
 
-    fn set_block_number(&mut self, block_number: u64) {
-        self.number = U256::from(block_number);
+    fn set_number(&mut self, block_number: U256) {
+        self.number = block_number;
     }
 
-    fn set_timestamp(&mut self, timestamp: u64) {
-        self.timestamp = U256::from(timestamp);
+    fn set_timestamp(&mut self, timestamp: U256) {
+        self.timestamp = timestamp;
     }
 
     fn set_gas_limit(&mut self, gas_limit: u64) {
@@ -533,11 +559,76 @@ where
     (&mut context.journaled_state.database, evm_context)
 }
 
+/// Split the database from EVM execution context so that a mutable method can
+/// be called on the database with arguments from the execution context, while
+/// avoiding compiler recursion issues.
+pub fn split_context_deref_mut<
+    BlockT,
+    TxT,
+    EvmBuilderT,
+    HaltReasonT,
+    HardforkT,
+    TransactionErrorT,
+    DatabaseT,
+    ChainContextT,
+>(
+    context: &mut revm::context::Context<
+        BlockT,
+        TxT,
+        CfgEnv<HardforkT>,
+        DatabaseT,
+        Journal<DatabaseT>,
+        ChainContextT,
+    >,
+) -> (
+    &mut DatabaseT::Target,
+    EvmContext<'_, BlockT, TxT, HardforkT, ChainContextT>,
+)
+where
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT:
+        EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        > + DerefMut<
+            Target: CheatcodeBackend<
+                BlockT,
+                TxT,
+                EvmBuilderT,
+                HaltReasonT,
+                HardforkT,
+                TransactionErrorT,
+                ChainContextT,
+            >,
+        >,
+{
+    let evm_context = EvmContext {
+        block: &mut context.block,
+        tx: &mut context.tx,
+        cfg: &mut context.cfg,
+        journaled_state: &mut context.journaled_state.inner,
+        chain_context: &mut context.chain,
+    };
+
+    (&mut *context.journaled_state.database, evm_context)
+}
+
 pub struct EvmContext<'a, BlockT, TxT, HardforkT, ChainContextT> {
     pub block: &'a mut BlockT,
     pub tx: &'a mut TxT,
     pub cfg: &'a mut CfgEnv<HardforkT>,
-    pub journaled_state: &'a mut JournalInner<JournalEntry>,
+    pub journaled_state: &'a mut JournaledState,
     pub chain_context: &'a mut ChainContextT,
 }
 
@@ -606,13 +697,7 @@ where
     }
 }
 
-/// EVM execution environment
-#[derive(Clone, Debug, Default)]
-pub struct EvmEnv<BlockT, TxT, HardforkT> {
-    pub block: BlockT,
-    pub tx: TxT,
-    pub cfg: CfgEnv<HardforkT>,
-}
+pub use crate::Env as EvmEnv;
 
 impl<BlockT, TxT, HardforkT, DatabaseT, JournalT, ChainT>
     From<revm::context::Context<BlockT, TxT, CfgEnv<HardforkT>, DatabaseT, JournalT, ChainT>>
@@ -629,16 +714,6 @@ where
             tx: value.tx,
             cfg: value.cfg,
         }
-    }
-}
-
-impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
-    EvmEnv<BlockT, TxT, HardforkT>
-{
-    pub fn new_with_spec_id(spec_id: HardforkT) -> Self {
-        let mut env = Self::default();
-        env.cfg.spec = spec_id;
-        env
     }
 }
 

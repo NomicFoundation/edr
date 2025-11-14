@@ -1,17 +1,8 @@
-//! Several ABI-related utilities for executors.
+//! Solidity ABI-related utilities and [`sol!`](alloy_sol_types::sol)
+//! definitions.
 
 pub use foundry_cheatcodes_spec::Vm;
 
-mod console;
-pub use console::{format_units_int, format_units_uint, Console};
-
-pub mod fmt;
-
-mod hardhat_console;
-pub use hardhat_console::{
-    hh_console_selector, patch_hh_console_selector, HardhatConsole,
-    HARDHAT_CONSOLE_SELECTOR_PATCHES,
-};
-
+pub mod console;
 mod test_function_ext;
-pub use test_function_ext::TestFunctionExt;
+pub use test_function_ext::{TestFunctionExt, TestFunctionKind};

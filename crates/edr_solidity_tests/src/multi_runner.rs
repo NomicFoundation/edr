@@ -31,10 +31,13 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     config::CollectStackTraces,
+    contracts::get_contract_name,
+    error::TestRunnerError,
+    fuzz::{invariant::InvariantConfig, FuzzConfig},
     result::SuiteResult,
     runner::{ContractRunnerArtifacts, ContractRunnerOptions},
     ContractRunner, IncludeTraces, SolidityTestRunnerConfig, SolidityTestRunnerConfigError,
-    TestFilter, TestOptions,
+    TestFilter,
 };
 
 pub struct SuiteResultAndArtifactId<HaltReasonT> {
@@ -115,12 +118,12 @@ pub struct MultiContractRunner<
     /// Whether to enable trace mode and which traces to include in test
     /// results.
     include_traces: IncludeTraces,
-    /// Whether to support the `testFail` prefix
-    test_fail: bool,
-    /// Whether to enable solidity fuzz fixtures support
-    solidity_fuzz_fixtures: bool,
-    /// Settings related to fuzz and/or invariant tests
-    test_options: TestOptions,
+    /// Whether to enable Solidity fuzz fixtures support
+    enable_fuzz_fixtures: bool,
+    /// Whether to enable table test support
+    enable_table_tests: bool,
+    fuzz_config: FuzzConfig,
+    invariant_config: InvariantConfig,
     /// Optionally, a callback to be called when coverage is collected.
     #[debug(skip)]
     on_collected_coverage_fn: Option<Box<dyn SyncOnCollectedCoverageCallback>>,
@@ -179,13 +182,13 @@ impl<
             collect_stack_traces,
             mut include_traces,
             coverage,
-            test_fail,
             mut evm_opts,
             project_root,
-            mut cheats_config_options,
+            cheats_config_options,
             fuzz,
             invariant,
-            solidity_fuzz_fixtures,
+            enable_fuzz_fixtures,
+            enable_table_tests,
             local_predeploys,
             on_collected_coverage_fn,
             generate_gas_report,
@@ -200,19 +203,11 @@ impl<
         .await
         .expect("Thread shouldn't panic")?;
 
-        let test_options: TestOptions = TestOptions { fuzz, invariant };
-
         if generate_gas_report {
             // Traces are needed to generate a gas report
             include_traces = IncludeTraces::All;
             // Enable EVM isolation for more accurate gas measurements
             evm_opts.isolate = true;
-        }
-
-        // HACK: When EVM isolation is enabled, we need to allow internal expectRevert
-        // calls because we have a bug in isolation mode.
-        if evm_opts.isolate {
-            cheats_config_options.allow_internal_expect_revert = true;
         }
 
         Ok(Self {
@@ -230,9 +225,10 @@ impl<
             collect_stack_traces,
             coverage,
             include_traces,
-            test_fail,
-            solidity_fuzz_fixtures,
-            test_options,
+            enable_fuzz_fixtures,
+            enable_table_tests,
+            fuzz_config: fuzz,
+            invariant_config: invariant,
             on_collected_coverage_fn,
             _phantom: PhantomData,
             generate_gas_report,
@@ -284,19 +280,31 @@ impl<
         TransactionT,
     >
 {
-    fn run_tests(
+    fn run_test_suite(
         &self,
         artifact_id: &ArtifactId,
         contract: &TestContract,
         fork: Option<CreateFork<BlockT, TransactionT, HardforkT>>,
         filter: &dyn TestFilter,
         handle: &tokio::runtime::Handle,
-    ) -> (
-        SuiteResult<HaltReasonT>,
-        Option<crate::gas_report::GasReport>,
-    ) {
+    ) -> Result<
+        (
+            SuiteResult<HaltReasonT>,
+            Option<crate::gas_report::GasReport>,
+        ),
+        TestRunnerError,
+    > {
         let identifier = artifact_id.identifier();
         let mut span_name = identifier.as_str();
+
+        if !enabled!(tracing::Level::TRACE) {
+            span_name = get_contract_name(&identifier);
+        }
+        let span = debug_span!("suite", name = %span_name);
+        let span_local = span.clone();
+        let _guard = span_local.enter();
+
+        debug!("start executing all tests in contract");
 
         let cheats_config = CheatsConfig::new(
             self.project_root.clone(),
@@ -356,11 +364,14 @@ impl<
                 ContractRunnerOptions {
                     initial_balance: self.evm_opts.initial_balance,
                     sender: self.evm_opts.sender,
-                    test_fail: self.test_fail,
-                    solidity_fuzz_fixtures: self.solidity_fuzz_fixtures,
+                    enable_fuzz_fixtures: self.enable_fuzz_fixtures,
+                    enable_table_tests: self.enable_table_tests,
+                    fuzz_config: &self.fuzz_config,
+                    invariant_config: &self.invariant_config,
                 },
+                span,
             );
-        let mut r = runner.run_tests(filter, &self.test_options, handle);
+        let mut r = runner.run_tests(filter, handle)?;
 
         let mut gas_report = self
             .generate_gas_report
@@ -423,7 +434,7 @@ impl<
         }
         debug!(duration=?r.duration, "executed all tests in contract");
 
-        (r, gas_report)
+        Ok((r, gas_report))
     }
 
     /// Executes _all_ tests that match the given `filter`.
@@ -439,13 +450,16 @@ impl<
         let (tx_results, mut rx_results) =
             tokio::sync::mpsc::unbounded_channel::<SuiteResultAndArtifactId<HaltReasonT>>();
 
-        let test_result = self.test(
-            tokio::runtime::Handle::current(),
-            Arc::new(filter),
-            Arc::new(move |suite_result| {
-                let _ = tx_results.clone().send(suite_result);
-            }),
-        );
+        let test_result = self
+            .test(
+                tokio::runtime::Handle::current(),
+                Arc::new(filter),
+                Arc::new(move |suite_result| {
+                    let _ = tx_results.clone().send(suite_result);
+                }),
+                // TODO return error instead once testsa are backported
+            )
+            .expect("fork created successfully");
 
         let mut suite_results = BTreeMap::new();
 
@@ -479,7 +493,7 @@ impl<
         tokio_handle: tokio::runtime::Handle,
         filter: Arc<impl TestFilter + 'static>,
         on_test_suite_completed_fn: Arc<dyn OnTestSuiteCompletedFn<HaltReasonT>>,
-    ) -> SolidityTestResult {
+    ) -> Result<SolidityTestResult, TestRunnerError> {
         trace!("running all tests");
 
         let fork = self.fork.take();
@@ -503,17 +517,22 @@ impl<
             .into_par_iter()
             .map(|(id, contract)| {
                 let _guard = tokio_handle.enter();
-                let (result, gas_report) =
-                    self.run_tests(&id, &contract, fork.clone(), filter.as_ref(), &tokio_handle);
+                let (result, gas_report) = self.run_test_suite(
+                    &id,
+                    &contract,
+                    fork.clone(),
+                    filter.as_ref(),
+                    &tokio_handle,
+                )?;
 
                 on_test_suite_completed_fn(SuiteResultAndArtifactId {
                     artifact_id: id,
                     result,
                 });
 
-                gas_report
+                Ok::<_, TestRunnerError>(gas_report)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?;
 
         // Merge gas reports
         let gas_report = self.generate_gas_report.then(|| {
@@ -527,7 +546,7 @@ impl<
                 })
         });
 
-        SolidityTestResult { gas_report }
+        Ok(SolidityTestResult { gas_report })
     }
 }
 

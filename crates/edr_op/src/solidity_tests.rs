@@ -1,7 +1,4 @@
-use edr_evm_spec::{
-    handler::EthInstructions, interpreter::EthInterpreter, Context, Database, Evm, Inspector,
-    Journal,
-};
+use edr_evm_spec::{handler::EthInstructions, interpreter::EthInterpreter, Database, Inspector};
 use edr_solidity_tests::{
     evm_context::{EthInstructionsContext, EvmBuilderTrait, EvmEnvWithChainContext},
     revm::context::{LocalContext, TxEnv},
@@ -10,9 +7,10 @@ use op_revm::{
     precompiles::OpPrecompiles, L1BlockInfo, OpEvm, OpHaltReason, OpSpecId, OpTransaction,
     OpTransactionError,
 };
-use revm_context::BlockEnv;
+use revm_context::{BlockEnv, Context, Evm, Journal, JournalEntry, JournalTr as _};
 
 /// Type implementing the [`EvmBuilderTrait`] for the OP EVM.
+#[derive(Debug, Clone)]
 pub struct OpEvmBuilder;
 
 impl
@@ -55,6 +53,29 @@ impl
 
     type PrecompileProvider<DatabaseT: Database> = OpPrecompiles;
 
+    fn evm_with_inspector<
+        DatabaseT: Database,
+        InspectorT: Inspector<
+            EthInstructionsContext<
+                BlockEnv,
+                OpTransaction<TxEnv>,
+                OpSpecId,
+                DatabaseT,
+                L1BlockInfo,
+            >,
+            EthInterpreter,
+        >,
+    >(
+        db: DatabaseT,
+        env: EvmEnvWithChainContext<BlockEnv, OpTransaction<TxEnv>, OpSpecId, L1BlockInfo>,
+        inspector: InspectorT,
+    ) -> Self::Evm<DatabaseT, InspectorT> {
+        let mut journaled_state = Journal::<DatabaseT, JournalEntry>::new(db);
+        journaled_state.set_spec_id(env.cfg.spec.into());
+
+        Self::evm_with_journal_and_inspector(journaled_state, env, inspector)
+    }
+
     fn evm_with_journal_and_inspector<
         DatabaseT: Database,
         InspectorT: Inspector<
@@ -68,7 +89,7 @@ impl
             EthInterpreter,
         >,
     >(
-        journal: Journal<DatabaseT>,
+        journaled_state: Journal<DatabaseT>,
         env: EvmEnvWithChainContext<BlockEnv, OpTransaction<TxEnv>, OpSpecId, L1BlockInfo>,
         inspector: InspectorT,
     ) -> Self::Evm<DatabaseT, InspectorT> {
@@ -76,7 +97,7 @@ impl
             tx: env.tx,
             block: env.block,
             cfg: env.cfg,
-            journaled_state: journal,
+            journaled_state,
             chain: env.chain_context,
             local: LocalContext::default(),
             error: Ok(()),

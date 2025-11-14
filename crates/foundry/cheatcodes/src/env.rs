@@ -1,26 +1,23 @@
-//! Implementations of [`Environment`](crate::Group::Environment) cheatcodes.
+//! Implementations of [`Environment`](spec::Group::Environment) cheatcodes.
 
 use std::env;
 
 use alloy_dyn_abi::DynSolType;
 use alloy_sol_types::SolValue;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use revm::context::result::HaltReasonTr;
 
+#[allow(clippy::wildcard_imports)]
+use crate::Vm::*;
 use crate::{
-    config::ExecutionContextConfig,
-    impl_is_pure_false, string, Cheatcode, Cheatcodes, Error, Result,
-    Vm::{
-        envAddress_0Call, envAddress_1Call, envBool_0Call, envBool_1Call, envBytes32_0Call,
-        envBytes32_1Call, envBytes_0Call, envBytes_1Call, envExistsCall, envInt_0Call,
-        envInt_1Call, envOr_0Call, envOr_10Call, envOr_11Call, envOr_12Call, envOr_13Call,
-        envOr_1Call, envOr_2Call, envOr_3Call, envOr_4Call, envOr_5Call, envOr_6Call, envOr_7Call,
-        envOr_8Call, envOr_9Call, envString_0Call, envString_1Call, envUint_0Call, envUint_1Call,
-        isContextCall, setEnvCall, ExecutionContext,
-    },
+    impl_is_pure_false, string, Cheatcode, Cheatcodes, Error, ExecutionContextConfig, Result,
+    Vm::ExecutionContext,
 };
 
 impl_is_pure_false!(setEnvCall);
@@ -28,11 +25,20 @@ impl Cheatcode for setEnvCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -61,8 +67,6 @@ impl Cheatcode for setEnvCall {
                 "environment variable value can't contain NUL character `\\0`"
             ))
         } else {
-            // SAFETY: this is unsafe, because multiple threads can read/write the
-            // environment, but we have to keep it for backwards compatibility.
             unsafe {
                 env::set_var(key, value);
             }
@@ -76,11 +80,20 @@ impl Cheatcode for envExistsCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -103,11 +116,20 @@ impl Cheatcode for envBool_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -130,11 +152,20 @@ impl Cheatcode for envUint_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -157,11 +188,20 @@ impl Cheatcode for envInt_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -184,11 +224,20 @@ impl Cheatcode for envAddress_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -211,11 +260,20 @@ impl Cheatcode for envBytes32_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -238,11 +296,20 @@ impl Cheatcode for envString_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -265,11 +332,20 @@ impl Cheatcode for envBytes_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -292,11 +368,20 @@ impl Cheatcode for envBool_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -319,11 +404,20 @@ impl Cheatcode for envUint_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -346,11 +440,20 @@ impl Cheatcode for envInt_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -373,11 +476,20 @@ impl Cheatcode for envAddress_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -400,11 +512,20 @@ impl Cheatcode for envBytes32_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -427,11 +548,20 @@ impl Cheatcode for envString_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -454,11 +584,20 @@ impl Cheatcode for envBytes_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -482,11 +621,20 @@ impl Cheatcode for envOr_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -510,11 +658,20 @@ impl Cheatcode for envOr_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -538,11 +695,20 @@ impl Cheatcode for envOr_2Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -566,11 +732,20 @@ impl Cheatcode for envOr_3Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -594,11 +769,20 @@ impl Cheatcode for envOr_4Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -622,11 +806,20 @@ impl Cheatcode for envOr_5Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -650,11 +843,20 @@ impl Cheatcode for envOr_6Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -678,11 +880,20 @@ impl Cheatcode for envOr_7Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -710,11 +921,20 @@ impl Cheatcode for envOr_8Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -742,11 +962,20 @@ impl Cheatcode for envOr_9Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -774,11 +1003,20 @@ impl Cheatcode for envOr_10Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -806,11 +1044,20 @@ impl Cheatcode for envOr_11Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -838,11 +1085,20 @@ impl Cheatcode for envOr_12Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -870,11 +1126,20 @@ impl Cheatcode for envOr_13Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -902,11 +1167,20 @@ impl Cheatcode for isContextCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -951,7 +1225,7 @@ fn env(key: &str, ty: &DynSolType) -> Result {
 }
 
 fn env_default<T: SolValue>(key: &str, default: &T, ty: &DynSolType) -> Result {
-    Ok(env(key, ty).unwrap_or_else(|_err| default.abi_encode()))
+    Ok(env(key, ty).unwrap_or_else(|_| default.abi_encode()))
 }
 
 fn env_array(key: &str, delim: &str, ty: &DynSolType) -> Result {
@@ -961,7 +1235,7 @@ fn env_array(key: &str, delim: &str, ty: &DynSolType) -> Result {
 }
 
 fn env_array_default<T: SolValue>(key: &str, delim: &str, default: &T, ty: &DynSolType) -> Result {
-    Ok(env_array(key, delim, ty).unwrap_or_else(|_err| default.abi_encode()))
+    Ok(env_array(key, delim, ty).unwrap_or_else(|_| default.abi_encode()))
 }
 
 fn get_env(key: &str) -> Result<String> {

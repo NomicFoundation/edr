@@ -1,29 +1,31 @@
 use std::borrow::Cow;
 
 use alloy_json_abi::JsonAbi;
-use alloy_primitives::Address;
+use alloy_primitives::{map::HashMap, Address, Bytes};
 use edr_solidity::artifacts::ArtifactId;
 use foundry_evm_core::contracts::ContractsByArtifact;
+use revm_inspectors::tracing::types::CallTraceNode;
 
 mod local;
 pub use local::LocalTraceIdentifier;
 
-mod selectors;
 mod signatures;
+pub use signatures::{SignaturesCache, SignaturesIdentifier};
 
-pub use signatures::{SignaturesIdentifier, SingleSignaturesIdentifier};
+mod selectors;
+pub use selectors::{OpenChainClient, OpenChainSignatures, SelectorKind};
 
-/// An address identity
-pub struct AddressIdentity<'a> {
-    /// The address this identity belongs to
+/// An address identified by a [`TraceIdentifier`].
+pub struct IdentifiedAddress<'a> {
+    /// The address.
     pub address: Address,
-    /// The label for the address
+    /// The label for the address.
     pub label: Option<String>,
-    /// The contract this address represents
+    /// The contract this address represents.
     ///
     /// Note: This may be in the format `"<artifact>:<contract>"`.
     pub contract: Option<String>,
-    /// The ABI of the contract at this address
+    /// The ABI of the contract at this address.
     pub abi: Option<Cow<'a, JsonAbi>>,
     /// The artifact ID of the contract, if any.
     pub artifact_id: Option<ArtifactId>,
@@ -33,9 +35,7 @@ pub struct AddressIdentity<'a> {
 /// addresses of the trace.
 pub trait TraceIdentifier {
     /// Attempts to identify an address in one or more call traces.
-    fn identify_addresses<'a, A>(&mut self, addresses: A) -> Vec<AddressIdentity<'_>>
-    where
-        A: Iterator<Item = (&'a Address, Option<&'a [u8]>)> + Clone;
+    fn identify_addresses(&mut self, nodes: &[&CallTraceNode]) -> Vec<IdentifiedAddress<'_>>;
 }
 
 /// A collection of trace identifiers.
@@ -51,13 +51,13 @@ impl Default for TraceIdentifiers<'_> {
 }
 
 impl TraceIdentifier for TraceIdentifiers<'_> {
-    fn identify_addresses<'a, A>(&mut self, addresses: A) -> Vec<AddressIdentity<'_>>
-    where
-        A: Iterator<Item = (&'a Address, Option<&'a [u8]>)> + Clone,
-    {
-        let mut identities = Vec::new();
+    fn identify_addresses(&mut self, nodes: &[&CallTraceNode]) -> Vec<IdentifiedAddress<'_>> {
+        let mut identities = Vec::with_capacity(nodes.len());
         if let Some(local) = &mut self.local {
-            identities.extend(local.identify_addresses(addresses.clone()));
+            identities.extend(local.identify_addresses(nodes));
+            if identities.len() >= nodes.len() {
+                return identities;
+            }
         }
         identities
     }
@@ -72,6 +72,17 @@ impl<'a> TraceIdentifiers<'a> {
     /// Sets the local identifier.
     pub fn with_local(mut self, known_contracts: &'a ContractsByArtifact) -> Self {
         self.local = Some(LocalTraceIdentifier::new(known_contracts));
+        self
+    }
+
+    /// Sets the local identifier.
+    pub fn with_local_and_bytecodes(
+        mut self,
+        known_contracts: &'a ContractsByArtifact,
+        contracts_bytecode: &'a HashMap<Address, Bytes>,
+    ) -> Self {
+        self.local =
+            Some(LocalTraceIdentifier::new(known_contracts).with_bytecodes(contracts_bytecode));
         self
     }
 

@@ -1,10 +1,10 @@
 use alloy_dyn_abi::{DynSolType, DynSolValue};
 use alloy_primitives::{Sign, I256, U256};
 use proptest::{
+    prelude::Rng,
     strategy::{NewTree, Strategy, ValueTree},
     test_runner::TestRunner,
 };
-use rand::Rng;
 
 /// Value tree for signed ints (up to int256).
 pub struct IntValueTree {
@@ -161,7 +161,11 @@ impl IntStrategy {
         }
 
         // Generate value tree from fixture.
-        let fixture = &self.fixtures[runner.rng().random_range(0..self.fixtures.len())];
+        let fixture_idx = runner.rng().random_range(0..self.fixtures.len());
+        let fixture = self
+            .fixtures
+            .get(fixture_idx)
+            .expect("fixture_idx should be within fixtures bounds");
         if let Some(int_fixture) = fixture.as_int()
             && int_fixture.1 == self.bits
         {
@@ -211,7 +215,7 @@ impl IntStrategy {
 
         // we have a small bias here, i.e. intN::min will never be generated
         // but it's ok since it's generated in `fn generate_edge_tree(...)`
-        let sign = if rng.random_bool(0.5) {
+        let sign = if rng.random::<bool>() {
             Sign::Positive
         } else {
             Sign::Negative

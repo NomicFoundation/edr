@@ -310,6 +310,25 @@ impl PartialHeader {
 
         let evm_spec_id = hardfork.clone().into();
 
+        let base_fee = overrides.base_fee.or_else(|| {
+            if evm_spec_id >= EvmSpecId::LONDON {
+                Some(if let Some(parent) = &parent {
+                    calculate_next_base_fee_per_gas(
+                        parent,
+                        overrides
+                            .base_fee_params
+                            .as_ref()
+                            .unwrap_or(base_fee_params),
+                        hardfork,
+                    )
+                } else {
+                    u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
+                })
+            } else {
+                None
+            }
+        });
+
         Self {
             parent_hash,
             ommers_hash: keccak256(alloy_rlp::encode(ommers)),
@@ -345,24 +364,7 @@ impl PartialHeader {
                     B64::from(66u64)
                 }
             }),
-            base_fee: overrides.base_fee.or_else(|| {
-                if evm_spec_id >= EvmSpecId::LONDON {
-                    Some(if let Some(parent) = &parent {
-                        calculate_next_base_fee_per_gas(
-                            parent,
-                            overrides
-                                .base_fee_params
-                                .as_ref()
-                                .unwrap_or(base_fee_params),
-                            hardfork,
-                        )
-                    } else {
-                        u128::from(alloy_eips::eip1559::INITIAL_BASE_FEE)
-                    })
-                } else {
-                    None
-                }
-            }),
+            base_fee,
             withdrawals_root: overrides.withdrawals_root.or_else(|| {
                 if evm_spec_id >= EvmSpecId::SHANGHAI {
                     let withdrawals_root = withdrawals.map_or(KECCAK_NULL_RLP, |withdrawals| {
@@ -390,7 +392,21 @@ impl PartialHeader {
                                 eip7840::BlobParams::cancun()
                             };
 
-                            blob_params.next_block_excess_blob_gas(*excess_gas, *gas_used)
+                            let base_fee = if evm_spec_id >= EvmSpecId::OSAKA {
+                                base_fee.expect("base fee must be set for post-Osaka blocks")
+                            } else {
+                                // In pre-Osaka (EIP-4844) scenarios, the base fee parameter is not
+                                // used in excess blob gas calculation. Passing 0 is acceptable here
+                                // because `next_block_excess_blob_gas_osaka` ignores the base fee
+                                // value for these hardforks.
+                                0
+                            };
+
+                            blob_params.next_block_excess_blob_gas_osaka(
+                                *excess_gas,
+                                *gas_used,
+                                base_fee.try_into().expect("base fee is too large"),
+                            )
                         },
                     );
 

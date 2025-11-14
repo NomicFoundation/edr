@@ -1,16 +1,14 @@
-use alloy_primitives::{Address, Bytes, Log};
+use alloy_primitives::Log;
 use alloy_sol_types::{SolEvent, SolInterface, SolValue};
+use edr_common::fmt::ConsoleFmt;
 use foundry_evm_core::{
-    abi::{
-        fmt::{ConsoleFmt, FormatSpec},
-        patch_hh_console_selector, Console, HardhatConsole,
-    },
+    abi::console,
     backend::DatabaseError,
     constants::HARDHAT_CONSOLE_ADDRESS,
     evm_context::{BlockEnvTr, ChainContextTr, HardforkTr, TransactionEnvTr},
 };
 use revm::{
-    context::{CfgEnv, Context as EvmContext},
+    context::{CfgEnv, Context as EvmContext, ContextTr},
     interpreter::{
         CallInputs, CallOutcome, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
@@ -30,20 +28,30 @@ pub struct LogCollector {
 }
 
 impl LogCollector {
-    fn hardhat_log(&mut self, mut input: Vec<u8>) -> (Option<InstructionResult>, Bytes) {
-        // Patch the Hardhat-style selector (`uint` instead of `uint256`)
-        patch_hh_console_selector(&mut input);
+    #[cold]
+    fn do_hardhat_log<CTX>(&mut self, context: &mut CTX, inputs: &CallInputs) -> Option<CallOutcome>
+    where
+        CTX: ContextTr,
+    {
+        if let Err(err) = self.hardhat_log(&inputs.input.bytes(context)) {
+            let result = InstructionResult::Revert;
+            let output = err.abi_encode_revert();
+            return Some(CallOutcome {
+                result: InterpreterResult {
+                    result,
+                    output,
+                    gas: Gas::new(inputs.gas_limit),
+                },
+                memory_offset: inputs.return_memory_offset.clone(),
+            });
+        }
+        None
+    }
 
-        // Decode the call
-        let decoded = match HardhatConsole::HardhatConsoleCalls::abi_decode(&input) {
-            Ok(inner) => inner,
-            Err(err) => return (Some(InstructionResult::Revert), err.abi_encode_revert()),
-        };
-
-        // Convert the decoded call to a DS `log(string)` event
-        self.logs.push(convert_hh_log_to_event(decoded));
-
-        (None, Bytes::new())
+    fn hardhat_log(&mut self, data: &[u8]) -> alloy_sol_types::Result<()> {
+        let decoded = console::hh::ConsoleCalls::abi_decode(data)?;
+        self.logs.push(hh_to_ds(&decoded));
+        Ok(())
     }
 }
 
@@ -88,35 +96,25 @@ impl<
         inputs: &mut CallInputs,
     ) -> Option<CallOutcome> {
         if inputs.target_address == HARDHAT_CONSOLE_ADDRESS {
-            let (res, out) = self.hardhat_log(inputs.input.bytes(context).to_vec());
-            if let Some(res) = res {
-                return Some(CallOutcome {
-                    result: InterpreterResult {
-                        result: res,
-                        output: out,
-                        gas: Gas::new(inputs.gas_limit),
-                    },
-                    memory_offset: inputs.return_memory_offset.clone(),
-                });
-            }
+            return self.do_hardhat_log(context, inputs);
         }
-
         None
     }
 }
 
-/// Converts a call to Hardhat's `console.log` to a `DSTest` `log(string)`
-/// event.
-fn convert_hh_log_to_event(call: HardhatConsole::HardhatConsoleCalls) -> Log {
+/// Converts a Hardhat `console.log` call to a `DSTest` `log(string)` event.
+fn hh_to_ds(call: &console::hh::ConsoleCalls) -> Log {
     // Convert the parameters of the call to their string representation using
     // `ConsoleFmt`.
-    let fmt = call.fmt(FormatSpec::default());
-    Log::new(
-        Address::default(),
-        vec![Console::log::SIGNATURE_HASH],
-        fmt.abi_encode().into(),
+    let msg = call.fmt(edr_common::fmt::FormatSpec::default());
+    new_console_log(&msg)
+}
+
+/// Creates a `console.log(string)` event.
+pub(crate) fn new_console_log(msg: &str) -> Log {
+    Log::new_unchecked(
+        HARDHAT_CONSOLE_ADDRESS,
+        vec![console::ds::log::SIGNATURE_HASH],
+        msg.abi_encode().into(),
     )
-    .unwrap_or_else(|| Log {
-        ..Default::default()
-    })
 }

@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use edr_block_header::BlobGas;
 use edr_chain_config::ChainOverride;
 use edr_napi_core::provider::Config as ProviderConfig;
-use edr_primitives::{hash_map::HashMap, Address, ChainId, B256};
+use edr_primitives::{Address, ChainId, HashMap, B256};
 use edr_provider::{AccountOverride, ForkConfig, MiningConfig};
 use edr_test_utils::secret_key::{secret_key_from_str, secret_key_to_str};
 use serde::{Deserialize, Serialize};
@@ -92,7 +92,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
                 .map(SerializableSecretKey::into_inner)
                 .collect::<Vec<_>>(),
             // Overriding precompiles is not supported in scenarios
-            precompile_overrides: HashMap::new(),
+            precompile_overrides: HashMap::default(),
         }
     }
 }
@@ -116,7 +116,7 @@ impl TryFrom<ProviderConfig> for ScenarioProviderConfig {
             chain_id: value.chain_id,
             // Chain overrides are not supported for newly recorded scenarios. We merely maintain it
             // for backwards compatibility for Hardhat 2.
-            chain_overrides: HashMap::new(),
+            chain_overrides: HashMap::default(),
             coinbase: value.coinbase,
             fork: value.fork,
             genesis_state: value.genesis_state,

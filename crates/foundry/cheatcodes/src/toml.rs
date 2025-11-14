@@ -1,29 +1,28 @@
-//! Implementations of [`Toml`](crate::Group::Toml) cheatcodes.
+//! Implementations of [`Toml`](spec::Group::Toml) cheatcodes.
 
 use alloy_dyn_abi::DynSolType;
+use alloy_sol_types::SolValue;
 use edr_common::fs;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use revm::context::result::HaltReasonTr;
 use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
 
+#[allow(clippy::wildcard_imports)]
 use crate::{
     impl_is_pure_false, impl_is_pure_true,
     json::{
         canonicalize_json_path, check_json_key_exists, parse_json, parse_json_coerce,
-        parse_json_keys,
+        parse_json_keys, resolve_type,
     },
     Cheatcode, Cheatcodes, FsAccessKind, Result,
-    Vm::{
-        keyExistsTomlCall, parseTomlAddressArrayCall, parseTomlAddressCall, parseTomlBoolArrayCall,
-        parseTomlBoolCall, parseTomlBytes32ArrayCall, parseTomlBytes32Call,
-        parseTomlBytesArrayCall, parseTomlBytesCall, parseTomlIntArrayCall, parseTomlIntCall,
-        parseTomlKeysCall, parseTomlStringArrayCall, parseTomlStringCall, parseTomlUintArrayCall,
-        parseTomlUintCall, parseToml_0Call, parseToml_1Call, writeToml_0Call, writeToml_1Call,
-    },
+    Vm::*,
 };
 
 impl_is_pure_true!(keyExistsTomlCall);
@@ -31,11 +30,20 @@ impl Cheatcode for keyExistsTomlCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -58,11 +66,20 @@ impl Cheatcode for parseToml_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -85,11 +102,20 @@ impl Cheatcode for parseToml_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -112,11 +138,20 @@ impl Cheatcode for parseTomlUintCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -139,11 +174,20 @@ impl Cheatcode for parseTomlUintArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -157,7 +201,11 @@ impl Cheatcode for parseTomlUintArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::Uint(256))
+        parse_toml_coerce(
+            toml,
+            key,
+            &DynSolType::Array(Box::new(DynSolType::Uint(256))),
+        )
     }
 }
 
@@ -166,11 +214,20 @@ impl Cheatcode for parseTomlIntCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -193,11 +250,20 @@ impl Cheatcode for parseTomlIntArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -211,7 +277,11 @@ impl Cheatcode for parseTomlIntArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::Int(256))
+        parse_toml_coerce(
+            toml,
+            key,
+            &DynSolType::Array(Box::new(DynSolType::Int(256))),
+        )
     }
 }
 
@@ -220,11 +290,20 @@ impl Cheatcode for parseTomlBoolCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -247,11 +326,20 @@ impl Cheatcode for parseTomlBoolArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -265,7 +353,7 @@ impl Cheatcode for parseTomlBoolArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::Bool)
+        parse_toml_coerce(toml, key, &DynSolType::Array(Box::new(DynSolType::Bool)))
     }
 }
 
@@ -274,11 +362,20 @@ impl Cheatcode for parseTomlAddressCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -301,11 +398,20 @@ impl Cheatcode for parseTomlAddressArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -319,7 +425,7 @@ impl Cheatcode for parseTomlAddressArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::Address)
+        parse_toml_coerce(toml, key, &DynSolType::Array(Box::new(DynSolType::Address)))
     }
 }
 
@@ -328,11 +434,20 @@ impl Cheatcode for parseTomlStringCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -355,11 +470,20 @@ impl Cheatcode for parseTomlStringArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -373,7 +497,7 @@ impl Cheatcode for parseTomlStringArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::String)
+        parse_toml_coerce(toml, key, &DynSolType::Array(Box::new(DynSolType::String)))
     }
 }
 
@@ -382,11 +506,20 @@ impl Cheatcode for parseTomlBytesCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -409,11 +542,20 @@ impl Cheatcode for parseTomlBytesArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -427,7 +569,7 @@ impl Cheatcode for parseTomlBytesArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::Bytes)
+        parse_toml_coerce(toml, key, &DynSolType::Array(Box::new(DynSolType::Bytes)))
     }
 }
 
@@ -436,11 +578,20 @@ impl Cheatcode for parseTomlBytes32Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -463,11 +614,20 @@ impl Cheatcode for parseTomlBytes32ArrayCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -481,7 +641,131 @@ impl Cheatcode for parseTomlBytes32ArrayCall {
         >,
     ) -> Result {
         let Self { toml, key } = self;
-        parse_toml_coerce(toml, key, &DynSolType::FixedBytes(32))
+        parse_toml_coerce(
+            toml,
+            key,
+            &DynSolType::Array(Box::new(DynSolType::FixedBytes(32))),
+        )
+    }
+}
+
+impl_is_pure_true!(parseTomlType_0Call);
+impl Cheatcode for parseTomlType_0Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            toml,
+            typeDescription,
+        } = self;
+        parse_toml_coerce(toml, "$", &resolve_type(typeDescription)?).map(|v| v.abi_encode())
+    }
+}
+
+impl_is_pure_true!(parseTomlType_1Call);
+impl Cheatcode for parseTomlType_1Call {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            toml,
+            key,
+            typeDescription,
+        } = self;
+        parse_toml_coerce(toml, key, &resolve_type(typeDescription)?).map(|v| v.abi_encode())
+    }
+}
+
+impl_is_pure_true!(parseTomlTypeArrayCall);
+impl Cheatcode for parseTomlTypeArrayCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        _state: &mut Cheatcodes<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    ) -> Result {
+        let Self {
+            toml,
+            key,
+            typeDescription,
+        } = self;
+        let ty = resolve_type(typeDescription)?;
+        parse_toml_coerce(toml, key, &DynSolType::Array(Box::new(ty))).map(|v| v.abi_encode())
     }
 }
 
@@ -490,11 +774,20 @@ impl Cheatcode for parseTomlKeysCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         _state: &mut Cheatcodes<
@@ -517,11 +810,20 @@ impl Cheatcode for writeToml_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -536,7 +838,7 @@ impl Cheatcode for writeToml_0Call {
     ) -> Result {
         let Self { json, path } = self;
         let value =
-            serde_json::from_str(json).unwrap_or_else(|_err| JsonValue::String(json.to_owned()));
+            serde_json::from_str(json).unwrap_or_else(|_| JsonValue::String(json.to_owned()));
 
         let toml_string = format_json_to_toml(value)?;
         super::fs::write_file(state, path.as_ref(), toml_string.as_bytes())
@@ -548,11 +850,20 @@ impl Cheatcode for writeToml_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -571,17 +882,16 @@ impl Cheatcode for writeToml_1Call {
             valueKey,
         } = self;
         let json =
-            serde_json::from_str(json).unwrap_or_else(|_err| JsonValue::String(json.to_owned()));
+            serde_json::from_str(json).unwrap_or_else(|_| JsonValue::String(json.to_owned()));
 
         let data_path = state.config.ensure_path_allowed(path, FsAccessKind::Read)?;
         let toml_data = fs::read_to_string(data_path)?;
         let json_data: JsonValue =
             toml::from_str(&toml_data).map_err(|e| fmt_err!("failed parsing TOML: {e}"))?;
-        let value = jsonpath_lib::replace_with(
-            json_data,
-            &canonicalize_json_path(valueKey),
-            &mut |_err| Some(json.clone()),
-        )?;
+        let value =
+            jsonpath_lib::replace_with(json_data, &canonicalize_json_path(valueKey), &mut |_| {
+                Some(json.clone())
+            })?;
 
         let toml_string = format_json_to_toml(value)?;
         super::fs::write_file(state, path.as_ref(), toml_string.as_bytes())

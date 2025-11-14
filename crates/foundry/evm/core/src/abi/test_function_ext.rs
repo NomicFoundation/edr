@@ -21,11 +21,6 @@ pub trait TestFunctionExt {
         self.test_function_kind().is_any_test()
     }
 
-    /// Returns `true` if this function is a test that should fail.
-    fn is_any_test_fail(&self) -> bool {
-        self.test_function_kind().is_any_test_fail()
-    }
-
     /// Returns `true` if this function is a unit test.
     fn is_unit_test(&self) -> bool {
         matches!(self.test_function_kind(), TestFunctionKind::UnitTest { .. })
@@ -54,6 +49,15 @@ pub trait TestFunctionExt {
     /// Returns `true` if this function is a `fixture` function.
     fn is_fixture(&self) -> bool {
         self.test_function_kind().is_fixture()
+    }
+
+    /// Returns `true` if this function is test reserved function.
+    fn is_reserved(&self) -> bool {
+        self.is_any_test()
+            || self.is_setup()
+            || self.is_before_test_setup()
+            || self.is_after_invariant()
+            || self.is_fixture()
     }
 
     #[doc(hidden)]
@@ -103,6 +107,8 @@ pub enum TestFunctionKind {
     FuzzTest { should_fail: bool },
     /// `invariant*` or `statefulFuzz*`.
     InvariantTest,
+    /// `table*`, with arguments.
+    TableTest,
     /// `afterInvariant`.
     AfterInvariant,
     /// `fixture*`.
@@ -127,6 +133,7 @@ impl TestFunctionKind {
             _ if name.starts_with("invariant") || name.starts_with("statefulFuzz") => {
                 Self::InvariantTest
             }
+            _ if name.starts_with("table") => Self::TableTest,
             _ if name.eq_ignore_ascii_case("setup") => Self::Setup,
             _ if name.eq_ignore_ascii_case("afterinvariant") => Self::AfterInvariant,
             _ if name.starts_with("fixture") => Self::Fixture,
@@ -143,6 +150,7 @@ impl TestFunctionKind {
             Self::FuzzTest { should_fail: false } => "fuzz",
             Self::FuzzTest { should_fail: true } => "fuzz fail",
             Self::InvariantTest => "invariant",
+            Self::TableTest => "table",
             Self::AfterInvariant => "afterInvariant",
             Self::Fixture => "fixture",
             Self::Unknown => "unknown",
@@ -160,7 +168,7 @@ impl TestFunctionKind {
     pub const fn is_any_test(&self) -> bool {
         matches!(
             self,
-            Self::UnitTest { .. } | Self::FuzzTest { .. } | Self::InvariantTest
+            Self::UnitTest { .. } | Self::FuzzTest { .. } | Self::TableTest | Self::InvariantTest
         )
     }
 
@@ -189,6 +197,12 @@ impl TestFunctionKind {
     #[inline]
     pub const fn is_invariant_test(&self) -> bool {
         matches!(self, Self::InvariantTest)
+    }
+
+    /// Returns `true` if this function is a table test.
+    #[inline]
+    pub const fn is_table_test(&self) -> bool {
+        matches!(self, Self::TableTest)
     }
 
     /// Returns `true` if this function is an `afterInvariant` function.

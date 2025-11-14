@@ -390,8 +390,8 @@ impl Context {
         }
 
         Ok(Self {
-            provider_factories: HashMap::new(),
-            solidity_test_runner_factories: HashMap::new(),
+            provider_factories: HashMap::default(),
+            solidity_test_runner_factories: HashMap::default(),
             #[cfg(feature = "tracing")]
             _tracing_write_guard: guard,
         })

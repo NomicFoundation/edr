@@ -29,7 +29,7 @@ Use `cargo` to build a release version:
 
 ```bash
 cd edr
-cargo build --release
+cargo build --release --locked
 ```
 
 ### Building a Node.js native module

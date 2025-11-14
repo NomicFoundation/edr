@@ -40,13 +40,13 @@ impl<
             .map(|transaction| (*transaction.transaction_hash(), block.clone()))
             .collect();
 
-        let mut hash_to_block = HashMap::new();
+        let mut hash_to_block = HashMap::default();
         hash_to_block.insert(*block_hash, block.clone());
 
-        let mut hash_to_total_difficulty = HashMap::new();
+        let mut hash_to_total_difficulty = HashMap::default();
         hash_to_total_difficulty.insert(*block_hash, total_difficulty);
 
-        let mut number_to_block = HashMap::new();
+        let mut number_to_block = HashMap::default();
         number_to_block.insert(block.block_header().number, block);
 
         Self {
@@ -54,7 +54,7 @@ impl<
             hash_to_total_difficulty,
             number_to_block,
             transaction_hash_to_block,
-            transaction_hash_to_receipt: HashMap::new(),
+            transaction_hash_to_receipt: HashMap::default(),
             phantom: PhantomData,
         }
     }

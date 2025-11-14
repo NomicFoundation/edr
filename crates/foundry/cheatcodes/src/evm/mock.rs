@@ -1,9 +1,12 @@
-use std::{cmp::Ordering, collections::HashMap};
+use std::{cmp::Ordering, collections::VecDeque};
 
-use alloy_primitives::{Address, Bytes, U256};
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use alloy_primitives::{map::HashMap, Address, Bytes, U256};
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use revm::{
     bytecode::Bytecode,
@@ -11,13 +14,8 @@ use revm::{
     interpreter::InstructionResult,
 };
 
-use crate::{
-    impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Result,
-    Vm::{
-        clearMockedCallsCall, mockCallRevert_0Call, mockCallRevert_1Call, mockCall_0Call,
-        mockCall_1Call,
-    },
-};
+#[allow(clippy::wildcard_imports)]
+use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Result, Vm::*};
 
 /// Mocked call data.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -62,11 +60,20 @@ impl Cheatcode for clearMockedCallsCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -87,7 +94,7 @@ impl Cheatcode for clearMockedCallsCall {
 
 impl_is_pure_true!(mockCall_0Call);
 impl Cheatcode for mockCall_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -122,18 +129,17 @@ impl Cheatcode for mockCall_0Call {
             data,
             returnData,
         } = self;
-        // TODO: use ecx.load_account
-        let acc = ccx.ecx.journaled_state.load_account(*callee)?;
+        let _ = make_acc_non_empty(callee, ccx)?;
 
-        // Etches a single byte onto the account if it is empty to circumvent the
-        // `extcodesize` check Solidity might perform.
-        let empty_bytecode = acc.info.code.as_ref().is_none_or(Bytecode::is_empty);
-        if empty_bytecode {
-            let code = Bytecode::new_raw(Bytes::from_static(&[0u8]));
-            ccx.ecx.journaled_state.set_code(*callee, code);
-        }
-
-        mock_call(
+        mock_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             callee,
             data,
@@ -147,7 +153,7 @@ impl Cheatcode for mockCall_0Call {
 
 impl_is_pure_true!(mockCall_1Call);
 impl Cheatcode for mockCall_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -184,7 +190,251 @@ impl Cheatcode for mockCall_1Call {
             returnData,
         } = self;
         ccx.ecx.journaled_state.load_account(*callee)?;
-        mock_call(
+        mock_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
+            callee,
+            data,
+            Some(msgValue),
+            returnData,
+            InstructionResult::Return,
+        );
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(mockCall_2Call);
+impl Cheatcode for mockCall_2Call {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            callee,
+            data,
+            returnData,
+        } = self;
+        let _ = make_acc_non_empty(callee, ccx)?;
+
+        mock_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
+            callee,
+            &Bytes::from(*data),
+            None,
+            returnData,
+            InstructionResult::Return,
+        );
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(mockCall_3Call);
+impl Cheatcode for mockCall_3Call {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            callee,
+            msgValue,
+            data,
+            returnData,
+        } = self;
+        ccx.ecx.journaled_state.load_account(*callee)?;
+        mock_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
+            callee,
+            &Bytes::from(*data),
+            Some(msgValue),
+            returnData,
+            InstructionResult::Return,
+        );
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(mockCalls_0Call);
+impl Cheatcode for mockCalls_0Call {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            callee,
+            data,
+            returnData,
+        } = self;
+        let _ = make_acc_non_empty(callee, ccx)?;
+
+        mock_calls::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
+            callee,
+            data,
+            None,
+            returnData,
+            InstructionResult::Return,
+        );
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(mockCalls_1Call);
+impl Cheatcode for mockCalls_1Call {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            callee,
+            msgValue,
+            data,
+            returnData,
+        } = self;
+        ccx.ecx.journaled_state.load_account(*callee)?;
+        mock_calls::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             callee,
             data,
@@ -198,24 +448,34 @@ impl Cheatcode for mockCall_1Call {
 
 impl_is_pure_true!(mockCallRevert_0Call);
 impl Cheatcode for mockCallRevert_0Call {
-    fn apply<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
-    >(
-        &self,
-        state: &mut Cheatcodes<
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
             BlockT,
             TxT,
-            ChainContextT,
             EvmBuilderT,
             HaltReasonT,
             HardforkT,
             TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
         >,
     ) -> Result {
         let Self {
@@ -223,8 +483,18 @@ impl Cheatcode for mockCallRevert_0Call {
             data,
             revertData,
         } = self;
-        mock_call(
-            state,
+        let _ = make_acc_non_empty(callee, ccx)?;
+
+        mock_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
             callee,
             data,
             None,
@@ -237,14 +507,202 @@ impl Cheatcode for mockCallRevert_0Call {
 
 impl_is_pure_true!(mockCallRevert_1Call);
 impl Cheatcode for mockCallRevert_1Call {
-    fn apply<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            callee,
+            msgValue,
+            data,
+            revertData,
+        } = self;
+        let _ = make_acc_non_empty(callee, ccx)?;
+
+        mock_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
+            callee,
+            data,
+            Some(msgValue),
+            revertData,
+            InstructionResult::Revert,
+        );
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(mockCallRevert_2Call);
+impl Cheatcode for mockCallRevert_2Call {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            callee,
+            data,
+            revertData,
+        } = self;
+        let _ = make_acc_non_empty(callee, ccx)?;
+
+        mock_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
+            callee,
+            &Bytes::from(*data),
+            None,
+            revertData,
+            InstructionResult::Revert,
+        );
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(mockCallRevert_3Call);
+impl Cheatcode for mockCallRevert_3Call {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {
+            callee,
+            msgValue,
+            data,
+            revertData,
+        } = self;
+        let _ = make_acc_non_empty(callee, ccx)?;
+
+        mock_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
+            ccx.state,
+            callee,
+            &Bytes::from(*data),
+            Some(msgValue),
+            revertData,
+            InstructionResult::Revert,
+        );
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(mockFunctionCall);
+impl Cheatcode for mockFunctionCall {
+    fn apply<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -259,31 +717,27 @@ impl Cheatcode for mockCallRevert_1Call {
     ) -> Result {
         let Self {
             callee,
-            msgValue,
+            target,
             data,
-            revertData,
         } = self;
-        mock_call(
-            state,
-            callee,
-            data,
-            Some(msgValue),
-            revertData,
-            InstructionResult::Revert,
-        );
+        state
+            .mocked_functions
+            .entry(*callee)
+            .or_default()
+            .insert(data.clone(), *target);
+
         Ok(Vec::default())
     }
 }
 
-#[allow(clippy::ptr_arg)] // Not public API, doesn't matter
 fn mock_call<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
 >(
     state: &mut Cheatcodes<
         BlockT,
@@ -300,14 +754,94 @@ fn mock_call<
     rdata: &Bytes,
     ret_type: InstructionResult,
 ) {
+    mock_calls::<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>(
+        state,
+        callee,
+        cdata,
+        value,
+        std::slice::from_ref(rdata),
+        ret_type,
+    );
+}
+
+fn mock_calls<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+>(
+    state: &mut Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
+    callee: &Address,
+    cdata: &Bytes,
+    value: Option<&U256>,
+    rdata_vec: &[Bytes],
+    ret_type: InstructionResult,
+) {
     state.mocked_calls.entry(*callee).or_default().insert(
         MockCallDataContext {
             calldata: Bytes::copy_from_slice(cdata),
             value: value.copied(),
         },
-        MockCallReturnData {
-            ret_type,
-            data: Bytes::copy_from_slice(rdata),
-        },
+        rdata_vec
+            .iter()
+            .map(|rdata| MockCallReturnData {
+                ret_type,
+                data: rdata.clone(),
+            })
+            .collect::<VecDeque<_>>(),
     );
+}
+
+// Etches a single byte onto the account if it is empty to circumvent the
+// `extcodesize` check Solidity might perform.
+fn make_acc_non_empty<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+    DatabaseT: CheatcodeBackend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    >,
+>(
+    callee: &Address,
+    ccx: &mut CheatsCtxt<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+        DatabaseT,
+    >,
+) -> Result {
+    let acc = ccx.ecx.journaled_state.load_account(*callee)?;
+
+    let empty_bytecode = acc.info.code.as_ref().is_none_or(Bytecode::is_empty);
+    if empty_bytecode {
+        let code = Bytecode::new_raw(Bytes::from_static(&[0u8]));
+        ccx.ecx.journaled_state.set_code(*callee, code);
+    }
+
+    Ok(Vec::default())
 }

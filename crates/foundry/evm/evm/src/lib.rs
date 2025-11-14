@@ -3,8 +3,6 @@
 //! Main Foundry EVM backend abstractions.
 
 #![warn(unreachable_pub, unused_crate_dependencies, rust_2018_idioms)]
-// TODO https://github.com/NomicFoundation/edr/issues/1076
-#![allow(clippy::indexing_slicing)]
 
 #[macro_use]
 extern crate tracing;

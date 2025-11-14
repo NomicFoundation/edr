@@ -23,7 +23,10 @@ contract MyContract {
     }
 
     function ensureBlockHash() public view {
-        require(blockhash(block.number - 1) == blockHash, "Block Hash does not match");
+        require(
+            blockhash(block.number - 1) == blockHash,
+            "Block Hash does not match"
+        );
     }
 }
 
@@ -35,8 +38,8 @@ contract ForkTest is DSTest {
 
     // this will create two _different_ forks during setup
     function setUp() public {
-        mainnetFork = vm.createFork("rpcAliasMainnet");
-        optimismFork = vm.createFork("rpcAliasOptimism");
+        mainnetFork = vm.createFork("mainnet");
+        optimismFork = vm.createFork("optimism");
     }
 
     // ensures forks use different ids
@@ -57,7 +60,7 @@ contract ForkTest is DSTest {
     }
 
     function testCanCreateSelect() public {
-        uint256 anotherFork = vm.createSelectFork("rpcAliasMainnet");
+        uint256 anotherFork = vm.createSelectFork("mainnet");
         assertEq(anotherFork, vm.activeFork());
     }
 
@@ -75,12 +78,12 @@ contract ForkTest is DSTest {
     // test that we can switch between forks, and "roll" blocks
     function testCanRollFork() public {
         vm.selectFork(mainnetFork);
-        uint256 otherMain = vm.createFork("rpcAliasMainnet", block.number - 1);
+        uint256 otherMain = vm.createFork("mainnet", block.number - 1);
         vm.selectFork(otherMain);
         uint256 mainBlock = block.number;
 
         uint256 forkedBlock = 14608400;
-        uint256 otherFork = vm.createFork("rpcAliasMainnet", forkedBlock);
+        uint256 otherFork = vm.createFork("mainnet", forkedBlock);
         vm.selectFork(otherFork);
         assertEq(block.number, forkedBlock);
 
@@ -101,7 +104,7 @@ contract ForkTest is DSTest {
         uint256 block = 16261704;
 
         // fork until previous block
-        uint256 fork = vm.createSelectFork("rpcAliasMainnet", block - 1);
+        uint256 fork = vm.createSelectFork("mainnet", block - 1);
 
         // block transactions in order: https://beaconcha.in/block/16261704#transactions
         // run transactions from current block until tx
@@ -188,11 +191,19 @@ contract ForkTest is DSTest {
         string memory path = "fixtures/Rpc/eth_getLogs.json";
         string memory file = vm.readFile(path);
         bytes memory parsed = vm.parseJson(file);
-        EthGetLogsJsonParseable[] memory fixtureLogs = abi.decode(parsed, (EthGetLogsJsonParseable[]));
+        EthGetLogsJsonParseable[] memory fixtureLogs = abi.decode(
+            parsed,
+            (EthGetLogsJsonParseable[])
+        );
 
         bytes32[] memory topics = new bytes32[](1);
         topics[0] = withdrawalTopic;
-        Vm.EthGetLogs[] memory logs = vm.eth_getLogs(blockNumber, blockNumber, weth, topics);
+        Vm.EthGetLogs[] memory logs = vm.eth_getLogs(
+            blockNumber,
+            blockNumber,
+            weth,
+            topics
+        );
         assertEq(logs.length, 3);
 
         for (uint256 i = 0; i < logs.length; i++) {
@@ -204,9 +215,24 @@ contract ForkTest is DSTest {
             if (i == 1) i_str = "1";
             if (i == 2) i_str = "2";
 
-            assertEq(log.blockNumber, vm.parseJsonUint(file, string.concat("[", i_str, "].blockNumber")));
-            assertEq(log.logIndex, vm.parseJsonUint(file, string.concat("[", i_str, "].logIndex")));
-            assertEq(log.transactionIndex, vm.parseJsonUint(file, string.concat("[", i_str, "].transactionIndex")));
+            assertEq(
+                log.blockNumber,
+                vm.parseJsonUint(
+                    file,
+                    string.concat("[", i_str, "].blockNumber")
+                )
+            );
+            assertEq(
+                log.logIndex,
+                vm.parseJsonUint(file, string.concat("[", i_str, "].logIndex"))
+            );
+            assertEq(
+                log.transactionIndex,
+                vm.parseJsonUint(
+                    file,
+                    string.concat("[", i_str, "].transactionIndex")
+                )
+            );
 
             assertEq(log.blockHash, fixtureLogs[i].blockHash);
             assertEq(log.removed, fixtureLogs[i].removed);

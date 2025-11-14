@@ -128,7 +128,6 @@ pub(crate) fn shrink_sequence<
     let CallInvariantResult {
         call_result: _,
         success,
-        cow_backend: _,
     } = call_invariant_function(executor, failed_case.addr, failed_case.calldata.clone())?;
     if !success {
         return Ok(vec![]);
@@ -155,7 +154,15 @@ pub(crate) fn shrink_sequence<
         }
     }
 
-    Ok(shrinker.current().map(|idx| &calls[idx]).cloned().collect())
+    Ok(shrinker
+        .current()
+        .map(|idx| {
+            calls
+                .get(idx)
+                .expect("index should be within calls bounds")
+                .clone()
+        })
+        .collect())
 }
 
 /// Checks if the given call sequence breaks the invariant.
@@ -192,8 +199,10 @@ pub fn check_sequence<
 ) -> eyre::Result<(bool, bool)> {
     // Apply the call sequence.
     for call_index in sequence {
-        let tx = &calls[call_index];
-        let call_result = executor.call_raw_committing(
+        let tx = calls
+            .get(call_index)
+            .expect("call_index should be within calls bounds");
+        let call_result = executor.transact_raw(
             tx.sender,
             tx.call_details.target,
             tx.call_details.calldata.clone(),
@@ -213,7 +222,6 @@ pub fn check_sequence<
     let CallInvariantResult {
         call_result: _,
         mut success,
-        cow_backend: _,
     } = call_invariant_function(&executor, test_address, calldata)?;
     // Check after invariant result if invariant is success and `afterInvariant`
     // function is declared.

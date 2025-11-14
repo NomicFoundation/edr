@@ -6,11 +6,13 @@ import "cheats/Vm.sol";
 
 interface IWETH {
     function deposit() external payable;
+
     function balanceOf(address) external view returns (uint256);
 }
 
 contract ForkTest is DSTest {
-    address constant WETH_TOKEN_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant WETH_TOKEN_ADDR =
+        0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     uint256 constant mainblock = 14_608_400;
 
     Vm constant vm = Vm(HEVM_ADDRESS);
@@ -23,8 +25,8 @@ contract ForkTest is DSTest {
 
     // this will create two _different_ forks during setup
     function setUp() public {
-        forkA = vm.createFork("rpcAliasMainnet", mainblock);
-        forkB = vm.createFork("rpcAliasMainnet", mainblock - 1);
+        forkA = vm.createFork("mainnet", mainblock);
+        forkB = vm.createFork("mainnet", mainblock - 1);
         testValue = 999;
     }
 
@@ -35,7 +37,7 @@ contract ForkTest is DSTest {
 
     // ensures we can create and select in one step
     function testCreateSelect() public {
-        uint256 fork = vm.createSelectFork("rpcAliasMainnet");
+        uint256 fork = vm.createSelectFork("mainnet");
         assertEq(fork, vm.activeFork());
     }
 
@@ -54,7 +56,9 @@ contract ForkTest is DSTest {
 
         vm.selectFork(forkB);
         // read state from forkB
-        uint256 forkBbalance = WETH.balanceOf(0x0000000000000000000000000000000000000000);
+        uint256 forkBbalance = WETH.balanceOf(
+            0x0000000000000000000000000000000000000000
+        );
         assert(forkBbalance != 1);
 
         vm.selectFork(forkA);

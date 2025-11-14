@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use alloy_primitives::Address;
+use alloy_primitives::{map::AddressHashMap, Address};
 use itertools::Itertools;
 
 use crate::backend::LocalForkId;
@@ -24,7 +22,7 @@ pub enum RevertDiagnostic {
 
 impl RevertDiagnostic {
     /// Converts the diagnostic to a readable error message
-    pub fn to_error_msg(&self, labels: &HashMap<Address, String>) -> String {
+    pub fn to_error_msg(&self, labels: &AddressHashMap<String>) -> String {
         let get_label = |addr: &Address| {
             labels
                 .get(addr)
@@ -33,7 +31,7 @@ impl RevertDiagnostic {
         };
 
         match self {
-            RevertDiagnostic::ContractExistsOnOtherForks {
+            Self::ContractExistsOnOtherForks {
                 contract,
                 active,
                 available_on,
@@ -48,7 +46,7 @@ impl RevertDiagnostic {
                     available_on.iter().format(", ")
                 )
             }
-            RevertDiagnostic::ContractDoesNotExist {
+            Self::ContractDoesNotExist {
                 contract,
                 persistent,
                 ..
@@ -57,7 +55,9 @@ impl RevertDiagnostic {
                 if *persistent {
                     format!("Contract {contract_label} does not exist")
                 } else {
-                    format!("Contract {contract_label} does not exist and is not marked as persistent, see `vm.makePersistent()`")
+                    format!(
+                        "Contract {contract_label} does not exist and is not marked as persistent, see `vm.makePersistent()`"
+                    )
                 }
             }
         }

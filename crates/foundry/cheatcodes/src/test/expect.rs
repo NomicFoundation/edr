@@ -1,5 +1,3 @@
-#![allow(clippy::restriction, clippy::pedantic)]
-
 use std::{
     collections::VecDeque,
     fmt::{self, Display},
@@ -9,47 +7,23 @@ use alloy_primitives::{
     map::{hash_map::Entry, AddressHashMap, HashMap},
     Address, Bytes, LogData as RawLog, U256,
 };
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
-    TransactionErrorTrait,
+use foundry_evm_core::{
+    backend::CheatcodeBackend,
+    evm_context::{
+        BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
+        TransactionErrorTrait,
+    },
 };
 use revm::{
-    context::result::HaltReasonTr,
-    context_interface::JournalTr,
+    context::{result::HaltReasonTr, JournalTr},
     interpreter::{
         interpreter_types::LoopControl, InstructionResult, Interpreter, InterpreterAction,
     },
 };
 
 use super::revert_handlers::RevertParameters;
-use crate::{
-    impl_is_pure_true, Cheatcode, CheatcodeBackend, Cheatcodes, CheatsCtxt, Error, Result,
-    Vm::{
-        _expectCheatcodeRevert_0Call, _expectCheatcodeRevert_1Call, _expectCheatcodeRevert_2Call,
-        _expectInternalRevertCall, expectCallMinGas_0Call, expectCallMinGas_1Call,
-        expectCall_0Call, expectCall_1Call, expectCall_2Call, expectCall_3Call, expectCall_4Call,
-        expectCall_5Call, expectCreate2Call, expectCreateCall, expectEmitAnonymous_0Call,
-        expectEmitAnonymous_1Call, expectEmitAnonymous_2Call, expectEmitAnonymous_3Call,
-        expectEmit_0Call, expectEmit_1Call, expectEmit_2Call, expectEmit_3Call, expectEmit_4Call,
-        expectEmit_5Call, expectEmit_6Call, expectEmit_7Call, expectPartialRevert_0Call,
-        expectPartialRevert_1Call, expectRevert_0Call, expectRevert_10Call, expectRevert_11Call,
-        expectRevert_1Call, expectRevert_2Call, expectRevert_3Call, expectRevert_4Call,
-        expectRevert_5Call, expectRevert_6Call, expectRevert_7Call, expectRevert_8Call,
-        expectRevert_9Call, expectSafeMemoryCall, expectSafeMemoryCallCall,
-        stopExpectSafeMemoryCall,
-    },
-};
-
-/// Tracks the expected calls per address.
-///
-/// For each address, we track the expected calls per call data. We track it in
-/// such manner so that we don't mix together calldatas that only contain
-/// selectors and calldatas that contain selector and arguments (partial and
-/// full matches).
-///
-/// This then allows us to customize the matching behavior for each call data on
-/// the `ExpectedCallData` struct and track how many times we've actually seen
-/// the call on the second element of the tuple.
+#[allow(clippy::wildcard_imports)]
+use crate::{impl_is_pure_true, Cheatcode, Cheatcodes, CheatsCtxt, Error, Result, Vm::*};
 /// Tracks the expected calls per address.
 ///
 /// For each address, we track the expected calls per call data. We track it in
@@ -108,7 +82,7 @@ pub struct ExpectedRevert {
     /// The expected data returned by the revert, None being any.
     pub reason: Option<Vec<u8>>,
     /// The depth at which the revert is expected.
-    pub depth: u64,
+    pub depth: usize,
     /// The type of expected revert.
     pub kind: ExpectedRevertKind,
     /// If true then only the first 4 bytes of expected data returned by the
@@ -119,7 +93,7 @@ pub struct ExpectedRevert {
     /// Address that reverted the call.
     pub reverted_by: Option<Address>,
     /// Max call depth reached during next call execution.
-    pub max_depth: u64,
+    pub max_depth: usize,
     /// Number of times this revert is expected.
     pub count: u64,
     /// Actual number of times this revert has been seen.
@@ -151,6 +125,7 @@ pub struct ExpectedEmit {
     /// Number of times the log is expected to be emitted
     pub count: u64,
 }
+
 #[derive(Clone, Debug)]
 pub struct ExpectedCreate {
     /// The address that deployed the contract
@@ -161,7 +136,7 @@ pub struct ExpectedCreate {
     pub create_scheme: CreateScheme,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum CreateScheme {
     Create,
     Create2,
@@ -176,12 +151,16 @@ impl Display for CreateScheme {
     }
 }
 
-impl From<revm::context_interface::CreateScheme> for CreateScheme {
-    fn from(scheme: revm::context_interface::CreateScheme) -> Self {
+impl TryFrom<revm::context_interface::CreateScheme> for CreateScheme {
+    type Error = &'static str;
+
+    fn try_from(scheme: revm::context_interface::CreateScheme) -> Result<Self, Self::Error> {
         match scheme {
-            revm::context_interface::CreateScheme::Create => Self::Create,
-            revm::context_interface::CreateScheme::Create2 { .. } => Self::Create2,
-            _ => unimplemented!("Unsupported create scheme"),
+            revm::context_interface::CreateScheme::Create => Ok(Self::Create),
+            revm::context_interface::CreateScheme::Create2 { .. } => Ok(Self::Create2),
+            revm::context_interface::CreateScheme::Custom { .. } => {
+                Err("Unsupported create scheme")
+            }
         }
     }
 }
@@ -200,11 +179,20 @@ impl Cheatcode for expectCall_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -218,7 +206,15 @@ impl Cheatcode for expectCall_0Call {
         >,
     ) -> Result {
         let Self { callee, data } = self;
-        expect_call(
+        expect_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             state,
             callee,
             data,
@@ -236,11 +232,20 @@ impl Cheatcode for expectCall_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -258,7 +263,15 @@ impl Cheatcode for expectCall_1Call {
             data,
             count,
         } = self;
-        expect_call(
+        expect_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             state,
             callee,
             data,
@@ -276,11 +289,20 @@ impl Cheatcode for expectCall_2Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -298,7 +320,15 @@ impl Cheatcode for expectCall_2Call {
             msgValue,
             data,
         } = self;
-        expect_call(
+        expect_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             state,
             callee,
             data,
@@ -316,11 +346,20 @@ impl Cheatcode for expectCall_3Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -339,7 +378,15 @@ impl Cheatcode for expectCall_3Call {
             data,
             count,
         } = self;
-        expect_call(
+        expect_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             state,
             callee,
             data,
@@ -357,11 +404,20 @@ impl Cheatcode for expectCall_4Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -380,7 +436,15 @@ impl Cheatcode for expectCall_4Call {
             gas,
             data,
         } = self;
-        expect_call(
+        expect_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             state,
             callee,
             data,
@@ -398,11 +462,20 @@ impl Cheatcode for expectCall_5Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -422,7 +495,15 @@ impl Cheatcode for expectCall_5Call {
             data,
             count,
         } = self;
-        expect_call(
+        expect_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             state,
             callee,
             data,
@@ -440,11 +521,20 @@ impl Cheatcode for expectCallMinGas_0Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -463,7 +553,15 @@ impl Cheatcode for expectCallMinGas_0Call {
             minGas,
             data,
         } = self;
-        expect_call(
+        expect_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             state,
             callee,
             data,
@@ -481,11 +579,20 @@ impl Cheatcode for expectCallMinGas_1Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -505,7 +612,15 @@ impl Cheatcode for expectCallMinGas_1Call {
             data,
             count,
         } = self;
-        expect_call(
+        expect_call::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             state,
             callee,
             data,
@@ -520,7 +635,7 @@ impl Cheatcode for expectCallMinGas_1Call {
 
 impl_is_pure_true!(expectEmit_0Call);
 impl Cheatcode for expectEmit_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -556,7 +671,15 @@ impl Cheatcode for expectEmit_0Call {
             checkTopic3,
             checkData,
         } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true, checkTopic1, checkTopic2, checkTopic3, checkData],
@@ -569,7 +692,7 @@ impl Cheatcode for expectEmit_0Call {
 
 impl_is_pure_true!(expectEmit_1Call);
 impl Cheatcode for expectEmit_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -606,7 +729,15 @@ impl Cheatcode for expectEmit_1Call {
             checkData,
             emitter,
         } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true, checkTopic1, checkTopic2, checkTopic3, checkData],
@@ -619,7 +750,7 @@ impl Cheatcode for expectEmit_1Call {
 
 impl_is_pure_true!(expectEmit_2Call);
 impl Cheatcode for expectEmit_2Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -650,7 +781,15 @@ impl Cheatcode for expectEmit_2Call {
         >,
     ) -> Result {
         let Self {} = self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true; 5],
@@ -663,7 +802,7 @@ impl Cheatcode for expectEmit_2Call {
 
 impl_is_pure_true!(expectEmit_3Call);
 impl Cheatcode for expectEmit_3Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -694,7 +833,15 @@ impl Cheatcode for expectEmit_3Call {
         >,
     ) -> Result {
         let Self { emitter } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true; 5],
@@ -707,7 +854,7 @@ impl Cheatcode for expectEmit_3Call {
 
 impl_is_pure_true!(expectEmit_4Call);
 impl Cheatcode for expectEmit_4Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -744,7 +891,15 @@ impl Cheatcode for expectEmit_4Call {
             checkData,
             count,
         } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true, checkTopic1, checkTopic2, checkTopic3, checkData],
@@ -757,7 +912,7 @@ impl Cheatcode for expectEmit_4Call {
 
 impl_is_pure_true!(expectEmit_5Call);
 impl Cheatcode for expectEmit_5Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -795,7 +950,15 @@ impl Cheatcode for expectEmit_5Call {
             emitter,
             count,
         } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true, checkTopic1, checkTopic2, checkTopic3, checkData],
@@ -808,7 +971,7 @@ impl Cheatcode for expectEmit_5Call {
 
 impl_is_pure_true!(expectEmit_6Call);
 impl Cheatcode for expectEmit_6Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -839,7 +1002,15 @@ impl Cheatcode for expectEmit_6Call {
         >,
     ) -> Result {
         let Self { count } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true; 5],
@@ -852,7 +1023,7 @@ impl Cheatcode for expectEmit_6Call {
 
 impl_is_pure_true!(expectEmit_7Call);
 impl Cheatcode for expectEmit_7Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -883,7 +1054,15 @@ impl Cheatcode for expectEmit_7Call {
         >,
     ) -> Result {
         let Self { emitter, count } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true; 5],
@@ -896,7 +1075,7 @@ impl Cheatcode for expectEmit_7Call {
 
 impl_is_pure_true!(expectEmitAnonymous_0Call);
 impl Cheatcode for expectEmitAnonymous_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -933,7 +1112,15 @@ impl Cheatcode for expectEmitAnonymous_0Call {
             checkTopic3,
             checkData,
         } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [
@@ -952,7 +1139,7 @@ impl Cheatcode for expectEmitAnonymous_0Call {
 
 impl_is_pure_true!(expectEmitAnonymous_1Call);
 impl Cheatcode for expectEmitAnonymous_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -990,7 +1177,15 @@ impl Cheatcode for expectEmitAnonymous_1Call {
             checkData,
             emitter,
         } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [
@@ -1009,7 +1204,7 @@ impl Cheatcode for expectEmitAnonymous_1Call {
 
 impl_is_pure_true!(expectEmitAnonymous_2Call);
 impl Cheatcode for expectEmitAnonymous_2Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1040,7 +1235,15 @@ impl Cheatcode for expectEmitAnonymous_2Call {
         >,
     ) -> Result {
         let Self {} = self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true; 5],
@@ -1053,7 +1256,7 @@ impl Cheatcode for expectEmitAnonymous_2Call {
 
 impl_is_pure_true!(expectEmitAnonymous_3Call);
 impl Cheatcode for expectEmitAnonymous_3Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1084,7 +1287,15 @@ impl Cheatcode for expectEmitAnonymous_3Call {
         >,
     ) -> Result {
         let Self { emitter } = *self;
-        expect_emit(
+        expect_emit::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             ccx.ecx.journaled_state.depth(),
             [true; 5],
@@ -1100,11 +1311,20 @@ impl Cheatcode for expectCreateCall {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1118,7 +1338,15 @@ impl Cheatcode for expectCreateCall {
         >,
     ) -> Result {
         let Self { bytecode, deployer } = self;
-        expect_create(state, bytecode.clone(), *deployer, CreateScheme::Create)
+        expect_create::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state, bytecode.clone(), *deployer, CreateScheme::Create)
     }
 }
 
@@ -1127,11 +1355,20 @@ impl Cheatcode for expectCreate2Call {
     fn apply<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: HaltReasonTr,
         HardforkT: HardforkTr,
         TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
     >(
         &self,
         state: &mut Cheatcodes<
@@ -1145,13 +1382,21 @@ impl Cheatcode for expectCreate2Call {
         >,
     ) -> Result {
         let Self { bytecode, deployer } = self;
-        expect_create(state, bytecode.clone(), *deployer, CreateScheme::Create2)
+        expect_create::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(state, bytecode.clone(), *deployer, CreateScheme::Create2)
     }
 }
 
 impl_is_pure_true!(_expectInternalRevertCall);
 impl Cheatcode for _expectInternalRevertCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1182,22 +1427,29 @@ impl Cheatcode for _expectInternalRevertCall {
         >,
     ) -> Result {
         let Self {} = self;
-        expect_revert(
+        expect_internal_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             None,
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             None,
             1,
-            true,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_0Call);
 impl Cheatcode for expectRevert_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1228,22 +1480,29 @@ impl Cheatcode for expectRevert_0Call {
         >,
     ) -> Result {
         let Self {} = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             None,
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             None,
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_1Call);
 impl Cheatcode for expectRevert_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1274,22 +1533,29 @@ impl Cheatcode for expectRevert_1Call {
         >,
     ) -> Result {
         let Self { revertData } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData.as_ref()),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             None,
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_2Call);
 impl Cheatcode for expectRevert_2Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1320,22 +1586,29 @@ impl Cheatcode for expectRevert_2Call {
         >,
     ) -> Result {
         let Self { revertData } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             None,
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_3Call);
 impl Cheatcode for expectRevert_3Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1366,22 +1639,29 @@ impl Cheatcode for expectRevert_3Call {
         >,
     ) -> Result {
         let Self { reverter } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             None,
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             Some(*reverter),
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_4Call);
 impl Cheatcode for expectRevert_4Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1415,22 +1695,29 @@ impl Cheatcode for expectRevert_4Call {
             revertData,
             reverter,
         } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData.as_ref()),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             Some(*reverter),
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_5Call);
 impl Cheatcode for expectRevert_5Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1464,22 +1751,29 @@ impl Cheatcode for expectRevert_5Call {
             revertData,
             reverter,
         } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             Some(*reverter),
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_6Call);
 impl Cheatcode for expectRevert_6Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1510,22 +1804,29 @@ impl Cheatcode for expectRevert_6Call {
         >,
     ) -> Result {
         let Self { count } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             None,
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             None,
             *count,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_7Call);
 impl Cheatcode for expectRevert_7Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1556,22 +1857,29 @@ impl Cheatcode for expectRevert_7Call {
         >,
     ) -> Result {
         let Self { revertData, count } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData.as_ref()),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             None,
             *count,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_8Call);
 impl Cheatcode for expectRevert_8Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1602,22 +1910,29 @@ impl Cheatcode for expectRevert_8Call {
         >,
     ) -> Result {
         let Self { revertData, count } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             None,
             *count,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_9Call);
 impl Cheatcode for expectRevert_9Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1648,22 +1963,29 @@ impl Cheatcode for expectRevert_9Call {
         >,
     ) -> Result {
         let Self { reverter, count } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             None,
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             Some(*reverter),
             *count,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_10Call);
 impl Cheatcode for expectRevert_10Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1698,22 +2020,29 @@ impl Cheatcode for expectRevert_10Call {
             reverter,
             count,
         } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData.as_ref()),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             Some(*reverter),
             *count,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectRevert_11Call);
 impl Cheatcode for expectRevert_11Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1748,22 +2077,29 @@ impl Cheatcode for expectRevert_11Call {
             reverter,
             count,
         } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             false,
             Some(*reverter),
             *count,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectPartialRevert_0Call);
 impl Cheatcode for expectPartialRevert_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1794,22 +2130,29 @@ impl Cheatcode for expectPartialRevert_0Call {
         >,
     ) -> Result {
         let Self { revertData } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData.as_ref()),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             true,
             None,
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectPartialRevert_1Call);
 impl Cheatcode for expectPartialRevert_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1843,22 +2186,29 @@ impl Cheatcode for expectPartialRevert_1Call {
             revertData,
             reverter,
         } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData.as_ref()),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             false,
             true,
             Some(*reverter),
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(_expectCheatcodeRevert_0Call);
 impl Cheatcode for _expectCheatcodeRevert_0Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1888,22 +2238,29 @@ impl Cheatcode for _expectCheatcodeRevert_0Call {
             DatabaseT,
         >,
     ) -> Result {
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             None,
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             true,
             false,
             None,
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(_expectCheatcodeRevert_1Call);
 impl Cheatcode for _expectCheatcodeRevert_1Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1934,22 +2291,29 @@ impl Cheatcode for _expectCheatcodeRevert_1Call {
         >,
     ) -> Result {
         let Self { revertData } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData.as_ref()),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             true,
             false,
             None,
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(_expectCheatcodeRevert_2Call);
 impl Cheatcode for _expectCheatcodeRevert_2Call {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -1980,99 +2344,29 @@ impl Cheatcode for _expectCheatcodeRevert_2Call {
         >,
     ) -> Result {
         let Self { revertData } = self;
-        expect_revert(
+        expect_revert::<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >(
             ccx.state,
             Some(revertData),
-            ccx.ecx.journaled_state.depth() as u64,
+            ccx.ecx.journaled_state.depth(),
             true,
             false,
             None,
             1,
-            false,
         )
     }
 }
 
 impl_is_pure_true!(expectSafeMemoryCall);
 impl Cheatcode for expectSafeMemoryCall {
-    fn apply_full<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
-        ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-        >,
-    >(
-        &self,
-        ccx: &mut CheatsCtxt<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-            DatabaseT,
-        >,
-    ) -> Result {
-        let Self { min, max } = *self;
-        expect_safe_memory(ccx.state, min, max, ccx.ecx.journaled_state.depth() as u64)
-    }
-}
-
-impl_is_pure_true!(stopExpectSafeMemoryCall);
-impl Cheatcode for stopExpectSafeMemoryCall {
-    fn apply_full<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
-        ChainContextT: ChainContextTr,
-        DatabaseT: CheatcodeBackend<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-        >,
-    >(
-        &self,
-        ccx: &mut CheatsCtxt<
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-            DatabaseT,
-        >,
-    ) -> Result {
-        let Self {} = self;
-        ccx.state
-            .allowed_mem_writes
-            .remove(&(ccx.ecx.journaled_state.depth() as u64));
-        Ok(Vec::default())
-    }
-}
-
-impl_is_pure_true!(expectSafeMemoryCallCall);
-impl Cheatcode for expectSafeMemoryCallCall {
-    fn apply_full<
+    fn apply_stateful<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
         EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
@@ -2107,7 +2401,89 @@ impl Cheatcode for expectSafeMemoryCallCall {
             ccx.state,
             min,
             max,
-            ccx.ecx.journaled_state.depth() as u64 + 1,
+            ccx.ecx.journaled_state.depth().try_into()?,
+        )
+    }
+}
+
+impl_is_pure_true!(stopExpectSafeMemoryCall);
+impl Cheatcode for stopExpectSafeMemoryCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self {} = self;
+        ccx.state
+            .allowed_mem_writes
+            .remove(&u64::try_from(ccx.ecx.journaled_state.depth())?);
+        Ok(Vec::default())
+    }
+}
+
+impl_is_pure_true!(expectSafeMemoryCallCall);
+impl Cheatcode for expectSafeMemoryCallCall {
+    fn apply_stateful<
+        BlockT: BlockEnvTr,
+        TxT: TransactionEnvTr,
+        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+        HaltReasonT: HaltReasonTr,
+        HardforkT: HardforkTr,
+        TransactionErrorT: TransactionErrorTrait,
+        ChainContextT: ChainContextTr,
+        DatabaseT: CheatcodeBackend<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+        >,
+    >(
+        &self,
+        ccx: &mut CheatsCtxt<
+            BlockT,
+            TxT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            ChainContextT,
+            DatabaseT,
+        >,
+    ) -> Result {
+        let Self { min, max } = *self;
+        expect_safe_memory(
+            ccx.state,
+            min,
+            max,
+            (ccx.ecx.journaled_state.depth() + 1).try_into()?,
         )
     }
 }
@@ -2149,11 +2525,11 @@ impl RevertParameters for ExpectedRevert {
 fn expect_call<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
 >(
     state: &mut Cheatcodes<
         BlockT,
@@ -2178,8 +2554,7 @@ fn expect_call<
         && *val > U256::ZERO
     {
         // If the value of the transaction is non-zero, the EVM adds a call stipend of
-        // 2300 gas to ensure that the basic fallback function can be
-        // called.
+        // 2300 gas to ensure that the basic fallback function can be called.
         let positive_value_cost_stipend = 2300;
         if let Some(gas) = &mut gas {
             *gas += positive_value_cost_stipend;
@@ -2248,11 +2623,11 @@ fn expect_call<
 fn expect_emit<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
 >(
     state: &mut Cheatcodes<
         BlockT,
@@ -2516,11 +2891,11 @@ impl LogCountMap {
 fn expect_create<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
 >(
     state: &mut Cheatcodes<
         BlockT,
@@ -2545,15 +2920,14 @@ fn expect_create<
     Ok(Vec::default())
 }
 
-#[allow(clippy::too_many_arguments)]
 fn expect_revert<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
 >(
     state: &mut Cheatcodes<
         BlockT,
@@ -2565,12 +2939,11 @@ fn expect_revert<
         TransactionErrorT,
     >,
     reason: Option<&[u8]>,
-    depth: u64,
+    depth: usize,
     cheatcode: bool,
     partial_match: bool,
     reverter: Option<Address>,
     count: u64,
-    allow_internal: bool,
 ) -> Result {
     ensure!(
         state.expected_revert.is_none(),
@@ -2592,7 +2965,57 @@ fn expect_revert<
         max_depth: depth,
         count,
         actual_count: 0,
-        allow_internal,
+        allow_internal: false,
+    });
+    Ok(Vec::default())
+}
+
+fn expect_internal_revert<
+    BlockT: BlockEnvTr,
+    TxT: TransactionEnvTr,
+    EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
+    HaltReasonT: HaltReasonTr,
+    HardforkT: HardforkTr,
+    TransactionErrorT: TransactionErrorTrait,
+    ChainContextT: ChainContextTr,
+>(
+    state: &mut Cheatcodes<
+        BlockT,
+        TxT,
+        ChainContextT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+    >,
+    reason: Option<&[u8]>,
+    depth: usize,
+    cheatcode: bool,
+    partial_match: bool,
+    reverter: Option<Address>,
+    count: u64,
+) -> Result {
+    ensure!(
+        state.expected_revert.is_none(),
+        "you must call another function prior to expecting a second revert"
+    );
+    state.expected_revert = Some(ExpectedRevert {
+        reason: reason.map(<[_]>::to_vec),
+        depth,
+        kind: if cheatcode {
+            ExpectedRevertKind::Cheatcode {
+                pending_processing: true,
+            }
+        } else {
+            ExpectedRevertKind::Default
+        },
+        partial_match,
+        reverter,
+        reverted_by: None,
+        max_depth: depth,
+        count,
+        actual_count: 0,
+        allow_internal: true,
     });
     Ok(Vec::default())
 }
@@ -2607,8 +3030,8 @@ fn checks_topics_and_data(checks: [bool; 5], expected: &RawLog, log: &RawLog) ->
         .topics()
         .iter()
         .enumerate()
-        .filter(|(i, _)| checks[*i])
-        .all(|(i, topic)| topic == &expected.topics()[i])
+        .filter(|(i, _)| checks.get(*i).copied().unwrap_or(false))
+        .all(|(i, topic)| expected.topics().get(i).is_some_and(|t| topic == t))
     {
         return false;
     }
@@ -2647,7 +3070,7 @@ fn expect_safe_memory<
         start < end,
         "memory range start ({start}) is greater than end ({end})"
     );
-    #[allow(clippy::single_range_in_vec_init)] // Wanted behaviour
+    #[expect(clippy::single_range_in_vec_init)] // Wanted behaviour
     let offsets = state
         .allowed_mem_writes
         .entry(depth)

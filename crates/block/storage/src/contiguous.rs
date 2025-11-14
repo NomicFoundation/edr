@@ -141,7 +141,7 @@ impl<
             .map(|transaction| (*transaction.transaction_hash(), block.clone()))
             .collect();
 
-        let mut hash_to_block = HashMap::new();
+        let mut hash_to_block = HashMap::default();
         hash_to_block.insert(block_hash, block.clone());
 
         Self {

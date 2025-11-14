@@ -15,11 +15,11 @@ use std::{
 use alloy_dyn_abi::{DynSolValue, FunctionExt, JsonAbiExt};
 use alloy_json_abi::Function;
 use alloy_primitives::{
+    keccak256,
     map::{AddressHashMap, HashMap},
     Address, Bytes, Log, TxKind, U256,
 };
 use alloy_sol_types::{sol, SolCall};
-use derive_where::derive_where;
 use foundry_evm_core::{
     backend::{Backend, BackendError, BackendResult, CheatcodeBackend, CowBackend},
     constants::{
@@ -42,12 +42,15 @@ use revm::{
 use crate::inspectors::{Cheatcodes, InspectorData, InspectorStack};
 
 mod builder;
-pub use builder::ExecutorBuilder;
-use foundry_evm_core::evm_context::{
-    BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr,
-};
+pub use builder::{ExecutorBuilder, ExecutorBuilderError};
 // Leaving this intentionally removed as it was flagged as unused
-use foundry_evm_core::{backend::IndeterminismReasons, decode::SkipReason};
+use foundry_evm_core::backend::GLOBAL_FAIL_SLOT;
+use foundry_evm_core::{
+    backend::IndeterminismReasons,
+    constants::{CHEATCODE_CONTRACT_HASH, DEFAULT_CREATE2_DEPLOYER_DEPLOYER},
+    decode::SkipReason,
+    evm_context::{BlockEnvTr, ChainContextTr, EvmEnv, HardforkTr, TransactionEnvTr},
+};
 
 pub mod fuzz;
 pub use fuzz::FuzzedExecutor;
@@ -60,22 +63,27 @@ pub use invariant::InvariantExecutor;
 sol! {
     interface ITest {
         function setUp() external;
-        function failed() external view returns (bool);
+        function failed() external view returns (bool failed);
+
+        #[derive(Default)]
+        function beforeTestSetup(bytes4 testSelector) public view returns (bytes[] memory beforeTestCalldata);
     }
 }
 
-/// A type that can execute calls
+/// EVM executor.
 ///
 /// The executor can be configured with various `revm::Inspector`s, like
 /// `Cheatcodes`.
 ///
-/// There are two ways of executing calls:
-/// - `committing`: any state changes made during the call are recorded and are
-///   persisting
-/// - `raw`: state changes only exist for the duration of the call and are
-///   discarded afterwards, in other words: the state of the underlying database
-///   remains unchanged.
-#[derive_where(Clone, Debug; BlockT, HardforkT, TxT)]
+/// There are multiple ways of interacting the EVM:
+/// - `call`: executes a transaction, but does not persist any state changes;
+///   similar to `eth_call`, where the EVM state is unchanged after the call.
+/// - `transact`: executes a transaction and persists the state changes
+/// - `deploy`: a special case of `transact`, specialized for persisting the
+///   state of a contract deployment
+/// - `setup`: a special case of `transact`, used to set up the environment for
+///   a test
+#[derive(Clone, Debug)]
 pub struct Executor<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -90,12 +98,12 @@ pub struct Executor<
     // only interested in the database. REVM's `EVM` is a thin
     // wrapper around spawning a new EVM on every call anyway,
     // so the performance difference should be negligible.
-    pub backend:
+    backend:
         Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>,
     /// The EVM environment.
-    pub env: EvmEnv<BlockT, TxT, HardforkT>,
+    env: EvmEnv<BlockT, TxT, HardforkT>,
     /// The Revm inspector stack.
-    pub inspector: InspectorStack<
+    inspector: InspectorStack<
         BlockT,
         TxT,
         EvmBuilderT,
@@ -105,9 +113,7 @@ pub struct Executor<
         ChainContextT,
     >,
     chain_context: ChainContextT,
-    /// The gas limit for calls and deployments. This is different from the gas
-    /// limit imposed by the passed in environment, as those limits are used
-    /// by the EVM for certain opcodes like `gaslimit`.
+    /// The gas limit for calls and deployments.
     gas_limit: u64,
 }
 
@@ -121,6 +127,13 @@ impl<
         ChainContextT: ChainContextTr,
     > Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
 {
+    /// Creates a new `ExecutorBuilder`.
+    #[inline]
+    pub fn builder() -> ExecutorBuilder<BlockT, TxT, HardforkT, ChainContextT> {
+        ExecutorBuilder::new()
+    }
+
+    /// Creates a new `Executor` with the given arguments.
     #[inline]
     pub fn new(
         mut backend: Backend<
@@ -146,16 +159,19 @@ impl<
         gas_limit: u64,
     ) -> Self {
         // Need to create a non-empty contract on the cheatcodes address so
-        // `extcodesize` checks does not fail
+        // `extcodesize` checks do not fail.
         backend.insert_account_info(
             CHEATCODE_ADDRESS,
             revm::state::AccountInfo {
                 code: Some(Bytecode::new_raw(Bytes::from_static(&[0]))),
+                // Also set the code hash manually so that it's not computed later.
+                // The code hash value does not matter, as long as it's not zero or `KECCAK_EMPTY`.
+                code_hash: CHEATCODE_CONTRACT_HASH,
                 ..Default::default()
             },
         );
 
-        Executor {
+        Self {
             backend,
             env,
             inspector,
@@ -164,135 +180,87 @@ impl<
         }
     }
 
-    /// Returns the spec id of the executor
+    /// Returns a reference to the EVM environment.
+    pub fn env(&self) -> &EvmEnv<BlockT, TxT, HardforkT> {
+        &self.env
+    }
+
+    /// Returns a mutable reference to the EVM environment.
+    pub fn env_mut(&mut self) -> &mut EvmEnv<BlockT, TxT, HardforkT> {
+        &mut self.env
+    }
+
+    /// Returns a reference to the EVM inspector.
+    pub fn inspector(
+        &self,
+    ) -> &InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    > {
+        &self.inspector
+    }
+
+    /// Returns a mutable reference to the EVM inspector.
+    pub fn inspector_mut(
+        &mut self,
+    ) -> &mut InspectorStack<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    > {
+        &mut self.inspector
+    }
+
+    /// Returns the EVM spec ID.
     pub fn spec_id(&self) -> HardforkT {
         self.env.cfg.spec
     }
 
-    /// Set the balance of an account.
-    pub fn set_balance(&mut self, address: Address, amount: U256) -> BackendResult<&mut Self> {
-        trace!(?address, ?amount, "setting account balance");
-        let mut account = self.backend.basic_ref(address)?.unwrap_or_default();
-        account.balance = amount;
-
-        self.backend.insert_account_info(address, account);
-        Ok(self)
+    /// Sets the EVM spec ID.
+    pub fn set_spec_id(&mut self, spec_id: HardforkT) {
+        self.env.cfg.spec = spec_id;
     }
 
-    /// Gets the balance of an account
-    pub fn get_balance(&self, address: Address) -> BackendResult<U256> {
-        Ok(self
-            .backend
-            .basic_ref(address)?
-            .map(|acc| acc.balance)
-            .unwrap_or_default())
+    /// Returns the gas limit for calls and deployments.
+    ///
+    /// This is different from the gas limit imposed by the passed in
+    /// environment, as those limits are used by the EVM for certain opcodes
+    /// like `gaslimit`.
+    pub fn gas_limit(&self) -> u64 {
+        self.gas_limit
     }
 
-    /// Set the nonce of an account.
-    pub fn set_nonce(&mut self, address: Address, nonce: u64) -> BackendResult<&mut Self> {
-        let mut account = self.backend.basic_ref(address)?.unwrap_or_default();
-        account.nonce = nonce;
-        self.backend.insert_account_info(address, account);
-        Ok(self)
-    }
-
-    /// Gets the nonce of an account
-    pub fn get_nonce(&self, address: Address) -> BackendResult<u64> {
-        Ok(self
-            .backend
-            .basic_ref(address)?
-            .map(|acc| acc.nonce)
-            .unwrap_or_default())
-    }
-
-    /// Returns true if account has no code.
-    pub fn is_empty_code(&self, address: Address) -> BackendResult<bool> {
-        Ok(self
-            .backend
-            .basic_ref(address)?
-            .as_ref()
-            .is_none_or(revm::state::AccountInfo::is_empty_code_hash))
+    /// Sets the gas limit for calls and deployments.
+    pub fn set_gas_limit(&mut self, gas_limit: u64) {
+        self.gas_limit = gas_limit;
     }
 
     #[inline]
     pub fn set_tracing(&mut self, mode: TracingMode) -> &mut Self {
-        self.inspector.tracing(mode);
+        self.inspector_mut().tracing(mode);
         self
     }
 
-    #[inline]
-    pub fn set_gas_limit(&mut self, gas_limit: u64) -> &mut Self {
-        self.gas_limit = gas_limit;
-        self
-    }
-
-    /// Commit the changeset to the database and adjust `self.inspector_config`
-    /// values according to the executed call result
-    fn commit(
-        &mut self,
-        result: &mut RawCallResult<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-    ) {
-        // Persist changes to db.
-        self.backend.commit(result.state_changeset.clone());
-
-        // Persist cheatcode state.
-        let cheatcodes = result.cheatcodes.take();
-        self.inspector.cheatcodes = cheatcodes;
-
-        // Persist the changed environment.
-        self.inspector.set_env(result.env.clone());
-    }
-
-    /// Creates the environment to use when executing a transaction in a test
-    /// context
-    ///
-    /// If using a backend with cheatcodes, `tx.gas_price` and `block.number`
-    /// will be overwritten by the cheatcode state inbetween calls.
-    fn build_test_env(
-        &self,
-        caller: Address,
-        transact_to: TxKind,
-        data: Bytes,
-        value: U256,
-    ) -> EvmEnv<BlockT, TxT, HardforkT> {
-        let mut cfg = self.env.cfg.clone();
-        cfg.spec = self.spec_id();
-
-        let mut block = self.env.block.clone();
-        // We always set the gas price to 0 so we can execute the transaction regardless
-        // of network conditions - the actual gas price is kept in `self.block`
-        // and is applied by the cheatcode handler if it is enabled
-        block.set_basefee(0);
-        block.set_gas_limit(self.gas_limit);
-
-        let mut tx = self.env.tx.clone();
-        tx.set_caller(caller);
-        tx.set_transact_to(transact_to);
-        tx.set_input(data);
-        tx.set_value(value);
-        // As above, we set the gas price to 0.
-        tx.set_gas_price(0);
-        tx.set_gas_priority_fee(None);
-        tx.set_gas_limit(self.gas_limit);
-
-        EvmEnv { cfg, block, tx }
+    /// Whether tracing is on and if it records EVM step level data.
+    pub fn tracer_records_steps(&self) -> bool {
+        self.inspector()
+            .tracer
+            .as_ref()
+            .is_some_and(|tracer| tracer.config().record_steps)
     }
 
     /// Whether when re-executing the calls the same results are guaranteed.
     pub fn safe_to_re_execute(&self) -> bool {
         self.backend.safe_to_re_execute()
-    }
-
-    pub fn indeterminism_reasons(&self) -> Option<IndeterminismReasons> {
-        self.backend.indeterminism_reasons()
     }
 }
 
@@ -307,129 +275,136 @@ impl<
         ChainContextT: 'static + ChainContextTr,
     > Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
 {
-    /// Performs a call to an account on the current state of the VM.
-    ///
-    /// The state after the call is not persisted.
-    #[allow(clippy::type_complexity)]
-    pub fn call(
+    /// Returns a reference to the EVM backend.
+    pub fn backend(
         &self,
-        from: Address,
-        to: Address,
-        func: &Function,
-        args: &[DynSolValue],
-        value: U256,
-        rd: Option<&RevertDecoder>,
-    ) -> Result<
-        CallResult<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-        EvmError<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-    > {
-        let calldata = Bytes::from(func.abi_encode_input(args)?);
-        let (result, _cow_backend) = self.call_raw(from, to, calldata, value)?;
-        result.into_decoded_result(func, rd)
-    }
-
-    /// Performs a call to an account on the current state of the VM.
-    ///
-    /// The state after the call is persisted.
-    #[allow(clippy::type_complexity)]
-    pub fn call_committing(
-        &mut self,
-        from: Address,
-        to: Address,
-        func: &Function,
-        args: &[DynSolValue],
-        value: U256,
-        rd: Option<&RevertDecoder>,
-    ) -> Result<
-        CallResult<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-        EvmError<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-    > {
-        let calldata = Bytes::from(func.abi_encode_input(args)?);
-        let result = self.call_raw_committing(from, to, calldata, value)?;
-        result.into_decoded_result(func, rd)
-    }
-
-    /// Performs a call to an account on the current state of the VM.
-    ///
-    /// The state after the call is not persisted.
-    #[allow(clippy::type_complexity)]
-    pub fn call_sol<C: SolCall>(
-        &self,
-        from: Address,
-        to: Address,
-        args: &C,
-        value: U256,
-        rd: Option<&RevertDecoder>,
-    ) -> Result<
-        CallResult<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            C::Return,
-        >,
-        EvmError<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-    > {
-        let calldata = Bytes::from(args.abi_encode());
-        let (mut raw, _cow_backend) = self.call_raw(from, to, calldata, value)?;
-        raw = raw.into_result(rd)?;
-        Ok(CallResult {
-            decoded_result: C::abi_decode_returns(&raw.result)?,
-            raw,
-        })
-    }
-
-    pub fn call_sol_default<C: SolCall>(&self, to: Address, args: &C) -> C::Return
-    where
-        C::Return: Default,
+    ) -> &Backend<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
     {
-        self.call_sol(CALLER, to, args, U256::ZERO, None)
-            .map(|c| c.decoded_result)
-            .inspect_err(|e| warn!(target: "forge::test", "failed calling {:?}: {e}", C::SIGNATURE))
-            .unwrap_or_default()
+        &self.backend
+    }
+
+    /// Returns a mutable reference to the EVM backend.
+    pub fn backend_mut(
+        &mut self,
+    ) -> &mut Backend<
+        BlockT,
+        TxT,
+        EvmBuilderT,
+        HaltReasonT,
+        HardforkT,
+        TransactionErrorT,
+        ChainContextT,
+    > {
+        &mut self.backend
+    }
+
+    /// Set the balance of an account.
+    pub fn set_balance(&mut self, address: Address, amount: U256) -> BackendResult<()> {
+        trace!(?address, ?amount, "setting account balance");
+        let mut account = self.backend().basic_ref(address)?.unwrap_or_default();
+        account.balance = amount;
+        self.backend_mut().insert_account_info(address, account);
+        Ok(())
+    }
+
+    /// Gets the balance of an account
+    pub fn get_balance(&self, address: Address) -> BackendResult<U256> {
+        Ok(self
+            .backend()
+            .basic_ref(address)?
+            .map(|acc| acc.balance)
+            .unwrap_or_default())
+    }
+
+    /// Set the nonce of an account.
+    pub fn set_nonce(&mut self, address: Address, nonce: u64) -> BackendResult<()> {
+        let mut account = self.backend().basic_ref(address)?.unwrap_or_default();
+        account.nonce = nonce;
+        self.backend_mut().insert_account_info(address, account);
+        self.env_mut().tx.set_nonce(nonce);
+        Ok(())
+    }
+
+    /// Returns the nonce of an account.
+    pub fn get_nonce(&self, address: Address) -> BackendResult<u64> {
+        Ok(self
+            .backend()
+            .basic_ref(address)?
+            .map(|acc| acc.nonce)
+            .unwrap_or_default())
+    }
+
+    /// Set the code of an account.
+    pub fn set_code(&mut self, address: Address, code: Bytecode) -> BackendResult<()> {
+        let mut account = self.backend().basic_ref(address)?.unwrap_or_default();
+        account.code_hash = keccak256(code.original_byte_slice());
+        account.code = Some(code);
+        self.backend_mut().insert_account_info(address, account);
+        Ok(())
+    }
+
+    /// Set the storage of an account.
+    pub fn set_storage(
+        &mut self,
+        address: Address,
+        storage: HashMap<U256, U256>,
+    ) -> BackendResult<()> {
+        self.backend_mut()
+            .replace_account_storage(address, storage)?;
+        Ok(())
+    }
+
+    /// Set a storage slot of an account.
+    pub fn set_storage_slot(
+        &mut self,
+        address: Address,
+        slot: U256,
+        value: U256,
+    ) -> BackendResult<()> {
+        self.backend_mut()
+            .insert_account_storage(address, slot, value)?;
+        Ok(())
+    }
+
+    /// Returns `true` if the account has no code.
+    pub fn is_empty_code(&self, address: Address) -> BackendResult<bool> {
+        Ok(self
+            .backend()
+            .basic_ref(address)?
+            .is_none_or(|acc| acc.is_empty_code_hash()))
+    }
+
+    /// Creates the default CREATE2 Contract Deployer for local tests and
+    /// scripts.
+    pub fn deploy_create2_deployer(&mut self) -> eyre::Result<()> {
+        trace!("deploying local create2 deployer");
+        let create2_deployer_account = self
+            .backend()
+            .basic_ref(DEFAULT_CREATE2_DEPLOYER)?
+            .ok_or_else(|| BackendError::MissingAccount(DEFAULT_CREATE2_DEPLOYER))?;
+
+        // If the deployer is not currently deployed, deploy the default one.
+        if create2_deployer_account
+            .code
+            .is_none_or(|code| code.is_empty())
+        {
+            let creator = DEFAULT_CREATE2_DEPLOYER_DEPLOYER;
+
+            // Probably 0, but just in case.
+            let initial_balance = self.get_balance(creator)?;
+            self.set_balance(creator, U256::MAX)?;
+
+            let res = self.deploy(
+                creator,
+                DEFAULT_CREATE2_DEPLOYER_CODE.into(),
+                U256::ZERO,
+                None,
+            )?;
+            trace!(create2=?res.address, "deployed local create2 deployer");
+
+            self.set_balance(creator, initial_balance)?;
+        }
+        Ok(())
     }
 
     /// Deploys a contract and commits the new state to the underlying database.
@@ -467,48 +442,13 @@ impl<
         self.deploy_with_env(env, rd)
     }
 
-    /// Creates the default CREATE2 Contract Deployer for local tests and
-    /// scripts.
-    pub fn deploy_create2_deployer(&mut self) -> eyre::Result<()> {
-        trace!("deploying local create2 deployer");
-        let create2_deployer_account = self
-            .backend
-            .basic_ref(DEFAULT_CREATE2_DEPLOYER)?
-            .ok_or_else(|| BackendError::MissingAccount(DEFAULT_CREATE2_DEPLOYER))?;
-
-        // if the deployer is not currently deployed, deploy the default one
-        if create2_deployer_account
-            .code
-            .as_ref()
-            .is_none_or(revm::bytecode::Bytecode::is_empty)
-        {
-            let creator = "0x3fAB184622Dc19b6109349B94811493BF2a45362"
-                .parse()
-                .unwrap();
-
-            // Probably 0, but just in case.
-            let initial_balance = self.get_balance(creator)?;
-
-            self.set_balance(creator, U256::MAX)?;
-            let res = self.deploy(
-                creator,
-                DEFAULT_CREATE2_DEPLOYER_CODE.into(),
-                U256::ZERO,
-                None,
-            )?;
-            trace!(create2=?res.address, "deployed local create2 deployer");
-
-            self.set_balance(creator, initial_balance)?;
-        }
-        Ok(())
-    }
-
     /// Deploys a contract using the given `env` and commits the new state to
     /// the underlying database.
     ///
     /// # Panics
     ///
-    /// Panics if `env.tx.transact_to` is not `TxKind::Create(_)`.
+    /// Panics if `env.tx.kind` is not `TxKind::Create(_)`.
+    #[instrument(name = "deploy", level = "debug", skip_all)]
     #[allow(clippy::type_complexity)]
     pub fn deploy_with_env(
         &mut self,
@@ -541,8 +481,7 @@ impl<
         );
         trace!(sender=%env.tx.caller(), "deploying contract");
 
-        let mut result = self.call_raw_with_env(env)?;
-        self.commit(&mut result);
+        let mut result = self.transact_with_env(env)?;
         result = result.into_result(rd)?;
         let Some(Output::Create(_, Some(address))) = result.out else {
             panic!("Deployment succeeded, but no address was returned: {result:#?}");
@@ -550,7 +489,7 @@ impl<
 
         // also mark this library as persistent, this will ensure that the state of the
         // library is persistent across fork swaps in forking mode
-        self.backend.add_persistent_account(address);
+        self.backend_mut().add_persistent_account(address);
 
         debug!(%address, "deployed contract");
 
@@ -560,139 +499,6 @@ impl<
         })
     }
 
-    /// Executes the test function call
-    #[allow(clippy::type_complexity)]
-    pub fn execute_test(
-        &mut self,
-        from: Address,
-        test_contract: Address,
-        func: &Function,
-        args: &[DynSolValue],
-        value: U256,
-        rd: Option<&RevertDecoder>,
-    ) -> Result<
-        CallResult<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-        EvmError<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-    > {
-        let calldata = Bytes::from(func.abi_encode_input(args)?);
-
-        // execute the call
-        let env = self.build_test_env(from, TxKind::Call(test_contract), calldata, value);
-        let result = self.call_raw_with_env(env)?;
-        result.into_decoded_result(func, rd)
-    }
-
-    /// Returns `true` if a test can be considered successful.
-    ///
-    /// This is the same as [`Self::is_success`], but will consume the
-    /// `state_changeset` map to use internally when calling `failed()`.
-    pub fn is_raw_call_mut_success(
-        &self,
-        address: Address,
-        call_result: &mut RawCallResult<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-        should_fail: bool,
-    ) -> bool {
-        self.is_raw_call_success(
-            address,
-            Cow::Owned(std::mem::take(&mut call_result.state_changeset)),
-            call_result,
-            should_fail,
-        )
-    }
-
-    /// This is the same as [`Self::is_success`] but intended for outcomes of
-    /// [`Self::call_raw`] used in fuzzing and invariant testing.
-    ///
-    /// ## Background
-    ///
-    /// Executing and failure checking [`Executor::ensure_success`] are two
-    /// steps, for ds-test legacy reasons failures can be stored in a global
-    /// variables and needs to be called via a solidity call
-    /// `failed()(bool)`.
-    ///
-    /// For fuzz tests we’re using the `CowBackend` which is a Cow of the
-    /// executor’s backend which lazily clones the backend when it’s mutated
-    /// via cheatcodes like `snapshot`. Snapshots make it even more
-    /// complicated because now we also need to keep track of that global
-    /// variable when we revert to a snapshot (because it is stored in state).
-    /// Now, the problem is that the `CowBackend` is dropped after every
-    /// call, so we need to keep track of the snapshot failure in the
-    /// [`RawCallResult`] instead.
-    pub fn is_raw_call_success(
-        &self,
-        address: Address,
-        state_changeset: Cow<'_, StateChangeset>,
-        call_result: &RawCallResult<
-            BlockT,
-            TxT,
-            ChainContextT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-        >,
-        should_fail: bool,
-    ) -> bool {
-        if call_result.has_state_snapshot_failure {
-            // a failure occurred in a reverted snapshot, which is considered a failed test
-            return should_fail;
-        }
-        self.is_success(address, call_result.reverted, state_changeset, should_fail)
-    }
-
-    /// Check if a call to a test contract was successful.
-    ///
-    /// This function checks both the VM status of the call, `DSTest`'s `failed`
-    /// status and the `globalFailed` flag which is stored in `failed`
-    /// inside the `CHEATCODE_ADDRESS` contract.
-    ///
-    /// `DSTest` will not revert inside its `assertEq`-like functions which
-    /// allows to test multiple assertions in 1 test function while also
-    /// preserving logs.
-    ///
-    /// If an `assert` is violated, the contract's `failed` variable is set to
-    /// true, and the `globalFailure` flag inside the `CHEATCODE_ADDRESS` is
-    /// also set to true, this way, failing asserts from any contract are
-    /// tracked as well.
-    ///
-    /// In order to check whether a test failed, we therefore need to evaluate
-    /// the contract's `failed` variable and the `globalFailure` flag, which
-    /// happens by calling `contract.failed()`.
-    pub fn is_success(
-        &self,
-        address: Address,
-        reverted: bool,
-        state_changeset: Cow<'_, StateChangeset>,
-        should_fail: bool,
-    ) -> bool {
-        self.ensure_success(address, reverted, state_changeset, should_fail)
-            .unwrap_or_default()
-    }
-
     /// Calls the `setUp()` function on a contract.
     ///
     /// This will commit any state changes to the underlying database.
@@ -700,6 +506,7 @@ impl<
     /// Ayn changes made during the setup call to env's block environment are
     /// persistent, for example `vm.chainId()` will change the
     /// `block.chainId` for all subsequent test calls.
+    #[instrument(name = "setup", level = "debug", skip_all)]
     #[allow(clippy::type_complexity)]
     pub fn setup(
         &mut self,
@@ -729,18 +536,17 @@ impl<
         trace!(?from, ?to, "setting up contract");
 
         let from = from.unwrap_or(CALLER);
-        self.backend.set_test_contract(to).set_caller(from);
+        self.backend_mut().set_test_contract(to).set_caller(from);
         let calldata = Bytes::from_static(&ITest::setUpCall::SELECTOR);
-        let mut res = self.call_raw_committing(from, to, calldata, U256::ZERO)?;
+        let mut res = self.transact_raw(from, to, calldata, U256::ZERO)?;
         res = res.into_result(rd)?;
 
         // record any changes made to the block's environment during setup
-        self.env.block = res.env.block.clone();
+        self.env_mut().block = res.env.block.clone();
         // and also the chainid, which can be set manually
-        self.env.cfg.chain_id = res.env.cfg.chain_id;
+        self.env_mut().cfg.chain_id = res.env.cfg.chain_id;
 
-        let success =
-            self.is_raw_call_success(to, Cow::Borrowed(&res.state_changeset), &res, false);
+        let success = self.is_raw_call_success(Cow::Borrowed(&res.state_changeset), &res, false);
         if !success {
             return Err(res
                 .into_execution_error("execution error".to_string())
@@ -750,75 +556,139 @@ impl<
         Ok(res)
     }
 
-    fn ensure_success(
+    /// Performs a call to an account on the current state of the VM.
+    #[allow(clippy::type_complexity)]
+    pub fn call(
         &self,
-        address: Address,
-        reverted: bool,
-        state_changeset: Cow<'_, StateChangeset>,
-        should_fail: bool,
-    ) -> Result<bool, BackendError> {
-        if self.backend.has_state_snapshot_failure() {
-            // a failure occurred in a reverted snapshot, which is considered a failed test
-            return Ok(should_fail);
-        }
-
-        let mut success = !reverted;
-        if success {
-            // Construct a new bare-bones backend to evaluate success.
-            let mut backend = self.backend.clone_empty();
-
-            // We only clone the test contract and cheatcode accounts,
-            // that's all we need to evaluate success.
-            for addr in [address, CHEATCODE_ADDRESS] {
-                let acc = self.backend.basic_ref(addr)?.unwrap_or_default();
-                backend.insert_account_info(addr, acc);
-            }
-
-            // If this test failed any asserts, then this changeset will contain changes
-            // `false -> true` for the contract's `failed` variable and the `globalFailure`
-            // flag in the state of the cheatcode address,
-            // which are both read when we call `"failed()(bool)"` in the next step.
-            backend.commit(state_changeset.into_owned());
-
-            // Check if a DSTest assertion failed
-            let executor = Executor::new(
-                backend,
-                self.env.clone(),
-                self.chain_context.clone(),
-                self.inspector.clone(),
-                self.gas_limit,
-            );
-            let call = executor.call_sol(CALLER, address, &ITest::failedCall {}, U256::ZERO, None);
-            if let Ok(CallResult {
-                raw: _,
-                decoded_result: failed,
-            }) = call
-            {
-                debug!(failed, "DSTest::failed()");
-                success = !failed;
-            }
-        }
-
-        let result = should_fail ^ success;
-        debug!(should_fail, success, result);
-        Ok(result)
+        from: Address,
+        to: Address,
+        func: &Function,
+        args: &[DynSolValue],
+        value: U256,
+        rd: Option<&RevertDecoder>,
+    ) -> Result<
+        CallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
+        let calldata = Bytes::from(func.abi_encode_input(args)?);
+        let result = self.call_raw(from, to, calldata, value)?;
+        result.into_decoded_result(func, rd)
     }
-}
 
-impl<
-        BlockT: BlockEnvTr,
-        TxT: TransactionEnvTr,
-        EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
-        HaltReasonT: HaltReasonTr + TryInto<HaltReason>,
-        HardforkT: HardforkTr,
-        TransactionErrorT: TransactionErrorTrait,
-        ChainContextT: ChainContextTr,
-    > Executor<BlockT, TxT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT, ChainContextT>
-{
+    /// Performs a call to an account on the current state of the VM.
+    #[allow(clippy::type_complexity)]
+    pub fn call_sol<C: SolCall>(
+        &self,
+        from: Address,
+        to: Address,
+        args: &C,
+        value: U256,
+        rd: Option<&RevertDecoder>,
+    ) -> Result<
+        CallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+            C::Return,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
+        let calldata = Bytes::from(args.abi_encode());
+        let mut raw = self.call_raw(from, to, calldata, value)?;
+        raw = raw.into_result(rd)?;
+        Ok(CallResult {
+            decoded_result: C::abi_decode_returns(&raw.result)?,
+            raw,
+        })
+    }
+
+    /// Performs a call to an account on the current state of the VM.
+    #[allow(clippy::type_complexity)]
+    pub fn transact(
+        &mut self,
+        from: Address,
+        to: Address,
+        func: &Function,
+        args: &[DynSolValue],
+        value: U256,
+        rd: Option<&RevertDecoder>,
+    ) -> Result<
+        CallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        EvmError<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
+        let calldata = Bytes::from(func.abi_encode_input(args)?);
+        let result = self.transact_raw(from, to, calldata, value)?;
+        result.into_decoded_result(func, rd)
+    }
+
     /// Performs a raw call to an account on the current state of the VM.
-    ///
-    /// The state after the call is persisted.
-    pub fn call_raw_committing(
+    pub fn call_raw(
+        &self,
+        from: Address,
+        to: Address,
+        calldata: Bytes,
+        value: U256,
+    ) -> eyre::Result<
+        RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+    > {
+        let env = self.build_test_env(from, TxKind::Call(to), calldata, value);
+        self.call_with_env(env)
+    }
+
+    /// Performs a raw call to an account on the current state of the VM.
+    pub fn transact_raw(
         &mut self,
         from: Address,
         to: Address,
@@ -836,28 +706,17 @@ impl<
         >,
     > {
         let env = self.build_test_env(from, TxKind::Call(to), calldata, value);
-        let mut result = self.call_raw_with_env(env)?;
-        self.commit(&mut result);
-        Ok(result)
+        self.transact_with_env(env)
     }
 
-    /// Performs a raw call to an account on the current state of the VM.
+    /// Execute the transaction configured in `env.tx`.
     ///
-    /// Any state modifications made by the call are not committed.
-    ///
-    /// This intended for fuzz calls, which try to minimize [Backend] clones by
-    /// using a Cow of the underlying [Backend] so it only gets cloned when
-    /// cheatcodes that require mutable access are used. The method returns the
-    /// `CowBackend`, as changes to `CowBackend` are not persisted in the
-    /// executor's backend.
-    #[allow(clippy::type_complexity)]
-    pub fn call_raw(
+    /// The state after the call is **not** persisted.
+    #[instrument(name = "call", level = "debug", skip_all)]
+    pub fn call_with_env(
         &self,
-        from: Address,
-        to: Address,
-        calldata: Bytes,
-        value: U256,
-    ) -> eyre::Result<(
+        mut env: EvmEnv<BlockT, TxT, HardforkT>,
+    ) -> eyre::Result<
         RawCallResult<
             BlockT,
             TxT,
@@ -867,33 +726,24 @@ impl<
             HardforkT,
             TransactionErrorT,
         >,
-        CowBackend<
-            '_,
-            BlockT,
-            TxT,
-            EvmBuilderT,
-            HaltReasonT,
-            HardforkT,
-            TransactionErrorT,
-            ChainContextT,
-        >,
-    )> {
-        let mut inspector = self.inspector.clone();
-        // Build VM
-        let mut env = self.build_test_env(from, TxKind::Call(to), calldata, value);
-        let mut db = CowBackend::new(&self.backend);
-        let result = db.inspect(&mut env, &mut inspector, self.chain_context.clone())?;
-
-        // Persist the state snapshot failure recorded on the fuzz backend wrapper.
-        let has_state_snapshot_failure = db.has_state_snapshot_failure();
-        Ok((
-            convert_executed_result(env, inspector, result, has_state_snapshot_failure)?,
-            db,
-        ))
+    > {
+        let mut inspector = self.inspector().clone();
+        let mut backend = CowBackend::new_borrowed(self.backend());
+        let result_and_state =
+            backend.inspect(&mut env, self.chain_context.clone(), &mut inspector)?;
+        let result = convert_executed_result(
+            env,
+            inspector,
+            result_and_state,
+            backend.has_state_snapshot_failure(),
+            backend.indeterminism_reasons(),
+        )?;
+        Ok(result)
     }
 
-    /// Execute the transaction configured in `env.tx`
-    pub fn call_raw_with_env(
+    /// Execute the transaction configured in `env.tx`.
+    #[instrument(name = "transact", level = "debug", skip_all)]
+    pub fn transact_with_env(
         &mut self,
         mut env: EvmEnv<BlockT, TxT, HardforkT>,
     ) -> eyre::Result<
@@ -907,25 +757,30 @@ impl<
             TransactionErrorT,
         >,
     > {
-        // execute the call
-        let mut inspector = self.inspector.clone();
+        let mut inspector = self.inspector().clone();
         let result = self
             .backend
             .inspect(&mut env, self.chain_context.clone(), &mut inspector)?;
-        convert_executed_result(
+        let mut result = convert_executed_result(
             env,
             inspector,
             result,
             self.backend.has_state_snapshot_failure(),
-        )
+            self.backend.indeterminism_reasons(),
+        )?;
+        self.commit(&mut result);
+        Ok(result)
     }
 
-    /// Execute the transaction configured in `env.tx` and commit the changes
-    pub fn commit_tx_with_env(
+    /// Commit the changeset to the database and adjust `self.inspector_config`
+    /// values according to the executed call result.
+    ///
+    /// This should not be exposed to the user, as it should be called only by
+    /// `transact*`.
+    #[instrument(name = "commit", level = "debug", skip_all)]
+    fn commit(
         &mut self,
-        env: EvmEnv<BlockT, TxT, HardforkT>,
-    ) -> eyre::Result<
-        RawCallResult<
+        result: &mut RawCallResult<
             BlockT,
             TxT,
             ChainContextT,
@@ -934,16 +789,187 @@ impl<
             HardforkT,
             TransactionErrorT,
         >,
-    > {
-        let mut result = self.call_raw_with_env(env)?;
-        self.commit(&mut result);
-        Ok(result)
+    ) {
+        // Persist changes to db.
+        self.backend_mut().commit(result.state_changeset.clone());
+
+        // Persist cheatcode state.
+        self.inspector_mut().cheatcodes = result.cheatcodes.take();
+        if let Some(cheats) = self.inspector_mut().cheatcodes.as_mut() {
+            cheats.ignored_traces.ignored.clear();
+
+            // if tracing was paused but never unpaused, we should begin next frame with
+            // tracing still paused
+            if let Some(last_pause_call) = cheats.ignored_traces.last_pause_call.as_mut() {
+                *last_pause_call = (0, 0);
+            }
+        }
+
+        // Persist the changed environment.
+        self.inspector_mut().set_env(&result.env);
+    }
+
+    /// Returns `true` if a test can be considered successful.
+    ///
+    /// This is the same as [`Self::is_success`], but will consume the
+    /// `state_changeset` map to use internally when calling `failed()`.
+    pub fn is_raw_call_mut_success(
+        &self,
+        call_result: &mut RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        should_fail: bool,
+    ) -> bool {
+        self.is_raw_call_success(
+            Cow::Owned(std::mem::take(&mut call_result.state_changeset)),
+            call_result,
+            should_fail,
+        )
+    }
+
+    /// Returns `true` if a test can be considered successful.
+    ///
+    /// This is the same as [`Self::is_success`], but intended for outcomes of
+    /// [`Self::call_raw`].
+    pub fn is_raw_call_success(
+        &self,
+        state_changeset: Cow<'_, StateChangeset>,
+        call_result: &RawCallResult<
+            BlockT,
+            TxT,
+            ChainContextT,
+            EvmBuilderT,
+            HaltReasonT,
+            HardforkT,
+            TransactionErrorT,
+        >,
+        should_fail: bool,
+    ) -> bool {
+        if call_result.has_state_snapshot_failure {
+            // a failure occurred in a reverted snapshot, which is considered a failed test
+            return should_fail;
+        }
+        self.is_success(call_result.reverted, state_changeset, should_fail)
+    }
+
+    /// Returns `true` if a test can be considered successful.
+    ///
+    /// If the call succeeded, we also have to check the global and local
+    /// failure flags.
+    ///
+    /// These are set by the test contract itself when an assertion fails, using
+    /// the internal `fail` function. The global flag is located in
+    /// [`CHEATCODE_ADDRESS`] at slot [`GLOBAL_FAIL_SLOT`], and the local
+    /// flag is located in the test contract at an unspecified slot.
+    ///
+    /// This behavior is inherited from Dapptools, where initially only a public
+    /// `failed` variable was used to track test failures, and later, a global
+    /// failure flag was introduced to track failures across multiple
+    /// contracts in [ds-test#30](https://github.com/dapphub/ds-test/pull/30).
+    ///
+    /// The assumption is that the test runner calls `failed` on the test
+    /// contract to determine if it failed. However, we want to avoid this
+    /// as much as possible, as it is relatively expensive to set up an EVM
+    /// call just for checking a single boolean flag.
+    ///
+    /// See:
+    /// - Newer `DSTest`: <https://github.com/dapphub/ds-test/blob/e282159d5170298eb2455a6c05280ab5a73a4ef0/src/test.sol#L47-L63>
+    /// - Older `DSTest`: <https://github.com/dapphub/ds-test/blob/9ca4ecd48862b40d7b0197b600713f64d337af12/src/test.sol#L38-L49>
+    /// - forge-std: <https://github.com/foundry-rs/forge-std/blob/19891e6a0b5474b9ea6827ddb90bb9388f7acfc0/src/StdAssertions.sol#L38-L44>
+    pub fn is_success(
+        &self,
+        reverted: bool,
+        state_changeset: Cow<'_, StateChangeset>,
+        should_fail: bool,
+    ) -> bool {
+        let success = self.is_success_raw(reverted, state_changeset);
+        should_fail ^ success
+    }
+
+    #[instrument(name = "is_success", level = "debug", skip_all)]
+    fn is_success_raw(&self, reverted: bool, state_changeset: Cow<'_, StateChangeset>) -> bool {
+        // The call reverted.
+        if reverted {
+            return false;
+        }
+
+        // A failure occurred in a reverted snapshot, which is considered a failed test.
+        if self.backend().has_state_snapshot_failure() {
+            return false;
+        }
+
+        // Check the global failure slot.
+        if let Some(acc) = state_changeset.get(&CHEATCODE_ADDRESS)
+            && let Some(failed_slot) = acc.storage.get(&GLOBAL_FAIL_SLOT)
+            && !failed_slot.present_value().is_zero()
+        {
+            return false;
+        }
+        if let Ok(failed_slot) = self
+            .backend()
+            .storage_ref(CHEATCODE_ADDRESS, GLOBAL_FAIL_SLOT)
+            && !failed_slot.is_zero()
+        {
+            return false;
+        }
+
+        true
+    }
+
+    /// Creates the environment to use when executing a transaction in a test
+    /// context
+    ///
+    /// If using a backend with cheatcodes, `tx.gas_price` and `block.number`
+    /// will be overwritten by the cheatcode state in between calls.
+    fn build_test_env(
+        &self,
+        caller: Address,
+        kind: TxKind,
+        data: Bytes,
+        value: U256,
+    ) -> EvmEnv<BlockT, TxT, HardforkT> {
+        let mut cfg = self.env.cfg.clone();
+        cfg.spec = self.spec_id();
+
+        let mut block = self.env.block.clone();
+        // We always set the gas price to 0 so we can execute the transaction regardless
+        // of network conditions - the actual gas price is kept in `self.block`
+        // and is applied by the cheatcode handler if it is enabled
+        block.set_basefee(0);
+        block.set_gas_limit(self.gas_limit);
+
+        let mut tx = self.env.tx.clone();
+        tx.set_caller(caller);
+        tx.set_kind(kind);
+        tx.set_data(data);
+        tx.set_value(value);
+        // As above, we set the gas price to 0.
+        tx.set_gas_price(0);
+        tx.set_gas_priority_fee(None);
+        tx.set_gas_limit(self.gas_limit);
+
+        EvmEnv { cfg, block, tx }
+    }
+
+    pub fn call_sol_default<C: SolCall>(&self, to: Address, args: &C) -> C::Return
+    where
+        C::Return: Default,
+    {
+        self.call_sol(CALLER, to, args, U256::ZERO, None)
+            .map(|c| c.decoded_result)
+            .inspect_err(|e| warn!(target: "forge::test", "failed calling {:?}: {e}", C::SIGNATURE))
+            .unwrap_or_default()
     }
 }
 
 /// Represents the context after an execution error occurred.
-#[derive_where(Debug; BlockT, TxT, HardforkT)]
-#[derive(thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 #[error("execution reverted: {reason} (gas: {})", raw.gas_used)]
 pub struct ExecutionErr<
     BlockT: BlockEnvTr,
@@ -1028,18 +1054,17 @@ impl<
     }
 }
 
-#[derive_where(Debug; BlockT, TxT, HardforkT)]
-#[derive(thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum EvmError<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
-    ChainContextT: 'static + ChainContextTr,
+    ChainContextT: ChainContextTr,
     EvmBuilderT: EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
 > {
-    /// Error which occurred during execution of a transaction
+    /// Error which occurred during execution of a transaction.
     #[error(transparent)]
     Execution(
         #[from]
@@ -1055,15 +1080,19 @@ pub enum EvmError<
             >,
         >,
     ),
-    /// Error which occurred during ABI encoding/decoding
+    /// Error which occurred during ABI encoding/decoding.
     #[error(transparent)]
-    AbiError(#[from] alloy_dyn_abi::Error),
+    Abi(#[from] alloy_dyn_abi::Error),
     /// Error caused which occurred due to calling the `skip` cheatcode.
     #[error("{0}")]
     Skip(SkipReason),
     /// Any other error.
-    #[error(transparent)]
-    Eyre(#[from] eyre::Error),
+    #[error("{0}")]
+    Eyre(
+        #[from]
+        #[source]
+        eyre::Report,
+    ),
 }
 
 impl<
@@ -1099,7 +1128,7 @@ impl<
             TransactionErrorT,
         >,
     ) -> Self {
-        EvmError::Execution(Box::new(err))
+        Self::Execution(Box::new(err))
     }
 }
 
@@ -1115,7 +1144,7 @@ impl<
     for EvmError<BlockT, TxT, ChainContextT, EvmBuilderT, HaltReasonT, HardforkT, TransactionErrorT>
 {
     fn from(err: alloy_sol_types::Error) -> Self {
-        EvmError::AbiError(err.into())
+        Self::Abi(err.into())
     }
 }
 
@@ -1250,7 +1279,7 @@ impl<
 }
 
 /// The result of a raw call.
-#[derive_where(Debug; BlockT, TxT, HardforkT)]
+#[derive(Debug)]
 pub struct RawCallResult<
     BlockT: BlockEnvTr,
     TxT: TransactionEnvTr,
@@ -1264,11 +1293,11 @@ pub struct RawCallResult<
     pub exit_reason: Option<InstructionResult>,
     /// Whether the call reverted or not
     pub reverted: bool,
-    /// Whether the call includes a state snapshot failure
+    /// Whether the call includes a snapshot failure
     ///
-    /// This is tracked separately from revert because a state snapshot failure
-    /// can occur without a revert, since assert failures are stored in a
-    /// global variable (ds-test legacy)
+    /// This is tracked separately from revert because a snapshot failure can
+    /// occur without a revert, since assert failures are stored in a global
+    /// variable (ds-test legacy)
     pub has_state_snapshot_failure: bool,
     /// The raw result of the call.
     pub result: Bytes,
@@ -1284,11 +1313,13 @@ pub struct RawCallResult<
     pub labels: AddressHashMap<String>,
     /// The traces of the call
     pub traces: Option<SparsedTraceArena>,
-    /// The coverage info collected during the call
-    pub coverage: Option<HitMaps>,
+    /// The line coverage info collected during the call
+    pub line_coverage: Option<HitMaps>,
+    /// The edge coverage info collected during the call
+    pub edge_coverage: Option<Vec<u8>>,
     /// The changeset of the state.
     pub state_changeset: StateChangeset,
-    /// The env after the call
+    /// The `revm::Env` after the call
     pub env: EvmEnv<BlockT, TxT, HardforkT>,
     /// The cheatcode states after execution
     pub cheatcodes: Option<
@@ -1304,6 +1335,8 @@ pub struct RawCallResult<
     >,
     /// The raw output of the execution
     pub out: Option<Output>,
+    pub reverter: Option<Address>,
+    pub indeterminism_reasons: Option<IndeterminismReasons>,
 }
 
 impl<
@@ -1335,13 +1368,16 @@ impl<
             gas_refunded: 0,
             stipend: 0,
             logs: Vec::new(),
-            labels: AddressHashMap::default(),
+            labels: HashMap::default(),
             traces: None,
-            coverage: None,
+            line_coverage: None,
+            edge_coverage: None,
             state_changeset: HashMap::default(),
-            env: EvmEnv::new_with_spec_id(HardforkT::default()),
+            env: EvmEnv::default_with_spec_id(HardforkT::default()),
             cheatcodes: Option::default(),
             out: None,
+            reverter: None,
+            indeterminism_reasons: None,
         }
     }
 }
@@ -1349,7 +1385,7 @@ impl<
 impl<
         BlockT: BlockEnvTr,
         TxT: TransactionEnvTr,
-        ChainContextT: ChainContextTr,
+        ChainContextT: 'static + ChainContextTr,
         EvmBuilderT: 'static
             + EvmBuilderTrait<BlockT, ChainContextT, HaltReasonT, HardforkT, TransactionErrorT, TxT>,
         HaltReasonT: 'static + HaltReasonTr,
@@ -1459,7 +1495,9 @@ impl<
             TransactionErrorT,
         >,
     > {
-        if self.exit_reason.is_some_and(InstructionResult::is_ok) {
+        if let Some(reason) = self.exit_reason
+            && reason.is_ok()
+        {
             Ok(self)
         } else {
             Err(self.into_evm_error(rd))
@@ -1505,6 +1543,48 @@ impl<
             decoded_result,
         })
     }
+
+    /// Update provided history map with edge coverage info collected during
+    /// this call. Uses AFL binning algo <https://github.com/h0mbre/Lucid/blob/3026e7323c52b30b3cf12563954ac1eaa9c6981e/src/coverage.rs#L57-L85>
+    pub fn merge_edge_coverage(&mut self, history_map: &mut [u8]) -> (bool, bool) {
+        let mut new_coverage = false;
+        let mut is_edge = false;
+        if let Some(x) = &mut self.edge_coverage {
+            // Iterate over the current map and the history map together and update
+            // the history map, if we discover some new coverage, report true
+            for (curr, hist) in std::iter::zip(x, history_map) {
+                // If we got a hitcount of at least 1
+                if *curr > 0 {
+                    // Convert hitcount into bucket count
+                    let bucket = match *curr {
+                        0 => 0,
+                        1 => 1,
+                        2 => 2,
+                        3 => 4,
+                        4..=7 => 8,
+                        8..=15 => 16,
+                        16..=31 => 32,
+                        32..=127 => 64,
+                        128..=255 => 128,
+                    };
+
+                    // If the old record for this edge pair is lower, update
+                    if *hist < bucket {
+                        if *hist == 0 {
+                            // Counts as an edge the first time we see it, otherwise it's a feature.
+                            is_edge = true;
+                        }
+                        *hist = bucket;
+                        new_coverage = true;
+                    }
+
+                    // Zero out the current map for next iteration.
+                    *curr = 0;
+                }
+            }
+        }
+        (new_coverage, is_edge)
+    }
 }
 
 /// The result of a call.
@@ -1516,7 +1596,7 @@ pub struct CallResult<
     HaltReasonT: HaltReasonTr,
     HardforkT: HardforkTr,
     TransactionErrorT: TransactionErrorTrait,
-    DecodedResultT = DynSolValue,
+    T = DynSolValue,
 > {
     /// The raw result of the call.
     pub raw: RawCallResult<
@@ -1529,7 +1609,7 @@ pub struct CallResult<
         TransactionErrorT,
     >,
     /// The decoded result of the call.
-    pub decoded_result: DecodedResultT,
+    pub decoded_result: T,
 }
 
 impl<
@@ -1613,8 +1693,12 @@ fn convert_executed_result<
         TransactionErrorT,
         ChainContextT,
     >,
-    result: ResultAndState<HaltReasonT>,
+    ResultAndState {
+        result,
+        state: state_changeset,
+    }: ResultAndState<HaltReasonT>,
     has_state_snapshot_failure: bool,
+    indeterminism_reasons: Option<IndeterminismReasons>,
 ) -> eyre::Result<
     RawCallResult<
         BlockT,
@@ -1626,18 +1710,15 @@ fn convert_executed_result<
         TransactionErrorT,
     >,
 > {
-    let ResultAndState {
-        result: exec_result,
-        state: state_changeset,
-    } = result;
-    let (exit_reason, gas_refunded, gas_used, out) = match exec_result {
+    let (exit_reason, gas_refunded, gas_used, out, exec_logs) = match result {
         ExecutionResult::Success {
             reason,
             gas_used,
             gas_refunded,
             output,
+            logs,
             ..
-        } => (reason.into(), gas_refunded, gas_used, Some(output)),
+        } => (reason.into(), gas_refunded, gas_used, Some(output), logs),
         ExecutionResult::Revert { gas_used, output } => {
             // Need to fetch the unused gas
             (
@@ -1645,6 +1726,7 @@ fn convert_executed_result<
                 0_u64,
                 gas_used,
                 Some(Output::Call(output)),
+                vec![],
             )
         }
         ExecutionResult::Halt { reason, gas_used } => {
@@ -1652,10 +1734,9 @@ fn convert_executed_result<
                 eyre::eyre!("Halt reason cannot be converted to `HaltReason`: {reason:?}")
             })?;
 
-            (reason.into(), 0_u64, gas_used, None)
+            (reason.into(), 0_u64, gas_used, None, vec![])
         }
     };
-
     let gas = revm::interpreter::gas::calculate_initial_tx_gas(
         env.cfg.spec.into(),
         env.tx.input(),
@@ -1671,12 +1752,18 @@ fn convert_executed_result<
     };
 
     let InspectorData {
-        logs,
+        mut logs,
         labels,
         traces,
-        coverage,
+        line_coverage,
+        edge_coverage,
         cheatcodes,
+        reverter,
     } = inspector.collect()?;
+
+    if logs.is_empty() {
+        logs = exec_logs;
+    }
 
     Ok(RawCallResult {
         exit_reason: Some(exit_reason),
@@ -1689,11 +1776,14 @@ fn convert_executed_result<
         logs,
         labels,
         traces,
-        coverage,
+        line_coverage,
+        edge_coverage,
         state_changeset,
         env,
         cheatcodes,
         out,
+        reverter,
+        indeterminism_reasons,
     })
 }
 

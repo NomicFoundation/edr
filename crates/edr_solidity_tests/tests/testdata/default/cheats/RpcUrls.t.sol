@@ -9,8 +9,8 @@ contract RpcUrlTest is DSTest {
 
     // returns the correct url
     function testCanGetRpcUrl() public {
-        string memory url = vm.rpcUrl("rpcAliasFake"); // note: this alias is pre-configured in the test runner
-        assertEq(url, "https://example.com");
+        string memory url = vm.rpcUrl("mainnet"); // note: this alias is pre-configured in the test runner
+        assertTrue(bytes(url).length >= 36);
     }
 
     // returns an error if env alias does not exist

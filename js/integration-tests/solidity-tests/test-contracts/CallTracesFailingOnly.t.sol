@@ -7,7 +7,7 @@ contract CallTracesFailingOnly is Test {
     function testSuccessfulTest() public {
     }
 
-    function testFailingTest() public pure {
+    function testIntentionallyFailingTest() public pure {
         revert("This test intentionally fails");
     }
 }

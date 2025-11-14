@@ -244,10 +244,12 @@ pub fn assert_multiple<HaltReasonT: HaltReasonTrait>(
         for (test_name, should_pass, reason, expected_logs, expected_warning_count) in tests {
             let logs = &actuals
                 .get(*contract_name)
-                .expect("contract should exist in actuals")
+                .unwrap_or_else(|| panic!("contract should exist in actuals: '{contract_name}'"))
                 .test_results
                 .get(*test_name)
-                .expect("test should exist in test results")
+                .unwrap_or_else(|| {
+                    panic!("test should exist in test results: '{contract_name}:{test_name}'")
+                })
                 .decoded_logs;
 
             let warnings_count = &actuals
