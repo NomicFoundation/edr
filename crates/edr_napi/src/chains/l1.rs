@@ -135,6 +135,8 @@ pub enum SpecId {
     Cancun = 17,
     /// Prague
     Prague = 18,
+    /// Osaka
+    Osaka = 19,
 }
 
 impl FromStr for SpecId {
@@ -161,6 +163,7 @@ impl FromStr for SpecId {
             edr_chain_l1::chains::name::SHANGHAI => Ok(SpecId::Shanghai),
             edr_chain_l1::chains::name::CANCUN => Ok(SpecId::Cancun),
             edr_chain_l1::chains::name::PRAGUE => Ok(SpecId::Prague),
+            edr_chain_l1::chains::name::OSAKA => Ok(SpecId::Osaka),
             _ => Err(napi::Error::new(
                 napi::Status::InvalidArg,
                 format!("The provided hardfork `{s}` is not supported."),
@@ -191,6 +194,7 @@ impl From<SpecId> for edr_chain_l1::Hardfork {
             SpecId::Shanghai => edr_chain_l1::Hardfork::SHANGHAI,
             SpecId::Cancun => edr_chain_l1::Hardfork::CANCUN,
             SpecId::Prague => edr_chain_l1::Hardfork::PRAGUE,
+            SpecId::Osaka => edr_chain_l1::Hardfork::OSAKA,
         }
     }
 }
@@ -225,6 +229,7 @@ pub fn l1_hardfork_to_string(harfork: SpecId) -> &'static str {
         SpecId::Shanghai => edr_chain_l1::chains::name::SHANGHAI,
         SpecId::Cancun => edr_chain_l1::chains::name::CANCUN,
         SpecId::Prague => edr_chain_l1::chains::name::PRAGUE,
+        SpecId::Osaka => edr_chain_l1::chains::name::OSAKA,
     }
 }
 
@@ -264,5 +269,6 @@ export_spec_id!(
     MERGE,
     SHANGHAI,
     CANCUN,
-    PRAGUE
+    PRAGUE,
+    OSAKA
 );

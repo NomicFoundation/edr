@@ -91,7 +91,9 @@ export enum SpecId {
   /** Cancun */
   Cancun = 17,
   /** Prague */
-  Prague = 18
+  Prague = 18,
+  /** Osaka */
+  Osaka = 19
 }
 /**
  * Tries to parse the provided string to create a [`SpecId`] instance.
@@ -125,6 +127,7 @@ export const MERGE: string
 export const SHANGHAI: string
 export const CANCUN: string
 export const PRAGUE: string
+export const OSAKA: string
 /** Enumeration of supported OP hardforks. */
 export enum OpHardfork {
   Bedrock = 100,
