@@ -67,7 +67,7 @@ fn deploy_contract(
         evm_config.to_cfg_env(blockchain.hardfork()),
         signed.into(),
         block_env,
-        &HashMap::new(),
+        &HashMap::default(),
     )?;
     let address = if let ExecutionResult::Success {
         output: Output::Create(_, Some(address)),
@@ -126,7 +126,7 @@ fn call_inc_by(
         evm_config.to_cfg_env(blockchain.hardfork()),
         signed.into(),
         block_env,
-        &HashMap::new(),
+        &HashMap::default(),
         &mut coverage_collector,
     )?;
 

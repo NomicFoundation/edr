@@ -82,7 +82,7 @@ impl TryFrom<AccountOverride> for Predeploy {
     fn try_from(value: AccountOverride) -> Result<Self, Self::Error> {
         let (address, account_override) = value.try_into()?;
 
-        let storage = account_override.storage.unwrap_or_else(HashMap::new);
+        let storage = account_override.storage.unwrap_or_else(HashMap::default);
         let balance = account_override.balance.unwrap_or(U256::ZERO);
         let nonce = account_override.nonce.unwrap_or(0);
         let code = account_override.code.ok_or_else(|| {

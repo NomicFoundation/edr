@@ -45,8 +45,8 @@ impl<
     pub fn new(remote: RemoteState<RpcBlockT, RpcReceiptT, RpcTransactionT>) -> Self {
         Self {
             remote,
-            account_cache: HashMap::new(),
-            code_cache: HashMap::new(),
+            account_cache: HashMap::default(),
+            code_cache: HashMap::default(),
         }
     }
 }

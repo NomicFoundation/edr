@@ -693,7 +693,7 @@ where
             filters: HashMap::default(),
             last_filter_id: U256::ZERO,
             logger,
-            impersonated_accounts: HashSet::new(),
+            impersonated_accounts: HashSet::default(),
             subscriber_callback,
             timer,
             block_state_cache,
@@ -2830,7 +2830,7 @@ fn create_blockchain_and_state<
                         info,
                         // TODO: Add support for overriding the storage
                         // TODO: https://github.com/NomicFoundation/edr/issues/911
-                        storage: HashMap::new(),
+                        storage: HashMap::default(),
                         status: AccountStatus::Created | AccountStatus::Touched,
                         transaction_id: 0,
                     };
@@ -2943,7 +2943,10 @@ fn create_blockchain_and_state<
 
                 let account = Account {
                     info,
-                    storage: account_override.storage.clone().unwrap_or(HashMap::new()),
+                    storage: account_override
+                        .storage
+                        .clone()
+                        .unwrap_or(HashMap::default()),
                     status: AccountStatus::Created | AccountStatus::Touched,
                     transaction_id: 0,
                 };
@@ -4078,7 +4081,7 @@ mod tests {
             let default_config = create_test_config_with_fork(Some(ForkConfig {
                 block_number: Some(EIP_1559_ACTIVATION_BLOCK),
                 cache_dir: edr_defaults::CACHE_DIR.into(),
-                chain_overrides: HashMap::new(),
+                chain_overrides: HashMap::default(),
                 http_headers: None,
                 url: get_alchemy_url(),
             }));

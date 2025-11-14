@@ -29,7 +29,7 @@ async fn issue_356() -> anyhow::Result<()> {
         // Pre-cancun Sepolia block
         block_number: Some(4243456),
         cache_dir: edr_defaults::CACHE_DIR.into(),
-        chain_overrides: HashMap::new(),
+        chain_overrides: HashMap::default(),
         http_headers: None,
         url: get_alchemy_url().replace("mainnet", "sepolia"),
     }));

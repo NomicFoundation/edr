@@ -463,7 +463,7 @@ mod tests {
                     *address,
                     Account {
                         info: info.clone(),
-                        storage: HashMap::new(),
+                        storage: HashMap::default(),
                         status: AccountStatus::Created | AccountStatus::Touched,
                         transaction_id: 0,
                     },

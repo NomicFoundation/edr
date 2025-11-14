@@ -63,10 +63,10 @@ impl<
         Self {
             local_state,
             remote_state: Arc::new(Mutex::new(CachedRemoteState::new(remote_state))),
-            removed_storage_slots: HashSet::new(),
+            removed_storage_slots: HashSet::default(),
             current_state: RwLock::new((state_root, local_root)),
             hash_generator,
-            removed_remote_accounts: HashSet::new(),
+            removed_remote_accounts: HashSet::default(),
         }
     }
 

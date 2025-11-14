@@ -11,11 +11,10 @@ use foundry_evm_core::{
         BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
         TransactionErrorTrait,
     },
-    ContextExt,
 };
 use proptest::prelude::Strategy;
 use rand::{seq::SliceRandom, Rng, RngCore};
-use revm::context::result::HaltReasonTr;
+use revm::{context::result::HaltReasonTr, context_interface::JournalTr as _};
 
 #[allow(clippy::wildcard_imports)]
 use crate::{
@@ -927,11 +926,11 @@ impl Cheatcode for copyStorageCall {
             "target address cannot have arbitrary storage"
         );
 
-        let (db, journal, _) = ccx.ecx.as_db_env_and_journal();
-        if let Ok(from_account) = journal.load_account(db, *from) {
+        if let Ok(from_account) = ccx.ecx.journaled_state.load_account(*from) {
             let from_storage = from_account.storage.clone();
-            if let Ok(mut to_account) = journal.load_account(db, *to) {
-                to_account.storage = from_storage;
+            if ccx.ecx.journaled_state.load_account(*to).is_ok() {
+                // SAFETY: We ensured the account was already loaded.
+                ccx.ecx.journaled_state.state.get_mut(to).unwrap().storage = from_storage;
                 if let Some(arbitrary_storage) = &mut ccx.state.arbitrary_storage {
                     arbitrary_storage.mark_copy(from, to);
                 }

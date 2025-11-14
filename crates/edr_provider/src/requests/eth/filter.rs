@@ -202,7 +202,7 @@ fn validate_filter_criteria<
 
     let addresses = filter
         .address
-        .map_or(HashSet::new(), |addresses| match addresses {
+        .map_or(HashSet::default(), |addresses| match addresses {
             OneOrMore::One(address) => iter::once(address).collect(),
             OneOrMore::Many(addresses) => addresses.into_iter().collect(),
         });

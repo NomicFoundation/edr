@@ -260,7 +260,7 @@ impl From<GasReport> for edr_gas_report::GasReport {
                     status: contract.status,
                 }];
 
-                let mut functions: HashMap<String, Vec<FunctionGasReport>> = HashMap::new();
+                let mut functions = HashMap::default();
                 contract.functions.iter().for_each(|(_, sigs)| {
                     for (sig, gas_info) in sigs.iter() {
                         let reports = gas_info

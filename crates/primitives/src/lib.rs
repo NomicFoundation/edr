@@ -2,13 +2,13 @@ pub use revm_bytecode::{self as bytecode, Bytecode};
 pub use revm_primitives::{
     address,
     alloy_primitives::{
+        map::{hash_map, hash_set, HashMap, HashSet},
         Bloom, BloomInput, ChainId, StorageKey, StorageValue, B512, B64, U128, U160, U64, U8,
     },
     b256, bytes,
     eip3860::MAX_INITCODE_SIZE,
     hardfork::UnknownHardfork,
-    hash_map, hash_set, hex, hex_literal, keccak256, Address, Bytes, HashMap, HashSet, B256,
-    KECCAK_EMPTY, U256,
+    hex, hex_literal, keccak256, Address, Bytes, B256, KECCAK_EMPTY, U256,
 };
 
 /// The KECCAK of the RLP encoding of empty data.

@@ -1822,39 +1822,40 @@ impl<
     ) -> Result<(), BackendError> {
         // Fetch the account from the journaled state. Will create a new account if it
         // does not already exist.
-        let mut state_acc = journaled_state.load_account(self, *target)?;
+        let mut state_acc = journaled_state.load_account_mut(self, *target)?;
 
         // Set the account's bytecode and code hash, if the `bytecode` field is present.
         if let Some(bytecode) = source.code.as_ref() {
-            state_acc.info.code_hash = keccak256(bytecode);
+            let bytecode_hash = keccak256(bytecode);
             let bytecode = Bytecode::new_raw(bytecode.0.clone().into());
-            state_acc.info.code = Some(bytecode);
+            state_acc.set_code(bytecode_hash, bytecode);
         }
 
+        // Set the account's balance.
+        state_acc.set_balance(source.balance);
+
         // Set the account's storage, if the `storage` field is present.
-        if let Some(storage) = source.storage.as_ref() {
-            state_acc.storage = storage
-                .iter()
-                .map(|(slot, value)| {
+        if let Some(acc) = journaled_state.state.get_mut(target) {
+            if let Some(storage) = source.storage.as_ref() {
+                for (slot, value) in storage {
                     let slot = U256::from_be_bytes(slot.0);
-                    (
+                    acc.storage.insert(
                         slot,
                         EvmStorageSlot::new_changed(
-                            state_acc
-                                .storage
+                            acc.storage
                                 .get(&slot)
                                 .map(|s| s.present_value)
                                 .unwrap_or_default(),
                             U256::from_be_bytes(value.0),
                             0,
                         ),
-                    )
-                })
-                .collect();
-        }
-        // Set the account's nonce and balance.
-        state_acc.info.nonce = source.nonce.unwrap_or_default();
-        state_acc.info.balance = source.balance;
+                    );
+                }
+            }
+
+            // Set the account's nonce.
+            acc.info.nonce = source.nonce.unwrap_or_default();
+        };
 
         // Touch the account to ensure the loaded information persists if called in
         // `setUp`.
@@ -2353,8 +2354,8 @@ impl<BlockT: BlockEnvTr, TxT: TransactionEnvTr, HardforkT: HardforkTr>
             journal_inner
         };
         journal
-            .precompiles
-            .extend(self.precompiles().addresses().copied());
+            .warm_addresses
+            .set_precompile_addresses(self.precompiles().addresses().copied().collect());
         journal
     }
 }

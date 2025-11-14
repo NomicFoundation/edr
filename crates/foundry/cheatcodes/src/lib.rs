@@ -392,7 +392,11 @@ impl<
 {
     #[inline]
     pub(crate) fn is_precompile(&self, address: &Address) -> bool {
-        self.ecx.journaled_state.inner.precompiles.contains(address)
+        self.ecx
+            .journaled_state
+            .warm_addresses
+            .precompiles()
+            .contains(address)
     }
 }
 

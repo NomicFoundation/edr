@@ -134,7 +134,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         network_id: 123,
         observability: observability::ObservabilityConfig::default(),
         owned_accounts,
-        precompile_overrides: HashMap::new(),
+        precompile_overrides: HashMap::default(),
     }
 }
 
@@ -216,7 +216,7 @@ where
         let fork = fork.map(|json_rpc_url| ForkConfig {
             block_number: None,
             cache_dir: edr_defaults::CACHE_DIR.into(),
-            chain_overrides: HashMap::new(),
+            chain_overrides: HashMap::default(),
             http_headers: None,
             url: json_rpc_url,
         });

@@ -70,7 +70,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
                     evm_config,
                     transaction,
                     &block,
-                    &edr_primitives::HashMap::new(),
+                    &edr_primitives::HashMap::default(),
                     &mut DualInspector::new(&mut eip3155_tracer, &mut evm_observer),
                 )?;
 
@@ -99,7 +99,7 @@ pub fn debug_trace_transaction<'header, ChainSpecT: BlockChainSpec>(
                 evm_config.clone(),
                 transaction,
                 &block,
-                &edr_primitives::HashMap::new(),
+                &edr_primitives::HashMap::default(),
             )?;
         }
     }

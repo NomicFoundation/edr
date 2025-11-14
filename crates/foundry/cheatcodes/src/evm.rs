@@ -38,7 +38,7 @@ use foundry_evm_core::evm_context::{
     split_context, BlockEnvTr, ChainContextTr, EvmBuilderTrait, HardforkTr, TransactionEnvTr,
     TransactionErrorTrait,
 };
-use record_debug_step::{convert_call_trace_to_debug_step, flatten_call_trace};
+use record_debug_step::{convert_call_trace_ctx_to_debug_step, flatten_call_trace};
 use serde::Serialize;
 
 mod fork;
@@ -3036,7 +3036,7 @@ impl Cheatcode for stopAndReturnDebugTraceRecordingCall {
 
         let debug_steps: Vec<DebugStep> = steps
             .iter()
-            .map(|&step| convert_call_trace_to_debug_step(step))
+            .map(|step| convert_call_trace_ctx_to_debug_step(step))
             .collect();
         // Free up memory by clearing the steps if they are not recorded outside of
         // cheatcode usage.
