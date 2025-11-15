@@ -20,7 +20,10 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+
       - uses: ./.github/actions/setup-rust
 
       - name: Cargo check no default features for all crates
@@ -56,7 +59,10 @@ jobs:
       matrix:
         os: ["ubuntu-24.04", "macos-15", "windows-2025"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+
       - uses: ./.github/actions/setup-rust
         with:
           components: llvm-tools-preview
@@ -120,7 +126,9 @@ jobs:
         node: [20]
         os: [ubuntu-24.04, macos-15, windows-2025]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
 
       - uses: ./.github/actions/setup-node
         with:
@@ -175,7 +183,10 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+
       - uses: ./.github/actions/setup-rust
         with:
           components: clippy
@@ -198,7 +209,10 @@ jobs:
     runs-on: ubuntu-24.04
     needs: check-edr
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+
       - uses: ./.github/actions/setup-rust
 
       - name: Cargo doc
@@ -211,7 +225,10 @@ jobs:
     name: Build and lint
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+
       - uses: ./.github/actions/setup-node
 
       - name: Install package
@@ -225,7 +242,10 @@ jobs:
     name: Check that edr_napi typings file is up to date
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+
       - uses: ./.github/actions/setup-node
 
       - name: Install package
@@ -240,7 +260,10 @@ jobs:
     name: Run integration tests
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+
       - uses: ./.github/actions/setup-node
 
       - uses: ./.github/actions/setup-rust

@@ -71,7 +71,9 @@ jobs:
       run:
         working-directory: ./crates/edr_napi
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
 
       - name: Save HEAD commit sha
         id: save-commit
@@ -198,7 +200,9 @@ jobs:
       run:
         working-directory: ./crates/edr_napi
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
       - name: Setup node and pnpm
         uses: ./.github/actions/setup-node
         with:
@@ -229,7 +233,9 @@ jobs:
           - "22"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
       - name: Setup node and pnpm
         uses: ./.github/actions/setup-node
         with:
@@ -262,7 +268,9 @@ jobs:
           - "22"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
       - name: Setup node and pnpm
         uses: ./.github/actions/setup-node
         with:
@@ -293,7 +301,9 @@ jobs:
           - "22"
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
       - name: Setup node and pnpm
         uses: ./.github/actions/setup-node
         with:
@@ -333,7 +343,9 @@ jobs:
           - "22"
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
       - name: Setup node and pnpm
         uses: ./.github/actions/setup-node
         with:
@@ -365,8 +377,9 @@ jobs:
       contents: read
     if: github.event_name != 'pull_request' || github.event.pull_request.author_association == 'OWNER' || github.event.pull_request.author_association == 'MEMBER' || github.event.pull_request.author_association == 'COLLABORATOR'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
+          persist-credentials: false
           ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Check if commit message is a release commit
@@ -411,7 +424,9 @@ jobs:
     outputs:
       filename: ${{ steps.pack.outputs.filename }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
       - name: Setup node
         uses: ./.github/actions/setup-node
       - name: Install dependencies
@@ -505,9 +520,10 @@ jobs:
           # And in root edr package
           pnpm publish --dry-run
       - name: Checkout repository for comparison
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           path: remote-repository
+          persist-credentials: false
           ref: ${{ needs.build.outputs.commit_sha }}
       - name: Validate there were no modifications to `package.json` when building
         run: |
