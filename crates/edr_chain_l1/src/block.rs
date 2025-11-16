@@ -182,7 +182,10 @@ impl<
             ..
         }) = self.header.blob_gas.as_ref()
         {
-            let blob_params = if self.config().spec.into() >= EvmSpecId::PRAGUE {
+            let evm_spec_id = self.config().spec.into();
+            let blob_params = if evm_spec_id >= EvmSpecId::OSAKA {
+                BlobParams::osaka()
+            } else if evm_spec_id >= EvmSpecId::PRAGUE {
                 BlobParams::prague()
             } else {
                 BlobParams::cancun()
