@@ -1,7 +1,6 @@
 use core::{fmt::Debug, marker::PhantomData};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use alloy_eips::eip7840::BlobParams;
 use edr_block_api::Block;
 use edr_block_builder_api::{
     BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError,
@@ -9,7 +8,8 @@ use edr_block_builder_api::{
     ExecutionResult, PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{
-    BlobGas, BlockConfig, HeaderAndEvmSpec, HeaderOverrides, PartialHeader, Withdrawal,
+    blob_params_for_hardfork, BlobGas, BlockConfig, HeaderAndEvmSpec, HeaderOverrides,
+    PartialHeader, Withdrawal,
 };
 use edr_block_local::EthLocalBlock;
 use edr_chain_spec::{
@@ -182,14 +182,7 @@ impl<
             ..
         }) = self.header.blob_gas.as_ref()
         {
-            let evm_spec_id = self.config().spec.into();
-            let blob_params = if evm_spec_id >= EvmSpecId::OSAKA {
-                BlobParams::osaka()
-            } else if evm_spec_id >= EvmSpecId::PRAGUE {
-                BlobParams::prague()
-            } else {
-                BlobParams::cancun()
-            };
+            let blob_params = blob_params_for_hardfork(self.config().spec.into());
 
             if block_blob_gas_used + blob_gas_used > blob_params.max_blob_gas_per_block() {
                 return Err(BlockTransactionError::ExceedsBlockBlobGasLimit);

@@ -2,7 +2,7 @@ mod difficulty;
 mod overrides;
 
 pub use alloy_eips::eip4895::Withdrawal;
-use alloy_eips::eip7840::{self, BlobParams};
+use alloy_eips::eip7840::BlobParams;
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvConstructor, BlockEnvForHardfork, BlockEnvTrait, EvmSpecId,
 };
@@ -112,18 +112,22 @@ impl BlockHeader {
     }
 }
 
-/// Calculates the blob excess gas and price for the specified [`EvmSpecId`].
-fn blob_excess_gas_and_price_for_evm_spec(
-    blob_gas: &BlobGas,
-    evm_spec_id: EvmSpecId,
-) -> BlobExcessGasAndPrice {
-    let blob_params = if evm_spec_id >= EvmSpecId::OSAKA {
+pub fn blob_params_for_hardfork(evm_spec_id: EvmSpecId) -> BlobParams {
+    if evm_spec_id >= EvmSpecId::OSAKA {
         BlobParams::osaka()
     } else if evm_spec_id >= EvmSpecId::PRAGUE {
         BlobParams::prague()
     } else {
         BlobParams::cancun()
-    };
+    }
+}
+
+/// Calculates the blob excess gas and price for the specified [`EvmSpecId`].
+fn blob_excess_gas_and_price_for_evm_spec(
+    blob_gas: &BlobGas,
+    evm_spec_id: EvmSpecId,
+) -> BlobExcessGasAndPrice {
+    let blob_params = blob_params_for_hardfork(evm_spec_id);
 
     BlobExcessGasAndPrice::new(
         blob_gas.excess_gas,
@@ -388,13 +392,7 @@ impl PartialHeader {
                              gas_used,
                              excess_gas,
                          }| {
-                            let blob_params = if evm_spec_id >= EvmSpecId::OSAKA {
-                                eip7840::BlobParams::osaka()
-                            } else if evm_spec_id >= EvmSpecId::PRAGUE {
-                                eip7840::BlobParams::prague()
-                            } else {
-                                eip7840::BlobParams::cancun()
-                            };
+                            let blob_params = blob_params_for_hardfork(evm_spec_id);
 
                             let base_fee = if evm_spec_id >= EvmSpecId::OSAKA {
                                 base_fee.expect("base fee must be set for post-Osaka blocks")
@@ -616,13 +614,7 @@ pub fn calculate_next_base_fee_per_blob_gas<HardforkT: Into<EvmSpecId>>(
         .blob_gas
         .as_ref()
         .map_or(0u128, |BlobGas { excess_gas, .. }| {
-            let blob_params = if evm_spec_id >= EvmSpecId::OSAKA {
-                eip7840::BlobParams::osaka()
-            } else if evm_spec_id >= EvmSpecId::PRAGUE {
-                eip7840::BlobParams::prague()
-            } else {
-                eip7840::BlobParams::cancun()
-            };
+            let blob_params = blob_params_for_hardfork(evm_spec_id);
 
             blob_params.calc_blob_fee(*excess_gas)
         })
