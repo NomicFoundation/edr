@@ -2,8 +2,9 @@ use edr_chain_spec::TransactionValidation;
 use edr_eth::BlockSpec;
 use edr_primitives::Bytes;
 use edr_rpc_eth::StateOverrideOptions;
-use edr_runtime::{overrides::StateOverrides, trace::Trace, transaction};
+use edr_runtime::{overrides::StateOverrides, transaction};
 use edr_signer::FakeSign as _;
+use edr_tracing::Trace;
 
 use crate::{
     data::ProviderData,

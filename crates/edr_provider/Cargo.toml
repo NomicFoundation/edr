@@ -16,6 +16,7 @@ dyn-clone.workspace = true
 edr_block_api.workspace = true
 edr_block_builder_api.workspace = true
 edr_block_header.workspace = true
+edr_block_miner.workspace = true
 edr_blockchain_api.workspace = true
 edr_blockchain_fork.workspace = true
 edr_blockchain_local.workspace = true
@@ -31,20 +32,22 @@ edr_eip1559.workspace = true
 edr_eip2930.workspace = true
 edr_eip7702.workspace = true
 edr_eth.workspace = true
-edr_runtime = { workspace = true, features = ["tracing"] }
 edr_evm.workspace = true
 edr_evm_spec.workspace = true
 edr_gas_report.workspace = true
+edr_mem_pool.workspace = true
 edr_precompile.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
 edr_receipt_spec.workspace = true
 edr_rpc_eth.workspace = true
 edr_rpc_spec.workspace = true
+edr_runtime.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_state_api.workspace = true
 edr_test_utils = { workspace = true, optional = true }
+edr_tracing.workspace = true
 edr_transaction.workspace = true
 edr_utils.workspace = true
 indexmap = { version = "2.0.0", default-features = false, features = ["std"] }
@@ -64,6 +67,7 @@ log = { version = "0.4.20", default-features = false }
 lru = "0.12.2"
 parking_lot.workspace = true
 rand.workspace = true
+revm-inspector.workspace = true
 rpds = { version = "1.1.0", default-features = false, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -78,7 +82,6 @@ tracing = { version = "0.1.37", features = [
 [dev-dependencies]
 alloy-eips.workspace = true
 anyhow = "1.0.89"
-edr_runtime = { workspace = true, features = ["test-utils"] }
 edr_test_block_replay.workspace = true
 edr_test_utils.workspace = true
 paste = { version = "1.0.14", default-features = false }
@@ -95,20 +98,20 @@ test-utils = ["dep:anyhow", "dep:edr_test_utils"]
 tracing = [
     "dep:tracing",
     "edr_block_builder_api/tracing",
+    "edr_block_miner/tracing",
     "edr_blockchain_api/tracing",
     "edr_blockchain_fork/tracing",
     "edr_blockchain_local/tracing",
     "edr_chain_l1/tracing",
     "edr_chain_spec_block/tracing",
     "edr_chain_spec_provider/tracing",
-    "edr_coverage/tracing",
     "edr_database_components/tracing",
     "edr_evm/tracing",
     "edr_evm_spec/tracing",
     "edr_gas_report/tracing",
+    "edr_mem_pool/tracing",
     "edr_receipt_spec/tracing",
-    "edr_runtime/tracing",
-    "edr_solidity/tracing"
+    "edr_solidity/tracing",
 ]
 
 [lints]

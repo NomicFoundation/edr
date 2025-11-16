@@ -20,12 +20,10 @@ use edr_primitives::{
     bytecode::opcode::{self, OpCode},
     hex, Address, Bytes, B256, U256,
 };
-use edr_runtime::{
-    inspector::DualInspector,
-    journal::JournalExt,
-    trace::{Trace, TraceCollector},
-};
+use edr_runtime::inspector::DualInspector;
 use edr_state_api::{DynState, StateError};
+use edr_tracing::{Trace, TraceCollector};
+use revm_inspector::JournalExt;
 
 use crate::{
     observability::{EvmObserver, EvmObserverConfig},
@@ -294,9 +292,7 @@ impl TracerEip3155 {
     }
 }
 
-impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspector<ContextT>
-    for TracerEip3155
-{
+impl<ContextT: ContextTrait<Journal: JournalExt>> Inspector<ContextT> for TracerEip3155 {
     fn call_end(
         &mut self,
         _context: &mut ContextT,
@@ -359,7 +355,7 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
             None
         } else {
             if matches!(self.opcode, opcode::SLOAD | opcode::SSTORE) {
-                let last_entry = journal.entries().last();
+                let last_entry = journal.journal().last();
 
                 if let Some(
                     JournalEntry::StorageChanged { address, key, .. }
@@ -367,7 +363,7 @@ impl<ContextT: ContextTrait<Journal: JournalExt<Entry = JournalEntry>>> Inspecto
                 ) = last_entry
                 {
                     let value = journal
-                        .state()
+                        .evm_state()
                         .get(address)
                         .expect("address should exist in journal state")
                         .storage

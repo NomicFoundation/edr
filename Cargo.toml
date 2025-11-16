@@ -5,6 +5,7 @@ members = [
     "crates/block/builder/api",
     "crates/block/header",
     "crates/block/local",
+    "crates/block/miner",
     "crates/block/remote",
     "crates/block/storage",
     "crates/blockchain/api",
@@ -21,7 +22,6 @@ members = [
     "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
-    "crates/edr_runtime",
     "crates/edr_evm_spec",
     "crates/edr_gas_report",
     "crates/edr_instrument",
@@ -34,6 +34,7 @@ members = [
     "crates/edr_rpc_client",
     "crates/edr_rpc_eth",
     "crates/edr_rpc_spec",
+    "crates/edr_runtime",
     "crates/edr_scenarios",
     "crates/edr_signer",
     "crates/edr_solidity",
@@ -45,6 +46,7 @@ members = [
     "crates/eips/4844",
     "crates/eips/7702",
     "crates/evm",
+    "crates/mem_pool",
     "crates/precompile",
     "crates/primitives",
     "crates/receipt/builder/api",
@@ -54,10 +56,12 @@ members = [
     "crates/state/remote",
     "crates/test/block_replay",
     "crates/test/blockchain",
+    "crates/test/mem_pool",
     "crates/test/receipt",
     "crates/test/transaction",
     "crates/tool/cli",
     "crates/tool/op_chain_config_generator",
+    "crates/tracing",
     "crates/trie",
     # Foundry
     "crates/foundry/cheatcodes",
@@ -126,6 +130,7 @@ edr_block_api = { path = "crates/block/api" }
 edr_block_builder_api = { path = "crates/block/builder/api" }
 edr_block_header = { path = "crates/block/header" }
 edr_block_local = { path = "crates/block/local" }
+edr_block_miner = { path = "crates/block/miner" }
 edr_block_remote = { path = "crates/block/remote" }
 edr_block_storage = { path = "crates/block/storage" }
 edr_blockchain_api = { path = "crates/blockchain/api" }
@@ -152,6 +157,7 @@ edr_gas_report = { path = "crates/edr_gas_report" }
 edr_generic = { path = "crates/edr_generic" }
 edr_instrument = { path = "crates/edr_instrument" }
 edr_macros = { path = "crates/edr_macros" }
+edr_mem_pool = { path = "crates/mem_pool" }
 edr_napi_core = { path = "crates/edr_napi_core" }
 edr_op = { path = "crates/edr_op" }
 edr_primitives = { path = "crates/primitives" }
@@ -175,8 +181,10 @@ edr_state_remote = { path = "crates/state/remote" }
 edr_test_receipt = { path = "crates/test/receipt" }
 edr_test_block_replay = { path = "crates/test/block_replay" }
 edr_test_blockchain = { path = "crates/test/blockchain" }
+edr_test_mem_pool = { path = "crates/test/mem_pool" }
 edr_test_transaction = { path = "crates/test/transaction" }
 edr_test_utils = { path = "crates/edr_test_utils" }
+edr_tracing = { path = "crates/tracing" }
 edr_transaction = { path = "crates/edr_transaction" }
 edr_trie = { path = "crates/trie" }
 edr_utils = { path = "crates/edr_utils" }

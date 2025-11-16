@@ -12,8 +12,8 @@ use edr_provider::{
     time::TimeSinceEpoch, CallResult, DebugMineBlockResult, DebugMineBlockResultForChainSpec,
     EstimateGasFailure, ProviderError, ProviderErrorForChainSpec, ProviderSpec, TransactionFailure,
 };
-use edr_runtime::trace::{AfterMessage, Trace, TraceMessage};
 use edr_solidity::contract_decoder::{ContractAndFunctionName, ContractDecoder};
+use edr_tracing::{AfterMessage, Trace, TraceMessage};
 use itertools::izip;
 
 /// Trait for a function that decodes console log inputs.

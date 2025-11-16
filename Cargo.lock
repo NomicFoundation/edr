@@ -2386,6 +2386,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_block_miner"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "edr_block_api",
+ "edr_block_builder_api",
+ "edr_block_header",
+ "edr_chain_spec",
+ "edr_chain_spec_block",
+ "edr_database_components",
+ "edr_evm_spec",
+ "edr_mem_pool",
+ "edr_primitives",
+ "edr_signer",
+ "edr_state_api",
+ "edr_test_mem_pool",
+ "edr_test_transaction",
+ "serde",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "edr_block_remote"
 version = "0.3.8"
 dependencies = [
@@ -2570,7 +2593,6 @@ dependencies = [
  "edr_receipt_builder_api",
  "edr_receipt_spec",
  "edr_rpc_spec",
- "edr_runtime",
  "edr_signer",
  "edr_state_api",
  "edr_test_receipt",
@@ -2674,7 +2696,6 @@ dependencies = [
  "edr_evm_spec",
  "edr_primitives",
  "edr_receipt_spec",
- "edr_runtime",
  "edr_signer",
  "edr_state_api",
  "edr_test_utils",
@@ -2751,7 +2772,6 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_rpc_eth",
- "edr_runtime",
  "edr_signer",
  "edr_test_utils",
  "hex",
@@ -2893,6 +2913,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_mem_pool"
+version = "0.3.8"
+dependencies = [
+ "anyhow",
+ "edr_chain_spec",
+ "edr_primitives",
+ "edr_state_api",
+ "edr_test_mem_pool",
+ "edr_test_transaction",
+ "edr_transaction",
+ "indexmap 2.9.0",
+ "paste",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "edr_napi"
 version = "0.3.8"
 dependencies = [
@@ -2902,6 +2939,7 @@ dependencies = [
  "derive-where",
  "derive_more 2.0.1",
  "edr_block_header",
+ "edr_block_miner",
  "edr_blockchain_fork",
  "edr_chain_config",
  "edr_chain_l1",
@@ -2923,12 +2961,12 @@ dependencies = [
  "edr_receipt",
  "edr_rpc_client",
  "edr_rpc_spec",
- "edr_runtime",
  "edr_scenarios",
  "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
  "edr_state_api",
+ "edr_tracing",
  "foundry-cheatcodes",
  "foundry-compilers",
  "k256",
@@ -2969,10 +3007,10 @@ dependencies = [
  "edr_primitives",
  "edr_provider",
  "edr_rpc_client",
- "edr_runtime",
  "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
+ "edr_tracing",
  "edr_transaction",
  "itertools 0.12.1",
  "napi",
@@ -3014,7 +3052,6 @@ dependencies = [
  "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
- "edr_runtime",
  "edr_signer",
  "edr_solidity",
  "edr_solidity_tests",
@@ -3076,6 +3113,7 @@ dependencies = [
  "edr_block_api",
  "edr_block_builder_api",
  "edr_block_header",
+ "edr_block_miner",
  "edr_blockchain_api",
  "edr_blockchain_fork",
  "edr_blockchain_local",
@@ -3094,6 +3132,7 @@ dependencies = [
  "edr_evm",
  "edr_evm_spec",
  "edr_gas_report",
+ "edr_mem_pool",
  "edr_precompile",
  "edr_primitives",
  "edr_receipt",
@@ -3106,6 +3145,7 @@ dependencies = [
  "edr_state_api",
  "edr_test_block_replay",
  "edr_test_utils",
+ "edr_tracing",
  "edr_transaction",
  "edr_utils",
  "indexmap 2.9.0",
@@ -3117,6 +3157,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "paste",
  "rand 0.9.1",
+ "revm-inspector",
  "rpds",
  "serde",
  "serde_json",
@@ -3225,7 +3266,6 @@ dependencies = [
  "edr_receipt",
  "edr_rpc_client",
  "edr_rpc_spec",
- "edr_runtime",
  "edr_signer",
  "edr_state_api",
  "edr_test_utils",
@@ -3269,10 +3309,8 @@ dependencies = [
  "edr_block_api",
  "edr_block_builder_api",
  "edr_block_header",
- "edr_block_remote",
  "edr_block_storage",
  "edr_blockchain_api",
- "edr_blockchain_fork",
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_block",
@@ -3283,6 +3321,7 @@ dependencies = [
  "edr_eth",
  "edr_evm_spec",
  "edr_generic",
+ "edr_mem_pool",
  "edr_primitives",
  "edr_provider",
  "edr_receipt",
@@ -3292,6 +3331,7 @@ dependencies = [
  "edr_state_api",
  "edr_state_fork",
  "edr_state_persistent_trie",
+ "edr_test_mem_pool",
  "edr_test_transaction",
  "edr_test_utils",
  "edr_transaction",
@@ -3314,7 +3354,6 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -3331,7 +3370,6 @@ dependencies = [
  "edr_napi_core",
  "edr_primitives",
  "edr_provider",
- "edr_runtime",
  "edr_test_utils",
  "k256",
  "serde",
@@ -3367,7 +3405,7 @@ dependencies = [
  "edr_eth",
  "edr_evm_spec",
  "edr_primitives",
- "edr_runtime",
+ "edr_tracing",
  "foundry-compilers",
  "indexmap 2.9.0",
  "itertools 0.10.5",
@@ -3398,7 +3436,6 @@ dependencies = [
  "edr_defaults",
  "edr_gas_report",
  "edr_primitives",
- "edr_runtime",
  "edr_solidity",
  "edr_test_utils",
  "evm-disassembler",
@@ -3556,6 +3593,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "edr_test_mem_pool"
+version = "0.3.8"
+dependencies = [
+ "edr_chain_l1",
+ "edr_mem_pool",
+ "edr_primitives",
+ "edr_state_api",
+ "edr_state_persistent_trie",
+]
+
+[[package]]
 name = "edr_test_receipt"
 version = "0.3.8"
 dependencies = [
@@ -3649,6 +3697,21 @@ dependencies = [
  "serde_json",
  "tempfile",
  "toml 0.8.20",
+]
+
+[[package]]
+name = "edr_tracing"
+version = "0.3.8"
+dependencies = [
+ "derive-where",
+ "edr_block_builder_api",
+ "edr_blockchain_api",
+ "edr_chain_spec",
+ "edr_database_components",
+ "edr_evm_spec",
+ "edr_primitives",
+ "edr_state_api",
+ "revm-inspector",
 ]
 
 [[package]]

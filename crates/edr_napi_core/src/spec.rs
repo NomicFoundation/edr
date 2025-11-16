@@ -7,7 +7,7 @@ use edr_provider::{
     time::TimeSinceEpoch, ProviderErrorForChainSpec, ResponseWithTraces, SyncProviderSpec,
 };
 use edr_rpc_client::jsonrpc;
-use edr_runtime::trace::Trace;
+use edr_tracing::Trace;
 use edr_solidity::contract_decoder::ContractDecoder;
 use edr_transaction::{IsEip155, IsEip4844, TransactionMut, TransactionType};
 use napi::{Either, Status};

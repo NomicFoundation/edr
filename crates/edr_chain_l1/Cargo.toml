@@ -41,7 +41,6 @@ tracing = { workspace = true, optional = true }
 anyhow.workspace = true
 assert-json-diff = "2.0.2"
 edr_defaults.workspace = true
-edr_runtime.workspace = true
 edr_test_receipt.workspace = true
 edr_test_utils.workspace = true
 hex.workspace = true

@@ -5,7 +5,7 @@ use std::{cell::RefCell, rc::Rc};
 use edr_chain_spec::HaltReasonTrait;
 use edr_evm_spec::result::ExecutionResult;
 use edr_primitives::{Address, Bytes, U160, U256};
-use edr_runtime::trace::{BeforeMessage, Step};
+use edr_tracing::{BeforeMessage, Step};
 
 use crate::{
     exit_code::ExitCode,
@@ -40,7 +40,7 @@ pub enum NestedTracerError {
 
 /// Observes a trace, collecting information about the execution of the EVM.
 pub fn convert_trace_messages_to_nested_trace<HaltReasonT: HaltReasonTrait>(
-    trace: edr_runtime::trace::Trace<HaltReasonT>,
+    trace: edr_tracing::Trace<HaltReasonT>,
 ) -> Result<Option<NestedTrace<HaltReasonT>>, NestedTracerError> {
     let mut tracer = NestedTracer::new();
 
@@ -83,17 +83,17 @@ impl<HaltReasonT: HaltReasonTrait> NestedTracer<HaltReasonT> {
 
     fn add_messages(
         &mut self,
-        messages: Vec<edr_runtime::trace::TraceMessage<HaltReasonT>>,
+        messages: Vec<edr_tracing::TraceMessage<HaltReasonT>>,
     ) -> Result<(), NestedTracerError> {
         for msg in messages {
             match msg {
-                edr_runtime::trace::TraceMessage::Before(before) => {
+                edr_tracing::TraceMessage::Before(before) => {
                     self.add_before_message(before)?;
                 }
-                edr_runtime::trace::TraceMessage::Step(step) => {
+                edr_tracing::TraceMessage::Step(step) => {
                     self.add_step(step)?;
                 }
-                edr_runtime::trace::TraceMessage::After(after) => {
+                edr_tracing::TraceMessage::After(after) => {
                     self.add_after_message(after.execution_result)?;
                 }
             }

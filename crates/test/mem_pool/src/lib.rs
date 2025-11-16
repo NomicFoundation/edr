@@ -1,17 +1,18 @@
-#![cfg(any(test, feature = "test-utils"))]
+//! Test utilities for mem pool-related tests.
+#![warn(missing_docs)]
 
-use std::num::NonZeroU64;
+use core::num::NonZeroU64;
 
+use edr_chain_l1::L1SignedTransaction;
+use edr_mem_pool::{MemPool, MemPoolAddTransactionError};
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{account::AccountInfo, StateError};
 use edr_state_persistent_trie::{PersistentAccountAndStorageTrie, PersistentStateTrie};
 
-use crate::{MemPool, MemPoolAddTransactionError};
-
 /// A test fixture for `MemPool`.
 pub struct MemPoolTestFixture {
     /// The mem pool.
-    pub mem_pool: MemPool<edr_chain_l1::L1SignedTransaction>,
+    pub mem_pool: MemPool<L1SignedTransaction>,
     /// The state.
     pub state: PersistentStateTrie,
 }
@@ -32,7 +33,7 @@ impl MemPoolTestFixture {
     /// Tries to add the provided transaction to the mem pool.
     pub fn add_transaction(
         &mut self,
-        transaction: edr_chain_l1::L1SignedTransaction,
+        transaction: L1SignedTransaction,
     ) -> Result<(), MemPoolAddTransactionError<StateError>> {
         self.mem_pool.add_transaction(&self.state, transaction)
     }

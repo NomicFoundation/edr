@@ -9,7 +9,7 @@ use edr_provider::{
     test_utils::create_test_config, time::CurrentTime, MethodInvocation, NoopLogger, Provider,
     ProviderRequest,
 };
-use edr_runtime::trace::TraceMessage;
+use edr_tracing::TraceMessage;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 

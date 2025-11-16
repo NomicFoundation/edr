@@ -11,7 +11,6 @@ edr_block_header.workspace = true
 edr_defaults.workspace = true
 edr_evm_spec.workspace = true
 edr_primitives.workspace = true
-edr_runtime.workspace = true
 edr_transaction.workspace = true
 
 [dev-dependencies]
@@ -26,9 +25,6 @@ edr_signer.workspace = true
 edr_state_api.workspace = true
 edr_test_utils.workspace = true
 revm-context.workspace = true
-
-[features]
-tracing = ["edr_evm_spec/tracing", "edr_runtime/tracing"]
 
 [lints]
 workspace = true

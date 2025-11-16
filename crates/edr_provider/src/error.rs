@@ -7,6 +7,7 @@ use std::{ffi::OsString, num::TryFromIntError, time::SystemTime};
 
 use alloy_sol_types::{ContractError, SolInterface};
 use edr_block_api::GenesisBlockFactory;
+use edr_block_miner::{MineBlockError, MineTransactionError};
 use edr_blockchain_api::r#dyn::DynBlockchainError;
 use edr_blockchain_fork::ForkedBlockchainCreationError as ForkedCreationError;
 use edr_blockchain_local::InvalidGenesisBlock;
@@ -17,15 +18,14 @@ use edr_chain_spec_block::BlockChainSpec;
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
 use edr_evm_spec::{result::ExecutionResult, DatabaseComponentError, TransactionError};
 use edr_gas_report::GasReportCreationError;
+use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::{hex, Address, Bytes, B256, U256};
 use edr_rpc_eth::{client::RpcClientError, error::HttpError, jsonrpc};
-use edr_runtime::{
-    overrides::AccountOverrideConversionError, trace::Trace, transaction,
-    MemPoolAddTransactionError, MineBlockError, MineTransactionError,
-};
+use edr_runtime::{overrides::AccountOverrideConversionError, transaction};
 use edr_signer::SignatureError;
 use edr_solidity::contract_decoder::ContractDecoderError;
 use edr_state_api::StateError;
+use edr_tracing::Trace;
 use serde::Serialize;
 
 use crate::{

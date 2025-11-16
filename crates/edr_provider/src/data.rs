@@ -19,6 +19,7 @@ use edr_block_builder_api::BuiltBlockAndState;
 use edr_block_header::{
     calculate_next_base_fee_per_blob_gas, BlockConfig, BlockHeader, HeaderOverrides,
 };
+use edr_block_miner::{mine_block, mine_block_with_single_transaction};
 use edr_blockchain_api::{
     r#dyn::{DynBlockchain, DynBlockchainError},
     BlockHashByNumber, BlockchainMetadata as _, GetBlockchainBlock as _, StateAtBlock as _,
@@ -41,16 +42,15 @@ use edr_eth::{
 };
 use edr_evm_spec::{config::EvmConfig, result::ExecutionResult, CfgEnv};
 use edr_gas_report::{GasReport, SyncOnCollectedGasReportCallback};
+use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, Bytecode, Bytes, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
 use edr_receipt::{log::FilterLog, ExecutionReceipt, ReceiptTrait as _};
 use edr_rpc_eth::client::{EthRpcClient, EthRpcClientForChainSpec, HeaderMap};
 use edr_runtime::{
     inspector::DualInspector,
-    mempool, mine_block, mine_block_with_single_transaction,
     overrides::{StateOverrides, StateRefOverrider},
-    trace::Trace,
-    transaction, MemPool, OrderedTransaction,
+    transaction,
 };
 use edr_signer::{
     public_key_to_address, FakeSign as _, RecoveryMessage, Sign as _, SignatureWithRecoveryId,
@@ -61,6 +61,7 @@ use edr_state_api::{
     irregular::IrregularState,
     AccountModifierFn, DynState, EvmStorageSlot, StateDiff, StateOverride,
 };
+use edr_tracing::Trace;
 use edr_transaction::{
     request::TransactionRequestAndSender, BlockDataForTransaction, IsEip4844, IsSupported as _,
     TransactionAndBlock, TransactionMut, TransactionType, TxKind,
@@ -710,7 +711,7 @@ where
         address: &Address,
     ) -> Result<u64, ProviderErrorForChainSpec<ChainSpecT>> {
         let state = self.current_state()?;
-        mempool::account_next_nonce(&self.mem_pool, &*state, address).map_err(Into::into)
+        account_next_nonce(&self.mem_pool, &*state, address).map_err(Into::into)
     }
 
     /// Adds a filter for new blocks to the provider.
@@ -1051,7 +1052,7 @@ where
         address: Address,
         nonce: u64,
     ) -> Result<(), ProviderErrorForChainSpec<ChainSpecT>> {
-        if mempool::has_transactions(&self.mem_pool) {
+        if edr_mem_pool::has_transactions(&self.mem_pool) {
             return Err(ProviderError::SetAccountNonceWithPendingTransactions);
         }
 
@@ -2340,7 +2341,7 @@ where
     ) -> Result<SendTransactionResultForChainSpec<ChainSpecT>, ProviderErrorForChainSpec<ChainSpecT>>
     {
         if transaction.transaction_type().is_eip4844() {
-            if !self.is_auto_mining || mempool::has_transactions(&self.mem_pool) {
+            if !self.is_auto_mining || edr_mem_pool::has_transactions(&self.mem_pool) {
                 return Err(ProviderError::BlobMemPoolUnsupported);
             }
 
@@ -3047,9 +3048,9 @@ fn get_max_cached_states_from_env<
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
+    use edr_block_miner::MineOrdering;
     use edr_chain_l1::L1ChainSpec;
     use edr_primitives::hex;
-    use edr_runtime::MineOrdering;
     use serde_json::json;
 
     use super::*;

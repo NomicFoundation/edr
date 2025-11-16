@@ -1,3 +1,6 @@
+//! Types used for tracing EVM calls
+#![warn(missing_docs)]
+
 use std::fmt::Debug;
 
 use derive_where::derive_where;
@@ -15,8 +18,7 @@ use edr_evm_spec::{
 };
 use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
 use edr_state_api::State;
-
-use crate::journal::JournalExt;
+use revm_inspector::JournalExt;
 
 /// Stack tracing message
 #[derive(Clone, Debug)]
@@ -220,7 +222,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         // This needs to be split into two functions to avoid borrow checker issues
         #[allow(clippy::map_unwrap_or)]
         let code = journal
-            .state()
+            .evm_state()
             .get(&inputs.bytecode_address)
             .map(|account| account.info.clone())
             .map(|mut account_info| {
