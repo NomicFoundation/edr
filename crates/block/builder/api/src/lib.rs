@@ -66,6 +66,18 @@ impl BlockInputs {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum BlockFinalizeError<StateErrorT> {
+    /// Maximum block RLP size exceeded (EIP-7934).
+    #[error(
+        "Maximum block RLP size exceeded. Maximum: {max_size} bytes. Actual: {actual_size} bytes"
+    )]
+    BlockRlpSizeExceeded { max_size: usize, actual_size: usize },
+    /// State error.
+    #[error(transparent)]
+    State(StateErrorT),
+}
+
 /// Helper type for a chain-specific [`BlockTransactionError`].
 pub type BlockTransactionErrorForChainSpec<ChainSpecT, DatabaseErrorT> = BlockTransactionError<
     DatabaseErrorT,
@@ -198,6 +210,6 @@ pub trait BlockBuilder<
         rewards: Vec<(Address, u128)>,
     ) -> Result<
         BuiltBlockAndState<ChainSpecT::HaltReason, Self::LocalBlock>,
-        StateError,
+        BlockFinalizeError<StateError>,
     >;
 }

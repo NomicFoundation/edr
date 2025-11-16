@@ -2,8 +2,8 @@ use std::{cmp::Ordering, fmt::Debug};
 
 use edr_block_api::Block as _;
 use edr_block_builder_api::{
-    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError, Blockchain,
-    BuiltBlockAndState, PrecompileFn, WrapDatabaseRef,
+    BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
+    BlockTransactionError, Blockchain, BuiltBlockAndState, PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{calculate_next_base_fee_per_blob_gas, HeaderOverrides, PartialHeader};
 use edr_chain_spec::{
@@ -62,7 +62,7 @@ pub enum MineBlockError<BlockchainErrorT, HardforkT, StateErrorT, TransactionVal
     ),
     /// An error that occurred while finalizing a block.
     #[error(transparent)]
-    BlockFinalize(StateErrorT),
+    BlockFinalize(BlockFinalizeError<StateErrorT>),
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
@@ -227,6 +227,9 @@ pub enum MineTransactionError<BlockchainErrorT, HardforkT, TransactionValidation
     /// A blockchain error
     #[error(transparent)]
     Blockchain(BlockchainErrorT),
+    /// An error that occurred while finalizing a block.
+    #[error(transparent)]
+    Finalize(BlockFinalizeError<StateError>),
     /// The transaction's gas price is lower than the block's minimum gas price.
     #[error(
         "Transaction gasPrice ({actual}) is too low for the next block, which has a baseFeePerGas of {expected}"
@@ -442,7 +445,7 @@ where
 
     block_builder
         .finalize_block(rewards)
-        .map_err(MineTransactionError::State)
+        .map_err(MineTransactionError::Finalize)
 }
 
 fn effective_miner_fee(transaction: &impl ExecutableTransaction, base_fee: Option<u128>) -> u128 {
