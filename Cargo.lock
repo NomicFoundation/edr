@@ -3020,6 +3020,7 @@ dependencies = [
  "edr_solidity",
  "edr_solidity_tests",
  "edr_state_api",
+ "edr_state_persistent_trie",
  "edr_test_block_replay",
  "edr_test_receipt",
  "edr_test_utils",

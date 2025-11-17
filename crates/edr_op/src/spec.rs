@@ -33,7 +33,8 @@ use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_eth::jsonrpc;
 use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_solidity::contract_decoder::ContractDecoder;
-use edr_state_api::StateDiff;
+use edr_state_api::{StateDebug as _, StateDiff};
+use edr_state_persistent_trie::PersistentStateTrie;
 use op_revm::{precompiles::OpPrecompiles, L1BlockInfo, OpEvm};
 use revm_context::{result::EVMError, CfgEnv, Journal, JournalTr as _};
 use serde::{de::DeserializeOwned, Serialize};
@@ -43,6 +44,7 @@ use crate::{
     eip1559::encode_dynamic_base_fee_params,
     eip2718::TypedEnvelope,
     hardfork::{op_chain_configs, op_default_base_fee_params},
+    predeploys::L2_TO_L1_MESSAGE_PASSER_ADDRESS,
     receipt::{
         block::OpBlockReceipt,
         execution::{OpExecutionReceipt, OpExecutionReceiptBuilder},
@@ -215,23 +217,30 @@ impl GenesisBlockFactory for OpChainSpec {
         block_config: BlockConfig<'_, Self::Hardfork>,
         mut options: GenesisBlockOptions<Self::Hardfork>,
     ) -> Result<Self::LocalBlock, Self::GenesisBlockCreationError> {
-        let config_base_fee_params = options.base_fee_params.as_ref();
+        let genesis_state = PersistentStateTrie::from(genesis_diff);
+
         if block_config.hardfork >= Hardfork::HOLOCENE {
+            let config_base_fee_params = options.base_fee_params.as_ref();
             // If no option is provided, fill the `extra_data` field with the dynamic
             // EIP-1559 parameters.
-            let extra_data = options.extra_data.unwrap_or_else(|| {
+            options.extra_data = options.extra_data.or_else(|| {
                 let base_fee_params = config_base_fee_params
                     .unwrap_or(block_config.base_fee_params)
                     .at_condition(block_config.hardfork, 0)
                     .expect("Chain spec must have base fee params for post-London hardforks");
 
-                encode_dynamic_base_fee_params(base_fee_params)
+                Some(encode_dynamic_base_fee_params(base_fee_params))
             });
-
-            options.extra_data = Some(extra_data);
         }
 
-        LocalBlock::with_genesis_state(genesis_diff, block_config, options)
+        if block_config.hardfork >= Hardfork::ISTHMUS {
+            let withdrawals_root = options.withdrawals_root.map_or_else(
+                || genesis_state.account_storage_root(&L2_TO_L1_MESSAGE_PASSER_ADDRESS),
+                |value| Ok(Some(value)),
+            )?;
+            options.withdrawals_root = withdrawals_root;
+        };
+        LocalBlock::with_genesis_state(genesis_state, block_config, options)
     }
 }
 

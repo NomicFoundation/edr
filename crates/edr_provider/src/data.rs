@@ -2975,6 +2975,7 @@ fn create_blockchain_and_state<
             block_config.clone(),
             GenesisBlockOptions {
                 extra_data: None,
+                withdrawals_root: None,
                 gas_limit: Some(config.block_gas_limit.get()),
                 timestamp: config.initial_date.map(|d| {
                     d.duration_since(UNIX_EPOCH)

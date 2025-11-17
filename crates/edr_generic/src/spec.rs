@@ -255,7 +255,7 @@ impl GenesisBlockFactory for GenericChainSpec {
                 .unwrap_or(Bytes::copy_from_slice(L1_GENESIS_BLOCK_EXTRA_DATA)),
         );
 
-        EthLocalBlock::with_genesis_state(genesis_diff, block_config, options)
+        EthLocalBlock::with_genesis_state(genesis_diff.into(), block_config, options)
     }
 }
 

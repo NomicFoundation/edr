@@ -8,7 +8,8 @@ use edr_napi_core::{
 use edr_op::{
     predeploys::{
         gas_price_oracle_code_ecotone, gas_price_oracle_code_fjord, gas_price_oracle_code_isthmus,
-        GAS_PRICE_ORACLE_ADDRESS,
+        l1_block_code_bedrock, l1_block_code_ecotone, l1_block_code_isthmus,
+        GAS_PRICE_ORACLE_ADDRESS, L1_BLOCK_PREDEPLOY_ADDRESS,
     },
     OpChainSpec,
 };
@@ -143,72 +144,13 @@ pub const OP_CHAIN_TYPE: &str = edr_op::CHAIN_TYPE;
 
 #[napi(catch_unwind)]
 pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
-    let l1_block_code = hex::decode(include_str!("../../data/op/predeploys/l1_block.txt"))
-        .expect("The bytecode for the L1Block predeploy should be a valid hex string");
+    let l1_block_code = l1_block_code(hardfork.into());
     let l1_block = AccountOverride {
-        address: hex!("4200000000000000000000000000000000000015").into(),
+        address: Uint8Array::with_data_copied(L1_BLOCK_PREDEPLOY_ADDRESS),
         balance: Some(BigInt::from(0u64)),
         nonce: Some(BigInt::from(0u64)),
-        code: Some(l1_block_code.into()),
-        storage: Some(vec![
-            StorageSlot {
-                index: BigInt::from(0u64),
-                // uint64 public number = 1
-                // uint64 public timestamp = 1
-                value: BigInt {
-                    words: vec![
-                        0x0000000000000001_u64, // least significative
-                        0x0000000000000001_u64,
-                    ],
-                    sign_bit: false,
-                },
-            },
-            StorageSlot {
-                index: BigInt::from(1u64),
-                // uint256 baseFee = 10 gwei
-                value: BigInt::from(0x00000002540be400_u64),
-            },
-            StorageSlot {
-                index: BigInt::from(2u64),
-                // bytes32 hash = 0
-                value: BigInt::from(0u64),
-            },
-            StorageSlot {
-                index: BigInt::from(3u64),
-                // uint64 sequenceNumber = 0
-                // uint32 blobBaseFeeScalar = 1014213
-                // uint32 baseFeeScalar = 5227
-                value: BigInt {
-                    words: vec![
-                        0x0000000000000000_u64, // least significative
-                        0x0000000000000000_u64,
-                        0x00000000000f79c5_u64,
-                        0x000000000000146b_u64,
-                    ],
-                    sign_bit: false,
-                },
-            },
-            StorageSlot {
-                index: BigInt::from(4u64),
-                // bytes32 batcherHash = 0
-                value: BigInt::from(0u64),
-            },
-            StorageSlot {
-                index: BigInt::from(5u64),
-                // uint256 l1FeeOverhead = 0
-                value: BigInt::from(0u64),
-            },
-            StorageSlot {
-                index: BigInt::from(6u64),
-                // uint256 l1FeeScalar = 0
-                value: BigInt::from(0u64),
-            },
-            StorageSlot {
-                index: BigInt::from(7u64),
-                // uint256 blobBaseFee = 10 gwei
-                value: BigInt::from(0x00000002540be400_u64),
-            },
-        ]),
+        code: Some(l1_block_code),
+        storage: Some(l1_block_storage(hardfork.into())),
     };
 
     /* The rest of the predeploys use a stubbed bytecode that reverts with a
@@ -315,6 +257,11 @@ pub fn op_genesis_state(hardfork: OpHardfork) -> Vec<AccountOverride> {
             hex!("4200000000000000000000000000000000000021"),
             "0x60806040526040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401603490607b565b60405180910390fd5b60006048601f836099565b91507f5072656465706c6f7920454153206973206e6f7420737570706f727465642e006000830152602082019050919050565b60006020820190508181036000830152609281603d565b9050919050565b60008282526020820190509291505056fea2646970667358221220afa6c1aa54a8b3f4f979e1297db5838a94353f3b77b5ecc164da19db26ea89f564736f6c63430008000033",
         ),
+        (
+            "OperatorFeeVault",
+            hex!("0x420000000000000000000000000000000000001b"),
+            "0x60806040526040517f08c379a000000000000000000000000000000000000000000000000000000000815260040160349060b9565b60405180910390fd5b5f82825260208201905092915050565b7f5072656465706c6f79204f70657261746f724665655661756c74206973206e6f5f8201527f7420737570706f727465642e0000000000000000000000000000000000000000602082015250565b5f60a5602c83603d565b915060ae82604d565b604082019050919050565b5f6020820190508181035f83015260ce81609b565b905091905056fea2646970667358221220dc3131d0ea77326c36012aee5dd9a870b6f07d76e6f55c8029da9d70a83f50c364736f6c634300081e0033",
+        ),
     ];
 
     let stubbed_predeploys = stubbed_predeploys_data
@@ -400,6 +347,85 @@ fn gas_price_oracle_isthmus() -> AccountOverride {
                 0x0000000000000000000000000000000000000000000000000000000000010101u64,
             ),
         }]),
+    }
+}
+fn l1_block_storage(hardfork: edr_op::Hardfork) -> Vec<StorageSlot> {
+    let mut base_storage = vec![
+        StorageSlot {
+            index: BigInt::from(0u64),
+            // uint64 public number = 1
+            // uint64 public timestamp = 1
+            value: BigInt {
+                words: vec![
+                    0x0000000000000001_u64, // least significative
+                    0x0000000000000001_u64,
+                ],
+                sign_bit: false,
+            },
+        },
+        StorageSlot {
+            index: BigInt::from(1u64),
+            // uint256 baseFee = 10 gwei
+            value: BigInt::from(0x00000002540be400_u64),
+        },
+        StorageSlot {
+            index: BigInt::from(2u64),
+            // bytes32 hash = 0
+            value: BigInt::from(0u64),
+        },
+        StorageSlot {
+            index: BigInt::from(3u64),
+            // uint64 sequenceNumber = 0
+            // uint32 blobBaseFeeScalar = 1014213
+            // uint32 baseFeeScalar = 5227
+            value: BigInt {
+                words: vec![
+                    0x0000000000000000_u64, // least significative
+                    0x0000000000000000_u64,
+                    0x00000000000f79c5_u64,
+                    0x000000000000146b_u64,
+                ],
+                sign_bit: false,
+            },
+        },
+        StorageSlot {
+            index: BigInt::from(4u64),
+            // bytes32 batcherHash = 0
+            value: BigInt::from(0u64),
+        },
+        StorageSlot {
+            index: BigInt::from(5u64),
+            // uint256 l1FeeOverhead = 0
+            value: BigInt::from(0u64),
+        },
+        StorageSlot {
+            index: BigInt::from(6u64),
+            // uint256 l1FeeScalar = 0
+            value: BigInt::from(0u64),
+        },
+        StorageSlot {
+            index: BigInt::from(7u64),
+            // uint256 blobBaseFee = 10 gwei
+            value: BigInt::from(0x00000002540be400_u64),
+        },
+    ];
+    if hardfork >= edr_op::Hardfork::ISTHMUS {
+        base_storage.push(StorageSlot {
+            // Operator fee parameters
+            index: BigInt::from(8u64),
+            value: BigInt::from(0u64),
+        });
+    }
+    base_storage
+}
+
+fn l1_block_code(hardfork: edr_op::Hardfork) -> Uint8Array {
+    if hardfork >= edr_op::Hardfork::ISTHMUS {
+        l1_block_code_isthmus().into()
+    } else if hardfork >= edr_op::Hardfork::ECOTONE {
+        l1_block_code_ecotone().into()
+    } else {
+        l1_block_code_bedrock().into()
     }
 }
 
