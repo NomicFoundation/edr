@@ -16,9 +16,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-edr-safety:
+    name: Check EDR dependencies safety (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-24.04", "macos-15", "windows-2025"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: socketdev/action@v1
+        with:
+          mode: firewall
+      - uses: ./.github/actions/setup-rust
+      - uses: ./.github/actions/setup-node
+
+      - name: Pnpm safety
+        run: sfw pnpm install --frozen-lockfile --prefer-offline
+
   check-edr:
     name: Check EDR
     runs-on: ubuntu-24.04
+    needs: check-edr-safety
     env:
       RUSTFLAGS: -Dwarnings
     steps:
@@ -212,6 +231,7 @@ jobs:
   build-and-lint:
     name: Build and lint
     runs-on: ubuntu-24.04
+    needs: check-edr-safety
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
@@ -226,6 +246,7 @@ jobs:
   edr-napi-typings-file:
     name: Check that edr_napi typings file is up to date
     runs-on: ubuntu-24.04
+    needs: check-edr-safety
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
@@ -241,6 +262,7 @@ jobs:
   edr-integration-tests:
     name: Run integration tests
     runs-on: ubuntu-24.04
+    needs: check-edr-safety
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-node
