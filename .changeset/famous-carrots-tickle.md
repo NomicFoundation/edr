@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": patch
 ---
 
-Added validity check for the block memory size cap
+Added validity check for the block RLP size cap
