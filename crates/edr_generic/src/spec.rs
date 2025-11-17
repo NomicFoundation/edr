@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use alloy_eips::eip7840::BlobParams;
 use edr_block_api::{sync::SyncBlock, GenesisBlockFactory, GenesisBlockOptions};
-use edr_block_header::{BlockConfig, BlockHeader, HeaderAndEvmSpec};
+use edr_block_header::{blob_params_for_hardfork, BlockConfig, BlockHeader, HeaderAndEvmSpec};
 use edr_block_local::EthLocalBlock;
 use edr_block_remote::FetchRemoteReceiptError;
 use edr_chain_config::ChainConfig;
@@ -93,11 +92,7 @@ impl<'header, BlockHeaderT: BlockEnvForHardfork<EvmSpecId>> BlockEnvTrait
             // If the hardfork requires it, set ExcessGasAndPrice default value
             // see https://github.com/NomicFoundation/edr/issues/947
             if self.inner.hardfork >= edr_chain_l1::Hardfork::CANCUN {
-                let blob_params = if self.inner.hardfork >= EvmSpecId::PRAGUE {
-                    BlobParams::prague()
-                } else {
-                    BlobParams::cancun()
-                };
+                let blob_params = blob_params_for_hardfork(self.inner.hardfork);
 
                 let update_fraction = blob_params
                     .update_fraction
@@ -319,6 +314,7 @@ impl<TimerT: Clone + TimeSinceEpoch> ProviderSpec<TimerT> for GenericChainSpec {
 
 #[cfg(test)]
 mod tests {
+    use alloy_eips::eip7840::BlobParams;
     use edr_block_header::BlobGas;
     use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
 
@@ -370,7 +366,7 @@ mod tests {
     }
 
     #[test]
-    fn generic_block_constructor_should_default_excess_blob_gas_after_cancun() {
+    fn generic_block_constructor_should_default_excess_blob_gas_for_prague() {
         let header = build_block_header(None); // No blob gas information
         let spec_id = edr_chain_l1::Hardfork::PRAGUE;
 
@@ -381,6 +377,25 @@ mod tests {
             Some(BlobExcessGasAndPrice::new(
                 0u64,
                 BlobParams::prague()
+                    .update_fraction
+                    .try_into()
+                    .expect("blob update fraction is too large")
+            ))
+        );
+    }
+
+    #[test]
+    fn generic_block_constructor_should_default_excess_blob_gas_for_osaka() {
+        let header = build_block_header(None); // No blob gas information
+        let spec_id = edr_chain_l1::Hardfork::OSAKA;
+
+        let block =
+            <GenericChainSpec as BlockEnvChainSpec>::BlockEnv::new_block_env(&header, spec_id);
+        assert_eq!(
+            block.blob_excess_gas_and_price(),
+            Some(BlobExcessGasAndPrice::new(
+                0u64,
+                BlobParams::osaka()
                     .update_fraction
                     .try_into()
                     .expect("blob update fraction is too large")
