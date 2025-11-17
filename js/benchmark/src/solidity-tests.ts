@@ -156,7 +156,7 @@ export async function runSolidityTestsBenchmark(resultsPath: string) {
     await createSolidityTestsInput(repoPath);
 
   const allResults = [];
-  const runs = new Map<string, number[]>();
+  const runs = new Map<string, bigint[]>();
   const recordRun = recordTime.bind(null, runs);
 
   for (const [name, samples] of Object.entries(FORGE_STD_SAMPLES)) {
@@ -165,7 +165,7 @@ export async function runSolidityTestsBenchmark(resultsPath: string) {
       if (name !== TOTAL_NAME) {
         ids = ids.filter((id) => id.name === name);
       }
-      const start = performance.now();
+      const startNs = process.hrtime.bigint();
       const [, results] = await runAllSolidityTests(
         context,
         chainType,
@@ -174,7 +174,7 @@ export async function runSolidityTestsBenchmark(resultsPath: string) {
         tracingConfig,
         solidityTestsConfig
       );
-      const elapsed = performance.now() - start;
+      const elapsedNs = process.hrtime.bigint() - startNs;
 
       const expectedResults = name === TOTAL_NAME ? TOTAL_EXPECTED_RESULTS : 1;
       if (results.length !== expectedResults) {
@@ -187,18 +187,18 @@ export async function runSolidityTestsBenchmark(resultsPath: string) {
 
       // Log to stderr so that it doesn't pollute stdout where we write the results
       console.error(
-        `elapsed (s) on run ${i + 1}/${samples} for ${name}: ${displaySec(elapsed)}`
+        `elapsed (s) on run ${i + 1}/${samples} for ${name}: ${displaySecFromNs(elapsedNs)}`
       );
 
       if (name === TOTAL_NAME) {
-        recordRun(TOTAL_NAME, elapsed);
+        recordRun(TOTAL_NAME, elapsedNs);
       } else {
         if (results.length !== 1) {
           throw new Error(
             `Expected 1 result for ${name}, got ${results.length}`
           );
         }
-        recordRun(results[0].id.name, elapsed);
+        recordRun(results[0].id.name, elapsedNs);
       }
 
       // Hold on to all results to prevent GC from interfering with the benchmark
@@ -209,25 +209,28 @@ export async function runSolidityTestsBenchmark(resultsPath: string) {
   const measurements = getMeasurements(runs);
 
   // Log info to stderr so that it doesn't pollute stdout where we write the results
-  console.error("median total elapsed (s)", displaySec(measurements[0].value));
+  console.error(
+    "median total elapsed (s)",
+    displaySecFromUs(measurements[0].value)
+  );
   console.error("saving results to", resultsPath);
 
   fs.writeFileSync(resultsPath, JSON.stringify(measurements) + "\n");
 }
 
-function getMeasurements(runs: Map<string, number[]>) {
+function getMeasurements(runs: Map<string, bigint[]>) {
   const results: Array<{ name: string; unit: string; value: number }> = [];
 
-  const total = runs.get(TOTAL_NAME)!;
-  results.push({ name: TOTAL_NAME, unit: "ms", value: medianMs(total) });
+  const totalNs = runs.get(TOTAL_NAME)!;
+  results.push({ name: TOTAL_NAME, unit: "us", value: medianUs(totalNs) });
   runs.delete(TOTAL_NAME);
 
   const testSuiteNames = Array.from(runs.keys());
   testSuiteNames.sort();
 
   for (const name of testSuiteNames) {
-    const value = medianMs(runs.get(name)!);
-    results.push({ name, unit: "ms", value });
+    const value = medianUs(runs.get(name)!);
+    results.push({ name, unit: "us", value });
   }
 
   return results;
@@ -541,32 +544,42 @@ function getTestRuns(
   return "";
 }
 
-function medianMs(values: number[]) {
-  if (values.length % 2 === 0) {
+function medianUs(valuesNs: bigint[]) {
+  if (valuesNs.length % 2 === 0) {
     throw new Error("Expected odd number of values");
   }
-  values.sort((a, b) => a - b);
-  const half = Math.floor(values.length / 2);
-  // Round to get rid of decimal milliseconds
-  return Math.round(values[half]);
+  valuesNs.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const half = Math.floor(valuesNs.length / 2);
+  // Convert nanoseconds to microseconds (division floors)
+  return Number(valuesNs[half] / 1000n);
 }
 
 function recordTime(
-  runs: Map<string, number[]>,
+  runs: Map<string, bigint[]>,
   name: string,
-  elapsed: number
+  elapsedNs: bigint
 ) {
   let measurements = runs.get(name);
   if (measurements === undefined) {
     measurements = [];
     runs.set(name, measurements);
   }
-  measurements.push(elapsed);
+  measurements.push(elapsedNs);
 }
 
-function displaySec(delta: number) {
-  const sec = delta / 1000;
-  return Math.round(sec * 100) / 100;
+function displaySecFromNs(deltaNs: bigint) {
+  const SEC_IN_NS = 1_000_000_000n;
+  const sec = deltaNs / SEC_IN_NS;
+  const remainder = deltaNs % SEC_IN_NS;
+  // Floor to 3 decimal places. Can't round due to BigInt and converting ns to
+  // Number risks losing precision as the max safe int for Number is 2^53 – 1.
+  return `${sec}.${remainder.toString().slice(0, 3)}`;
+}
+
+function displaySecFromUs(deltaUs: number) {
+  const sec = deltaUs / 1_000_000;
+  // Floor to 3 decimal places in order to make it consistent with displaySecFromNs
+  return Math.floor(sec * 1000) / 1000;
 }
 
 export async function setupRepo(
