@@ -133,8 +133,7 @@ jobs:
           tool: customSmallerIsBetter
           output-file-path: js/benchmark/soltest-report.json
           gh-repository: github.com/nomic-foundation-automation/edr-benchmark-results
-          # TODO revert this to main
-          gh-pages-branch: migrate-soltests-to-microseconds
+          gh-pages-branch: main
           benchmark-data-dir-path: soltests
           github-token: ${{ secrets.BENCHMARK_GITHUB_TOKEN }}
           # Only save the data for main branch pushes. For PRs we only compare
