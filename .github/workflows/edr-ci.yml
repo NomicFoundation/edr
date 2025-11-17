@@ -32,10 +32,6 @@ jobs:
       - name: Pnpm safety
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Cargo safety
-        if: runner.os != 'macOS'
-        run: sfw cargo fetch
-
   check-edr:
     name: Check EDR
     runs-on: ubuntu-24.04
