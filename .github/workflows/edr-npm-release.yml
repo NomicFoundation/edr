@@ -120,6 +120,8 @@ jobs:
         if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
         run: sfw pnpm install --frozen-lockfile --prefer-offline
 
+      # SFW doesn't install dependencies correctly on Windows
+      # https://github.com/NomicFoundation/edr/issues/1199
       - name: Install dependencies (Windows)
         if: ${{ !matrix.settings.docker && runner.os == 'Windows' }}
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -150,6 +152,8 @@ jobs:
             sfw pnpm install --frozen-lockfile --prefer-offline
             pnpm run build --strip
 
+      # SFW is not provided on musl versions of Linux
+      # https://github.com/NomicFoundation/edr/issues/1198
       - name: Build in docker (musl)
         uses: addnab/docker-run-action@v3
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}

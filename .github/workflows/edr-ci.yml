@@ -69,7 +69,7 @@ jobs:
   test-edr-rs:
     name: Test EDR (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: [check-edr-safety, check-edr]
+    needs: check-edr
     strategy:
       fail-fast: false
       matrix:
@@ -132,7 +132,7 @@ jobs:
   test-edr-ts:
     name: Test EDR TS bindings (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    needs: [check-edr-safety, check-edr]
+    needs: check-edr
     strategy:
       fail-fast: false
       matrix:
@@ -192,7 +192,7 @@ jobs:
   edr-style:
     name: Check EDR Style
     runs-on: ubuntu-24.04
-    needs: [check-edr-safety, check-edr]
+    needs: check-edr
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
@@ -215,7 +215,7 @@ jobs:
   edr-docs:
     name: Build EDR Docs
     runs-on: ubuntu-24.04
-    needs: [check-edr-safety, check-edr]
+    needs: check-edr
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-rust
