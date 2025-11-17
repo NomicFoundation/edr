@@ -58,7 +58,6 @@ edr_block_remote.workspace = true
 test-remote = []
 tracing = [
     "edr_block_local/tracing",
-    "edr_blockchain_api/tracing",
     "edr_chain_l1/tracing",
     "edr_chain_spec_block/tracing",
     "edr_chain_spec_provider/tracing",
