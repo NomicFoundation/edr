@@ -116,9 +116,13 @@ jobs:
             target/
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
 
-      - name: Install dependencies
-        if: ${{ !matrix.settings.docker }}
+      - name: Install dependencies (non-Windows)
+        if: ${{ !matrix.settings.docker && runner.os != 'Windows' }}
         run: sfw pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Install dependencies (Windows)
+        if: ${{ !matrix.settings.docker && runner.os == 'Windows' }}
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Verify pnpm structure after sfw install
         if: ${{ !matrix.settings.docker }}
