@@ -1,6 +1,7 @@
 name: EDR Benchmarks
 
 on:
+  # Deliberately do not run on merge_group
   push:
     branches:
       - "main"
@@ -96,6 +97,7 @@ jobs:
     needs: benchmarks-test
     steps:
       - uses: actions/checkout@v3
+      
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-rust
 
