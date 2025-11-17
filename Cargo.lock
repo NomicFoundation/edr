@@ -3095,7 +3095,6 @@ dependencies = [
  "edr_evm",
  "edr_evm_spec",
  "edr_gas_report",
- "edr_op",
  "edr_precompile",
  "edr_primitives",
  "edr_receipt",
