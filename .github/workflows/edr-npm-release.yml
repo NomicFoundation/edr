@@ -94,7 +94,7 @@ jobs:
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@0f44b27771c32bda9f458f75a1e241b09791b331 # latest main commit (2025-11-17)
         if: ${{ !matrix.settings.docker }}
         with:
           toolchain: stable
@@ -134,7 +134,7 @@ jobs:
         shell: bash
 
       - name: Build in docker (gnu)
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
         with:
           image: ${{ matrix.settings.docker }}
@@ -157,7 +157,7 @@ jobs:
       # SFW is not provided on musl versions of Linux
       # https://github.com/NomicFoundation/edr/issues/1198
       - name: Build in docker (musl)
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
         with:
           image: ${{ matrix.settings.docker }}
@@ -332,7 +332,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=glibc
       - name: Setup and run tests
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         with:
           image: node:${{ matrix.node }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
@@ -373,7 +373,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=musl
       - name: Setup and run tests
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         with:
           image: node:${{ matrix.node }}-alpine
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
