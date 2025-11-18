@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: socketdev/action@v1
+      - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 #v1
         with:
           mode: firewall
 
