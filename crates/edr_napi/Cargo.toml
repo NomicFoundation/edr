@@ -99,8 +99,23 @@ napi-build = "2.0.1"
 [features]
 op = ["dep:edr_op"]
 scenarios = ["dep:edr_scenarios", "dep:rand"]
-tracing = ["edr_runtime/tracing", "edr_napi_core/tracing", "edr_provider/tracing"]
 test-mock = ["edr_provider/test-utils"]
+tracing = [
+    "edr_blockchain_fork/tracing",
+    "edr_chain_l1/tracing",
+    "edr_chain_spec_block/tracing",
+    "edr_coverage/tracing",
+    "edr_evm_spec/tracing",
+    "edr_gas_report/tracing",
+    "edr_generic/tracing",
+    "edr_napi_core/tracing",
+    "edr_op/tracing",
+    "edr_provider/tracing",
+    "edr_rpc_client/tracing",
+    "edr_runtime/tracing",
+    "edr_solidity/tracing",
+    "edr_solidity_tests/tracing"
+]
 
 [lints]
 workspace = true

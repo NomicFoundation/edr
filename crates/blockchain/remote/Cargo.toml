@@ -31,7 +31,7 @@ edr_rpc_spec.workspace = true
 
 [features]
 test-remote = []
-tracing = ["dep:tracing", "edr_rpc_eth/tracing"]
+tracing = ["dep:tracing", "edr_block_storage/tracing", "edr_chain_spec_block/tracing", "edr_rpc_eth/tracing"]
 
 [lints]
 workspace = true

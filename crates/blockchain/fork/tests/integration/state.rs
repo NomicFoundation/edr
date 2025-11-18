@@ -1,3 +1,5 @@
+#![cfg(feature = "test-remote")]
+
 use edr_blockchain_api::{GetBlockchainBlock as _, StateAtBlock as _};
 use edr_state_api::irregular::IrregularState;
 use serial_test::serial;

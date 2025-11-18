@@ -8,5 +8,8 @@ edr_block_header.workspace = true
 edr_evm_spec.workspace = true
 edr_state_api.workspace = true
 
+[features]
+tracing = ["edr_evm_spec/tracing"]
+
 [lints]
 workspace = true

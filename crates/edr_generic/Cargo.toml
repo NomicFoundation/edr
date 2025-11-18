@@ -30,7 +30,6 @@ edr_receipt.workspace = true
 edr_receipt_builder_api.workspace = true
 edr_receipt_spec.workspace = true
 edr_rpc_spec.workspace = true
-edr_runtime.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_state_api.workspace = true
@@ -57,6 +56,17 @@ edr_block_remote.workspace = true
 
 [features]
 test-remote = []
+tracing = [
+    "edr_block_local/tracing",
+    "edr_chain_l1/tracing",
+    "edr_chain_spec_block/tracing",
+    "edr_chain_spec_provider/tracing",
+    "edr_database_components/tracing",
+    "edr_evm_spec/tracing",
+    "edr_receipt_builder_api/tracing",
+    "edr_receipt_spec/tracing",
+    "edr_solidity/tracing"
+]
 
 [lints]
 workspace = true
