@@ -10,10 +10,10 @@ use edr_chain_spec_evm::{
     config::EvmConfig,
     result::{ExecutionResult, Output},
 };
+use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_coverage::CoverageHitCollector;
 use edr_evm::{dry_run_with_inspector, run};
 use edr_primitives::{bytes, Address, Bytes, HashMap, HashSet, B256, U256};
-use edr_receipt_spec::ReceiptChainSpec;
 use edr_signer::public_key_to_address;
 use edr_state_api::{AccountModifierFn, DynState, StateDiff};
 use edr_test_utils::secret_key::secret_key_from_str;

@@ -15,11 +15,11 @@ use edr_chain_spec::{ChainSpec, ExecutableTransaction as _, HardforkChainSpec};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_evm::result::{ExecutionResult, Output, SuccessReason};
 use edr_chain_spec_provider::ProviderChainSpec as _;
+use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_primitives::{Address, Bytes, B256, U256};
 use edr_provider::spec::BlockchainForChainSpec;
 use edr_receipt::{log::ExecutionLog, TransactionReceipt};
 use edr_receipt_builder_api::ExecutionReceiptBuilder as _;
-use edr_receipt_spec::ReceiptChainSpec;
 use edr_state_api::StateDiff;
 use edr_test_transaction::dummy_eip155_transaction;
 // Re-export types that are used by the macros.

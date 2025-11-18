@@ -509,7 +509,7 @@ mod tests {
     };
     use edr_chain_spec::ChainSpec;
     use edr_chain_spec_block::BlockChainSpec;
-    use edr_receipt_spec::ReceiptChainSpec;
+    use edr_chain_spec_receipt::ReceiptChainSpec;
     use edr_rpc_eth::client::EthRpcClientForChainSpec;
     use edr_rpc_spec::RpcChainSpec;
     use edr_test_utils::env::get_alchemy_url;

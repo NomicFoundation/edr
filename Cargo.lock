@@ -2373,9 +2373,9 @@ dependencies = [
  "edr_block_api",
  "edr_block_header",
  "edr_chain_spec",
+ "edr_chain_spec_receipt",
  "edr_primitives",
  "edr_receipt",
- "edr_receipt_spec",
  "edr_state_api",
  "edr_state_persistent_trie",
  "edr_transaction",
@@ -2540,11 +2540,11 @@ dependencies = [
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_block",
+ "edr_chain_spec_receipt",
  "edr_defaults",
  "edr_eth",
  "edr_primitives",
  "edr_receipt",
- "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_test_utils",
@@ -2583,6 +2583,7 @@ dependencies = [
  "edr_chain_spec_block",
  "edr_chain_spec_evm",
  "edr_chain_spec_provider",
+ "edr_chain_spec_receipt",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -2591,7 +2592,6 @@ dependencies = [
  "edr_primitives",
  "edr_receipt",
  "edr_receipt_builder_api",
- "edr_receipt_spec",
  "edr_rpc_spec",
  "edr_signer",
  "edr_state_api",
@@ -2631,7 +2631,7 @@ dependencies = [
  "edr_block_remote",
  "edr_chain_spec",
  "edr_chain_spec_evm",
- "edr_receipt_spec",
+ "edr_chain_spec_receipt",
  "edr_rpc_spec",
  "edr_utils",
 ]
@@ -2660,12 +2660,23 @@ dependencies = [
  "edr_chain_config",
  "edr_chain_spec",
  "edr_chain_spec_block",
+ "edr_chain_spec_receipt",
  "edr_eip1559",
  "edr_primitives",
- "edr_receipt_spec",
  "edr_rpc_spec",
  "edr_transaction",
  "serde",
+]
+
+[[package]]
+name = "edr_chain_spec_receipt"
+version = "0.3.8"
+dependencies = [
+ "edr_chain_spec",
+ "edr_primitives",
+ "edr_receipt",
+ "edr_receipt_builder_api",
+ "edr_rpc_spec",
 ]
 
 [[package]]
@@ -2707,10 +2718,10 @@ dependencies = [
  "edr_chain_l1",
  "edr_chain_spec",
  "edr_chain_spec_evm",
+ "edr_chain_spec_receipt",
  "edr_defaults",
  "edr_evm",
  "edr_primitives",
- "edr_receipt_spec",
  "edr_signer",
  "edr_state_api",
  "edr_test_utils",
@@ -2858,6 +2869,7 @@ dependencies = [
  "edr_chain_spec_block",
  "edr_chain_spec_evm",
  "edr_chain_spec_provider",
+ "edr_chain_spec_receipt",
  "edr_database_components",
  "edr_defaults",
  "edr_eip1559",
@@ -2868,7 +2880,6 @@ dependencies = [
  "edr_provider",
  "edr_receipt",
  "edr_receipt_builder_api",
- "edr_receipt_spec",
  "edr_rpc_client",
  "edr_rpc_eth",
  "edr_rpc_spec",
@@ -3039,6 +3050,7 @@ dependencies = [
  "edr_chain_spec_block",
  "edr_chain_spec_evm",
  "edr_chain_spec_provider",
+ "edr_chain_spec_receipt",
  "edr_defaults",
  "edr_eip1559",
  "edr_eip2930",
@@ -3049,7 +3061,6 @@ dependencies = [
  "edr_provider",
  "edr_receipt",
  "edr_receipt_builder_api",
- "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_signer",
@@ -3123,6 +3134,7 @@ dependencies = [
  "edr_chain_spec_block",
  "edr_chain_spec_evm",
  "edr_chain_spec_provider",
+ "edr_chain_spec_receipt",
  "edr_coverage",
  "edr_database_components",
  "edr_defaults",
@@ -3136,7 +3148,6 @@ dependencies = [
  "edr_precompile",
  "edr_primitives",
  "edr_receipt",
- "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_runtime",
@@ -3205,17 +3216,6 @@ dependencies = [
  "edr_block_header",
  "edr_chain_spec_evm",
  "edr_state_api",
-]
-
-[[package]]
-name = "edr_receipt_spec"
-version = "0.3.8"
-dependencies = [
- "edr_chain_spec",
- "edr_primitives",
- "edr_receipt",
- "edr_receipt_builder_api",
- "edr_rpc_spec",
 ]
 
 [[package]]
@@ -3554,11 +3554,11 @@ dependencies = [
  "edr_chain_spec_block",
  "edr_chain_spec_evm",
  "edr_chain_spec_provider",
+ "edr_chain_spec_receipt",
  "edr_defaults",
  "edr_eth",
  "edr_primitives",
  "edr_receipt",
- "edr_receipt_spec",
  "edr_rpc_eth",
  "edr_rpc_spec",
  "edr_state_api",
@@ -3581,11 +3581,11 @@ dependencies = [
  "edr_chain_spec_block",
  "edr_chain_spec_evm",
  "edr_chain_spec_provider",
+ "edr_chain_spec_receipt",
  "edr_primitives",
  "edr_provider",
  "edr_receipt",
  "edr_receipt_builder_api",
- "edr_receipt_spec",
  "edr_state_api",
  "edr_test_transaction",
  "paste",
@@ -3608,9 +3608,9 @@ name = "edr_test_receipt"
 version = "0.3.8"
 dependencies = [
  "edr_chain_spec",
+ "edr_chain_spec_receipt",
  "edr_primitives",
  "edr_receipt",
- "edr_receipt_spec",
  "edr_rpc_spec",
 ]
 

@@ -7,7 +7,7 @@ use edr_block_builder_api::BlockBuilder;
 use edr_block_remote::{FetchRemoteReceiptError, RemoteBlock};
 use edr_chain_spec::{BlockEnvChainSpec, ChainSpec, TransactionValidation};
 use edr_chain_spec_evm::EvmChainSpec;
-use edr_receipt_spec::ReceiptChainSpec;
+use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_rpc_spec::RpcChainSpec;
 use edr_utils::CastArcFrom;
 

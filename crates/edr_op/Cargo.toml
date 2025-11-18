@@ -26,7 +26,7 @@ edr_primitives.workspace = true
 edr_provider.workspace = true
 edr_receipt.workspace = true
 edr_receipt_builder_api.workspace = true
-edr_receipt_spec.workspace = true
+edr_chain_spec_receipt.workspace = true
 edr_rpc_eth.workspace = true
 edr_rpc_spec.workspace = true
 edr_signer.workspace = true
@@ -74,7 +74,7 @@ tracing = [
     "edr_chain_spec_evm/tracing",
     "edr_napi_core/tracing",
     "edr_receipt_builder_api/tracing",
-    "edr_receipt_spec/tracing",
+    "edr_chain_spec_receipt/tracing",
     "edr_solidity/tracing",
     "edr_solidity_tests/tracing"
 ]

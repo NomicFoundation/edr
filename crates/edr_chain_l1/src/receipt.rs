@@ -6,12 +6,12 @@ use std::ops::Deref;
 
 use alloy_rlp::BufMut;
 use edr_chain_spec::{ContextChainSpec, EvmSpecId, HardforkChainSpec};
+use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
     log::FilterLog, AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus,
     TransactionReceipt,
 };
-use edr_receipt_spec::ReceiptConstructor;
 
 use crate::L1ChainSpec;
 

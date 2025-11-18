@@ -16,6 +16,7 @@ members = [
     "crates/chain/spec/block",
     "crates/chain/spec/evm",
     "crates/chain/spec/provider",
+    "crates/chain/spec/receipt",
     "crates/database/components",
     "crates/edr_chain_l1",
     "crates/edr_chain_spec",
@@ -30,7 +31,6 @@ members = [
     "crates/edr_op",
     "crates/edr_provider",
     "crates/edr_receipt",
-    "crates/edr_receipt_spec",
     "crates/edr_rpc_client",
     "crates/edr_rpc_eth",
     "crates/edr_rpc_spec",
@@ -143,6 +143,7 @@ edr_chain_spec = { path = "crates/edr_chain_spec" }
 edr_chain_spec_block = { path = "crates/chain/spec/block" }
 edr_chain_spec_evm = { path = "crates/chain/spec/evm" }
 edr_chain_spec_provider = { path = "crates/chain/spec/provider" }
+edr_chain_spec_receipt = { path = "crates/chain/spec/receipt" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
 edr_database_components = { path = "crates/database/components" }
@@ -165,7 +166,6 @@ edr_precompile = { path = "crates/precompile" }
 edr_provider = { path = "crates/edr_provider" }
 edr_receipt = { path = "crates/edr_receipt" }
 edr_receipt_builder_api = { path = "crates/receipt/builder/api" }
-edr_receipt_spec = { path = "crates/edr_receipt_spec" }
 edr_rpc_client = { path = "crates/edr_rpc_client" }
 edr_rpc_eth = { path = "crates/edr_rpc_eth" }
 edr_rpc_spec = { path = "crates/edr_rpc_spec" }

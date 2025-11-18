@@ -21,6 +21,7 @@ use edr_chain_spec_evm::{
     config::EvmConfig, ContextForChainSpec, DatabaseComponentError, EvmChainSpec,
     ExecutionResultAndState, Inspector, TransactionError,
 };
+use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_evm::{dry_run, dry_run_with_inspector};
 use edr_primitives::{Address, Bloom, HashMap, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
@@ -28,7 +29,6 @@ use edr_receipt::{
     ExecutionReceipt, ExecutionReceiptChainSpec, MapReceiptLogs, ReceiptTrait, TransactionReceipt,
 };
 use edr_receipt_builder_api::ExecutionReceiptBuilder;
-use edr_receipt_spec::ReceiptConstructor;
 use edr_state_api::{AccountModifierFn, DynState, StateDiff, StateError};
 use edr_trie::ordered_trie_root;
 

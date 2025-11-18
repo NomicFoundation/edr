@@ -1,5 +1,5 @@
 [package]
-name = "edr_receipt_spec"
+name = "edr_chain_spec_receipt"
 version.workspace = true
 edition.workspace = true
 

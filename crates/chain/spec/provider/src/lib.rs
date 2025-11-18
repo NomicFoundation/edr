@@ -6,9 +6,9 @@ use edr_block_header::{BlockConfig, BlockHeader};
 use edr_chain_config::ChainConfig;
 use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::{BlockChainSpec, SyncBlockChainSpec};
+use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{HashMap, B256};
-use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_spec::{RpcChainSpec, RpcEthBlock, RpcTransaction, RpcTypeFrom};
 use edr_transaction::{TransactionAndBlock, TransactionType};
 

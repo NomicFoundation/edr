@@ -21,6 +21,7 @@ use edr_chain_spec_evm::{
     PrecompileProvider, TransactionError,
 };
 use edr_chain_spec_provider::ProviderChainSpec;
+use edr_chain_spec_receipt::ReceiptChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_napi_core::{
     napi,
@@ -29,7 +30,6 @@ use edr_napi_core::{
 use edr_primitives::HashMap;
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_receipt::ExecutionReceiptChainSpec;
-use edr_receipt_spec::ReceiptChainSpec;
 use edr_rpc_eth::jsonrpc;
 use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_solidity::contract_decoder::ContractDecoder;

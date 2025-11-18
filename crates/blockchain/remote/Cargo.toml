@@ -26,7 +26,7 @@ tracing = { workspace = true, optional = true }
 [dev-dependencies]
 edr_chain_l1.workspace = true
 edr_test_utils.workspace = true
-edr_receipt_spec.workspace = true
+edr_chain_spec_receipt.workspace = true
 edr_rpc_spec.workspace = true
 
 [features]
