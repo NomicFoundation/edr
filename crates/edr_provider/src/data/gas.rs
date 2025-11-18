@@ -10,8 +10,8 @@ use edr_evm_spec::{result::ExecutionResult, CfgEnv};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, U256};
 use edr_receipt::ReceiptTrait as _;
-use edr_tracing::TraceCollector;
 use edr_state_api::DynState;
+use edr_tracing::TraceCollector;
 use edr_transaction::TransactionMut;
 use itertools::Itertools;
 
