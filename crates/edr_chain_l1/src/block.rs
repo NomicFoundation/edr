@@ -17,11 +17,11 @@ use edr_chain_spec::{
     TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
-use edr_evm::{dry_run, dry_run_with_inspector};
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     config::EvmConfig, ContextForChainSpec, DatabaseComponentError, EvmChainSpec,
     ExecutionResultAndState, Inspector, TransactionError,
 };
+use edr_evm::{dry_run, dry_run_with_inspector};
 use edr_primitives::{Address, Bloom, HashMap, KECCAK_NULL_RLP, U256};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},

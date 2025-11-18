@@ -6,8 +6,7 @@ use edr_chain_spec::{
     ChainSpec, EvmSpecId, ExecutableTransaction as _, HaltReasonTrait, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
-use edr_evm::{dry_run_with_inspector, run};
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, InputsTr as _,
         Interpreter, InterpreterResult, Jumps as _,
@@ -16,6 +15,7 @@ use edr_evm_spec::{
     BlockEnvTrait as _, CfgEnv, ContextTrait, DatabaseComponentError, Inspector, JournalEntry,
     JournalTrait as _, TransactionError,
 };
+use edr_evm::{dry_run_with_inspector, run};
 use edr_primitives::{
     bytecode::opcode::{self, OpCode},
     hex, Address, Bytes, B256, U256,

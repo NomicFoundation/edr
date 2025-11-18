@@ -8,8 +8,8 @@ use edr_block_header::{overridden_block_number, HeaderOverrides, PartialHeader};
 use edr_chain_l1::block::EthBlockBuilder;
 use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::BlockChainSpec;
+use edr_chain_spec_evm::{config::EvmConfig, DatabaseComponentError};
 use edr_eip1559::ConstantBaseFeeParams;
-use edr_evm_spec::{config::EvmConfig, DatabaseComponentError};
 use edr_primitives::{Address, Bytes, HashMap, B256, KECCAK_NULL_RLP, U256};
 use edr_state_api::{DynState, StateError};
 
@@ -180,8 +180,8 @@ impl<'builder, BlockchainErrorT: std::error::Error>
         >,
     >
     where
-        InspectorT: for<'inspector> edr_evm_spec::Inspector<
-            edr_evm_spec::ContextForChainSpec<
+        InspectorT: for<'inspector> edr_chain_spec_evm::Inspector<
+            edr_chain_spec_evm::ContextForChainSpec<
                 OpChainSpec,
                 <OpChainSpec as edr_chain_spec::BlockEnvChainSpec>::BlockEnv<
                     'inspector,

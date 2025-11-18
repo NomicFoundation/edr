@@ -80,7 +80,7 @@ edr_blockchain_fork.workspace = true
 edr_chain_spec_block.workspace = true
 edr_chain_config.workspace = true
 edr_precompile.workspace = true
-edr_evm_spec.workspace = true
+edr_chain_spec_evm.workspace = true
 
 [target.x86_64-unknown-linux-gnu.dependencies]
 openssl-sys = { version = "0.9.93", features = ["vendored"] }
@@ -106,7 +106,7 @@ tracing = [
     "edr_blockchain_fork/tracing",
     "edr_chain_l1/tracing",
     "edr_chain_spec_block/tracing",
-    "edr_evm_spec/tracing",
+    "edr_chain_spec_evm/tracing",
     "edr_gas_report/tracing",
     "edr_generic/tracing",
     "edr_napi_core/tracing",

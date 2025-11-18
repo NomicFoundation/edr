@@ -17,13 +17,13 @@ use edr_chain_spec::{
     TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
-use edr_chain_spec_provider::ProviderChainSpec;
-use edr_eip1559::BaseFeeParams;
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     handler::EthInstructions, CfgEnv, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
     ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, Inspector, InterpreterResult,
     Journal, JournalTrait as _, LocalContext, PrecompileProvider, TransactionError,
 };
+use edr_chain_spec_provider::ProviderChainSpec;
+use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Address, Bytes, HashMap, B256, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};

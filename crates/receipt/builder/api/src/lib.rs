@@ -1,7 +1,7 @@
 //! Types needed to implement a builder pattern for execution receipts.
 
 use edr_block_header::PartialHeader;
-use edr_evm_spec::result::ExecutionResult;
+use edr_chain_spec_evm::result::ExecutionResult;
 use edr_state_api::State;
 
 /// Trait for a builder that constructs an execution receipt.

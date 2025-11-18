@@ -14,6 +14,7 @@ members = [
     "crates/blockchain/remote",
     "crates/chain/config",
     "crates/chain/spec/block",
+    "crates/chain/spec/evm",
     "crates/chain/spec/provider",
     "crates/database/components",
     "crates/edr_chain_l1",
@@ -22,7 +23,6 @@ members = [
     "crates/edr_coverage",
     "crates/edr_defaults",
     "crates/edr_eth",
-    "crates/edr_evm_spec",
     "crates/edr_gas_report",
     "crates/edr_instrument",
     "crates/edr_macros",
@@ -141,6 +141,7 @@ edr_chain_config = { path = "crates/chain/config" }
 edr_chain_l1 = { path = "crates/edr_chain_l1" }
 edr_chain_spec = { path = "crates/edr_chain_spec" }
 edr_chain_spec_block = { path = "crates/chain/spec/block" }
+edr_chain_spec_evm = { path = "crates/chain/spec/evm" }
 edr_chain_spec_provider = { path = "crates/chain/spec/provider" }
 edr_common = { path = "crates/edr_common" }
 edr_coverage = { path = "crates/edr_coverage" }
@@ -152,7 +153,6 @@ edr_eip4844 = { path = "crates/eips/4844" }
 edr_eip7702 = { path = "crates/eips/7702" }
 edr_eth = { path = "crates/edr_eth" }
 edr_evm = { path = "crates/evm" }
-edr_evm_spec = { path = "crates/edr_evm_spec" }
 edr_gas_report = { path = "crates/edr_gas_report" }
 edr_generic = { path = "crates/edr_generic" }
 edr_instrument = { path = "crates/edr_instrument" }

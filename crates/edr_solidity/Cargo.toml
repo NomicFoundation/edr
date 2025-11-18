@@ -12,7 +12,7 @@ alloy-sol-types.workspace = true
 derive-where.workspace = true
 edr_chain_spec.workspace = true
 edr_eth.workspace = true
-edr_evm_spec.workspace = true
+edr_chain_spec_evm.workspace = true
 edr_primitives.workspace = true
 edr_tracing.workspace = true
 foundry-compilers.workspace = true
@@ -30,7 +30,7 @@ itertools = "0.10.5"
 criterion = "0.5"
 
 [features]
-tracing = ["edr_evm_spec/tracing"]
+tracing = ["edr_chain_spec_evm/tracing"]
 
 [[bench]]
 name = "contracts_identifier"

@@ -12,7 +12,7 @@ edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true
 edr_chain_spec_provider.workspace = true
-edr_evm_spec.workspace = true
+edr_chain_spec_evm.workspace = true
 edr_primitives.workspace = true
 edr_provider.workspace = true
 edr_receipt.workspace = true
@@ -29,7 +29,7 @@ tracing = [
     "edr_chain_l1/tracing",
     "edr_chain_spec_block/tracing",
     "edr_chain_spec_provider/tracing",
-    "edr_evm_spec/tracing",
+    "edr_chain_spec_evm/tracing",
     "edr_receipt_builder_api/tracing",
     "edr_receipt_spec/tracing",
     "edr_test_transaction/tracing"

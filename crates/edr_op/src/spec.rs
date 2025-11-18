@@ -15,13 +15,13 @@ use edr_chain_spec::{
     HardforkChainSpec, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
-use edr_chain_spec_provider::ProviderChainSpec;
-use edr_eip1559::BaseFeeParams;
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     handler::EthInstructions, Context, ContextForChainSpec, Database, Evm, EvmChainSpec,
     ExecuteEvm as _, ExecutionResultAndState, InspectEvm as _, InterpreterResult, LocalContext,
     PrecompileProvider, TransactionError,
 };
+use edr_chain_spec_provider::ProviderChainSpec;
+use edr_eip1559::BaseFeeParams;
 use edr_napi_core::{
     napi,
     spec::{marshal_response_data, Response, SyncNapiSpec},
@@ -156,7 +156,7 @@ impl EvmChainSpec for OpChainSpec {
     fn dry_run_with_inspector<
         BlockT: revm_context::Block,
         DatabaseT: revm_context::Database,
-        InspectorT: edr_evm_spec::Inspector<ContextForChainSpec<Self, BlockT, DatabaseT>>,
+        InspectorT: edr_chain_spec_evm::Inspector<ContextForChainSpec<Self, BlockT, DatabaseT>>,
         PrecompileProviderT: PrecompileProvider<
             ContextForChainSpec<Self, BlockT, DatabaseT>,
             Output = InterpreterResult,

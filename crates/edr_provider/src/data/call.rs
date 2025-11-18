@@ -1,12 +1,12 @@
 use edr_block_header::BlockHeader;
 use edr_blockchain_api::{r#dyn::DynBlockchainError, BlockHashByNumber};
 use edr_chain_spec::{BlobExcessGasAndPrice, BlockEnvConstructor};
+use edr_chain_spec_evm::{
+    result::ExecutionResult, BlockEnvTrait, CfgEnv, ContextForChainSpec, Inspector,
+};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_evm::guaranteed_dry_run_with_inspector;
-use edr_evm_spec::{
-    result::ExecutionResult, BlockEnvTrait, CfgEnv, ContextForChainSpec, Inspector,
-};
 use edr_precompile::PrecompileFn;
 use edr_primitives::{Address, HashMap, B256, U256};
 use edr_state_api::{State, StateError};
