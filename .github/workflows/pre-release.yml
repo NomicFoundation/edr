@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 #v1
+      - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 # v1
         with:
           mode: firewall
 
@@ -38,7 +38,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Update version & Create Pull Request
-        uses: changesets/action@v1
+        uses: changesets/action@e0145edc7d9d8679003495b11f87bd8ef63c0cba # v1.5.3
         with:
           title: "edr-${{ steps.get-version.outputs.version }}"
           commit: "edr-${{ steps.get-version.outputs.version }}"
