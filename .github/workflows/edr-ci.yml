@@ -99,8 +99,6 @@ jobs:
         with:
           tool: cargo-llvm-cov@31b63e9d6b24bc337e8b138edd6514fe903b7889 # v0.6.21
 
-        
-
       - name: Restore EDR RPC cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
