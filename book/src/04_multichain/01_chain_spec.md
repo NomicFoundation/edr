@@ -2,16 +2,12 @@
 
 EDR uses a concept called _chain specification_ to define all necessary types and functionality to support an Ethereum chain at compile-time.
 
-This is achieved through the usage of multiple traits, some of which are supertraits of each other, providing increasing scope of functionality in the EDR ecosystem:
+This is achieved through the usage of multiple traits, some of which are supertraits of each other, providing increasing scope of functionality in the EDR ecosystem.
+All traits follow the same naming pattern: `*ChainSpec`; e.g. `EvmChainSpec` and `BlockChainSpec`.
 
-- Primitives: `edr_eth::ChainSpec`
-- Header builder: `edr_eth::EthHeaderConstants`
-- RPC client: `edr_rpc_eth::RpcSpec`
-- EVM runtime: `edr_runtime::RuntimeSpec`
-- EVM provider: `edr_provider::ProviderSpec`
-- EDR N-API bindings: `edr_napi::SyncNapiSpec`
+Most of these traits have a `Sync*` equivalent (e.g. `SyncBlockChainSpec`) which are automatically implemented for usage in `async` contexts.
 
-Most of these traits have a `Sync*` equivalent (e.g. `SyncRuntimeSpec`) which is automatically implemented for types that are `Send` and `Sync`.
+Crates including the chain specification traits are located in the `crates/chain/spec` folder.
 
 ## Supported Chain Types
 
