@@ -2,8 +2,7 @@
 
 EDR uses a concept called _chain specification_ to define all necessary types and functionality to support an Ethereum chain at compile-time.
 
-This is achieved through the usage of multiple traits, some of which are supertraits of each other, providing increasing scope of functionality in the EDR ecosystem.
-All traits follow the same naming pattern: `*ChainSpec`; e.g. `EvmChainSpec` and `BlockChainSpec`.
+This is achieved through the usage of multiple traits, some of which are supertraits of each other, providing increasing scope of functionality in the EDR ecosystem. All traits follow the same naming pattern: `*ChainSpec`; e.g. `EvmChainSpec` and `BlockChainSpec`.
 
 Most of these traits have a `Sync*` equivalent (e.g. `SyncBlockChainSpec`) which are automatically implemented for usage in `async` contexts.
 
