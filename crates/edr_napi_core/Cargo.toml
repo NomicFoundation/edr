@@ -19,10 +19,10 @@ edr_precompile.workspace = true
 edr_primitives.workspace = true
 edr_provider.workspace = true
 edr_rpc_client.workspace = true
-edr_runtime.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
 edr_solidity_tests.workspace = true
+edr_tracing.workspace = true
 edr_transaction.workspace = true
 itertools = { version = "0.12.0", default-features = false }
 napi = { version = "2.16.10", default-features = false, features = ["async", "error_anyhow", "napi8", "serde-json"] }
@@ -38,9 +38,8 @@ tracing = [
     "edr_generic/tracing",
     "edr_provider/tracing",
     "edr_rpc_client/tracing",
-    "edr_runtime/tracing",
     "edr_solidity/tracing",
-    "edr_solidity_tests/tracing"
+    "edr_solidity_tests/tracing",
 ]
 
 [lints]

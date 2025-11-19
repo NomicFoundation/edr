@@ -7,8 +7,8 @@ use edr_chain_spec::{ChainSpec, ExecutableTransaction, HaltReasonTrait};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_evm_spec::result::ExecutionResult;
 use edr_primitives::{Bytes, B256};
-use edr_runtime::trace::Trace;
 use edr_state_api::{DynState, StateDiff};
+use edr_tracing::Trace;
 
 /// The result of mining a block, including the state, in debug mode. This
 /// result needs to be inserted into the blockchain to be persistent.

@@ -30,7 +30,7 @@ use core::fmt::Debug;
 
 use edr_chain_spec::{ChainSpec, HaltReasonTrait};
 use edr_primitives::HashSet;
-use edr_runtime::trace::Trace;
+use edr_tracing::Trace;
 use lazy_static::lazy_static;
 
 pub use self::{

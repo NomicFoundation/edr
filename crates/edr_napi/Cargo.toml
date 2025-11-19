@@ -13,6 +13,7 @@ alloy-sol-types.workspace = true
 derive_more.workspace = true
 derive-where.workspace = true
 edr_block_header.workspace = true
+edr_block_miner.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
 edr_coverage.workspace = true
@@ -28,11 +29,11 @@ edr_provider.workspace = true
 edr_receipt.workspace = true
 edr_rpc_client.workspace = true
 edr_rpc_spec.workspace = true
-edr_runtime.workspace = true
 edr_scenarios = { workspace = true, optional = true }
 edr_state_api.workspace = true
 edr_signer.workspace = true
 edr_solidity.workspace = true
+edr_tracing.workspace = true
 k256 = { version = "0.13.1", default-features = false, features = [
     "arithmetic",
     "ecdsa",
@@ -101,10 +102,10 @@ op = ["dep:edr_op"]
 scenarios = ["dep:edr_scenarios", "dep:rand"]
 test-mock = ["edr_provider/test-utils"]
 tracing = [
+    "edr_block_miner/tracing",
     "edr_blockchain_fork/tracing",
     "edr_chain_l1/tracing",
     "edr_chain_spec_block/tracing",
-    "edr_coverage/tracing",
     "edr_evm_spec/tracing",
     "edr_gas_report/tracing",
     "edr_generic/tracing",
@@ -112,9 +113,8 @@ tracing = [
     "edr_op/tracing",
     "edr_provider/tracing",
     "edr_rpc_client/tracing",
-    "edr_runtime/tracing",
     "edr_solidity/tracing",
-    "edr_solidity_tests/tracing"
+    "edr_solidity_tests/tracing",
 ]
 
 [lints]

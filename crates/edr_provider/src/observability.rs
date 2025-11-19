@@ -13,8 +13,9 @@ use edr_evm_spec::{
     ContextTrait, Inspector, JournalTrait,
 };
 use edr_gas_report::SyncOnCollectedGasReportCallback;
-use edr_runtime::{journal::JournalExt, trace::TraceCollector};
 use edr_state_api::State;
+use edr_tracing::TraceCollector;
+use revm_inspector::JournalExt;
 
 use crate::{console_log::ConsoleLogCollector, mock::Mocker, SyncCallOverride};
 

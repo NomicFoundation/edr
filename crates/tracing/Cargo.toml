@@ -1,0 +1,18 @@
+[package]
+name = "edr_tracing"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+derive-where.workspace = true
+edr_block_builder_api.workspace = true
+edr_blockchain_api.workspace = true
+edr_chain_spec.workspace = true
+edr_database_components.workspace = true
+edr_evm_spec.workspace = true
+edr_primitives.workspace = true
+edr_state_api.workspace = true
+revm-inspector.workspace = true
+
+[lints]
+workspace = true

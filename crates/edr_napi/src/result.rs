@@ -1,5 +1,5 @@
 use edr_chain_spec::EvmHaltReason;
-use edr_runtime::trace::AfterMessage;
+use edr_tracing::AfterMessage;
 use napi::{
     bindgen_prelude::{BigInt, Either3, Uint8Array},
     Either,

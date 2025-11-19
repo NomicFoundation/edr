@@ -1,3 +1,6 @@
+//! Types for managing Ethereum mem pool
+#![warn(missing_docs)]
+
 use std::{cmp::Ordering, fmt::Debug, num::NonZeroU64};
 
 use edr_chain_spec::ExecutableTransaction;
