@@ -331,6 +331,25 @@ fn add_transaction_exceeds_block_limit() -> anyhow::Result<()> {
 }
 
 #[test]
+fn add_transaction_exceeds_transaction_gas_cap() -> anyhow::Result<()> {
+    const TRANSACTION_GAS_CAP: u64 = 50_000u64;
+    let sender = Address::random();
+
+    let mut fixture = MemPoolTestFixture::with_transaction_gas_cap(TRANSACTION_GAS_CAP);
+
+    let exceeds_transaction_gas_cap = TRANSACTION_GAS_CAP + 1;
+    let transaction = dummy_eip155_transaction_with_limit(sender, 0, exceeds_transaction_gas_cap)?;
+    let result = fixture.add_transaction(transaction);
+
+    assert!(
+        matches!(result, Err(MemPoolAddTransactionError::ExceedsTransactionGasCap { transaction_gas_cap, transaction_gas_limit })
+    if transaction_gas_cap == TRANSACTION_GAS_CAP && transaction_gas_limit == exceeds_transaction_gas_cap)
+    );
+
+    Ok(())
+}
+
+#[test]
 fn add_transaction_nonce_too_low() -> anyhow::Result<()> {
     const SENDER_NONCE: u64 = 1;
     const TRANSACTION_NONCE: u64 = 0;

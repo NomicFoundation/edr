@@ -135,6 +135,7 @@ pub fn create_test_config_with_fork<HardforkT: Default>(
         observability: observability::ObservabilityConfig::default(),
         owned_accounts,
         precompile_overrides: HashMap::default(),
+        transaction_gas_cap: None,
     }
 }
 

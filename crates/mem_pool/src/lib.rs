@@ -109,6 +109,16 @@ pub enum MemPoolAddTransactionError<SE> {
         /// The transaction gas limit
         transaction_gas_limit: u64,
     },
+    /// Transaction gas limit exceeds transaction gas cap.
+    #[error(
+        "Transaction gas limit is {transaction_gas_limit} and exceeds transaction gas cap of {transaction_gas_cap}"
+    )]
+    ExceedsTransactionGasCap {
+        /// The transaction gas cap
+        transaction_gas_cap: u64,
+        /// The transaction gas limit
+        transaction_gas_limit: u64,
+    },
     /// Sender does not have enough funds to send transaction.
     #[error(
         "Sender doesn't have enough funds to send tx. The max upfront cost is: {max_upfront_cost} and the sender's balance is: {sender_balance}."
@@ -204,23 +214,35 @@ pub struct MemPool<SignedTransactionT: ExecutableTransaction> {
     /// (pending) nonce is high enough
     future_transactions: IndexMap<Address, Vec<OrderedTransaction<SignedTransactionT>>>,
     next_order_id: usize,
+    /// Transaction gas cap, introduced in [EIP-7825].
+    ///
+    /// When not set, there is no cap on transaction gas.
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    transaction_gas_cap: Option<u64>,
 }
 
 impl<SignedTransactionT: ExecutableTransaction> MemPool<SignedTransactionT> {
     /// Constructs a new [`MemPool`] with the specified block gas limit.
-    pub fn new(block_gas_limit: NonZeroU64) -> Self {
+    pub fn new(block_gas_limit: NonZeroU64, transaction_gas_cap: Option<u64>) -> Self {
         Self {
             block_gas_limit,
             pending_transactions: IndexMap::new(),
             hash_to_transaction: HashMap::default(),
             future_transactions: IndexMap::new(),
             next_order_id: 0,
+            transaction_gas_cap,
         }
     }
 
     /// Retrieves the instance's block gas limit.
     pub fn block_gas_limit(&self) -> NonZeroU64 {
         self.block_gas_limit
+    }
+
+    /// Retrieves the instance's transaction gas cap.
+    pub fn transaction_gas_cap(&self) -> Option<u64> {
+        self.transaction_gas_cap
     }
 
     /// Sets the instance's block gas limit.
@@ -433,6 +455,16 @@ impl<SignedTransactionT: Clone + ExecutableTransaction> MemPool<SignedTransactio
         transaction: SignedTransactionT,
     ) -> Result<(), MemPoolAddTransactionError<S::Error>> {
         let transaction_gas_limit = transaction.gas_limit();
+
+        if let Some(transaction_gas_cap) = self.transaction_gas_cap
+            && transaction_gas_limit > transaction_gas_cap
+        {
+            return Err(MemPoolAddTransactionError::ExceedsTransactionGasCap {
+                transaction_gas_cap,
+                transaction_gas_limit,
+            });
+        }
+
         if transaction_gas_limit > self.block_gas_limit.get() {
             return Err(MemPoolAddTransactionError::ExceedsBlockGasLimit {
                 block_gas_limit: self.block_gas_limit,

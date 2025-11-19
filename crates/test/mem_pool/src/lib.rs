@@ -25,8 +25,22 @@ impl MemPoolTestFixture {
 
         MemPoolTestFixture {
             // SAFETY: literal is non-zero
-            mem_pool: MemPool::new(unsafe { NonZeroU64::new_unchecked(10_000_000u64) }),
+            mem_pool: MemPool::new(unsafe { NonZeroU64::new_unchecked(10_000_000u64) }, None),
             state: PersistentStateTrie::with_accounts_and_storage(trie),
+        }
+    }
+
+    /// Constructs an instance with the provided transaction gas cap.
+    pub fn with_transaction_gas_cap(transaction_gas_cap: u64) -> Self {
+        MemPoolTestFixture {
+            mem_pool: MemPool::new(
+                // SAFETY: literal is non-zero
+                unsafe { NonZeroU64::new_unchecked(10_000_000u64) },
+                Some(transaction_gas_cap),
+            ),
+            state: PersistentStateTrie::with_accounts_and_storage(
+                PersistentAccountAndStorageTrie::default(),
+            ),
         }
     }
 

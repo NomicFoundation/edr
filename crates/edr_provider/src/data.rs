@@ -11,6 +11,7 @@ use std::{
 };
 
 use alloy_dyn_abi::eip712::TypedData;
+use alloy_eips::eip7825;
 use edr_block_api::{
     Block, BlockAndTotalDifficulty, FetchBlockReceipts as _, GenesisBlockFactory,
     GenesisBlockOptions,
@@ -661,6 +662,14 @@ where
             RandomHashGenerator::with_seed("randomParentBeaconBlockRootSeed")
         };
 
+        let transaction_gas_cap = if let Some(cap) = config.transaction_gas_cap {
+            Some(cap)
+        } else if config.hardfork.into() >= EvmSpecId::OSAKA {
+            Some(eip7825::MAX_TX_GAS_LIMIT_OSAKA)
+        } else {
+            None
+        };
+
         Ok(Self {
             runtime_handle,
             bail_on_call_failure: config.bail_on_call_failure,
@@ -668,7 +677,7 @@ where
             base_fee_params: config.base_fee_params,
             blockchain,
             irregular_state,
-            mem_pool: MemPool::new(block_gas_limit),
+            mem_pool: MemPool::new(block_gas_limit, transaction_gas_cap),
             mining_config: config.mining,
             network_id: config.network_id,
             observability,
@@ -1244,6 +1253,7 @@ where
             } else {
                 None
             },
+            transaction_gas_cap: self.mem_pool.transaction_gas_cap(),
         }
     }
 

@@ -178,6 +178,7 @@ pub async fn run_full_block<
         chain_id: prior_blockchain.chain_id(),
         disable_eip3607: true,
         limit_contract_code_size: None,
+        transaction_gas_cap: None,
     };
 
     let state = prior_blockchain
@@ -388,6 +389,7 @@ pub async fn assert_replay_header<
         chain_id: prior_blockchain.chain_id(),
         disable_eip3607: true,
         limit_contract_code_size: None,
+        transaction_gas_cap: None,
     };
 
     let state = prior_blockchain

@@ -5,6 +5,7 @@ mod eip4844;
 mod eip7623;
 mod eip7691;
 mod eip7702;
+mod eip7825;
 mod eth_max_priority_fee_per_gas;
 mod eth_request_serialization;
 mod hardhat_request_serialization;
