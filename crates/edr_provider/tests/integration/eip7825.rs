@@ -62,7 +62,75 @@ fn send_transaction(
     ))
 }
 
-// CHECK WITH PATO WHAT TO DO ABOUT ETH_ESTIMATEGAS
+#[tokio::test(flavor = "multi_thread")]
+async fn test_call() -> anyhow::Result<()> {
+    let provider = new_provider(false, TRANSACTION_GAS_CAP)?;
+
+    let caller = secret_key_to_address(SECRET_KEYS[0])?;
+    let call = L1CallRequest {
+        from: Some(caller),
+        to: Some(address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")),
+        gas: Some(EXCEEDS_TRANSACTION_GAS_LIMIT),
+        ..L1CallRequest::default()
+    };
+
+    let result = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
+        call, None, None,
+    )));
+
+    assert!(result.is_err());
+    assert!(
+        matches!(
+            result,
+            Err(ProviderError::RunTransaction(
+                TransactionError::InvalidTransaction(
+                    InvalidTransaction::TxGasLimitGreaterThanCap {
+                        cap: TRANSACTION_GAS_CAP,
+                        gas_limit: EXCEEDS_TRANSACTION_GAS_LIMIT
+                    }
+                )
+            ))
+        ),
+        "{result:?}"
+    );
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_estimate_gas() -> anyhow::Result<()> {
+    let provider = new_provider(false, TRANSACTION_GAS_CAP)?;
+
+    let caller = secret_key_to_address(SECRET_KEYS[0])?;
+    let call = L1CallRequest {
+        from: Some(caller),
+        to: Some(address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")),
+        gas: Some(EXCEEDS_TRANSACTION_GAS_LIMIT),
+        ..L1CallRequest::default()
+    };
+
+    let result = provider.handle_request(ProviderRequest::with_single(
+        MethodInvocation::EstimateGas(call, None),
+    ));
+
+    assert!(result.is_err());
+    assert!(
+        matches!(
+            result,
+            Err(ProviderError::RunTransaction(
+                TransactionError::InvalidTransaction(
+                    InvalidTransaction::TxGasLimitGreaterThanCap {
+                        cap: TRANSACTION_GAS_CAP,
+                        gas_limit: EXCEEDS_TRANSACTION_GAS_LIMIT
+                    }
+                )
+            ))
+        ),
+        "{result:?}"
+    );
+
+    Ok(())
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_send_transaction_exceeds_transaction_cap_with_auto_mine() -> anyhow::Result<()> {
@@ -100,41 +168,6 @@ async fn test_send_transaction_exceeds_transaction_cap_without_auto_mine() -> an
             }
         ))
     ));
-
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_call() -> anyhow::Result<()> {
-    let provider = new_provider(false, TRANSACTION_GAS_CAP)?;
-
-    let caller = secret_key_to_address(SECRET_KEYS[0])?;
-    let call = L1CallRequest {
-        from: Some(caller),
-        to: Some(address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")),
-        gas: Some(EXCEEDS_TRANSACTION_GAS_LIMIT),
-        ..L1CallRequest::default()
-    };
-
-    let result = provider.handle_request(ProviderRequest::with_single(MethodInvocation::Call(
-        call, None, None,
-    )));
-
-    assert!(result.is_err());
-    assert!(
-        matches!(
-            result,
-            Err(ProviderError::RunTransaction(
-                TransactionError::InvalidTransaction(
-                    InvalidTransaction::TxGasLimitGreaterThanCap {
-                        cap: TRANSACTION_GAS_CAP,
-                        gas_limit: EXCEEDS_TRANSACTION_GAS_LIMIT
-                    }
-                )
-            ))
-        ),
-        "{result:?}"
-    );
 
     Ok(())
 }
