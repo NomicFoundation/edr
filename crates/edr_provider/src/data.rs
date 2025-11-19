@@ -386,6 +386,11 @@ where
         self.impersonated_accounts.remove(&address)
     }
 
+    /// Returns the transaction gas cap, if set.
+    pub fn transaction_gas_cap(&self) -> Option<u64> {
+        self.mem_pool.transaction_gas_cap()
+    }
+
     fn add_state_to_cache(&mut self, state: Box<dyn DynState>, block_number: u64) -> StateId {
         let state_id = self.current_state_id.increment();
         self.block_state_cache.push(state_id, Arc::new(state));
