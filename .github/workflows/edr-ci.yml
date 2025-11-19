@@ -21,8 +21,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      # disable for "windows-2025" due to error: Path Validation Error:
+      # Path(s) specified in the action for caching do(es) not exist,
+      # hence no cache is being saved.
+      # https://github.com/NomicFoundation/edr/issues/1199
       matrix:
-        os: ["ubuntu-24.04", "macos-15", "windows-2025"]
+        os: ["ubuntu-24.04", "macos-15"]
     steps:
       - uses: actions/checkout@v5
       - uses: socketdev/action@v1
