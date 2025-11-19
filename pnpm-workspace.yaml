@@ -7,7 +7,8 @@ packages:
   - "js/integration-tests/*"
 
 # Delay installs until a version is at least 1 week old
-minimumReleaseAge: 10080
+# TODO revert this
+#minimumReleaseAge: 10080
 
 # Allow immediate installs for the following packages
 minimumReleaseAgeExclude:
