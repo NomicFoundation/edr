@@ -100,7 +100,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
                 .collect::<Vec<_>>(),
             // Overriding precompiles is not supported in scenarios
             precompile_overrides: HashMap::default(),
-            transaction_gas_cap: None,
+            transaction_gas_cap: value.transaction_gas_cap,
         }
     }
 }
