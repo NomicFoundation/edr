@@ -133,10 +133,10 @@ impl<
 }
 
 impl<
-        BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
+        BlockReceiptT: ReceiptTrait + alloy_rlp::Encodable,
         FetchReceiptErrorT,
         HardforkT,
-        SignedTransactionT: Debug + alloy_rlp::Encodable,
+        SignedTransactionT: alloy_rlp::Encodable,
     > EthLocalBlock<BlockReceiptT, FetchReceiptErrorT, HardforkT, SignedTransactionT>
 {
     fn rlp_payload_length(&self) -> usize {
@@ -337,10 +337,10 @@ impl<
 }
 
 impl<
-        BlockReceiptT: Debug + ReceiptTrait + alloy_rlp::Encodable,
+        BlockReceiptT: ReceiptTrait + alloy_rlp::Encodable,
         FetchReceiptErrorT,
         HardforkT,
-        SignedTransactionT: Debug + alloy_rlp::Encodable,
+        SignedTransactionT: alloy_rlp::Encodable,
     > alloy_rlp::Encodable
     for EthLocalBlock<BlockReceiptT, FetchReceiptErrorT, HardforkT, SignedTransactionT>
 {

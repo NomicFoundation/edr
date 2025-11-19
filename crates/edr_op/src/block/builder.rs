@@ -1,8 +1,8 @@
 use core::fmt::Debug;
 
 use edr_block_builder_api::{
-    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError,
-    BuiltBlockAndState, DatabaseComponents, PrecompileFn, WrapDatabaseRef,
+    BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
+    BlockTransactionError, BuiltBlockAndState, DatabaseComponents, PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{overridden_block_number, HeaderOverrides, PartialHeader};
 use edr_chain_l1::block::EthBlockBuilder;
@@ -210,7 +210,8 @@ impl<'builder, BlockchainErrorT: std::error::Error>
     fn finalize_block(
         self,
         rewards: Vec<(Address, u128)>,
-    ) -> Result<BuiltBlockAndState<HaltReason, Self::LocalBlock>, StateError> {
+    ) -> Result<BuiltBlockAndState<HaltReason, Self::LocalBlock>, BlockFinalizeError<StateError>>
+    {
         self.eth.finalize(rewards)
     }
 }

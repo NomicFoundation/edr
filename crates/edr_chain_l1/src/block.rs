@@ -3,9 +3,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use edr_block_api::Block;
 use edr_block_builder_api::{
-    BlockBuilder, BlockBuilderCreationError, BlockInputs, BlockTransactionError,
-    BlockTransactionErrorForChainSpec, Blockchain, BuiltBlockAndState, CfgEnv, DatabaseComponents,
-    ExecutionResult, PrecompileFn, WrapDatabaseRef,
+    BlockBuilder, BlockBuilderCreationError, BlockFinalizeError, BlockInputs,
+    BlockTransactionError, BlockTransactionErrorForChainSpec, Blockchain, BuiltBlockAndState,
+    CfgEnv, DatabaseComponents, ExecutionResult, PrecompileFn, WrapDatabaseRef,
 };
 use edr_block_header::{
     blob_params_for_hardfork, BlobGas, BlockConfig, HeaderAndEvmSpec, HeaderOverrides,
@@ -31,6 +31,12 @@ use edr_receipt_builder_api::ExecutionReceiptBuilder;
 use edr_receipt_spec::ReceiptConstructor;
 use edr_state_api::{AccountModifierFn, DynState, StateDiff, StateError};
 use edr_trie::ordered_trie_root;
+
+const MAX_BLOCK_SIZE: usize = 10_485_760; // 10 MiB
+const SAFETY_MARGIN: usize = 2_097_152; // 2 MiB
+
+/// EIP-7934 max RLP block size
+pub const MAX_RLP_BLOCK_SIZE: usize = MAX_BLOCK_SIZE - SAFETY_MARGIN;
 
 /// A builder for constructing Ethereum blocks.
 pub struct EthBlockBuilder<
@@ -416,73 +422,6 @@ impl<
 
         Ok(())
     }
-
-    pub fn finalize(
-        mut self,
-        rewards: Vec<(Address, u128)>,
-    ) -> Result<BuiltBlockAndState<ChainSpecT::HaltReason, LocalBlockT>, StateError> {
-        for (address, reward) in rewards {
-            if reward > 0 {
-                let account_info = self.state.modify_account(
-                    address,
-                    AccountModifierFn::new(Box::new(move |balance, _nonce, _code| {
-                        *balance += U256::from(reward);
-                    })),
-                )?;
-
-                self.state_diff.apply_account_change(address, account_info);
-            }
-        }
-
-        if let Some(gas_limit) = self.parent_gas_limit {
-            self.header.gas_limit = gas_limit;
-        }
-
-        self.header.logs_bloom = {
-            let mut logs_bloom = Bloom::ZERO;
-            self.receipts.iter().for_each(|receipt| {
-                logs_bloom.accrue_bloom(receipt.logs_bloom());
-            });
-            logs_bloom
-        };
-
-        self.header.receipts_root = ordered_trie_root(self.receipts.iter().map(alloy_rlp::encode));
-
-        // Only set the state root if it wasn't specified during construction
-        if self.header.state_root == KECCAK_NULL_RLP {
-            self.header.state_root = self
-                .state
-                .state_root()
-                .expect("Must be able to calculate state root");
-        }
-
-        // Only set the timestamp if it wasn't specified during construction
-        if self.header.timestamp == 0 {
-            self.header.timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("Current time must be after unix epoch")
-                .as_secs();
-        }
-
-        // TODO: handle ommers
-        let block = EthLocalBlock::new::<ExecutionReceiptChainSpecT>(
-            &self.context,
-            self.cfg.spec,
-            self.header,
-            self.transactions,
-            self.receipts,
-            Vec::new(),
-            self.withdrawals,
-        );
-
-        Ok(BuiltBlockAndState {
-            block: block.into(),
-            state: self.state,
-            state_diff: self.state_diff,
-            transaction_results: self.transaction_results,
-        })
-    }
-
     fn add_transaction_result(
         &mut self,
         receipt_builder: ExecutionReceiptBuilderT,
@@ -533,7 +472,137 @@ impl<
                 Context = ChainSpecT::Context,
                 ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
                 Hardfork = ChainSpecT::Hardfork,
-            > + ReceiptTrait,
+            > + ReceiptTrait
+            + alloy_rlp::Encodable,
+        BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
+        BlockchainErrorT: Debug + std::error::Error,
+        ChainSpecT: BlockChainSpec<
+            Hardfork: PartialOrd,
+            SignedTransaction: Clone + ExecutableTransaction + alloy_rlp::Encodable,
+        >,
+        ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
+            ChainSpecT::HaltReason,
+            ChainSpecT::Hardfork,
+            ChainSpecT::SignedTransaction,
+            Receipt = ExecutionReceiptChainSpecT::ExecutionReceipt<ExecutionLog>,
+        >,
+        ExecutionReceiptChainSpecT: ExecutionReceiptChainSpec<
+            ExecutionReceipt<ExecutionLog>: MapReceiptLogs<
+                ExecutionLog,
+                FilterLog,
+                ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
+            > + alloy_rlp::Encodable,
+        >,
+        LocalBlockT: From<
+            EthLocalBlock<
+                BlockReceiptT,
+                ChainSpecT::FetchReceiptError,
+                ChainSpecT::Hardfork,
+                ChainSpecT::SignedTransaction,
+            >,
+        >,
+    >
+    EthBlockBuilder<
+        'builder,
+        BlockReceiptT,
+        BlockT,
+        BlockchainErrorT,
+        ChainSpecT,
+        ExecutionReceiptBuilderT,
+        ExecutionReceiptChainSpecT,
+        LocalBlockT,
+    >
+{
+    pub fn finalize(
+        mut self,
+        rewards: Vec<(Address, u128)>,
+    ) -> Result<
+        BuiltBlockAndState<ChainSpecT::HaltReason, LocalBlockT>,
+        BlockFinalizeError<StateError>,
+    > {
+        for (address, reward) in rewards {
+            if reward > 0 {
+                let account_info = self
+                    .state
+                    .modify_account(
+                        address,
+                        AccountModifierFn::new(Box::new(move |balance, _nonce, _code| {
+                            *balance += U256::from(reward);
+                        })),
+                    )
+                    .map_err(BlockFinalizeError::State)?;
+
+                self.state_diff.apply_account_change(address, account_info);
+            }
+        }
+
+        if let Some(gas_limit) = self.parent_gas_limit {
+            self.header.gas_limit = gas_limit;
+        }
+
+        self.header.logs_bloom = {
+            let mut logs_bloom = Bloom::ZERO;
+            self.receipts.iter().for_each(|receipt| {
+                logs_bloom.accrue_bloom(receipt.logs_bloom());
+            });
+            logs_bloom
+        };
+
+        self.header.receipts_root = ordered_trie_root(self.receipts.iter().map(alloy_rlp::encode));
+
+        // Only set the state root if it wasn't specified during construction
+        if self.header.state_root == KECCAK_NULL_RLP {
+            self.header.state_root = self
+                .state
+                .state_root()
+                .expect("Must be able to calculate state root");
+        }
+
+        // Only set the timestamp if it wasn't specified during construction
+        if self.header.timestamp == 0 {
+            self.header.timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("Current time must be after unix epoch")
+                .as_secs();
+        }
+
+        // TODO: handle ommers
+        let block = EthLocalBlock::new::<ExecutionReceiptChainSpecT>(
+            &self.context,
+            self.cfg.spec,
+            self.header,
+            self.transactions,
+            self.receipts,
+            Vec::new(),
+            self.withdrawals,
+        );
+
+        let block_rlp_size = alloy_rlp::Encodable::length(&block);
+        if block_rlp_size > MAX_RLP_BLOCK_SIZE {
+            return Err(BlockFinalizeError::BlockRlpSizeExceeded {
+                max_size: MAX_RLP_BLOCK_SIZE,
+                actual_size: block_rlp_size,
+            });
+        }
+
+        Ok(BuiltBlockAndState {
+            block: block.into(),
+            state: self.state,
+            state_diff: self.state_diff,
+            transaction_results: self.transaction_results,
+        })
+    }
+}
+
+impl<
+        'builder,
+        BlockReceiptT: ReceiptConstructor<
+                ChainSpecT::SignedTransaction,
+                Context = ChainSpecT::Context,
+                ExecutionReceipt = ExecutionReceiptChainSpecT::ExecutionReceipt<FilterLog>,
+                Hardfork = ChainSpecT::Hardfork,
+            > + ReceiptTrait
+            + alloy_rlp::Encodable,
         BlockT: ?Sized + Block<ChainSpecT::SignedTransaction>,
         BlockchainErrorT: Debug + std::error::Error,
         ChainSpecT: BlockChainSpec
@@ -541,7 +610,7 @@ impl<
             + EvmChainSpec<
                 Context: Default,
                 Hardfork: PartialOrd,
-                SignedTransaction: Clone + ExecutableTransaction,
+                SignedTransaction: Clone + ExecutableTransaction + alloy_rlp::Encodable,
             >,
         ExecutionReceiptBuilderT: ExecutionReceiptBuilder<
             ChainSpecT::HaltReason,
@@ -667,7 +736,10 @@ impl<
     fn finalize_block(
         self,
         rewards: Vec<(Address, u128)>,
-    ) -> Result<BuiltBlockAndState<ChainSpecT::HaltReason, LocalBlockT>, StateError> {
+    ) -> Result<
+        BuiltBlockAndState<ChainSpecT::HaltReason, LocalBlockT>,
+        BlockFinalizeError<StateError>,
+    > {
         self.finalize(rewards)
     }
 }
