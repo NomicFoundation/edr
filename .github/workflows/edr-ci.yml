@@ -69,7 +69,7 @@ jobs:
       # Install pre-built binaries for cargo hack
       - uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
         with:
-          tool: cargo-hack@8b197831a92d54d783e5181966901094ce0a0553 # v0.6.39
+          tool: cargo-hack@0.6.39
 
       - name: Cargo hack check for EDR crates
         run: |
@@ -97,7 +97,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
         with:
-          tool: cargo-llvm-cov@31b63e9d6b24bc337e8b138edd6514fe903b7889 # v0.6.21
+          tool: cargo-llvm-cov@0.6.21
 
       - name: Restore EDR RPC cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -170,7 +170,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
         with:
-          tool: cargo-llvm-cov@31b63e9d6b24bc337e8b138edd6514fe903b7889 # v0.6.21
+          tool: cargo-llvm-cov@0.6.21
 
       - name: Restore EDR RPC cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -307,7 +307,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
         with:
-          tool: cargo-llvm-cov@31b63e9d6b24bc337e8b138edd6514fe903b7889 # v0.6.21
+          tool: cargo-llvm-cov@0.6.21
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
