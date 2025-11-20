@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- dcf09de: Fully support OP stack Isthmus hardfork
+- dcf09de: Added full support for OP stack Isthmus hardfork
 
 ### Patch Changes
 
