@@ -74,7 +74,7 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
-      - uses: socketdev/action@v1
+      - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 # v1
         with:
           mode: firewall
 
@@ -94,7 +94,7 @@ jobs:
           test ${{ strategy.job-total }} -eq "$NUMBER_OF_TARGETS"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@0f44b27771c32bda9f458f75a1e241b09791b331 # latest main commit (2025-11-17)
         if: ${{ !matrix.settings.docker }}
         with:
           toolchain: stable
@@ -108,7 +108,7 @@ jobs:
           node-version: 20
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry/index/
@@ -134,7 +134,7 @@ jobs:
         shell: bash
 
       - name: Build in docker (gnu)
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'gnu'}}
         with:
           image: ${{ matrix.settings.docker }}
@@ -157,7 +157,7 @@ jobs:
       # SFW is not provided on musl versions of Linux
       # https://github.com/NomicFoundation/edr/issues/1198
       - name: Build in docker (musl)
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         if: ${{ matrix.settings.docker && matrix.settings.flavor == 'musl' }}
         with:
           image: ${{ matrix.settings.docker }}
@@ -180,7 +180,7 @@ jobs:
             pnpm run build --strip
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: bindings-${{ matrix.settings.target }}
           # The upload artifact action doesn't respect the working directory setting. Unclear if this is a bug or not
@@ -222,7 +222,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: bindings-${{ matrix.settings.target }}
           path: ./crates/edr_napi/
@@ -255,7 +255,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: bindings-x86_64-unknown-linux-gnu
           path: ./crates/edr_napi/
@@ -290,7 +290,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline --libc=musl
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: bindings-x86_64-unknown-linux-musl
           path: ./crates/edr_napi/
@@ -321,7 +321,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: bindings-aarch64-unknown-linux-gnu
           path: ./crates/edr_napi/
@@ -332,7 +332,7 @@ jobs:
         run: |
           pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=glibc
       - name: Setup and run tests
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 #v3
         with:
           image: node:${{ matrix.node }}
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
@@ -363,7 +363,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Download artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: bindings-aarch64-unknown-linux-musl
           path: ./crates/edr_napi/
@@ -373,7 +373,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline --cpu=arm64 --libc=musl
       - name: Setup and run tests
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         with:
           image: node:${{ matrix.node }}-alpine
           options: "--platform linux/arm64 -v ${{ github.workspace }}:/build -w /build/crates/edr_napi -e CI=1"
@@ -448,7 +448,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y moreutils
       - name: Download all artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           path: ./crates/edr_napi/artifacts
       - name: Run prepublish to update all `package.json` files
@@ -478,7 +478,7 @@ jobs:
           echo "FILENAME=$FILENAME"
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
       - name: Upload packed tarball
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: ${{ steps.pack.outputs.filename }}
           path: ./${{ steps.pack.outputs.filename }}
@@ -496,7 +496,7 @@ jobs:
       - prepare
     steps:
       - name: Download packed tarball
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: ${{ needs.prepare.outputs.filename }}
           path: .
@@ -513,9 +513,9 @@ jobs:
           echo "Expected number of unique artifacts: $NUMBER_OF_TARGETS"
           test "$NUMBER_OF_ARTIFACTS" -eq "$NUMBER_OF_TARGETS"
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
       - name: Setup node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
         id: setup-node
         with:
           node-version: 22
@@ -555,7 +555,7 @@ jobs:
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
       - name: Notify pre-deploy
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
         with:
           webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -591,7 +591,7 @@ jobs:
     if: ${{ needs.check_commit.outputs.tag != '' }}
     steps:
       - name: Notify deployment to Slack
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
         with:
           webhook: ${{ secrets.PUBLISHING_NOTIFICATIONS_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
@@ -616,16 +616,16 @@ jobs:
               ]
             }
       - name: Download packed tarball
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           name: ${{ needs.prepare.outputs.filename }}
           path: .
       - name: Decompress tarball
         run: tar -xvzf ${{ needs.prepare.outputs.filename }}
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
       - name: Setup node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
         id: setup-node
         with:
           node-version: 22

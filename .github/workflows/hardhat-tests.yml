@@ -32,20 +32,22 @@ jobs:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
+        with:
+          tool: cargo-llvm-cov@0.6.21
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Cache network requests
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             hardhat-tests/test/internal/hardhat-network/provider/.hardhat_node_test_cache
           key: hardhat-network-forking-tests-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Cache stack trace artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             hardhat-tests/test/internal/hardhat-network/stack-traces/test-files/artifacts

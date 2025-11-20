@@ -28,8 +28,10 @@ jobs:
       matrix:
         os: ["ubuntu-24.04", "macos-15"]
     steps:
-      - uses: actions/checkout@v5
-      - uses: socketdev/action@v1
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+      - uses: socketdev/action@4337a545deecc20f19a909e52db7a2f6ba292f42 # v1
         with:
           mode: firewall
       - uses: ./.github/actions/setup-rust
@@ -48,7 +50,6 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           persist-credentials: false
-
       - uses: ./.github/actions/setup-rust
 
       - name: Cargo check no default features for all crates
@@ -63,11 +64,16 @@ jobs:
     env:
       RUSTFLAGS: -Dwarnings
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          persist-credentials: false
+
       - uses: ./.github/actions/setup-rust
 
       # Install pre-built binaries for cargo hack
-      - uses: taiki-e/install-action@cargo-hack
+      - uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
+        with:
+          tool: cargo-hack@0.6.39
 
       - name: Cargo hack check for EDR crates
         run: |
@@ -93,10 +99,12 @@ jobs:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
+        with:
+          tool: cargo-llvm-cov@0.6.21
 
       - name: Restore EDR RPC cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             **/edr-cache
@@ -109,7 +117,7 @@ jobs:
         run: cargo llvm-cov --workspace --all-targets --all-features --locked --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
           files: codecov.json
           name: ${{ matrix.os }}
@@ -120,7 +128,7 @@ jobs:
         run: cargo test --doc --workspace --features tracing --locked
 
       - name: Save EDR RPC cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             **/edr-cache
@@ -164,10 +172,12 @@ jobs:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
+        with:
+          tool: cargo-llvm-cov@0.6.21
 
       - name: Restore EDR RPC cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             **/edr-cache
@@ -189,7 +199,7 @@ jobs:
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
           files: codecov.json
           name: ${{ matrix.os }}
@@ -197,7 +207,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Save EDR RPC cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             **/edr-cache
@@ -299,7 +309,9 @@ jobs:
           components: llvm-tools-preview
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@8cd2ac21dc357ca7dd807fe294d11e9ef84f60ec # v2.62.53
+        with:
+          tool: cargo-llvm-cov@0.6.21
 
       - name: Install package
         run: pnpm install --frozen-lockfile --prefer-offline
@@ -312,7 +324,7 @@ jobs:
           # `--release` included to match `build:dev` compilation flags
           cargo llvm-cov report --release --locked --codecov --output-path codecov.json
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
           files: codecov.json
           name: ubuntu-24.04
