@@ -2,4 +2,4 @@
 "@nomicfoundation/edr": minor
 ---
 
-Fully support OP stack Isthmus hardfork
+Added full support for OP stack Isthmus hardfork

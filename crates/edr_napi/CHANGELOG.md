@@ -1,5 +1,17 @@
 # @nomicfoundation/edr
 
+## 0.12.0-next.16
+
+### Minor Changes
+
+- dcf09de: Added full support for OP stack Isthmus hardfork
+
+### Patch Changes
+
+- 2c418b7: Added Osaka blob parameters for usage in eth_call, eth_sendTransaction, etc.
+- 8794449: Added validity check for the block RLP size cap
+- 16ba197: Added an option to `ProviderConfig` to set the transaction gas cap of the mem pool (EIP-7825)
+
 ## 0.12.0-next.15
 
 ### Minor Changes
