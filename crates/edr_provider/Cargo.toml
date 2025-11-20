@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 alloy-dyn-abi.workspace = true
+alloy-eips.workspace = true
 alloy-rlp.workspace = true
 alloy-serde.workspace = true
 alloy-sol-types.workspace = true

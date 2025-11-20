@@ -53,6 +53,13 @@ pub struct ScenarioProviderConfig {
     pub mining: MiningConfig,
     pub network_id: u64,
     pub owned_accounts: Vec<SerializableSecretKey>,
+    /// Transaction gas cap, introduced in [EIP-7825].
+    ///
+    /// When not set, will default to value defined by the used hardfork
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    #[serde(default)]
+    pub transaction_gas_cap: Option<u64>,
 }
 
 impl From<ScenarioProviderConfig> for ProviderConfig {
@@ -93,6 +100,7 @@ impl From<ScenarioProviderConfig> for ProviderConfig {
                 .collect::<Vec<_>>(),
             // Overriding precompiles is not supported in scenarios
             precompile_overrides: HashMap::default(),
+            transaction_gas_cap: value.transaction_gas_cap,
         }
     }
 }
@@ -133,6 +141,7 @@ impl TryFrom<ProviderConfig> for ScenarioProviderConfig {
                 .into_iter()
                 .map(SerializableSecretKey::from)
                 .collect(),
+            transaction_gas_cap: value.transaction_gas_cap,
         })
     }
 }

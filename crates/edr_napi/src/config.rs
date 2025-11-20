@@ -242,6 +242,12 @@ pub struct ProviderConfig {
     pub owned_accounts: Vec<JsString>,
     /// Overrides for precompiles
     pub precompile_overrides: Vec<Reference<Precompile>>,
+    /// Transaction gas cap, introduced in [EIP-7825].
+    ///
+    /// When not set, will default to value defined by the used hardfork
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub transaction_gas_cap: Option<BigInt>,
 }
 
 impl TryFrom<ForkConfig> for edr_provider::ForkConfig<String> {
@@ -619,6 +625,10 @@ impl ProviderConfig {
             observability: self.observability.resolve(env, runtime)?,
             owned_accounts,
             precompile_overrides,
+            transaction_gas_cap: self
+                .transaction_gas_cap
+                .map(TryCast::try_cast)
+                .transpose()?,
         })
     }
 }

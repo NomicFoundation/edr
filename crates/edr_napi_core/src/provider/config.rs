@@ -37,6 +37,12 @@ pub struct Config {
     /// Secret keys of owned accounts.
     pub owned_accounts: Vec<SecretKey>,
     pub precompile_overrides: HashMap<Address, PrecompileFn>,
+    /// Transaction gas cap, introduced in [EIP-7825].
+    ///
+    /// When not set, will default to value defined by the used hardfork
+    ///
+    /// [EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+    pub transaction_gas_cap: Option<u64>,
 }
 
 fn parse_hardfork<HardforkT>(hardfork: String) -> napi::Result<HardforkT>
@@ -157,6 +163,7 @@ where
             observability: value.observability,
             owned_accounts: value.owned_accounts,
             precompile_overrides: value.precompile_overrides,
+            transaction_gas_cap: value.transaction_gas_cap,
         })
     }
 }
