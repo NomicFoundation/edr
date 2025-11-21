@@ -1,16 +1,17 @@
 diff --git a/package.json b/package.json
-index 7f55165be5db8df6947a4f8103d674dfbe336625..3a64f2c6edcf1172a0015f8f05cdca5294872f0e 100644
+index 2cd2c84d5f55cc0cd1281384547dcdd8a1bba9a6..38e43c5249542f03650248aa1f0841232cc1bfbd 100644
 --- a/package.json
 +++ b/package.json
-@@ -37,7 +37,10 @@
-     "./types/solidity": "./dist/src/types/solidity.js",
+@@ -38,7 +38,11 @@
      "./console.sol": "./console.sol",
      "./internal/coverage": "./dist/src/internal/builtin-plugins/coverage/exports.js",
+     "./internal/gas-analytics": "./dist/src/internal/builtin-plugins/gas-analytics/exports.js",
 -    "./utils/contract-names": "./dist/src/utils/contract-names.js"
 +    "./utils/contract-names": "./dist/src/utils/contract-names.js",
 +    "./internal/builtin-plugins/solidity/build-results": "./dist/src/internal/builtin-plugins/solidity/build-results.js",
 +    "./internal/builtin-plugins/solidity-test/edr-artifacts": "./dist/src/internal/builtin-plugins/solidity-test/edr-artifacts.js",
-+    "./internal/builtin-plugins/solidity-test/helpers": "./dist/src/internal/builtin-plugins/solidity-test/helpers.js"
++    "./internal/builtin-plugins/solidity-test/helpers": "./dist/src/internal/builtin-plugins/solidity-test/helpers.js",
++    "./internal/builtin-plugins/artifacts/artifact-manager": "./dist/src/internal/builtin-plugins/artifacts/artifact-manager.js"
    },
    "keywords": [
      "ethereum",
