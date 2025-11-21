@@ -2601,6 +2601,7 @@ name = "edr_chain_config"
 version = "0.3.8"
 dependencies = [
  "edr_eip1559",
+ "edr_eip7892",
  "serde",
 ]
 
@@ -2630,6 +2631,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_eip7892",
  "edr_evm",
  "edr_primitives",
  "edr_receipt",
@@ -2827,6 +2829,15 @@ version = "0.3.8"
 dependencies = [
  "revm-context-interface",
  "revm-primitives",
+]
+
+[[package]]
+name = "edr_eip7892"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+ "alloy-hardforks",
+ "serde",
 ]
 
 [[package]]

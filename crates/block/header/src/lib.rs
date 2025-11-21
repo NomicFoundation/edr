@@ -2,7 +2,7 @@ mod difficulty;
 mod overrides;
 
 pub use alloy_eips::eip4895::Withdrawal;
-use alloy_eips::eip7840::BlobParams;
+use alloy_eips::{eip7840::BlobParams, BlobScheduleBlobParams};
 use edr_chain_spec::{
     BlobExcessGasAndPrice, BlockEnvConstructor, BlockEnvForHardfork, BlockEnvTrait, EvmSpecId,
 };
@@ -112,8 +112,14 @@ impl BlockHeader {
     }
 }
 
-pub fn blob_params_for_hardfork(evm_spec_id: EvmSpecId) -> BlobParams {
-    if evm_spec_id >= EvmSpecId::OSAKA {
+pub fn blob_params_for_hardfork(
+    evm_spec_id: EvmSpecId,
+    timestamp: u64,
+    blob_schedule_params: BlobScheduleBlobParams,
+) -> BlobParams {
+    if let Some(blob_param) = blob_schedule_params.active_scheduled_params_at_timestamp(timestamp) {
+        *blob_param
+    } else if evm_spec_id >= EvmSpecId::OSAKA {
         BlobParams::osaka()
     } else if evm_spec_id >= EvmSpecId::PRAGUE {
         BlobParams::prague()
