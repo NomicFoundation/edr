@@ -2271,7 +2271,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2560,6 +2560,7 @@ name = "edr_chain_config"
 version = "0.3.8"
 dependencies = [
  "edr_eip1559",
+ "edr_eip7892",
  "serde",
 ]
 
@@ -2586,6 +2587,7 @@ dependencies = [
  "edr_eip1559",
  "edr_eip2930",
  "edr_eip7702",
+ "edr_eip7892",
  "edr_evm",
  "edr_evm_spec",
  "edr_primitives",
@@ -2751,6 +2753,15 @@ version = "0.3.8"
 dependencies = [
  "revm-context-interface",
  "revm-primitives",
+]
+
+[[package]]
+name = "edr_eip7892"
+version = "0.3.8"
+dependencies = [
+ "alloy-eips",
+ "alloy-hardforks",
+ "serde",
 ]
 
 [[package]]
@@ -8163,7 +8174,7 @@ dependencies = [
  "getrandom 0.3.2",
  "once_cell",
  "rustix 1.0.5",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
