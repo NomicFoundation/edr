@@ -8,7 +8,7 @@ use edr_block_remote::{FetchRemoteReceiptError, RemoteBlock};
 use edr_chain_spec::{BlockEnvChainSpec, ChainSpec, TransactionValidation};
 use edr_chain_spec_evm::EvmChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
-use edr_rpc_spec::RpcChainSpec;
+use edr_chain_spec_rpc::RpcChainSpec;
 use edr_utils::CastArcFrom;
 
 /// Trait for specifying the types representing and building a chain's blocks.

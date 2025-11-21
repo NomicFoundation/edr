@@ -9,10 +9,10 @@ edr_block_header.workspace = true
 edr_chain_config.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_block.workspace = true
+edr_chain_spec_receipt.workspace = true
+edr_chain_spec_rpc.workspace = true
 edr_eip1559.workspace = true
 edr_primitives.workspace = true
-edr_chain_spec_receipt.workspace = true
-edr_rpc_spec.workspace = true
 edr_transaction.workspace = true
 serde.workspace = true
 

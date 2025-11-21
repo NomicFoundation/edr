@@ -7,9 +7,9 @@ use edr_chain_config::ChainConfig;
 use edr_chain_spec::TransactionValidation;
 use edr_chain_spec_block::{BlockChainSpec, SyncBlockChainSpec};
 use edr_chain_spec_receipt::ReceiptChainSpec;
+use edr_chain_spec_rpc::{RpcChainSpec, RpcEthBlock, RpcTransaction, RpcTypeFrom};
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{HashMap, B256};
-use edr_rpc_spec::{RpcChainSpec, RpcEthBlock, RpcTransaction, RpcTypeFrom};
 use edr_transaction::{TransactionAndBlock, TransactionType};
 
 /// Trait for specifying the types needed to implement a chain-specific JSON-RPC

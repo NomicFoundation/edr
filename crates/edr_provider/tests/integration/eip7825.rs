@@ -7,8 +7,8 @@ use edr_chain_l1::{
     InvalidTransaction, L1ChainSpec,
 };
 use edr_chain_spec::{EvmHaltReason, EvmSpecId};
+use edr_chain_spec_evm::TransactionError;
 use edr_defaults::SECRET_KEYS;
-use edr_evm_spec::TransactionError;
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::address;
 use edr_provider::{

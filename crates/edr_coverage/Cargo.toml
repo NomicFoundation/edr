@@ -8,8 +8,8 @@ anyhow.workspace = true
 derive_more = { workspace = true, features = ["debug"] }
 dyn-clone.workspace = true
 edr_block_header.workspace = true
-edr_defaults.workspace = true
 edr_chain_spec_evm.workspace = true
+edr_defaults.workspace = true
 edr_primitives.workspace = true
 edr_transaction.workspace = true
 
@@ -19,8 +19,8 @@ edr_blockchain_api.workspace = true
 edr_blockchain_local.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
-edr_evm.workspace = true
 edr_chain_spec_receipt.workspace = true
+edr_evm.workspace = true
 edr_signer.workspace = true
 edr_state_api.workspace = true
 edr_test_utils.workspace = true

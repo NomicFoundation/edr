@@ -11,7 +11,7 @@ edr_block_remote.workspace = true
 edr_chain_spec.workspace = true
 edr_chain_spec_evm.workspace = true
 edr_chain_spec_receipt.workspace = true
-edr_rpc_spec.workspace = true
+edr_chain_spec_rpc.workspace = true
 edr_utils.workspace = true
 
 [features]

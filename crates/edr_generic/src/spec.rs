@@ -24,11 +24,11 @@ use edr_chain_spec_evm::{
 };
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_chain_spec_receipt::ReceiptChainSpec;
+use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcChainSpec};
 use edr_eip1559::BaseFeeParams;
 use edr_primitives::{Address, Bytes, HashMap, B256, U256};
 use edr_provider::{time::TimeSinceEpoch, ProviderSpec, TransactionFailureReason};
 use edr_receipt::{log::FilterLog, ExecutionReceiptChainSpec};
-use edr_rpc_spec::{RpcBlockChainSpec, RpcChainSpec};
 use edr_state_api::StateDiff;
 
 use crate::{
