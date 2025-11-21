@@ -11,9 +11,9 @@ edr_block_header.workspace = true
 edr_chain_config.workspace = true
 edr_chain_l1.workspace = true
 edr_chain_spec.workspace = true
+edr_chain_spec_evm.workspace = true
 edr_eip1559.workspace = true
 edr_eth.workspace = true
-edr_evm_spec.workspace = true
 edr_generic.workspace = true
 edr_precompile.workspace = true
 edr_primitives.workspace = true
@@ -34,7 +34,7 @@ tokio.workspace = true
 [features]
 tracing = [
     "edr_chain_l1/tracing",
-    "edr_evm_spec/tracing",
+    "edr_chain_spec_evm/tracing",
     "edr_generic/tracing",
     "edr_provider/tracing",
     "edr_rpc_client/tracing",

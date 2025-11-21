@@ -1,8 +1,8 @@
 use edr_block_api::{Block, BlockAndTotalDifficulty, EthBlockData};
 use edr_block_header::{BlobGas, BlockHeader, Withdrawal};
 use edr_chain_spec::ExecutableTransaction;
+use edr_chain_spec_rpc::{GetBlockNumber, RpcEthBlock};
 use edr_primitives::{Address, Bloom, Bytes, B256, B64, U256};
-use edr_rpc_spec::{GetBlockNumber, RpcEthBlock};
 use serde::{Deserialize, Serialize};
 
 use crate::transaction::SignedTransactionWithFallbackToPostEip155;
@@ -251,9 +251,9 @@ mod tests {
     use std::sync::Arc;
 
     use edr_chain_spec_block::RemoteBlockForChainSpec;
+    use edr_chain_spec_rpc::RpcBlockChainSpec;
     use edr_rpc_client::jsonrpc;
     use edr_rpc_eth::client::EthRpcClientForChainSpec;
-    use edr_rpc_spec::RpcBlockChainSpec;
 
     use crate::{rpc::transaction::GenericRpcTransactionWithSignature, GenericChainSpec};
 

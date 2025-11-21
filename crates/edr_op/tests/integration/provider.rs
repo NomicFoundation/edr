@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use edr_chain_l1::rpc::call::L1CallRequest;
+use edr_chain_spec_rpc::RpcChainSpec;
 use edr_eip1559::{BaseFeeActivation, BaseFeeParams, ConstantBaseFeeParams, DynamicBaseFeeParams};
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_op::{Hardfork, OpChainSpec};
@@ -12,7 +13,6 @@ use edr_provider::{
     time::CurrentTime,
     ForkConfig, MethodInvocation, NoopLogger, Provider, ProviderRequest,
 };
-use edr_rpc_spec::RpcChainSpec;
 use edr_solidity::contract_decoder::ContractDecoder;
 use tokio::runtime;
 

@@ -2,12 +2,12 @@
 
 use edr_chain_l1::receipt::L1BlockReceipt;
 use edr_chain_spec::ContextChainSpec;
+use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_primitives::{Address, Bloom, B256};
 use edr_receipt::{
     log::FilterLog, AsExecutionReceipt, ExecutionReceipt, ReceiptTrait, RootOrStatus,
     TransactionReceipt,
 };
-use edr_receipt_spec::ReceiptConstructor;
 use op_alloy_rpc_types::L1BlockInfo;
 use op_revm::transaction::OpTxTr as _;
 

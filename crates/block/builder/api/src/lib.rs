@@ -8,11 +8,11 @@ use edr_chain_spec::{
     BlockEnvChainSpec, ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec,
     TransactionValidation,
 };
-pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
-use edr_evm_spec::{config::EvmConfig, ContextForChainSpec, EvmChainSpec};
-pub use edr_evm_spec::{
+use edr_chain_spec_evm::{config::EvmConfig, ContextForChainSpec, EvmChainSpec};
+pub use edr_chain_spec_evm::{
     result::ExecutionResult, CfgEnv, Context, Inspector, Journal, TransactionError,
 };
+pub use edr_database_components::{DatabaseComponentError, DatabaseComponents, WrapDatabaseRef};
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{DynState, StateDiff, StateError};
 pub use revm_precompile::PrecompileFn;

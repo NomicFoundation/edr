@@ -3,7 +3,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use edr_chain_spec::HaltReasonTrait;
-use edr_evm_spec::result::ExecutionResult;
+use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::{Address, Bytes, U160, U256};
 use edr_tracing::{BeforeMessage, Step};
 

@@ -4,7 +4,7 @@ use std::str::FromStr as _;
 use edr_chain_config::{ChainOverride, HardforkActivations};
 use edr_chain_l1::{rpc::TransactionRequest, L1ChainSpec};
 use edr_chain_spec::{EvmHeaderValidationError, TransactionValidation};
-use edr_evm_spec::TransactionError;
+use edr_chain_spec_evm::TransactionError;
 use edr_generic::GenericChainSpec;
 use edr_primitives::{address, B256};
 use edr_provider::{

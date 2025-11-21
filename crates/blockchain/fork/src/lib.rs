@@ -21,6 +21,7 @@ use edr_blockchain_api::{
 use edr_blockchain_remote::{FetchRemoteBlockError, FetchRemoteReceiptError, RemoteBlockchain};
 use edr_chain_config::{ChainConfig, HardforkActivations};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
     block::{largest_safe_block_number, safe_block_depth, LargestSafeBlockNumberArgs},
@@ -32,7 +33,6 @@ use edr_rpc_eth::{
     client::{EthRpcClient, RpcClientError},
     fork::ForkMetadata,
 };
-use edr_rpc_spec::{RpcBlockChainSpec, RpcEthBlock, RpcTransaction};
 use edr_state_api::{
     account::{Account, AccountStatus},
     irregular::IrregularState,

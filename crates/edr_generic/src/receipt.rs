@@ -1,6 +1,6 @@
 use edr_block_header::PartialHeader;
 use edr_chain_spec::EvmSpecId;
-use edr_evm_spec::result::ExecutionResult;
+use edr_chain_spec_evm::result::ExecutionResult;
 use edr_receipt::log::{logs_to_bloom, ExecutionLog};
 use edr_receipt_builder_api::ExecutionReceiptBuilder;
 use edr_state_api::State;

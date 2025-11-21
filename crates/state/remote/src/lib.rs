@@ -5,10 +5,10 @@ mod cached;
 use std::sync::Arc;
 
 use derive_where::derive_where;
+use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock};
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{Address, Bytecode, B256, KECCAK_EMPTY, U256};
 use edr_rpc_eth::client::{EthRpcClient, RpcClientError};
-use edr_rpc_spec::{RpcBlockChainSpec, RpcEthBlock};
 use edr_state_api::{account::AccountInfo, State, StateError};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::runtime;

@@ -1,5 +1,6 @@
 use alloy_dyn_abi::eip712::TypedData;
 use derive_where::derive_where;
+use edr_chain_spec_rpc::RpcChainSpec;
 use edr_eth::{
     filter::{LogFilterOptions, SubscriptionType},
     serde::{optional_single_to_sequence, sequence_to_optional_single},
@@ -7,7 +8,6 @@ use edr_eth::{
 };
 use edr_primitives::{Address, Bytes, B256, U128, U256, U64};
 use edr_rpc_eth::StateOverrideOptions;
-use edr_rpc_spec::RpcChainSpec;
 use serde::{Deserialize, Serialize};
 
 use super::serde::{RpcAddress, Timestamp};

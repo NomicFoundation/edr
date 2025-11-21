@@ -7,11 +7,11 @@ edition.workspace = true
 edr_chain_spec.workspace = true
 edr_primitives.workspace = true
 edr_receipt.workspace = true
-edr_receipt_spec.workspace = true
-edr_rpc_spec.workspace = true
+edr_chain_spec_receipt.workspace = true
+edr_chain_spec_rpc.workspace = true
 
 [features]
-tracing = ["edr_receipt_spec/tracing"]
+tracing = ["edr_chain_spec_receipt/tracing"]
 
 [lints]
 workspace = true

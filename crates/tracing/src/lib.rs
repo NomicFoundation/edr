@@ -7,8 +7,7 @@ use derive_where::derive_where;
 use edr_block_builder_api::WrapDatabaseRef;
 use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::HaltReasonTrait;
-use edr_database_components::DatabaseComponents;
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     interpreter::{
         return_revert, CallInputs, CallOutcome, CallValue, CreateInputs, CreateOutcome,
         EthInterpreter, Interpreter, Jumps as _, SuccessOrHalt,
@@ -16,6 +15,7 @@ use edr_evm_spec::{
     result::{ExecutionResult, Output},
     ContextTrait, Inspector, JournalTrait,
 };
+use edr_database_components::DatabaseComponents;
 use edr_primitives::{bytecode::opcode, Address, Bytecode, Bytes, U256};
 use edr_state_api::State;
 use revm_inspector::JournalExt;
@@ -275,7 +275,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         outcome: &CallOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
-        use edr_evm_spec::interpreter::InstructionResult;
+        use edr_chain_spec_evm::interpreter::InstructionResult;
 
         match outcome.instruction_result() {
             return_revert!() if self.pending_before.is_some() => {
@@ -376,7 +376,7 @@ impl<HaltReasonT: HaltReasonTrait> TraceCollector<HaltReasonT> {
         outcome: &CreateOutcome,
     ) {
         // TODO: Replace this with the `return_revert!` macro
-        use edr_evm_spec::interpreter::InstructionResult;
+        use edr_chain_spec_evm::interpreter::InstructionResult;
 
         self.validate_before_message();
 

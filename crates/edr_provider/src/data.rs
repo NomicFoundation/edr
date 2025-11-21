@@ -32,6 +32,7 @@ use edr_chain_spec::{
     TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
+use edr_chain_spec_evm::{config::EvmConfig, result::ExecutionResult, CfgEnv};
 use edr_chain_spec_provider::ProviderChainSpec;
 use edr_eip1559::BaseFeeParams;
 use edr_eth::{
@@ -41,7 +42,6 @@ use edr_eth::{
     reward_percentile::RewardPercentile,
     BlockSpec, BlockTag, Eip1898BlockSpec,
 };
-use edr_evm_spec::{config::EvmConfig, result::ExecutionResult, CfgEnv};
 use edr_gas_report::{GasReport, SyncOnCollectedGasReportCallback};
 use edr_mem_pool::{account_next_nonce, MemPool, OrderedTransaction};
 use edr_precompile::PrecompileFn;
@@ -4034,7 +4034,7 @@ mod tests {
     mod alchemy {
         use edr_chain_l1::L1ChainSpec;
         use edr_chain_spec::EvmTransactionValidationError;
-        use edr_evm_spec::TransactionError;
+        use edr_chain_spec_evm::TransactionError;
         use edr_test_block_replay::impl_full_block_tests;
         use edr_test_utils::env::get_alchemy_url;
 

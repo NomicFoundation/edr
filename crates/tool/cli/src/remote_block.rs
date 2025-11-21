@@ -5,11 +5,11 @@ use edr_block_api::EthBlockData;
 use edr_block_header::{BlockHeader, HeaderOverrides};
 use edr_chain_l1::L1ChainSpec;
 use edr_chain_spec_provider::SyncProviderChainSpec;
+use edr_chain_spec_rpc::RpcChainSpec;
 use edr_op::{test_utils::isthmus_header_overrides, OpChainSpec};
 use edr_provider::test_utils::l1_header_overrides;
 use edr_receipt::{log::FilterLog, AsExecutionReceipt};
 use edr_rpc_eth::client::EthRpcClientForChainSpec;
-use edr_rpc_spec::RpcChainSpec;
 use edr_test_block_replay::run_full_block;
 
 #[derive(Clone, ValueEnum)]

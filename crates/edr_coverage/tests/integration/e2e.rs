@@ -6,14 +6,14 @@ use edr_blockchain_api::{BlockchainMetadata as _, StateAtBlock as _};
 use edr_blockchain_local::LocalBlockchain;
 use edr_chain_l1::{L1ChainSpec, L1_BASE_FEE_PARAMS, L1_MIN_ETHASH_DIFFICULTY};
 use edr_chain_spec::{ChainSpec, HardforkChainSpec};
-use edr_coverage::CoverageHitCollector;
-use edr_evm::{dry_run_with_inspector, run};
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     config::EvmConfig,
     result::{ExecutionResult, Output},
 };
+use edr_chain_spec_receipt::ReceiptChainSpec;
+use edr_coverage::CoverageHitCollector;
+use edr_evm::{dry_run_with_inspector, run};
 use edr_primitives::{bytes, Address, Bytes, HashMap, HashSet, B256, U256};
-use edr_receipt_spec::ReceiptChainSpec;
 use edr_signer::public_key_to_address;
 use edr_state_api::{AccountModifierFn, DynState, StateDiff};
 use edr_test_utils::secret_key::secret_key_from_str;

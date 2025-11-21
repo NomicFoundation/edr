@@ -7,9 +7,9 @@ use edr_chain_l1::rpc::block::L1RpcBlock;
 use edr_chain_spec::{ExecutableTransaction as _, TransactionValidation};
 use edr_chain_spec_block::BlockChainSpec;
 use edr_chain_spec_provider::ProviderChainSpec;
+use edr_chain_spec_rpc::RpcTypeFrom as _;
 use edr_eth::{BlockSpec, PreEip1898BlockSpec};
 use edr_primitives::{B256, U256, U64};
-use edr_rpc_spec::RpcTypeFrom as _;
 use edr_transaction::{BlockDataForTransaction, TransactionAndBlock};
 use edr_utils::CastArcFrom;
 

@@ -11,10 +11,10 @@ use edr_chain_spec::{
     TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
-use edr_database_components::DatabaseComponents;
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     config::EvmConfig, ContextForChainSpec, DatabaseComponentError, Inspector, TransactionError,
 };
+use edr_database_components::DatabaseComponents;
 use edr_mem_pool::{MemPool, OrderedTransaction};
 use edr_primitives::{Address, HashMap};
 use edr_signer::SignatureError;

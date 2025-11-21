@@ -1,6 +1,6 @@
 use derive_where::derive_where;
+use edr_chain_spec_rpc::{RpcBlockChainSpec, RpcEthBlock};
 use edr_primitives::{hash_map::Entry, Address, Bytecode, HashMap, B256, U256};
-use edr_rpc_spec::{RpcBlockChainSpec, RpcEthBlock};
 use edr_state_api::{account::AccountInfo, AccountStorage, State, StateError, StateMut};
 use serde::{de::DeserializeOwned, Serialize};
 

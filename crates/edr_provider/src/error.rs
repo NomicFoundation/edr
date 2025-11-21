@@ -15,8 +15,8 @@ use edr_chain_spec::{
     ChainSpec, EvmSpecId, HaltReasonTrait, HardforkChainSpec, OutOfGasError, TransactionValidation,
 };
 use edr_chain_spec_block::BlockChainSpec;
+use edr_chain_spec_evm::{result::ExecutionResult, DatabaseComponentError, TransactionError};
 use edr_eth::{filter::SubscriptionType, BlockSpec, BlockTag};
-use edr_evm_spec::{result::ExecutionResult, DatabaseComponentError, TransactionError};
 use edr_gas_report::GasReportCreationError;
 use edr_mem_pool::MemPoolAddTransactionError;
 use edr_primitives::{hex, Address, Bytes, B256, U256};

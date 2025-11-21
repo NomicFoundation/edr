@@ -19,17 +19,17 @@ pub enum SuccessReason {
     SelfDestruct,
 }
 
-impl From<edr_evm_spec::result::SuccessReason> for SuccessReason {
-    fn from(eval: edr_evm_spec::result::SuccessReason) -> Self {
+impl From<edr_chain_spec_evm::result::SuccessReason> for SuccessReason {
+    fn from(eval: edr_chain_spec_evm::result::SuccessReason) -> Self {
         match eval {
-            edr_evm_spec::result::SuccessReason::Stop => Self::Stop,
-            edr_evm_spec::result::SuccessReason::Return => Self::Return,
-            edr_evm_spec::result::SuccessReason::SelfDestruct => Self::SelfDestruct,
+            edr_chain_spec_evm::result::SuccessReason::Stop => Self::Stop,
+            edr_chain_spec_evm::result::SuccessReason::Return => Self::Return,
+            edr_chain_spec_evm::result::SuccessReason::SelfDestruct => Self::SelfDestruct,
         }
     }
 }
 
-impl From<SuccessReason> for edr_evm_spec::result::SuccessReason {
+impl From<SuccessReason> for edr_chain_spec_evm::result::SuccessReason {
     fn from(value: SuccessReason) -> Self {
         match value {
             SuccessReason::Stop => Self::Stop,
@@ -159,7 +159,7 @@ impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
         } = value;
 
         let result = match execution_result {
-            edr_evm_spec::result::ExecutionResult::Success {
+            edr_chain_spec_evm::result::ExecutionResult::Success {
                 reason,
                 gas_used,
                 gas_refunded,
@@ -174,12 +174,12 @@ impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
                     gas_refunded: BigInt::from(*gas_refunded),
                     logs,
                     output: match output {
-                        edr_evm_spec::result::Output::Call(return_value) => {
+                        edr_chain_spec_evm::result::Output::Call(return_value) => {
                             let return_value = Uint8Array::with_data_copied(return_value);
 
                             Either::A(CallOutput { return_value })
                         }
-                        edr_evm_spec::result::Output::Create(return_value, address) => {
+                        edr_chain_spec_evm::result::Output::Create(return_value, address) => {
                             let return_value = Uint8Array::with_data_copied(return_value);
 
                             Either::B(CreateOutput {
@@ -190,7 +190,7 @@ impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
                     },
                 })
             }
-            edr_evm_spec::result::ExecutionResult::Revert { gas_used, output } => {
+            edr_chain_spec_evm::result::ExecutionResult::Revert { gas_used, output } => {
                 let output = Uint8Array::with_data_copied(output);
 
                 Either3::B(RevertResult {
@@ -198,7 +198,7 @@ impl From<&AfterMessage<EvmHaltReason>> for ExecutionResult {
                     output,
                 })
             }
-            edr_evm_spec::result::ExecutionResult::Halt { reason, gas_used } => {
+            edr_chain_spec_evm::result::ExecutionResult::Halt { reason, gas_used } => {
                 Either3::C(HaltResult {
                     reason: ExceptionalHalt::from(reason.clone()),
                     gas_used: BigInt::from(*gas_used),

@@ -1,4 +1,6 @@
-use edr_evm_spec::{handler::EthInstructions, interpreter::EthInterpreter, Database, Inspector};
+use edr_chain_spec_evm::{
+    handler::EthInstructions, interpreter::EthInterpreter, Database, Inspector,
+};
 use edr_solidity_tests::{
     evm_context::{EthInstructionsContext, EvmBuilderTrait, EvmEnvWithChainContext},
     revm::context::{LocalContext, TxEnv},

@@ -6,8 +6,8 @@ use std::{ops::Deref, sync::OnceLock};
 use edr_block_api::Block;
 use edr_block_header::BlockHeader;
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec_rpc::{RpcTransaction, RpcTypeFrom};
 use edr_primitives::{Address, Bytes, B256, U256};
-use edr_rpc_spec::{RpcTransaction, RpcTypeFrom};
 use edr_signer::{
     FakeableSignature, SignatureWithRecoveryId, SignatureWithYParity, SignatureWithYParityArgs,
 };

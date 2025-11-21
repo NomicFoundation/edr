@@ -5,10 +5,10 @@ use derive_where::derive_where;
 use edr_block_api::{sync::SyncBlock, Block, EthBlockData, FetchBlockReceipts};
 use edr_block_header::{BlockHeader, Withdrawal};
 use edr_chain_spec::ExecutableTransaction;
+use edr_chain_spec_rpc::RpcBlockChainSpec;
 use edr_primitives::B256;
 use edr_receipt::ReceiptTrait;
 use edr_rpc_eth::client::{EthRpcClient, RpcClientError};
-use edr_rpc_spec::RpcBlockChainSpec;
 use edr_utils::CastArcFrom;
 use tokio::runtime;
 

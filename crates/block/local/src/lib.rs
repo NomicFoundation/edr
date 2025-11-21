@@ -12,12 +12,12 @@ use edr_block_api::{
 };
 use edr_block_header::{BlockConfig, BlockHeader, HeaderOverrides, PartialHeader, Withdrawal};
 use edr_chain_spec::{EvmSpecId, ExecutableTransaction};
+use edr_chain_spec_receipt::ReceiptConstructor;
 use edr_primitives::{B256, KECCAK_EMPTY};
 use edr_receipt::{
     log::{ExecutionLog, FilterLog, FullBlockLog, ReceiptLog},
     ExecutionReceiptChainSpec, MapReceiptLogs, ReceiptTrait, TransactionReceipt,
 };
-use edr_receipt_spec::ReceiptConstructor;
 use edr_state_api::{StateDebug as _, StateError};
 use edr_state_persistent_trie::PersistentStateTrie;
 use edr_transaction::TransactionAndReceipt;

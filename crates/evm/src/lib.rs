@@ -3,12 +3,12 @@
 
 use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::{EvmSpecId, TransactionValidation};
-use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     result::{ExecutionResult, ExecutionResultAndState},
     BlockEnvTrait, CfgEnv, ContextForChainSpec, DatabaseComponentError, EvmChainSpec, Inspector,
     TransactionError,
 };
+use edr_database_components::{DatabaseComponents, WrapDatabaseRef};
 use edr_precompile::{OverriddenPrecompileProvider, PrecompileFn};
 use edr_primitives::{Address, HashMap};
 use edr_state_api::{State, StateCommit};

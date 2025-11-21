@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter, InterpreterTypes,
     },

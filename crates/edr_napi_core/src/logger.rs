@@ -5,7 +5,7 @@ use ansi_term::{Color, Style};
 use derive_where::derive_where;
 use edr_block_api::Block as _;
 use edr_chain_spec::ExecutableTransaction;
-use edr_evm_spec::result::{ExecutionResult, Output};
+use edr_chain_spec_evm::result::{ExecutionResult, Output};
 use edr_precompile::{PrecompileSpecId, Precompiles};
 use edr_primitives::{Bytecode, Bytes, B256, U256};
 use edr_provider::{

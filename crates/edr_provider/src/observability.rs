@@ -4,14 +4,14 @@ use std::sync::Arc;
 use edr_block_builder_api::WrapDatabaseRef;
 use edr_blockchain_api::BlockHashByNumber;
 use edr_chain_spec::HaltReasonTrait;
-use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
-use edr_database_components::DatabaseComponents;
-use edr_evm_spec::{
+use edr_chain_spec_evm::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EthInterpreter, Interpreter,
     },
     ContextTrait, Inspector, JournalTrait,
 };
+use edr_coverage::{reporter::SyncOnCollectedCoverageCallback, CodeCoverageReporter};
+use edr_database_components::DatabaseComponents;
 use edr_gas_report::SyncOnCollectedGasReportCallback;
 use edr_state_api::State;
 use edr_tracing::TraceCollector;

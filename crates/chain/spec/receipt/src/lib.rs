@@ -1,13 +1,13 @@
 use core::fmt::Debug;
 
 use edr_chain_spec::{ChainSpec, ContextChainSpec, HardforkChainSpec};
+use edr_chain_spec_rpc::RpcChainSpec;
 use edr_primitives::B256;
 use edr_receipt::{
     log::{ExecutionLog, FilterLog},
     ExecutionReceipt, ExecutionReceiptChainSpec, ReceiptTrait, TransactionReceipt,
 };
 use edr_receipt_builder_api::ExecutionReceiptBuilder;
-use edr_rpc_spec::RpcChainSpec;
 
 /// Trait for a chain's transaction receipt specification.
 pub trait ReceiptChainSpec:

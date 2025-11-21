@@ -3,7 +3,7 @@
 mod deposit;
 
 use edr_block_header::PartialHeader;
-use edr_evm_spec::result::ExecutionResult;
+use edr_chain_spec_evm::result::ExecutionResult;
 use edr_primitives::Bloom;
 pub use edr_receipt::execution::{Eip658, Legacy};
 use edr_receipt::{
