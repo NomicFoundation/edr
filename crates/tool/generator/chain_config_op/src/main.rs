@@ -28,7 +28,7 @@ const GENERATED_FILE_WARNING_MESSAGE: &str = "
 // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
 // Any changes made to this file will be overwritten the next time it is generated.     
 // To make changes, update the generator script instead in
-// `crates/tool/op_chain_config_generator/src/op_chain_config.rs`.";
+// `crates/tool/generator/chain_config_op/src/op_chain_config.rs`.";
 
 static WORKSPACE_ROOT_PATH: OnceLock<anyhow::Result<String>> = OnceLock::new();
 

@@ -1,7 +1,7 @@
 // WARNING: This file is auto-generated. DO NOT EDIT MANUALLY.
 // Any changes made to this file will be overwritten the next time it is
 // generated. To make changes, update the generator script instead in
-// `crates/tool/op_chain_config_generator/src/op_chain_config.rs`.
+// `crates/tool/generator/chain_config_op/src/op_chain_config.rs`.
 
 //! Auto-generated configs for OP stack chains
 
@@ -72,8 +72,6 @@ pub mod settlus_sepolia;
 pub mod shape;
 /// Chain configuration module for `silent_data_mainnet`
 pub mod silent_data_mainnet;
-/// Chain configuration module for `snax`
-pub mod snax;
 /// Chain configuration module for `soneium`
 pub mod soneium;
 /// Chain configuration module for `soneium_minato`
@@ -159,7 +157,6 @@ pub(super) fn chain_configs() -> HashMap<u64, ChainConfig<Hardfork>> {
             silent_data_mainnet::MAINNET_CHAIN_ID,
             silent_data_mainnet::mainnet_config(),
         ),
-        (snax::MAINNET_CHAIN_ID, snax::mainnet_config()),
         (soneium::MAINNET_CHAIN_ID, soneium::mainnet_config()),
         (
             soneium_minato::SEPOLIA_CHAIN_ID,

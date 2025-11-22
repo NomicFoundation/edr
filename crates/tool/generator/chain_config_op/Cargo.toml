@@ -1,5 +1,5 @@
 [package]
-name = "edr_tool_op_chain_config_generator"
+name = "edr_tool_generator_chain_config_op"
 version.workspace = true
 edition.workspace = true
 

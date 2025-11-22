@@ -60,7 +60,7 @@ members = [
     "crates/test/receipt",
     "crates/test/transaction",
     "crates/tool/cli",
-    "crates/tool/op_chain_config_generator",
+    "crates/tool/generator/chain_config_op",
     "crates/tracing",
     "crates/trie",
     # Foundry

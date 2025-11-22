@@ -3684,7 +3684,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "edr_tool_op_chain_config_generator"
+name = "edr_tool_generator_chain_config_op"
 version = "0.3.8"
 dependencies = [
  "anyhow",
