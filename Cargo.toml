@@ -16,6 +16,7 @@ members = [
     "crates/chain/spec/block",
     "crates/chain/spec/provider",
     "crates/database/components",
+    "crates/debugger/protocol",
     "crates/edr_chain_l1",
     "crates/edr_chain_spec",
     "crates/edr_common",
@@ -61,6 +62,7 @@ members = [
     "crates/test/transaction",
     "crates/tool/cli",
     "crates/tool/generator/chain_config_op",
+    "crates/tool/generator/dap",
     "crates/tracing",
     "crates/trie",
     # Foundry
@@ -317,6 +319,7 @@ derive-where = { version = "1.6.0", default-features = false }
 evm-disassembler = "0.5"
 eyre = "0.6"
 flate2 = "1.1"
+git2 = "0.20.2"
 hex = { package = "const-hex", version = "1.6", features = ["hex"] }
 itertools = "0.12"
 jsonpath_lib = "0.3"

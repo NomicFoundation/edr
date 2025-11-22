@@ -1,5 +1,6 @@
 [alias]
 gen-chain-config-op       = "run --locked --release --bin edr_tool_generator_chain_config_op"
+gen-dap                   = "run --locked --release --bin edr_tool_generator_dap"
 gen-execution-api         = "run --locked --bin edr_tool_cli -- gen-execution-api"
 replay-block              = "run --locked --release --bin edr_tool_cli -- replay-block"
 scenario                  = "run --locked --release --bin edr_tool_cli -- scenario"

@@ -1,0 +1,16 @@
+[package]
+name = "edr_debugger_protocol"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
+[lints.clippy]
+# We purposely disable lints as the files are auto-generated
+all = "allow"
+
+[lints.rust]
+# We purposely disable lints as the files are auto-generated
+all = "allow"
